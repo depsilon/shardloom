@@ -202,6 +202,15 @@ cargo test -p shardloom-cli --features release-user-surfaces --test public_workf
 
 Deliver `perf-10-acceptance.json` with complete native/reference parity, negative pruning controls, changed plan/type boundaries, actual avoided rows/bytes and public-surface agreement. New summary, join, index or fusion strategies need their own exact semantics and matched workload controls.
 
+The [October 20 weighted-search decision](native-learned-index-decision-2026-10-20.md)
+preserves the complete count intake and two-cohort predictor comparison. Both
+targets pass, but controls fail in A, so the model is not retained. Its test-only
+observer, `native_weighted_search_cost_screen` selector and candidate tests exist
+only in the compact packet. Replay that evidence or reconstruct its frozen
+source; do not count an absent selector's zero-test result as a current pass.
+Fresh restored workspace/native checks are distinct from candidate integration
+acceptance, which was not attempted after the failed retention gate.
+
 The [compact-selection experiment](native-compact-selection-2026-10-18.md)
 retains the exact ignored selector `native_selection_complete_cost_screen`.
 It covers seven shapes, native projection/count consumers, both projected fields,

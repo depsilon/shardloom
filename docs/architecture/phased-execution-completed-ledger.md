@@ -17,6 +17,29 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-10.learned_indexes finite weighted-search experiment` — do not retain
+  the [bounded predictor](native-learned-index-decision-2026-10-20.md). Both large
+  targets improve engine time by the required 2% in both cohorts, but few-draw
+  and tiny controls exceed 5% in A while B passes. Both cohorts were required;
+  this is not a repeated-regression finding or a causal attribution.
+  - All 544 preflight/comparison calls pass complete source/schema/ordered-value,
+    no-fallback and ownership checks. Activation is observed in preflight;
+    timed calls disable observation counters. The 272 workflows include
+    224 scored workflows, 32 warmups and 16 preflights. Compact replay verifies
+    13,370,568 source rows and 22,291,964 output rows across these repeated calls,
+    both fresh compiler closures and all original invocation order/gates.
+  - Restore three modified source files and remove three experimental modules.
+    Fresh formatting, strict workspace/native Clippy, 3,235 workspace tests and
+    3,041 native tests pass; 30 existing native manual/opt-in ignores remain.
+    Suites overlap. All 3,024 frozen validation inputs and 2,222 public-runtime
+    source files match the restored tree. Public package and full-workload
+    integration evidence is preserved historically, not rerun or claimed fresh.
+  - Fourteen finite decisions are complete: nine rejected, two unretained,
+    two retained and one no-signal. Six first decisions and the inconclusive
+    `PERF-09.overlap` measurement prerequisite remain. Continue with
+    `PERF-03.regions` before the 37 required substeps. All 58 substeps and
+    CG-1 through CG-23 retain their broader gates; no package is published.
+
 - [x] `PERF-10.multiway_joins finite three-input experiment` — do not retain the
   [constraint probe](native-multiway-join-2026-10-20.md). Prototype and initial
   integration pass both cohorts, but final public-projection admission misses

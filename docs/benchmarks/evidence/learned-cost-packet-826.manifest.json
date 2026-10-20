@@ -1,0 +1,1768 @@
+{
+  "calls": 544,
+  "compiled_source_checks": {
+    "baseline": 1546,
+    "candidate": 1547
+  },
+  "complete_results_and_original_order_replayed": true,
+  "failed_guards": [],
+  "members": {
+    "evidence/learned-cost-826-baseline-r1-admit.json": {
+      "bytes": 4103,
+      "sha256": "66e7188673a40a6b120d3c466a89efefb506e87356a2152503aed1c517fb9f94",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-admit.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-admit.log": {
+      "bytes": 74,
+      "sha256": "7e4d6d468396f5017ed6b63eb019347e9df42eb1a2b66b0f6c5fdcbed8e887ee",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-admit.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-binary.json": {
+      "bytes": 704101,
+      "sha256": "feddbb8a3eaac5eb4262d42a6a75efeeb40c8e99e9feaef1ec778906fb53311b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-binary.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-build.json": {
+      "bytes": 142991,
+      "sha256": "e15511bd548d1112051c07726ff7b7e3f851e7001983182f45ce377b27cdfac1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-build.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-build.log": {
+      "bytes": 320184,
+      "sha256": "8360f20bde132349aea33ecaeffc9472aff5cd0429f86b4c0c7dfebb919c544d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-build.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-clippy.json": {
+      "bytes": 12689,
+      "sha256": "03abdbe217b0889d4396178c58f97d4cb464445d59f46025229ced287e3b955c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-clippy.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-clippy.log": {
+      "bytes": 261,
+      "sha256": "33dd928e93dd039ed7de47366daffabcf3f1c4ba5c05337cdfbad892e739db64",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-clippy.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-freeze.json": {
+      "bytes": 3675,
+      "sha256": "1e1a7b5e4af4f2778dbf7579a63250deeed7ddbc34c3e6f4f47083cb48c38ec3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-freeze.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-freeze.log": {
+      "bytes": 75,
+      "sha256": "38ddfb968d75dff859d810e04098afe3efb032598a797d925fef7f56b2dad6ba",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-freeze.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-preflight-verified.json": {
+      "bytes": 723116,
+      "sha256": "b53b68a73262109d0a593130400c9e77dec038d7c83a520e51f16cace00da165",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-preflight-verified.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-preflight.json": {
+      "bytes": 5432,
+      "sha256": "44f30af3cb3bc5db5e66900a8d3799bf93fb06a84e6c1b10e58ef4c8e9fcbc5b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-preflight.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-preflight.log": {
+      "bytes": 2511,
+      "sha256": "690b043dd6ef6e22e0ffd5b9b2d35a583f4eca8ca3e44f428dc8b60a3a6291c1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-preflight.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-qualification.json": {
+      "bytes": 1663,
+      "sha256": "07558c44e6bc0721e24dfbcfd49019216920fd9b2cd93433d669a64af8be24e9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-qualification.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-qualify.json": {
+      "bytes": 4096,
+      "sha256": "304267f2fa9ee1eb966afa3114343ae65de1ef939813d4a619633f3f1938267d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-qualify.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-qualify.log": {
+      "bytes": 106,
+      "sha256": "0928ca15b8bdd43d32c9ce5159bbcb3c3495ee60b2e914562edf9a90b6f7c9ff",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-qualify.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-source.json": {
+      "bytes": 646082,
+      "sha256": "a317e13b0d43fa593101e09bca2399f908c0e4854b90a7f41acb9495bddd7b69",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-source.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-unit.json": {
+      "bytes": 4334,
+      "sha256": "9d82935d7eb135d3f5f1f7ac1bca0ede3ba7cbf4ff5158ab17dab71cb627e4ac",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-unit.json"
+    },
+    "evidence/learned-cost-826-baseline-r1-unit.log": {
+      "bytes": 1146,
+      "sha256": "3d5a74a6d9170c9ceb2f6b260385aeda132e7ab3c0d4bbfd42a529be41f13c2a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-unit.log"
+    },
+    "evidence/learned-cost-826-baseline-r1-unqualified-binary.json": {
+      "bytes": 704091,
+      "sha256": "b84a4093d182aa17d66a2b554c312490c5ee7631be50e87f13c27a8f90e94b3b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-baseline-r1-unqualified-binary.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-admit.json": {
+      "bytes": 4162,
+      "sha256": "852e17a5e5cb574d69930baf9582e082b3ac69564c8c23f837b2747a8002244f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-admit.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-admit.log": {
+      "bytes": 75,
+      "sha256": "b95b61b49cf30417d11a9744862495fc2c88885c367d5a9509104c9f18f07eae",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-admit.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-binary.json": {
+      "bytes": 704551,
+      "sha256": "db96ab6ad3f8361cdf091c039b46eb8d9847eeea1b4f83578b94b915b9dd4927",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-binary.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-build.json": {
+      "bytes": 141367,
+      "sha256": "ab206b20277fef5db71a855a191a90cecb4ed6f6c82570219d0bfa7e86355337",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-build.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-build.log": {
+      "bytes": 320185,
+      "sha256": "79c870a51696ef3a4ae3ae6fb55381a067dc3637a3abd4df454561a4536dce77",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-build.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-clippy.json": {
+      "bytes": 13223,
+      "sha256": "5b545d6be9ef90c429ea73ab239246f3077d707cbfa74d194ce3ce52d41ef7d1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-clippy.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-clippy.log": {
+      "bytes": 262,
+      "sha256": "a6b401ed7fc6c4fc4c2c8e306024e35fdebc04b43bd3f8f083ccacdbc8b02aa6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-clippy.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-freeze.json": {
+      "bytes": 3735,
+      "sha256": "603f8da98c62a8a829ad8e353dd7feb25020a4c79875e8a53789fcb6b6016c7c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-freeze.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-freeze.log": {
+      "bytes": 76,
+      "sha256": "efd734d69313cc5bc58ddc20bee6ea13c430368e24d5d32e0c8b56b73efcfefb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-freeze.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-preflight-verified.json": {
+      "bytes": 723586,
+      "sha256": "89d8791be324137331b654237f621fce668a471e3932a9087fbc4759e575c9ef",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-preflight-verified.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-preflight.json": {
+      "bytes": 5020,
+      "sha256": "146173ca5177a86398e3ec6ba6a4bb79f1fc3f789aa345ab06f171e9cc8cd431",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-preflight.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-preflight.log": {
+      "bytes": 2520,
+      "sha256": "2f9a7ab8f5c1dd57f28f1dd4682027609bf3b73b4ce5824256ee09af3e8c6df5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-preflight.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-qualification.json": {
+      "bytes": 1668,
+      "sha256": "a8cd2da7b61f8c2040ee7119c509bc98618e8c5d500c92631031b1538a48dfd1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-qualification.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-qualify.json": {
+      "bytes": 4149,
+      "sha256": "f001c7af7f198f7c61c79c66bcb3eb8afa2182f7057af481f896d01d2da1de6c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-qualify.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-qualify.log": {
+      "bytes": 107,
+      "sha256": "b3074316f9555161099c5bd3d885ebdacf59d1ca31b5e87e4b09a42689619d1e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-qualify.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-source.json": {
+      "bytes": 660706,
+      "sha256": "5ade50fb49242d93da456b086efb2356d6bc305a5f0d7db0babd9e00d343ebee",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-source.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-unit.json": {
+      "bytes": 4386,
+      "sha256": "058957b202eee7122566004b1aa00fa7082d8934a26a32f9d0e3d4cbecbd72ab",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-unit.json"
+    },
+    "evidence/learned-cost-826-candidate-r1-unit.log": {
+      "bytes": 2642,
+      "sha256": "232fc3d3a5ad4356638eb606586094f6368e9519092bb6219d7f633ef4096d6b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-unit.log"
+    },
+    "evidence/learned-cost-826-candidate-r1-unqualified-binary.json": {
+      "bytes": 704541,
+      "sha256": "e8c2263f01ca7a2bfc1755ef7aaa5af4dc361381e9defa2deee9f66b0bb5a79f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-candidate-r1-unqualified-binary.json"
+    },
+    "evidence/learned-cost-826-cohort-A-verified.json": {
+      "bytes": 1522961,
+      "sha256": "9eca59716a4abfdbc05124ab307d4ee777650234699f3b3af821d96849ccef9e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-cohort-A-verified.json"
+    },
+    "evidence/learned-cost-826-cohort-A.json": {
+      "bytes": 16496,
+      "sha256": "473e2d9933204545f3f8a6a8778275539d4ad297c8a3bed582b4362e8d9ba03f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-cohort-A.json"
+    },
+    "evidence/learned-cost-826-cohort-A.log": {
+      "bytes": 37712,
+      "sha256": "1dfb7687b7b02a3d2c967e8e4ed7620f72bfe4883c3ce57b79a4ee40ae3f75fd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-cohort-A.log"
+    },
+    "evidence/learned-cost-826-cohort-B-verified.json": {
+      "bytes": 1522961,
+      "sha256": "a8a793cd56ab9b9a41387b7557aea18b0024cb861d8c233f2e74a72b7f6a2d58",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-cohort-B-verified.json"
+    },
+    "evidence/learned-cost-826-cohort-B.json": {
+      "bytes": 16973,
+      "sha256": "e8a4cdf643d29910056c02e9838878f04767b961ceb31c49de9750318dfe2886",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-cohort-B.json"
+    },
+    "evidence/learned-cost-826-cohort-B.log": {
+      "bytes": 37712,
+      "sha256": "f4d98dd47956dc6b6851566c0927f7b84aa0e37b5023cd2eff3c5f04cebac587",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-cohort-B.log"
+    },
+    "evidence/learned-cost-826-preflight-review.json": {
+      "bytes": 4426,
+      "sha256": "de83ffe6ebc6f2b2b0de4f623bd85981a525ae6dbc71e0422ce0053816f77c06",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-preflight-review.json"
+    },
+    "evidence/learned-cost-826-score.json": {
+      "bytes": 1578723,
+      "sha256": "e4e62d79e2cfa60f67b4e5fdd4ab7f8c6763dd703e904c6d2a48ad477c0a41fa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-score.json"
+    },
+    "evidence/learned-cost-826-scoring.json": {
+      "bytes": 4149,
+      "sha256": "ff7c4c553a3955ebce3c7dda9b96973c57d2e3c4a4e5f63823b5a40022f6ff08",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-scoring.json"
+    },
+    "evidence/learned-cost-826-scoring.log": {
+      "bytes": 6410,
+      "sha256": "fa3e4c95656b544e5f2160b7c9758cb975f5d5321428722586529b08883b829d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-scoring.log"
+    },
+    "evidence/learned_cost_oracle_826.py": {
+      "bytes": 7725,
+      "sha256": "7fa8decb55e207ad3aa11c9e1aa3c1ff0a1f9efb16bc5d38523b985418cba711",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned_cost_oracle_826.py"
+    },
+    "evidence/learned_intake_oracle_825_corrected.py": {
+      "bytes": 7081,
+      "sha256": "3ecca9ff7eeba88124196aa51a0cddb1472e1befc6e36fec3c43f3712c571abf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned_intake_oracle_825_corrected.py"
+    },
+    "evidence/native_workload_guard_816.py": {
+      "bytes": 1789,
+      "sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py"
+    },
+    "evidence/package_learned_cost_826.py": {
+      "bytes": 12780,
+      "sha256": "2459e4640d090529cf04049269f1edc689fb9ff5ed61eaac3097e52f6349b093",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_cost_826.py"
+    },
+    "evidence/qualify_learned_binary_826.py": {
+      "bytes": 2340,
+      "sha256": "2aa74f8503d7b4772fe5684efdf6dadd1c54d02c46e6b145a67bd17a0eac7ebb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/qualify_learned_binary_826.py"
+    },
+    "evidence/run_guarded.py": {
+      "bytes": 6156,
+      "sha256": "68ec416e4fa11cb2d40d48a5f108eb2808f886148e478e8543027837df186be4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded.py"
+    },
+    "evidence/run_learned_cost_826.py": {
+      "bytes": 14640,
+      "sha256": "c68a78d7c9e2a8fb71031720724c8539a0252985fbde65cc02e0b44f93bbc468",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_learned_cost_826.py"
+    },
+    "infrastructure/local_uat_storage.py": {
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py"
+    },
+    "infrastructure/supervisor.py": {
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "source_path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py"
+    },
+    "results/measure-A-few_draws-baseline-0.json": {
+      "bytes": 18616,
+      "sha256": "95b47a7a6c71c5741befc2a20315c96afdca1d557331e87d566d228a3f5f83ec",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-0.json"
+    },
+    "results/measure-A-few_draws-baseline-1.json": {
+      "bytes": 18616,
+      "sha256": "d48968d2b7e3b0e6806ab4b623c16bf9610c4f67208f38c8d801af347f0ac0c6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-1.json"
+    },
+    "results/measure-A-few_draws-baseline-2.json": {
+      "bytes": 18616,
+      "sha256": "b430c8e7e22a5ad3e048176efeeb1e91b094112b18e8b6e0eabd9e8ab09aa2f4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-2.json"
+    },
+    "results/measure-A-few_draws-baseline-3.json": {
+      "bytes": 18616,
+      "sha256": "7c524a9a48f6d0a7ac9541d646aebb465c3ffa4243e79f14f5dea636c752973a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-3.json"
+    },
+    "results/measure-A-few_draws-baseline-4.json": {
+      "bytes": 18617,
+      "sha256": "ddd0990a15881e4d812e81b5a9178dd36c2f725beaac4633bc8b115fa559c2d7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-4.json"
+    },
+    "results/measure-A-few_draws-baseline-5.json": {
+      "bytes": 18617,
+      "sha256": "853b4938605fbbf37b4efa42981314252c665713c60d51098095d4f5d2383726",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-5.json"
+    },
+    "results/measure-A-few_draws-baseline-6.json": {
+      "bytes": 18616,
+      "sha256": "087c7fd0470a8756346a0ed8461785de60a20b373a2e31ea60a92ac0b32526fa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-6.json"
+    },
+    "results/measure-A-few_draws-baseline-7.json": {
+      "bytes": 18617,
+      "sha256": "5c515163bcc8227751680fe25d04a1be69986a2f34da336ab3796bd9d6378fa0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-baseline-7.json"
+    },
+    "results/measure-A-few_draws-candidate-0.json": {
+      "bytes": 18617,
+      "sha256": "d774630aa713578ef74cd70aff7eb3497c12c78064c72479d2485d83b3e033e5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-0.json"
+    },
+    "results/measure-A-few_draws-candidate-1.json": {
+      "bytes": 18618,
+      "sha256": "f5764b990d75c57dd72bebdeb5f5e417275366ea612913056849998c24473564",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-1.json"
+    },
+    "results/measure-A-few_draws-candidate-2.json": {
+      "bytes": 18618,
+      "sha256": "e14d57f41374f96753a9ecf38ad8ca17ac1aee74bdc222b0dd288c11507f7c8b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-2.json"
+    },
+    "results/measure-A-few_draws-candidate-3.json": {
+      "bytes": 18618,
+      "sha256": "276cb5034f453850d842c446f24eb221e201498ce932f5cd597655d74e98ad63",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-3.json"
+    },
+    "results/measure-A-few_draws-candidate-4.json": {
+      "bytes": 18618,
+      "sha256": "7e780dcc187c57cf16efe75c6275e992da038f673f623075ed54afefe623e68b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-4.json"
+    },
+    "results/measure-A-few_draws-candidate-5.json": {
+      "bytes": 18619,
+      "sha256": "2bace02ed3234e79a152a0bfe71fe63b1edb3d335916482a5a815fe1863e0565",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-5.json"
+    },
+    "results/measure-A-few_draws-candidate-6.json": {
+      "bytes": 18618,
+      "sha256": "74d77cbe32b9ff486e66b778cf55fe03397f07fd5e688ab9772915ae75475298",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-6.json"
+    },
+    "results/measure-A-few_draws-candidate-7.json": {
+      "bytes": 18620,
+      "sha256": "b9a922ddc7a5ff06a5c659c4d6e7822ba377c748b7063b0e7ad001a75e24e695",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-few_draws-candidate-7.json"
+    },
+    "results/measure-A-hot_tail-baseline-0.json": {
+      "bytes": 18649,
+      "sha256": "136925d6515a84dd9d2005ac8b189b1f31661b1b996a7570e66e5743f5d5c88d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-0.json"
+    },
+    "results/measure-A-hot_tail-baseline-1.json": {
+      "bytes": 18650,
+      "sha256": "05475f317733a69b324f7f25d4d3902b079c222c39c52e3e4b78101ebfc35c35",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-1.json"
+    },
+    "results/measure-A-hot_tail-baseline-2.json": {
+      "bytes": 18650,
+      "sha256": "29e7f867381d3d8769d96bc77f030e3a992f746a2a0f8ab8ffc3226d2956dd3d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-2.json"
+    },
+    "results/measure-A-hot_tail-baseline-3.json": {
+      "bytes": 18650,
+      "sha256": "7bc59e604d19e5eb13a9de5009b3c96bcd26a153d2862966373daac773c2c28b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-3.json"
+    },
+    "results/measure-A-hot_tail-baseline-4.json": {
+      "bytes": 18650,
+      "sha256": "dbc3b975c67f4a30afaed699e1ba0e23133247006c7144a3804476941f464b60",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-4.json"
+    },
+    "results/measure-A-hot_tail-baseline-5.json": {
+      "bytes": 18650,
+      "sha256": "8d518ca244955af5dbfb3cfd9e2634a759cc197468e21b1ffe0c6a64ec356779",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-5.json"
+    },
+    "results/measure-A-hot_tail-baseline-6.json": {
+      "bytes": 18650,
+      "sha256": "c361efa52c247deff10c5b03d2ef9b987d33ec732ffc6498984298c9955f934b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-6.json"
+    },
+    "results/measure-A-hot_tail-baseline-7.json": {
+      "bytes": 18650,
+      "sha256": "42c96cb7cc85f5ca0c8e551231ad3446d051d3afb2c1027aba332e87d22769f9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-baseline-7.json"
+    },
+    "results/measure-A-hot_tail-candidate-0.json": {
+      "bytes": 18650,
+      "sha256": "30dce4d6e5c78c4b04114360b3dc85fb0e269e6022116bd8d2a18c09cf0b4f82",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-0.json"
+    },
+    "results/measure-A-hot_tail-candidate-1.json": {
+      "bytes": 18651,
+      "sha256": "cf54d01144af4366cf37c7c416878fecc6e866e27b5a50b3aead3317b29c7280",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-1.json"
+    },
+    "results/measure-A-hot_tail-candidate-2.json": {
+      "bytes": 18651,
+      "sha256": "40f10e4e3051fc1907daef780e3f8c2bc7b18532bf5511ac96fb86427db4d829",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-2.json"
+    },
+    "results/measure-A-hot_tail-candidate-3.json": {
+      "bytes": 18651,
+      "sha256": "4b4827a90d701a8fa69db4546517fa4fd293dbf99cb3f25300c460b74fae9422",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-3.json"
+    },
+    "results/measure-A-hot_tail-candidate-4.json": {
+      "bytes": 18651,
+      "sha256": "41450c100f49ca0b058c605d2de30ebec3883a444dcd483cfb7f87fc04f14bc9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-4.json"
+    },
+    "results/measure-A-hot_tail-candidate-5.json": {
+      "bytes": 18651,
+      "sha256": "1b0ae4dfa7b69c1065da291444a08d0e19fb4acc0cff4e55979eb136939a3ef6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-5.json"
+    },
+    "results/measure-A-hot_tail-candidate-6.json": {
+      "bytes": 18651,
+      "sha256": "5ebd5cbf9a950dc7e7eb5143c82655cb12a83e2d53f71c441c346d3a73cc0a20",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-6.json"
+    },
+    "results/measure-A-hot_tail-candidate-7.json": {
+      "bytes": 18651,
+      "sha256": "8a644211af4c7195b543e61fdee1705169632f058ddf61000c1fdf27a1594003",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-hot_tail-candidate-7.json"
+    },
+    "results/measure-A-periodic-baseline-0.json": {
+      "bytes": 18649,
+      "sha256": "9191ea3684b6e5e70ec080d192b0f2ec55af7ce25e3361cb680cba736c33d8d8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-0.json"
+    },
+    "results/measure-A-periodic-baseline-1.json": {
+      "bytes": 18650,
+      "sha256": "fa9ff144d5ab10c427099a72a2c5df59335d8b0fdf900ed91724737e9a078d6a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-1.json"
+    },
+    "results/measure-A-periodic-baseline-2.json": {
+      "bytes": 18650,
+      "sha256": "8dcedce300aa95eb6c734e99e0b425ab96b4e8317659a62a0036575f6d71d44c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-2.json"
+    },
+    "results/measure-A-periodic-baseline-3.json": {
+      "bytes": 18650,
+      "sha256": "3f75d0e6f5a2f213f2c76b524bccf378a9c5675764dbe0099e41d9eac7c07fbe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-3.json"
+    },
+    "results/measure-A-periodic-baseline-4.json": {
+      "bytes": 18650,
+      "sha256": "b7de6c7b5a0120cd81a6f6cecc32be30a9552d64f9f47c119515d608ae6bbe16",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-4.json"
+    },
+    "results/measure-A-periodic-baseline-5.json": {
+      "bytes": 18650,
+      "sha256": "e5c656528b1038a1f6bf518c3ae018ae331b2a848bf7913167c467431480fc9f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-5.json"
+    },
+    "results/measure-A-periodic-baseline-6.json": {
+      "bytes": 18650,
+      "sha256": "87e89fc2d35cf2d7c401448746e7016db7d99caf9050f92d745a841e485aba1b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-6.json"
+    },
+    "results/measure-A-periodic-baseline-7.json": {
+      "bytes": 18650,
+      "sha256": "617dd21db9217bd1386172331c8e301be93ed8702519482af48634b88ba35e0e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-baseline-7.json"
+    },
+    "results/measure-A-periodic-candidate-0.json": {
+      "bytes": 18650,
+      "sha256": "8ca09d42e455581947fba3c1398e94736bdfe75eafea49598598c0be31fe258b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-0.json"
+    },
+    "results/measure-A-periodic-candidate-1.json": {
+      "bytes": 18651,
+      "sha256": "d8d044bf8686760d1f16255c9c68cbc8d3e806cc240d64ba6b204ac1e8ee6958",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-1.json"
+    },
+    "results/measure-A-periodic-candidate-2.json": {
+      "bytes": 18651,
+      "sha256": "59936bb92ec2814676e4e406e65cf05f31d3e0b1e0fddb2899200a016a1df259",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-2.json"
+    },
+    "results/measure-A-periodic-candidate-3.json": {
+      "bytes": 18651,
+      "sha256": "47ba66b7d37f9ae9c6491dcfb4a6932a4803c1a39fcc95bd040b04a6e8875316",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-3.json"
+    },
+    "results/measure-A-periodic-candidate-4.json": {
+      "bytes": 18651,
+      "sha256": "175bb343f2539634f2368a441f5b77258838f8a06efc017790c87f0b13f8b884",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-4.json"
+    },
+    "results/measure-A-periodic-candidate-5.json": {
+      "bytes": 18651,
+      "sha256": "81829c234be7f8c01c50df93861a03860f565afed3a663b30ad24badfbd9178f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-5.json"
+    },
+    "results/measure-A-periodic-candidate-6.json": {
+      "bytes": 18651,
+      "sha256": "5a1332aa7576216c1b58a55b41317c806f62b5cd2b2e0119e7645a92a6ab5a75",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-6.json"
+    },
+    "results/measure-A-periodic-candidate-7.json": {
+      "bytes": 18651,
+      "sha256": "fc6b1023654803f68bb5311235f1879fcf1d110621b876f4660ff52f0c3f7bbe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-periodic-candidate-7.json"
+    },
+    "results/measure-A-rounded_ties-baseline-0.json": {
+      "bytes": 18582,
+      "sha256": "369b84dc80af8ce092cabf6d0cc6124b903d0f91d51dc4b0163bc3b98f7f2d27",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-0.json"
+    },
+    "results/measure-A-rounded_ties-baseline-1.json": {
+      "bytes": 18584,
+      "sha256": "3170b8d3890830e9e4c99dcb3e5b49a48782b5dd2b8021dd71db92df4dec8325",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-1.json"
+    },
+    "results/measure-A-rounded_ties-baseline-2.json": {
+      "bytes": 18583,
+      "sha256": "e8e10de2d1b16df7d86b781f876a181565df26972d485489bb6749e852968c90",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-2.json"
+    },
+    "results/measure-A-rounded_ties-baseline-3.json": {
+      "bytes": 18583,
+      "sha256": "27454999a8b97bdb7d1d4dc9ed701071be44b7e46aef6e24a06392b3557965ca",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-3.json"
+    },
+    "results/measure-A-rounded_ties-baseline-4.json": {
+      "bytes": 18583,
+      "sha256": "c08bcd745e68f8f5ef5404c74964d216d4e53ff6824f6743c3b00ea0a63c9c44",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-4.json"
+    },
+    "results/measure-A-rounded_ties-baseline-5.json": {
+      "bytes": 18583,
+      "sha256": "ebc92cf54abe08984b7297a34e34057c6dc4b09534fdbbcfb887fccb65e4c480",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-5.json"
+    },
+    "results/measure-A-rounded_ties-baseline-6.json": {
+      "bytes": 18583,
+      "sha256": "e77b4298a7eeb7334bd2f163ee4a5b8688ac073bfc4bb3609f153908e5749a86",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-6.json"
+    },
+    "results/measure-A-rounded_ties-baseline-7.json": {
+      "bytes": 18583,
+      "sha256": "f4ebe11ef243635bbe0fefb38e60d8f8787ce752ac23bdefd06bd5c23b373ad5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-baseline-7.json"
+    },
+    "results/measure-A-rounded_ties-candidate-0.json": {
+      "bytes": 18584,
+      "sha256": "2fd6f262f5baaabd5c7ebe0f500e31edc37a2b444f3452ecd4449466b9198a37",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-0.json"
+    },
+    "results/measure-A-rounded_ties-candidate-1.json": {
+      "bytes": 18585,
+      "sha256": "fb14bbf4d234afd85123ac03a940d962cf848a451e11764ad814c2d5022b5ac1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-1.json"
+    },
+    "results/measure-A-rounded_ties-candidate-2.json": {
+      "bytes": 18584,
+      "sha256": "4273526ec580c0f2de798457e27f0e133f80017a6d32671edfb2bb5d8f6855e6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-2.json"
+    },
+    "results/measure-A-rounded_ties-candidate-3.json": {
+      "bytes": 18584,
+      "sha256": "4a3d5fd2a59ceee60eee81bccfda296dae7e14520467b9c1fc841662bb867111",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-3.json"
+    },
+    "results/measure-A-rounded_ties-candidate-4.json": {
+      "bytes": 18584,
+      "sha256": "51032b1d4e9a85a73823b4656b72c329ca28c9fb08665f361c388a4e4a1bbf78",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-4.json"
+    },
+    "results/measure-A-rounded_ties-candidate-5.json": {
+      "bytes": 18584,
+      "sha256": "de1432067450aa14ec4cb8db65844e252741ad909fd10ee887b3dfeccbfb5aa5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-5.json"
+    },
+    "results/measure-A-rounded_ties-candidate-6.json": {
+      "bytes": 18584,
+      "sha256": "9df383dcd54b93de6051f511e534a3554bad982ad4775e55b8e3edeb1b9af5bb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-6.json"
+    },
+    "results/measure-A-rounded_ties-candidate-7.json": {
+      "bytes": 18584,
+      "sha256": "84661b43cd4455f0caf25b87a83b61222686e4e27f15cefa9e313997ecdfb17c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-rounded_ties-candidate-7.json"
+    },
+    "results/measure-A-shifted-baseline-0.json": {
+      "bytes": 18648,
+      "sha256": "95a856c409fb355fb4f73e84be126236980523b5918a97cb424f8dfce321b78c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-0.json"
+    },
+    "results/measure-A-shifted-baseline-1.json": {
+      "bytes": 18649,
+      "sha256": "e7b69352345d480d6180d0191bd0dfc5f084c2e398bce7a07d2cf24474d5b09d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-1.json"
+    },
+    "results/measure-A-shifted-baseline-2.json": {
+      "bytes": 18649,
+      "sha256": "075987458e5cd335ccbc69658639e13c9c1a756ebd2750f72d0adfc94622a997",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-2.json"
+    },
+    "results/measure-A-shifted-baseline-3.json": {
+      "bytes": 18649,
+      "sha256": "ababc8367d81bb0bfeda6785a935632a1ee48cacb4b0a987ce1e9973b2ade8ca",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-3.json"
+    },
+    "results/measure-A-shifted-baseline-4.json": {
+      "bytes": 18649,
+      "sha256": "b1ad4b855b1994b3c572e4764654529f1cdb4c9a553441782267459ae5b87f9e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-4.json"
+    },
+    "results/measure-A-shifted-baseline-5.json": {
+      "bytes": 18649,
+      "sha256": "322667dd6a313cefaa6ceff452d871c0cba7d4983106c21151fc52e5e47de39e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-5.json"
+    },
+    "results/measure-A-shifted-baseline-6.json": {
+      "bytes": 18649,
+      "sha256": "ba0fbfd51c1f8c883e80c0161b3c384f54e2f74d9ff5132a030e3e5fd1cf037d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-6.json"
+    },
+    "results/measure-A-shifted-baseline-7.json": {
+      "bytes": 18649,
+      "sha256": "be41a9eeb756575c7f3d682a752b7b05ae815b0d7fc5060c6240e8805bc33e01",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-baseline-7.json"
+    },
+    "results/measure-A-shifted-candidate-0.json": {
+      "bytes": 18649,
+      "sha256": "01105c0c1f9a99035ef94526ba7cc648075fb832223bb10144f3d3ad1994af0c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-0.json"
+    },
+    "results/measure-A-shifted-candidate-1.json": {
+      "bytes": 18650,
+      "sha256": "2d9241a4eae4b2b22de5b49507bfe49b753671c3fd76c83319ab37ec1891feb8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-1.json"
+    },
+    "results/measure-A-shifted-candidate-2.json": {
+      "bytes": 18650,
+      "sha256": "3cdb8d2c783c23bc65f32cf0df6ae144391de817b1d5594a19684404f5e5411e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-2.json"
+    },
+    "results/measure-A-shifted-candidate-3.json": {
+      "bytes": 18650,
+      "sha256": "c85d1f1cc423cd3acd35167f595b09ea7ba11b73ad066482f840ef0b391ac9be",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-3.json"
+    },
+    "results/measure-A-shifted-candidate-4.json": {
+      "bytes": 18650,
+      "sha256": "54d1696704edb7366dcb6df716cd66d46e790573999c326fd749c24836e669c4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-4.json"
+    },
+    "results/measure-A-shifted-candidate-5.json": {
+      "bytes": 18650,
+      "sha256": "5d0a75eef200641a84a9b510ae122f746c1785caeaa82b3a5a348633b1f6d298",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-5.json"
+    },
+    "results/measure-A-shifted-candidate-6.json": {
+      "bytes": 18650,
+      "sha256": "be13f8a1d0a4bd00bc21a7b793f5a5a443af0982175fc9baee51f4f777b70528",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-6.json"
+    },
+    "results/measure-A-shifted-candidate-7.json": {
+      "bytes": 18650,
+      "sha256": "525db1687efdc619fd7f05e029904dc10075f2768e1e0b416cf672d3a41ae490",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-shifted-candidate-7.json"
+    },
+    "results/measure-A-tiny-baseline-0.json": {
+      "bytes": 18594,
+      "sha256": "08fe66ba4719d194c01f65d37487b6f511d738390e595d5205e54bd3003208ec",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-0.json"
+    },
+    "results/measure-A-tiny-baseline-1.json": {
+      "bytes": 18596,
+      "sha256": "1948d7afdc781bec53684912cf6ade46c75e855a3855c3eb681865be455d34a7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-1.json"
+    },
+    "results/measure-A-tiny-baseline-2.json": {
+      "bytes": 18595,
+      "sha256": "550637f05acfc98f82b9cce33729969988a04c793074c8b124fc34fe7423c753",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-2.json"
+    },
+    "results/measure-A-tiny-baseline-3.json": {
+      "bytes": 18595,
+      "sha256": "e448e7c93ce9ff6bc6766f2bc193522ae9dec7f512bd1e7fb582d80ccbac8aa9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-3.json"
+    },
+    "results/measure-A-tiny-baseline-4.json": {
+      "bytes": 18595,
+      "sha256": "82cff559170ca190aeb8ddde04c3706f6d5baac73b792e18e4365a962aa75869",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-4.json"
+    },
+    "results/measure-A-tiny-baseline-5.json": {
+      "bytes": 18595,
+      "sha256": "770eccbb2715096e5a8b141104d5323b3a7e96a9146bd101bc5f74e8f708d385",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-5.json"
+    },
+    "results/measure-A-tiny-baseline-6.json": {
+      "bytes": 18595,
+      "sha256": "d7664e9000f3bf0a0e59f78494fa1c6a36abb8a2d6b1a025391fcccce7913071",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-6.json"
+    },
+    "results/measure-A-tiny-baseline-7.json": {
+      "bytes": 18595,
+      "sha256": "5306615bdfe6f243e724a221a0accd271c6a967e60c557dea0418b4fb3d74712",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-baseline-7.json"
+    },
+    "results/measure-A-tiny-candidate-0.json": {
+      "bytes": 18595,
+      "sha256": "af4e135dfc3263e3b28c826a70bba0565ea700c779ac683ed54a139879a86522",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-0.json"
+    },
+    "results/measure-A-tiny-candidate-1.json": {
+      "bytes": 18596,
+      "sha256": "bdac79d444408c4b83c31e88b96d557f8531d0620432a41dd9479a5cdf91de2c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-1.json"
+    },
+    "results/measure-A-tiny-candidate-2.json": {
+      "bytes": 18596,
+      "sha256": "61dd2661dade99182acb4e6ff01e29a9c64a08e1594d29a739803835565519eb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-2.json"
+    },
+    "results/measure-A-tiny-candidate-3.json": {
+      "bytes": 18596,
+      "sha256": "3cab4461a4a9c7fa77626aa23e4553d1f1471f41070667c1489242e687e2d8a3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-3.json"
+    },
+    "results/measure-A-tiny-candidate-4.json": {
+      "bytes": 18596,
+      "sha256": "3efec75919705c020d3dd4c9ca4099c61c5fb5c182d5a4604d7747518150f04e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-4.json"
+    },
+    "results/measure-A-tiny-candidate-5.json": {
+      "bytes": 18596,
+      "sha256": "60936fd748a484fb2c35b458e3910262c4869513e7084db65c56a49d010a5866",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-5.json"
+    },
+    "results/measure-A-tiny-candidate-6.json": {
+      "bytes": 18596,
+      "sha256": "23ee127d663327364dc287b091b7cdec6b3d48416d01f623e83ad77a9e762e4c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-6.json"
+    },
+    "results/measure-A-tiny-candidate-7.json": {
+      "bytes": 18595,
+      "sha256": "b08b2336322091f8d27cdd4c9722c9055f32fee874cf22ae24940cb97654fa3e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-tiny-candidate-7.json"
+    },
+    "results/measure-A-uniform-baseline-0.json": {
+      "bytes": 18650,
+      "sha256": "e3ff9afc9ff4b381ac9b8aba196210c6b28a0c0ca35b5dd826ce1eca0c779336",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-0.json"
+    },
+    "results/measure-A-uniform-baseline-1.json": {
+      "bytes": 18649,
+      "sha256": "972725f28ad8b33f4390874abeabc99d4ccb07dbf9bf2b175e75fa5cdcb02942",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-1.json"
+    },
+    "results/measure-A-uniform-baseline-2.json": {
+      "bytes": 18649,
+      "sha256": "1e6f318469b0fca9ec27910d22703d69309224c32d413132d4e89fd2db5db931",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-2.json"
+    },
+    "results/measure-A-uniform-baseline-3.json": {
+      "bytes": 18649,
+      "sha256": "076fa2db14b5dfb2e79b789d19384f81b997aa20f7f711d9626312bf2e646e53",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-3.json"
+    },
+    "results/measure-A-uniform-baseline-4.json": {
+      "bytes": 18649,
+      "sha256": "291f1d78be6146c1fb2b4e02226448407262d8174176d8700ac7f34fbf7e184c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-4.json"
+    },
+    "results/measure-A-uniform-baseline-5.json": {
+      "bytes": 18649,
+      "sha256": "b152b265321508240e6ba974dddf17610b29150da7c8130b53bdc18e0b82bbfa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-5.json"
+    },
+    "results/measure-A-uniform-baseline-6.json": {
+      "bytes": 18649,
+      "sha256": "48d1114e1e8161679cf9ae16c7246bca255461f1eaee084d64521ee8d9bdbe2c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-6.json"
+    },
+    "results/measure-A-uniform-baseline-7.json": {
+      "bytes": 18649,
+      "sha256": "04fabeb9138796f307be6bd87916430c82ed5b79033f9522d270285fe08cba93",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-baseline-7.json"
+    },
+    "results/measure-A-uniform-candidate-0.json": {
+      "bytes": 18649,
+      "sha256": "e68ec3ca19c8cdea32b311d5a7146a8c187b86c421a78deb9ccd1c250bb695c2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-0.json"
+    },
+    "results/measure-A-uniform-candidate-1.json": {
+      "bytes": 18650,
+      "sha256": "a1688d75a82f90674b08503efaffd2bb02edde638bae2a86d7fd9b7131eee62b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-1.json"
+    },
+    "results/measure-A-uniform-candidate-2.json": {
+      "bytes": 18650,
+      "sha256": "1df156abf5b270f99259288181db8a9b8b5b4bd963dd0ef807794b81f2d4b24f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-2.json"
+    },
+    "results/measure-A-uniform-candidate-3.json": {
+      "bytes": 18650,
+      "sha256": "8c87135274309914a62e72d013e47e8f9c93a24809ee692895b2f3a68dd453a5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-3.json"
+    },
+    "results/measure-A-uniform-candidate-4.json": {
+      "bytes": 18650,
+      "sha256": "03dc89a781e9e3c4c5035d645f55bd8287129852fbc2a192b853e2cdf54f003c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-4.json"
+    },
+    "results/measure-A-uniform-candidate-5.json": {
+      "bytes": 18650,
+      "sha256": "5e8afa5866f2af5f14eb43a39e743ca9d08bfdabf7626f5a6aebbe8c5823c158",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-5.json"
+    },
+    "results/measure-A-uniform-candidate-6.json": {
+      "bytes": 18650,
+      "sha256": "aa27dffa24b56f953661b8d98a9875e1532ac5dda4c9a0dcf77df4ca6f3556de",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-6.json"
+    },
+    "results/measure-A-uniform-candidate-7.json": {
+      "bytes": 18650,
+      "sha256": "503a26dd3a2b07a1ada2753c5ace69ab6262b8218f874a5cab8e6de261348a4b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-uniform-candidate-7.json"
+    },
+    "results/measure-A-unweighted-baseline-0.json": {
+      "bytes": 18648,
+      "sha256": "cb1518be4e6797feb246f501eba3559830b9349d1e1d2d39b175cb0a07bea185",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-0.json"
+    },
+    "results/measure-A-unweighted-baseline-1.json": {
+      "bytes": 18649,
+      "sha256": "aef21fb565f3ebae264744be58c19977d668da87084b35a86dab4729cd8e9685",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-1.json"
+    },
+    "results/measure-A-unweighted-baseline-2.json": {
+      "bytes": 18651,
+      "sha256": "30937be2d2633365c061dd9f0a24fef9d6a49cf879befefff9f45a914be708a2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-2.json"
+    },
+    "results/measure-A-unweighted-baseline-3.json": {
+      "bytes": 18649,
+      "sha256": "fc11a57156aaba26530c26210090392c5a307cb75440c860fce86227b1ebf3a7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-3.json"
+    },
+    "results/measure-A-unweighted-baseline-4.json": {
+      "bytes": 18649,
+      "sha256": "9c3d486e23207e64e55a461feeb11a0e2b101b457aa5e8388cc5018a14f1890e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-4.json"
+    },
+    "results/measure-A-unweighted-baseline-5.json": {
+      "bytes": 18649,
+      "sha256": "8bb22c761cdb4d4dddb2c94cbb36cceefc8e2774daff904e293475e63aaf4ad5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-5.json"
+    },
+    "results/measure-A-unweighted-baseline-6.json": {
+      "bytes": 18649,
+      "sha256": "eab6199fb932e7d8fb5bb1b062e1bd1e019b27ed7e7b4716d5b42493acc65a08",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-6.json"
+    },
+    "results/measure-A-unweighted-baseline-7.json": {
+      "bytes": 18649,
+      "sha256": "eb36d4dc765c9b290a6cca3cb752651be50b8e050ccabbb982f69533055b6d4f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-baseline-7.json"
+    },
+    "results/measure-A-unweighted-candidate-0.json": {
+      "bytes": 18650,
+      "sha256": "77d363af793f73ed0e25a8468126af120226430ace660ff1e6634962ceea657a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-0.json"
+    },
+    "results/measure-A-unweighted-candidate-1.json": {
+      "bytes": 18650,
+      "sha256": "07f0a866b7df277f86a20e06080e105239f63f35acd4ee328991dd6a4913cfe1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-1.json"
+    },
+    "results/measure-A-unweighted-candidate-2.json": {
+      "bytes": 18650,
+      "sha256": "5c9da57603352920cf1660b983e29c6c2bb8a70e3851ac4a64671c8497beaa37",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-2.json"
+    },
+    "results/measure-A-unweighted-candidate-3.json": {
+      "bytes": 18650,
+      "sha256": "414328ae75498a84f169cd95db0bb1aed9a9b540dd5b2517f56bc2a92dafa1b0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-3.json"
+    },
+    "results/measure-A-unweighted-candidate-4.json": {
+      "bytes": 18652,
+      "sha256": "a5155a936728f0aefbb0caf18f73f2e23621f9bea0be38d0ae6c2f40a9af647a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-4.json"
+    },
+    "results/measure-A-unweighted-candidate-5.json": {
+      "bytes": 18650,
+      "sha256": "60e912cb45353edb6f7f113f6be045434f956c152e65b3f5f7f8b9a94cfeb46e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-5.json"
+    },
+    "results/measure-A-unweighted-candidate-6.json": {
+      "bytes": 18650,
+      "sha256": "b2510a6f51e00a3fff638df94c61402380bc1be8895986b80fcbd3ba29f8c6fe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-6.json"
+    },
+    "results/measure-A-unweighted-candidate-7.json": {
+      "bytes": 18651,
+      "sha256": "8d0e4288ad7b926826b6e50c1f31fa27fa1efb2182cd232cc3d4494a7c97bb7d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-A-unweighted-candidate-7.json"
+    },
+    "results/measure-B-few_draws-baseline-0.json": {
+      "bytes": 18615,
+      "sha256": "d392226917834f148060c593210c40d4bbde2ca09dea59ad871594a9370a9aa3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-0.json"
+    },
+    "results/measure-B-few_draws-baseline-1.json": {
+      "bytes": 18618,
+      "sha256": "62c03c57e15053cff7fe7f197ad3fd7ef12b6b69416167fee6091ddf92ecd394",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-1.json"
+    },
+    "results/measure-B-few_draws-baseline-2.json": {
+      "bytes": 18617,
+      "sha256": "7ee239e5648bde24adead4838e487f2f5dd22aa6bd6109d29cfb275e700e177e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-2.json"
+    },
+    "results/measure-B-few_draws-baseline-3.json": {
+      "bytes": 18617,
+      "sha256": "1c3caeab57e6fdd0d168eec41b8ec46acb1fd27418528554c8f7da1eced852c5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-3.json"
+    },
+    "results/measure-B-few_draws-baseline-4.json": {
+      "bytes": 18616,
+      "sha256": "76814e5c8e98420fb044113d41044a0693b6e73e7bc31cef951c656e0e11d384",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-4.json"
+    },
+    "results/measure-B-few_draws-baseline-5.json": {
+      "bytes": 18616,
+      "sha256": "f6606cda632ad09d5fb4c97411833d3978bd25137589712509dcfcea95415e13",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-5.json"
+    },
+    "results/measure-B-few_draws-baseline-6.json": {
+      "bytes": 18617,
+      "sha256": "80160ba5d55aa2847c5699c90c577cc6dcbb48998868cba4d96e056513592042",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-6.json"
+    },
+    "results/measure-B-few_draws-baseline-7.json": {
+      "bytes": 18617,
+      "sha256": "d8fc42cf06eb32ef7a389eef18a046f8f0b3dd25a04d55d0a68769e7b8813cd7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-baseline-7.json"
+    },
+    "results/measure-B-few_draws-candidate-0.json": {
+      "bytes": 18617,
+      "sha256": "c8bcd7949a72a34aaa06e6a808dc0c91239326679df84f29019db8f118ebdf87",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-0.json"
+    },
+    "results/measure-B-few_draws-candidate-1.json": {
+      "bytes": 18618,
+      "sha256": "e23532a8a026c24ec00faf9df384755af4732ae13cf2c7d1582c68069a9327d1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-1.json"
+    },
+    "results/measure-B-few_draws-candidate-2.json": {
+      "bytes": 18618,
+      "sha256": "e6d99b5cd741eff7aa7c66c2bc82a724a25e8833e85e192b5f3f85b8dba68982",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-2.json"
+    },
+    "results/measure-B-few_draws-candidate-3.json": {
+      "bytes": 18618,
+      "sha256": "5d1d98b80a2f0574eba194632d276acf2c8b30f95f23bdcb3472fec43ec1e017",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-3.json"
+    },
+    "results/measure-B-few_draws-candidate-4.json": {
+      "bytes": 18618,
+      "sha256": "7c326c6ed5cd9211da9f136f9c079698da16b86a411186b9d253207a099698fe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-4.json"
+    },
+    "results/measure-B-few_draws-candidate-5.json": {
+      "bytes": 18619,
+      "sha256": "811bd2bea225e03c1e02907b0780aa7347b2481344d23d8c1341a3bcef63744b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-5.json"
+    },
+    "results/measure-B-few_draws-candidate-6.json": {
+      "bytes": 18618,
+      "sha256": "2b783e97c66b3093ecce154ef0df9e71282df4142d27eb038f4962cc2c076d14",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-6.json"
+    },
+    "results/measure-B-few_draws-candidate-7.json": {
+      "bytes": 18619,
+      "sha256": "7911adcc8d2a855fe87d2f161c52e3091eeaa4116f7166b2f4941cfe07e196c7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-few_draws-candidate-7.json"
+    },
+    "results/measure-B-hot_tail-baseline-0.json": {
+      "bytes": 18649,
+      "sha256": "1459c2a6f42f42970f975a13cf7edb67edbacb4e3f56afcd1a5d78fdc276a80b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-0.json"
+    },
+    "results/measure-B-hot_tail-baseline-1.json": {
+      "bytes": 18650,
+      "sha256": "c710bcaceae7801bff73c6d491e10a381670dda9e3446aa6c7befa9b53f19c80",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-1.json"
+    },
+    "results/measure-B-hot_tail-baseline-2.json": {
+      "bytes": 18650,
+      "sha256": "99f93675aec78457e1eb24d04efe3dfae3be3bc2ec8caf3a9c5a3233eb8a5af9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-2.json"
+    },
+    "results/measure-B-hot_tail-baseline-3.json": {
+      "bytes": 18650,
+      "sha256": "829988071111eabf7a7212c6fcc6a0a13063f2db02cf0b0c0a130d3a0e096655",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-3.json"
+    },
+    "results/measure-B-hot_tail-baseline-4.json": {
+      "bytes": 18650,
+      "sha256": "87a8f9333c64a03216f75ce8b812192df01216419196e884ddd0a1e6429d68b6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-4.json"
+    },
+    "results/measure-B-hot_tail-baseline-5.json": {
+      "bytes": 18650,
+      "sha256": "ad2459896fc4a087c586115f15121976a480b52d0d47588ca35617ef2f75f4d1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-5.json"
+    },
+    "results/measure-B-hot_tail-baseline-6.json": {
+      "bytes": 18650,
+      "sha256": "d4ff0bee454a75543dd1e787cd98217a5901535e1142736b828607959b7f2883",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-6.json"
+    },
+    "results/measure-B-hot_tail-baseline-7.json": {
+      "bytes": 18650,
+      "sha256": "a6d057ceb423156090beb57e5ecb22de7b78430014f5637dbfb6725c2090e2aa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-baseline-7.json"
+    },
+    "results/measure-B-hot_tail-candidate-0.json": {
+      "bytes": 18650,
+      "sha256": "b66c3dd64a97b9bac938a85ed0e60299805d6af4042da0e240e727c2b0896ce0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-0.json"
+    },
+    "results/measure-B-hot_tail-candidate-1.json": {
+      "bytes": 18651,
+      "sha256": "65541e5c787a76ef1119b0fd112b12771dcf33264dc2a8d17250a1e4344a393b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-1.json"
+    },
+    "results/measure-B-hot_tail-candidate-2.json": {
+      "bytes": 18651,
+      "sha256": "37803283ceda6eadfc6341ee69f0ab6ffff34f5a139aa49d95daf10bed73715d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-2.json"
+    },
+    "results/measure-B-hot_tail-candidate-3.json": {
+      "bytes": 18651,
+      "sha256": "22ef2c34193e4e6574f309c19dc363e3d6d00a5a9bbbd96d1b70879d6d5ec233",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-3.json"
+    },
+    "results/measure-B-hot_tail-candidate-4.json": {
+      "bytes": 18651,
+      "sha256": "5d293c739142ee3d6a43d418e2606edf2034e72b6b7e9a2baee0ec9da60a0f34",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-4.json"
+    },
+    "results/measure-B-hot_tail-candidate-5.json": {
+      "bytes": 18651,
+      "sha256": "d8041d99950fd88db5798c2c690d431e69516f1cb3402cbdb711bad1d906630a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-5.json"
+    },
+    "results/measure-B-hot_tail-candidate-6.json": {
+      "bytes": 18651,
+      "sha256": "9a68af4e9dd1608cedabb1c6e5394d92c400a8c43b1d742a0576a22babe4e8d9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-6.json"
+    },
+    "results/measure-B-hot_tail-candidate-7.json": {
+      "bytes": 18651,
+      "sha256": "4f045371d0821e6ae7365a5a43842c97106028b79f84ebdd7774a26105cbc759",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-hot_tail-candidate-7.json"
+    },
+    "results/measure-B-periodic-baseline-0.json": {
+      "bytes": 18649,
+      "sha256": "0145fc8742b65188ec430c40123bab7d0a0eea6208a09f30b43eaaa8ea9c7e57",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-0.json"
+    },
+    "results/measure-B-periodic-baseline-1.json": {
+      "bytes": 18650,
+      "sha256": "3bf832499cd889231c93cba00488538e587e47876ac52bed09d45299cbb1a57d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-1.json"
+    },
+    "results/measure-B-periodic-baseline-2.json": {
+      "bytes": 18650,
+      "sha256": "2bd400a334381ce579bd04d20c4a8e8bdba1deb0e20535d516065a4db3462c8c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-2.json"
+    },
+    "results/measure-B-periodic-baseline-3.json": {
+      "bytes": 18650,
+      "sha256": "e03c7f4d4ab64cf63de8bb78df99e4cde27590e8fa4aec73cd704b019ea3c669",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-3.json"
+    },
+    "results/measure-B-periodic-baseline-4.json": {
+      "bytes": 18650,
+      "sha256": "d63f221503fe4dc013e9771043b97e558603164cdbface18da6fb31521965d78",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-4.json"
+    },
+    "results/measure-B-periodic-baseline-5.json": {
+      "bytes": 18650,
+      "sha256": "dbb3b6bc5b7f059f1db538c1fad340c55c0b213c9fee3f8b10529503d4645ffd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-5.json"
+    },
+    "results/measure-B-periodic-baseline-6.json": {
+      "bytes": 18650,
+      "sha256": "2f7ddc6fef547669bbf939645e1a49877eafda35462a901b12b6fa61f0b9b351",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-6.json"
+    },
+    "results/measure-B-periodic-baseline-7.json": {
+      "bytes": 18650,
+      "sha256": "06542f8d736a351113d424c34c091da9c2259951589ce8dcb48acd6c0278e4f1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-baseline-7.json"
+    },
+    "results/measure-B-periodic-candidate-0.json": {
+      "bytes": 18650,
+      "sha256": "65da2262a21cd16f9e329b4d5f13ce0b5f39a17ee80b1cfc7d7270b1beea823b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-0.json"
+    },
+    "results/measure-B-periodic-candidate-1.json": {
+      "bytes": 18651,
+      "sha256": "cabe0524a0affc79eaded42858c1853e2b0c5cf04e2d71826ddb6410442a809c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-1.json"
+    },
+    "results/measure-B-periodic-candidate-2.json": {
+      "bytes": 18651,
+      "sha256": "a0fad00be4d5078c1337fcd6f0b1323b52fa3984296044fd7060d84a58d1874d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-2.json"
+    },
+    "results/measure-B-periodic-candidate-3.json": {
+      "bytes": 18651,
+      "sha256": "cb5a43310e43df43e1d9342f023b5bc89e1f35a81fa909953293dff735f6a738",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-3.json"
+    },
+    "results/measure-B-periodic-candidate-4.json": {
+      "bytes": 18651,
+      "sha256": "53e9a9a4b20dfb194f0046c32d70e750b9860b7baccbbc6bc42ca1d80ed5e231",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-4.json"
+    },
+    "results/measure-B-periodic-candidate-5.json": {
+      "bytes": 18651,
+      "sha256": "fc81e422c0ff183f62d78f58252ded54d7b27ff7786364524bcbdd5fc216eb0c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-5.json"
+    },
+    "results/measure-B-periodic-candidate-6.json": {
+      "bytes": 18651,
+      "sha256": "9641bdeb57374f4433b0f519aa732f8901573c3756cbe0aa0cc1a61656ee6b23",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-6.json"
+    },
+    "results/measure-B-periodic-candidate-7.json": {
+      "bytes": 18651,
+      "sha256": "0a53dd5a5c181fb1f07d968698cf373d39db5728e93e72744010992bc1dabdcc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-periodic-candidate-7.json"
+    },
+    "results/measure-B-rounded_ties-baseline-0.json": {
+      "bytes": 18583,
+      "sha256": "9e01916da4ee9090ed7ec47fbaa1a4353aa22fdc0df587b49dfb1a9c58905441",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-0.json"
+    },
+    "results/measure-B-rounded_ties-baseline-1.json": {
+      "bytes": 18583,
+      "sha256": "951b3ad9422c9ece698abe5fcddd765331a9ea93577bcd77f40cb17ba2406065",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-1.json"
+    },
+    "results/measure-B-rounded_ties-baseline-2.json": {
+      "bytes": 18583,
+      "sha256": "e1510ae0c85d03f5641ea1c750d92c465e94db88450aedcd71150a82d41984e7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-2.json"
+    },
+    "results/measure-B-rounded_ties-baseline-3.json": {
+      "bytes": 18582,
+      "sha256": "293a2cbf132c74e848fe8242c8c7c0ba6f20a49eb18ce489a4fcc5f2458c9de7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-3.json"
+    },
+    "results/measure-B-rounded_ties-baseline-4.json": {
+      "bytes": 18582,
+      "sha256": "ec470d6df9f90aea79ceb0c9f6420e4f6dd73fe424fbbbcaca0241f3bad75de3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-4.json"
+    },
+    "results/measure-B-rounded_ties-baseline-5.json": {
+      "bytes": 18584,
+      "sha256": "5e5d45c164f830fbd91b731c9e0c0042b3b792a3d2955fae72926cabd1c4e118",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-5.json"
+    },
+    "results/measure-B-rounded_ties-baseline-6.json": {
+      "bytes": 18583,
+      "sha256": "67b102d3ee73c59af41a7f5562b366fcb257dad77ade386ce118c5f607474b25",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-6.json"
+    },
+    "results/measure-B-rounded_ties-baseline-7.json": {
+      "bytes": 18583,
+      "sha256": "a7646cc0fa216e1dd1aafced108fc1d348c534550acde9c6054fab1cb460f2f7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-baseline-7.json"
+    },
+    "results/measure-B-rounded_ties-candidate-0.json": {
+      "bytes": 18583,
+      "sha256": "619ae6b812833f5f4fc17349dbcd38d72db5c84801c75d9a5fde568e4321b003",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-0.json"
+    },
+    "results/measure-B-rounded_ties-candidate-1.json": {
+      "bytes": 18584,
+      "sha256": "e3802c0a354856a885e147b217c5ea10e8713447892194ce7bdda7b27e5d9a79",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-1.json"
+    },
+    "results/measure-B-rounded_ties-candidate-2.json": {
+      "bytes": 18584,
+      "sha256": "4c2efad43d6fa5f3153c97157c8902f3951a7e142e86663cc7bc46ac4ec4a03c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-2.json"
+    },
+    "results/measure-B-rounded_ties-candidate-3.json": {
+      "bytes": 18584,
+      "sha256": "0a2a8ddc508cd444e4e891a38f4168acc8b164a179f9f092c76e13bfa2d434a3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-3.json"
+    },
+    "results/measure-B-rounded_ties-candidate-4.json": {
+      "bytes": 18585,
+      "sha256": "c1b5b92de1f2f15a6bb617404de6a9e13ea2f59ae459dd469eafcb80178e8224",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-4.json"
+    },
+    "results/measure-B-rounded_ties-candidate-5.json": {
+      "bytes": 18584,
+      "sha256": "71baa29d238f3d7bbbce5cf8c73718cfd38c3ca30ae1f4ff3d8e21380dba2ea7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-5.json"
+    },
+    "results/measure-B-rounded_ties-candidate-6.json": {
+      "bytes": 18584,
+      "sha256": "fb0a442a547dd7e20d01053e2d2b2a4bf38c1fb88ef8dc8256570da428acd85c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-6.json"
+    },
+    "results/measure-B-rounded_ties-candidate-7.json": {
+      "bytes": 18584,
+      "sha256": "e7a5aa83fb1525ec918cb6ef197cab2a7243524579e3650cfbefcb86508a5ded",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-rounded_ties-candidate-7.json"
+    },
+    "results/measure-B-shifted-baseline-0.json": {
+      "bytes": 18648,
+      "sha256": "0b04bc9b81f384d11d282afd8c2f0c296402dc212235e5ac5fd7131632085a45",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-0.json"
+    },
+    "results/measure-B-shifted-baseline-1.json": {
+      "bytes": 18649,
+      "sha256": "e1fd0d9fe19cd49eba253df2dd664dcb1ba7c66ddb75b05573f79a0fece01700",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-1.json"
+    },
+    "results/measure-B-shifted-baseline-2.json": {
+      "bytes": 18649,
+      "sha256": "0b457166d3ffcbc0a9c45b341fd0e49e7be5ddb1ce6da6b1509d9ea8f0e8cde0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-2.json"
+    },
+    "results/measure-B-shifted-baseline-3.json": {
+      "bytes": 18649,
+      "sha256": "99af4bea4fccc80877cacbfe9b8c07d7a098b3fa5f9023617f0dfc6ebe31ad8b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-3.json"
+    },
+    "results/measure-B-shifted-baseline-4.json": {
+      "bytes": 18649,
+      "sha256": "558ac42b8854ed58468768649af3143d4709a7c51b62c2acbd13f1e0e23af061",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-4.json"
+    },
+    "results/measure-B-shifted-baseline-5.json": {
+      "bytes": 18649,
+      "sha256": "0af8c6a2b897185937c85eed67e2d49be0932537c7b4d0eaac8c124cadcc4e1c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-5.json"
+    },
+    "results/measure-B-shifted-baseline-6.json": {
+      "bytes": 18649,
+      "sha256": "9f2d8262a79d0faec10aaed6a2b491c158ef947b155c9c5e97908351be175883",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-6.json"
+    },
+    "results/measure-B-shifted-baseline-7.json": {
+      "bytes": 18649,
+      "sha256": "8924f6d8282366f4906ff5dc8b26236a0ebb1788daaef8a101d4c3281cb40907",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-baseline-7.json"
+    },
+    "results/measure-B-shifted-candidate-0.json": {
+      "bytes": 18649,
+      "sha256": "31cb7d94287a78c0ff221519366a2d9164575b81c6f0028e6b18452da2bc84b9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-0.json"
+    },
+    "results/measure-B-shifted-candidate-1.json": {
+      "bytes": 18650,
+      "sha256": "09c23f8e7064c92c9a144494f5b26406608c9f0116f1766bb62cd2b329ae50e1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-1.json"
+    },
+    "results/measure-B-shifted-candidate-2.json": {
+      "bytes": 18650,
+      "sha256": "8ad1095ae49ac507216e69778ae626b9282137ea45b6b80f72103ce9dd8c3c8b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-2.json"
+    },
+    "results/measure-B-shifted-candidate-3.json": {
+      "bytes": 18650,
+      "sha256": "649c12b1ba6d444a1d972814bcefd91327b4ce5a276845f18e2631bfc62e1371",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-3.json"
+    },
+    "results/measure-B-shifted-candidate-4.json": {
+      "bytes": 18650,
+      "sha256": "aeaa75d5cf4ad0d2ff99d9588a8f8f1769ae526780800d390684b608f6031384",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-4.json"
+    },
+    "results/measure-B-shifted-candidate-5.json": {
+      "bytes": 18650,
+      "sha256": "fff2ff2a000e04f9ce682e870c6221c97ff1e655b286981ea14bb968005f39df",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-5.json"
+    },
+    "results/measure-B-shifted-candidate-6.json": {
+      "bytes": 18650,
+      "sha256": "8fcf6232a988dd0eecac534be33cd166b68c4f1d5a00b6bbe861053a2d18235c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-6.json"
+    },
+    "results/measure-B-shifted-candidate-7.json": {
+      "bytes": 18650,
+      "sha256": "8a3070c8ac16453af328c5da04ae1c5e5f04b272787353215ca95c8f814d73d9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-shifted-candidate-7.json"
+    },
+    "results/measure-B-tiny-baseline-0.json": {
+      "bytes": 18595,
+      "sha256": "4c3f000a49267a78d3b2128e43688fe3f877f792b3cc27a74c99c58bc4c69511",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-0.json"
+    },
+    "results/measure-B-tiny-baseline-1.json": {
+      "bytes": 18595,
+      "sha256": "0b84f1d9737e531a30f9ba6a3d818d1b9ecee00388e70fa283cf64a30405a374",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-1.json"
+    },
+    "results/measure-B-tiny-baseline-2.json": {
+      "bytes": 18595,
+      "sha256": "d9c30543d507f574d4978e32436321bbf6af0e178559921535f85fe10ff6dbe5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-2.json"
+    },
+    "results/measure-B-tiny-baseline-3.json": {
+      "bytes": 18595,
+      "sha256": "1727df049cb55d4c2a008e871826e0ef883bb93d2bb74a6638749767cb58fdca",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-3.json"
+    },
+    "results/measure-B-tiny-baseline-4.json": {
+      "bytes": 18595,
+      "sha256": "5b02bac55d6663140ded3fdf08fb551bcbf253360d67c31adf6a9291247ebe1a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-4.json"
+    },
+    "results/measure-B-tiny-baseline-5.json": {
+      "bytes": 18594,
+      "sha256": "e416cbb77e55a566df30bad33e837ad9da78fd806d4a8e7ab55e31a9d12f7fc8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-5.json"
+    },
+    "results/measure-B-tiny-baseline-6.json": {
+      "bytes": 18596,
+      "sha256": "5d42ace5618583487e15e4b4d810ed2fd2ea1dcaace5b6fb056a7cac0d019e56",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-6.json"
+    },
+    "results/measure-B-tiny-baseline-7.json": {
+      "bytes": 18594,
+      "sha256": "076648d66561b8a20af526027a58ae34459b891f5d35f2b9b011bba1c55c7af1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-baseline-7.json"
+    },
+    "results/measure-B-tiny-candidate-0.json": {
+      "bytes": 18595,
+      "sha256": "d561ef41366f278cb7405df6d38e4129ad6c4383653b7c3e00db042bf42f876e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-0.json"
+    },
+    "results/measure-B-tiny-candidate-1.json": {
+      "bytes": 18596,
+      "sha256": "eff9c29b77a34a53071c8c91cf219b92755d655d010b5b847e266355a2ce7c10",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-1.json"
+    },
+    "results/measure-B-tiny-candidate-2.json": {
+      "bytes": 18596,
+      "sha256": "3ddfd9ee5d92fe6d18bdf5bde6c2173c863be16d6c328530f18c3eec0b082bf2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-2.json"
+    },
+    "results/measure-B-tiny-candidate-3.json": {
+      "bytes": 18597,
+      "sha256": "dc5b2edc4cbe5e3b147fd144cc0b2e91f19c6c6bd75c678e52e9700aa322cd40",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-3.json"
+    },
+    "results/measure-B-tiny-candidate-4.json": {
+      "bytes": 18597,
+      "sha256": "586a03f15f30557991012805d24c0b619e1ec2ade791444f2cb30783b8535af1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-4.json"
+    },
+    "results/measure-B-tiny-candidate-5.json": {
+      "bytes": 18596,
+      "sha256": "fcdbdf751fceefa235914f1d3325b57a744d338ed6ae9b3361c52d6d613ff993",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-5.json"
+    },
+    "results/measure-B-tiny-candidate-6.json": {
+      "bytes": 18596,
+      "sha256": "16996562cc8b71a0a09c1adb430820a5cccb2c57b270295b9421791ff55c54af",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-6.json"
+    },
+    "results/measure-B-tiny-candidate-7.json": {
+      "bytes": 18596,
+      "sha256": "222ccc5300c69fa7fb6970302cf70b27fbf49264c3b636de6fd03c075199bd81",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-tiny-candidate-7.json"
+    },
+    "results/measure-B-uniform-baseline-0.json": {
+      "bytes": 18648,
+      "sha256": "18692bbf276ca7d6b05efa686631ffb0b88a4e9d6c1d89c4f2aedc5480f29373",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-0.json"
+    },
+    "results/measure-B-uniform-baseline-1.json": {
+      "bytes": 18649,
+      "sha256": "0fbb0cb3f434039554b8e5e7dc952af1412e8fd4c1c62d533aa5e5cd72e78f5a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-1.json"
+    },
+    "results/measure-B-uniform-baseline-2.json": {
+      "bytes": 18649,
+      "sha256": "37bc35014f2b8dba44b42efdc155bc437a14ae4fd4ae4f2ffafdb06c589e2b64",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-2.json"
+    },
+    "results/measure-B-uniform-baseline-3.json": {
+      "bytes": 18649,
+      "sha256": "3d453b100837ae8c9cbef9b961d69db8416fd4445126c01a528a37a1a604e808",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-3.json"
+    },
+    "results/measure-B-uniform-baseline-4.json": {
+      "bytes": 18649,
+      "sha256": "7069deeb4b3289d75904045b7d84d2b9ef1b6495a6c73c9c45c981ef6a97ec16",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-4.json"
+    },
+    "results/measure-B-uniform-baseline-5.json": {
+      "bytes": 18649,
+      "sha256": "3cb9ef5ae2f1e98baec26931b602446c1c4cced11eb44420dcf40b997199dd9e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-5.json"
+    },
+    "results/measure-B-uniform-baseline-6.json": {
+      "bytes": 18649,
+      "sha256": "da42d6429bf4fb43f97c3d5ac076802cca099dcb5b06ee9a5c2a7031b11b1ce1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-6.json"
+    },
+    "results/measure-B-uniform-baseline-7.json": {
+      "bytes": 18649,
+      "sha256": "a2247dd8ffcaa478e6a87d3a19a2309b45c28c6977d06bf79c80257d056e46cb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-baseline-7.json"
+    },
+    "results/measure-B-uniform-candidate-0.json": {
+      "bytes": 18649,
+      "sha256": "7c5a0cbee752270270a7ee94588fa914cabb53f8dd90257cb9a4fda896187c04",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-0.json"
+    },
+    "results/measure-B-uniform-candidate-1.json": {
+      "bytes": 18650,
+      "sha256": "ad445d62ab4836d1a21ecd7ed483c9be96f9d8dbbf102e61a9782406ba9c90c0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-1.json"
+    },
+    "results/measure-B-uniform-candidate-2.json": {
+      "bytes": 18650,
+      "sha256": "f7f7b1f85bb6a5e8c95654e8bf80050e7be24a5c6e48c71cedffa4a98a530385",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-2.json"
+    },
+    "results/measure-B-uniform-candidate-3.json": {
+      "bytes": 18650,
+      "sha256": "0574ec5d97b58f1287f8b4453b939b761237a52d20283d0aa3bc3277475ab759",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-3.json"
+    },
+    "results/measure-B-uniform-candidate-4.json": {
+      "bytes": 18650,
+      "sha256": "fc5e17c38866c9b50173f56da0b945fdfc219b922db1f995659b5e32bef60c6b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-4.json"
+    },
+    "results/measure-B-uniform-candidate-5.json": {
+      "bytes": 18650,
+      "sha256": "4a6ac415fcc6b3a5b17a6419a6487679e9987b2021467107db483e022bb1b2a1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-5.json"
+    },
+    "results/measure-B-uniform-candidate-6.json": {
+      "bytes": 18650,
+      "sha256": "fcc8f5db5942d5e88cb4e4231325df86634ec719a6817ab5a2bb4a76abf858f9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-6.json"
+    },
+    "results/measure-B-uniform-candidate-7.json": {
+      "bytes": 18650,
+      "sha256": "a89da927f1b6fedbddd6cee91ebaec87679b750f1636c1e35541490d27663b55",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-uniform-candidate-7.json"
+    },
+    "results/measure-B-unweighted-baseline-0.json": {
+      "bytes": 18648,
+      "sha256": "1cbaf26a6c5de74e14624f0016c2fe06678dd6dccf0ad4ea7851fde9d2efac23",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-0.json"
+    },
+    "results/measure-B-unweighted-baseline-1.json": {
+      "bytes": 18650,
+      "sha256": "88bbf456697d158c357d44826970b204906f96dcb0b92b9b1457ca74201531f6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-1.json"
+    },
+    "results/measure-B-unweighted-baseline-2.json": {
+      "bytes": 18649,
+      "sha256": "c0f3325ca27da3680b75abb8395ecfb113f2ffdeda4389cf95585e7e5c37922b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-2.json"
+    },
+    "results/measure-B-unweighted-baseline-3.json": {
+      "bytes": 18649,
+      "sha256": "b9d76ad580e3e64bdb38d026d40a3a092f6562eb67d1c69250546776eafe5714",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-3.json"
+    },
+    "results/measure-B-unweighted-baseline-4.json": {
+      "bytes": 18649,
+      "sha256": "6aba658daddab2bf724f30126558109050effb93be016e1b95d00b4c3997342f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-4.json"
+    },
+    "results/measure-B-unweighted-baseline-5.json": {
+      "bytes": 18650,
+      "sha256": "f83120978bd6536b7be933a2b8f575e8927cc0b424f1abb225b5368e2b6354d9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-5.json"
+    },
+    "results/measure-B-unweighted-baseline-6.json": {
+      "bytes": 18649,
+      "sha256": "5c970757d202f3bf42624e67120b466ad0b874743287fdf6e0a3a9575656b9ee",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-6.json"
+    },
+    "results/measure-B-unweighted-baseline-7.json": {
+      "bytes": 18649,
+      "sha256": "df2cef6cc7d087f182a96e4b40fac0d5c2888730a68b2ac6a9849a5ea66ecc34",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-baseline-7.json"
+    },
+    "results/measure-B-unweighted-candidate-0.json": {
+      "bytes": 18649,
+      "sha256": "3eba5d66257815b4dbedf2c91593f153e91e90c26540dc1930c0f87ecf4068b9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-0.json"
+    },
+    "results/measure-B-unweighted-candidate-1.json": {
+      "bytes": 18652,
+      "sha256": "e46a3a459644c3db53f462d41c21d7f0b6aec78111c64c28f2122177204a5118",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-1.json"
+    },
+    "results/measure-B-unweighted-candidate-2.json": {
+      "bytes": 18650,
+      "sha256": "162265c9709b9f670b7d40a880307f9d39ae36f70a93cde88de7fa5a9f1988ae",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-2.json"
+    },
+    "results/measure-B-unweighted-candidate-3.json": {
+      "bytes": 18650,
+      "sha256": "ac4e4dc78a094e58d7c07b45ddd904336d8efc75ef7275e709f0923d28ecace7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-3.json"
+    },
+    "results/measure-B-unweighted-candidate-4.json": {
+      "bytes": 18650,
+      "sha256": "861b2522cfc55a3c4d8bcd862b03a9078703c5a8f72f4741b73ddeb61778fd10",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-4.json"
+    },
+    "results/measure-B-unweighted-candidate-5.json": {
+      "bytes": 18650,
+      "sha256": "84c3917374552373105c0b80409820c38b696c35edbdc2cf45deb83239af5588",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-5.json"
+    },
+    "results/measure-B-unweighted-candidate-6.json": {
+      "bytes": 18650,
+      "sha256": "0e2f2a1184129676c0684bb57cb77d30bf867039c6d8c3fd0968f09f06e840dc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-6.json"
+    },
+    "results/measure-B-unweighted-candidate-7.json": {
+      "bytes": 18650,
+      "sha256": "0ab0b0affae449e6210f94332ad18ed53de1445d827bbb8203a9da7434a0567c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/measure-B-unweighted-candidate-7.json"
+    },
+    "results/preflight-preflight-few_draws-baseline-0.json": {
+      "bytes": 19185,
+      "sha256": "8f0c96e3d050a35dd4794970185f59deeceb400867cecc016c7fcb506e086bd7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-few_draws-baseline-0.json"
+    },
+    "results/preflight-preflight-few_draws-candidate-0.json": {
+      "bytes": 19186,
+      "sha256": "2864b1c3964d90a3cb8a3b450edc8acfb6fd22bb04eb02d20346131f108f9b53",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-few_draws-candidate-0.json"
+    },
+    "results/preflight-preflight-hot_tail-baseline-0.json": {
+      "bytes": 19241,
+      "sha256": "869364c31f12be5467f8ca3060c1d37d61adb606b6677b5b053cf4a4705cfe7c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-hot_tail-baseline-0.json"
+    },
+    "results/preflight-preflight-hot_tail-candidate-0.json": {
+      "bytes": 19246,
+      "sha256": "8f3214dec369c70cc8b828b42af0e25d05aa793a2337b5e9033faaef7fa5a46e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-hot_tail-candidate-0.json"
+    },
+    "results/preflight-preflight-periodic-baseline-0.json": {
+      "bytes": 19241,
+      "sha256": "0f17af745f33d7a4737d7d90cd712380ef4f9f703185424aa3eae422ceeea65f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-periodic-baseline-0.json"
+    },
+    "results/preflight-preflight-periodic-candidate-0.json": {
+      "bytes": 19256,
+      "sha256": "e207e5050951a8360da2f89f45941a62961d224e28a7466e62f6f1859ecc6ab5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-periodic-candidate-0.json"
+    },
+    "results/preflight-preflight-rounded_ties-baseline-0.json": {
+      "bytes": 19136,
+      "sha256": "64cd349fc37482c8de11877f725c91318fafef173a9971daa44cccac7e282f04",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-rounded_ties-baseline-0.json"
+    },
+    "results/preflight-preflight-rounded_ties-candidate-0.json": {
+      "bytes": 19139,
+      "sha256": "f02a25f54fb3f6e5a245ea76a8f74ae83cc76c9eeaa19f1fc982b8320bf0d75a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-rounded_ties-candidate-0.json"
+    },
+    "results/preflight-preflight-shifted-baseline-0.json": {
+      "bytes": 19240,
+      "sha256": "3c6b70c0536fd0e121754b1de2d531300b16b268ccc061ed2adce3e02801209f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-shifted-baseline-0.json"
+    },
+    "results/preflight-preflight-shifted-candidate-0.json": {
+      "bytes": 19245,
+      "sha256": "e6cdefdf1a09f8ba7edd2ee521468ef359a9f7a392a737e82cc5c665a237f868",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-shifted-candidate-0.json"
+    },
+    "results/preflight-preflight-tiny-baseline-0.json": {
+      "bytes": 19163,
+      "sha256": "08d2f2bdc0b9e45bc647f7413815ce25509d66b0d748d6fc8bd4c7c62ef0eefb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-tiny-baseline-0.json"
+    },
+    "results/preflight-preflight-tiny-candidate-0.json": {
+      "bytes": 19163,
+      "sha256": "367d64f94ce56ac9130c4f2d8e8a8e075dc1b089543eae5bb76d60a1c1fe5a38",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-tiny-candidate-0.json"
+    },
+    "results/preflight-preflight-uniform-baseline-0.json": {
+      "bytes": 19242,
+      "sha256": "3ea9944f89ceaaccdef8beff59c4f2fad5a21d1cfa04a76a7dc631c51510ce6b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-uniform-baseline-0.json"
+    },
+    "results/preflight-preflight-uniform-candidate-0.json": {
+      "bytes": 19257,
+      "sha256": "e3339069eba4f074d56d558cef2cf7c45dbeccfe23e28ed032917cc7ad5e82ef",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-uniform-candidate-0.json"
+    },
+    "results/preflight-preflight-unweighted-baseline-0.json": {
+      "bytes": 19218,
+      "sha256": "dd523ffa88f984de3b9bb490a5aabb838fd0f7cb107325b38857b3276b5321ca",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-unweighted-baseline-0.json"
+    },
+    "results/preflight-preflight-unweighted-candidate-0.json": {
+      "bytes": 19219,
+      "sha256": "dbc5d882e27385e4001b02fcc7909b5ac8258747b6e0a2bdd8a1f02ce5312c22",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/preflight-preflight-unweighted-candidate-0.json"
+    },
+    "results/witnesses/05b6590083f6fba5da1a4fbe7f54b9fda233333f70077ca831d9313d85962504.json": {
+      "bytes": 851951,
+      "sha256": "05b6590083f6fba5da1a4fbe7f54b9fda233333f70077ca831d9313d85962504",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/05b6590083f6fba5da1a4fbe7f54b9fda233333f70077ca831d9313d85962504.json"
+    },
+    "results/witnesses/3e8b477631ac99c616911177d2a372028b0d7677986cdc192590f2c0a1aa2261.json": {
+      "bytes": 110,
+      "sha256": "3e8b477631ac99c616911177d2a372028b0d7677986cdc192590f2c0a1aa2261",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/3e8b477631ac99c616911177d2a372028b0d7677986cdc192590f2c0a1aa2261.json"
+    },
+    "results/witnesses/55dd5a6e3a4a4247b046689fedbf32786032f9f76f9bc7d2c35cbc1785a2192d.json": {
+      "bytes": 3069083,
+      "sha256": "55dd5a6e3a4a4247b046689fedbf32786032f9f76f9bc7d2c35cbc1785a2192d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/55dd5a6e3a4a4247b046689fedbf32786032f9f76f9bc7d2c35cbc1785a2192d.json"
+    },
+    "results/witnesses/5e521cacc9e44ddfe0d5968b17eff9b6a3e4fa0abc0d0c3aa87f4884044c36f6.json": {
+      "bytes": 104,
+      "sha256": "5e521cacc9e44ddfe0d5968b17eff9b6a3e4fa0abc0d0c3aa87f4884044c36f6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/5e521cacc9e44ddfe0d5968b17eff9b6a3e4fa0abc0d0c3aa87f4884044c36f6.json"
+    },
+    "results/witnesses/63d814fd1f3f93027d43313b1a75fe01aa7b5367954efeaf4f52ffbcf85a9be1.json": {
+      "bytes": 74,
+      "sha256": "63d814fd1f3f93027d43313b1a75fe01aa7b5367954efeaf4f52ffbcf85a9be1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/63d814fd1f3f93027d43313b1a75fe01aa7b5367954efeaf4f52ffbcf85a9be1.json"
+    },
+    "results/witnesses/90e3570d000a9855e1d18b47d7b4d98a071ef703674a26a57b359b9e8b1f0d5b.json": {
+      "bytes": 1253,
+      "sha256": "90e3570d000a9855e1d18b47d7b4d98a071ef703674a26a57b359b9e8b1f0d5b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/90e3570d000a9855e1d18b47d7b4d98a071ef703674a26a57b359b9e8b1f0d5b.json"
+    },
+    "results/witnesses/962c0a607ab5de432243b31f59b125a116ee5d4e864fc5dddd96a8bba56c8d2f.json": {
+      "bytes": 840987,
+      "sha256": "962c0a607ab5de432243b31f59b125a116ee5d4e864fc5dddd96a8bba56c8d2f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/962c0a607ab5de432243b31f59b125a116ee5d4e864fc5dddd96a8bba56c8d2f.json"
+    },
+    "results/witnesses/a58c39b7c6a0fe6ed4850e73b1ee500ec98374a6b457638cfe79bf5c7858a640.json": {
+      "bytes": 64,
+      "sha256": "a58c39b7c6a0fe6ed4850e73b1ee500ec98374a6b457638cfe79bf5c7858a640",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/a58c39b7c6a0fe6ed4850e73b1ee500ec98374a6b457638cfe79bf5c7858a640.json"
+    },
+    "results/witnesses/b7ca05da4314a3da946a378590313454d58241bc503b7c47519e7c9ff88d6629.json": {
+      "bytes": 3069083,
+      "sha256": "b7ca05da4314a3da946a378590313454d58241bc503b7c47519e7c9ff88d6629",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/b7ca05da4314a3da946a378590313454d58241bc503b7c47519e7c9ff88d6629.json"
+    },
+    "results/witnesses/ca789813423f507b365fddb698b6fba22c5142b7986b012e114ddb2091cfd4b2.json": {
+      "bytes": 1399,
+      "sha256": "ca789813423f507b365fddb698b6fba22c5142b7986b012e114ddb2091cfd4b2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/ca789813423f507b365fddb698b6fba22c5142b7986b012e114ddb2091cfd4b2.json"
+    },
+    "results/witnesses/d4b3939599449590190f0b99dfb6fc381bb4a054baf2fbb0a0b81cf132433779.json": {
+      "bytes": 137,
+      "sha256": "d4b3939599449590190f0b99dfb6fc381bb4a054baf2fbb0a0b81cf132433779",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/d4b3939599449590190f0b99dfb6fc381bb4a054baf2fbb0a0b81cf132433779.json"
+    },
+    "results/witnesses/d6953b76a78621e17606583243392c07361da48f10ddcb52ce63b0287c6392c7.json": {
+      "bytes": 3069083,
+      "sha256": "d6953b76a78621e17606583243392c07361da48f10ddcb52ce63b0287c6392c7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/d6953b76a78621e17606583243392c07361da48f10ddcb52ce63b0287c6392c7.json"
+    },
+    "results/witnesses/d79bf5a5d0e1d9b191ba47e78d07baa3d09dcb5f70009a024735e994217e568c.json": {
+      "bytes": 3069083,
+      "sha256": "d79bf5a5d0e1d9b191ba47e78d07baa3d09dcb5f70009a024735e994217e568c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/d79bf5a5d0e1d9b191ba47e78d07baa3d09dcb5f70009a024735e994217e568c.json"
+    },
+    "results/witnesses/dcaa9044f9c4b08a1d4e913ba08328df78ff932a579f642db1baef0fa68fb6c6.json": {
+      "bytes": 840996,
+      "sha256": "dcaa9044f9c4b08a1d4e913ba08328df78ff932a579f642db1baef0fa68fb6c6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/dcaa9044f9c4b08a1d4e913ba08328df78ff932a579f642db1baef0fa68fb6c6.json"
+    },
+    "results/witnesses/e85c44cbc655439712ffe3baa4b1cceda21b1742255b19b92e2c6242389f2627.json": {
+      "bytes": 840875,
+      "sha256": "e85c44cbc655439712ffe3baa4b1cceda21b1742255b19b92e2c6242389f2627",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/e85c44cbc655439712ffe3baa4b1cceda21b1742255b19b92e2c6242389f2627.json"
+    },
+    "results/witnesses/ea96a274326bb8b1d5374259fe943a07d9efab5d73b8726f5a2b8c327a4cd792.json": {
+      "bytes": 851969,
+      "sha256": "ea96a274326bb8b1d5374259fe943a07d9efab5d73b8726f5a2b8c327a4cd792",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-826-results/witnesses/ea96a274326bb8b1d5374259fe943a07d9efab5d73b8726f5a2b8c327a4cd792.json"
+    },
+    "shared/harness": {
+      "bytes": 12135,
+      "sha256": "4b8cf597f1d5702e77dcbdd12457a844faa59bc1633904c1ede9ad13d7868cb5",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_learned_cost_tests.rs"
+    },
+    "shared/observer": {
+      "bytes": 5961,
+      "sha256": "91b11a3934c9ae3842d05e43ca0b3399dd0834f4834d897077b896f70f672a45",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_unary_sample_observation.rs"
+    },
+    "shared/protocol": {
+      "bytes": 10326,
+      "sha256": "55ec09ddab78ccd7a28f8f2a04da638ebcec5fe3df20ad5f491625083bf78365",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-learned-index-2026-10-20.md"
+    }
+  },
+  "packager": {
+    "bytes": 12780,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_cost_826.py",
+    "sha256": "2459e4640d090529cf04049269f1edc689fb9ff5ed61eaac3097e52f6349b093"
+  },
+  "packet": {
+    "bytes": 1083764,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-packet-826.json.xz",
+    "sha256": "e9bbacab272fd8f8ccfc4c810b9825dc7a2c1e6ac936ba3ca9df8a3c4a7fa41c"
+  },
+  "preserved_failed_guards": 0,
+  "retention_gate_passed": false,
+  "status": "passed",
+  "successful_guards": 17,
+  "verified_output_rows": 22291964,
+  "verified_source_rows": 13370568,
+  "workflows": 272
+}
