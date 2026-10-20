@@ -1,0 +1,90 @@
+{
+  "schema_version": "shardloom.compact_indices_closeout_source.v1",
+  "status": "passed",
+  "accepted_source": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/compact-index-acceptance-source-764.json",
+    "bytes": 282897,
+    "sha256": "021867bd6eb39bcc77e9285106249e214fa92e2b4cf6d0f7b88967e12d23f000"
+  },
+  "accepted_source_commit": "89f56e360dc8dc0af1255f5c200c713b90107291",
+  "accepted_source_files": 2217,
+  "all_accepted_source_contents_unchanged": true,
+  "source_hash_map_sha256": "f241ff114cd859faa16875490a50c93bc2a57cfdf90babf39be2ab58963bb343",
+  "packet": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/compact-index-portable-765.json",
+    "bytes": 2172878,
+    "sha256": "5b40578d96851761edaeca315ec9631dffabd5f9990912a72d90a90b7eb19c74"
+  },
+  "packet_reopen": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/compact-index-packet-verification-766.json",
+    "bytes": 1040,
+    "sha256": "66f2b1b292f1f844177ace0c57b69c034d204fefdfbda725b8a6b2a0182442c8"
+  },
+  "conditional_sequence_preserved": 21,
+  "required_and_conditional_substeps_preserved": 58,
+  "competitive_gates_preserved": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "finite_decisions": 5,
+  "finite_retained": 1,
+  "finite_rejected": 4,
+  "first_decisions_remaining": 16,
+  "new_relative_links_checked": 16,
+  "whitespace_check": "passed",
+  "documentation": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-compact-local-indices-2026-10-19.md",
+      "bytes": 8545,
+      "sha256": "6433c8bfbdb94b5c3fddcba3f1d3e896ae8b1593368d9467ae56e3ebfd6357ec"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "bytes": 11659,
+      "sha256": "33b685390fa1132f24167feb73e94c3da0b74532f4dfba2ea8de38790f53e1b0"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "bytes": 27212,
+      "sha256": "6444470a56d552b0c4de617c54f53e90c37bd29fad98141212e520d0a61936e5"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-plan.md",
+      "bytes": 75386,
+      "sha256": "51bc276f6333f57f51cea3f2fdbd5c071d23a3a5f402b94f5ebb3309e99f3314"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3975574,
+      "sha256": "82d9e8f8f628811aa935111ad7869ac7bf057fc3368ed1e064ee12ca7af6c59c"
+    }
+  ],
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_compact_closeout_766.py",
+    "bytes": 5195,
+    "sha256": "680d63a0881c42f6635cd8509ca313af2c5b3d165899d4124f3d009ae9c99d86"
+  },
+  "native_runs_repeated_for_closeout": false,
+  "statement": "Accepted runtime, Python, test and runner bytes are unchanged; documentation/evidence additions do not claim a new native run."
+}

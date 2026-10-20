@@ -1,9 +1,8 @@
 //! Ordered source delivery preserves native payload until an operator consumes it.
 
 use super::{
-    ArrayRef, DType, LocalVortexScanPlan, MaterializedPredicateEvaluator, Metrics,
-    NativeExecutionContext, PreparedVortexSource, ReservedVec, Result, ScanSource, add, failed,
-    select_batch, vortex_error,
+    ArrayRef, DType, LocalSelection, LocalVortexScanPlan, MaterializedPredicateEvaluator, Metrics,
+    NativeExecutionContext, PreparedVortexSource, Result, ScanSource, add, failed, vortex_error,
 };
 use vortex::io::runtime::BlockingRuntime as _;
 
@@ -28,8 +27,7 @@ pub(super) fn run(
         }
         add(&metrics.scan_rows, array.len() as u64)?;
         add(&metrics.scan_batches, 1)?;
-        let mut selection = ReservedVec::new(context.memory())?;
-        selection.reserve(array.len())?;
+        let mut selection = LocalSelection::new(array.len(), context)?;
         let mut values = residual
             .map(|_| {
                 add(&metrics.residual_batches, 1)?;
@@ -45,12 +43,9 @@ pub(super) fn run(
             {
                 continue;
             }
-            selection.values.push(row);
+            selection.push(row)?;
         }
-        for rows in selection.values.chunks(batch_rows) {
-            consume(select_batch(&array, fields, rows, context)?)?;
-        }
-        Ok(())
+        selection.for_each_batch(&array, fields, batch_rows, context, consume)
     };
     match source {
         ScanSource::File(index) => run_file(

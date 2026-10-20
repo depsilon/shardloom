@@ -1,0 +1,93 @@
+{
+  "status": "verified_before_restoration",
+  "baseline": "896c71793a8859a6b4770bbc8a9fe0b85d755cf8",
+  "packet": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-portable-770/predicate-candidate-portable-770.json",
+    "bytes": 45698,
+    "sha256": "1b85ad7e5272cf709c9b1211bb8709f53dda193e597885095996d113729f0b88"
+  },
+  "source_freeze_sha256": "2ced0dbef5541318a1a7f2b21295296244f9609e63082f9feb021bec55ce05be",
+  "tracked_patch_sha256": "4eee7a19c673105386f55a514a8fc14290b0b81be74b4ddd1c04aa4d16345199",
+  "files": [
+    {
+      "path": "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "tracked": true,
+      "candidate_sha256": "7c2317be6fb46b25db11a751d6fba74376fdadf34e49edf234cb5ac4b2717846",
+      "baseline_sha256": "85ce4b9fef99cb0d49182d50c93621ab835ec8475c571894b9a78c303f024f06"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_bind.rs",
+      "tracked": true,
+      "candidate_sha256": "385194a1d9857096384d63bcf2543b449f84cf2a509999b008da4bdf06d25367",
+      "baseline_sha256": "d55ad0f056f215e4f7280977087f19409c10bc8a0ddcd2d112501d8f5d10d31a"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_report.rs",
+      "tracked": true,
+      "candidate_sha256": "f87ba4b905397daaa7e701c290f915d410b9d1ac09255b9238fba5729b8e891d",
+      "baseline_sha256": "9291bd6a04a749750369377ff423878f5ad683c604d9a90759be23749b5afec3"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_scan.rs",
+      "tracked": true,
+      "candidate_sha256": "f4dbf0af15fbd5d7ce2628e9da088377948b7410ae1ef7f556d923d8bc8a139f",
+      "baseline_sha256": "8139ba66995bdb237e4cd9b9149d9f743fe90bc943992eabe946ec4dfd143275"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_tests.rs",
+      "tracked": true,
+      "candidate_sha256": "7bde0da2b13cfd32fedbad036f01128e7a2ce4a0a8866f13df271b4b41c88158",
+      "baseline_sha256": "49c0896fc417956e4738aecec1479354d4a005088856c34415e4b3ad0381aa34"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_arrow.rs",
+      "tracked": true,
+      "candidate_sha256": "54ba1c29ba4af5961637add2785130592c07de621937d410432aa8114233d02f",
+      "baseline_sha256": "25dd0a30265fa1aa715bc040b9e6103ef0e0c7a7a53b135bc44d7196cb0734ac"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_batches.rs",
+      "tracked": true,
+      "candidate_sha256": "d5fa60ba67e62c1a9543881767b5c63e09031d09e2d36df918a74805e4d4a667",
+      "baseline_sha256": "390da4ca065e0b8b0292014e5ff4141c0480112b9d8e7af7831e6c1e9eeed23f"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_range.rs",
+      "tracked": true,
+      "candidate_sha256": "04098a836dd135b3b6ae94af2b668e0a31d732faac35a85c55db9835ed7a27eb",
+      "baseline_sha256": "9e3b4f05e1643249b79cb818adfe7cab60887d5ad1652419b49632c849ae1724"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_source.rs",
+      "tracked": true,
+      "candidate_sha256": "34bedd97f640611eb6f7df101de5c985b5c55157697d924b938d19a21d844300",
+      "baseline_sha256": "5354835768574468f426e047e8bc7cd6092283bfece2d8bef0df0b516bac5b50"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_predicate_candidate_cost_tests.rs",
+      "tracked": false,
+      "candidate_sha256": "b3e4b4c368fa7d6d4379f5e61d1f3471438fdc7a8f8ca5827c38214b5d4aa6e9"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_predicate_exclusion_tests.rs",
+      "tracked": false,
+      "candidate_sha256": "598221694ef55211c1ecedebf4e53ec1f4339434352f7ac3b49eca9be9f2cc42"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_predicate_exclusion.rs",
+      "tracked": false,
+      "candidate_sha256": "1c7bfb89858c48237d20ba20b8a55520601890f57279407f2bce4231c4c5a91b"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_predicate_exclusion_observation.rs",
+      "tracked": false,
+      "candidate_sha256": "8f5dd8c29b1613fa55e57cf968c341b72bfa3bf4b27fedc23297bee6d60ffff6"
+    },
+    {
+      "path": "shardloom-vortex/src/resident_memory_predicate_observation.rs",
+      "tracked": false,
+      "candidate_sha256": "70a4b2e6cf0829ab59b57c7520615a28f2e1dfac1852531dfbd9d1f66c36df3a"
+    }
+  ],
+  "all_removed_source_content_preserved": true
+}

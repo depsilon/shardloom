@@ -1,0 +1,84 @@
+{
+  "status": "storage_admission_refusal_before_native_child",
+  "utc": "2026-10-19T21:18:40.393234+00:00",
+  "label": "merge-tail-attribution-774-a1",
+  "protocol_sha256": "2db26a89965125f7deb44e644dd28852c475add5944089e486bf8fa8d6aa38bc",
+  "completed_workflows": 0,
+  "measured_workflows": 0,
+  "native_tests_executed_after_binding": 0,
+  "engine_measurement_available": false,
+  "no_child_launched": true,
+  "native_pid": null,
+  "cleanup_performed": false,
+  "artifact_and_frozen_sources_unchanged": true,
+  "cause": "Guard reported insufficient free disk before spawning focused spill tests. Later unchanged guard checks pass; the cause of the temporary free-space drop is unestablished. No files were removed and no guard was weakened.",
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-build-774-a1.json",
+      "bytes": 315989,
+      "sha256": "e3dfad4e443e2d0f7df257fc51f087cd5808f946e6f640cdb630306fefa7dec8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-bind-774-a1.json",
+      "bytes": 3885,
+      "sha256": "6a7f02adbcf0f856e871a5a85a106d1538fa8b3a56d02334d9aebe992ac844ad"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-774-a1.json",
+      "bytes": 2294,
+      "sha256": "5c4d04e38bdf05d2148aa1d366ad8f1981a6ba58c6e7fc4e589da6812f871805"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-774-a1-sequence-step.json",
+      "bytes": 879,
+      "sha256": "47f03531d6f698065d88e4531620c2f5552eda3cd266a7a85f2738d65bac5f5f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-774-a1-sequence-output.log",
+      "bytes": 1134,
+      "sha256": "ec81687c1dc95a6aa59bc1db734055a1e980994960ede82c52a57e87731b4546"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-sequence-774-driver.log",
+      "bytes": 842,
+      "sha256": "788fcf45fb156e6b3289588423458eef05d978a0d0c000a0a105c74d7ae7bdf8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1-source-freeze.json",
+      "bytes": 365410,
+      "sha256": "bc73e126fb5f8e385c03cf9f20fdcc772d5946ec366931aa3aa31d11a92d7377"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1-artifact.json",
+      "bytes": 2088,
+      "sha256": "9ce3e1c546256ea039ed89e92f51ebf5eea536199988b6ae60a68ce8c63b3470"
+    }
+  ],
+  "recovery_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019",
+      "utc": "2026-10-19T21:18:40.174132+00:00",
+      "snapshot": {
+        "workspace_bytes": 5702623343,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "free_bytes": 25469644800,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0
+      }
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/cargo-target",
+      "utc": "2026-10-19T21:18:40.272201+00:00",
+      "snapshot": {
+        "workspace_bytes": 13853757440,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "free_bytes": 25469644800,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0
+      }
+    }
+  ],
+  "next_step": "Use a separately bound continuation script to retry only the never-launched focused step with a new attempt name, then execute the unchanged complete preflight and both cohorts. Preserve original sequence and all failed step files. Same protocol, sources, executable, cell/order/sample/decision rules and guards."
+}

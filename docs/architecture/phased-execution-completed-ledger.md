@@ -17,6 +17,112 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06.rematerialization private projection experiment` — reject bounded
+  private projection regeneration at the resident sort boundary. The
+  [decision](native-rematerialization-2026-10-19.md) and
+  [portable packet](../benchmarks/evidence/rematerialization-portable-779.json)
+  preserve the protocol, all six source versions, complete results and failures.
+  - All 357 release workflows pass independent source/output/schema, activation,
+    full-dependency, actual credit release, reconstruction and cleanup checks.
+    All four memory targets pass both cohorts; wide-dependency/all-null controls
+    fail engine and complete-workflow bounds in both, and one-output fails in A.
+    The candidate is rejected without changing samples, gates or admitted shapes.
+  - The same frozen candidate passes 12 focused tests in debug/release, 81 debug
+    smoke workflows and 15 independent checker tests including 19 corrupt-record
+    mutations. Three earlier compile/test failures and one compile-only reviewed
+    attempt are preserved; none contributes comparative measurements.
+  - Independent reopening verifies all 2,177 archive members, reconstructs every
+    source version, checks 69 complete witnesses and 30 guarded receipts, and
+    recomputes the decision. Three tracked changes and six added Rust files are
+    removed. All 1,899 Rust/Cargo and 2,217 accepted runtime/Python/test/harness
+    sources remain unchanged; formatting passes. Prior broad acceptance is
+    preserved without claiming fresh runs or candidate acceptance.
+  - This is the eighth finite decision: six rejected mechanisms, one retained
+    mechanism and one no-signal attribution, with 13 first decisions remaining.
+    All 58 substeps and CG-1 through CG-23 keep their gates. The next conditional
+    investigation is complete-workflow attribution for output-window overlap.
+
+- [x] `PERF-06.merge_cost final-tail attribution` — record no eligible material
+  signal in the frozen final-stack scope. The
+  [decision](native-merge-tail-2026-10-19.md) and
+  [portable packet](../benchmarks/evidence/merge-tail-portable-778.json)
+  preserve all sources, measurements, complete values and invalid attempts.
+  - All 236 release workflows pass independent output/schema/source, stable
+    run-lineage, disk/reader accounting and cleanup verification. The 84 measured
+    observer-enabled spill workflows leave 48 one-run and 36 two-run frontiers;
+    every estimated optimal tree equals the actual tree, with zero savings.
+    No alternative schedule is implemented or accepted.
+  - All 40 debug preflight workflows, nine focused spill tests in each current
+    build and 18 oracle tests pass. Debug observations and three invalid prior
+    attempts receive no comparison credit. V3 completed one public operation
+    before its harness assertion but emitted no complete workflow or timing
+    record. The storage refusal and failed archive are retained separately.
+  - Independent reopening verifies 2,247 regular archive members and two empty
+    directories, reconstructs all four 1,901-file frozen source sets, and checks
+    every helper identity. Temporary observer/harness code is removed; all
+    1,899 Rust/Cargo and 2,217 accepted runtime/Python/test/harness source contents
+    remain unchanged. Formatting passes without repeating accepted native suites.
+  - This is the seventh finite decision: five rejected mechanisms, one retained
+    mechanism and one no-signal attribution, with 14 first decisions remaining.
+    General merge-cost, all 58 substeps and CG-1 through CG-23 retain their gates.
+    The next conditional row is derived-owner rematerialization.
+
+- [x] `PERF-10.predicate_exclusion exact-fact experiment` — reject the finite
+  one-fact-per-immutable-source candidate after both frozen comparison cohorts.
+  The [decision](native-predicate-exclusion-2026-10-19.md),
+  [candidate packet](../benchmarks/evidence/predicate-candidate-portable-770.json)
+  and [attribution packet](../benchmarks/evidence/predicate-attribution-portable-767.json)
+  preserve protocols, full results, original/final sources and failed observations.
+  - Attribution verifies 1,252 workflows/2,916 operations and material repeated
+    native predicate work for all three predefined targets in both cohorts.
+    Candidate preflight and measurement verify 1,828 workflows/4,260 operations,
+    exact values/types, source identity, activation, certificates and cleanup.
+  - All three repeated-use targets pass their engine and complete-workflow
+    benefit gates in both cohorts. Two single-call membership controls fail
+    their frozen regression bounds. All resource controls, 16 lifecycle tests
+    and 13 driver/oracle checks pass; no samples or thresholds are changed.
+  - Independent verification recomputes all 114 cells' gates and reopens every
+    member of the 211-member candidate and 123-member attribution packets.
+    Experimental runtime, observer and test changes are removed. All 1,899
+    Rust/Cargo inputs match accepted commit `896c7179`, and all 2,217 previously
+    accepted runtime/Python/test/harness source contents remain byte-identical.
+    Formatting passes; prior full acceptance is preserved without a new run.
+  - This is the sixth finite decision in the 21-row pass: five rejected and
+    one retained, with 15 first decisions remaining. Broader owners, all 58
+    substeps and CG-1 through CG-23 keep their gates. First-use summaries,
+    publication and the release decision remain separate.
+
+- [x] `PERF-10.compact_selections bounded local-width experiment` — retain
+  credited U16 local ordinals and native take indices for source extents up to
+  65,536 rows. Larger local extents and global gathers retain their checked wide
+  representation. The [acceptance record](native-compact-local-indices-2026-10-19.md)
+  and [portable packet](../benchmarks/evidence/compact-index-portable-765.json)
+  preserve the predeclared protocol, both source/build identities and all results.
+  - Both fresh-process cohorts pass all eight memory targets and every one of
+    28 throughput/memory controls. Target peak tracked memory falls 4.38–15.36%.
+    Small-case engine time increases; this is a memory result with an explicit
+    execution tradeoff, not a CPU speed improvement. The prior contiguous-range
+    rejection remains binding.
+  - All 168 preflight workflows/420 operations and 340 measured workflows/844
+    operations, including retained excluded warmups, pass independent complete
+    value/schema and ownership checks. Nine new boundary tests cover widths,
+    duplicates/order, NULLs, slices, wide gathers, denial, failure, cancellation
+    and last-owner release.
+  - Formatting, strict workspace/native lint, 3,235 workspace, 3,031 native,
+    1,087 CLI, 105 installed binding and 19 installed context tests pass. The
+    native suite has 30 opt-in ignores; installed tests have no skips. All
+    5,930 Public39 cases pass. Full43 validates 43 queries once and 381 rows and
+    schemas with 50.31151625 seconds of engine time. All 18 modular cohorts
+    match 704 native workflows to 704 independent oracle workflows. Suites overlap.
+  - Final acceptance reopens the raw comparison and every required receipt;
+    independent packaging verification checks all 17,113 archive members and
+    2,217 unchanged source inputs. Build/lint failures and helper corrections are
+    preserved. No native run, result or threshold was changed for closeout.
+  - This is the fifth finite decision in the 21-row pass; 16 first decisions
+    remain. All broader owners, 58 substeps and CG-1 through CG-23 retain their
+    gates. Hosted/platform acceptance and publication remain separate; v0.6.0
+    and the release hold are unchanged.
+
 - [x] `PERF-06 subquery predicates` — finite local acceptance completes shared
   relational `IN`, `EXISTS` and quantified `ANY`/`ALL` state with explicit native
   spill, including negation, indexed correlation and parameter-specific inner

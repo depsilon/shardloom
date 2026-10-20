@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "archive_sha256": "f68bc53968fa61fb60e0e37b0620720c52efd8596d20eb69c9f76de5fe261fd9",
+  "manifest_sha256": "978527ed228a8776fb8073acff0b4b935dcbc097565702c7d0686991641c1950",
+  "index_sha256": "7867773e6d3fd655c7d302b76ff4c1ed604827e6c3dd1a881196e3379e5450a0",
+  "members": 109,
+  "all_members_and_originals_reopened": true,
+  "source_files_verified": 2228,
+  "accepted_runtime_sources_verified": 8,
+  "exact_patch_reconstructed_files": 5,
+  "guard_receipts_and_logs_verified": 22,
+  "native_test_counts": {
+    "workspace-tests": {
+      "targets": 107,
+      "passed": 3235,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native-tests": {
+      "targets": 1,
+      "passed": 3030,
+      "failed": 0,
+      "ignored": 30
+    },
+    "native-cli-tests": {
+      "targets": 6,
+      "passed": 1087,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "installed_proof_logs": 8,
+  "installed_binding_tests": 105,
+  "installed_context_tests": 19,
+  "release_script_tests": 168,
+  "original_benchmark_scope_preserved": true,
+  "verifier_sha256": "4cf0f8badc4045b6f285b65e31925431102224416b8441ae8910a4371c01b7ee"
+}

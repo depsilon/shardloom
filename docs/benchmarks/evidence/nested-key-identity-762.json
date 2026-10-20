@@ -1,0 +1,1649 @@
+{
+  "activation_gate": {
+    "activated_target_cells": 4,
+    "activation_failures": [
+      {
+        "cell_id": "4096-list_i64-eight-parent_dictionary-unary_distinct-1",
+        "error": "('missing candidate activation', {'rows': 4096, 'shape': 'list_i64', 'domain': 'eight', 'representation': 'parent_dictionary', 'consumer': 'unary_distinct', 'calls': 1})",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        },
+        "profile": "candidate"
+      },
+      {
+        "cell_id": "4096-list_i64-eight-parent_dictionary-unary_distinct-4",
+        "error": "('missing candidate activation', {'rows': 4096, 'shape': 'list_i64', 'domain': 'eight', 'representation': 'parent_dictionary', 'consumer': 'unary_distinct', 'calls': 4})",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        },
+        "profile": "candidate"
+      },
+      {
+        "cell_id": "4096-struct_list_i64-eight-parent_dictionary-unary_distinct-1",
+        "error": "('missing candidate activation', {'rows': 4096, 'shape': 'struct_list_i64', 'domain': 'eight', 'representation': 'parent_dictionary', 'consumer': 'unary_distinct', 'calls': 1})",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        },
+        "profile": "candidate"
+      },
+      {
+        "cell_id": "4096-struct_list_i64-eight-parent_dictionary-unary_distinct-4",
+        "error": "('missing candidate activation', {'rows': 4096, 'shape': 'struct_list_i64', 'domain': 'eight', 'representation': 'parent_dictionary', 'consumer': 'unary_distinct', 'calls': 4})",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        },
+        "profile": "candidate"
+      }
+    ],
+    "all_target_counters": [
+      {
+        "cell_id": "128-list_i64-eight-parent_dictionary-unary_distinct-1",
+        "identity": {
+          "activated_owners": 1,
+          "cached_writes": 512,
+          "canonical_entries": 8,
+          "mapped_rows": 128,
+          "serialized_domain_entries": 8
+        }
+      },
+      {
+        "cell_id": "128-list_i64-eight-parent_dictionary-unary_distinct-4",
+        "identity": {
+          "activated_owners": 4,
+          "cached_writes": 2048,
+          "canonical_entries": 32,
+          "mapped_rows": 512,
+          "serialized_domain_entries": 32
+        }
+      },
+      {
+        "cell_id": "128-struct_list_i64-eight-parent_dictionary-unary_distinct-1",
+        "identity": {
+          "activated_owners": 1,
+          "cached_writes": 512,
+          "canonical_entries": 8,
+          "mapped_rows": 128,
+          "serialized_domain_entries": 8
+        }
+      },
+      {
+        "cell_id": "128-struct_list_i64-eight-parent_dictionary-unary_distinct-4",
+        "identity": {
+          "activated_owners": 4,
+          "cached_writes": 2048,
+          "canonical_entries": 32,
+          "mapped_rows": 512,
+          "serialized_domain_entries": 32
+        }
+      },
+      {
+        "cell_id": "4096-list_i64-eight-parent_dictionary-unary_distinct-1",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        }
+      },
+      {
+        "cell_id": "4096-list_i64-eight-parent_dictionary-unary_distinct-4",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        }
+      },
+      {
+        "cell_id": "4096-struct_list_i64-eight-parent_dictionary-unary_distinct-1",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        }
+      },
+      {
+        "cell_id": "4096-struct_list_i64-eight-parent_dictionary-unary_distinct-4",
+        "identity": {
+          "activated_owners": 0,
+          "cached_writes": 0,
+          "canonical_entries": 0,
+          "mapped_rows": 0,
+          "serialized_domain_entries": 0
+        }
+      }
+    ],
+    "required_target_cells": 8,
+    "status": "failed"
+  },
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 538480,
+    "file": "nested-key-identity-762.tar.xz",
+    "sha256": "cb69dbf10031801c4317685de5007d17fbbf1e0185431e7c3016d7081b899036"
+  },
+  "binary_fixture_and_cargo_outputs_copied": false,
+  "broader_owner_and_conditional_substep_remain_open": true,
+  "candidate_accepted": false,
+  "candidate_implemented": true,
+  "candidate_runtime_source_binding": {
+    "head": "35229cfa27bef38194e94cd6d1b9e3762c57b966",
+    "runtime_source_file_count": 1899,
+    "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json",
+    "source_freeze_sha256": "d49451c75e84c47141cf6f09220ece078588f0906b01b2e4f54075da30dd4cfc",
+    "tracked_source_file_count": 1895,
+    "untracked_extra_sources": [
+      {
+        "archive_path": "sources/nested-identity-preflight-761-extra-sources/shardloom-vortex/src/local_primitive_relational_nested_key_cost_tests.rs",
+        "bytes": 29939,
+        "path": "shardloom-vortex/src/local_primitive_relational_nested_key_cost_tests.rs",
+        "sha256": "b0e74f227838aea2e6e46265fcbab943cdc96471dd3d9366152d5a97e1caee67"
+      },
+      {
+        "archive_path": "sources/nested-identity-preflight-761-extra-sources/shardloom-vortex/src/local_primitives/native_relational_exact_identities.rs",
+        "bytes": 14437,
+        "path": "shardloom-vortex/src/local_primitives/native_relational_exact_identities.rs",
+        "sha256": "4f6b5b2d59fd7507f715fb65409ece56559139496cd8d054dd5bc8aac91aec7c"
+      },
+      {
+        "archive_path": "sources/nested-identity-preflight-761-extra-sources/shardloom-vortex/src/local_primitives/native_relational_exact_identities_tests.rs",
+        "bytes": 11901,
+        "path": "shardloom-vortex/src/local_primitives/native_relational_exact_identities_tests.rs",
+        "sha256": "5d5ef7f43d94e7d8af054cd6504c3c092f6d2bbf7a6b8d3389154cbc748f9740"
+      },
+      {
+        "archive_path": "sources/nested-identity-preflight-761-extra-sources/shardloom-vortex/src/local_primitives/native_relational_key_observation.rs",
+        "bytes": 4083,
+        "path": "shardloom-vortex/src/local_primitives/native_relational_key_observation.rs",
+        "sha256": "89f888d11a472fe9a56b4845d8ea1a699965ba7c95e18084378515e24ed0e546"
+      }
+    ],
+    "untracked_sources_already_included_in_runtime_count": 4,
+    "verified_against_current_worktree": true,
+    "worktree": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo"
+  },
+  "copied_test_executable": {
+    "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+    "bytes": 94899792,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-identity-preflight-761-test",
+    "sha256": "407cc36031b8dc6b254d9482ea84977ddb72d498bccc5421c4eab449bcb5a0ab"
+  },
+  "decision": {
+    "bytes": 19450,
+    "path": "evidence/nested-identity-preflight-decision-762.json",
+    "sha256": "f12764ee43b3f417df50e175c397105ed0be7e5036bf8d04af00e714f0c8e0c1"
+  },
+  "diagnosis_limit": "The counter evidence proves the missing admission, not its individual failing predicate. Source review found native sliced views outside the direct Dict/Chunked admission, but the exact rejected runtime wrapper tree was not instrumented; do not claim that inferred explanation as measured fact.",
+  "excluded_artifacts": [
+    {
+      "bytes": 94899792,
+      "category": "copied_test_executable",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-identity-preflight-761-test",
+      "sha256": "407cc36031b8dc6b254d9482ea84977ddb72d498bccc5421c4eab449bcb5a0ab",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "build_log": "evidence/nested-identity-build-761.log",
+        "build_receipt": "evidence/nested-identity-build-761.json",
+        "reproduction_command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--features",
+          "release-user-surfaces",
+          "--lib",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json",
+        "test_inventory": "evidence/nested-identity-preflight-761-test-inventory.txt"
+      }
+    },
+    {
+      "bytes": 1408,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-list_i64-all_null-parent_dictionary-left.vortex",
+      "sha256": "d81755762d791c7b63f7d5f08402f1092f462ebc41aba304e917d113e741674a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1408,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-list_i64-all_null-parent_dictionary-right.vortex",
+      "sha256": "d81755762d791c7b63f7d5f08402f1092f462ebc41aba304e917d113e741674a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1408,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-list_i64-all_null-plain-left.vortex",
+      "sha256": "d81755762d791c7b63f7d5f08402f1092f462ebc41aba304e917d113e741674a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1408,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-list_i64-all_null-plain-right.vortex",
+      "sha256": "d81755762d791c7b63f7d5f08402f1092f462ebc41aba304e917d113e741674a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1512,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-struct_list_i64-all_null-parent_dictionary-left.vortex",
+      "sha256": "9ce32f7588814f6404db57c5ee37b00256b5d5d24c9402d1a083e597f8099e2a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1512,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-struct_list_i64-all_null-parent_dictionary-right.vortex",
+      "sha256": "9ce32f7588814f6404db57c5ee37b00256b5d5d24c9402d1a083e597f8099e2a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1512,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-struct_list_i64-all_null-plain-left.vortex",
+      "sha256": "9ce32f7588814f6404db57c5ee37b00256b5d5d24c9402d1a083e597f8099e2a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 1512,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/0-struct_list_i64-all_null-plain-right.vortex",
+      "sha256": "9ce32f7588814f6404db57c5ee37b00256b5d5d24c9402d1a083e597f8099e2a",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 4620,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-eight-parent_dictionary-left.vortex",
+      "sha256": "f1b5dbb251bdb1a4c43acbf4cf62a1900c1e6c3701371a77f5ba5f07a6012cc2",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2508,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-eight-parent_dictionary-right.vortex",
+      "sha256": "ed6fc8d459ec04c01669f8b930595112a1a59fddb26540bb270d151610f2f78f",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 18360,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-eight-plain-left.vortex",
+      "sha256": "fedbd969e9e8eb590ce240989802532639c194a6e04b7ccf090a4908fe7a55cb",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2676,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-eight-plain-right.vortex",
+      "sha256": "8fb4f440bc9ed8ba7554613693247e442a68665a103446a441ed122c26234542",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 23124,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-unique-parent_dictionary-left.vortex",
+      "sha256": "7e29a4d739b60125c199a980b296bca50b00e87b5b47e51f64d956966de83808",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 9308,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-unique-parent_dictionary-right.vortex",
+      "sha256": "d14bbf2ed75b83fd179f6eb790d1c707c74bf34bacfe6fbcb9d6b96bca09f3b2",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 22504,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-unique-plain-left.vortex",
+      "sha256": "5a88d0e88a796bc6dba176fe6d6686ba6c0d759d938003ae898c864e92a137da",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 15008,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-list_i64-unique-plain-right.vortex",
+      "sha256": "b91804954cbf339b39456eac9ecf9a7982fb1e869ce1a58b49b0bf53677321a0",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 4872,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-eight-parent_dictionary-left.vortex",
+      "sha256": "65e5553aaca2aa3fed1cbae99b1b11154f8cdc90c63a74f57fe65786d0c99d10",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2864,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-eight-parent_dictionary-right.vortex",
+      "sha256": "87cb73c5ee5b0805c6a300e1bc11046eaf77a9898f33fc1f3d93afc79430490b",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 17388,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-eight-plain-left.vortex",
+      "sha256": "9e87023e5da7462f287c41f1c1ae692036013acb3966ba166f9d7c8f530d1abb",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 3060,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-eight-plain-right.vortex",
+      "sha256": "6d14fea9d95214f1521e95769611d1162386dabaa89c62b16544b0eed9eb0506",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 24352,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-unique-parent_dictionary-left.vortex",
+      "sha256": "1c9687c9a593a0db0a1232d04ff9327bfdca78a77b5ee8227230bff9fbbcbeca",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 9984,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-unique-parent_dictionary-right.vortex",
+      "sha256": "b88b883e50ed822665397dac5c0f4a9f62538914681ebb59a1de87c6fc013146",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 23732,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-unique-plain-left.vortex",
+      "sha256": "45785d4ff72746ebcb8bad37af70dcd26ce2e2442e52a0b38fd5b73cf8fe6270",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 16044,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/128-struct_list_i64-unique-plain-right.vortex",
+      "sha256": "033ddb0656c0d3d28e04cf876e2f4b3c12de38af57b28d0299e618f2025465b7",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2464,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-list_i64-all_null-parent_dictionary-left.vortex",
+      "sha256": "ebb9932b77ba9c38a469898163408e1fb083c08f8f72ead5ba8f2a25104be52f",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2104,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-list_i64-all_null-parent_dictionary-right.vortex",
+      "sha256": "b8c8d207f917647f6b73e7d4cb0d1628a0cc2e19bf948f6f39a4bd2a15c69f05",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2724,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-list_i64-all_null-plain-left.vortex",
+      "sha256": "5df3e6de690b64c60ae3133b7105de7d4c2dc2527b503d2ce3f76527661e2593",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2004,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-list_i64-all_null-plain-right.vortex",
+      "sha256": "6520fe0c375126abe2c8c6d95fe953d4263aa1058680b240368c1059d403da06",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2804,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-struct_list_i64-all_null-parent_dictionary-left.vortex",
+      "sha256": "c18574eb14d1272b571d13c2926dba928df4cf58564cf4b002a2a574c90ba3f9",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2444,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-struct_list_i64-all_null-parent_dictionary-right.vortex",
+      "sha256": "5d5ce1699471177f0e896380a3d16f8f16d64cddb5da024da12db23d19c42a82",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 3312,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-struct_list_i64-all_null-plain-left.vortex",
+      "sha256": "22688b30357a7ec74bb56c9543a76b1aa74db9854d0a0716267ad1d58eaf5135",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2352,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/32-struct_list_i64-all_null-plain-right.vortex",
+      "sha256": "153f510fcd80d90fbfd65fc8a771a1fb3b312d61e945875f252747f76ce17fb1",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 76364,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-eight-parent_dictionary-left.vortex",
+      "sha256": "046aae0856d2f358cfd2b74a25df57b8d683da1955232a3bbfd0200d32fdb338",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2508,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-eight-parent_dictionary-right.vortex",
+      "sha256": "ed6fc8d459ec04c01669f8b930595112a1a59fddb26540bb270d151610f2f78f",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 533200,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-eight-plain-left.vortex",
+      "sha256": "a4cfce46ce6658d38fd3e1a21d57ffa410f0e73e108f0e741444051e2eff3ebe",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2676,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-eight-plain-right.vortex",
+      "sha256": "8fb4f440bc9ed8ba7554613693247e442a68665a103446a441ed122c26234542",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 691180,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-unique-parent_dictionary-left.vortex",
+      "sha256": "69b364796f0f78baea555ee5812b0cde8d4b1fb794df8268311b9409bf22f2c4",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 240860,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-unique-parent_dictionary-right.vortex",
+      "sha256": "614b4b261420b616ab8002173450470b6c4ae439fac308f96d57b2c7e7d0be60",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 672944,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-unique-plain-left.vortex",
+      "sha256": "399d8513833a6940f69b5b4845de6aef8836f2980b488cea5c8fa34dd31e4d8b",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 427256,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-list_i64-unique-plain-right.vortex",
+      "sha256": "b399b7976f5f209b1be816079c8de02a5b2bf1a4eac178147a6dbd3922aae5e1",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 78648,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-eight-parent_dictionary-left.vortex",
+      "sha256": "e965d3761e4c42d6d5dba46109d9bc753259b306553818cb6ba180e6f330c883",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 2864,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-eight-parent_dictionary-right.vortex",
+      "sha256": "87cb73c5ee5b0805c6a300e1bc11046eaf77a9898f33fc1f3d93afc79430490b",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 495892,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-eight-plain-left.vortex",
+      "sha256": "61ac5bf245b824a79a29f6ea0b1bcb4e71dcfb7aab406d2dd134d44e8f42e8fb",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 3060,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-eight-plain-right.vortex",
+      "sha256": "6d14fea9d95214f1521e95769611d1162386dabaa89c62b16544b0eed9eb0506",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 727064,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-unique-parent_dictionary-left.vortex",
+      "sha256": "59e5d2d67e73288789a745bad18a345631e347a1791d632ccf9069ea94694194",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 253936,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-unique-parent_dictionary-right.vortex",
+      "sha256": "f83de269f30fe9d7706f395ecafde6a94b112dc07ba841fb9ec4c6d711052c1c",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 708956,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-unique-plain-left.vortex",
+      "sha256": "71868c60b0b83db0eab6287ad5c4acbcfcdb51cbdf2c903963513d8c4300340c",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    },
+    {
+      "bytes": 451492,
+      "category": "vortex_fixture_payload",
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/nested-key-attribution-identity-761-a1/fixtures/4096-struct_list_i64-unique-plain-right.vortex",
+      "sha256": "319b46ff84322d237b0091f23658d4781282b53177bd4dd3e7ccce108c2235fb",
+      "source_reproduction": {
+        "artifact_record": "evidence/nested-identity-preflight-761-artifact.json",
+        "data_directory": "nested-key-attribution-identity-761-a1",
+        "driver": "tools/nested_identity_driver_761.py",
+        "manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+        "mode": "fixtures",
+        "reproduction_command": [
+          "python3",
+          "nested_identity_driver_761.py",
+          "run",
+          "--label",
+          "nested-identity-preflight-761",
+          "--name",
+          "nested-identity-fixtures-reproduction",
+          "--mode",
+          "fixtures",
+          "--data",
+          "nested-key-attribution-identity-761-a1"
+        ],
+        "source_freeze": "evidence/nested-identity-preflight-761-source-freeze.json"
+      }
+    }
+  ],
+  "excluded_cargo_outputs": {
+    "aggregate_bytes": 1190058451,
+    "exact_paths_are_recorded_in": [
+      "evidence/nested-identity-build-761.log",
+      "evidence/nested-identity-clippy-761.log",
+      "evidence/nested-identity-clippy-coverage-761.log",
+      "evidence/nested-identity-clippy-final-761.log",
+      "evidence/nested-identity-clippy-fixed-761.log",
+      "evidence/nested-identity-identities-regressions-761.log",
+      "evidence/nested-identity-keys-regressions-761.log",
+      "evidence/nested-identity-membership-regressions-761.log",
+      "evidence/nested-identity-preflight-driver-761.log",
+      "evidence/nested-identity-preflight-run-761.log",
+      "evidence/nested-identity-relational-regressions-761.log",
+      "evidence/nested-identity-unary-regressions-761.log"
+    ],
+    "source_reproduction": {
+      "build_log": "evidence/nested-identity-build-761.log",
+      "build_receipt": "evidence/nested-identity-build-761.json",
+      "command": "cargo test --offline --locked --release -p shardloom-vortex --features release-user-surfaces --lib --no-run --message-format=json"
+    },
+    "status": "rebuildable_packaging_time_inventory",
+    "suffix_counts": {
+      ".dylib": 26,
+      ".rlib": 310,
+      ".rmeta": 310,
+      "<none>": 39
+    },
+    "unique_paths": 685
+  },
+  "failed_initial_evidence": [
+    "evidence/nested-identity-clippy-761.json",
+    "evidence/nested-identity-clippy-761.log",
+    "evidence/nested-identity-preflight-driver-761.log"
+  ],
+  "fixture_witness_coverage": {
+    "decision_verified_witness_count": 92,
+    "fixture_count": 48,
+    "fixtures_manifest": "evidence/nested-key-attribution-identity-761-a1/fixtures.json",
+    "raw_preflight_jsonl": "evidence/nested-key-attribution-identity-761-a1/preflight-preflight.jsonl",
+    "witness_count": 96,
+    "witness_files_not_listed_as_verified": [
+      "nested-key-attribution-identity-761-a1/witnesses/150295f49eb406fbd0d08008b97c58863c5c1ce85c1860d5171c4610691af8a6.json",
+      "nested-key-attribution-identity-761-a1/witnesses/1c773607c651791a47402c0b8af09c6e46de3af9b46d13935a072426e7458c06.json",
+      "nested-key-attribution-identity-761-a1/witnesses/2f247b8c4fe180f945526561f639d59421666c1cee20a391de3c9ef4da7379f1.json",
+      "nested-key-attribution-identity-761-a1/witnesses/36c99b835b0fb2c01aebc549879d50632866811a37494121176a0b47195338d1.json"
+    ]
+  },
+  "manifest": {
+    "bytes": 8084,
+    "file": "nested-key-identity-762.manifest.json.xz",
+    "sha256": "4619bd96b796bc55dbfe16179328c16742f52fc3ff967c31f935035b9e9cff9b"
+  },
+  "member_count": 154,
+  "next_mechanism_requirement": "Any future identity mechanism requires a newly frozen provider/wrapper admission design, full target activation, and the original semantic/resource controls before benefit measurement.",
+  "no_measurement_files": true,
+  "outcome": "finite_candidate_rejected_missing_required_activation",
+  "owner": "PERF-05.nested_identity",
+  "production_accepted": false,
+  "protocol": {
+    "path": "evidence/nested-key-identity-protocol-761.json",
+    "sha256": "e083f4c3e25e5a85d3574aaf1b34d4fc30d76ccd46313dd5958cb4b19e6751e9"
+  },
+  "raw_preflight_sha256": "6df9bb292970ab28149f7ba88d226d4bcb8eb44f051649a38c9965cafd42f545",
+  "root_cause_measured": false,
+  "schema_version": "shardloom.nested_key_identity_preflight_packet.v1",
+  "scope": "frozen nested identity candidate rejected in preflight before performance comparison",
+  "semantics_and_resources": {
+    "native_certificates_and_resource_cleanup": "passed",
+    "operations": 704,
+    "workflows": 320
+  },
+  "separate_attribution_packet_reference": "nested-key-attribution-760.* (copied unchanged as a separate packet)",
+  "timing_comparison_started": false,
+  "uncompressed_bytes": 15945678
+}

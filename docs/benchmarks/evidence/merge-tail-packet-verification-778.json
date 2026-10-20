@@ -1,0 +1,68 @@
+{
+  "status": "passed",
+  "production_optimization": false,
+  "scope_result": "no_signal",
+  "packet": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-portable-778/merge-tail-portable-778.json",
+    "bytes": 28644,
+    "sha256": "5dd870ba15069677b7bc2298205974717ccb303ac0896b51be2d03477453d3ae"
+  },
+  "archive_sha256": "16cf7ba66408ff8cdb5c44768a1cc6579f1bf88d86987efaed5dad4b9d719cc0",
+  "manifest_sha256": "655957a93c17d01eee81205dd96c831fb3b0ecd2a6be8307c675a615b3f0b819",
+  "member_count": 2247,
+  "empty_directories_verified": 2,
+  "all_members_and_original_bytes_verified": true,
+  "reconstructed_versions": [
+    {
+      "label": "merge-tail-attribution-771-a1",
+      "source_files": 1901,
+      "helpers": 23,
+      "all_source_and_helper_identities_match": true
+    },
+    {
+      "label": "merge-tail-attribution-773-a1",
+      "source_files": 1901,
+      "helpers": 28,
+      "all_source_and_helper_identities_match": true
+    },
+    {
+      "label": "merge-tail-attribution-774-a1",
+      "source_files": 1901,
+      "helpers": 32,
+      "all_source_and_helper_identities_match": true
+    },
+    {
+      "label": "merge-tail-attribution-776-a1",
+      "source_files": 1901,
+      "helpers": 39,
+      "all_source_and_helper_identities_match": true
+    }
+  ],
+  "guarded_receipts_with_exact_logs": 31,
+  "release_workflows": 236,
+  "debug_workflows_without_decision_credit": 40,
+  "invalid_attempt_recorded_workflows": 0,
+  "v3_partial_completed_public_operations": 1,
+  "streams": {
+    "raw-v4": {
+      "streams": 6,
+      "workflows": 236,
+      "witnesses": 34
+    },
+    "debug-v4": {
+      "streams": 2,
+      "workflows": 40,
+      "witnesses": 34
+    }
+  },
+  "restoration_plan": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-restoration-plan-778.json",
+    "bytes": 1758,
+    "sha256": "c61d974e3a641f762be6e4b7e8e0074ae6623ee6d444f925b786ace36d1566f8"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_merge_tail_packet_778.py",
+    "bytes": 13173,
+    "sha256": "527b4c5cc9b6eb8544d6d468481e4c4e09ab3e74cce09bbf3af25d11406f6cc3"
+  }
+}

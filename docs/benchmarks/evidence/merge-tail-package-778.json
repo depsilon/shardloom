@@ -1,0 +1,536 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_merge_tail_778.py"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "working_tree": " M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n M shardloom-vortex/src/local_primitives/native_relational_spill.rs\n?? docs/architecture/native-merge-tail-design-2026-10-19.md\n?? shardloom-vortex/src/local_primitive_relational_merge_cost_tests.rs\n?? shardloom-vortex/src/local_primitives/native_merge_cost_observation.rs\n",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "driver_sha256": "81cb5075bbb437ba01a5d8f007416833668942d65444c282ceceefcca8f0cc8c",
+  "host": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "samples": [
+      {
+        "utc": "2026-10-19T22:00:14.971647+00:00",
+        "load_average": [
+          1.6962890625,
+          1.9208984375,
+          2.0751953125
+        ],
+        "vm_stat": {
+          "Pages free": 109280,
+          "Pages inactive": 261642,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 337820,
+          "Anonymous pages": 289760,
+          "Pages occupied by compressor": 109898,
+          "Decompressions": 233944653,
+          "Compressions": 397180703,
+          "Pageins": 401933264,
+          "Pageouts": 149923,
+          "Swapins": 2234750,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": []
+      },
+      {
+        "utc": "2026-10-19T22:00:17.284953+00:00",
+        "load_average": [
+          1.80029296875,
+          1.9384765625,
+          2.08056640625
+        ],
+        "vm_stat": {
+          "Pages free": 99479,
+          "Pages inactive": 261450,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 337610,
+          "Anonymous pages": 299631,
+          "Pages occupied by compressor": 109881,
+          "Decompressions": 233944671,
+          "Compressions": 397180703,
+          "Pageins": 401933284,
+          "Pageouts": 149923,
+          "Swapins": 2234750,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 100.0,
+            "rss_bytes": 169705472,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:19.569173+00:00",
+        "load_average": [
+          1.80029296875,
+          1.9384765625,
+          2.08056640625
+        ],
+        "vm_stat": {
+          "Pages free": 99386,
+          "Pages inactive": 261495,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 337656,
+          "Anonymous pages": 299758,
+          "Pages occupied by compressor": 109864,
+          "Decompressions": 233944689,
+          "Compressions": 397180703,
+          "Pageins": 401933288,
+          "Pageouts": 149923,
+          "Swapins": 2234750,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 98.2,
+            "rss_bytes": 163921920,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:21.854722+00:00",
+        "load_average": [
+          1.89599609375,
+          1.9560546875,
+          2.0859375
+        ],
+        "vm_stat": {
+          "Pages free": 99173,
+          "Pages inactive": 261535,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 337696,
+          "Anonymous pages": 301327,
+          "Pages occupied by compressor": 109862,
+          "Decompressions": 233944693,
+          "Compressions": 397180703,
+          "Pageins": 401933291,
+          "Pageouts": 149923,
+          "Swapins": 2234750,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 99.0,
+            "rss_bytes": 172228608,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:24.135786+00:00",
+        "load_average": [
+          1.89599609375,
+          1.9560546875,
+          2.0859375
+        ],
+        "vm_stat": {
+          "Pages free": 98715,
+          "Pages inactive": 261595,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 337741,
+          "Anonymous pages": 301341,
+          "Pages occupied by compressor": 109862,
+          "Decompressions": 233944696,
+          "Compressions": 397180703,
+          "Pageins": 401933296,
+          "Pageouts": 149923,
+          "Swapins": 2234750,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 99.5,
+            "rss_bytes": 171458560,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:26.421664+00:00",
+        "load_average": [
+          1.89599609375,
+          1.9560546875,
+          2.0859375
+        ],
+        "vm_stat": {
+          "Pages free": 98588,
+          "Pages inactive": 261636,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 337782,
+          "Anonymous pages": 301956,
+          "Pages occupied by compressor": 109857,
+          "Decompressions": 233944709,
+          "Compressions": 397180703,
+          "Pageins": 401933299,
+          "Pageouts": 149923,
+          "Swapins": 2234750,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 100.0,
+            "rss_bytes": 181125120,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:28.704805+00:00",
+        "load_average": [
+          1.904296875,
+          1.95654296875,
+          2.0849609375
+        ],
+        "vm_stat": {
+          "Pages free": 94028,
+          "Pages inactive": 262321,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 338467,
+          "Anonymous pages": 301779,
+          "Pages occupied by compressor": 109850,
+          "Decompressions": 233944729,
+          "Compressions": 397180703,
+          "Pageins": 401933302,
+          "Pageouts": 149923,
+          "Swapins": 2234754,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 99.4,
+            "rss_bytes": 191201280,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:30.991291+00:00",
+        "load_average": [
+          1.904296875,
+          1.95654296875,
+          2.0849609375
+        ],
+        "vm_stat": {
+          "Pages free": 94913,
+          "Pages inactive": 262372,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 338518,
+          "Anonymous pages": 301280,
+          "Pages occupied by compressor": 109850,
+          "Decompressions": 233944732,
+          "Compressions": 397180703,
+          "Pageins": 401933307,
+          "Pageouts": 149923,
+          "Swapins": 2234754,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 100.0,
+            "rss_bytes": 181174272,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:33.281191+00:00",
+        "load_average": [
+          2.15185546875,
+          2.0068359375,
+          2.1015625
+        ],
+        "vm_stat": {
+          "Pages free": 96212,
+          "Pages inactive": 262410,
+          "Pages reactivated": 335548388,
+          "File-backed pages": 338551,
+          "Anonymous pages": 300334,
+          "Pages occupied by compressor": 109850,
+          "Decompressions": 233944734,
+          "Compressions": 397180703,
+          "Pageins": 401933310,
+          "Pageouts": 149923,
+          "Swapins": 2234754,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 99.0,
+            "rss_bytes": 177864704,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:35.565332+00:00",
+        "load_average": [
+          2.15185546875,
+          2.0068359375,
+          2.1015625
+        ],
+        "vm_stat": {
+          "Pages free": 95403,
+          "Pages inactive": 262469,
+          "Pages reactivated": 335548396,
+          "File-backed pages": 338604,
+          "Anonymous pages": 300605,
+          "Pages occupied by compressor": 109840,
+          "Decompressions": 233944745,
+          "Compressions": 397180703,
+          "Pageins": 401933315,
+          "Pageouts": 149923,
+          "Swapins": 2234754,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 99.5,
+            "rss_bytes": 186204160,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:37.853964+00:00",
+        "load_average": [
+          2.0595703125,
+          1.98974609375,
+          2.0947265625
+        ],
+        "vm_stat": {
+          "Pages free": 95243,
+          "Pages inactive": 262516,
+          "Pages reactivated": 335548446,
+          "File-backed pages": 338651,
+          "Anonymous pages": 301180,
+          "Pages occupied by compressor": 109839,
+          "Decompressions": 233944746,
+          "Compressions": 397180703,
+          "Pageins": 401933318,
+          "Pageouts": 149923,
+          "Swapins": 2234754,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 100.0,
+            "rss_bytes": 195870720,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:40.145512+00:00",
+        "load_average": [
+          2.0595703125,
+          1.98974609375,
+          2.0947265625
+        ],
+        "vm_stat": {
+          "Pages free": 95741,
+          "Pages inactive": 262592,
+          "Pages reactivated": 335548446,
+          "File-backed pages": 338727,
+          "Anonymous pages": 300604,
+          "Pages occupied by compressor": 109838,
+          "Decompressions": 233944760,
+          "Compressions": 397180703,
+          "Pageins": 401933321,
+          "Pageouts": 149923,
+          "Swapins": 2234758,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 100.0,
+            "rss_bytes": 195870720,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:42.432596+00:00",
+        "load_average": [
+          2.0546875,
+          1.98974609375,
+          2.09375
+        ],
+        "vm_stat": {
+          "Pages free": 96244,
+          "Pages inactive": 262678,
+          "Pages reactivated": 335548446,
+          "File-backed pages": 338813,
+          "Anonymous pages": 300538,
+          "Pages occupied by compressor": 109837,
+          "Decompressions": 233944763,
+          "Compressions": 397180703,
+          "Pageins": 401933324,
+          "Pageouts": 149923,
+          "Swapins": 2234758,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 100.0,
+            "rss_bytes": 195493888,
+            "executable": "python3"
+          }
+        ]
+      },
+      {
+        "utc": "2026-10-19T22:00:44.721466+00:00",
+        "load_average": [
+          2.0546875,
+          1.98974609375,
+          2.09375
+        ],
+        "vm_stat": {
+          "Pages free": 95603,
+          "Pages inactive": 262771,
+          "Pages reactivated": 335548446,
+          "File-backed pages": 338908,
+          "Anonymous pages": 300566,
+          "Pages occupied by compressor": 109836,
+          "Decompressions": 233944768,
+          "Compressions": 397180703,
+          "Pageins": 401933327,
+          "Pageouts": 149923,
+          "Swapins": 2234758,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83859,
+            "parent_pid": 83845,
+            "process_group": 83859,
+            "sampled_cpu_percent": 99.3,
+            "rss_bytes": 195493888,
+            "executable": "python3"
+          }
+        ]
+      }
+    ],
+    "scope": "Host load and sampled process CPU/RSS are context, not exclusive attribution or an RSS ceiling.",
+    "physical_memory_bytes": 17179869184,
+    "final": {
+      "utc": "2026-10-19T22:00:46.532860+00:00",
+      "load_average": [
+        2.0546875,
+        1.98974609375,
+        2.09375
+      ],
+      "vm_stat": {
+        "Pages free": 108853,
+        "Pages inactive": 262795,
+        "Pages reactivated": 335548446,
+        "File-backed pages": 338932,
+        "Anonymous pages": 287846,
+        "Pages occupied by compressor": 109829,
+        "Decompressions": 233944812,
+        "Compressions": 397180703,
+        "Pageins": 401933332,
+        "Pageouts": 149923,
+        "Swapins": 2234758,
+        "Swapouts": 3272557
+      },
+      "vm_page_size_bytes": 16384
+    }
+  },
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 6535405679,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 25173200896,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 13853863936,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 25173200896,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 1800.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 83859,
+  "output_bytes": 307,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 31.540868457988836,
+  "log_sha256": "baf0ed3bb30722175bfce7fef40e00675afe2a122f4acb323cf4e8d14e966358"
+}

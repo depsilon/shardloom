@@ -1,0 +1,71 @@
+{
+  "schema_version": "shardloom.predicate_exclusion_candidate_protocol.v1",
+  "protocol_id": "predicate-exclusion-candidate-768-v1",
+  "owner": "PERF-10.predicate_exclusion",
+  "status": "frozen_before_candidate_implementation_and_measurement",
+  "production_commit": "896c71793a8859a6b4770bbc8a9fe0b85d755cf8",
+  "prerequisite": {
+    "protocol": "predicate-exclusion-attribution-protocol-766.json",
+    "protocol_sha256": "153892a4e056c9adf769dd65ba758ec304f70a2f8d62111d3b96197842d9a5e3",
+    "verification": "predicate-exclusion-verification-767.json",
+    "result": "All three predefined targets qualify in both complete attribution cohorts; 1252 workflows, 2916 operations and 42 complete-content witnesses passed independent verification.",
+    "packet": "predicate-attribution-portable-767/predicate-attribution-portable-767.json"
+  },
+  "design": {
+    "mechanism": "At most one exact whole-source no-TRUE predicate fact per immutable ResidentMemorySource owner. The existing Vortex-native expression/mask/filter executes the first call. A later matching native relational scan may skip all source ranges only after a completed earlier collect_jsonl operation published its fact. This is source/predicate evidence, not a cached aggregate, row result, or precomputed answer.",
+    "provider_decision": "wrap_vortex_concept: retain the existing pinned Vortex 0.85.0 bound expression, BoolArray, mask, native filter and native arrays. The wrapper binds ShardLoom source ownership, typed PredicateExpr identity, complete region coverage, memory admission and whole-operation completion. No new dependency, external executor, persisted metadata or Arrow execution substrate.",
+    "source_identity": "The Arc-owned immutable source itself owns its sole fact. Source replacement, even with byte-identical values, creates a different fact owner. Schema, nullability, native buffers and source extent are immutable for that owner. No file/path/mtime identity, mutable access/deletion state, generated range, private producer batch or cross-session ownership is eligible.",
+    "admission": "Only ordinary immutable memory sources of 8192..=65536 rows and session memory limit at least 16 MiB. Only a fully native filter with no residual, no projection-level limit and a complete original typed predicate is eligible. Admit Int64 Compare with Int64 literal; nonnegated Int64 InList with 1..=32 Int64 literals; nonnegated Utf8 StringContains with at most 256 literal bytes; and And of 1..=4 admitted leaves at depth at most 2. Column identifiers are at most 256 bytes. Other forms retain ordinary native execution. Types and nullability are bound by the exact immutable source dtype. Binary string semantics are the existing provider's semantics; temporal, floating, extension, collation-dependent and unsafe negation rules are outside admission.",
+    "key_and_credit": "Keep the complete PredicateExpr tree, including ordered nodes, column names, operation, typed literal values, membership order, needle and negation. Equality is exact typed equality, with no hash-only proof and no predicate-summary string. Reserve a separate conservative metadata credit before cloning a key; at least 512 bytes plus 256 bytes per node plus owned column/literal bytes, capped at 16384 bytes. A prepared memory projection and a retained fact may share the same credited Arc key. Optional key admission requires at least its charge plus 64 KiB free headroom; failure bypasses this optimization. Clear the source's retained fact under preparation pressure below 96 KiB available. Concurrent reservation denial remains visible in the existing shared pool; it must never produce an incorrect result or external fallback.",
+    "coverage_and_completion": "Every ordered 8192-row source range must complete native predicate evaluation and WHERE filtering, and all ranges must produce zero selected rows. Only then stage one provisional fact in the current whole-operation metrics. At most one provisional fact is retained per operation. Partial scans, Limit(0), cancellation, source validation, consumer, serialization, schema, allocation or cleanup failures cannot publish it. collect_jsonl publishes only after its final JSON/schema/certificate finish and final cooperative cancellation check succeed. Pending ownership is discarded on every error. Lookup may use an already completed fact in other native relational consumers, but those consumers do not publish new facts in this finite candidate.",
+    "replacement_and_lifetime": "One slot per immutable source; completing a different eligible no-TRUE predicate replaces the old fact. No global table, cross-source reuse or persistence. A matching fact survives unrelated successful positive queries but cannot prove a different predicate. Replacement, pressure eviction and source destruction release their owned references; the credit remains live while any prepared key still owns it. The source/cache/key graph has no ownership cycle. Contended or poisoned optional cache locks cause a miss or discarded publication, never a result change.",
+    "certificate_and_clocks": "Report exact predicate-excluded scan/row counts in the native certificate alongside existing scan counters. Include key admission in preparation, lookup/staging in engine execution, publication and final snapshot in engine execution, and all output/key/source destruction in complete workflow time. Existing engine/serialization clocks keep their meanings; publication occurs after sink finish and its measured tail is added to engine time. No new public option or benchmark-based routing.",
+    "source_anchors": [
+      "shardloom-vortex/src/resident_memory_source.rs: immutable owner, prepared projection and native filter/mask",
+      "shardloom-vortex/src/local_primitive_relational_bind.rs: original typed predicate and fully native/residual split",
+      "shardloom-vortex/src/local_primitive_relational_scan.rs: complete ordered source range loop",
+      "shardloom-vortex/src/local_primitive_prepared_relational.rs: per-operation metrics, final source validation, collect_jsonl completion",
+      "shardloom-vortex/src/local_primitive_relational_report.rs: Native I/O certificate"
+    ]
+  },
+  "comparison": {
+    "binary": "One freshly compiled release test executable with a test-only disable switch. Both roles use the identical native source/harness and enabled predicate-work observer. Baseline disables all candidate key admission, lookup, staging and publication. Candidate uses its ordinary admitted behavior. Production builds have no experiment switch or observation counters. Exact source/helper/executable identities are checked around every run.",
+    "rows": [8192, 65536],
+    "families": ["correlated", "membership", "contains"],
+    "scenarios": ["no_true", "positive", "all_null", "changed_parameters", "replaced_source", "interleaved_parameters"],
+    "additional_shape": {"family": "unfiltered", "scenario": "unfiltered"},
+    "calls": [1, 2, 4],
+    "cells": 114,
+    "source_and_predicates": "Use the exact attribution protocol's source formulas, field order, nullable x/y/text and nonnullable g/v, predicate families and NULL-as-nonpassing WHERE semantics. For replaced_source and interleaved_parameters use its base no_true source values. In changed_parameters k=call; in interleaved_parameters k=call%2; otherwise k=0. For replaced_source create a distinct immutable source per call in the same session; values/schema are equal but owner identity is never shared. All other scenarios use one immutable source across all calls.",
+    "operations": "Same real native consumers as attribution: even calls COUNT(*) AS rows with nonnullable U64, odd calls GROUP BY nonnullable Int64 g and SUM(v) AS nullable Float64 total followed by g ASC NULLS LAST. Construct every source and prepared plan inside the compared preparation clock. Every operation returns and consumes complete JSONL and schema through collect_jsonl. Drop every result inside the workflow and every prepared/source/session owner before cleanup verification.",
+    "preflight_rows": [0, 17, 8192, 65536],
+    "preflight_workflows": 456,
+    "preflight_operations": 1064,
+    "samples_per_cell_role_cohort": 3,
+    "cohorts": ["A", "B"],
+    "order": "A runs baseline then candidate. B runs candidate then baseline and reverses the full cell order. Each role/cohort is one fresh guarded process. Within a cell use samples 0,1,2. Both measured cohorts finish before any comparative analysis.",
+    "warmup": "Exactly one fresh-source 8192-row unfiltered one-call workflow per measured role/cohort; preserve and exclude it from decisions.",
+    "measured_workflows_including_warmups": 1372,
+    "measured_operations_including_warmups": 3196,
+    "resources": {"memory_bytes": 33554432, "cpu_lanes": 1, "provider_background_workers": 0},
+    "clocks": "Primary: sum of engine_execution_ns across complete calls. Complete: session creation, all source intake, all plan construction/preparation, all complete operation/result consumption and release, then all owner destruction. Fixture/oracle generation and witness I/O are outside both roles' compared clocks. Record admission/lookup/staging/publication/replacement/pressure-eviction/key-release counts, native filter/mask counts and durations, complete output witnesses, source witnesses and exact dtypes. Component counters never replace whole-workflow clocks.",
+    "activation": "Baseline cache counters are all zero and native observations cover every filtered call. In candidate rows below 8192 and unfiltered shapes are entirely unadmitted. Otherwise every prepared call admits one key and makes one lookup. no_true/all_null share one fact: call 0 evaluates all rows and publishes once, later calls hit and observe zero native filter/mask work. positive evaluates every call and never stages/publishes. changed_parameters/interleaved_parameters evaluate every call, stage/publish each, replace calls-1 facts, and never hit. replaced_source evaluates every call and publishes one fact per owner, with no hit or replacement. Cumulative admitted key count is calls; no key is released before all plans are dropped; final release count equals admitted keys. All ordinary records have zero pressure evictions and no denied reservations. All complete source/result/schema witnesses and certificates must match the independent oracle. Session completed_executions is call+1 and workflow calls; all owners leave zero reservations after destruction. Preflight must prove every target's exact activation before measurements.",
+    "decisions": {
+      "targets": "Exactly three targets: 65536/no_true/four-calls, one per family. Each target must reduce median engine time by at least 20% AND 2000000 ns in EACH cohort, and reduce median complete workflow time by at least 15% AND 2000000 ns in EACH cohort. All three targets must pass; no substitutions or aggregate-only rescue.",
+      "controls": "All 114 cells in both cohorts: reject if candidate median engine time OR complete workflow time increases by BOTH more than 5% and more than 250000 ns. Retain every cell, sample and excluded warmup. No cell may increase median peak tracked reservations by more than 65536 bytes. All semantic, activation, certificate and zero-cleanup checks are mandatory.",
+      "retain": "Passing candidate comparison permits full integration acceptance, not immediate production acceptance. Retain only after focused lifecycle tests, strict fmt/clippy, workspace and native suites, native CLI, clean installed Python, Public39, one Full43 pass and all 18 modular workflow cohorts pass on exact final sources. Independent packet reopening and source binding are required.",
+      "reject": "Any semantic/resource or activation failure stops before timing. Preserve failed evidence, and repair only demonstrated harness or implementation defects without weakening scope/gates. A valid completed comparison failing targets or controls rejects this finite mechanism. Archive and remove experimental runtime/harness changes; preserve accepted compact-index production. New mechanisms require a new protocol; do not retune thresholds or select samples after observation."
+    }
+  },
+  "focused_contracts": [
+    "Exact count and grouped-sum results for empty, no-TRUE, TRUE, all-null, mixed-null and changed parameters; unrelated and negated predicates cannot reuse no-TRUE facts.",
+    "Same-source/same-key hit and exact native certificate; changed typed literals, columns, operators, needle or membership values miss; replacement source and foreign session do not reuse.",
+    "Full range coverage: source greater than one native block, positive row in the final block, Limit(0), injected cancellation after a real first block and pre-cancelled calls cannot publish false facts.",
+    "Late failed consumer/JSON serialization after complete scan, failure before final publication and reservation denial discard pending facts; a subsequent successful query reevaluates and only then publishes.",
+    "One-slot replacement and return to an older predicate; pressure eviction/optional admission bypass; metadata reservations survive while keys are retained and reach zero after owner cleanup.",
+    "Concurrent same-source queries may miss or replace but always produce correct complete values without poisoned-lock reuse or cycles; source destruction and retained result ownership remain safe.",
+    "Admission boundaries at 8191/8192/65536 and outside finite scope; generated/private-batch/limited/residual/unsupported typed predicates keep existing native behavior."
+  ],
+  "supervision": {"minimum_free_gib": 12, "maximum_workspace_gib": 100, "maximum_experiment_log_mib": 192, "maximum_command_output_mib": 8, "concurrent_native_jobs": 1, "timeout_seconds": 1800},
+  "claims": {"production_accepted": false, "cpu_speedup": false, "whole_process_memory_limit": false, "broader_conditional_closed": false, "package_publication": false, "external_runtime_fallback": false}
+}

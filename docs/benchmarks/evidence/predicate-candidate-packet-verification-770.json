@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "scope_result": "candidate_comparison_rejected",
+  "production_accepted": false,
+  "packet": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-portable-770/predicate-candidate-portable-770.json",
+    "bytes": 45698,
+    "sha256": "1b85ad7e5272cf709c9b1211bb8709f53dda193e597885095996d113729f0b88"
+  },
+  "archive_sha256": "20abde8b9c57916a97cc4a9cbf478c0e395bd96a96f2790258029c40860acb4c",
+  "manifest_sha256": "ae52d31cadeea1542fb010b124c24d53631e8e3cb7ba4962d4c5c71a0613da48",
+  "members": 211,
+  "all_archive_members_and_original_bytes_verified": true,
+  "guarded_receipts_with_exact_logs": 15,
+  "candidate_source_inputs": 1904,
+  "workflows": 1828,
+  "operations": 4260,
+  "full_content_witnesses": 42,
+  "attribution_packet": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-portable-767/predicate-attribution-portable-767.json",
+    "bytes": 13412,
+    "sha256": "ed05b9cc8d6c2626adc2a56700eaa62acb67a9ccecd77263c602113ea60494e9"
+  },
+  "attribution_members_reopened": 123,
+  "restoration_plan": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-restoration-plan-770.json",
+    "bytes": 4345,
+    "sha256": "532db9a710645a594e4c8a60256cbb90545b8cc1d012d5470f3f9efa79397155"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_predicate_candidate_packet_770.py",
+    "bytes": 7445,
+    "sha256": "2b74f37406ed313f4a73729fdb83b0d55b818ad925764e7c0bb93c7104141fbe"
+  },
+  "package_review": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-packager-review-770.json",
+    "bytes": 1174,
+    "sha256": "2d71d7a5fa0dd97ab577d5ee9d02396c33b5f58c1488d3c43dcd6ed8ae0aab5e"
+  },
+  "comparison_or_native_source_changed": false
+}

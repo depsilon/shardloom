@@ -91,11 +91,11 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
         "dependency": "serde_json",
         "expected_manifest": "shardloom-vortex/Cargo.toml",
         "expected_manifest_version": "1.0",
-        "expected_lock_versions": {"serde_json": "1.0.151"},
+        "expected_lock_versions": {"serde_json": "1.0.154"},
         "review_doc": "docs/dependencies/json-digest-dependency-review.md",
         "review_markers": [
             "https://github.com/depsilon/shardloom/pull/1151",
-            "serde_json = 1.0.151",
+            "serde_json = 1.0.154",
             "MIT OR Apache-2.0",
             "fallback execution",
         ],
@@ -104,11 +104,11 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
         "dependency": "sha2",
         "expected_manifest": "shardloom-vortex/Cargo.toml",
         "expected_manifest_version": "0.11",
-        "expected_lock_versions": {"sha2": "0.11.0", "digest": "0.11.3"},
+        "expected_lock_versions": {"sha2": "0.11.1", "digest": "0.11.3"},
         "review_doc": "docs/dependencies/json-digest-dependency-review.md",
         "review_markers": [
             "Dependabot PR <https://github.com/depsilon/shardloom/pull/1152>",
-            "sha2 = 0.11.0",
+            "sha2 = 0.11.1",
             "MIT OR Apache-2.0",
             "fallback execution",
         ],
@@ -131,6 +131,25 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
         ],
     },
 }
+
+# Historical intake IDs and superseding patch PRs share the reviewed current
+# graph. Each new PR also requires its own recorded review reference.
+ADMITTED_DEPENDABOT_PRS.update({
+    1570: {
+        **ADMITTED_DEPENDABOT_PRS[1151],
+        "review_markers": [
+            *ADMITTED_DEPENDABOT_PRS[1151]["review_markers"],
+            "https://github.com/depsilon/shardloom/pull/1570",
+        ],
+    },
+    1569: {
+        **ADMITTED_DEPENDABOT_PRS[1152],
+        "review_markers": [
+            *ADMITTED_DEPENDABOT_PRS[1152]["review_markers"],
+            "https://github.com/depsilon/shardloom/pull/1569",
+        ],
+    },
+})
 
 VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
     {

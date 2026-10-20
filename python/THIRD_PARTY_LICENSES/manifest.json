@@ -5758,11 +5758,11 @@
     },
     {
       "name": "serde_json",
-      "version": "1.0.151",
+      "version": "1.0.154",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/serde-rs/json",
-      "crate_checksum_sha256": "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14",
+      "crate_checksum_sha256": "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6",
       "files": [
         {
           "text": "texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
@@ -5780,11 +5780,11 @@
     },
     {
       "name": "sha2",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/RustCrypto/hashes",
-      "crate_checksum_sha256": "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4",
+      "crate_checksum_sha256": "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19",
       "files": [
         {
           "text": "texts/831e0f43ad0bf014c1c4fec5767aae470434c1d66d6e671be2d823e729063e25.txt",

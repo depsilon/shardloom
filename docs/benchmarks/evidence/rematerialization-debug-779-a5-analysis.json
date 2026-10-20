@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "mode": "smoke",
+  "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+  "workflows": 81,
+  "streams": [
+    {
+      "path": "smoke-retain-smoke.jsonl",
+      "sha256": "1424d69942cc47454411bf2b8e05b29ac4dbf845b6847adbc6106029cb5743dd",
+      "bytes": 235325,
+      "workflows": 27
+    },
+    {
+      "path": "smoke-spill-smoke.jsonl",
+      "sha256": "ece8f5d9166698ca3eba7a53f58977254fb3d620449e64cc3c8bce895f293d04",
+      "bytes": 244991,
+      "workflows": 27
+    },
+    {
+      "path": "smoke-regenerate-smoke.jsonl",
+      "sha256": "951f31a34c6941f8d04e68d8a6e812f3b0883aea7058fde343ba95b48d4dc336",
+      "bytes": 237850,
+      "workflows": 27
+    }
+  ],
+  "witnesses_verified": 26,
+  "source_output_schema_values_order_activation_grants_and_cleanup": true
+}

@@ -1,0 +1,665 @@
+{
+  "accepted_base_inventory": {
+    "bytes": 357027,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-accepted-base-774.json",
+    "sha256": "61e9abcc66425b5c6824e6f731bed83c56b7acbb83d8ed00e3df1fdfe29c441d"
+  },
+  "actual_schedule_speedup": false,
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 21448852,
+    "file": "merge-tail-portable-778.tar.xz",
+    "sha256": "16cf7ba66408ff8cdb5c44768a1cc6579f1bf88d86987efaed5dad4b9d719cc0"
+  },
+  "claim_boundary": "V4 finite attribution only. V1/V2/V3 invalid attempts and debug preflight have no decision credit. V3 completed one public operation before its harness assertion but emitted no complete workflow or timing sample.",
+  "compiled_artifacts_omitted": [
+    {
+      "bytes": 94852416,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-771-a1-test",
+      "reason": "Compiled V1 binary; invalid admission attempt, identity only.",
+      "sha256": "d48cfe3a00b46a7a5d12091cadf6432574027c6abf1537d601ff5e74acc122ee"
+    },
+    {
+      "bytes": 94870000,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1-test",
+      "reason": "Compiled V3 native test binary; identity retained in index, bytes omitted.",
+      "sha256": "45c89a1fef6f4c637d964e07aec6ed5315d9ef69c199806b944246c667865f1a"
+    },
+    {
+      "bytes": 94870000,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-test",
+      "reason": "Release test executable; identity and compiler provenance retained, binary omitted.",
+      "sha256": "afaa24f1703c4aa5432e14ce2a117ed1e4794c29deda0ed759211c82d21a4d0f"
+    },
+    {
+      "bytes": 384883552,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-debug-smoke-776-a1-test",
+      "reason": "Debug test executable; identity and compiler provenance retained, binary omitted.",
+      "sha256": "80604113b0d525aa95b33fd516b3784a8d49235cd7e429daad251f0e9a3528a5"
+    }
+  ],
+  "continuation": {
+    "bytes": 1185,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-continuation-identity-775.json",
+    "sha256": "0227ffebe8f8df1a566ab9d4b7428d585b1583c692cd3202d2343e3346c57d69"
+  },
+  "coverage": {
+    "accepted_base_files": 1899,
+    "debug": {
+      "complete_files": 36,
+      "member_root": "debug-v4",
+      "streams": 2,
+      "witnesses": 34,
+      "workflows": 40
+    },
+    "frozen_source_files_per_version": 1901,
+    "helper_counts": [
+      23,
+      28,
+      32,
+      39
+    ],
+    "inventory_worker_result": "partial; all member selection and verification completed by primary",
+    "never_created_v3_success_files": [
+      "merge-tail-attribution-774-a1-decision.json",
+      "merge-tail-attribution-774-a1-preflight-verification.json",
+      "merge-tail-attribution-774-a1-sequence-completion.json",
+      "merge-tail-decision-774-a1-sequence-output.log",
+      "merge-tail-decision-774-a1-sequence-step.json",
+      "merge-tail-decision-774-a1.json",
+      "merge-tail-decision-774-a1.log",
+      "merge-tail-final-binding-774-a1-sequence-output.log",
+      "merge-tail-final-binding-774-a1-sequence-step.json",
+      "merge-tail-measure-A-off-774-a1-link.json",
+      "merge-tail-measure-A-off-774-a1-sequence-output.log",
+      "merge-tail-measure-A-off-774-a1-sequence-step.json",
+      "merge-tail-measure-A-off-774-a1.json",
+      "merge-tail-measure-A-off-774-a1.log",
+      "merge-tail-measure-A-on-774-a1-link.json",
+      "merge-tail-measure-A-on-774-a1-sequence-output.log",
+      "merge-tail-measure-A-on-774-a1-sequence-step.json",
+      "merge-tail-measure-A-on-774-a1.json",
+      "merge-tail-measure-A-on-774-a1.log",
+      "merge-tail-measure-B-off-774-a1-link.json",
+      "merge-tail-measure-B-off-774-a1-sequence-output.log",
+      "merge-tail-measure-B-off-774-a1-sequence-step.json",
+      "merge-tail-measure-B-off-774-a1.json",
+      "merge-tail-measure-B-off-774-a1.log",
+      "merge-tail-measure-B-on-774-a1-link.json",
+      "merge-tail-measure-B-on-774-a1-sequence-output.log",
+      "merge-tail-measure-B-on-774-a1-sequence-step.json",
+      "merge-tail-measure-B-on-774-a1.json",
+      "merge-tail-measure-B-on-774-a1.log",
+      "merge-tail-package-primary-review-776.json",
+      "merge-tail-preflight-check-774-a1-sequence-output.log",
+      "merge-tail-preflight-check-774-a1-sequence-step.json",
+      "merge-tail-preflight-check-774-a1.json",
+      "merge-tail-preflight-check-774-a1.log",
+      "merge-tail-preflight-on-774-a1-link.json",
+      "merge-tail-preflight-on-774-a1-sequence-output.log",
+      "merge-tail-preflight-on-774-a1-sequence-step.json",
+      "merge-tail-preflight-on-774-a1.json",
+      "merge-tail-preflight-on-774-a1.log",
+      "merge-tail-verification-775.json",
+      "merge-tail-verifier-775-driver.log",
+      "merge-tail-verifier-775.json",
+      "merge-tail-verifier-775.log"
+    ],
+    "release": {
+      "complete_files": 40,
+      "member_root": "raw-v4",
+      "streams": 6,
+      "witnesses": 34,
+      "workflows": 236
+    },
+    "strict_top_level_exclusions": [
+      {
+        "name": "merge-tail-attribution-771-a1-test",
+        "reason": "Compiled V1 binary; invalid admission attempt, identity only."
+      },
+      {
+        "name": "merge-tail-attribution-774-a1-test",
+        "reason": "Compiled V3 native test binary; identity retained in index, bytes omitted."
+      },
+      {
+        "name": "merge-tail-attribution-776-a1-test",
+        "reason": "Release test executable; identity and compiler provenance retained, binary omitted."
+      },
+      {
+        "name": "merge-tail-debug-smoke-776-a1-test",
+        "reason": "Debug test executable; identity and compiler provenance retained, binary omitted."
+      },
+      {
+        "name": "merge-tail-package-772-driver.log",
+        "reason": "Mutable V1 packaging driver log."
+      },
+      {
+        "name": "merge-tail-package-772.json",
+        "reason": "Mutable V1 packaging receipt."
+      },
+      {
+        "name": "merge-tail-package-772.log",
+        "reason": "Mutable V1 packaging log."
+      },
+      {
+        "name": "merge-tail-package-773-driver.log",
+        "reason": "Mutable V2 packaging driver log."
+      },
+      {
+        "name": "merge-tail-package-773.json",
+        "reason": "Mutable V2 packaging receipt."
+      },
+      {
+        "name": "merge-tail-package-773.log",
+        "reason": "Mutable V2 packaging log."
+      },
+      {
+        "name": "merge-tail-package-774-driver.log",
+        "reason": "Mutable V3 packaging driver log."
+      },
+      {
+        "name": "merge-tail-package-774.json",
+        "reason": "Mutable V3 packaging receipt."
+      },
+      {
+        "name": "merge-tail-package-774.log",
+        "reason": "Mutable V3 packaging log."
+      },
+      {
+        "name": "merge-tail-package-775-driver.log",
+        "reason": "Mutable resumed V3 packaging driver log."
+      },
+      {
+        "name": "merge-tail-package-775.json",
+        "reason": "Mutable resumed V3 packaging receipt."
+      },
+      {
+        "name": "merge-tail-package-775.log",
+        "reason": "Mutable resumed V3 packaging log."
+      },
+      {
+        "name": "merge-tail-package-778-driver.log",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-package-778.json",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-package-778.log",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verification-772.json",
+        "reason": "Mutable V1 packet reopen receipt."
+      },
+      {
+        "name": "merge-tail-packet-verification-773.json",
+        "reason": "Mutable V2 packet reopen receipt."
+      },
+      {
+        "name": "merge-tail-packet-verification-774.json",
+        "reason": "Mutable V3 packet reopen receipt."
+      },
+      {
+        "name": "merge-tail-packet-verification-775.json",
+        "reason": "Subsequent independent packet reopen receipt."
+      },
+      {
+        "name": "merge-tail-packet-verification-776.json",
+        "reason": "Subsequent independent packet reopen receipt."
+      },
+      {
+        "name": "merge-tail-packet-verification-777.json",
+        "reason": "Produced by or after this archive; independently bound by the closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verification-778.json",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verify-775-driver.log",
+        "reason": "Subsequent packet reopen driver log."
+      },
+      {
+        "name": "merge-tail-packet-verify-775.json",
+        "reason": "Subsequent packet reopen guard receipt."
+      },
+      {
+        "name": "merge-tail-packet-verify-775.log",
+        "reason": "Subsequent packet reopen guard log."
+      },
+      {
+        "name": "merge-tail-packet-verify-776-driver.log",
+        "reason": "Subsequent packet reopen driver log."
+      },
+      {
+        "name": "merge-tail-packet-verify-776.json",
+        "reason": "Subsequent packet reopen guard receipt."
+      },
+      {
+        "name": "merge-tail-packet-verify-776.log",
+        "reason": "Subsequent packet reopen guard log."
+      },
+      {
+        "name": "merge-tail-packet-verify-777-driver.log",
+        "reason": "Produced by or after this archive; independently bound by the closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verify-777.json",
+        "reason": "Produced by or after this archive; independently bound by the closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verify-777.log",
+        "reason": "Produced by or after this archive; independently bound by the closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verify-778-driver.log",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verify-778.json",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-packet-verify-778.log",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "merge-tail-restoration-plan-775.json",
+        "reason": "Subsequent verified observer removal plan."
+      },
+      {
+        "name": "merge-tail-restoration-plan-776.json",
+        "reason": "Subsequent verified observer removal plan."
+      },
+      {
+        "name": "merge-tail-restoration-plan-777.json",
+        "reason": "Produced by or after this archive; independently bound by the closeout evidence."
+      },
+      {
+        "name": "merge-tail-restoration-plan-778.json",
+        "reason": "Produced by or after this corrected archive; bound by closeout evidence."
+      },
+      {
+        "name": "verify-merge-tail-packet-772.log",
+        "reason": "Mutable V1 packet reopen log."
+      },
+      {
+        "name": "verify-merge-tail-packet-773.log",
+        "reason": "Mutable V2 packet reopen log."
+      },
+      {
+        "name": "verify-merge-tail-packet-774.log",
+        "reason": "Mutable V3 packet reopen log."
+      }
+    ],
+    "strict_top_level_inclusions": [
+      "analyze_merge_tail_771.py",
+      "analyze_merge_tail_771_before_primary_review_771.py",
+      "analyze_merge_tail_773.py",
+      "analyze_merge_tail_774.py",
+      "analyze_merge_tail_776.py",
+      "merge-tail-accepted-base-774.json",
+      "merge-tail-attribution-771-a1-artifact.json",
+      "merge-tail-attribution-771-a1-sequence-identity.json",
+      "merge-tail-attribution-771-a1-source-freeze.json",
+      "merge-tail-attribution-771-a1-test-inventory.txt",
+      "merge-tail-attribution-771-a1-tracked.patch",
+      "merge-tail-attribution-773-a1-source-freeze.json",
+      "merge-tail-attribution-773-a1-tracked.patch",
+      "merge-tail-attribution-774-a1-artifact.json",
+      "merge-tail-attribution-774-a1-sequence-identity.json",
+      "merge-tail-attribution-774-a1-source-freeze.json",
+      "merge-tail-attribution-774-a1-test-inventory.txt",
+      "merge-tail-attribution-774-a1-tracked.patch",
+      "merge-tail-attribution-776-a1-artifact.json",
+      "merge-tail-attribution-776-a1-decision.json",
+      "merge-tail-attribution-776-a1-preflight-verification.json",
+      "merge-tail-attribution-776-a1-sequence-completion.json",
+      "merge-tail-attribution-776-a1-sequence-identity.json",
+      "merge-tail-attribution-776-a1-source-freeze.json",
+      "merge-tail-attribution-776-a1-test-inventory.txt",
+      "merge-tail-attribution-776-a1-tracked.patch",
+      "merge-tail-attribution-protocol-771.json",
+      "merge-tail-attribution-protocol-773.json",
+      "merge-tail-attribution-protocol-774.json",
+      "merge-tail-attribution-protocol-776.json",
+      "merge-tail-bind-771-a1-sequence-output.log",
+      "merge-tail-bind-771-a1-sequence-step.json",
+      "merge-tail-bind-771-a1.json",
+      "merge-tail-bind-771-a1.log",
+      "merge-tail-bind-774-a1-sequence-output.log",
+      "merge-tail-bind-774-a1-sequence-step.json",
+      "merge-tail-bind-774-a1.json",
+      "merge-tail-bind-774-a1.log",
+      "merge-tail-bind-776-a1-sequence-output.log",
+      "merge-tail-bind-776-a1-sequence-step.json",
+      "merge-tail-bind-776-a1.json",
+      "merge-tail-bind-776-a1.log",
+      "merge-tail-build-771-a1-driver.log",
+      "merge-tail-build-771-a1.json",
+      "merge-tail-build-771-a1.log",
+      "merge-tail-build-773-a1-driver.log",
+      "merge-tail-build-773-a1.json",
+      "merge-tail-build-773-a1.log",
+      "merge-tail-build-774-a1-driver.log",
+      "merge-tail-build-774-a1.json",
+      "merge-tail-build-774-a1.log",
+      "merge-tail-build-776-a1-driver.log",
+      "merge-tail-build-776-a1.json",
+      "merge-tail-build-776-a1.log",
+      "merge-tail-collector-admission-failure-773.json",
+      "merge-tail-continuation-775-driver.log",
+      "merge-tail-continuation-identity-775.json",
+      "merge-tail-continuation-primary-review-775.json",
+      "merge-tail-debug-bind-776-a1-sequence-output.log",
+      "merge-tail-debug-bind-776-a1-sequence-step.json",
+      "merge-tail-debug-bind-776-a1.json",
+      "merge-tail-debug-bind-776-a1.log",
+      "merge-tail-debug-build-776-a1-driver.log",
+      "merge-tail-debug-build-776-a1.json",
+      "merge-tail-debug-build-776-a1.log",
+      "merge-tail-debug-final-binding-776-a1-sequence-output.log",
+      "merge-tail-debug-final-binding-776-a1-sequence-step.json",
+      "merge-tail-debug-focused-spill-776-a1-sequence-output.log",
+      "merge-tail-debug-focused-spill-776-a1-sequence-step.json",
+      "merge-tail-debug-focused-spill-776-a1.json",
+      "merge-tail-debug-focused-spill-776-a1.log",
+      "merge-tail-debug-independent-776-driver.log",
+      "merge-tail-debug-independent-776.json",
+      "merge-tail-debug-independent-776.log",
+      "merge-tail-debug-preflight-check-776-a1-sequence-output.log",
+      "merge-tail-debug-preflight-check-776-a1-sequence-step.json",
+      "merge-tail-debug-preflight-check-776-a1.json",
+      "merge-tail-debug-preflight-check-776-a1.log",
+      "merge-tail-debug-preflight-off-776-a1-link.json",
+      "merge-tail-debug-preflight-off-776-a1-sequence-output.log",
+      "merge-tail-debug-preflight-off-776-a1-sequence-step.json",
+      "merge-tail-debug-preflight-off-776-a1.json",
+      "merge-tail-debug-preflight-off-776-a1.log",
+      "merge-tail-debug-preflight-on-776-a1-link.json",
+      "merge-tail-debug-preflight-on-776-a1-sequence-output.log",
+      "merge-tail-debug-preflight-on-776-a1-sequence-step.json",
+      "merge-tail-debug-preflight-on-776-a1.json",
+      "merge-tail-debug-preflight-on-776-a1.log",
+      "merge-tail-debug-smoke-776-a1-artifact.json",
+      "merge-tail-debug-smoke-776-a1-completion.json",
+      "merge-tail-debug-smoke-776-a1-identity.json",
+      "merge-tail-debug-smoke-776-a1-preflight-verification.json",
+      "merge-tail-debug-smoke-776-a1-test-inventory.txt",
+      "merge-tail-debug-smoke-776-driver.log",
+      "merge-tail-decision-776-a1-sequence-output.log",
+      "merge-tail-decision-776-a1-sequence-step.json",
+      "merge-tail-decision-776-a1.json",
+      "merge-tail-decision-776-a1.log",
+      "merge-tail-design-v1-preserved-773.md",
+      "merge-tail-design-v2-preserved-773.md",
+      "merge-tail-design-v3-preserved-776.md",
+      "merge-tail-final-binding-776-a1-sequence-output.log",
+      "merge-tail-final-binding-776-a1-sequence-step.json",
+      "merge-tail-focused-spill-771-a1-sequence-output.log",
+      "merge-tail-focused-spill-771-a1-sequence-step.json",
+      "merge-tail-focused-spill-771-a1.json",
+      "merge-tail-focused-spill-771-a1.log",
+      "merge-tail-focused-spill-774-a1-sequence-output.log",
+      "merge-tail-focused-spill-774-a1-sequence-step.json",
+      "merge-tail-focused-spill-774-a1.json",
+      "merge-tail-focused-spill-774-a2-sequence-output.log",
+      "merge-tail-focused-spill-774-a2-sequence-step.json",
+      "merge-tail-focused-spill-774-a2.json",
+      "merge-tail-focused-spill-774-a2.log",
+      "merge-tail-focused-spill-776-a1-sequence-output.log",
+      "merge-tail-focused-spill-776-a1-sequence-step.json",
+      "merge-tail-focused-spill-776-a1.json",
+      "merge-tail-focused-spill-776-a1.log",
+      "merge-tail-history-verification-774.json",
+      "merge-tail-history-verify-774-driver.log",
+      "merge-tail-history-verify-774.json",
+      "merge-tail-history-verify-774.log",
+      "merge-tail-investigation-design-draft-769.md",
+      "merge-tail-measure-A-off-776-a1-link.json",
+      "merge-tail-measure-A-off-776-a1-sequence-output.log",
+      "merge-tail-measure-A-off-776-a1-sequence-step.json",
+      "merge-tail-measure-A-off-776-a1.json",
+      "merge-tail-measure-A-off-776-a1.log",
+      "merge-tail-measure-A-on-776-a1-link.json",
+      "merge-tail-measure-A-on-776-a1-sequence-output.log",
+      "merge-tail-measure-A-on-776-a1-sequence-step.json",
+      "merge-tail-measure-A-on-776-a1.json",
+      "merge-tail-measure-A-on-776-a1.log",
+      "merge-tail-measure-B-off-776-a1-link.json",
+      "merge-tail-measure-B-off-776-a1-sequence-output.log",
+      "merge-tail-measure-B-off-776-a1-sequence-step.json",
+      "merge-tail-measure-B-off-776-a1.json",
+      "merge-tail-measure-B-off-776-a1.log",
+      "merge-tail-measure-B-on-776-a1-link.json",
+      "merge-tail-measure-B-on-776-a1-sequence-output.log",
+      "merge-tail-measure-B-on-776-a1-sequence-step.json",
+      "merge-tail-measure-B-on-776-a1.json",
+      "merge-tail-measure-B-on-776-a1.log",
+      "merge-tail-oracle-expanded-tests-772.log",
+      "merge-tail-oracle-final-tests-772.log",
+      "merge-tail-oracle-final-tests-773.log",
+      "merge-tail-oracle-final-tests-774.log",
+      "merge-tail-oracle-final-tests-776.log",
+      "merge-tail-oracle-initial-tests-771.log",
+      "merge-tail-oracle-initial-tests-776.log",
+      "merge-tail-oracle-pre-review-tests-774.log",
+      "merge-tail-package-777-driver.log",
+      "merge-tail-package-777.json",
+      "merge-tail-package-777.log",
+      "merge-tail-package-failure-778.json",
+      "merge-tail-package-preflight-777-driver.log",
+      "merge-tail-package-preflight-777.json",
+      "merge-tail-package-preflight-777.log",
+      "merge-tail-package-primary-review-775.json",
+      "merge-tail-package-primary-review-777.json",
+      "merge-tail-package-primary-review-778.json",
+      "merge-tail-packet-inventory-777.json",
+      "merge-tail-packet-inventory-777.md",
+      "merge-tail-preflight-check-776-a1-sequence-output.log",
+      "merge-tail-preflight-check-776-a1-sequence-step.json",
+      "merge-tail-preflight-check-776-a1.json",
+      "merge-tail-preflight-check-776-a1.log",
+      "merge-tail-preflight-off-771-a1-link.json",
+      "merge-tail-preflight-off-771-a1-sequence-output.log",
+      "merge-tail-preflight-off-771-a1-sequence-step.json",
+      "merge-tail-preflight-off-771-a1.json",
+      "merge-tail-preflight-off-771-a1.log",
+      "merge-tail-preflight-off-774-a1-link.json",
+      "merge-tail-preflight-off-774-a1-sequence-output.log",
+      "merge-tail-preflight-off-774-a1-sequence-step.json",
+      "merge-tail-preflight-off-774-a1.json",
+      "merge-tail-preflight-off-774-a1.log",
+      "merge-tail-preflight-off-776-a1-link.json",
+      "merge-tail-preflight-off-776-a1-sequence-output.log",
+      "merge-tail-preflight-off-776-a1-sequence-step.json",
+      "merge-tail-preflight-off-776-a1.json",
+      "merge-tail-preflight-off-776-a1.log",
+      "merge-tail-preflight-on-776-a1-link.json",
+      "merge-tail-preflight-on-776-a1-sequence-output.log",
+      "merge-tail-preflight-on-776-a1-sequence-step.json",
+      "merge-tail-preflight-on-776-a1.json",
+      "merge-tail-preflight-on-776-a1.log",
+      "merge-tail-primary-review-772.json",
+      "merge-tail-primary-review-773.json",
+      "merge-tail-primary-review-774.json",
+      "merge-tail-primary-review-776.json",
+      "merge-tail-protocol-admission-failure-772.json",
+      "merge-tail-protocol-freeze-771.json",
+      "merge-tail-protocol-freeze-773.json",
+      "merge-tail-protocol-freeze-774.json",
+      "merge-tail-protocol-freeze-776.json",
+      "merge-tail-resume-binding-775-sequence-output.log",
+      "merge-tail-resume-binding-775-sequence-step.json",
+      "merge-tail-sequence-772-driver.log",
+      "merge-tail-sequence-774-driver.log",
+      "merge-tail-sequence-776-driver.log",
+      "merge-tail-source-accounting-failure-775.json",
+      "merge-tail-storage-admission-failure-775.json",
+      "merge-tail-verification-776.json",
+      "merge-tail-verifier-776-driver.log",
+      "merge-tail-verifier-776.json",
+      "merge-tail-verifier-776.log",
+      "merge_tail_driver_771.py",
+      "merge_tail_driver_773.py",
+      "merge_tail_driver_774.py",
+      "merge_tail_driver_776.py",
+      "package_merge_tail_772.py",
+      "package_merge_tail_773.py",
+      "package_merge_tail_774.py",
+      "package_merge_tail_775.py",
+      "package_merge_tail_777.py",
+      "package_merge_tail_778.py",
+      "package_merge_tail_before_base_sources_775.py",
+      "package_merge_tail_before_primary_review_772.py",
+      "resume_merge_tail_sequence_775.py",
+      "run_merge_tail_debug_smoke_776.py",
+      "run_merge_tail_sequence_771.py",
+      "run_merge_tail_sequence_773.py",
+      "run_merge_tail_sequence_774.py",
+      "run_merge_tail_sequence_776.py",
+      "run_merge_tail_sequence_before_primary_review_771.py",
+      "test_merge_tail_oracle_771.py",
+      "test_merge_tail_oracle_771_before_primary_review_771.py",
+      "test_merge_tail_oracle_773.py",
+      "test_merge_tail_oracle_774.py",
+      "test_merge_tail_oracle_776.py",
+      "verify_merge_tail_772.py",
+      "verify_merge_tail_773.py",
+      "verify_merge_tail_774.py",
+      "verify_merge_tail_775.py",
+      "verify_merge_tail_776.py",
+      "verify_merge_tail_history_774.py",
+      "verify_merge_tail_packet_775.py",
+      "verify_merge_tail_packet_776.py",
+      "verify_merge_tail_packet_777.py",
+      "verify_merge_tail_packet_778.py"
+    ]
+  },
+  "debug_completion": {
+    "bytes": 667,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-debug-smoke-776-a1-completion.json",
+    "sha256": "40336610664c8e829fc18572b76236e2513ff12fe59e12c0bcd850f10c945176"
+  },
+  "debug_workflows_without_decision_credit": 40,
+  "empty_directory_count": 2,
+  "historical_reconstruction_proof": {
+    "bytes": 39761,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-history-verification-774.json",
+    "sha256": "0a05ce98ceeaea8e99d7f635a4f34d945d2ed65457ea311b16363a19b3f20dfa"
+  },
+  "invalid_attempts": [
+    {
+      "completed_recorded_workflows": 0,
+      "decision_credit": false,
+      "engine_measurement_available": false,
+      "failure": {
+        "bytes": 4155,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-protocol-admission-failure-772.json",
+        "sha256": "0ae0a44170a7ff3a20ba4102c73f3923143bfcc0b4679a3cc87066ebf1a542c1"
+      },
+      "label": "merge-tail-attribution-771-a1",
+      "measured_workflows": 0,
+      "public_operations_completed_before_failure": 0
+    },
+    {
+      "completed_recorded_workflows": 0,
+      "decision_credit": false,
+      "engine_measurement_available": false,
+      "failure": {
+        "bytes": 5765,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-collector-admission-failure-773.json",
+        "sha256": "52dc1bb7b346d15230316a7dffae4672b3d4d1bf44296c94bd76a32d80db43c7"
+      },
+      "label": "merge-tail-attribution-773-a1",
+      "measured_workflows": 0,
+      "public_operations_completed_before_failure": 0
+    },
+    {
+      "completed_recorded_workflows": 0,
+      "decision_credit": false,
+      "engine_measurement_available": false,
+      "failure": {
+        "bytes": 6783,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-source-accounting-failure-775.json",
+        "sha256": "585d47be147f4c64b3cd9ac2a924ec017b4b960fb40516eea096186f5dff4b71"
+      },
+      "label": "merge-tail-attribution-774-a1",
+      "measured_workflows": 0,
+      "public_operations_completed_before_failure": 1
+    }
+  ],
+  "manifest": {
+    "bytes": 110544,
+    "file": "merge-tail-portable-778.manifest.json.xz",
+    "sha256": "655957a93c17d01eee81205dd96c831fb3b0ecd2a6be8307c675a615b3f0b819"
+  },
+  "measured_workflows": 192,
+  "member_count": 2247,
+  "prior_packaging_failure": {
+    "bytes": 2974,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-package-failure-778.json",
+    "sha256": "c6f9e17b5655739112632a51e19d67364654607d2fe3b27e0f70a52250181c95"
+  },
+  "production_head": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "production_optimization": false,
+  "release_preflight_workflows": 40,
+  "release_workflows": 236,
+  "schema_version": "shardloom.merge_tail_portable_packet.v5",
+  "scope_result": "no_signal",
+  "source_reconstruction": {
+    "limitation": "Rust/Cargo source inputs are embedded; dependencies and compiled executables are not vendored.",
+    "verification": "Independent packet verifier must reconstruct all four versions before observer removal.",
+    "versions": [
+      "771",
+      "773",
+      "774",
+      "776"
+    ]
+  },
+  "status": "passed",
+  "storage_admission_refusal": {
+    "bytes": 3828,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-storage-admission-failure-775.json",
+    "sha256": "2b8cde922bab615d4f2cd7389b1c1f8001c1d753ce4b9a2e529111a82a4d9a65"
+  },
+  "storage_check": {
+    "before_write": {
+      "free_bytes": 25197465600,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0,
+      "workspace_bytes": 6513320047
+    },
+    "candidate_reserve_bytes": 134217728,
+    "maximum_log_bytes": 201326592,
+    "maximum_workspace_bytes": 107374182400,
+    "minimum_free_bytes": 12884901888
+  },
+  "storage_retry_changed_native_comparison": false,
+  "uncompressed_bytes": 331438347,
+  "v4_decision": {
+    "bytes": 197277,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-decision.json",
+    "sha256": "513bae527976e67a6953f1572a0ba4fce122e7706f5d39ca198bb1ce7ad661a0"
+  },
+  "v4_protocol": {
+    "bytes": 17254,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-protocol-776.json",
+    "sha256": "111f66f588ae5f388170ce8b906f80fff21ba64d20e41e59eb7bf3df467fccf7"
+  },
+  "v4_source_freeze": {
+    "bytes": 367098,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-source-freeze.json",
+    "sha256": "17b8bae4db4247b81b0c130c270b3a600da644ddda12b5aee8a6826086b1e362"
+  },
+  "v4_verification": {
+    "bytes": 10900,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-verification-776.json",
+    "sha256": "66565803b57734bfbe99d7a1f22dde50ec4460270ab6c084ec93071c6a13c065"
+  },
+  "warmup_workflows": 4
+}

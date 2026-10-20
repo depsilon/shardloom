@@ -1,0 +1,167 @@
+{
+  "status": "passed",
+  "scope_result": "candidate_comparison_rejected",
+  "production_accepted": false,
+  "source": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-source-freeze.json",
+    "bytes": 360215,
+    "sha256": "2ced0dbef5541318a1a7f2b21295296244f9609e63082f9feb021bec55ce05be"
+  },
+  "artifact": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-artifact.json",
+    "bytes": 1803,
+    "sha256": "c87cb24a2fd9ac4c04efd8846b84b8a4051edcce21719f0aa552a31449851edc"
+  },
+  "decision": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-decision.json",
+    "bytes": 154944,
+    "sha256": "c84da8c572b5d7a851cc9212ac4334f01f1a97a578b5ae2f655ca95de3b032e6"
+  },
+  "protocol": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-candidate-protocol-768.json",
+    "bytes": 14010,
+    "sha256": "e8653d467b11c9d5928b6be5bd2776ff840672b999d3dfaabac6ee3714c5ae5a"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_predicate_candidate_770.py",
+    "bytes": 10274,
+    "sha256": "70e063300009eb013b032067ac0760a66e8eda918e63d97600a61fce5a94de8f"
+  },
+  "source_inputs": 1904,
+  "workflows": 1828,
+  "operations": 4260,
+  "cells": 114,
+  "all_gates_independently_recomputed": true,
+  "full_semantic_verification": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-decision-769-a2.json",
+    "bytes": 56005,
+    "sha256": "f6ae84e8a4bcc2130efe42c5fb4e83bbaa93e7dd4358b3b3e5c8ffad2cb1f560"
+  },
+  "successful_guarded_receipts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-build-769-a2.json",
+      "bytes": 193128,
+      "sha256": "f8dbb4706c9de40ceb52a12524210dd1c7cfab2050e21cd1fe61cffdc3e18a44"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-bind-769-a2.json",
+      "bytes": 4515,
+      "sha256": "09222d17bc07fc303a2e3358424f0001a896f6ee1915fb8703080931cea6850d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-lifecycle-769-a2.json",
+      "bytes": 4418,
+      "sha256": "cdfd0a03f0d9af135dc6b2e61aca7dbf9719d6cf0f958b87a019b982f9d367d8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-preflight-check-769-a2.json",
+      "bytes": 11344,
+      "sha256": "dae73703742902e9b2fd07e3b7baa68dc946a4e8df835df37a9c6266991064cd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-decision-769-a2.json",
+      "bytes": 56005,
+      "sha256": "f6ae84e8a4bcc2130efe42c5fb4e83bbaa93e7dd4358b3b3e5c8ffad2cb1f560"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-preflight-baseline-769-a2.json",
+      "bytes": 5779,
+      "sha256": "1b39c4b8334c0d74e83171c9c39e0618f7dfbd62089fe7c9e0bada15e0ff113c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-preflight-candidate-769-a2.json",
+      "bytes": 5791,
+      "sha256": "25eae639f55770682e5dafb6b069bdd8eefbf359971c21e7ea7c2787e95689a0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-measure-A-baseline-769-a2.json",
+      "bytes": 7731,
+      "sha256": "d5a0cdffd752f680e74ffee5acc7170ba88220818e95b3f647713454aa94479b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-measure-A-candidate-769-a2.json",
+      "bytes": 7736,
+      "sha256": "add377d9a004399745ab5bd09ef087a7e139f376639376068e22f27478f882bf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-measure-B-baseline-769-a2.json",
+      "bytes": 7724,
+      "sha256": "6063e2fd7e7c2e37e5008ede5ed26b39c9735931e338f041b84cb52533f2b973"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-measure-B-candidate-769-a2.json",
+      "bytes": 7718,
+      "sha256": "f85006bf50be123898d7cb1ae7cd2291850389f7498a0e961fe1f702b6b63dd3"
+    }
+  ],
+  "target_results": [
+    {
+      "cell_id": "65536-contains-no_true-4",
+      "cohort": "A",
+      "baseline_engine_ns": 12858917,
+      "candidate_engine_ns": 3210499,
+      "engine_reduction_percent": 75.03289740496808
+    },
+    {
+      "cell_id": "65536-contains-no_true-4",
+      "cohort": "B",
+      "baseline_engine_ns": 12867709,
+      "candidate_engine_ns": 3248456,
+      "engine_reduction_percent": 74.75497775089568
+    },
+    {
+      "cell_id": "65536-correlated-no_true-4",
+      "cohort": "A",
+      "baseline_engine_ns": 11205375,
+      "candidate_engine_ns": 2775333,
+      "engine_reduction_percent": 75.23212743884073
+    },
+    {
+      "cell_id": "65536-correlated-no_true-4",
+      "cohort": "B",
+      "baseline_engine_ns": 10948378,
+      "candidate_engine_ns": 2804790,
+      "engine_reduction_percent": 74.38168466598431
+    },
+    {
+      "cell_id": "65536-membership-no_true-4",
+      "cohort": "A",
+      "baseline_engine_ns": 11996998,
+      "candidate_engine_ns": 3069583,
+      "engine_reduction_percent": 74.41374083749952
+    },
+    {
+      "cell_id": "65536-membership-no_true-4",
+      "cohort": "B",
+      "baseline_engine_ns": 11885751,
+      "candidate_engine_ns": 3134833,
+      "engine_reduction_percent": 73.62528459497427
+    }
+  ],
+  "failing_controls": [
+    {
+      "cell_id": "65536-membership-interleaved_parameters-1",
+      "cohort": "A",
+      "engine_failed": true,
+      "complete_failed": true,
+      "memory_failed": false,
+      "baseline_engine_ns": 2977583,
+      "candidate_engine_ns": 3271624,
+      "baseline_complete_ns": 4805750,
+      "candidate_complete_ns": 5097332
+    },
+    {
+      "cell_id": "65536-membership-no_true-1",
+      "cohort": "B",
+      "engine_failed": false,
+      "complete_failed": true,
+      "memory_failed": false,
+      "baseline_engine_ns": 2981917,
+      "candidate_engine_ns": 3145833,
+      "baseline_complete_ns": 4743625,
+      "candidate_complete_ns": 5099541
+    }
+  ],
+  "maximum_median_peak_overhead_bytes": 5128,
+  "semantic_scope": "The frozen full-result oracle checked every workflow; this independent pass rebinds all sources/artifacts/streams and separately recomputes every comparison gate."
+}

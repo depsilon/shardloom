@@ -1,0 +1,140 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_merge_tail_packet_778.py"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "working_tree": " M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n M shardloom-vortex/src/local_primitives/native_relational_spill.rs\n?? docs/architecture/native-merge-tail-design-2026-10-19.md\n?? shardloom-vortex/src/local_primitive_relational_merge_cost_tests.rs\n?? shardloom-vortex/src/local_primitives/native_merge_cost_observation.rs\n",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "driver_sha256": "81cb5075bbb437ba01a5d8f007416833668942d65444c282ceceefcca8f0cc8c",
+  "host": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "samples": [
+      {
+        "utc": "2026-10-19T22:01:10.042369+00:00",
+        "load_average": [
+          1.66552734375,
+          1.90771484375,
+          2.06005859375
+        ],
+        "vm_stat": {
+          "Pages free": 108046,
+          "Pages inactive": 262865,
+          "Pages reactivated": 335548495,
+          "File-backed pages": 338989,
+          "Anonymous pages": 288933,
+          "Pages occupied by compressor": 109764,
+          "Decompressions": 233945037,
+          "Compressions": 397180703,
+          "Pageins": 401933402,
+          "Pageouts": 149923,
+          "Swapins": 2234778,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": []
+      },
+      {
+        "utc": "2026-10-19T22:01:12.432897+00:00",
+        "load_average": [
+          3.13330078125,
+          2.2080078125,
+          2.1650390625
+        ],
+        "vm_stat": {
+          "Pages free": 86134,
+          "Pages inactive": 265128,
+          "Pages reactivated": 335548495,
+          "File-backed pages": 341068,
+          "Anonymous pages": 308446,
+          "Pages occupied by compressor": 109733,
+          "Decompressions": 233945135,
+          "Compressions": 397180703,
+          "Pageins": 401933471,
+          "Pageouts": 149923,
+          "Swapins": 2234778,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 83935,
+            "parent_pid": 83922,
+            "process_group": 83935,
+            "sampled_cpu_percent": 94.4,
+            "rss_bytes": 152895488,
+            "executable": "python3"
+          }
+        ]
+      }
+    ],
+    "scope": "Host load and sampled process CPU/RSS are context, not exclusive attribution or an RSS ceiling.",
+    "physical_memory_bytes": 17179869184,
+    "final": {
+      "utc": "2026-10-19T22:01:14.121049+00:00",
+      "load_average": [
+        3.13330078125,
+        2.2080078125,
+        2.1650390625
+      ],
+      "vm_stat": {
+        "Pages free": 98534,
+        "Pages inactive": 261666,
+        "Pages reactivated": 335548495,
+        "File-backed pages": 337643,
+        "Anonymous pages": 300592,
+        "Pages occupied by compressor": 109690,
+        "Decompressions": 233945262,
+        "Compressions": 397180703,
+        "Pageins": 401933578,
+        "Pageouts": 149923,
+        "Swapins": 2234778,
+        "Swapouts": 3272557
+      },
+      "vm_page_size_bytes": 16384
+    }
+  },
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 6605525103,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 25090248704,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 13853863936,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 25126666240,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 1800.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 83935,
+  "output_bytes": 213,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 4.058835416974034,
+  "log_sha256": "b33153cb46f4b1e6ac7d5dd18c0ff11ecd0f1392de76971bc90b5010f16bf9b5"
+}

@@ -5114,6 +5114,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
                 self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
                 self._dependabot_pr(1392, "Bump regex from 1.12.4 to 1.13.1"),
+                self._dependabot_pr(1569, "Bump sha2 from 0.11.0 to 0.11.1"),
+                self._dependabot_pr(1570, "Bump serde_json from 1.0.151 to 1.0.154"),
             ],
             open_prs_status="loaded_from_file",
             require_live_github=True,
@@ -5122,12 +5124,47 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["admitted_open_dependabot_prs"],
-            [1149, 1151, 1152, 1153, 1223, 1392],
+            [1149, 1151, 1152, 1153, 1223, 1392, 1569, 1570],
         )
         self.assertTrue(report["benchmark_refresh_allowed"])
         self.assertFalse(report["benchmark_run_performed"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
+
+    def test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions(self) -> None:
+        module = self._load_script_module(
+            "check_pre_5j_dependency_freshness.py",
+            "check_pre_5j_dependency_freshness_patch_versions_for_test",
+        )
+        current = module.cargo_lock_versions(REPO_ROOT)
+        for dependency, previous, historical_pr, patch_pr in (
+            ("serde_json", "1.0.151", 1151, 1570),
+            ("sha2", "0.11.0", 1152, 1569),
+        ):
+            for version in (previous, "999.0.0"):
+                with self.subTest(dependency=dependency, version=version):
+                    with mock.patch.object(
+                        module, "cargo_lock_versions",
+                        return_value={**current, dependency: version},
+                    ):
+                        report = module.build_report(
+                            repo_root=REPO_ROOT,
+                            open_prs=[self._dependabot_pr(patch_pr, "Reviewed patch")],
+                            open_prs_status="loaded_from_file",
+                            require_live_github=True,
+                        )
+                    self.assertEqual(report["status"], "blocked")
+                    self.assertFalse(report["benchmark_refresh_allowed"])
+                    blocked = [
+                        row["pr_number"] for row in report["admitted_dependabot_prs"]
+                        if row["status"] == "blocked"
+                    ]
+                    self.assertEqual(sorted(blocked), sorted((historical_pr, patch_pr)))
+                    for number in (historical_pr, patch_pr):
+                        self.assertIn(
+                            f"PR #{number}: Cargo.lock {dependency}={version!r}",
+                            report["blockers"],
+                        )
 
     def test_pre_5j_dependency_freshness_uses_github_token_header(self) -> None:
         module = self._load_script_module(

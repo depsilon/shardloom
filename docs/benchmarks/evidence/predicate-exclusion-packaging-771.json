@@ -1,0 +1,136 @@
+{
+  "schema_version": "shardloom.predicate_exclusion_packaging.v1",
+  "status": "passed",
+  "baseline": "896c71793a8859a6b4770bbc8a9fe0b85d755cf8",
+  "repair": "Lossless compression of two saved patch texts; no runtime or measurement changes.",
+  "historical_receipts": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/predicate-exclusion-restoration-770.json",
+      "bytes": 500777,
+      "sha256": "307c98927a7526a5b4d2c20817f3fac07b6a12c4e2087794e110f2bed4bcfaf3"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/predicate-exclusion-closeout-770.json",
+      "bytes": 2877,
+      "sha256": "e687e144c6cc55a8c383baaf0f614f6f9e85ba3281c27f72655c5ff7a8aeda96"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/finalize_predicate_restoration_770.py",
+      "bytes": 5918,
+      "sha256": "e184df808384d41058e120be2f617d6875de1c2a400cbabbd1b4fb15cd9d2356"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/verify_predicate_closeout_770.py",
+      "bytes": 5563,
+      "sha256": "676aee8a0f42cc55c3a0e02919bb3743f8ca49b374bc684a8ae06835677035d1"
+    }
+  ],
+  "historical_path_mappings": [
+    {
+      "historical_repository_path": "docs/benchmarks/evidence/predicate-restoration-rejected-770.patch",
+      "original": {
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-restoration-rejected-770.patch",
+        "bytes": 18451,
+        "sha256": "b126e31cf653ecb36195aacf2148b50dcdf22d2908a87e50f39b205b50106ca5"
+      },
+      "compressed": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/predicate-restoration-rejected-770.patch.xz",
+        "bytes": 3724,
+        "sha256": "b6e6c73333f9b6fb6b679fcf7610de8195a49e3f2609c3ff299f564d207daeed"
+      },
+      "decompressed_bytes": 18451,
+      "decompressed_sha256": "b126e31cf653ecb36195aacf2148b50dcdf22d2908a87e50f39b205b50106ca5"
+    },
+    {
+      "historical_repository_path": "docs/benchmarks/evidence/predicate-restoration-applied-770.patch",
+      "original": {
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-restoration-applied-770.patch",
+        "bytes": 17959,
+        "sha256": "227447a134a38c9ecc5cb6aeb739ea27a5a36fd51b92c334af261b1fc3be9e8a"
+      },
+      "compressed": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/predicate-restoration-applied-770.patch.xz",
+        "bytes": 3684,
+        "sha256": "ab37a59a16a7aba21984f3fccbb71f7a0322675b70a25b8a42a4feb0c9ed02be"
+      },
+      "decompressed_bytes": 17959,
+      "decompressed_sha256": "227447a134a38c9ecc5cb6aeb739ea27a5a36fd51b92c334af261b1fc3be9e8a"
+    }
+  ],
+  "historical_whitespace_scope": "The 770 closeout ran git diff --check before staging. It did not check newly staged patch context lines. The staged check subsequently rejected their significant single-space context lines. This receipt supersedes that limited whitespace claim; original receipts and helpers remain unchanged.",
+  "accepted_source": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/compact-index-acceptance-source-764.json",
+    "bytes": 282897,
+    "sha256": "021867bd6eb39bcc77e9285106249e214fa92e2b4cf6d0f7b88967e12d23f000"
+  },
+  "accepted_source_files": 2217,
+  "all_accepted_source_contents_unchanged": true,
+  "runtime_inputs": 1899,
+  "conditional_sequence_preserved": 21,
+  "required_and_conditional_substeps_preserved": 58,
+  "competitive_gates_preserved": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "finite_decisions": 6,
+  "finite_retained": 1,
+  "finite_rejected": 5,
+  "first_decisions_remaining": 15,
+  "relative_links_checked": 24,
+  "unstaged_whitespace_check": "passed",
+  "staged_whitespace_check": "passed",
+  "documentation": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-predicate-exclusion-2026-10-19.md",
+      "bytes": 9535,
+      "sha256": "80dbb360e53d673f3aa1423fa2072b5b1d1e46e36d4e056abcfdbf60b27c93ae"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-predicate-exclusion-design-2026-10-19.md",
+      "bytes": 4894,
+      "sha256": "2c9f1ce00026a1c0d5f24486e636a3d6962c0f9ac6e8c712297db3e636e2b5e0"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "bytes": 12295,
+      "sha256": "0180dd95145b8a0b47318b6b523b707135923c64723b763f5c7fea03f374641d"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-plan.md",
+      "bytes": 75822,
+      "sha256": "16f791a561cf711da81eca6307790c6bd4036fab5116321589d38e77ac706f0e"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3977426,
+      "sha256": "87d80bdd1704af2972897c3c9dae95ab56226336766cdcec8a77c81b5780feb3"
+    }
+  ],
+  "verifier": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/verify_predicate_packaging_771.py",
+    "bytes": 7618,
+    "sha256": "040ace7435d527a8823c1879bc6bc4320158a6948662e83b75fcde2943eed9c9"
+  },
+  "native_runs_repeated": false
+}

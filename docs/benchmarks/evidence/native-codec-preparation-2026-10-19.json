@@ -1,0 +1,128 @@
+{
+  "acceptance": "../../architecture/native-codec-preparation-2026-10-19.md",
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 444976,
+    "file": "native-codec-preparation-2026-10-19.tar.xz",
+    "sha256": "3855f743056cbcd4061720c2d2a29f9ff9b3f21726b8c35559db4ea770e63016"
+  },
+  "base": "62754f909f58607654d511d4eb10eff47ada2328",
+  "broad_runtime_acceptance": "not attempted after finite candidate rejection; no Full43 or whole-engine claim",
+  "broader_owners_closed": [],
+  "candidate_correctness": {
+    "all_sample_final_reserved_bytes_zero": true,
+    "all_values_types_nulls_order_verified": true,
+    "cells_per_cohort": 54,
+    "cohort_passes": [
+      false,
+      false
+    ],
+    "fresh_process_cohorts": 2,
+    "operations_per_cohort": 2376,
+    "records_per_cohort": 432,
+    "retained": false,
+    "same_physical_files_as_prior_attribution": true
+  },
+  "candidate_extra_sources": "evidence/codec-cache-extra-sources-expanded-fixed-749",
+  "candidate_patch": "evidence/codec-cache-tracked-candidate-expanded-fixed-749.patch",
+  "candidate_removed": true,
+  "candidate_test_counts": [
+    {
+      "log_sha256": "6dfd7d9fcd334e2fde79c1fbee9e5a6f817362abca012e4734f45c8cd7ca8cf9",
+      "name": "codec-cache-pool-tests-749",
+      "passed_tests": 15,
+      "receipt_sha256": "df670771d50c88dfe17798eed85ba0e120d012709b97ad0a0432c10aa7269af5"
+    },
+    {
+      "log_sha256": "4ff63fd86df9cb87b408692172f62d273c848bf46f1ec1cfeef8b3f77abcf998",
+      "name": "codec-cache-expanded-unit-tests-749",
+      "passed_tests": 14,
+      "receipt_sha256": "d38f8167a322efa330589a28244fbe6a873725416eba58da253e4b8520f1fdd8"
+    },
+    {
+      "log_sha256": "4c0b4fcd29a3c249e7967f921801fd648d6fea3c38be3af9eb2071a5c093c915",
+      "name": "codec-cache-expanded-zstd-regression-749",
+      "passed_tests": 76,
+      "receipt_sha256": "5f3c2d37348ee73323a7115b89ed549bdd04fc7b464981b58c0d41f405aebc0b"
+    },
+    {
+      "log_sha256": "aaa4ed11d8e231505d3b49bd0d7b68609a1bd6724fd865b2a57de38023757ab6",
+      "name": "codec-cache-portability-write-749",
+      "passed_tests": 1,
+      "receipt_sha256": "45aa7dc8ba9bf178d23f9c08fe5051dfa4253a3766cbd4a0c63958c15c479a4e"
+    },
+    {
+      "log_sha256": "118714e7ac97fe049d53c1fe387abe8534e75aed38ba0a1dbda1cdeb48d8689e",
+      "name": "codec-cache-portability-read-749",
+      "passed_tests": 1,
+      "receipt_sha256": "eff2bff7eaa136e704aa3eea249808e9351195e65ea125df535ea7d71124576a"
+    }
+  ],
+  "completed_substeps": [],
+  "cost_comparison": "evidence/codec-cache-analysis-748.json",
+  "decision": "drop",
+  "failed_builds_preserved": [
+    "codec-workflow-build-747",
+    "codec-cache-build-748",
+    "codec-cache-expanded-build-749"
+  ],
+  "fresh_process_portability": {
+    "all_values_verified": true,
+    "files": 18,
+    "ordinary_reader_cache_installed": false,
+    "workflows_per_process": 54,
+    "writer_and_reader_are_distinct_processes": true
+  },
+  "investigated_substeps": [
+    "PERF-03.codec_preparation"
+  ],
+  "investigation_remains_open": true,
+  "manifest": {
+    "bytes": 4948,
+    "file": "native-codec-preparation-2026-10-19.manifest.json.xz",
+    "sha256": "8ccf04b10c0655330c5a25be7b1372eb24c495898a4b4b7896380a09b2c42133"
+  },
+  "member_count": 101,
+  "omitted_bulk_artifacts": [
+    {
+      "bytes": 94688560,
+      "path": "artifacts/codec-attribution-746",
+      "scope": "frozen executable retained locally; reproducible source patch and build receipts archived",
+      "sha256": "0988a31b331e059d484ca4d034bcf8ddb309867810bffdfaf87d71184fdbc9ce"
+    },
+    {
+      "bytes": 2020896,
+      "path": "artifacts/codec-cache-shardloom_exec-748",
+      "scope": "frozen executable retained locally; reproducible source patch and build receipts archived",
+      "sha256": "8cb97e915fd559246bafe2a952f64617cd35f1a2ec41daa53a59244f43c9d9ec"
+    },
+    {
+      "bytes": 94795024,
+      "path": "artifacts/codec-cache-shardloom_vortex-748",
+      "scope": "frozen executable retained locally; reproducible source patch and build receipts archived",
+      "sha256": "d36ccb5dd737d1632066b79f4252bb4356b841374b6c7c6db659ac3abac06c9c"
+    },
+    {
+      "bytes": 94854832,
+      "path": "artifacts/codec-cache-shardloom_vortex-expanded-749",
+      "scope": "frozen executable retained locally; reproducible source patch and build receipts archived",
+      "sha256": "c9880c438953ac607b9a728b9c6cdf37844f3b07d027281ddf757177dd322537"
+    },
+    {
+      "bytes": 94706432,
+      "path": "artifacts/codec-workflow-attribution-747",
+      "scope": "frozen executable retained locally; reproducible source patch and build receipts archived",
+      "sha256": "ef05847fe06ba47920b77fb4bff8ef526635aefd473853db03a2fdfc07a7886a"
+    }
+  ],
+  "owner_acceptance": "evidence/perf-03-acceptance.json",
+  "platform_scope": "local macOS arm64",
+  "protocol": "evidence/codec-cache-protocol-748.json",
+  "replay": "Use an isolated checkout of the recorded baseline. Apply the candidate patch and add its six extra sources. Diagnostic stages have separate recorded patches. Rebind historical absolute paths to a new local evidence directory, preserve all guards and protocol hashes, and never overwrite original run identities.",
+  "restored_commit": "1a898f26e0387342312ecc27a083ce55817f517a",
+  "restored_rust_cargo_source_files": 1895,
+  "schema_version": "shardloom.native_codec_preparation_investigation.v1",
+  "source_bridge": "evidence/codec-final-source-bridge-749.json",
+  "status": "completed_drop",
+  "uncompressed_bytes": 15973008
+}

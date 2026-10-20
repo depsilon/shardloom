@@ -1,0 +1,362 @@
+{
+  "status": "passed",
+  "steps": [
+    {
+      "name": "rematerialization-release-779-a1-bind",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "bind",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--profile",
+        "release",
+        "--build",
+        "rematerialization-release-build-779-a1"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "9bd776f95b6b614ed995de15e5ef76ef5ef97e928905a864e27638b000b575b6"
+    },
+    {
+      "name": "rematerialization-release-779-a1-focused",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded_observed_757.py",
+        "--name",
+        "rematerialization-release-779-a1-focused",
+        "--timeout",
+        "1800",
+        "--",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization-release-779-a1-test",
+        "::rematerialization_",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "efca190d34724e0b47cf19f6edb261d6f4bb97208b7bae423abe33c6ce062810",
+      "guard_receipt_sha256": "0c4c7e0eb0b35003974dce328f1aeec2a52d8d574269f45439ee6825fe676b23"
+    },
+    {
+      "name": "rematerialization-release-779-a1-preflight-retain",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-preflight-retain",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "preflight",
+        "--role",
+        "retain",
+        "--cohort",
+        "preflight"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "22862afea811a38b062080afc2df6d581312b2bee6d36ac7afb5606488f505bd",
+      "guard_receipt_sha256": "777f2b118b6260255b085c08422a52b72fac5d012ab3a30c648a00dde1fecef0"
+    },
+    {
+      "name": "rematerialization-release-779-a1-preflight-spill",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-preflight-spill",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "preflight",
+        "--role",
+        "spill",
+        "--cohort",
+        "preflight"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "a0cf287d205c40dfb78570324ea2bf234aeb914ef9fe41a247ce935072819504",
+      "guard_receipt_sha256": "b8a3e0211409000f8d7625f7c8d4ecb674be7483800366685086d9825b18a334"
+    },
+    {
+      "name": "rematerialization-release-779-a1-preflight-regenerate",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-preflight-regenerate",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "preflight",
+        "--role",
+        "regenerate",
+        "--cohort",
+        "preflight"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "cbd44af150dba46da72b3532ded162ea44ac9f9e99af0e10199665aacab90f1b",
+      "guard_receipt_sha256": "7659dc8a2ca8c9a7400e69baeabd15d212c08ef60ab5a07eaf83c9f3eff96810"
+    },
+    {
+      "name": "rematerialization-release-779-a1-preflight-check",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded_observed_757.py",
+        "--name",
+        "rematerialization-release-779-a1-preflight-check",
+        "--timeout",
+        "1800",
+        "--",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/analyze_rematerialization_779.py",
+        "--mode",
+        "preflight",
+        "--data",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization-release-779-a1-data",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization-release-779-a1-preflight-analysis.json"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "843ad5ab590443a28a81ec413fe3d2398ebe7fad8cda7bc8d592a42904372449",
+      "guard_receipt_sha256": "5ba4f6843e6ffaecd62a2bc441a81c1b06aacaf2f698072fd21f328076cf6dc7"
+    },
+    {
+      "name": "rematerialization-release-779-a1-measure-A-retain",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-measure-A-retain",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "measure",
+        "--role",
+        "retain",
+        "--cohort",
+        "A"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "561aa4f0cd4a82864160b535b9ef74536b07ce9a01e396685e4a450b04c8ca15",
+      "guard_receipt_sha256": "270276f12fbb2cf385641bc6b4bbb00f01306d107f735b3fce92601401376281"
+    },
+    {
+      "name": "rematerialization-release-779-a1-measure-A-spill",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-measure-A-spill",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "measure",
+        "--role",
+        "spill",
+        "--cohort",
+        "A"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "2cfc1c298c9feeb5264616eaa2a43ee3171268e76d43f4db9aa5c55f29518ee7",
+      "guard_receipt_sha256": "58aa6ec0f823949d7c126dff577d6b19133a7af99b2b349e9736f264d33ebe42"
+    },
+    {
+      "name": "rematerialization-release-779-a1-measure-A-regenerate",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-measure-A-regenerate",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "measure",
+        "--role",
+        "regenerate",
+        "--cohort",
+        "A"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "1bc8a91f10e148bbf4ee90bb34153fde88a49750b031ebec3463c67943709080",
+      "guard_receipt_sha256": "9c826cef86b647febd83d8a6cdf130c7874cf18b846ff12fd4e52af1dbfbb40f"
+    },
+    {
+      "name": "rematerialization-release-779-a1-measure-B-regenerate",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-measure-B-regenerate",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "measure",
+        "--role",
+        "regenerate",
+        "--cohort",
+        "B"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "f03b179481bf1de3bc9f142b34d175752d6ff98ad2db54e2732b2096649516e8",
+      "guard_receipt_sha256": "f9aab9fa88ff53f267cd79dc8453764ec6fa9625ae07503f462aa45f14831b0b"
+    },
+    {
+      "name": "rematerialization-release-779-a1-measure-B-spill",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-measure-B-spill",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "measure",
+        "--role",
+        "spill",
+        "--cohort",
+        "B"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "a6e272a69f85aa4bed0dbcc38d4dfcab548b3e7a2b2fd0d369ad2f2ac8b9275d",
+      "guard_receipt_sha256": "46902dc636378ae50f882f7ffaec4725d60c5df01157727862fe3a11d3f20035"
+    },
+    {
+      "name": "rematerialization-release-779-a1-measure-B-retain",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "run",
+        "--label",
+        "rematerialization-release-779-a1",
+        "--name",
+        "rematerialization-release-779-a1-measure-B-retain",
+        "--data",
+        "rematerialization-release-779-a1-data",
+        "--mode",
+        "measure",
+        "--role",
+        "retain",
+        "--cohort",
+        "B"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "2e3fd2cbae0a00a2db61536fdf304d0ddf5a6be730309c05f4826d8c36cc89b2",
+      "guard_receipt_sha256": "00c8e22d3d87d43fe4db9394701856b4a07d0fdc16c790860373a884b65da67d"
+    },
+    {
+      "name": "rematerialization-release-779-a1-decision-check",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded_observed_757.py",
+        "--name",
+        "rematerialization-release-779-a1-decision-check",
+        "--timeout",
+        "1800",
+        "--",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/analyze_rematerialization_779.py",
+        "--mode",
+        "measure",
+        "--data",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization-release-779-a1-data",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization-release-779-a1-decision.json"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "efc730dcdf2b118a6b3391f7c725868714c19ec49ddbb6c548be913bafc14dc1",
+      "guard_receipt_sha256": "3738af8c05bb50aee61046715a474542fa8aeaaeabd780f3db22c2f64b182889"
+    },
+    {
+      "name": "rematerialization-release-779-a1-final-binding",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/rematerialization_driver_779.py",
+        "verify",
+        "--label",
+        "rematerialization-release-779-a1"
+      ],
+      "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+      "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+      "returncode": 0,
+      "output_sha256": "38b98ba0f6e7d722d2a21f8ddc4973034288ed0a382ac2084135f87ec9022cae"
+    }
+  ],
+  "identity": {
+    "label": "rematerialization-release-779-a1",
+    "source_freeze_sha256": "94433379a9bb5717e4e21fa3b93b3b39614cd2f37b05e7db91ae3ca04ae4c1cf",
+    "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+    "sequence_sha256": "f784585d3e7b7f30e51347313fb92da610526447b143ba3aeeac353b627fed00",
+    "debug_sequence_sha256": "a4148afbe29d44834eab087eaa8337282402cdb3f849110fbda15918d5929cd8",
+    "debug_analysis_sha256": "4643e40604ad659dcab90afccf2adf0f2a25b012f98b0991c20820a3fea2890d",
+    "measured_cohort_order": [
+      [
+        "A",
+        [
+          "retain",
+          "spill",
+          "regenerate"
+        ]
+      ],
+      [
+        "B",
+        [
+          "regenerate",
+          "spill",
+          "retain"
+        ]
+      ]
+    ],
+    "samples_per_cell": 3,
+    "full_preflight_before_measurements": true
+  },
+  "decision_sha256": "bf5db0fec791eda7ff8c7c3ef44f044d3454ea2ffd5d1b4a24c4274440604f41"
+}
