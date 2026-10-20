@@ -179,6 +179,11 @@ Not allowed:
   runners must apply equivalent guards before writing.
 - Do not disable these guards merely to obtain benchmark numbers. Do not manually delete
   CloudDocs internals, hydrate large placeholders, or relocate unrelated user files.
+- Apply retention across all ShardLoom generated storage: keep current inputs, the latest
+  accepted output/runtime, active comparison artifacts and compact results. Retire completed
+  temporary payloads, old binaries, environments and compiler outputs when no longer needed;
+  do not create rollback archives of them. Follow the current retention policy in
+  `docs/architecture/local-development-storage.md`.
 
 ShardLoom's active implementation and cleanup queue is tracked in
 `docs/architecture/phased-execution-plan.md`.

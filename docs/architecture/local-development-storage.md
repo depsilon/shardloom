@@ -1,5 +1,34 @@
 # Local Development Storage
 
+## Current retention policy
+
+The October 20 maintainer decision applies to **all ShardLoom local generated
+storage**, including prior investigations, release verification, build caches and
+worktree outputs. Cleanup is not limited to the experiment that reaches a limit.
+
+Retain current source inputs, the latest accepted output and tested runtime,
+artifacts still needed by an active comparison, and compact results. Results
+include the measured values, correctness outcomes, failures, source revision,
+build/features, input identities and the protocol needed to understand them.
+Large result records may be compressed with verified readback. Do not retain old
+executables, compiler caches, environments, source bundles or generated datasets
+as rollback backups. Git source and ordinary project files are separate from
+disposable generated artifacts.
+
+After validation, retire completed temporary outputs and verbose per-output
+validation dumps once their results have been recorded. A failed or incomplete
+run keeps its outcome and useful diagnostics; retaining that result does not
+require keeping every generated payload. An active comparison keeps the inputs
+and observations needed to reach its decision, then releases those temporary
+artifacts. Preserve the existing storage, concurrency and process-cleanup guards;
+increasing a limit is not a retention policy.
+
+Before deletion, identify the exact generated paths, confirm that they are no
+longer in use, and verify the retained replacement or regeneration basis. Store
+a compact cleanup result. Do not create another full archive of the files being
+retired. This policy supersedes the older local-residency and backup-retention
+statements below; their measurements remain historical results.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in
