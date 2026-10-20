@@ -182,6 +182,14 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib text_zone_
 
 Deliver `perf-09-acceptance.json`, per-column/whole-artifact identities and sizes, transient ownership and ordered EOF/cancel/publication evidence, plus complete first/repeated downstream results. Apply the retained writer's original ingest/size/query gate; rejected text profiles require a materially different mechanism before reconsideration.
 
+The [October 20 pre-writer attribution](native-ingest-overlap-attribution-2026-10-20.md)
+preserves two complete corrected-geometry comparisons with failed observer
+overhead gates. Its exact helper/source versions and raw numeric records are in
+the linked compact packet; the temporary ignored selectors are removed. These
+correctness passes do not admit a scheduling candidate. A new observer needs a
+materially different design, frozen protocol and all activation/lifecycle/overhead
+gates before its opportunity values can justify implementation.
+
 ## PERF-10
 
 Protect selection semantics, metadata-only work and the shared public route:

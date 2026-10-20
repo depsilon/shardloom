@@ -1,0 +1,5020 @@
+{
+  "checked_at_utc": "2026-10-20T09:45:23.490262+00:00",
+  "trace_count": 184,
+  "traces": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a1/preflight-rg0-p4-observed/trace.json.gz",
+      "expected_bytes": 97530,
+      "expected_sha256": "10179aef05fdf3fb036aa5561eee11596573b734663431e472cc9c14169b363c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 97530,
+      "observed_sha256": "10179aef05fdf3fb036aa5561eee11596573b734663431e472cc9c14169b363c",
+      "stat_before": [
+        16777233,
+        115823398,
+        33188,
+        97530,
+        1792472507893272999,
+        1792472507893272999
+      ],
+      "stat_after": [
+        16777233,
+        115823398,
+        33188,
+        97530,
+        1792472507893272999,
+        1792472507893272999
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a1/preflight-rg113-p4-observed/trace.json.gz",
+      "expected_bytes": 64872,
+      "expected_sha256": "5f7ee0e34342c08885d18e5f6ba85951abf2213d77e0c645295725d202267097",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 64872,
+      "observed_sha256": "5f7ee0e34342c08885d18e5f6ba85951abf2213d77e0c645295725d202267097",
+      "stat_before": [
+        16777233,
+        115823441,
+        33188,
+        64872,
+        1792472536901815194,
+        1792472536901815194
+      ],
+      "stat_after": [
+        16777233,
+        115823441,
+        33188,
+        64872,
+        1792472536901815194,
+        1792472536901815194
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 32980,
+      "expected_sha256": "8c859dec1030c14d1edf90c04d229d427eb932e30691e6d889c6b0a1b177d27f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32980,
+      "observed_sha256": "8c859dec1030c14d1edf90c04d229d427eb932e30691e6d889c6b0a1b177d27f",
+      "stat_before": [
+        16777233,
+        115826248,
+        33188,
+        32980,
+        1792474014078617229,
+        1792474014078617229
+      ],
+      "stat_after": [
+        16777233,
+        115826248,
+        33188,
+        32980,
+        1792474014078617229,
+        1792474014078617229
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 32903,
+      "expected_sha256": "8b067d3f3058f2ee870fbad6a1499aefb50dbd6af7ca07205a496e3afcdfac9c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32903,
+      "observed_sha256": "8b067d3f3058f2ee870fbad6a1499aefb50dbd6af7ca07205a496e3afcdfac9c",
+      "stat_before": [
+        16777233,
+        115826269,
+        33188,
+        32903,
+        1792474028422894323,
+        1792474028422894323
+      ],
+      "stat_after": [
+        16777233,
+        115826269,
+        33188,
+        32903,
+        1792474028422894323,
+        1792474028422894323
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 32874,
+      "expected_sha256": "1ea0cee3841138029673af2bcba30c463a5a005bea6bdf8927f78249d2574858",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32874,
+      "observed_sha256": "1ea0cee3841138029673af2bcba30c463a5a005bea6bdf8927f78249d2574858",
+      "stat_before": [
+        16777233,
+        115826315,
+        33188,
+        32874,
+        1792474072769619827,
+        1792474072769619827
+      ],
+      "stat_after": [
+        16777233,
+        115826315,
+        33188,
+        32874,
+        1792474072769619827,
+        1792474072769619827
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 87017,
+      "expected_sha256": "12173bdd4f2a04cca8e146a9464e20ceb80d58d72a62ac210b7c8c585110c4ef",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 87017,
+      "observed_sha256": "12173bdd4f2a04cca8e146a9464e20ceb80d58d72a62ac210b7c8c585110c4ef",
+      "stat_before": [
+        16777233,
+        115825989,
+        33188,
+        87017,
+        1792473748161458394,
+        1792473748161458394
+      ],
+      "stat_after": [
+        16777233,
+        115825989,
+        33188,
+        87017,
+        1792473748161458394,
+        1792473748161458394
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 86963,
+      "expected_sha256": "bbb9c9cf253ef3f9e2bfa066d2a5a758df88fa2d68f48f4c37b72478bc94842a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 86963,
+      "observed_sha256": "bbb9c9cf253ef3f9e2bfa066d2a5a758df88fa2d68f48f4c37b72478bc94842a",
+      "stat_before": [
+        16777233,
+        115826008,
+        33188,
+        86963,
+        1792473763003589414,
+        1792473763003589414
+      ],
+      "stat_after": [
+        16777233,
+        115826008,
+        33188,
+        86963,
+        1792473763003589414,
+        1792473763003589414
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 86881,
+      "expected_sha256": "598282ca429a3b0d9f49150ac63d4b406ffa1534dd3be7af60240f38680ca620",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 86881,
+      "observed_sha256": "598282ca429a3b0d9f49150ac63d4b406ffa1534dd3be7af60240f38680ca620",
+      "stat_before": [
+        16777233,
+        115826046,
+        33188,
+        86881,
+        1792473807274443897,
+        1792473807274443897
+      ],
+      "stat_after": [
+        16777233,
+        115826046,
+        33188,
+        86881,
+        1792473807274443897,
+        1792473807274443897
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 97319,
+      "expected_sha256": "52c3a57d846284a1edf074c3af0058ce2936cdd1c28f7429bfe5ca7516ead60a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 97319,
+      "observed_sha256": "52c3a57d846284a1edf074c3af0058ce2936cdd1c28f7429bfe5ca7516ead60a",
+      "stat_before": [
+        16777233,
+        115825673,
+        33188,
+        97319,
+        1792473484300577686,
+        1792473484300577686
+      ],
+      "stat_after": [
+        16777233,
+        115825673,
+        33188,
+        97319,
+        1792473484300577686,
+        1792473484300577686
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 97069,
+      "expected_sha256": "a09b86cee5286757efd222565e9a37515f27079cbd189d5a13a1ed1c30b2d3d7",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 97069,
+      "observed_sha256": "a09b86cee5286757efd222565e9a37515f27079cbd189d5a13a1ed1c30b2d3d7",
+      "stat_before": [
+        16777233,
+        115825688,
+        33188,
+        97069,
+        1792473498931390546,
+        1792473498931390546
+      ],
+      "stat_after": [
+        16777233,
+        115825688,
+        33188,
+        97069,
+        1792473498931390546,
+        1792473498931390546
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 97459,
+      "expected_sha256": "171263b180d44da5c4c4f86869e1b101d35c39abdeff24b866a0f077642a0465",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 97459,
+      "observed_sha256": "171263b180d44da5c4c4f86869e1b101d35c39abdeff24b866a0f077642a0465",
+      "stat_before": [
+        16777233,
+        115825735,
+        33188,
+        97459,
+        1792473542603960071,
+        1792473542603960071
+      ],
+      "stat_after": [
+        16777233,
+        115825735,
+        33188,
+        97459,
+        1792473542603960071,
+        1792473542603960071
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 57246,
+      "expected_sha256": "03fde0215a7d602e2c5d94cd84bc5221108acc0b6d59abcbe317e7f895fa3528",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57246,
+      "observed_sha256": "03fde0215a7d602e2c5d94cd84bc5221108acc0b6d59abcbe317e7f895fa3528",
+      "stat_before": [
+        16777233,
+        115826074,
+        33188,
+        57246,
+        1792473836826260555,
+        1792473836826260555
+      ],
+      "stat_after": [
+        16777233,
+        115826074,
+        33188,
+        57246,
+        1792473836826260555,
+        1792473836826260555
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 57166,
+      "expected_sha256": "47daca43a57dd695a96524835ec0cd9825aaf89ed2d692a5b9873d522196441e",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57166,
+      "observed_sha256": "47daca43a57dd695a96524835ec0cd9825aaf89ed2d692a5b9873d522196441e",
+      "stat_before": [
+        16777233,
+        115826091,
+        33188,
+        57166,
+        1792473851601582571,
+        1792473851601582571
+      ],
+      "stat_after": [
+        16777233,
+        115826091,
+        33188,
+        57166,
+        1792473851601582571,
+        1792473851601582571
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 57145,
+      "expected_sha256": "0a93fafaa765959ea5d26b3231d89433de8951285d584315fb58dfc9293961c6",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57145,
+      "observed_sha256": "0a93fafaa765959ea5d26b3231d89433de8951285d584315fb58dfc9293961c6",
+      "stat_before": [
+        16777233,
+        115826132,
+        33188,
+        57145,
+        1792473896309915530,
+        1792473896309915530
+      ],
+      "stat_after": [
+        16777233,
+        115826132,
+        33188,
+        57145,
+        1792473896309915530,
+        1792473896309915530
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 64575,
+      "expected_sha256": "d54f791394867295fa3f725ed1ea746bfefc2c1d232d8cefc859a5de04bb4d08",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 64575,
+      "observed_sha256": "d54f791394867295fa3f725ed1ea746bfefc2c1d232d8cefc859a5de04bb4d08",
+      "stat_before": [
+        16777233,
+        115825762,
+        33188,
+        64575,
+        1792473571966146986,
+        1792473571966146986
+      ],
+      "stat_after": [
+        16777233,
+        115825762,
+        33188,
+        64575,
+        1792473571966146986,
+        1792473571966146986
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 63448,
+      "expected_sha256": "848618221389a16d6d57926226d531db57e55a816734299f9f0f3fe97c742a11",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 63448,
+      "observed_sha256": "848618221389a16d6d57926226d531db57e55a816734299f9f0f3fe97c742a11",
+      "stat_before": [
+        16777233,
+        115825779,
+        33188,
+        63448,
+        1792473586612101875,
+        1792473586612101875
+      ],
+      "stat_after": [
+        16777233,
+        115825779,
+        33188,
+        63448,
+        1792473586612101875,
+        1792473586612101875
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 63999,
+      "expected_sha256": "c1eae5f8398b8bff6146b1bd8a04db663458e134525147f24a8d5e256010663f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 63999,
+      "observed_sha256": "c1eae5f8398b8bff6146b1bd8a04db663458e134525147f24a8d5e256010663f",
+      "stat_before": [
+        16777233,
+        115825819,
+        33188,
+        63999,
+        1792473630379509502,
+        1792473630379509502
+      ],
+      "stat_after": [
+        16777233,
+        115825819,
+        33188,
+        63999,
+        1792473630379509502,
+        1792473630379509502
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 84067,
+      "expected_sha256": "a12699ca61a331a5482114e1773e97e9e3bac990fd74ffcc9c730767b57b3bc4",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 84067,
+      "observed_sha256": "a12699ca61a331a5482114e1773e97e9e3bac990fd74ffcc9c730767b57b3bc4",
+      "stat_before": [
+        16777233,
+        115826159,
+        33188,
+        84067,
+        1792473926068751176,
+        1792473926068751176
+      ],
+      "stat_after": [
+        16777233,
+        115826159,
+        33188,
+        84067,
+        1792473926068751176,
+        1792473926068751176
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 84022,
+      "expected_sha256": "6e25b3a22207b393ebc5805d2e9001abe16439e38a79ac5094628cb7d82267ed",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 84022,
+      "observed_sha256": "6e25b3a22207b393ebc5805d2e9001abe16439e38a79ac5094628cb7d82267ed",
+      "stat_before": [
+        16777233,
+        115826174,
+        33188,
+        84022,
+        1792473941015036483,
+        1792473941015036483
+      ],
+      "stat_after": [
+        16777233,
+        115826174,
+        33188,
+        84022,
+        1792473941015036483,
+        1792473941015036483
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 84103,
+      "expected_sha256": "017e7299851f47dfe805bc6a5b514c46ec15ad217bfaf18332524274a609d799",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 84103,
+      "observed_sha256": "017e7299851f47dfe805bc6a5b514c46ec15ad217bfaf18332524274a609d799",
+      "stat_before": [
+        16777233,
+        115826225,
+        33188,
+        84103,
+        1792473985573611316,
+        1792473985573611316
+      ],
+      "stat_after": [
+        16777233,
+        115826225,
+        33188,
+        84103,
+        1792473985573611316,
+        1792473985573611316
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 94560,
+      "expected_sha256": "859ec44d58df80c5048eaf598750791dee87f918f19aa3588dea201e53777725",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94560,
+      "observed_sha256": "859ec44d58df80c5048eaf598750791dee87f918f19aa3588dea201e53777725",
+      "stat_before": [
+        16777233,
+        115825893,
+        33188,
+        94560,
+        1792473659855446971,
+        1792473659855446971
+      ],
+      "stat_after": [
+        16777233,
+        115825893,
+        33188,
+        94560,
+        1792473659855446971,
+        1792473659855446971
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 94450,
+      "expected_sha256": "8135c018379efcb271072a41c4e32dec8d5b823e52c10c10de0a5c79c448648e",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94450,
+      "observed_sha256": "8135c018379efcb271072a41c4e32dec8d5b823e52c10c10de0a5c79c448648e",
+      "stat_before": [
+        16777233,
+        115825911,
+        33188,
+        94450,
+        1792473674547589575,
+        1792473674547589575
+      ],
+      "stat_after": [
+        16777233,
+        115825911,
+        33188,
+        94450,
+        1792473674547589575,
+        1792473674547589575
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/A-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 94177,
+      "expected_sha256": "b53f2844f4d7a287c8341f01746140a4c85ae59265e14b35fb5df267483472c8",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94177,
+      "observed_sha256": "b53f2844f4d7a287c8341f01746140a4c85ae59265e14b35fb5df267483472c8",
+      "stat_before": [
+        16777233,
+        115825950,
+        33188,
+        94177,
+        1792473718507785328,
+        1792473718507785328
+      ],
+      "stat_after": [
+        16777233,
+        115825950,
+        33188,
+        94177,
+        1792473718507785328,
+        1792473718507785328
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 32877,
+      "expected_sha256": "377ae75e72ef2401b3eeafc3b8d76859a52487e1d45b13291ae3d6e7e4c4c82f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32877,
+      "observed_sha256": "377ae75e72ef2401b3eeafc3b8d76859a52487e1d45b13291ae3d6e7e4c4c82f",
+      "stat_before": [
+        16777233,
+        115826895,
+        33188,
+        32877,
+        1792474621328298833,
+        1792474621328298833
+      ],
+      "stat_after": [
+        16777233,
+        115826895,
+        33188,
+        32877,
+        1792474621328298833,
+        1792474621328298833
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 32943,
+      "expected_sha256": "b0b26a055319e9df9f74ec8429a07b01dfced81583d860de753cd4c22062edd0",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32943,
+      "observed_sha256": "b0b26a055319e9df9f74ec8429a07b01dfced81583d860de753cd4c22062edd0",
+      "stat_before": [
+        16777233,
+        115826985,
+        33188,
+        32943,
+        1792474664001302747,
+        1792474664001302747
+      ],
+      "stat_after": [
+        16777233,
+        115826985,
+        33188,
+        32943,
+        1792474664001302747,
+        1792474664001302747
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 32868,
+      "expected_sha256": "bfd41be00308e57a5319d00ecd8ab1c7dcdf5fcc88fa549f644debaf95021141",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32868,
+      "observed_sha256": "bfd41be00308e57a5319d00ecd8ab1c7dcdf5fcc88fa549f644debaf95021141",
+      "stat_before": [
+        16777233,
+        115827002,
+        33188,
+        32868,
+        1792474678342653372,
+        1792474678342653372
+      ],
+      "stat_after": [
+        16777233,
+        115827002,
+        33188,
+        32868,
+        1792474678342653372,
+        1792474678342653372
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 86902,
+      "expected_sha256": "54d78067a5e400f1b4107400c66c767c34efbf6c6b407bfabc2f6582cf6c2bc8",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 86902,
+      "observed_sha256": "54d78067a5e400f1b4107400c66c767c34efbf6c6b407bfabc2f6582cf6c2bc8",
+      "stat_before": [
+        16777233,
+        115826623,
+        33188,
+        86902,
+        1792474355133099932,
+        1792474355133099932
+      ],
+      "stat_after": [
+        16777233,
+        115826623,
+        33188,
+        86902,
+        1792474355133099932,
+        1792474355133099932
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 86931,
+      "expected_sha256": "2a442344b91e8f85f398cdedc1243c8e2f843f9e20f6a8e0fffd7800343f2daa",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 86931,
+      "observed_sha256": "2a442344b91e8f85f398cdedc1243c8e2f843f9e20f6a8e0fffd7800343f2daa",
+      "stat_before": [
+        16777233,
+        115826684,
+        33188,
+        86931,
+        1792474399715695403,
+        1792474399715695403
+      ],
+      "stat_after": [
+        16777233,
+        115826684,
+        33188,
+        86931,
+        1792474399715695403,
+        1792474399715695403
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 87360,
+      "expected_sha256": "0cacf94d99339960a4282aedd2c7f492666d8a707f1804c87ae4365e23632568",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 87360,
+      "observed_sha256": "0cacf94d99339960a4282aedd2c7f492666d8a707f1804c87ae4365e23632568",
+      "stat_before": [
+        16777233,
+        115826700,
+        33188,
+        87360,
+        1792474414757379985,
+        1792474414757379985
+      ],
+      "stat_after": [
+        16777233,
+        115826700,
+        33188,
+        87360,
+        1792474414757379985,
+        1792474414757379985
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 96723,
+      "expected_sha256": "522e62c6cd9cdb813f90ca3945acbe60508d1d1a08016237b9b42dd9373347a8",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 96723,
+      "observed_sha256": "522e62c6cd9cdb813f90ca3945acbe60508d1d1a08016237b9b42dd9373347a8",
+      "stat_before": [
+        16777233,
+        115826332,
+        33188,
+        96723,
+        1792474087658376397,
+        1792474087658376397
+      ],
+      "stat_after": [
+        16777233,
+        115826332,
+        33188,
+        96723,
+        1792474087658376397,
+        1792474087658376397
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 97710,
+      "expected_sha256": "aaff9d3c118d545c1e50baf3a751aa4c27a1b5c93b56728be1097bd0b6fcf52d",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 97710,
+      "observed_sha256": "aaff9d3c118d545c1e50baf3a751aa4c27a1b5c93b56728be1097bd0b6fcf52d",
+      "stat_before": [
+        16777233,
+        115826391,
+        33188,
+        97710,
+        1792474132217465066,
+        1792474132217465066
+      ],
+      "stat_after": [
+        16777233,
+        115826391,
+        33188,
+        97710,
+        1792474132217465066,
+        1792474132217465066
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 98384,
+      "expected_sha256": "368ef7530c304ff4c4c2225169963ec578da0d1056b82775d633a4088e12cc58",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 98384,
+      "observed_sha256": "368ef7530c304ff4c4c2225169963ec578da0d1056b82775d633a4088e12cc58",
+      "stat_before": [
+        16777233,
+        115826406,
+        33188,
+        98384,
+        1792474147195183976,
+        1792474147195183976
+      ],
+      "stat_after": [
+        16777233,
+        115826406,
+        33188,
+        98384,
+        1792474147195183976,
+        1792474147195183976
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 57124,
+      "expected_sha256": "065c0a7f3761c299b6ee2854eb00bace53f3cc589e449693c62ac4299b6fe14b",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57124,
+      "observed_sha256": "065c0a7f3761c299b6ee2854eb00bace53f3cc589e449693c62ac4299b6fe14b",
+      "stat_before": [
+        16777233,
+        115826726,
+        33188,
+        57124,
+        1792474444415322138,
+        1792474444415322138
+      ],
+      "stat_after": [
+        16777233,
+        115826726,
+        33188,
+        57124,
+        1792474444415322138,
+        1792474444415322138
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 57041,
+      "expected_sha256": "a6f264daa9f07ff4302a2958efd3fa958369d676487d8f84dd8bb3b54e31f9fb",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57041,
+      "observed_sha256": "a6f264daa9f07ff4302a2958efd3fa958369d676487d8f84dd8bb3b54e31f9fb",
+      "stat_before": [
+        16777233,
+        115826772,
+        33188,
+        57041,
+        1792474488793232195,
+        1792474488793232195
+      ],
+      "stat_after": [
+        16777233,
+        115826772,
+        33188,
+        57041,
+        1792474488793232195,
+        1792474488793232195
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 57189,
+      "expected_sha256": "ca887382d367293e513d9886d88c3469dba23d362e8eb1b130d99c657468a185",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57189,
+      "observed_sha256": "ca887382d367293e513d9886d88c3469dba23d362e8eb1b130d99c657468a185",
+      "stat_before": [
+        16777233,
+        115826786,
+        33188,
+        57189,
+        1792474503618041460,
+        1792474503618041460
+      ],
+      "stat_after": [
+        16777233,
+        115826786,
+        33188,
+        57189,
+        1792474503618041460,
+        1792474503618041460
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 63958,
+      "expected_sha256": "7534d50745c891c5b3d78ca83aace8e3c4001139d86266de1888de59cdfae190",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 63958,
+      "observed_sha256": "7534d50745c891c5b3d78ca83aace8e3c4001139d86266de1888de59cdfae190",
+      "stat_before": [
+        16777233,
+        115826431,
+        33188,
+        63958,
+        1792474177476798722,
+        1792474177476798722
+      ],
+      "stat_after": [
+        16777233,
+        115826431,
+        33188,
+        63958,
+        1792474177476798722,
+        1792474177476798722
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 64582,
+      "expected_sha256": "5d5dcc643fd34ac540acbea8e9bf64ec1975845f3f86d1f10b3eec3ac5e0e80b",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 64582,
+      "observed_sha256": "5d5dcc643fd34ac540acbea8e9bf64ec1975845f3f86d1f10b3eec3ac5e0e80b",
+      "stat_before": [
+        16777233,
+        115826483,
+        33188,
+        64582,
+        1792474221801524892,
+        1792474221801524892
+      ],
+      "stat_after": [
+        16777233,
+        115826483,
+        33188,
+        64582,
+        1792474221801524892,
+        1792474221801524892
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 64542,
+      "expected_sha256": "2601642a7f70076363b41ced4498cb968ce971bcb9527de1a10fff4346be5751",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 64542,
+      "observed_sha256": "2601642a7f70076363b41ced4498cb968ce971bcb9527de1a10fff4346be5751",
+      "stat_before": [
+        16777233,
+        115826502,
+        33188,
+        64542,
+        1792474236679157190,
+        1792474236679157190
+      ],
+      "stat_after": [
+        16777233,
+        115826502,
+        33188,
+        64542,
+        1792474236679157190,
+        1792474236679157190
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 84173,
+      "expected_sha256": "1253db00fc966a8ac7b75fc4061c55ee1c3d29e7191ad664d6893da2e5d5e6b8",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 84173,
+      "observed_sha256": "1253db00fc966a8ac7b75fc4061c55ee1c3d29e7191ad664d6893da2e5d5e6b8",
+      "stat_before": [
+        16777233,
+        115826813,
+        33188,
+        84173,
+        1792474533188826022,
+        1792474533188826022
+      ],
+      "stat_after": [
+        16777233,
+        115826813,
+        33188,
+        84173,
+        1792474533188826022,
+        1792474533188826022
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 83989,
+      "expected_sha256": "2e33b2e710737e093b4942368b04d01bcad3dbbb42bac380fc5ac6028225c11a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 83989,
+      "observed_sha256": "2e33b2e710737e093b4942368b04d01bcad3dbbb42bac380fc5ac6028225c11a",
+      "stat_before": [
+        16777233,
+        115826855,
+        33188,
+        83989,
+        1792474577554258416,
+        1792474577554258416
+      ],
+      "stat_after": [
+        16777233,
+        115826855,
+        33188,
+        83989,
+        1792474577554258416,
+        1792474577554258416
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 84077,
+      "expected_sha256": "92ac6a81ba8d9ce3bda5c0c3a219cbeaef6e78cc6ca6051d589854df10801f9e",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 84077,
+      "observed_sha256": "92ac6a81ba8d9ce3bda5c0c3a219cbeaef6e78cc6ca6051d589854df10801f9e",
+      "stat_before": [
+        16777233,
+        115826868,
+        33188,
+        84077,
+        1792474592376345357,
+        1792474592376345357
+      ],
+      "stat_after": [
+        16777233,
+        115826868,
+        33188,
+        84077,
+        1792474592376345357,
+        1792474592376345357
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 94441,
+      "expected_sha256": "dbeb9375016bb900b0f2c926e8122f1452a7eb89122566fd9fbbf01b41aec9a0",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94441,
+      "observed_sha256": "dbeb9375016bb900b0f2c926e8122f1452a7eb89122566fd9fbbf01b41aec9a0",
+      "stat_before": [
+        16777233,
+        115826530,
+        33188,
+        94441,
+        1792474266357280804,
+        1792474266357280804
+      ],
+      "stat_after": [
+        16777233,
+        115826530,
+        33188,
+        94441,
+        1792474266357280804,
+        1792474266357280804
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 94105,
+      "expected_sha256": "1b68f1ee0cb826f2ddb9d8c530aaa26bddbc3e925ed29b8cd61eb5f9c207bf35",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94105,
+      "observed_sha256": "1b68f1ee0cb826f2ddb9d8c530aaa26bddbc3e925ed29b8cd61eb5f9c207bf35",
+      "stat_before": [
+        16777233,
+        115826573,
+        33188,
+        94105,
+        1792474310580729443,
+        1792474310580729443
+      ],
+      "stat_after": [
+        16777233,
+        115826573,
+        33188,
+        94105,
+        1792474310580729443,
+        1792474310580729443
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/B-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 94379,
+      "expected_sha256": "90fdaefe2023c753a3d5166fe2cf9865a18bc67544008130e459751ff4c2d886",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94379,
+      "observed_sha256": "90fdaefe2023c753a3d5166fe2cf9865a18bc67544008130e459751ff4c2d886",
+      "stat_before": [
+        16777233,
+        115826588,
+        33188,
+        94379,
+        1792474325405056222,
+        1792474325405056222
+      ],
+      "stat_after": [
+        16777233,
+        115826588,
+        33188,
+        94379,
+        1792474325405056222,
+        1792474325405056222
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg0-one-p4-observed/trace.json.gz",
+      "expected_bytes": 32889,
+      "expected_sha256": "e2e9e23fa6f7591b00a4cb54c678397e79e4b253ffda8cdae6bdf7b3acca12cf",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 32889,
+      "observed_sha256": "e2e9e23fa6f7591b00a4cb54c678397e79e4b253ffda8cdae6bdf7b3acca12cf",
+      "stat_before": [
+        16777233,
+        115825633,
+        33188,
+        32889,
+        1792473430142458538,
+        1792473430142458538
+      ],
+      "stat_after": [
+        16777233,
+        115825633,
+        33188,
+        32889,
+        1792473430142458538,
+        1792473430142458538
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg0-p1-observed/trace.json.gz",
+      "expected_bytes": 86919,
+      "expected_sha256": "2c84edb7befb2b3b9d5e75080b5f17566a32ba30480874ba3d907d24ccf52509",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 86919,
+      "observed_sha256": "2c84edb7befb2b3b9d5e75080b5f17566a32ba30480874ba3d907d24ccf52509",
+      "stat_before": [
+        16777233,
+        115825538,
+        33188,
+        86919,
+        1792473343154936600,
+        1792473343154936600
+      ],
+      "stat_after": [
+        16777233,
+        115825538,
+        33188,
+        86919,
+        1792473343154936600,
+        1792473343154936600
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg0-p4-observed/trace.json.gz",
+      "expected_bytes": 97731,
+      "expected_sha256": "4f06b2d7c8610c8ec46c60495b8257a31d7433adb25ef46b4be7918d4b206a8d",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 97731,
+      "observed_sha256": "4f06b2d7c8610c8ec46c60495b8257a31d7433adb25ef46b4be7918d4b206a8d",
+      "stat_before": [
+        16777233,
+        115825437,
+        33188,
+        97731,
+        1792473255434849815,
+        1792473255434849815
+      ],
+      "stat_after": [
+        16777233,
+        115825437,
+        33188,
+        97731,
+        1792473255434849815,
+        1792473255434849815
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg113-p1-observed/trace.json.gz",
+      "expected_bytes": 57192,
+      "expected_sha256": "58c681558748bc8e6bbe5e24fb699927e05692311b902c4adc2a545ced253343",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 57192,
+      "observed_sha256": "58c681558748bc8e6bbe5e24fb699927e05692311b902c4adc2a545ced253343",
+      "stat_before": [
+        16777233,
+        115825565,
+        33188,
+        57192,
+        1792473372578674634,
+        1792473372578674634
+      ],
+      "stat_after": [
+        16777233,
+        115825565,
+        33188,
+        57192,
+        1792473372578674634,
+        1792473372578674634
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg113-p4-observed/trace.json.gz",
+      "expected_bytes": 64027,
+      "expected_sha256": "3388cda7bc8c91d18b3d30af938ed4267d1055c7aa12e68ceaa28cc8cccdeedd",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 64027,
+      "observed_sha256": "3388cda7bc8c91d18b3d30af938ed4267d1055c7aa12e68ceaa28cc8cccdeedd",
+      "stat_before": [
+        16777233,
+        115825464,
+        33188,
+        64027,
+        1792473284517918857,
+        1792473284517918857
+      ],
+      "stat_after": [
+        16777233,
+        115825464,
+        33188,
+        64027,
+        1792473284517918857,
+        1792473284517918857
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg225-p1-observed/trace.json.gz",
+      "expected_bytes": 84050,
+      "expected_sha256": "a64a6fff4f1f7e97a64ff425b886609dfb8978133e47126ad5252d8704d6d540",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 84050,
+      "observed_sha256": "a64a6fff4f1f7e97a64ff425b886609dfb8978133e47126ad5252d8704d6d540",
+      "stat_before": [
+        16777233,
+        115825596,
+        33188,
+        84050,
+        1792473401907417901,
+        1792473401907417901
+      ],
+      "stat_after": [
+        16777233,
+        115825596,
+        33188,
+        84050,
+        1792473401907417901,
+        1792473401907417901
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-794-a2/preflight-rg225-p4-observed/trace.json.gz",
+      "expected_bytes": 94429,
+      "expected_sha256": "24b7993ac1f1a7c8caafe6ff0ba17f0dae454099d9f247cdd5b935fe2bf059ea",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 94429,
+      "observed_sha256": "24b7993ac1f1a7c8caafe6ff0ba17f0dae454099d9f247cdd5b935fe2bf059ea",
+      "stat_before": [
+        16777233,
+        115825505,
+        33188,
+        94429,
+        1792473313596309094,
+        1792473313596309094
+      ],
+      "stat_after": [
+        16777233,
+        115825505,
+        33188,
+        94429,
+        1792473313596309094,
+        1792473313596309094
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 31383,
+      "expected_sha256": "79574c5d973477d22c441d4a6def7d74a29285296242b584357c0adb2df08a9c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 31383,
+      "observed_sha256": "79574c5d973477d22c441d4a6def7d74a29285296242b584357c0adb2df08a9c",
+      "stat_before": [
+        16777233,
+        115874253,
+        33188,
+        31383,
+        1792481000317091288,
+        1792481000317091288
+      ],
+      "stat_after": [
+        16777233,
+        115874253,
+        33188,
+        31383,
+        1792481000317091288,
+        1792481000317091288
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 31258,
+      "expected_sha256": "9e302ca9a5f64b208a2033324c93387c760e90c9d1a8a33a09ffea7b68a30278",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 31258,
+      "observed_sha256": "9e302ca9a5f64b208a2033324c93387c760e90c9d1a8a33a09ffea7b68a30278",
+      "stat_before": [
+        16777233,
+        115874285,
+        33188,
+        31258,
+        1792481014920541461,
+        1792481014920541461
+      ],
+      "stat_after": [
+        16777233,
+        115874285,
+        33188,
+        31258,
+        1792481014920541461,
+        1792481014920541461
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 30886,
+      "expected_sha256": "4f28d9dec6a0bbbfaaef149e3b9bdcd02d6d5cb76e1ce0099e91db0c65929cd7",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30886,
+      "observed_sha256": "4f28d9dec6a0bbbfaaef149e3b9bdcd02d6d5cb76e1ce0099e91db0c65929cd7",
+      "stat_before": [
+        16777233,
+        115874450,
+        33188,
+        30886,
+        1792481058332801277,
+        1792481058332801277
+      ],
+      "stat_after": [
+        16777233,
+        115874450,
+        33188,
+        30886,
+        1792481058332801277,
+        1792481058332801277
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79850,
+      "expected_sha256": "da0cb6f6bbf4e82fbd16ac6cd214581a289f4a5b3b4a8995e2e81012ce9e5d65",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79850,
+      "observed_sha256": "da0cb6f6bbf4e82fbd16ac6cd214581a289f4a5b3b4a8995e2e81012ce9e5d65",
+      "stat_before": [
+        16777233,
+        115873748,
+        33188,
+        79850,
+        1792480732885796757,
+        1792480732885796757
+      ],
+      "stat_after": [
+        16777233,
+        115873748,
+        33188,
+        79850,
+        1792480732885796757,
+        1792480732885796757
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79805,
+      "expected_sha256": "b8ba88c52987ef4d171bd9b95d3710996ac23583d2e812f7aaf495d781a70c68",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79805,
+      "observed_sha256": "b8ba88c52987ef4d171bd9b95d3710996ac23583d2e812f7aaf495d781a70c68",
+      "stat_before": [
+        16777233,
+        115873791,
+        33188,
+        79805,
+        1792480747382692929,
+        1792480747382692929
+      ],
+      "stat_after": [
+        16777233,
+        115873791,
+        33188,
+        79805,
+        1792480747382692929,
+        1792480747382692929
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79818,
+      "expected_sha256": "79a449183126fd54bcb5846ef8e1e17e5ae6c94a64e688890e29133e06eddbb3",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79818,
+      "observed_sha256": "79a449183126fd54bcb5846ef8e1e17e5ae6c94a64e688890e29133e06eddbb3",
+      "stat_before": [
+        16777233,
+        115873834,
+        33188,
+        79818,
+        1792480791161079999,
+        1792480791161079999
+      ],
+      "stat_after": [
+        16777233,
+        115873834,
+        33188,
+        79818,
+        1792480791161079999,
+        1792480791161079999
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 91705,
+      "expected_sha256": "93d3de1d80b375be7cdbb9752ee4f55d1b862927ed970d21347c7fdfbf38dd87",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 91705,
+      "observed_sha256": "93d3de1d80b375be7cdbb9752ee4f55d1b862927ed970d21347c7fdfbf38dd87",
+      "stat_before": [
+        16777233,
+        115839514,
+        33188,
+        91705,
+        1792477686737876023,
+        1792477686737876023
+      ],
+      "stat_after": [
+        16777233,
+        115839514,
+        33188,
+        91705,
+        1792477686737876023,
+        1792477686737876023
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 93317,
+      "expected_sha256": "a6ca7276b462f72c9b8693aa27d6c774239f828b3da59b2bb4a119946b6fc470",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 93317,
+      "observed_sha256": "a6ca7276b462f72c9b8693aa27d6c774239f828b3da59b2bb4a119946b6fc470",
+      "stat_before": [
+        16777233,
+        115870004,
+        33188,
+        93317,
+        1792480436967307177,
+        1792480436967307177
+      ],
+      "stat_after": [
+        16777233,
+        115870004,
+        33188,
+        93317,
+        1792480436967307177,
+        1792480436967307177
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90197,
+      "expected_sha256": "0a56e2beb460b6aa51b420043a9388a46ef5b264a95ced178d73e420a5e53008",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90197,
+      "observed_sha256": "0a56e2beb460b6aa51b420043a9388a46ef5b264a95ced178d73e420a5e53008",
+      "stat_before": [
+        16777233,
+        115873375,
+        33188,
+        90197,
+        1792480531509538538,
+        1792480531509538538
+      ],
+      "stat_after": [
+        16777233,
+        115873375,
+        33188,
+        90197,
+        1792480531509538538,
+        1792480531509538538
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79300,
+      "expected_sha256": "90bd09af5444d0f42a89554052a8d4177822596e050c20f453940f5833037b48",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79300,
+      "observed_sha256": "90bd09af5444d0f42a89554052a8d4177822596e050c20f453940f5833037b48",
+      "stat_before": [
+        16777233,
+        115873893,
+        33188,
+        79300,
+        1792480821177791977,
+        1792480821177791977
+      ],
+      "stat_after": [
+        16777233,
+        115873893,
+        33188,
+        79300,
+        1792480821177791977,
+        1792480821177791977
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79102,
+      "expected_sha256": "9eefbb35a1104074181a58b261caf6801007f1dce2cdbc0c37da36407dff3537",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79102,
+      "observed_sha256": "9eefbb35a1104074181a58b261caf6801007f1dce2cdbc0c37da36407dff3537",
+      "stat_before": [
+        16777233,
+        115873908,
+        33188,
+        79102,
+        1792480836176430367,
+        1792480836176430367
+      ],
+      "stat_after": [
+        16777233,
+        115873908,
+        33188,
+        79102,
+        1792480836176430367,
+        1792480836176430367
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79181,
+      "expected_sha256": "f5d457e2065f37f19279b1d6ddc943a7eb0dc1223fc748e44d1913e8218c86d7",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79181,
+      "observed_sha256": "f5d457e2065f37f19279b1d6ddc943a7eb0dc1223fc748e44d1913e8218c86d7",
+      "stat_before": [
+        16777233,
+        115873971,
+        33188,
+        79181,
+        1792480881304576484,
+        1792480881304576484
+      ],
+      "stat_after": [
+        16777233,
+        115873971,
+        33188,
+        79181,
+        1792480881304576484,
+        1792480881304576484
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 91349,
+      "expected_sha256": "a2ef9a2a7530db766440293ba983b3677a58be5887c5825387cdf8bee90a0e11",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 91349,
+      "observed_sha256": "a2ef9a2a7530db766440293ba983b3677a58be5887c5825387cdf8bee90a0e11",
+      "stat_before": [
+        16777233,
+        115873418,
+        33188,
+        91349,
+        1792480560459258058,
+        1792480560459258058
+      ],
+      "stat_after": [
+        16777233,
+        115873418,
+        33188,
+        91349,
+        1792480560459258058,
+        1792480560459258058
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89849,
+      "expected_sha256": "c8027c81ec4bb3c4eaa7b5ee299882dec88e367895404525992772b32897603f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89849,
+      "observed_sha256": "c8027c81ec4bb3c4eaa7b5ee299882dec88e367895404525992772b32897603f",
+      "stat_before": [
+        16777233,
+        115873435,
+        33188,
+        89849,
+        1792480574948236903,
+        1792480574948236903
+      ],
+      "stat_after": [
+        16777233,
+        115873435,
+        33188,
+        89849,
+        1792480574948236903,
+        1792480574948236903
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89327,
+      "expected_sha256": "4eb8bf38fd013042b9934cff008681022950fc7ce3c05a9cd90f536e67d057b8",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89327,
+      "observed_sha256": "4eb8bf38fd013042b9934cff008681022950fc7ce3c05a9cd90f536e67d057b8",
+      "stat_before": [
+        16777233,
+        115873499,
+        33188,
+        89327,
+        1792480618165205902,
+        1792480618165205902
+      ],
+      "stat_after": [
+        16777233,
+        115873499,
+        33188,
+        89327,
+        1792480618165205902,
+        1792480618165205902
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 80134,
+      "expected_sha256": "afcb3756872b614228c3b2dfea6c616af1ecb437be76549730ddb59d2f1abd63",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80134,
+      "observed_sha256": "afcb3756872b614228c3b2dfea6c616af1ecb437be76549730ddb59d2f1abd63",
+      "stat_before": [
+        16777233,
+        115874033,
+        33188,
+        80134,
+        1792480910845592861,
+        1792480910845592861
+      ],
+      "stat_after": [
+        16777233,
+        115874033,
+        33188,
+        80134,
+        1792480910845592861,
+        1792480910845592861
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 80247,
+      "expected_sha256": "cba6148fef4061094652ded75a6e02422a030d42933aca7ab535225827e64e13",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80247,
+      "observed_sha256": "cba6148fef4061094652ded75a6e02422a030d42933aca7ab535225827e64e13",
+      "stat_before": [
+        16777233,
+        115874054,
+        33188,
+        80247,
+        1792480926118041559,
+        1792480926118041559
+      ],
+      "stat_after": [
+        16777233,
+        115874054,
+        33188,
+        80247,
+        1792480926118041559,
+        1792480926118041559
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 80419,
+      "expected_sha256": "918d614b7bf9f417c51dfc0bfd503b7f97968386b9a70af27c6e60fd4a4b5e1c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80419,
+      "observed_sha256": "918d614b7bf9f417c51dfc0bfd503b7f97968386b9a70af27c6e60fd4a4b5e1c",
+      "stat_before": [
+        16777233,
+        115874212,
+        33188,
+        80419,
+        1792480971196909201,
+        1792480971196909201
+      ],
+      "stat_after": [
+        16777233,
+        115874212,
+        33188,
+        80419,
+        1792480971196909201,
+        1792480971196909201
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90808,
+      "expected_sha256": "7f01c1ec33e77f8c6c36d670ef081371705587ea558c0215832d132253c7de76",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90808,
+      "observed_sha256": "7f01c1ec33e77f8c6c36d670ef081371705587ea558c0215832d132253c7de76",
+      "stat_before": [
+        16777233,
+        115873542,
+        33188,
+        90808,
+        1792480646770706278,
+        1792480646770706278
+      ],
+      "stat_after": [
+        16777233,
+        115873542,
+        33188,
+        90808,
+        1792480646770706278,
+        1792480646770706278
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 90492,
+      "expected_sha256": "f1854b54d695a876557d099fc3ef786f8f2f5ab476a3595feb6e838b49973421",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90492,
+      "observed_sha256": "f1854b54d695a876557d099fc3ef786f8f2f5ab476a3595feb6e838b49973421",
+      "stat_before": [
+        16777233,
+        115873566,
+        33188,
+        90492,
+        1792480661150942269,
+        1792480661150942269
+      ],
+      "stat_after": [
+        16777233,
+        115873566,
+        33188,
+        90492,
+        1792480661150942269,
+        1792480661150942269
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/A-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90798,
+      "expected_sha256": "4190e99dde2691468170009302730e1a50156c17396ef856e43bf1c87edfd08a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90798,
+      "observed_sha256": "4190e99dde2691468170009302730e1a50156c17396ef856e43bf1c87edfd08a",
+      "stat_before": [
+        16777233,
+        115873612,
+        33188,
+        90798,
+        1792480704032168358,
+        1792480704032168358
+      ],
+      "stat_after": [
+        16777233,
+        115873612,
+        33188,
+        90798,
+        1792480704032168358,
+        1792480704032168358
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90142,
+      "expected_sha256": "40c41a70833357523a55b360f9608c7f234f0d92455469802f24047498014211",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90142,
+      "observed_sha256": "40c41a70833357523a55b360f9608c7f234f0d92455469802f24047498014211",
+      "stat_before": [
+        16777233,
+        115874819,
+        33188,
+        90142,
+        1792481073593160614,
+        1792481073593160614
+      ],
+      "stat_after": [
+        16777233,
+        115874819,
+        33188,
+        90142,
+        1792481073593160614,
+        1792481073593160614
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89633,
+      "expected_sha256": "29754079eafcc46595be92899dcc3ac71384a06c82939ad932430de406ef59c5",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89633,
+      "observed_sha256": "29754079eafcc46595be92899dcc3ac71384a06c82939ad932430de406ef59c5",
+      "stat_before": [
+        16777233,
+        115874915,
+        33188,
+        89633,
+        1792481117940719565,
+        1792481117940719565
+      ],
+      "stat_after": [
+        16777233,
+        115874915,
+        33188,
+        89633,
+        1792481117940719565,
+        1792481117940719565
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89173,
+      "expected_sha256": "9537fe432fec638ffbf04d9f5ef3091db72c4b46ac55e0d558d89443f8d57d67",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89173,
+      "observed_sha256": "9537fe432fec638ffbf04d9f5ef3091db72c4b46ac55e0d558d89443f8d57d67",
+      "stat_before": [
+        16777233,
+        115874930,
+        33188,
+        89173,
+        1792481132761075493,
+        1792481132761075493
+      ],
+      "stat_after": [
+        16777233,
+        115874930,
+        33188,
+        89173,
+        1792481132761075493,
+        1792481132761075493
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90034,
+      "expected_sha256": "20451ec2ac62d52e16d275e633e2e0f9b388a6ee4f6d6274af346d68d97aec65",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90034,
+      "observed_sha256": "20451ec2ac62d52e16d275e633e2e0f9b388a6ee4f6d6274af346d68d97aec65",
+      "stat_before": [
+        16777233,
+        115874992,
+        33188,
+        90034,
+        1792481162954144587,
+        1792481162954144587
+      ],
+      "stat_after": [
+        16777233,
+        115874992,
+        33188,
+        90034,
+        1792481162954144587,
+        1792481162954144587
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89131,
+      "expected_sha256": "70ec40bd4ae13513980e5241a6ad116c2dfffc770992f44af379f4f53b98585b",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89131,
+      "observed_sha256": "70ec40bd4ae13513980e5241a6ad116c2dfffc770992f44af379f4f53b98585b",
+      "stat_before": [
+        16777233,
+        115876559,
+        33188,
+        89131,
+        1792481209656363315,
+        1792481209656363315
+      ],
+      "stat_after": [
+        16777233,
+        115876559,
+        33188,
+        89131,
+        1792481209656363315,
+        1792481209656363315
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89672,
+      "expected_sha256": "a527623882002c7e01910f8ccacb152939866819cda2c0c77638be4c50edac47",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89672,
+      "observed_sha256": "a527623882002c7e01910f8ccacb152939866819cda2c0c77638be4c50edac47",
+      "stat_before": [
+        16777233,
+        115876740,
+        33188,
+        89672,
+        1792481225501266754,
+        1792481225501266754
+      ],
+      "stat_after": [
+        16777233,
+        115876740,
+        33188,
+        89672,
+        1792481225501266754,
+        1792481225501266754
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/B-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90093,
+      "expected_sha256": "66cb9708b424660ed40bbed029b2e2fd022834b1e0589437ae244f193ffc748a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90093,
+      "observed_sha256": "66cb9708b424660ed40bbed029b2e2fd022834b1e0589437ae244f193ffc748a",
+      "stat_before": [
+        16777233,
+        115876832,
+        33188,
+        90093,
+        1792481255058146933,
+        1792481255058146933
+      ],
+      "stat_after": [
+        16777233,
+        115876832,
+        33188,
+        90093,
+        1792481255058146933,
+        1792481255058146933
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg0-one-p4-observed/trace.json.gz",
+      "expected_bytes": 30857,
+      "expected_sha256": "24c7e4bb185ecdb2f79c9dce54023ae07e0530a3ca7085e340d57add880c4507",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30857,
+      "observed_sha256": "24c7e4bb185ecdb2f79c9dce54023ae07e0530a3ca7085e340d57add880c4507",
+      "stat_before": [
+        16777233,
+        115839086,
+        33188,
+        30857,
+        1792476149791994875,
+        1792476149791994875
+      ],
+      "stat_after": [
+        16777233,
+        115839086,
+        33188,
+        30857,
+        1792476149791994875,
+        1792476149791994875
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg0-p1-observed/trace.json.gz",
+      "expected_bytes": 79740,
+      "expected_sha256": "4d8e5c89cca7fed1b9838e8c21b17d544d6bd551ce64e6cf8487a21a1b24b295",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79740,
+      "observed_sha256": "4d8e5c89cca7fed1b9838e8c21b17d544d6bd551ce64e6cf8487a21a1b24b295",
+      "stat_before": [
+        16777233,
+        115838973,
+        33188,
+        79740,
+        1792476064790182017,
+        1792476064790182017
+      ],
+      "stat_after": [
+        16777233,
+        115838973,
+        33188,
+        79740,
+        1792476064790182017,
+        1792476064790182017
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg0-p4-observed/trace.json.gz",
+      "expected_bytes": 89984,
+      "expected_sha256": "656925a399f4fee38ce7d16f0670e6c3feb47cd5d542cd9c48734746256fc4d3",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89984,
+      "observed_sha256": "656925a399f4fee38ce7d16f0670e6c3feb47cd5d542cd9c48734746256fc4d3",
+      "stat_before": [
+        16777233,
+        115838875,
+        33188,
+        89984,
+        1792475980600534946,
+        1792475980600534946
+      ],
+      "stat_after": [
+        16777233,
+        115838875,
+        33188,
+        89984,
+        1792475980600534946,
+        1792475980600534946
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg113-p1-observed/trace.json.gz",
+      "expected_bytes": 79138,
+      "expected_sha256": "58e2185e4aae000efe68dd269b85d76ba118f214e438e244e203d6560b4cf91a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79138,
+      "observed_sha256": "58e2185e4aae000efe68dd269b85d76ba118f214e438e244e203d6560b4cf91a",
+      "stat_before": [
+        16777233,
+        115839001,
+        33188,
+        79138,
+        1792476093339007680,
+        1792476093339007680
+      ],
+      "stat_after": [
+        16777233,
+        115839001,
+        33188,
+        79138,
+        1792476093339007680,
+        1792476093339007680
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg113-p4-observed/trace.json.gz",
+      "expected_bytes": 89678,
+      "expected_sha256": "2aa24230828a2ad51c1e695b79ac62ed6d4672fc2c59e22fb72cc4bccad4e325",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89678,
+      "observed_sha256": "2aa24230828a2ad51c1e695b79ac62ed6d4672fc2c59e22fb72cc4bccad4e325",
+      "stat_before": [
+        16777233,
+        115838908,
+        33188,
+        89678,
+        1792476008653737640,
+        1792476008653737640
+      ],
+      "stat_after": [
+        16777233,
+        115838908,
+        33188,
+        89678,
+        1792476008653737640,
+        1792476008653737640
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg225-p1-observed/trace.json.gz",
+      "expected_bytes": 80247,
+      "expected_sha256": "6e40a680538c0db8ba390fa63cb77e790226ce1a5b30a869d6f577e5fe218de7",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80247,
+      "observed_sha256": "6e40a680538c0db8ba390fa63cb77e790226ce1a5b30a869d6f577e5fe218de7",
+      "stat_before": [
+        16777233,
+        115839034,
+        33188,
+        80247,
+        1792476121804024662,
+        1792476121804024662
+      ],
+      "stat_after": [
+        16777233,
+        115839034,
+        33188,
+        80247,
+        1792476121804024662,
+        1792476121804024662
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-797-a1/preflight-rg225-p4-observed/trace.json.gz",
+      "expected_bytes": 90154,
+      "expected_sha256": "b6fafb3de85ce2890aef0fd638d6223b670e86a76b30e9d5b3ea151176f02fdb",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90154,
+      "observed_sha256": "b6fafb3de85ce2890aef0fd638d6223b670e86a76b30e9d5b3ea151176f02fdb",
+      "stat_before": [
+        16777233,
+        115838950,
+        33188,
+        90154,
+        1792476036663410618,
+        1792476036663410618
+      ],
+      "stat_after": [
+        16777233,
+        115838950,
+        33188,
+        90154,
+        1792476036663410618,
+        1792476036663410618
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 30703,
+      "expected_sha256": "4a3a5e71e612e635df5f86be1718b4bbf373c795b9c7a2d0fdde5f423dc348f5",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30703,
+      "observed_sha256": "4a3a5e71e612e635df5f86be1718b4bbf373c795b9c7a2d0fdde5f423dc348f5",
+      "stat_before": [
+        16777233,
+        115886905,
+        33188,
+        30703,
+        1792485073856233986,
+        1792485073856233986
+      ],
+      "stat_after": [
+        16777233,
+        115886905,
+        33188,
+        30703,
+        1792485073856233986,
+        1792485073856233986
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 31471,
+      "expected_sha256": "f5898c5773c589c455a1b50cdc5db751c3adcf0662cc49f3013723a9c3cf2063",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 31471,
+      "observed_sha256": "f5898c5773c589c455a1b50cdc5db751c3adcf0662cc49f3013723a9c3cf2063",
+      "stat_before": [
+        16777233,
+        115886925,
+        33188,
+        31471,
+        1792485087935344249,
+        1792485087935344249
+      ],
+      "stat_after": [
+        16777233,
+        115886925,
+        33188,
+        31471,
+        1792485087935344249,
+        1792485087935344249
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 30928,
+      "expected_sha256": "6e6da7b8c2a2d88f01988eefe95507b55ae226f29e9dbdde7c4eb041a6fa850a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30928,
+      "observed_sha256": "6e6da7b8c2a2d88f01988eefe95507b55ae226f29e9dbdde7c4eb041a6fa850a",
+      "stat_before": [
+        16777233,
+        115887648,
+        33188,
+        30928,
+        1792485131702920107,
+        1792485131702920107
+      ],
+      "stat_after": [
+        16777233,
+        115887648,
+        33188,
+        30928,
+        1792485131702920107,
+        1792485131702920107
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79814,
+      "expected_sha256": "c7f8c24c1623e4b095950eb9aa7fa681653db011263f4c05aaa85722f3cbf175",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79814,
+      "observed_sha256": "c7f8c24c1623e4b095950eb9aa7fa681653db011263f4c05aaa85722f3cbf175",
+      "stat_before": [
+        16777233,
+        115886313,
+        33188,
+        79814,
+        1792484810953913523,
+        1792484810953913523
+      ],
+      "stat_after": [
+        16777233,
+        115886313,
+        33188,
+        79814,
+        1792484810953913523,
+        1792484810953913523
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79814,
+      "expected_sha256": "158bc2e03fbedc6a46db8a02d0ed9e7474beb66673b0d08f49b088f1e33a9922",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79814,
+      "observed_sha256": "158bc2e03fbedc6a46db8a02d0ed9e7474beb66673b0d08f49b088f1e33a9922",
+      "stat_before": [
+        16777233,
+        115886337,
+        33188,
+        79814,
+        1792484825491324310,
+        1792484825491324310
+      ],
+      "stat_after": [
+        16777233,
+        115886337,
+        33188,
+        79814,
+        1792484825491324310,
+        1792484825491324310
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79699,
+      "expected_sha256": "4c308cf5fa5df362c24d3469fcc3401269d42c0254f56b8cf3416847720f3300",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79699,
+      "observed_sha256": "4c308cf5fa5df362c24d3469fcc3401269d42c0254f56b8cf3416847720f3300",
+      "stat_before": [
+        16777233,
+        115886430,
+        33188,
+        79699,
+        1792484869386577316,
+        1792484869386577316
+      ],
+      "stat_after": [
+        16777233,
+        115886430,
+        33188,
+        79699,
+        1792484869386577316,
+        1792484869386577316
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90481,
+      "expected_sha256": "a7a4a5cdaff0a89b380e34c99efb6255a542f80d17e596dc1ed49ad32371074f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90481,
+      "observed_sha256": "a7a4a5cdaff0a89b380e34c99efb6255a542f80d17e596dc1ed49ad32371074f",
+      "stat_before": [
+        16777233,
+        115885883,
+        33188,
+        90481,
+        1792484556164724590,
+        1792484556164724590
+      ],
+      "stat_after": [
+        16777233,
+        115885883,
+        33188,
+        90481,
+        1792484556164724590,
+        1792484556164724590
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89158,
+      "expected_sha256": "8a55d7be61ff876f586d2ae9a6abf68487be7f7359eab3a0d7c8e1030c83733d",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89158,
+      "observed_sha256": "8a55d7be61ff876f586d2ae9a6abf68487be7f7359eab3a0d7c8e1030c83733d",
+      "stat_before": [
+        16777233,
+        115885907,
+        33188,
+        89158,
+        1792484570413506689,
+        1792484570413506689
+      ],
+      "stat_after": [
+        16777233,
+        115885907,
+        33188,
+        89158,
+        1792484570413506689,
+        1792484570413506689
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90096,
+      "expected_sha256": "4fe6b5d8e250bd83e77ab2dffb4b507f1cb13bde95a9e5ec2dea4ff872f9ca09",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90096,
+      "observed_sha256": "4fe6b5d8e250bd83e77ab2dffb4b507f1cb13bde95a9e5ec2dea4ff872f9ca09",
+      "stat_before": [
+        16777233,
+        115885989,
+        33188,
+        90096,
+        1792484611940165869,
+        1792484611940165869
+      ],
+      "stat_after": [
+        16777233,
+        115885989,
+        33188,
+        90096,
+        1792484611940165869,
+        1792484611940165869
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79354,
+      "expected_sha256": "fd2100e03429721aab2987e5b649c93bfc78f06c4af318599f173872efe8bb4d",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79354,
+      "observed_sha256": "fd2100e03429721aab2987e5b649c93bfc78f06c4af318599f173872efe8bb4d",
+      "stat_before": [
+        16777233,
+        115886491,
+        33188,
+        79354,
+        1792484899029942846,
+        1792484899029942846
+      ],
+      "stat_after": [
+        16777233,
+        115886491,
+        33188,
+        79354,
+        1792484899029942846,
+        1792484899029942846
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79020,
+      "expected_sha256": "b258bb0ae7d8d908c64a6fac37dc8f377e53342bb60a15af16bb2e063f75d670",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79020,
+      "observed_sha256": "b258bb0ae7d8d908c64a6fac37dc8f377e53342bb60a15af16bb2e063f75d670",
+      "stat_before": [
+        16777233,
+        115886520,
+        33188,
+        79020,
+        1792484913696154865,
+        1792484913696154865
+      ],
+      "stat_after": [
+        16777233,
+        115886520,
+        33188,
+        79020,
+        1792484913696154865,
+        1792484913696154865
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79157,
+      "expected_sha256": "5367c2727a04418e7fbeb8c37f8768bc68a0874b10269208c9a02094fe9e3968",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79157,
+      "observed_sha256": "5367c2727a04418e7fbeb8c37f8768bc68a0874b10269208c9a02094fe9e3968",
+      "stat_before": [
+        16777233,
+        115886603,
+        33188,
+        79157,
+        1792484957217264639,
+        1792484957217264639
+      ],
+      "stat_after": [
+        16777233,
+        115886603,
+        33188,
+        79157,
+        1792484957217264639,
+        1792484957217264639
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90537,
+      "expected_sha256": "8691b81578d4ea1b1a115e626fcae81134f753e318efac9f2bd5d6a7c49bcc41",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90537,
+      "observed_sha256": "8691b81578d4ea1b1a115e626fcae81134f753e318efac9f2bd5d6a7c49bcc41",
+      "stat_before": [
+        16777233,
+        115886027,
+        33188,
+        90537,
+        1792484639978307168,
+        1792484639978307168
+      ],
+      "stat_after": [
+        16777233,
+        115886027,
+        33188,
+        90537,
+        1792484639978307168,
+        1792484639978307168
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 88849,
+      "expected_sha256": "4f8d47bf1fa29536778fb3742700885764dfd0e9c0efa51f84fd6255701e35d9",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 88849,
+      "observed_sha256": "4f8d47bf1fa29536778fb3742700885764dfd0e9c0efa51f84fd6255701e35d9",
+      "stat_before": [
+        16777233,
+        115886048,
+        33188,
+        88849,
+        1792484654240266441,
+        1792484654240266441
+      ],
+      "stat_after": [
+        16777233,
+        115886048,
+        33188,
+        88849,
+        1792484654240266441,
+        1792484654240266441
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 88930,
+      "expected_sha256": "cea1def52ba7b4cadfc17d7c81a93015bf9002e8053e571dfebfc06068025864",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 88930,
+      "observed_sha256": "cea1def52ba7b4cadfc17d7c81a93015bf9002e8053e571dfebfc06068025864",
+      "stat_before": [
+        16777233,
+        115886131,
+        33188,
+        88930,
+        1792484697055547316,
+        1792484697055547316
+      ],
+      "stat_after": [
+        16777233,
+        115886131,
+        33188,
+        88930,
+        1792484697055547316,
+        1792484697055547316
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 80101,
+      "expected_sha256": "bb98f9c1cc048fad6f3e3cf45e2224179d221395d3892d6ac996ccb0c13c7687",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80101,
+      "observed_sha256": "bb98f9c1cc048fad6f3e3cf45e2224179d221395d3892d6ac996ccb0c13c7687",
+      "stat_before": [
+        16777233,
+        115886715,
+        33188,
+        80101,
+        1792484986493691525,
+        1792484986493691525
+      ],
+      "stat_after": [
+        16777233,
+        115886715,
+        33188,
+        80101,
+        1792484986493691525,
+        1792484986493691525
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 80117,
+      "expected_sha256": "094bd727f98b2eee9de2cf60e52f82ddb506c943daf2c5287ad8a43260861f5b",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80117,
+      "observed_sha256": "094bd727f98b2eee9de2cf60e52f82ddb506c943daf2c5287ad8a43260861f5b",
+      "stat_before": [
+        16777233,
+        115886744,
+        33188,
+        80117,
+        1792485001130126237,
+        1792485001130126237
+      ],
+      "stat_after": [
+        16777233,
+        115886744,
+        33188,
+        80117,
+        1792485001130126237,
+        1792485001130126237
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 80194,
+      "expected_sha256": "4c1ec200f1603314deabb1988d395f13f6f04a24eadc7649bb5d05760e892639",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80194,
+      "observed_sha256": "4c1ec200f1603314deabb1988d395f13f6f04a24eadc7649bb5d05760e892639",
+      "stat_before": [
+        16777233,
+        115886848,
+        33188,
+        80194,
+        1792485045049020297,
+        1792485045049020297
+      ],
+      "stat_after": [
+        16777233,
+        115886848,
+        33188,
+        80194,
+        1792485045049020297,
+        1792485045049020297
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90605,
+      "expected_sha256": "f0fbc2c9190631ac744415a31e1abf1709e45600250ffe9b8c94542700135d20",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90605,
+      "observed_sha256": "f0fbc2c9190631ac744415a31e1abf1709e45600250ffe9b8c94542700135d20",
+      "stat_before": [
+        16777233,
+        115886169,
+        33188,
+        90605,
+        1792484725369858589,
+        1792484725369858589
+      ],
+      "stat_after": [
+        16777233,
+        115886169,
+        33188,
+        90605,
+        1792484725369858589,
+        1792484725369858589
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 90542,
+      "expected_sha256": "5bee9bb8e7d92f49713c0bb57a4f564cc177db331c6874d1e9ea6a26700cb069",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90542,
+      "observed_sha256": "5bee9bb8e7d92f49713c0bb57a4f564cc177db331c6874d1e9ea6a26700cb069",
+      "stat_before": [
+        16777233,
+        115886195,
+        33188,
+        90542,
+        1792484739565531328,
+        1792484739565531328
+      ],
+      "stat_after": [
+        16777233,
+        115886195,
+        33188,
+        90542,
+        1792484739565531328,
+        1792484739565531328
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/A-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90298,
+      "expected_sha256": "de7519189ec442d115d800f1391e5d30e618833dd3353f1d508b5b859757dd44",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90298,
+      "observed_sha256": "de7519189ec442d115d800f1391e5d30e618833dd3353f1d508b5b859757dd44",
+      "stat_before": [
+        16777233,
+        115886259,
+        33188,
+        90298,
+        1792484782075684881,
+        1792484782075684881
+      ],
+      "stat_after": [
+        16777233,
+        115886259,
+        33188,
+        90298,
+        1792484782075684881,
+        1792484782075684881
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 30762,
+      "expected_sha256": "3229335488ac395662ecdeaeb48140fde8f6e978bf7cdf67d7741a75614251c6",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30762,
+      "observed_sha256": "3229335488ac395662ecdeaeb48140fde8f6e978bf7cdf67d7741a75614251c6",
+      "stat_before": [
+        16777233,
+        115890253,
+        33188,
+        30762,
+        1792485661951922906,
+        1792485661951922906
+      ],
+      "stat_after": [
+        16777233,
+        115890253,
+        33188,
+        30762,
+        1792485661951922906,
+        1792485661951922906
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 30966,
+      "expected_sha256": "ab467c461354b5e57cd17bfe4cd5350beff496cd84cb67dff60864ef601e7e08",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30966,
+      "observed_sha256": "ab467c461354b5e57cd17bfe4cd5350beff496cd84cb67dff60864ef601e7e08",
+      "stat_before": [
+        16777233,
+        115890330,
+        33188,
+        30966,
+        1792485703665263401,
+        1792485703665263401
+      ],
+      "stat_after": [
+        16777233,
+        115890330,
+        33188,
+        30966,
+        1792485703665263401,
+        1792485703665263401
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 30847,
+      "expected_sha256": "788dde05d726af1d77de1b7bccfee774caf1ebd16f730e365b4db1479136eb53",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30847,
+      "observed_sha256": "788dde05d726af1d77de1b7bccfee774caf1ebd16f730e365b4db1479136eb53",
+      "stat_before": [
+        16777233,
+        115890351,
+        33188,
+        30847,
+        1792485717724784005,
+        1792485717724784005
+      ],
+      "stat_after": [
+        16777233,
+        115890351,
+        33188,
+        30847,
+        1792485717724784005,
+        1792485717724784005
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79801,
+      "expected_sha256": "cc091d0f8a327ece92491993b7f793e58da3c513336d289b34034dc68e2770aa",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79801,
+      "observed_sha256": "cc091d0f8a327ece92491993b7f793e58da3c513336d289b34034dc68e2770aa",
+      "stat_before": [
+        16777233,
+        115889746,
+        33188,
+        79801,
+        1792485402988163568,
+        1792485402988163568
+      ],
+      "stat_after": [
+        16777233,
+        115889746,
+        33188,
+        79801,
+        1792485402988163568,
+        1792485402988163568
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79982,
+      "expected_sha256": "98986eca9c9443f19b299b7135de2e1911b8022b4e4918a9cbb5da33ac664a93",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79982,
+      "observed_sha256": "98986eca9c9443f19b299b7135de2e1911b8022b4e4918a9cbb5da33ac664a93",
+      "stat_before": [
+        16777233,
+        115889814,
+        33188,
+        79982,
+        1792485445302658094,
+        1792485445302658094
+      ],
+      "stat_after": [
+        16777233,
+        115889814,
+        33188,
+        79982,
+        1792485445302658094,
+        1792485445302658094
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79757,
+      "expected_sha256": "b1b255d6d3895be4e29bb78d7c0a2b403725d4076e5c31de0c8e3b0d5e9ecf96",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79757,
+      "observed_sha256": "b1b255d6d3895be4e29bb78d7c0a2b403725d4076e5c31de0c8e3b0d5e9ecf96",
+      "stat_before": [
+        16777233,
+        115889895,
+        33188,
+        79757,
+        1792485459515098667,
+        1792485459515098667
+      ],
+      "stat_after": [
+        16777233,
+        115889895,
+        33188,
+        79757,
+        1792485459515098667,
+        1792485459515098667
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90048,
+      "expected_sha256": "680e8e2e3562d84d77da15055f3d1e13ae23dba65cbd06b383af56822304f90d",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90048,
+      "observed_sha256": "680e8e2e3562d84d77da15055f3d1e13ae23dba65cbd06b383af56822304f90d",
+      "stat_before": [
+        16777233,
+        115888064,
+        33188,
+        90048,
+        1792485146129679380,
+        1792485146129679380
+      ],
+      "stat_after": [
+        16777233,
+        115888064,
+        33188,
+        90048,
+        1792485146129679380,
+        1792485146129679380
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89102,
+      "expected_sha256": "6af4b1d1f7249c6782148f2037e7c8b8e16a23811a056f7e88cbe85fbe456e36",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89102,
+      "observed_sha256": "6af4b1d1f7249c6782148f2037e7c8b8e16a23811a056f7e88cbe85fbe456e36",
+      "stat_before": [
+        16777233,
+        115888691,
+        33188,
+        89102,
+        1792485188921897576,
+        1792485188921897576
+      ],
+      "stat_after": [
+        16777233,
+        115888691,
+        33188,
+        89102,
+        1792485188921897576,
+        1792485188921897576
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90493,
+      "expected_sha256": "e443b9e8c64d8e783e77b1aa0dc94403b065e0c8e9d3b22a709679fb4bdbeeaa",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90493,
+      "observed_sha256": "e443b9e8c64d8e783e77b1aa0dc94403b065e0c8e9d3b22a709679fb4bdbeeaa",
+      "stat_before": [
+        16777233,
+        115888713,
+        33188,
+        90493,
+        1792485204062070961,
+        1792485204062070961
+      ],
+      "stat_after": [
+        16777233,
+        115888713,
+        33188,
+        90493,
+        1792485204062070961,
+        1792485204062070961
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79192,
+      "expected_sha256": "687fbea2b76b05d3edeaa5992120c620446cf93c14a3f03afb5575f2f2e586bd",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79192,
+      "observed_sha256": "687fbea2b76b05d3edeaa5992120c620446cf93c14a3f03afb5575f2f2e586bd",
+      "stat_before": [
+        16777233,
+        115889971,
+        33188,
+        79192,
+        1792485488438821611,
+        1792485488438821611
+      ],
+      "stat_after": [
+        16777233,
+        115889971,
+        33188,
+        79192,
+        1792485488438821611,
+        1792485488438821611
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79167,
+      "expected_sha256": "62c74f61f5338cd7c7c460bd059014cd6bbbba86370b472e146dd75c9e49010a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79167,
+      "observed_sha256": "62c74f61f5338cd7c7c460bd059014cd6bbbba86370b472e146dd75c9e49010a",
+      "stat_before": [
+        16777233,
+        115890081,
+        33188,
+        79167,
+        1792485532310809158,
+        1792485532310809158
+      ],
+      "stat_after": [
+        16777233,
+        115890081,
+        33188,
+        79167,
+        1792485532310809158,
+        1792485532310809158
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79115,
+      "expected_sha256": "21f40c7e0c4089cd75e9613cc94564899457972035f8e36274f74618dce102db",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79115,
+      "observed_sha256": "21f40c7e0c4089cd75e9613cc94564899457972035f8e36274f74618dce102db",
+      "stat_before": [
+        16777233,
+        115890106,
+        33188,
+        79115,
+        1792485546927376162,
+        1792485546927376162
+      ],
+      "stat_after": [
+        16777233,
+        115890106,
+        33188,
+        79115,
+        1792485546927376162,
+        1792485546927376162
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 89012,
+      "expected_sha256": "487b98079731574de42cbc5c59697f10e7ddd12b43fd523b65f24ddf1ef1c4d8",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89012,
+      "observed_sha256": "487b98079731574de42cbc5c59697f10e7ddd12b43fd523b65f24ddf1ef1c4d8",
+      "stat_before": [
+        16777233,
+        115888803,
+        33188,
+        89012,
+        1792485233274200189,
+        1792485233274200189
+      ],
+      "stat_after": [
+        16777233,
+        115888803,
+        33188,
+        89012,
+        1792485233274200189,
+        1792485233274200189
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89547,
+      "expected_sha256": "eb4dbf3b6b853e10252e9b73ba29a1dc07e477737de3252c41ce0833313434de",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89547,
+      "observed_sha256": "eb4dbf3b6b853e10252e9b73ba29a1dc07e477737de3252c41ce0833313434de",
+      "stat_before": [
+        16777233,
+        115888874,
+        33188,
+        89547,
+        1792485275656326636,
+        1792485275656326636
+      ],
+      "stat_after": [
+        16777233,
+        115888874,
+        33188,
+        89547,
+        1792485275656326636,
+        1792485275656326636
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89557,
+      "expected_sha256": "c48d3abc802eb797929afb854933946a04a757b4aaaee39c2863bc71e4454f70",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89557,
+      "observed_sha256": "c48d3abc802eb797929afb854933946a04a757b4aaaee39c2863bc71e4454f70",
+      "stat_before": [
+        16777233,
+        115888894,
+        33188,
+        89557,
+        1792485289913895311,
+        1792485289913895311
+      ],
+      "stat_after": [
+        16777233,
+        115888894,
+        33188,
+        89557,
+        1792485289913895311,
+        1792485289913895311
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 80158,
+      "expected_sha256": "5d5e963ded6a2b93ba680b97601364fda056607dc7045393e44cd4aa6874df63",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80158,
+      "observed_sha256": "5d5e963ded6a2b93ba680b97601364fda056607dc7045393e44cd4aa6874df63",
+      "stat_before": [
+        16777233,
+        115890147,
+        33188,
+        80158,
+        1792485576074812298,
+        1792485576074812298
+      ],
+      "stat_after": [
+        16777233,
+        115890147,
+        33188,
+        80158,
+        1792485576074812298,
+        1792485576074812298
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 80131,
+      "expected_sha256": "4ce93962531e8720a62929e463883e4b36aedb883d0bea8134888e52a077c110",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80131,
+      "observed_sha256": "4ce93962531e8720a62929e463883e4b36aedb883d0bea8134888e52a077c110",
+      "stat_before": [
+        16777233,
+        115890199,
+        33188,
+        80131,
+        1792485619104365915,
+        1792485619104365915
+      ],
+      "stat_after": [
+        16777233,
+        115890199,
+        33188,
+        80131,
+        1792485619104365915,
+        1792485619104365915
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 80106,
+      "expected_sha256": "23a98b9727dbf920657b3a740f11365ab69d2181bafb326d35dfcadf5cc325f4",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80106,
+      "observed_sha256": "23a98b9727dbf920657b3a740f11365ab69d2181bafb326d35dfcadf5cc325f4",
+      "stat_before": [
+        16777233,
+        115890218,
+        33188,
+        80106,
+        1792485633691874669,
+        1792485633691874669
+      ],
+      "stat_after": [
+        16777233,
+        115890218,
+        33188,
+        80106,
+        1792485633691874669,
+        1792485633691874669
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90131,
+      "expected_sha256": "78706a93fc7fc884bf84124076eab05d22ba09f0687707d29824220d63df4b0a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90131,
+      "observed_sha256": "78706a93fc7fc884bf84124076eab05d22ba09f0687707d29824220d63df4b0a",
+      "stat_before": [
+        16777233,
+        115888937,
+        33188,
+        90131,
+        1792485318269644546,
+        1792485318269644546
+      ],
+      "stat_after": [
+        16777233,
+        115888937,
+        33188,
+        90131,
+        1792485318269644546,
+        1792485318269644546
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 90046,
+      "expected_sha256": "030c08ea7c105232533023c370609eb3628575ff8e4b11a7b34ed1839ca20ed4",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90046,
+      "observed_sha256": "030c08ea7c105232533023c370609eb3628575ff8e4b11a7b34ed1839ca20ed4",
+      "stat_before": [
+        16777233,
+        115889501,
+        33188,
+        90046,
+        1792485360603227424,
+        1792485360603227424
+      ],
+      "stat_after": [
+        16777233,
+        115889501,
+        33188,
+        90046,
+        1792485360603227424,
+        1792485360603227424
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/B-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90048,
+      "expected_sha256": "1df4dd9c7e0df4b2c15f9e2e08ce0e84b03f4e56b17ed3c97f13c6a576126e5c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90048,
+      "observed_sha256": "1df4dd9c7e0df4b2c15f9e2e08ce0e84b03f4e56b17ed3c97f13c6a576126e5c",
+      "stat_before": [
+        16777233,
+        115889521,
+        33188,
+        90048,
+        1792485374807967764,
+        1792485374807967764
+      ],
+      "stat_after": [
+        16777233,
+        115889521,
+        33188,
+        90048,
+        1792485374807967764,
+        1792485374807967764
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg0-one-p4-observed/trace.json.gz",
+      "expected_bytes": 31145,
+      "expected_sha256": "8d57fb847e8b58538be5a97aff3366ebaf4a6a9bd55cecc398247ed91ae6c473",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 31145,
+      "observed_sha256": "8d57fb847e8b58538be5a97aff3366ebaf4a6a9bd55cecc398247ed91ae6c473",
+      "stat_before": [
+        16777233,
+        115885764,
+        33188,
+        31145,
+        1792484463092483900,
+        1792484463092483900
+      ],
+      "stat_after": [
+        16777233,
+        115885764,
+        33188,
+        31145,
+        1792484463092483900,
+        1792484463092483900
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg0-p1-observed/trace.json.gz",
+      "expected_bytes": 79835,
+      "expected_sha256": "99b1123b30cf46bd69505955f8a90a40bbce1e4ec7b334d54877c6901a8a36fe",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79835,
+      "observed_sha256": "99b1123b30cf46bd69505955f8a90a40bbce1e4ec7b334d54877c6901a8a36fe",
+      "stat_before": [
+        16777233,
+        115885606,
+        33188,
+        79835,
+        1792484377665321587,
+        1792484377665321587
+      ],
+      "stat_after": [
+        16777233,
+        115885606,
+        33188,
+        79835,
+        1792484377665321587,
+        1792484377665321587
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg0-p4-observed/trace.json.gz",
+      "expected_bytes": 90624,
+      "expected_sha256": "2d940a6a1e5912ab7db8de1770aaa0d24a79efc2f537a536cd56fdc7de1cc3ce",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90624,
+      "observed_sha256": "2d940a6a1e5912ab7db8de1770aaa0d24a79efc2f537a536cd56fdc7de1cc3ce",
+      "stat_before": [
+        16777233,
+        115885418,
+        33188,
+        90624,
+        1792484292792302930,
+        1792484292792302930
+      ],
+      "stat_after": [
+        16777233,
+        115885418,
+        33188,
+        90624,
+        1792484292792302930,
+        1792484292792302930
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg113-p1-observed/trace.json.gz",
+      "expected_bytes": 79202,
+      "expected_sha256": "af38d100f5d04366b2da1f5dea7634824625f95a6f8f6793663f458cc72cec29",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79202,
+      "observed_sha256": "af38d100f5d04366b2da1f5dea7634824625f95a6f8f6793663f458cc72cec29",
+      "stat_before": [
+        16777233,
+        115885674,
+        33188,
+        79202,
+        1792484406830099374,
+        1792484406830099374
+      ],
+      "stat_after": [
+        16777233,
+        115885674,
+        33188,
+        79202,
+        1792484406830099374,
+        1792484406830099374
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg113-p4-observed/trace.json.gz",
+      "expected_bytes": 89123,
+      "expected_sha256": "ded7efad644ae701949643413810495d4b96655274471696d3bd18f29f040894",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89123,
+      "observed_sha256": "ded7efad644ae701949643413810495d4b96655274471696d3bd18f29f040894",
+      "stat_before": [
+        16777233,
+        115885471,
+        33188,
+        89123,
+        1792484320561231551,
+        1792484320561231551
+      ],
+      "stat_after": [
+        16777233,
+        115885471,
+        33188,
+        89123,
+        1792484320561231551,
+        1792484320561231551
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg225-p1-observed/trace.json.gz",
+      "expected_bytes": 80214,
+      "expected_sha256": "6cd89ae9fcbf032b5ca03413773e1befe23356ef7e016794cdca33722fec22ad",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80214,
+      "observed_sha256": "6cd89ae9fcbf032b5ca03413773e1befe23356ef7e016794cdca33722fec22ad",
+      "stat_before": [
+        16777233,
+        115885717,
+        33188,
+        80214,
+        1792484435523513089,
+        1792484435523513089
+      ],
+      "stat_after": [
+        16777233,
+        115885717,
+        33188,
+        80214,
+        1792484435523513089,
+        1792484435523513089
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-800-a1/preflight-rg225-p4-observed/trace.json.gz",
+      "expected_bytes": 89920,
+      "expected_sha256": "1608c5d8954a346ab0c38ab904eb07b1c1f7851d35c3df9dfa477855a3c260b2",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89920,
+      "observed_sha256": "1608c5d8954a346ab0c38ab904eb07b1c1f7851d35c3df9dfa477855a3c260b2",
+      "stat_before": [
+        16777233,
+        115885548,
+        33188,
+        89920,
+        1792484348453106401,
+        1792484348453106401
+      ],
+      "stat_after": [
+        16777233,
+        115885548,
+        33188,
+        89920,
+        1792484348453106401,
+        1792484348453106401
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 30677,
+      "expected_sha256": "f3ecc554a745f98a2417ceb1d7154023ae4da485ecf4d81c449195bbaa5003fc",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30677,
+      "observed_sha256": "f3ecc554a745f98a2417ceb1d7154023ae4da485ecf4d81c449195bbaa5003fc",
+      "stat_before": [
+        16777233,
+        115904499,
+        33188,
+        30677,
+        1792488386170773742,
+        1792488386170773742
+      ],
+      "stat_after": [
+        16777233,
+        115904499,
+        33188,
+        30677,
+        1792488386170773742,
+        1792488386170773742
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 30588,
+      "expected_sha256": "222da855314b7963febaee2a0500fc617f69e42f6c50e042ad260a5acde7eea3",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30588,
+      "observed_sha256": "222da855314b7963febaee2a0500fc617f69e42f6c50e042ad260a5acde7eea3",
+      "stat_before": [
+        16777233,
+        115904515,
+        33188,
+        30588,
+        1792488400321960173,
+        1792488400321960173
+      ],
+      "stat_after": [
+        16777233,
+        115904515,
+        33188,
+        30588,
+        1792488400321960173,
+        1792488400321960173
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 30850,
+      "expected_sha256": "281905b106aeef8609c3237b5a1cdd625e3ce088792279da77bcb8d942e76204",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30850,
+      "observed_sha256": "281905b106aeef8609c3237b5a1cdd625e3ce088792279da77bcb8d942e76204",
+      "stat_before": [
+        16777233,
+        115904568,
+        33188,
+        30850,
+        1792488442302981472,
+        1792488442302981472
+      ],
+      "stat_after": [
+        16777233,
+        115904568,
+        33188,
+        30850,
+        1792488442302981472,
+        1792488442302981472
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79770,
+      "expected_sha256": "5fe2c81c3f4602e1c1bbfa01899293ee308fe3b95794b5eae4c70e50871e7187",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79770,
+      "observed_sha256": "5fe2c81c3f4602e1c1bbfa01899293ee308fe3b95794b5eae4c70e50871e7187",
+      "stat_before": [
+        16777233,
+        115904006,
+        33188,
+        79770,
+        1792488120686947999,
+        1792488120686947999
+      ],
+      "stat_after": [
+        16777233,
+        115904006,
+        33188,
+        79770,
+        1792488120686947999,
+        1792488120686947999
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79823,
+      "expected_sha256": "82636a7d781b33e846c0abe07fccde9f728d1db69a9f3db7b04f4ad666f7c426",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79823,
+      "observed_sha256": "82636a7d781b33e846c0abe07fccde9f728d1db69a9f3db7b04f4ad666f7c426",
+      "stat_before": [
+        16777233,
+        115904033,
+        33188,
+        79823,
+        1792488135629009409,
+        1792488135629009409
+      ],
+      "stat_after": [
+        16777233,
+        115904033,
+        33188,
+        79823,
+        1792488135629009409,
+        1792488135629009409
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79713,
+      "expected_sha256": "c5a3740c27ad6f137635793a3b0ec45af676445c34f020c3f60594a4ab4c7569",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79713,
+      "observed_sha256": "c5a3740c27ad6f137635793a3b0ec45af676445c34f020c3f60594a4ab4c7569",
+      "stat_before": [
+        16777233,
+        115904115,
+        33188,
+        79713,
+        1792488180205868910,
+        1792488180205868910
+      ],
+      "stat_after": [
+        16777233,
+        115904115,
+        33188,
+        79713,
+        1792488180205868910,
+        1792488180205868910
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 89529,
+      "expected_sha256": "0dc9a99edf8df97426a4fa754aa5c64947b0cd134acca52b1b186b0702364103",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89529,
+      "observed_sha256": "0dc9a99edf8df97426a4fa754aa5c64947b0cd134acca52b1b186b0702364103",
+      "stat_before": [
+        16777233,
+        115903520,
+        33188,
+        89529,
+        1792487855859547061,
+        1792487855859547061
+      ],
+      "stat_after": [
+        16777233,
+        115903520,
+        33188,
+        89529,
+        1792487855859547061,
+        1792487855859547061
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 87803,
+      "expected_sha256": "09a748ba2b48d7c937a1b7ad483b30b9f5ef92c4ae9a9f7e83206d48e84734cd",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 87803,
+      "observed_sha256": "09a748ba2b48d7c937a1b7ad483b30b9f5ef92c4ae9a9f7e83206d48e84734cd",
+      "stat_before": [
+        16777233,
+        115903552,
+        33188,
+        87803,
+        1792487870409287507,
+        1792487870409287507
+      ],
+      "stat_after": [
+        16777233,
+        115903552,
+        33188,
+        87803,
+        1792487870409287507,
+        1792487870409287507
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89650,
+      "expected_sha256": "100f450d20411b20b79348016a65816ef6ddcf5ce9f7f072d80bbc898dc7c0fa",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89650,
+      "observed_sha256": "100f450d20411b20b79348016a65816ef6ddcf5ce9f7f072d80bbc898dc7c0fa",
+      "stat_before": [
+        16777233,
+        115903656,
+        33188,
+        89650,
+        1792487913855444292,
+        1792487913855444292
+      ],
+      "stat_after": [
+        16777233,
+        115903656,
+        33188,
+        89650,
+        1792487913855444292,
+        1792487913855444292
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79093,
+      "expected_sha256": "0da8d9ef6565cac1fb9ca0733929afab609100a4c20452119bbc73a9c82df572",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79093,
+      "observed_sha256": "0da8d9ef6565cac1fb9ca0733929afab609100a4c20452119bbc73a9c82df572",
+      "stat_before": [
+        16777233,
+        115904179,
+        33188,
+        79093,
+        1792488210102733671,
+        1792488210102733671
+      ],
+      "stat_after": [
+        16777233,
+        115904179,
+        33188,
+        79093,
+        1792488210102733671,
+        1792488210102733671
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79090,
+      "expected_sha256": "5a89e6d28d9c753a8a41b2b1c48914e2176a2af3846bb8cffd1848329d1f8d43",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79090,
+      "observed_sha256": "5a89e6d28d9c753a8a41b2b1c48914e2176a2af3846bb8cffd1848329d1f8d43",
+      "stat_before": [
+        16777233,
+        115904215,
+        33188,
+        79090,
+        1792488225557578943,
+        1792488225557578943
+      ],
+      "stat_after": [
+        16777233,
+        115904215,
+        33188,
+        79090,
+        1792488225557578943,
+        1792488225557578943
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79081,
+      "expected_sha256": "273f1c4a037c27b3936a64eb101e894b334c48d3ee91c4c1dbe0f1af346a0c83",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79081,
+      "observed_sha256": "273f1c4a037c27b3936a64eb101e894b334c48d3ee91c4c1dbe0f1af346a0c83",
+      "stat_before": [
+        16777233,
+        115904273,
+        33188,
+        79081,
+        1792488270159776326,
+        1792488270159776326
+      ],
+      "stat_after": [
+        16777233,
+        115904273,
+        33188,
+        79081,
+        1792488270159776326,
+        1792488270159776326
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 89190,
+      "expected_sha256": "0f8152c671af46aabb544880b15c21a81bafb34f253e72caa4c3d2481feb2da0",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89190,
+      "observed_sha256": "0f8152c671af46aabb544880b15c21a81bafb34f253e72caa4c3d2481feb2da0",
+      "stat_before": [
+        16777233,
+        115903713,
+        33188,
+        89190,
+        1792487943436989280,
+        1792487943436989280
+      ],
+      "stat_after": [
+        16777233,
+        115903713,
+        33188,
+        89190,
+        1792487943436989280,
+        1792487943436989280
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 88679,
+      "expected_sha256": "c449d92e6f2c9c53e99d2bccad15125fdfeddeb394765450d07e1d89f4b77c14",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 88679,
+      "observed_sha256": "c449d92e6f2c9c53e99d2bccad15125fdfeddeb394765450d07e1d89f4b77c14",
+      "stat_before": [
+        16777233,
+        115903735,
+        33188,
+        88679,
+        1792487958309452348,
+        1792487958309452348
+      ],
+      "stat_after": [
+        16777233,
+        115903735,
+        33188,
+        88679,
+        1792487958309452348,
+        1792487958309452348
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89564,
+      "expected_sha256": "1f17c783a78b0c36b87086b122753997d4a1cfcf379c15f2b4f1bfa69e09a61e",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89564,
+      "observed_sha256": "1f17c783a78b0c36b87086b122753997d4a1cfcf379c15f2b4f1bfa69e09a61e",
+      "stat_before": [
+        16777233,
+        115903819,
+        33188,
+        89564,
+        1792488002880699088,
+        1792488002880699088
+      ],
+      "stat_after": [
+        16777233,
+        115903819,
+        33188,
+        89564,
+        1792488002880699088,
+        1792488002880699088
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 80052,
+      "expected_sha256": "18a84dd9c03a5fd1b4aea07f6131845ccec1b3ea6e190d668d3c56ac1cb0d93a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80052,
+      "observed_sha256": "18a84dd9c03a5fd1b4aea07f6131845ccec1b3ea6e190d668d3c56ac1cb0d93a",
+      "stat_before": [
+        16777233,
+        115904395,
+        33188,
+        80052,
+        1792488299874290154,
+        1792488299874290154
+      ],
+      "stat_after": [
+        16777233,
+        115904395,
+        33188,
+        80052,
+        1792488299874290154,
+        1792488299874290154
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 79974,
+      "expected_sha256": "74cd7b556e36db2986b8c367a818cfa96bdf089f9b2df0bebafaab1fd4dfd825",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79974,
+      "observed_sha256": "74cd7b556e36db2986b8c367a818cfa96bdf089f9b2df0bebafaab1fd4dfd825",
+      "stat_before": [
+        16777233,
+        115904413,
+        33188,
+        79974,
+        1792488314650000119,
+        1792488314650000119
+      ],
+      "stat_after": [
+        16777233,
+        115904413,
+        33188,
+        79974,
+        1792488314650000119,
+        1792488314650000119
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 80058,
+      "expected_sha256": "05034dca7a6b13c3af9c777eebc97e53fc8fe000e3958e30c90bf233756605a9",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80058,
+      "observed_sha256": "05034dca7a6b13c3af9c777eebc97e53fc8fe000e3958e30c90bf233756605a9",
+      "stat_before": [
+        16777233,
+        115904464,
+        33188,
+        80058,
+        1792488358098520990,
+        1792488358098520990
+      ],
+      "stat_after": [
+        16777233,
+        115904464,
+        33188,
+        80058,
+        1792488358098520990,
+        1792488358098520990
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 89814,
+      "expected_sha256": "cb8b76e6f9e745aac2ada6caad6f9f4f0f066b9dd1ac820d55cc3dacfe5fb44c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89814,
+      "observed_sha256": "cb8b76e6f9e745aac2ada6caad6f9f4f0f066b9dd1ac820d55cc3dacfe5fb44c",
+      "stat_before": [
+        16777233,
+        115903871,
+        33188,
+        89814,
+        1792488032285594778,
+        1792488032285594778
+      ],
+      "stat_after": [
+        16777233,
+        115903871,
+        33188,
+        89814,
+        1792488032285594778,
+        1792488032285594778
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 89663,
+      "expected_sha256": "86d6feba82ba23e6d8fcc5fcbf791eb29e9c8c46bd4c3704733365499da96384",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89663,
+      "observed_sha256": "86d6feba82ba23e6d8fcc5fcbf791eb29e9c8c46bd4c3704733365499da96384",
+      "stat_before": [
+        16777233,
+        115903898,
+        33188,
+        89663,
+        1792488047230324485,
+        1792488047230324485
+      ],
+      "stat_after": [
+        16777233,
+        115903898,
+        33188,
+        89663,
+        1792488047230324485,
+        1792488047230324485
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/A-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 90043,
+      "expected_sha256": "e87fcddca8c2ab2b8f47a94fbf94abcb2f665ba960c8b222e9a8c8e891ec870e",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90043,
+      "observed_sha256": "e87fcddca8c2ab2b8f47a94fbf94abcb2f665ba960c8b222e9a8c8e891ec870e",
+      "stat_before": [
+        16777233,
+        115903972,
+        33188,
+        90043,
+        1792488090637310361,
+        1792488090637310361
+      ],
+      "stat_after": [
+        16777233,
+        115903972,
+        33188,
+        90043,
+        1792488090637310361,
+        1792488090637310361
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-one-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 30449,
+      "expected_sha256": "69fe0468684cc3f116546186c4c983fab67ebf81c203fcfba427880ba25be68b",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30449,
+      "observed_sha256": "69fe0468684cc3f116546186c4c983fab67ebf81c203fcfba427880ba25be68b",
+      "stat_before": [
+        16777233,
+        115905483,
+        33188,
+        30449,
+        1792488973485967062,
+        1792488973485967062
+      ],
+      "stat_after": [
+        16777233,
+        115905483,
+        33188,
+        30449,
+        1792488973485967062,
+        1792488973485967062
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-one-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 30854,
+      "expected_sha256": "f872e98763219b1438ce68972bea39452c6bb9a3353c9f9592586dc62260db6f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30854,
+      "observed_sha256": "f872e98763219b1438ce68972bea39452c6bb9a3353c9f9592586dc62260db6f",
+      "stat_before": [
+        16777233,
+        115905548,
+        33188,
+        30854,
+        1792489016540550742,
+        1792489016540550742
+      ],
+      "stat_after": [
+        16777233,
+        115905548,
+        33188,
+        30854,
+        1792489016540550742,
+        1792489016540550742
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-one-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 30396,
+      "expected_sha256": "8a493a60371cf505f128805536f234725f27d67550b9701366ced6ba2be0bb60",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30396,
+      "observed_sha256": "8a493a60371cf505f128805536f234725f27d67550b9701366ced6ba2be0bb60",
+      "stat_before": [
+        16777233,
+        115905566,
+        33188,
+        30396,
+        1792489030921102252,
+        1792489030921102252
+      ],
+      "stat_after": [
+        16777233,
+        115905566,
+        33188,
+        30396,
+        1792489030921102252,
+        1792489030921102252
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79741,
+      "expected_sha256": "39f717f4663a0d9432cc239ae8f0861f110df8023388cd06ee3e4fd74daf0719",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79741,
+      "observed_sha256": "39f717f4663a0d9432cc239ae8f0861f110df8023388cd06ee3e4fd74daf0719",
+      "stat_before": [
+        16777233,
+        115904984,
+        33188,
+        79741,
+        1792488712647253968,
+        1792488712647253968
+      ],
+      "stat_after": [
+        16777233,
+        115904984,
+        33188,
+        79741,
+        1792488712647253968,
+        1792488712647253968
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 80157,
+      "expected_sha256": "9b094189381da487e271f3207e754311b856d7183dfde949e72c486e94a2ea46",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80157,
+      "observed_sha256": "9b094189381da487e271f3207e754311b856d7183dfde949e72c486e94a2ea46",
+      "stat_before": [
+        16777233,
+        115905065,
+        33188,
+        80157,
+        1792488755190135044,
+        1792488755190135044
+      ],
+      "stat_after": [
+        16777233,
+        115905065,
+        33188,
+        80157,
+        1792488755190135044,
+        1792488755190135044
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 79780,
+      "expected_sha256": "54fedc8d2796c4ba396394479f9906e58b6a933bf68007c9a6f204768d68a0d2",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79780,
+      "observed_sha256": "54fedc8d2796c4ba396394479f9906e58b6a933bf68007c9a6f204768d68a0d2",
+      "stat_before": [
+        16777233,
+        115905082,
+        33188,
+        79780,
+        1792488769606674994,
+        1792488769606674994
+      ],
+      "stat_after": [
+        16777233,
+        115905082,
+        33188,
+        79780,
+        1792488769606674994,
+        1792488769606674994
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 89997,
+      "expected_sha256": "c611b30b1067b8268bd20b2a6fb5369bb8fda161e4cfb8867ec2136eafb87d4c",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89997,
+      "observed_sha256": "c611b30b1067b8268bd20b2a6fb5369bb8fda161e4cfb8867ec2136eafb87d4c",
+      "stat_before": [
+        16777233,
+        115904587,
+        33188,
+        89997,
+        1792488456618146009,
+        1792488456618146009
+      ],
+      "stat_after": [
+        16777233,
+        115904587,
+        33188,
+        89997,
+        1792488456618146009,
+        1792488456618146009
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 88017,
+      "expected_sha256": "272fe51b4f95a7a9f4a444fbbee24764989b521c27c9a022701ae3db16e4ee9f",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 88017,
+      "observed_sha256": "272fe51b4f95a7a9f4a444fbbee24764989b521c27c9a022701ae3db16e4ee9f",
+      "stat_before": [
+        16777233,
+        115904661,
+        33188,
+        88017,
+        1792488499379148193,
+        1792488499379148193
+      ],
+      "stat_after": [
+        16777233,
+        115904661,
+        33188,
+        88017,
+        1792488499379148193,
+        1792488499379148193
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg0-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89648,
+      "expected_sha256": "582a1f1e1ec841ed94028085d9bde0d7ea22553ea20edf5d616e7bc482767a67",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89648,
+      "observed_sha256": "582a1f1e1ec841ed94028085d9bde0d7ea22553ea20edf5d616e7bc482767a67",
+      "stat_before": [
+        16777233,
+        115904679,
+        33188,
+        89648,
+        1792488513713059244,
+        1792488513713059244
+      ],
+      "stat_after": [
+        16777233,
+        115904679,
+        33188,
+        89648,
+        1792488513713059244,
+        1792488513713059244
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg113-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 79099,
+      "expected_sha256": "4253002b4365ea6af6effc61df62c956bdddb7e4299a10ff51a8977d9a2f5084",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79099,
+      "observed_sha256": "4253002b4365ea6af6effc61df62c956bdddb7e4299a10ff51a8977d9a2f5084",
+      "stat_before": [
+        16777233,
+        115905113,
+        33188,
+        79099,
+        1792488798296285083,
+        1792488798296285083
+      ],
+      "stat_after": [
+        16777233,
+        115905113,
+        33188,
+        79099,
+        1792488798296285083,
+        1792488798296285083
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg113-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 78945,
+      "expected_sha256": "f68b2a608ff52c714e68283a6e186a0a214d9225a246e3061bb7e4a6210a6bce",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 78945,
+      "observed_sha256": "f68b2a608ff52c714e68283a6e186a0a214d9225a246e3061bb7e4a6210a6bce",
+      "stat_before": [
+        16777233,
+        115905168,
+        33188,
+        78945,
+        1792488841785631503,
+        1792488841785631503
+      ],
+      "stat_after": [
+        16777233,
+        115905168,
+        33188,
+        78945,
+        1792488841785631503,
+        1792488841785631503
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg113-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 78994,
+      "expected_sha256": "02a1a265fb8ee37f60ee69734f07fb8fce947bdd13514a8af083d5e1ab969ec7",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 78994,
+      "observed_sha256": "02a1a265fb8ee37f60ee69734f07fb8fce947bdd13514a8af083d5e1ab969ec7",
+      "stat_before": [
+        16777233,
+        115905187,
+        33188,
+        78994,
+        1792488856596284948,
+        1792488856596284948
+      ],
+      "stat_after": [
+        16777233,
+        115905187,
+        33188,
+        78994,
+        1792488856596284948,
+        1792488856596284948
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg113-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 89228,
+      "expected_sha256": "5269eacf0cb6aec0c75ed01d38d4bc987fbea6f2e73208250759055efb1aa362",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89228,
+      "observed_sha256": "5269eacf0cb6aec0c75ed01d38d4bc987fbea6f2e73208250759055efb1aa362",
+      "stat_before": [
+        16777233,
+        115904729,
+        33188,
+        89228,
+        1792488542094311841,
+        1792488542094311841
+      ],
+      "stat_after": [
+        16777233,
+        115904729,
+        33188,
+        89228,
+        1792488542094311841,
+        1792488542094311841
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg113-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 88741,
+      "expected_sha256": "264b82618806fa65a8737e760f4bfb3ca4a88862e0e3908efe7154a4ea42c096",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 88741,
+      "observed_sha256": "264b82618806fa65a8737e760f4bfb3ca4a88862e0e3908efe7154a4ea42c096",
+      "stat_before": [
+        16777233,
+        115904794,
+        33188,
+        88741,
+        1792488584917406626,
+        1792488584917406626
+      ],
+      "stat_after": [
+        16777233,
+        115904794,
+        33188,
+        88741,
+        1792488584917406626,
+        1792488584917406626
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg113-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89007,
+      "expected_sha256": "c943c2e7ae14124ce25b08af76a93a87c8db3fb4d4c7b97be11c6945709dc2cd",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89007,
+      "observed_sha256": "c943c2e7ae14124ce25b08af76a93a87c8db3fb4d4c7b97be11c6945709dc2cd",
+      "stat_before": [
+        16777233,
+        115904826,
+        33188,
+        89007,
+        1792488599354089681,
+        1792488599354089681
+      ],
+      "stat_after": [
+        16777233,
+        115904826,
+        33188,
+        89007,
+        1792488599354089681,
+        1792488599354089681
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg225-p1-r0-observed/trace.json.gz",
+      "expected_bytes": 80103,
+      "expected_sha256": "187fc0054ccbb91f670c25f62d5f278843061f47b883a07d6f8ee12ddb38f708",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80103,
+      "observed_sha256": "187fc0054ccbb91f670c25f62d5f278843061f47b883a07d6f8ee12ddb38f708",
+      "stat_before": [
+        16777233,
+        115905220,
+        33188,
+        80103,
+        1792488885762647678,
+        1792488885762647678
+      ],
+      "stat_after": [
+        16777233,
+        115905220,
+        33188,
+        80103,
+        1792488885762647678,
+        1792488885762647678
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg225-p1-r1-observed/trace.json.gz",
+      "expected_bytes": 80001,
+      "expected_sha256": "a3deef8d77bbaa379fcae343a9fb156182c65a61f3403a3e656b35e5ffbcccaa",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80001,
+      "observed_sha256": "a3deef8d77bbaa379fcae343a9fb156182c65a61f3403a3e656b35e5ffbcccaa",
+      "stat_before": [
+        16777233,
+        115905391,
+        33188,
+        80001,
+        1792488929645218552,
+        1792488929645218552
+      ],
+      "stat_after": [
+        16777233,
+        115905391,
+        33188,
+        80001,
+        1792488929645218552,
+        1792488929645218552
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg225-p1-r2-observed/trace.json.gz",
+      "expected_bytes": 80052,
+      "expected_sha256": "d7cdeaf91b0caf02b8cd10f5a65486826932a35b6f78bf31d063df6e44e3e54d",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80052,
+      "observed_sha256": "d7cdeaf91b0caf02b8cd10f5a65486826932a35b6f78bf31d063df6e44e3e54d",
+      "stat_before": [
+        16777233,
+        115905445,
+        33188,
+        80052,
+        1792488944323418470,
+        1792488944323418470
+      ],
+      "stat_after": [
+        16777233,
+        115905445,
+        33188,
+        80052,
+        1792488944323418470,
+        1792488944323418470
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg225-p4-r0-observed/trace.json.gz",
+      "expected_bytes": 90013,
+      "expected_sha256": "af61f60a5b92929cb4301ff3849228d00bcb7bb581f9aa6db57930bd71d52fb5",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90013,
+      "observed_sha256": "af61f60a5b92929cb4301ff3849228d00bcb7bb581f9aa6db57930bd71d52fb5",
+      "stat_before": [
+        16777233,
+        115904866,
+        33188,
+        90013,
+        1792488627799827530,
+        1792488627799827530
+      ],
+      "stat_after": [
+        16777233,
+        115904866,
+        33188,
+        90013,
+        1792488627799827530,
+        1792488627799827530
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg225-p4-r1-observed/trace.json.gz",
+      "expected_bytes": 90225,
+      "expected_sha256": "6a888fc6f9208a4b846af54ca9af44a643834d93c0cd5f517ac34686c3f4b1a4",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90225,
+      "observed_sha256": "6a888fc6f9208a4b846af54ca9af44a643834d93c0cd5f517ac34686c3f4b1a4",
+      "stat_before": [
+        16777233,
+        115904934,
+        33188,
+        90225,
+        1792488670077633316,
+        1792488670077633316
+      ],
+      "stat_after": [
+        16777233,
+        115904934,
+        33188,
+        90225,
+        1792488670077633316,
+        1792488670077633316
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/B-rg225-p4-r2-observed/trace.json.gz",
+      "expected_bytes": 89828,
+      "expected_sha256": "7d2220b72bca196a35a907d83ed4c4803f34af233f01dbb8e0ac31ada8b1f051",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 89828,
+      "observed_sha256": "7d2220b72bca196a35a907d83ed4c4803f34af233f01dbb8e0ac31ada8b1f051",
+      "stat_before": [
+        16777233,
+        115904953,
+        33188,
+        89828,
+        1792488684383855881,
+        1792488684383855881
+      ],
+      "stat_after": [
+        16777233,
+        115904953,
+        33188,
+        89828,
+        1792488684383855881,
+        1792488684383855881
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg0-one-p4-observed/trace.json.gz",
+      "expected_bytes": 30912,
+      "expected_sha256": "aa0785ac9d1193217a375f4d63489f33c022788442abb959038e4b5e4fc24bd9",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 30912,
+      "observed_sha256": "aa0785ac9d1193217a375f4d63489f33c022788442abb959038e4b5e4fc24bd9",
+      "stat_before": [
+        16777233,
+        115903463,
+        33188,
+        30912,
+        1792487797009956771,
+        1792487797009956771
+      ],
+      "stat_after": [
+        16777233,
+        115903463,
+        33188,
+        30912,
+        1792487797009956771,
+        1792487797009956771
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg0-p1-observed/trace.json.gz",
+      "expected_bytes": 79801,
+      "expected_sha256": "42e48e04a118f5a256faa9edf2a16ca0d243a1202c5200272d1673b192abb266",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 79801,
+      "observed_sha256": "42e48e04a118f5a256faa9edf2a16ca0d243a1202c5200272d1673b192abb266",
+      "stat_before": [
+        16777233,
+        115903317,
+        33188,
+        79801,
+        1792487708466543026,
+        1792487708466543026
+      ],
+      "stat_after": [
+        16777233,
+        115903317,
+        33188,
+        79801,
+        1792487708466543026,
+        1792487708466543026
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg0-p4-observed/trace.json.gz",
+      "expected_bytes": 90172,
+      "expected_sha256": "4763449e6e9a12c5c7a55da8e1355809da29cca9bb0acb4b09437ceac0379390",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90172,
+      "observed_sha256": "4763449e6e9a12c5c7a55da8e1355809da29cca9bb0acb4b09437ceac0379390",
+      "stat_before": [
+        16777233,
+        115903140,
+        33188,
+        90172,
+        1792487620976144474,
+        1792487620976144474
+      ],
+      "stat_after": [
+        16777233,
+        115903140,
+        33188,
+        90172,
+        1792487620976144474,
+        1792487620976144474
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg113-p1-observed/trace.json.gz",
+      "expected_bytes": 78961,
+      "expected_sha256": "021c6583a7e7f7058a762a7c625bf7637d4f6d611e3210f0b9a9510fc6b884b6",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 78961,
+      "observed_sha256": "021c6583a7e7f7058a762a7c625bf7637d4f6d611e3210f0b9a9510fc6b884b6",
+      "stat_before": [
+        16777233,
+        115903378,
+        33188,
+        78961,
+        1792487738414736052,
+        1792487738414736052
+      ],
+      "stat_after": [
+        16777233,
+        115903378,
+        33188,
+        78961,
+        1792487738414736052,
+        1792487738414736052
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg113-p4-observed/trace.json.gz",
+      "expected_bytes": 88907,
+      "expected_sha256": "bd56772698ca3b36256ef6351ec798923baeca5ae863aa53c1c9d7f12204203a",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 88907,
+      "observed_sha256": "bd56772698ca3b36256ef6351ec798923baeca5ae863aa53c1c9d7f12204203a",
+      "stat_before": [
+        16777233,
+        115903205,
+        33188,
+        88907,
+        1792487649971323793,
+        1792487649971323793
+      ],
+      "stat_after": [
+        16777233,
+        115903205,
+        33188,
+        88907,
+        1792487649971323793,
+        1792487649971323793
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg225-p1-observed/trace.json.gz",
+      "expected_bytes": 80006,
+      "expected_sha256": "f7ff19c8a9546c56800b74af262a6442914987f7f4187c000012967620798122",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 80006,
+      "observed_sha256": "f7ff19c8a9546c56800b74af262a6442914987f7f4187c000012967620798122",
+      "stat_before": [
+        16777233,
+        115903417,
+        33188,
+        80006,
+        1792487768161804359,
+        1792487768161804359
+      ],
+      "stat_after": [
+        16777233,
+        115903417,
+        33188,
+        80006,
+        1792487768161804359,
+        1792487768161804359
+      ],
+      "stable_stat": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-overlap-801-a1/preflight-rg225-p4-observed/trace.json.gz",
+      "expected_bytes": 90190,
+      "expected_sha256": "32d69db7b65f887ec08b63db4b9170e5740e6958d44cc7c6af0773e3e0975ec0",
+      "exists": true,
+      "regular": true,
+      "symlink": false,
+      "observed_bytes": 90190,
+      "observed_sha256": "32d69db7b65f887ec08b63db4b9170e5740e6958d44cc7c6af0773e3e0975ec0",
+      "stat_before": [
+        16777233,
+        115903268,
+        33188,
+        90190,
+        1792487679234803418,
+        1792487679234803418
+      ],
+      "stat_after": [
+        16777233,
+        115903268,
+        33188,
+        90190,
+        1792487679234803418,
+        1792487679234803418
+      ],
+      "stable_stat": true
+    }
+  ],
+  "observer_binary": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/shardloom-ingest-overlap-802-test",
+    "expected_sha256": "ff26ea0e710c2a71b227ff208655f8f911f68736acb7a2a46185cf27f98ab9a2",
+    "observed_bytes": 95209536,
+    "observed_sha256": "ff26ea0e710c2a71b227ff208655f8f911f68736acb7a2a46185cf27f98ab9a2",
+    "regular": true,
+    "symlink": false,
+    "stat_before": [
+      16777233,
+      115899850,
+      33261,
+      95209536,
+      1792487522432629867,
+      1792487522433370035
+    ],
+    "stat_after": [
+      16777233,
+      115899850,
+      33261,
+      95209536,
+      1792487522432629867,
+      1792487522433370035
+    ],
+    "stable_stat": true
+  },
+  "packet_verification_summary": {
+    "all_member_bytes_reopened_and_equal": true,
+    "bytes": 4409808,
+    "candidate_design_admitted": false,
+    "current_outcome": "inconclusive_observer_overhead_gate_failed",
+    "decision_sha256": "63381c6b6d65a7c2e23359fee1d27cb8d5626ac0762440b3a26da8002d6e9e04",
+    "input_bytes": 42905871,
+    "member_count": 2151,
+    "original_files_removed": false,
+    "packet": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-attribution-results-803.json.xz",
+    "raw_bytes": 57768899,
+    "scheduling_change_retained": false,
+    "sha256": "4ef023256c1d16fb5a90312b67d800c1fe3560d78dbc2dda11ae3ad430477432",
+    "status": "passed",
+    "trace_identity_count": 184
+  },
+  "lsof_command": "lsof -nP with 184 exact indexed trace paths and the exact artifact-802 binary path as file arguments",
+  "lsof_returncode": 1,
+  "lsof_stdout": "",
+  "lsof_stderr": "",
+  "lsof_result": "no matching open-file rows at observation time"
+}

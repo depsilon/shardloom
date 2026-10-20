@@ -1,0 +1,2327 @@
+{
+  "arithmetic_replay_is_not_activation_or_decision_acceptance": true,
+  "decision_credit": false,
+  "disposition": "Preserve all original source, binaries, helpers, observations, failures and arithmetic. Freeze a corrected finite geometry and activation preflight before any replacement measurements. Do not change production policy or resource ceilings to force activation.",
+  "frozen_protocol_sha256": "af91706c66342e8054adf7e786e261bc795a0bae90273270408f0b5db1ddd8a1",
+  "measurement_freeze_sha256": "ac240b47a8f69ec4a1ca153d7a31e1222b1e1baec35e92ed8e56a15384f01cbf",
+  "original_arithmetic_outcome": "no_material_signal_in_finite_scope",
+  "original_arithmetic_outcome_accepted": false,
+  "original_decision_sha256": "963afe79d958a30914c1ee00832d17d31482ce4b7dac6ac6527516a3c632ba19",
+  "preserved_workflows": [
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg0-p4-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "a789775a10a3e25b731a56b8d1d4793517b4ad8d8d2f751ea4dbd7488c991f38"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg0-p4-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "2fe2b52aab4ceb20cad60be280ecc0ef5623db287d5e67c729e7b74746775298"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg113-p4-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "c122f59fec92f173a3182d2014e7dee47cc8d192aa5c81f25af2c7661913fb0b"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg113-p4-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "f114ac9015b5cae2ff74af7ae8b16d2df2a9ea85d240ea554bb02fe3f55fa125"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg225-p4-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "11bf973324ee873426c5593e8f3606a54e2bfb466420dbf1f553174affee91fb"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg225-p4-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "dbeafe1aeb39578994dff0ac76f2c465e5ad296eb0b97a07a801fd6db4b5b316"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg0-p1-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "3733ed934b209516f723429699072f500a3a96cadc2a5c975b4493382ad185ab"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg0-p1-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "1d284a5e2f72bba941fe2f1df81bfe791c16f5295ded9282661193ac2e1423d9"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg113-p1-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "0cbe9d2082e10367324901cfac163b9b5cb4be4880ebf1643c4b7187c846da3b"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg113-p1-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "97398e1177e75ab56f1eca97f3980f22e8fddd89119f96a73499334b1040d790"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg225-p1-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "d70c82d467acbd2057b8ce48b50a6ffb0645988321508e21190ee5e6468cca36"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg225-p1-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "c814d5ec405de7af0d9026031d4c46b3721feb3a03b72b37f52b5ab8293326ae"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg0-one-p4-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "313c99e9de0164bdefed833df49b2a96c7068668bc6883d346d5e49e70a7eab7"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "preflight",
+        "id": "preflight-rg0-one-p4-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "0fa2ce0bffe04ab754a2dd660216f4d42b0135c0729e58230147e1f824961919"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "f7aadf609e08cc5b28480b3618e79116811a862dc6ce37a96af8d6b279156457"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "56b0f8f90068116ea8617b664f0a86abaf4c2f18cbe1405a86b6341531a3b440"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "5fecd640dd2675ab40096b5e4a58293e7fb8d7edd809039177b001546db2d4c5"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "eb15216fc00b1b025457c78d4e0636f3076293c5955f67bdd4d44af496bf2f69"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "19be4e54313f2afdbda6bd5138c2a8af5ef356b8bb4d5360cfe0f35550544a33"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "100d33b2d368d348a2abef6322ba5df1ea325f62c0e9fc6cacf448265f935cdf"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "1eeb09769ab3243622203fd96b85453cfd57615d74b9a8833b61e5e7ef7f94df"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "600cefeb516ac0b0e3cbb8923a2eb030ef6ead140ccdda37663db642474c9e51"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "6dd1c1e561ab82718857e1e247a88ae0cbbed175f687380d66da25686552703a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "8f358ff96a6245dcc3c0d90e96cb363cc094d5fc2182033af76eb0262f115f67"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "8d369ad749e126d5868053a7104fa941e5a2e1a3da0182c0bea28fcc241be323"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "b6de260d61d23e98c7cfb2e6eebf35a5395cb60df3486e81e6032b6534ac9bd7"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "fa89a8ae576318ac754aa6eccb63b97dc581cfaa3418f2fb0188d002b57ea408"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "5fe18fe5bbb4ee337430156c9e5814de03f6323fe0adea466a3fc67c80cd2840"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "72e5608a9c8ea7291f727e7349b137dc25a8e1bf67ce0515de3bf468b960c8a0"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "5befd4ea351274dde5dd337c4d0992636f320c819dd6b2f3a0c281aa3ccb273a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "d762bc44cc15c7c274408fea32cebbd1ec33d7cb1847da1065581bffa367db71"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "756cc7c08cd0219514c64d180c4364a2d77eb880e99598f05a127bceaeaa2f0d"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p1-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "db118a546e0366c41ff6a1ee6183848dda9a2544d483bebcd8e0b1f38f9bf69c"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p1-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "93d2c88a1e80be1dc37a1bcf30edd32cbca26f6214631b7e18a28b56523f92a2"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p1-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "bd60947cdb0393a576fddd1a54315ffcf08a450185d431772f676b1332b62911"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p1-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "640bb7c665093fc0566858b5ad75159a5764ba51182dc2c9412f38d411496441"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p1-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "055980c955be59a991943914d888f1198c7e7345ad01b9870050b2b603a90a62"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-p1-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "336ea5195082a4c0ee1a5d46572ab10376da3a9282e339343171fc158a29595d"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p1-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "fe91f0e5d2ca91835b3e9b4f05e21322d096c0ea0745a4e3211f76ee447443a8"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p1-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "9a587341ce4c74f0e67b73b688f8aeaef7ad00044ea83c53436633c60ee2883d"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p1-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "31b375bd3426f5f82e8973807a144420ae9aa6c0f9f1da7aa1f9127bd44f3c8e"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p1-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "9bbf2aac4e73049cb66bbdc08a04be20bad4bcad0a4afe9c1e15b380e13d32f8"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p1-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "37c77e7cd236ecea79dbba72f9b009c1fe58d688e089eaf98df81ab8118ab0de"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "A",
+        "id": "A-rg113-p1-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "3156dca6cab9a36c07c03e9d64a9fb8eeb8b317732c5db0bfc77f8a6b5d73667"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p1-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "12c20d7e273f55f501870ce8ddfb5d77e82f389c28a8e28b9d041d595f0cef6e"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p1-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "f83223970c55468a913236e6fd14748cc1a083a81b2d1500eaf54394689e54ba"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p1-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "d1acf789a495f46359b2017a14a993892bd86c0bb3115ccd8bbbf928b4088f95"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p1-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "2d7e620dc220c57d5f95b11c760e0aabecdeedaabb6ee15d750f5fd3f2277589"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p1-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "353b93b5dbb68ba2faa1c5dae77f5160dcc4542162f3bf99392aac76792dfa49"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "A",
+        "id": "A-rg225-p1-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "7822a10d2ea5db5daf07ec6a09545fb92a77ff431a374d05416845ece830d28b"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-one-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "b3d9df0b1248948d5df5398361c7a0fac0b38d3290678f671bdcd5daa8d77b53"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-one-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "0bf3de4644106fecede0efa9a266a2126476adbe3884bd60cdb72ed786a3bf73"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-one-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "28a8efb5dc8098eb9bd01cbb8d89ab2ea084d7f9c9265c3ba6783c4da5dab240"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-one-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "cf83ea125029d43409b84fb7adf26c661adc1bd324b8c443bf398ef2550c0a1c"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-one-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "bb3453d711d92054746c9b4fe436393d160a42d953aa1a412fc6473f4b632728"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "A",
+        "id": "A-rg0-one-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "877351f5dc83f604ec0e55de3cefa48916e7e218942f17680718e821e22df570"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "275c457a2d73736707a31fd7992f355f246e4e2c73a0b28414af8df4146afb41"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "cb219fa3ab9edb2de8f500be3404d74e40d51e485d6f1d3d0f27000b14303110"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "e57c0d718be5ad2877cdc9d0df17c572ab8e061fe169d20fba713be0ac124e7c"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "4c387f50e26475c133f517b43eccefb6efc0be000ea9cebdc3c115311e48ad1d"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "42d604dd06e17f3db3adb96bcede51283c58debf4773d1e4a48e29ac067dff24"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "1d70575863a13566302bc13df32f228471f819470821fc119bb392d69bc07266"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "86f20abad414aa6dab0fc9fed048a4d199e0887a22d01de59580ca21551dd350"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "0ea61f4d7bfe8b73cfc7e3de62dafee65e6ce663e9a4f48bdb7db88f7c165617"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "b3582d24f92a8100cb508424067247e3c40ebe18e0e6fea855844c0756915b33"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "b3e46eefafb0182465cb7a48608a4c43d5d852ca6d950b9c38539485681c3c51"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "cdb6d82b70c77755ca20b45efb8491040bbd0d1c67c9d7af882516efa235ec56"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "60d1fb5cb2b1952f21fcd4fedd2561a0bf5c00de36639f40e612cae874758d68"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "d6df6df1e9067d96f4bac02fce7c4c837908f925610c64a1eacb8f45b9624dc4"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "fecb1be59af646794fe74524b48b6e4ec391ce23f9212811f752c23af7af6e7a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "5af2b1135f60b97947cf9a9bad9e367a9d861800ffff39791f30cda55e7a42ef"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "c790ff1eba589dedc88158c9c78a02d3b619e71a7d7456a9d1aed28dab976fac"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "5156eb018394ec03efa7a1046eeafd997cfcb8598e3f4645d9034054c7d8b99b"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p4",
+          "max_batches": 3,
+          "parallelism": 4,
+          "role": "target",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "8919aac22e2526d4031ec1f3035648ad3bd7b9b7f0e46a24c719268b49dda164"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p1-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "c822c206e5380029d91e07ad06a48792ce135761cda94502521dbe5c45313633"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p1-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "4ad9ae25ce36a46569100ce7aa1ca864bb4d7146246f06b431fa6a76b9605d1a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p1-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "b44a350cb4151c04f3cca8f4aac9fb5c41e9b3c94c29a0c5f8b6a3a315694c2c"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p1-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "e4eaa83fc6fa0634c638489a8c642daec9fe3bbe11823e6c349e43f165421aa2"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p1-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "1c533043db70f53df45f64c25a52a972b51bb5b1fad94786a3ad895e2a762baf"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-p1-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "2812c7746cef867b5da76a320584b720a03c813f162d1ddebb1eaa5274810d9c"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p1-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "8b41a9859cdfaeee876d31c75f0526ecfe051873b1eaa97b8151e7ba837549cc"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p1-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "93e939a18e5ab8c408a285f35ac10c1942de2afc1c41c26a9374213c25e652cf"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p1-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "0be94d2d19148533bacb4acbff39c746685b9c183b00c659d59a2140ad04de0c"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p1-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "5e1eedbb326932a3a5cc41271dddf7b6c3cd42b1dfed93e6184f178688a3a8b9"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p1-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "484c151883068e676b66a05b1765e64ec36048397aaf6897a9ff4261cf7f3cde"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg113-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 113
+        },
+        "cohort": "B",
+        "id": "B-rg113-p1-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "7cc22259ae1762875e655dd3d0d0571beab967a8f8e34cb81a6396c330cca01a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p1-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "3b23ea2de041db0e5da9cccec2976175dc75fae1c479c0cab50ae27a1074851a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p1-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "0752978e85c321e309d7cb32973127bb5133aab8369e47938dab7f16694e59c1"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p1-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "ad4c14beea236591feb4a0ebb97fd26f3c7b3d694156bf6ee31efea0eeb04bbc"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p1-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "ccedfa718ef9c0af8dcd5d386170cfde969b11fd4f6a8bc30be2c78cafd0889a"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p1-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "c5685c772b25634d4382dd7bbf5c4b140f229a4e81c60ec49fc151327784c416"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg225-p1",
+          "max_batches": 3,
+          "parallelism": 1,
+          "role": "serial_control",
+          "row_group": 225
+        },
+        "cohort": "B",
+        "id": "B-rg225-p1-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "0c8729d07a98a24ffd90aa6a0da4dce591646a11747a0ec4937887a5ec6d89e3"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-one-p4-r0-observed",
+        "repeat": 0,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "4e0e7011f560cdd726cfade012960f9c420b9f07f11870e17ff5373851ec3dca"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-one-p4-r0-ordinary",
+        "repeat": 0,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "3f95ac380f48a7cfe61beb5d2f037f4228237a9c24aae0af45758ee743c60476"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-one-p4-r1-ordinary",
+        "repeat": 1,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "eb7c4c6d7aeec30625ca54ea0c4b688915bf722b0b229f1698c86e26d8c56113"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-one-p4-r1-observed",
+        "repeat": 1,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "6b0e6b70cb01f0d07f8ab9e1bfd537b06a228524fbe6550f88713db17f077319"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-one-p4-r2-observed",
+        "repeat": 2,
+        "role": "observed"
+      },
+      "conversion_task_limit": 0,
+      "prefetch": {
+        "admitted_slots": 0,
+        "converted_items": 0,
+        "discarded_completed_items": 0,
+        "final_completed_items": 0,
+        "final_outstanding_slots": 0,
+        "handed_off_items": 0,
+        "peak_completed_before_handoff": 0,
+        "peak_ordered_pending": 0,
+        "peak_outstanding_slots": 0
+      },
+      "prefetch_window": 0,
+      "result_sha256": "5bf0771007430c8a8b350a6a245851f229b63733824ee6761b70a8e9856b97da"
+    },
+    {
+      "case": {
+        "cell": {
+          "id": "rg0-one-p4",
+          "max_batches": 1,
+          "parallelism": 4,
+          "role": "no_successor_control",
+          "row_group": 0
+        },
+        "cohort": "B",
+        "id": "B-rg0-one-p4-r2-ordinary",
+        "repeat": 2,
+        "role": "ordinary"
+      },
+      "conversion_task_limit": 0,
+      "prefetch_window": 0,
+      "result_sha256": "a9633e6d8724d9231efe7d1821136e1de0e102fb0b6ff91dacbbb476db51fa7d"
+    }
+  ],
+  "reason": "Every P4 workflow has a zero admitted conversion window. No observed workflow converts or hands off a prefetched item. The numerical zero opportunity therefore does not test the intended ready-successor scheduling question.",
+  "scheduling_candidate_implemented": false,
+  "schema_version": "shardloom.ingest_overlap_activation_invalidation.v1",
+  "source_chain": [
+    "vortex_ingest::VortexWriterPhysicalDesignSourceInput::streaming_columnar selects IngestCpuLanes::shared for the real source runtime.",
+    "IngestCpuLanes::shared(4, 4) starts with four prefetch slots.",
+    "write_flat_columnar_vortex_prepared_state_streaming_controlled calls admit_conversion_memory with one quarter of the unchanged native grant and the first batch backing/copy allocation sizes.",
+    "admit_conversion_memory reduces the window according to four-times batch capacity or four-times exact native copy capacity; the recorded physical plan is zero for every P4 run.",
+    "The writer shared-slot/lookahead path requires a nonzero conversion prefetch owner. All 49 observed preflight/measured records have zero admitted slots, converted items and handed-off items."
+  ],
+  "source_freeze_sha256": "1633297eb03127da955857aba5772c54b0dd9ff7643a1d53686cb629d5832f49",
+  "status": "invalid_setup_missing_prefetch_activation"
+}

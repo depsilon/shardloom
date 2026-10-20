@@ -113,6 +113,7 @@ jobs:
             command: |
               cargo test -p shardloom-vortex --lib --features release-user-surfaces
               cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation output_window_observation::tests
+              cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation credit_window::tests
               cp Cargo.lock vendor/vortex-array/Cargo.lock
               cargo test --manifest-path vendor/vortex-array/Cargo.toml \
                 --features _test-harness,table-display \

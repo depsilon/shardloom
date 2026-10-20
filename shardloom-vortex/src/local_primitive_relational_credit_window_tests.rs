@@ -1,8 +1,9 @@
 use super::*;
+#[cfg(feature = "output-window-observation")]
+use crate::output_window_observation as observation;
 use crate::{
     VortexLocalPrimitiveExecutionPolicy,
     local_primitives::prepared_relational::prepare_relational_with_schema_in_session,
-    output_window_observation as observation,
     relational_query::{
         VortexRelationalLimit, VortexRelationalPlan, VortexRelationalProject, VortexRelationalScan,
     },
@@ -227,6 +228,7 @@ fn credit_window_initialization_is_inside_native_clock_and_arrow_owners_outlive_
     let (prepared, session) = prepared(17, std::convert::identity);
     let pool = session.shared_memory_pool();
     let ledger = RefCell::new(None::<OutputCreditWindow>);
+    #[cfg(feature = "output-window-observation")]
     let capture = observation::Capture::begin_window(true, true).unwrap();
     let mut retained = None;
     let completed = prepared
@@ -235,6 +237,7 @@ fn credit_window_initialization_is_inside_native_clock_and_arrow_owners_outlive_
             || true,
             |window| {
                 let window = window.unwrap();
+                #[cfg(feature = "output-window-observation")]
                 observation::window_policy(Some(window.expected_rows()), window.metadata_bytes());
                 *ledger.borrow_mut() = Some(window);
                 Ok(())
@@ -243,23 +246,29 @@ fn credit_window_initialization_is_inside_native_clock_and_arrow_owners_outlive_
                 let mut ledger = ledger.borrow_mut();
                 let window = ledger.as_mut().unwrap();
                 let bytes = batch.get_array_memory_size();
+                #[cfg(feature = "output-window-observation")]
                 observation::converted(batch.num_rows(), bytes);
                 let ordinal = window.enqueue(batch.num_rows(), bytes)?;
+                #[cfg(feature = "output-window-observation")]
                 observation::sent();
                 retained = Some(batch.slice(3, 4));
                 window.acknowledge(ordinal)?;
+                #[cfg(feature = "output-window-observation")]
                 observation::acknowledged_ordinal(ordinal);
                 window.finish()
             },
         )
         .unwrap();
     drop(ledger.into_inner());
-    observation::window_released();
-    let report: serde_json::Value = serde_json::from_str(&capture.finish(true)).unwrap();
-    assert_eq!(report["valid"], true);
-    assert_eq!(report["window"]["metadata_reserved_bytes"], 1024);
-    assert_eq!(report["window"]["metadata_final_bytes"], 0);
-    assert_eq!(report["window"]["outstanding_batches"], 0);
+    #[cfg(feature = "output-window-observation")]
+    {
+        observation::window_released();
+        let report: serde_json::Value = serde_json::from_str(&capture.finish(true)).unwrap();
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["window"]["metadata_reserved_bytes"], 1024);
+        assert_eq!(report["window"]["metadata_final_bytes"], 0);
+        assert_eq!(report["window"]["outstanding_batches"], 0);
+    }
     assert!(completed.execution.native_io_certificate.is_certified());
     drop((completed, prepared, session));
     assert!(pool.snapshot().reserved_bytes > 0);

@@ -4,8 +4,8 @@
 
 Status: active conditional-first pass; nine finite investigations completed with
 six rejected mechanisms, two retained mechanisms and one no-signal attribution,
-12 rows awaiting their first
-completed decision in this pass.
+one further investigation has an inconclusive observation and a specific missing
+measurement prerequisite, and 11 rows await their first investigation result.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -89,6 +89,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-06.merge_cost` | [No eligible final-tail signal](native-merge-tail-2026-10-19.md). All 236 release workflows pass exact output, source, trace and cleanup checks. The 84 observed measured spill workflows leave one or two final runs, so estimated adjacent-order savings are zero. No candidate is implemented; temporary observer code is archived and removed. | This frozen workload does not establish general merge optimality. A new final-tail protocol must first establish an actual choice among at least three remaining runs and material tail work. Broader merge-cost and pressure obligations remain open. |
 | `PERF-06.rematerialization` | [Private projection regeneration rejected](native-rematerialization-2026-10-19.md). All 357 release workflows pass exact semantics, source, activation and ownership checks. All four memory targets pass both cohorts, but wide-dependency/all-null controls fail in both and the one-output control fails in A. Candidate code is archived and removed. | Target memory savings do not override throughput controls. A materially different mechanism requires a new design and protocol; broader retention, regeneration, pressure and recovery remain open. |
 | `PERF-07.output_windows` | [Finite two-batch native output window retained](native-output-window-integration-2026-10-19.md). Both frozen cohorts pass the complete-workflow target and all ten cells' controls; full workspace/native, isolated installed Python, Public39, Full43 and modular acceptance pass. | The explicit 4-MiB option admits only the frozen immutable memory scan/single-projection shape. Engine medians do not improve; no CLI transport window or broader producer/publication claim follows. General output-window obligations remain open. |
+| `PERF-09.overlap` | [Attribution remains inconclusive](native-ingest-overlap-attribution-2026-10-20.md). The corrected observer and its bounded-event revision each complete both frozen cohorts with exact values, activation and cleanup, but each fails the mandatory overhead gate. Temporary instrumentation is removed; no scheduling candidate is admitted. | Eligible recoverable-idle attribution is still missing. This is a prerequisite record, not a no-signal result, rejected scheduling mechanism or completed conditional substep. Revisit a materially different measurement mechanism during this pass; do not repeat unchanged cohorts or relax the gate. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -98,8 +99,9 @@ the bounded local-width mechanism has completed local acceptance. Exact
 predicate exclusion and private projection regeneration have completed finite
 comparison rejections, and final-tail merge attribution has a completed no-signal
 decision. The finite two-batch output window has completed integrated local
-acceptance. The next investigation is `PERF-09.overlap`, beginning with current
-recoverable idle-time attribution before extending pre-writer overlap.
+acceptance. `PERF-09.overlap` remains pending an eligible measurement after two
+inconclusive observer implementations. Continue with `PERF-09.portfolio` while
+carrying that prerequisite forward for review before required breadth resumes.
 
 ## Deferred required work
 

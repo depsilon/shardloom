@@ -1,0 +1,30 @@
+{
+  "schema_version": "shardloom.ingest_overlap_observer_amendment.v1",
+  "status": "frozen_before_revised_observer_implementation_or_measurements",
+  "conditional_id": "PERF-09.overlap",
+  "base_protocol": "ingest-overlap-attribution-protocol-797.json",
+  "base_protocol_sha256": "83da704cd7852ba3d638052b0bebcd39512e116ec0c74b5fe86f6f7f1eaaa5cf",
+  "prior_attempt": "ingest-overlap-800-a1",
+  "prior_outcome": "inconclusive_observer_overhead_gate_failed",
+  "prior_failed_cell": {"cohort": "B", "cell": "rg0-p4", "observed_median_regression_fraction": 0.12068035234217749},
+  "prior_decision_credit": false,
+  "prior_observations": "All 84 measured workflows and 14 preflight workflows pass correctness, activation, cleanup and independent trace replay. All three target medians exceed the opportunity threshold in both cohorts, but the one failed observer-overhead control prevents candidate admission. Preserve the complete original decision and every original measurement.",
+  "cause_boundary": "The failed cell does not isolate the source of its regression. The current observer performs global mutex acquisition, clock sampling, counter updates, histogram integration and a full state snapshot at every event. Representative completed target traces contain about 15000 events, including about 12000 poll entry/exit events. Nearly every poll event changes occupancy, so eliding only nested no-op polls would not remove this work. A source-grounded observer redesign is justified; no thermal, scheduling or unique causal explanation is asserted.",
+  "revised_observer": {
+    "hot_record": "Preallocate bounded safe-Rust OnceLock event slots before the ingest clock. Each observation takes a monotonic timestamp, obtains one atomic append ticket, and initializes exactly that slot with the event kind, thread identity and event-specific operands. It does not update shared occupancy maps or histograms on the hot path.",
+    "drain": "Atomic live-ticket accounting covers queued/running async, CPU, blocking-I/O and detached-join work. Decrement only after the terminal event is fully published. Preserve the existing Vortex dispatch/abort/detach wrapper and strong runtime lifetime. No task, driver or scheduling policy changes.",
+    "replay": "After controlled writer return and owned task/driver drain, order completed records by monotonic timestamp and append ticket, then reconstruct exact thread nesting, queued/running counters, writer/child intervals, actual successor readiness and prefetch ownership. Validate every transition, balance, resource bound and final drain before emitting the existing expanded trace. Independent Python replay still verifies that expanded trace.",
+    "ordering": "Per-thread order and causally preceding queue/dispatch, completion/handoff and writer/child events must be preserved. Equal timestamp ties use append ticket. Tests must cover reservation order differing from timestamp order; incomplete, duplicate, unbalanced and overflowing records fail rather than yield a report.",
+    "event_capacity": 131072,
+    "diagnostic_allowance_bytes": 33554432,
+    "memory": "Preallocated slots, replay reference ordering, expanded events and bounded metadata must fit the same 32-MiB diagnostic allowance simultaneously. This is requested diagnostic storage, separate from the unchanged 2-GiB managed native grant and not a process-RSS bound.",
+    "clock": "Keep the bounded-ingest interval exactly unchanged. Observer recording and owned task drain remain inside it; offline diagnostic replay and serialization are outside, like other post-run validation. This reduces measurement perturbation and is not a runtime performance candidate."
+  },
+  "unchanged": ["source prefixes", "32768-row batches", "112 columns", "production prefetch admission", "native memory and CPU grants", "writer profile and codecs", "publication and cleanup", "14 preflight workflows", "84 measured workflows", "both complete cohorts before comparative analysis", "10-percent observer gate in every cell and cohort", "5-percent opportunity gate in the same two targets in both cohorts", "no pacing", "no fallback", "192-MiB diagnostic-storage cap"],
+  "required_preflight": ["all existing observer and writer lifecycle fixtures", "exact reconstruction of hand-calculated concurrent and nested events", "out-of-order ticket publication", "missing/duplicate/overflow rejection", "atomic drain cannot precede final event publication", "all 14 real-source activation and full-value workflows"],
+  "new_attempt": "ingest-overlap-801-a1",
+  "measurement_rule": "Run a fresh complete 84-workflow sequence only after revised source/binary/helper freezing and all preflight gates. Do not reuse or replace any prior samples. The unchanged decision rules remain binding; another observer failure stays inconclusive.",
+  "candidate_admitted": false,
+  "production_change_authorized_by_result": false,
+  "publication_authorized": false
+}
