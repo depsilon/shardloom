@@ -1,0 +1,11 @@
+{"replayed": "multiway-intake-817a-verified.json", "queries": 16}
+{"replayed": "multiway-preflight-819a-verified.json", "queries": 80}
+{"replayed": "multiway-cohortA-819a-verified.json", "queries": 304}
+{"replayed": "multiway-cohortB-819a-verified.json", "queries": 304}
+{"replayed": "multiway-integrated-preflight-820a-verified.json", "queries": 80}
+{"replayed": "multiway-integrated-cohortA-820a-verified.json", "queries": 304}
+{"replayed": "multiway-integrated-cohortB-820a-verified.json", "queries": 304}
+{"replayed": "multiway-projected-preflight-821a-verified.json", "queries": 80}
+{"replayed": "multiway-projected-cohortA-821a-verified.json", "queries": 304}
+{"replayed": "multiway-projected-cohortB-821a-verified.json", "queries": 304}
+{"status": "passed", "archive": {"path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823.tar.xz", "bytes": 7674288, "sha256": "8d615d396758c65e44b034e66f97f7d36212dc8dee94c6697db32e96bcf6f8f3"}, "manifest": {"path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823-manifest.json", "bytes": 1034364, "sha256": "09793d804696d15b36c59c88dd29d2f965e32012f6be25132bdf30dfd5770777"}, "verifier": {"path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/replay_multiway_historical_823.py", "bytes": 13256, "sha256": "84c27e2bf3c9f3caea5e57d37d645c158520c3e3cb1b32a9ac79cdb7d1e6542d"}, "members_verified": 2690, "content_bytes_verified": 134467087, "queries_replayed": 2080, "complete_output_rows_checked": 16160040, "production_accepted": false, "outcome": "not_retained", "timing_failure_repeated": false, "historical_results_reproduced_exactly": true, "requires_git": false, "requires_engine": false}

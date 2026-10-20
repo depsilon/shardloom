@@ -1,0 +1,54 @@
+{
+  "archive": {
+    "bytes": 7674288,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823.tar.xz",
+    "sha256": "8d615d396758c65e44b034e66f97f7d36212dc8dee94c6697db32e96bcf6f8f3"
+  },
+  "archive_member_count": 2690,
+  "historical_only": true,
+  "input_identity_recheck": "all payload inputs match before and after packaging",
+  "manifest": {
+    "bytes": 1034364,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823-manifest.json",
+    "sha256": "09793d804696d15b36c59c88dd29d2f965e32012f6be25132bdf30dfd5770777"
+  },
+  "packaging_script": {
+    "bytes": 14801,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_multiway_historical_823.py",
+    "sha256": "b7e24fec9ef1fe38895e21ef8180d03835c6c85ec28d7347a2028a71a54f12d9"
+  },
+  "payload_bytes": 134467087,
+  "payload_member_count": 2689,
+  "preliminary_accepted_public_sources": "historical labels only; no production acceptance asserted",
+  "production_accepted": false,
+  "projected_cohort_A": "failed required control",
+  "projected_cohort_B": "passed",
+  "readback": {
+    "archive_member_count": 2690,
+    "payload_bytes": 134467087,
+    "payload_member_count": 2689
+  },
+  "schema": "multiway-historical-packet-823-readback-v1",
+  "status": "passed",
+  "storage_guard": {
+    "helper": {
+      "bytes": 8451,
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py",
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    "snapshot": {
+      "free_bytes": 157774200832,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0,
+      "workspace_bytes": 2578046976
+    },
+    "thresholds": {
+      "candidate_reserve_bytes": 134217728,
+      "maximum_retained_log_bytes": 201326592,
+      "maximum_workspace_bytes": 107374182400,
+      "minimum_free_bytes": 12884901888
+    }
+  }
+}

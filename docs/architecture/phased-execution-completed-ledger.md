@@ -17,6 +17,40 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-10.multiway_joins finite three-input experiment` — do not retain the
+  [constraint probe](native-multiway-join-2026-10-20.md). Prototype and initial
+  integration pass both cohorts, but final public-projection admission misses
+  the one-call star control in A while B passes. Retention requires both; this
+  does not establish a repeated regression. All 2,080 queries and 16,160,040
+  complete ordered rows pass semantic, activation and ownership checks.
+  - Restore eight production files and remove five experimental modules.
+    Retain ordinary native/CLI/Python regressions. Fresh formatting, strict
+    workspace/native Clippy, 3,235 workspace tests, 3,041 native tests (30
+    existing opt-in/manual ignores), 16 public CLI combinations and 113
+    installed Python tests pass. Installed tests have no skips and uninstall
+    verification passes. Suites overlap. The initial missing-dependency
+    attempt remains recorded; its exact pinned input was restored.
+  - The historical and restoration packets reproduce every result and source
+    reference after retiring 5,702 obsolete generated files. Runtime sources
+    match the accepted predecessor; Public39, Full43 and modular evidence are
+    not rerun or relabeled as fresh. No package is published.
+  - Thirteen finite decisions are complete: nine rejected, one unretained,
+    two retained and one no-signal. Seven first decisions and the inconclusive
+    `PERF-09.overlap` measurement prerequisite remain in this pass. Continue
+    with `PERF-10.learned_indexes` before required breadth. All 58 substeps
+    and CG-1 through CG-23 preserve their broader gates.
+
+- [x] `PERF-09.portfolio / PERF-09.structural_payload / PERF-02.changed_source`
+  — the three October 20 finite mechanisms have complete negative decisions:
+  [reduced numeric profile](native-numeric-portfolio-2026-10-20.md),
+  [original-text OnPair profile](native-structural-payload-2026-10-20.md) and
+  [unconditional whole-file refresh](native-changed-source-reuse-2026-10-20.md).
+  Each passes exactness/ownership checks but repeats its documented control
+  failures in both frozen cohorts. Experimental code is removed; portable
+  results, source provenance, failed observations and cleanup receipts remain.
+  These decisions do not close broader owners or the separate inconclusive
+  [ingest-overlap attribution](native-ingest-overlap-attribution-2026-10-20.md).
+
 - [x] `PERF-07.output_windows finite native delivery` — retain the explicit
   two-batch window for the frozen immutable-memory scan/single-projection shape.
   The [decision and acceptance](native-output-window-integration-2026-10-19.md)

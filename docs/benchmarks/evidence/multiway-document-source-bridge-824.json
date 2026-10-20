@@ -1,0 +1,42 @@
+{
+  "candidate_retained": false,
+  "compile_inputs_unchanged": 1901,
+  "copied_evidence_files_verified": 16,
+  "documentation_files": [
+    "docs/architecture/native-conditional-investigations-2026-10-19.md",
+    "docs/architecture/phased-execution-completed-ledger.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/architecture/native-multiway-join-2026-10-20.md",
+    "docs/architecture/native-multiway-join-admission-2026-10-20.md",
+    "docs/architecture/native-multiway-join-comparison-design-2026-10-20.md",
+    "docs/architecture/native-multiway-join-intake-2026-10-20.md",
+    "docs/architecture/native-multiway-join-integration-design-2026-10-20.md",
+    "docs/architecture/native-multiway-public-projection-admission-2026-10-20.md"
+  ],
+  "documentation_sha256": {
+    "docs/architecture/native-conditional-investigations-2026-10-19.md": "82131298b47a13d2fb0d8bb2e718a1a6f457c2c32b982eeb68042d0f8261a7b0",
+    "docs/architecture/native-multiway-join-2026-10-20.md": "7203c356ccb62ef988876c0045b6993da49f47ef2e38339c53ce08d9c9e5acdc",
+    "docs/architecture/native-multiway-join-admission-2026-10-20.md": "bc6063ad3a9a85e24bd9451c935b448a9561fd6cb125b878fc9d1ac4ac4e4503",
+    "docs/architecture/native-multiway-join-comparison-design-2026-10-20.md": "2074c171da0d32eee7170627ea6d3d9b262b09f6c1d20aa236cce4a3c2cddf76",
+    "docs/architecture/native-multiway-join-intake-2026-10-20.md": "7642f5f7d2a13ef37860bbd1cf1c99568e7456346b3d84545e64378c2960ecfe",
+    "docs/architecture/native-multiway-join-integration-design-2026-10-20.md": "8f5c2a22413313ecb4470fa7a9160eff738e5062907d1984bf6293a55c7bc8e6",
+    "docs/architecture/native-multiway-public-projection-admission-2026-10-20.md": "f3bbe5c01cf5c82d5541ef248a8f494cad9e25f02a11c8e58cf7c5e19c0ee61e",
+    "docs/architecture/phased-execution-completed-ledger.md": "2cc36ec2db7c926a1f85b5ae8bc557980e6e3a4d781e5ae4f395c43e757e5daf",
+    "docs/architecture/phased-execution-plan.md": "731b8179e0f3ab2b2e81ea2b9fa35f8e32b7dff5bb8f39a77b4e0511e5f0966d"
+  },
+  "experimental_modules_removed": 5,
+  "local_links_checked": 40,
+  "no_fresh_full43_claim": true,
+  "production_files_restored": 8,
+  "retired_files": 5702,
+  "roadmap_identifiers_preserved": true,
+  "runtime_test_harness_sources_unchanged": 2222,
+  "source_changes": [
+    "python/tests/test_native_multiway_binding.py",
+    "shardloom-cli/tests/public_memory_inputs.rs",
+    "shardloom-vortex/src/local_primitive_relational_multiway_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_tests.rs"
+  ],
+  "source_commit": "563c91260a526f6b02ab9bbb171dd9bfb8c4c2f0",
+  "status": "passed"
+}

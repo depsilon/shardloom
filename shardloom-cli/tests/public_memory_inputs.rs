@@ -169,6 +169,41 @@ mod native {
     }
 
     #[test]
+    fn public_three_input_memory_join_preserves_multiplicity_and_order() {
+        let binding = |rows: Value| {
+            json!({"input_format":"memory","memory_input":{
+                "kind":"rows","schema":[["x","int64"],["y","int64"],["id","int64"]],"rows":rows
+            }})
+        };
+        let bindings = json!({
+            "memory://r": binding(json!([["1","5","0"],["2","5","1"],["1","5","2"],[null,"5","3"],["1",null,"4"]])),
+            "memory://s": binding(json!([["5","9","0"],["5","9","1"],["5","10","2"],[null,"9","3"]])),
+            "memory://t": binding(json!([["1","9","0"],["2","10","1"],["1","9","2"],[null,"9","3"]])),
+        });
+        let expected = json!([
+            {"rid":0,"sid":0,"tid":0},{"rid":0,"sid":0,"tid":2},
+            {"rid":0,"sid":1,"tid":0},{"rid":0,"sid":1,"tid":2},
+            {"rid":1,"sid":2,"tid":1},
+            {"rid":2,"sid":0,"tid":0},{"rid":2,"sid":0,"tid":2},
+            {"rid":2,"sid":1,"tid":0},{"rid":2,"sid":1,"tid":2}
+        ]);
+        let args = ["--source-bindings".into(), bindings.to_string()];
+        for surface in ["sql", "python", "dataframe", "cli"] {
+            for lower in ["INNER", "LEFT"] {
+                for condition in ["q.a = t.x AND q.c = t.y", "q.c = t.y AND q.a = t.x"] {
+                    let sql = format!(
+                        "SELECT q.rid AS rid,q.sid AS sid,t.id AS tid FROM (SELECT r.x AS a,s.y AS c,r.id AS rid,s.id AS sid FROM 'memory://r' AS r {lower} JOIN 'memory://s' AS s ON r.y = s.x) AS q INNER JOIN 'memory://t' AS t ON {condition}"
+                    );
+                    let (success, envelope) = run(surface, &sql, "collect", &args);
+                    assert!(success, "{surface}: {sql}: {envelope}");
+                    assert_eq!(rows(&envelope), expected);
+                    assert_eq!(field(&envelope, "resident_source_opens"), Some("0"));
+                }
+            }
+        }
+    }
+
+    #[test]
     fn generated_range_grows_while_small_result_collection_keeps_its_bound() {
         for surface in ["sql", "python", "dataframe", "cli"] {
             let (success, envelope) = run(
