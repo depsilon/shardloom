@@ -5,7 +5,10 @@ import os
 import unittest
 from unittest.mock import patch
 
-from test_native_binding import _load_native
+if __package__:
+    from .test_native_binding import _load_native
+else:
+    from test_native_binding import _load_native
 
 
 WINDOW = 4 << 20
