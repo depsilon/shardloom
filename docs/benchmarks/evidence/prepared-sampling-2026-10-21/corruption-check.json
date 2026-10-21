@@ -1,0 +1,62 @@
+{
+  "checker_sha256": "47c1f52f83c1bef5084d2dc69cf375ceca5e8d0eb6dc0c571c5a0de17f621001",
+  "cohort_deepcopy_count": 0,
+  "comparison_replay_corruption_count": 4,
+  "comparison_replay_corruptions_rejected": [
+    "original_changed_member_inventory",
+    "original_changed_replay_count",
+    "public_integration_changed_member_inventory",
+    "public_integration_changed_replay_count"
+  ],
+  "corruption_count": 10,
+  "corruptions_rejected": [
+    "altered_member_without_digest_refresh",
+    "substituted_file_reference_digest",
+    "omitted_modular_row",
+    "duplicated_modular_identity",
+    "changed_native_complete_result_refreshed_hash",
+    "changed_reference_and_native_but_original_reference_process_output",
+    "changed_native_call_binary_hash",
+    "native_envelope_status_changed_with_refreshed_hashes",
+    "native_envelope_fallback_changed_with_refreshed_hashes",
+    "missing_writer_output_readback"
+  ],
+  "engine_build_or_benchmark_performed": false,
+  "modular_environment_corruption_count": 5,
+  "modular_environment_corruptions_rejected": [
+    "false_modular_dependency_integrity",
+    "changed_modular_workload_command",
+    "missing_modular_original_environment_failure",
+    "escaped_modular_reference_import",
+    "changed_modular_private_copy_inventory"
+  ],
+  "native_execution_performed": false,
+  "packet_loaded_once": true,
+  "packet_sha256": "dd440de1a59028fb2a0bc40012b4ef0d13be4a40a1247d368509840eb6ea4584",
+  "positive_first_cohort_payload_calls": 376,
+  "positive_first_cohort_records": 352,
+  "required_gate_corruption_count": 8,
+  "required_gate_corruptions_rejected": [
+    "omitted_native_cli_lint",
+    "duplicated_required_gate",
+    "substituted_required_gate_source",
+    "changed_workspace_test_count_with_refreshed_hash",
+    "omitted_optional_test_family_with_refreshed_hash",
+    "skipped_python_sampling_test_with_refreshed_hash",
+    "changed_python_environment_binding_with_refreshed_hash",
+    "changed_unit_results_and_receipt_with_refreshed_hashes"
+  ],
+  "scope": "one unmodified first modular cohort, all required gates, corrected wheel proof, private reference dependency binding and both comparison inventories plus bounded independent corruptions",
+  "status": "passed",
+  "verifier_sha256": "d658cc0da3f7937d3a0f063946de5d13074515ac3375a46702e2654ccc3dfc10",
+  "wheel_corruption_count": 7,
+  "wheel_corruptions_rejected": [
+    "omitted_wheel_test_source",
+    "omitted_wheel_discovered_test",
+    "narrowed_wheel_discovery_runner",
+    "changed_corrected_test_fixture_with_refreshed_hashes",
+    "skipped_installed_wheel_test_with_refreshed_hashes",
+    "erased_original_wheel_failure_with_refreshed_hashes",
+    "omitted_executed_wheel_test_with_refreshed_hashes"
+  ]
+}

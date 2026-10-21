@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite prepared weighted-sampling follow-up` — retain the
+  [scalar calibration owner](native-prepared-sampling-decision-2026-10-21.md)
+  within one immutable prepared object. Original and public-integration
+  comparisons each pass both complete cohorts, all 24 cells, 768 measured
+  workflows and 5,376 engine calls, plus all 48 observed preflights. Every
+  target/control, exact-output and ownership gate passes. The integrated
+  repeated targets use 8.35–13.71% less engine time in that finite comparison;
+  population state remains execution-local and no broader speed claim follows.
+  - Corrected source `4cd3a9e1` passes 3,235 workspace tests, 3,107 native
+    tests with 31 existing ignored tests, 1,091 CLI tests, formatting and
+    strict workspace/native/CLI lint. All 5,930 public cases, 118 isolated
+    installed-package tests, complete Full43 results and schemas, and 704
+    native plus 704 independent reference format workflows pass. Full43
+    records 49.077810546 engine seconds across one call to each query; no
+    replacement ingestion occurs.
+  - The [portable acceptance packet](../benchmarks/evidence/prepared-sampling-2026-10-21/README.md)
+    replays 28,698 members, both historical comparisons, corrected source
+    bindings and complete results. All 34 bounded corruption checks reject.
+    Preserve the cyclic/output-window fixture corrections, feature/discovery
+    correction, reference-environment change and full private-environment
+    rerun, and both verifier corrections. Original failures are retained;
+    later fixtures, dependency integration and docs do not relabel timings.
+  - Both additional finite follow-ups are now accepted under existing owners.
+    The 37 required breadth substeps resume; the seventeen original finite
+    decisions, four missing-prerequisite records, 58 broad substeps and
+    CG-1 through CG-23 retain their distinct obligations. No package
+    publication, cross-platform acceptance or broader owner completion follows.
+
 - [x] `Finite cyclic-existence join follow-up` — retain the
   [automatic native strategy](native-cyclic-existence-intake-2026-10-21.md) after
   both frozen cohorts pass all 52 case/call-count cells, 520 workflows and 1,300

@@ -63,6 +63,7 @@ impl PreparedVortexRelational {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<Vec<WrittenVortexRelational>> {
+        let sampling = self.sampling_failure_guard();
         self.validate_batch_provider(false)?;
         let mut written = super::super::output_fanout::write(
             targets,
@@ -73,6 +74,7 @@ impl PreparedVortexRelational {
         for (result, (path, _)) in written.iter_mut().zip(targets) {
             result.output.output_path = path.display().to_string();
         }
+        sampling.complete();
         Ok(written)
     }
 
@@ -110,6 +112,7 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
         input: Option<super::batch_input::Provider<'_>>,
     ) -> Result<WrittenVortexRelational> {
+        let sampling = self.begin_sampling_call()?;
         self.validate_batch_provider(input.is_some())?;
         let mut written =
             self.session
@@ -180,6 +183,7 @@ impl PreparedVortexRelational {
                     })
                 })?;
         written.execution.runtime = self.snapshot();
+        sampling.complete();
         Ok(written)
     }
 
