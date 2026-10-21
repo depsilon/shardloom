@@ -2,12 +2,13 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; seventeen finite investigations completed with
+Status: active conditional-first pass; seventeen original finite investigations completed with
 eleven rejected mechanisms, two unretained mechanisms, two retained mechanisms and
 two no-signal attributions. Four have source-reviewed missing-prerequisite records,
 and the finite native-exchange transport experiment is rejected after both
-complete cohorts. Two additional follow-ups are authorized under existing owners
-before required breadth.
+complete cohorts. The additional cyclic-existence follow-up is retained; the
+prepared-sampling follow-up remains next under existing owners before required
+breadth.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -29,9 +30,12 @@ use `PERF-10.multiway_joins` and `PERF-10.learned_indexes`, respectively, with
 existing resource and cache obligations. They add no roadmap ID. Each requires
 a materially different mechanism, independently frozen controls and numerical
 gates; the two earlier unretained results remain binding.
-The [cyclic-existence intake](native-cyclic-existence-intake-2026-10-21.md) passes
-its finite ordinary-path opportunity and correctness gates; candidate behavior
-and both scored cohorts remain pending under the frozen comparison contract.
+The [cyclic-existence decision](native-cyclic-existence-intake-2026-10-21.md) retains
+the finite automatic strategy after both scored cohorts, every frozen control,
+actual-work/ownership checks and final native/public/package/Full43/format
+acceptance. Its compact packet replays without native execution. This additional
+retained decision leaves the seventeen original decisions and broader owner
+obligations unchanged; prepared sampling is the remaining follow-up.
 
 ## Execution rule
 
@@ -105,7 +109,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-09.portfolio` | [Reduced numeric profile rejected](native-numeric-portfolio-2026-10-20.md). All 42 workflows/3,234 native files pass exact checks and both cohorts pass every aggregate gate, but one individual write-control regression repeats in both. Experimental sources are restored and the compact packet reconstructs the complete source and decision. | This finite per-column screen does not establish complete ingestion behavior or rule out all costed portfolios. A materially different mechanism needs its own design and protocol; no favorable-column promotion or full-workflow claim follows. |
 | `PERF-09.structural_payload` | [Finite OnPair structural profile rejected](native-structural-payload-2026-10-20.md). All 42 workflows/2,352 original and rewritten native files pass exactness, activation and lifecycle checks. Both cohorts fail the storage and original-write aggregate controls; thirteen individual write regressions repeat. Experimental sources are restored and the compact packet reconstructs the complete source and decision. | The finite original-text screen does not establish full-ingestion behavior or rule out all structural representations. A materially different design needs new evidence; production allocator/untrusted-input admission and full-artifact lifecycle gates remain open. |
 | `PERF-02.changed_source` | [Unconditional whole-file refresh adapter rejected](native-changed-source-reuse-2026-10-20.md). All 84 workflows pass exactness, activation and cleanup. Both cohorts fail all six initial-preparation controls, all three complete-workflow controls and every reuse target's engine control; moderate reuse also misses the complete-workflow target. Experimental code is removed; the ordinary public partition regression remains. | Complete refresh gains do not override controls. Missing host samples and legacy concurrency-guard coverage are explicit; no positive admission or CPU-isolation claim follows. A different admission/reuse mechanism requires a new protocol. General partial regions and generation-conditional publication remain separate. |
-| `PERF-10.multiway_joins` | [Three-input constraint probe not retained](native-multiway-join-2026-10-20.md). Prototype and initial integration pass both cohorts; final public-projection integration misses the one-call star control in A while B passes. All 2,080 queries and 16,160,040 ordered rows pass exact checks. Production is restored, ordinary join regressions remain and fresh workspace/native/installed-Python checks pass. | Both cohorts had to pass. This is not a repeated-regression finding, and positive targets do not override controls. The authorized [cyclic existence follow-up](native-investigation-followups-2026-10-20.md#cyclic-existence-joins) must prove additional work avoidance beyond existing binary semi-join short-circuiting and freeze a new protocol. Broader multiway planning stays open. |
+| `PERF-10.multiway_joins` | [Three-input constraint probe not retained](native-multiway-join-2026-10-20.md). Prototype and initial integration pass both cohorts; final public-projection integration misses the one-call star control in A while B passes. All 2,080 queries and 16,160,040 ordered rows pass exact checks. Production is restored, ordinary join regressions remain and fresh workspace/native/installed-Python checks pass. | The distinct [cyclic existence follow-up is retained](native-cyclic-existence-intake-2026-10-21.md): both complete cohorts and every frozen control pass, with actual intermediate-work avoidance and final native/public/package/Full43/format acceptance. The earlier failed result remains unchanged and does not establish a repeated regression. Broader multiway planning stays open. |
 | `PERF-10.learned_indexes` | [Bounded weighted-search predictor not retained](native-learned-index-decision-2026-10-20.md). Both large targets pass both cohorts, but few-draw and tiny engine controls fail in A while B passes. All 544 preflight/comparison calls pass exactness and ownership checks; preflight separately verifies activation. Experimental code is removed and fresh workspace/native checks pass. | Both cohorts had to pass; this does not establish a repeated regression or isolate the control changes' cause. Construction and complete-workflow controls remain binding. The authorized [prepared-sampling follow-up](native-investigation-followups-2026-10-20.md#reusable-weighted-sampling-preparation) needs an explicit retained scalar-model owner and exact identity/reclaim contract before a new protocol. Broader learned-index opportunities stay open. |
 | `PERF-03.regions` | [Finite projection-request deferral rejected before timing](native-region-projection-decision-2026-10-20.md). Only one of four sparse targets meets the frozen actual-read gate. All 32 intake, 64 comparison and 32 ordered-value calls pass exactness and ownership checks. Experimental code is removed; fresh workspace/native acceptance passes after a test-only fixture collision repair. | Copied-binary naming limited concurrency-guard coverage, so no exclusive-workload or positive causal claim follows. No timing cohort ran. New topology, region-local reduction and dependent preparation/ordered-candidate gates remain unproved; a materially different mechanism needs a new protocol. |
 | `PERF-10.ordered_candidates` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): current array-fed workers and ordering consumers do not establish admitted independent region reads and region-local reduction. | Both gates remain missing. No local-candidate implementation or comparison is admitted; the substep stays open. |

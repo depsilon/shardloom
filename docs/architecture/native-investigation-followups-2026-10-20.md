@@ -2,11 +2,12 @@
 
 # Follow-ups from unretained native experiments
 
-Status: two additional finite investigations authorized by the maintainer on
-October 20, 2026. This is a queue addition, not an implementation or retention
-decision. Eligible overlap attribution is complete, and the
+Status: of the two additional finite investigations authorized on October 20,
+2026, cyclic existence is now retained after both scored cohorts and final
+integration. Reusable weighted sampling remains next. Eligible overlap
+attribution is complete, and the
 [finite native-exchange mechanism is rejected](native-exchange-decision-2026-10-21.md).
-These two follow-ups now precede required breadth. The
+The remaining sampling follow-up precedes required breadth. The
 [conditional sequence](native-conditional-investigations-2026-10-19.md) and
 [phase plan](phased-execution-plan.md) remain authoritative.
 
@@ -35,12 +36,13 @@ failure records, restored-runtime checks and reusable implementation ideas.
 Owner: `PERF-10.multiway_joins`, with PERF-03 ownership and PERF-10/12 public
 route and correctness obligations.
 
-The [October 21 intake](native-cyclic-existence-intake-2026-10-21.md) now verifies
-all thirteen ordinary native workloads, 33 complete calls and four qualifying
-intermediate-row opportunities. Its controls, both future cohorts and numerical
-gates are frozen. The private candidate and actual-work counters now pass the
-full native and required workspace checks. Fresh public build provenance and
-both scored cohorts are still required before any retention decision.
+The [October 21 decision](native-cyclic-existence-intake-2026-10-21.md) retains
+the finite automatic strategy. All four intermediate-row opportunities, both
+complete cohorts (520 workflows, 1,300 native calls), every frozen control and
+actual-work/ownership tests pass. Final native/workspace/CLI checks, 5,930 public
+cases, 115 installed-package tests, Full43 and 18 format cohorts also pass.
+The replayable packet preserves failures and corrections. This finite result
+does not close the broader multiway owner or authorize publication.
 
 Investigate an explicit semi-join shape in which an outer row needs only one
 complete witness across two related inner inputs. For example, R(a,b) qualifies

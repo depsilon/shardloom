@@ -1,0 +1,302 @@
+{
+  "helper": {
+    "bytes": 3985,
+    "sha256": "11716016856a2e81e58e60297e92373a595986a5c7c21b138e50958efe0de0b8",
+    "text": "\"\"\"Verify committed-location evidence, cleanup and documentation without native execution.\"\"\"\nimport ast\nimport hashlib\nimport json\nimport lzma\nfrom pathlib import Path\nimport re\nimport subprocess\nimport sys\n\nROOT = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nOUT = Path(__file__).resolve().parent\nREVIEW = ROOT / 'docs/benchmarks/evidence/cyclic-existence-2026-10-21'\n\n\ndef read(path):\n    return json.loads(Path(path).read_bytes())\n\n\ndef digest(path):\n    with Path(path).open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef command(args):\n    subprocess.run(args, cwd=ROOT, check=True)\n\n\nbridge = read(OUT / 'cyclic-existence-acceptance-853/package-metadata-bridge.json')\nassert all(digest(ROOT / name) == value for name, value in bridge['source_hashes'].items())\nfor name in ('verify_acceptance.py', 'check_acceptance_verifier.py'):\n    ast.parse((REVIEW / name).read_text())\n    command([sys.executable, '-B', str(REVIEW / name), '--repository', str(ROOT),\n             '--manifest', str(REVIEW / 'acceptance.json')])\ncommand([sys.executable, '-B', 'scripts/check_v1_inclusion_scope.py',\n         '--output', str(OUT / 'cyclic-existence-closeout-v1-scope-855.json')])\ncommand(['git', 'diff', '--check'])\nchanged = subprocess.check_output(['git', 'diff', '--name-only'], cwd=ROOT, text=True).splitlines()\nassert changed and all(name.endswith('.md') for name in changed)\nlinks = 0\nfor name in changed:\n    diff = subprocess.check_output(['git', 'diff', '--unified=0', '--', name], cwd=ROOT, text=True)\n    for line in diff.splitlines():\n        if not line.startswith('+') or line.startswith('+++'):\n            continue\n        for target in re.findall(r'\\]\\(([^)]+)\\)', line):\n            if target.startswith(('http:', 'https:', 'mailto:', '#')):\n                continue\n            path = target.split('#', 1)[0]\n            assert (ROOT / name).parent.joinpath(path).exists(), (name, target)\n            links += 1\nsummary = read(REVIEW / 'cleanup.json')\npacked = (REVIEW / summary['packet']['file']).read_bytes()\nassert len(packed) == summary['packet']['bytes'] and hashlib.sha256(packed).hexdigest() == summary['packet']['sha256']\npacket = json.loads(lzma.decompress(packed))\nassert len(packet['members']) == summary['packet']['members']\nfor row in packet['members'].values():\n    raw = row['text'].encode()\n    assert len(raw) == row['bytes'] and hashlib.sha256(raw).hexdigest() == row['sha256']\nplan = json.loads(packet['members']['cyclic-existence-retirement-plan-855.json']['text'])\nreceipt = json.loads(packet['members']['cyclic-existence-retirement-855.json']['text'])\nassert summary['status'] == receipt['status'] == 'passed'\nassert summary['retired_regular_files'] == receipt['retired_files'] == 35888\nassert summary['retired_symlinks'] == sum(row['kind'] == 'symlink' for row in plan['members'].values()) == 3\nassert receipt['completed'] == [row['path'] for row in plan['retire']]\nassert all(not Path(path).exists() for path in receipt['completed'])\nassert all(Path(path).is_file() for path in plan['retain'])\nassert receipt['retained_identities_unchanged'] and not receipt['storage_limits_changed'] and receipt['archives_created'] == 0\nassert all(digest(ROOT / name) == value for name, value in bridge['source_hashes'].items())\nresult = dict(status='passed', unchanged_frozen_source_files=len(bridge['source_hashes']),\n              documentation_files=len(changed), added_local_links=links,\n              portable_replay_after_payload_retirement=True, corruption_checks=10,\n              cleanup_regular_files=35888, cleanup_symlinks=3,\n              source_runtime_unchanged=True, native_execution_repeated=False,\n              scope='Documentation, portable result replay, declared scope and exact cleanup only.')\nwith (OUT / 'cyclic-existence-closeout-855.json').open('x') as stream:\n    json.dump(result, stream, indent=2, sort_keys=True)\n    stream.write('\\n')\nprint(json.dumps(result))\n"
+  },
+  "log": "{\"full43_complete_rows\": 381, \"full43_engine_execution_seconds\": \"50.461833916\", \"full43_queries\": 43, \"guarded_receipts\": 26, \"installed_tests\": 115, \"members\": 28468, \"modular_payload_calls_replayed\": 1780, \"modular_records\": 1408, \"native_execution_performed\": false, \"payload_residency_revalidated\": false, \"preserved_failed_guards\": 2, \"public_cases\": 5930, \"public_families\": 39, \"publication_attempted\": false, \"scope\": \"Archived complete outputs, reference comparisons, source and receipt integrity; original artifact-residency checks remain recorded.\", \"source_files\": 2558, \"status\": \"passed\"}\n{\"cohort_deepcopy_count\": 0, \"corruption_count\": 10, \"corruptions_rejected\": [\"altered_member_without_digest_refresh\", \"substituted_file_reference_digest\", \"omitted_modular_row\", \"duplicated_modular_identity\", \"changed_native_complete_result_refreshed_hash\", \"changed_reference_and_native_but_original_reference_process_output\", \"changed_native_call_binary_hash\", \"native_envelope_status_changed_with_refreshed_hashes\", \"native_envelope_fallback_changed_with_refreshed_hashes\", \"missing_writer_output_readback\"], \"engine_build_or_benchmark_performed\": false, \"native_execution_performed\": false, \"packet_loaded_once\": true, \"positive_first_cohort_payload_calls\": 376, \"positive_first_cohort_records\": 352, \"scope\": \"one unmodified first modular cohort plus bounded independent corruptions\", \"status\": \"passed\"}\n/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-closeout-v1-scope-855.json\n{\"status\": \"passed\", \"unchanged_frozen_source_files\": 2558, \"documentation_files\": 8, \"added_local_links\": 25, \"portable_replay_after_payload_retirement\": true, \"corruption_checks\": 10, \"cleanup_regular_files\": 35888, \"cleanup_symlinks\": 3, \"source_runtime_unchanged\": true, \"native_execution_repeated\": false, \"scope\": \"Documentation, portable result replay, declared scope and exact cleanup only.\"}\n",
+  "receipt": {
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "command": [
+      "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-B",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/validate_cyclic_closeout_855.py"
+    ],
+    "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+    "direct_child_reaped": true,
+    "driver_sha256": "81cb5075bbb437ba01a5d8f007416833668942d65444c282ceceefcca8f0cc8c",
+    "environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target"
+    },
+    "group_absence_unproved_at_cleanup": false,
+    "head": "de2d31ead9b1c99547073984da07f2cdc071adde",
+    "host": {
+      "cpu_count": 10,
+      "final": {
+        "load_average": [
+          1.20849609375,
+          1.443359375,
+          1.69580078125
+        ],
+        "utc": "2026-10-21T08:52:48.309145+00:00",
+        "vm_page_size_bytes": 16384,
+        "vm_stat": {
+          "Anonymous pages": 331373,
+          "Compressions": 520383933,
+          "Decompressions": 327816090,
+          "File-backed pages": 193081,
+          "Pageins": 1298601745,
+          "Pageouts": 271128,
+          "Pages free": 215056,
+          "Pages inactive": 261143,
+          "Pages occupied by compressor": 122457,
+          "Pages reactivated": 454349473,
+          "Swapins": 2828619,
+          "Swapouts": 4076063
+        }
+      },
+      "machine": "arm64",
+      "physical_memory_bytes": 17179869184,
+      "platform": "macOS-27.0-arm64-arm-64bit",
+      "samples": [
+        {
+          "load_average": [
+            1.2470703125,
+            1.458984375,
+            1.70458984375
+          ],
+          "owned_processes": [],
+          "utc": "2026-10-21T08:52:38.225935+00:00",
+          "vm_page_size_bytes": 16384,
+          "vm_stat": {
+            "Anonymous pages": 323700,
+            "Compressions": 520383933,
+            "Decompressions": 327816014,
+            "File-backed pages": 192861,
+            "Pageins": 1298601537,
+            "Pageouts": 271128,
+            "Pages free": 216488,
+            "Pages inactive": 256788,
+            "Pages occupied by compressor": 122466,
+            "Pages reactivated": 454349426,
+            "Swapins": 2828607,
+            "Swapouts": 4076063
+          }
+        },
+        {
+          "load_average": [
+            1.22705078125,
+            1.451171875,
+            1.7001953125
+          ],
+          "owned_processes": [
+            {
+              "executable": "python3",
+              "parent_pid": 50214,
+              "pid": 50227,
+              "process_group": 50227,
+              "rss_bytes": 27049984,
+              "sampled_cpu_percent": 0.0
+            },
+            {
+              "executable": "python3",
+              "parent_pid": 50227,
+              "pid": 50228,
+              "process_group": 50227,
+              "rss_bytes": 1602568192,
+              "sampled_cpu_percent": 61.6
+            },
+            {
+              "executable": "git",
+              "parent_pid": 50228,
+              "pid": 50232,
+              "process_group": 50227,
+              "rss_bytes": 66093056,
+              "sampled_cpu_percent": 37.5
+            }
+          ],
+          "utc": "2026-10-21T08:52:40.631631+00:00",
+          "vm_page_size_bytes": 16384,
+          "vm_stat": {
+            "Anonymous pages": 428439,
+            "Compressions": 520383933,
+            "Decompressions": 327816016,
+            "File-backed pages": 192896,
+            "Pageins": 1298601575,
+            "Pageouts": 271128,
+            "Pages free": 113905,
+            "Pages inactive": 294780,
+            "Pages occupied by compressor": 122466,
+            "Pages reactivated": 454349426,
+            "Swapins": 2828607,
+            "Swapouts": 4076063
+          }
+        },
+        {
+          "load_average": [
+            1.22705078125,
+            1.451171875,
+            1.7001953125
+          ],
+          "owned_processes": [
+            {
+              "executable": "python3",
+              "parent_pid": 50214,
+              "pid": 50227,
+              "process_group": 50227,
+              "rss_bytes": 27049984,
+              "sampled_cpu_percent": 0.0
+            },
+            {
+              "executable": "python3",
+              "parent_pid": 50227,
+              "pid": 50228,
+              "process_group": 50227,
+              "rss_bytes": 1754562560,
+              "sampled_cpu_percent": 75.1
+            }
+          ],
+          "utc": "2026-10-21T08:52:43.019229+00:00",
+          "vm_page_size_bytes": 16384,
+          "vm_stat": {
+            "Anonymous pages": 432942,
+            "Compressions": 520383933,
+            "Decompressions": 327816019,
+            "File-backed pages": 193055,
+            "Pageins": 1298601652,
+            "Pageouts": 271128,
+            "Pages free": 107635,
+            "Pages inactive": 310863,
+            "Pages occupied by compressor": 122464,
+            "Pages reactivated": 454349426,
+            "Swapins": 2828607,
+            "Swapouts": 4076063
+          }
+        },
+        {
+          "load_average": [
+            1.20849609375,
+            1.443359375,
+            1.69580078125
+          ],
+          "owned_processes": [
+            {
+              "executable": "python3",
+              "parent_pid": 50214,
+              "pid": 50227,
+              "process_group": 50227,
+              "rss_bytes": 27049984,
+              "sampled_cpu_percent": 0.0
+            },
+            {
+              "executable": "python3",
+              "parent_pid": 50227,
+              "pid": 50228,
+              "process_group": 50227,
+              "rss_bytes": 1799372800,
+              "sampled_cpu_percent": 100.0
+            }
+          ],
+          "utc": "2026-10-21T08:52:45.360601+00:00",
+          "vm_page_size_bytes": 16384,
+          "vm_stat": {
+            "Anonymous pages": 436142,
+            "Compressions": 520383933,
+            "Decompressions": 327816089,
+            "File-backed pages": 193057,
+            "Pageins": 1298601656,
+            "Pageouts": 271128,
+            "Pages free": 103815,
+            "Pages inactive": 311675,
+            "Pages occupied by compressor": 122457,
+            "Pages reactivated": 454349431,
+            "Swapins": 2828619,
+            "Swapouts": 4076063
+          }
+        },
+        {
+          "load_average": [
+            1.20849609375,
+            1.443359375,
+            1.69580078125
+          ],
+          "owned_processes": [
+            {
+              "executable": "python3",
+              "parent_pid": 50214,
+              "pid": 50227,
+              "process_group": 50227,
+              "rss_bytes": 27181056,
+              "sampled_cpu_percent": 0.0
+            },
+            {
+              "executable": "python3",
+              "parent_pid": 50227,
+              "pid": 50246,
+              "process_group": 50227,
+              "rss_bytes": 1621524480,
+              "sampled_cpu_percent": 99.6
+            }
+          ],
+          "utc": "2026-10-21T08:52:47.693462+00:00",
+          "vm_page_size_bytes": 16384,
+          "vm_stat": {
+            "Anonymous pages": 428251,
+            "Compressions": 520383933,
+            "Decompressions": 327816090,
+            "File-backed pages": 193066,
+            "Pageins": 1298601659,
+            "Pageouts": 271128,
+            "Pages free": 115608,
+            "Pages inactive": 292339,
+            "Pages occupied by compressor": 122457,
+            "Pages reactivated": 454349431,
+            "Swapins": 2828619,
+            "Swapouts": 4076063
+          }
+        }
+      ],
+      "scope": "Host load and sampled process CPU/RSS are context, not exclusive attribution or an RSS ceiling."
+    },
+    "interrupted_signal": null,
+    "log_sha256": "23a025953758b6e17947b7116649df89f32702b59bde4a2b6fd3d5b73b4df8ea",
+    "output_bytes": 1929,
+    "output_limit_bytes": 8388608,
+    "pid": 50227,
+    "process_group_drained": true,
+    "returncode": 0,
+    "seconds": 10.064160707988776,
+    "status": "passed",
+    "storage_last_observation": {
+      "cargo": {
+        "free_bytes": 152155418624,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0,
+        "workspace_bytes": 13101195264
+      },
+      "output": {
+        "free_bytes": 152155418624,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0,
+        "workspace_bytes": 2495909888
+      }
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "timed_out": false,
+    "timeout_seconds": 3600.0,
+    "working_tree": " M docs/architecture/local-development-storage.md\n M docs/architecture/native-conditional-investigations-2026-10-19.md\n M docs/architecture/native-cyclic-existence-intake-2026-10-21.md\n M docs/architecture/native-investigation-followups-2026-10-20.md\n M docs/architecture/native-roadmap-verification-contracts-2026-10-18.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/evidence/cyclic-existence-2026-10-21/README.md\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/acceptance-corruption-check.json\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/acceptance-postchecks.json\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/acceptance.json\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/acceptance.json.xz\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/check_acceptance_verifier.py\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json.xz\n?? docs/benchmarks/evidence/cyclic-existence-2026-10-21/verify_acceptance.py\n"
+  },
+  "result": {
+    "added_local_links": 25,
+    "cleanup_regular_files": 35888,
+    "cleanup_symlinks": 3,
+    "corruption_checks": 10,
+    "documentation_files": 8,
+    "native_execution_repeated": false,
+    "portable_replay_after_payload_retirement": true,
+    "scope": "Documentation, portable result replay, declared scope and exact cleanup only.",
+    "source_runtime_unchanged": true,
+    "status": "passed",
+    "unchanged_frozen_source_files": 2558
+  },
+  "schema": "shardloom.cyclic_existence_closeout.v1",
+  "status": "passed"
+}

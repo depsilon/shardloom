@@ -213,12 +213,21 @@ source; do not count an absent selector's zero-test result as a current pass.
 Fresh restored workspace/native checks are distinct from candidate integration
 acceptance, which was not attempted after the failed retention gate.
 
-The authorized [cyclic existence and prepared-sampling follow-ups](native-investigation-followups-2026-10-20.md)
-remain prospective experiments under the existing join/index owners. Before
-implementation, freeze independent complete-output fixtures, original applicable
-failed-control shapes, actual activation/work counters, numerical gates and both
-cohorts. Existence joins must prove additional cross-relationship work avoidance
-beyond existing binary semi-joins. Sampling reuse must have an explicit credited
+The [cyclic-existence follow-up](native-cyclic-existence-intake-2026-10-21.md)
+is retained under its frozen finite scope. Protect the eight nonzero
+`local_primitive_relational_cyclic_exists_tests` and three prerequisite
+`local_primitive_relational_multiway_tests` in the feature-enabled native suite, plus
+`test_cyclic_existence_native_sized_sources_preserve_exact_semantics` in the
+installed Python suite. The linked packet contains `perf-10-acceptance.json`
+and `perf-12-acceptance.json`, both scored cohorts, actual-work/resource checks,
+5,930 public cases, 115 installed tests, Full43 and the 18-cohort format matrix.
+This is finite acceptance, not closure of the multiway owner.
+
+The [prepared-sampling follow-up](native-investigation-followups-2026-10-20.md#reusable-weighted-sampling-preparation)
+remains prospective under the existing index/cache owners. Before implementation,
+freeze independent complete-output fixtures, original applicable failed-control
+shapes, actual activation/work counters, numerical gates and both cohorts.
+Sampling reuse must have an explicit credited
 owner and exact immutable identity within one prepared object, including pressure,
 concurrency, failure and teardown. Register concrete nonzero test selectors with
 each future protocol; the prior archived selectors are not proof for a new
@@ -283,7 +292,7 @@ python3 scripts/check_release_architecture_tracker.py --allow-blocked --output "
 
 The last two commands inspect blockers; their successful exit is not completion or release acceptance. Claim promotion requires the same gates without inspection allowances and the corresponding certification/platform evidence.
 
-For a batch requiring ingestion and query UAT, freeze actual binary, input, resource and independent-reference paths in `perf-12-protocol.json` before execution. Use `scripts/run_clickbench_ingest_uat.sh` for replacement ingestion and `scripts/run_clickbench_query_uat.py --repeats 1` for a standard Full43; retain their complete invoked argument vectors, `prepare_summary.json`, `summary.json`, complete values and source/child-process checks. The [latest accepted packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md) contains the executable frozen launch/verification helpers and exact protocol, including `run_native_relational_suite.py` for the 18-cohort public matrix. Adapt its declared paths/source identity to the new batch; do not reuse its results as new execution. Comparative repeats, topology experiments and format changes retain their separate frozen protocols.
+For a batch requiring ingestion and query UAT, freeze actual binary, input, resource and independent-reference paths in `perf-12-protocol.json` before execution. Use `scripts/run_clickbench_ingest_uat.sh` for replacement ingestion and `scripts/run_clickbench_query_uat.py --repeats 1` for a standard Full43; retain their complete invoked argument vectors, `prepare_summary.json`, `summary.json`, complete values and source/child-process checks. The [October 18 ingestion acceptance](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md) and [October 21 cyclic integration packet](../benchmarks/evidence/cyclic-existence-2026-10-21/README.md) contain frozen launch/verification helpers and exact protocols. The latter's `cyclic_modular_runner_853.py` drives `benchmarks/traditional_analytics/run.py` for the 18 format/lifecycle/output cohorts; `run_native_relational_suite.py` drives the separate public regression families. Adapt declared paths/source identity to a new batch; do not reuse results as new execution. Comparative repeats, topology experiments and format changes retain their separate frozen protocols.
 
 Deliver `perf-12-acceptance.json` with complete native/independent-reference records, source/build/archive identities, supported platform/runtime envelopes, failure/recovery and install/upgrade/rollback proof. A harness test, build or inspection-only exit cannot substitute for these outputs.
 

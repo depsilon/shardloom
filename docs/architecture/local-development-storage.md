@@ -29,6 +29,16 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [October 21 cyclic-existence cleanup](../benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json)
+applies this policy after final integration: 35,888 regular generated files and
+three environment symlinks are retired with exact identities and closed-handle
+checks. The latest accepted CLI/library and installed-tested wheel replace the
+earlier multiway runtime/wheel; completed public/format payloads, comparison
+files and unpacked package environments are regenerated from their recorded
+sources when needed. Original Parquet and `fresh-roadmap-663-a1.vortex` remain.
+Compact comparison, integration and failure evidence replays independently of
+those retired payloads. No storage threshold changes or payload backups occur.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in

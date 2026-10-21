@@ -17,6 +17,33 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite cyclic-existence join follow-up` — retain the
+  [automatic native strategy](native-cyclic-existence-intake-2026-10-21.md) after
+  both frozen cohorts pass all 52 case/call-count cells, 520 workflows and 1,300
+  native calls. All four targets meet the engine gain threshold; every control
+  stays within its unchanged limit. Exact multiplicity, NULLs, order, aliases,
+  source admission, actual work, credit denial, cancellation and teardown pass.
+  - The final integrated runtime passes 3,079 native tests (31 existing ignored),
+    3,235 workspace tests, 1,089 CLI tests, 5,930 public cases, 115 isolated
+    installed-package tests with zero skips, and uninstall. Formatting and
+    strict workspace/native lint pass. Full43 passes all 43 complete results
+    and schemas; the 18 format cohorts pass 704 native and 704 independent
+    reference workflows. The existing input is reused without ingestion.
+  - The [acceptance packet](../benchmarks/evidence/cyclic-existence-2026-10-21/README.md)
+    binds the scored library to compiled source `6aad1aca` and notice-only
+    package source `de2d31ea`. Preserve the initial notice-bundle failure and
+    zero-query PyArrow setup failure with exact corrections. Offline replay
+    verifies 28,468 archived members, source closures and complete outputs;
+    ten additional deliberate corruption checks fail as required.
+  - The [cleanup result](../benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json)
+    retires 35,888 exact generated files and three environment symlinks after
+    replay, identity, regeneration and closed-handle checks. Current tested
+    runtime/wheel and source inputs remain; no payload backup is created.
+  - This completes one additional finite follow-up under existing owners. The
+    seventeen original decisions, all 58 substeps and CG-1 through CG-23 retain
+    their separate obligations. Prepared sampling remains next before required
+    breadth; no broad multiway, release or cross-platform claim follows.
+
 - [x] `Finite native exchange transport decision` — reject the
   [fragment-transport candidate](native-exchange-decision-2026-10-21.md) under
   its frozen protocol. Both complete 325-workflow cohorts pass exact values,

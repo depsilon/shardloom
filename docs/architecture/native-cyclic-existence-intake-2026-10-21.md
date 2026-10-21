@@ -1,13 +1,11 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Cyclic existence joins: prospective intake and comparison contract
+# Cyclic existence joins: contract and retained finite decision
 
-Status: prerequisite correctness and the ordinary-path opportunity pass; all
-four targets meet the frozen materialized-work gate. A private candidate is now
-implemented, with native/workspace validation and actual-work tests passing.
-Fresh public build provenance and both complete scored comparisons now pass.
-Final public/package acceptance is pending; the candidate is not yet retained
-or released. This is the
+Status: the finite automatic cyclic-existence strategy is retained. Prerequisite
+correctness, all four ordinary-path opportunities, both complete scored cohorts
+and final native/workspace/public/package acceptance pass. The implementation
+is local and has not been published. This is the
 authorized [follow-up](native-investigation-followups-2026-10-20.md#cyclic-existence-joins)
 under `PERF-10.multiway_joins`, RFC 0044 and PERF-01/02/03/10/12. The current
 implementation phase, CG-1 through CG-23 and 37 required breadth substeps retain
@@ -53,8 +51,8 @@ an Arrow execution substrate, external engine, dependency or source API.
 The ordinary binary path remains available for plans outside finite admission.
 Unsupported execution still fails explicitly without external fallback.
 
-If observation passes, the candidate may index T by (a,c), index S by b, and
-probe S candidates for each R row until an exact T witness exists. Gathering
+The retained strategy indexes T by (a,c), indexes S by b, and
+probes S candidates for each R row until an exact T witness exists. Gathering
 only R preserves semi-join multiplicity. Index construction occurs on every
 execution and is charged. The prepared object may reuse its existing immutable
 source/binding owner, but receives no new cross-call index cache.
@@ -215,14 +213,14 @@ corrections, both stopped intake probes above, and the successful checks. Its
 offline verifier also rejects twelve corrupted value/schema/resource/clock or
 prospective-protocol records. No failed attempt is scored or discarded.
 
-Proceed with the finite candidate under the archived third protocol and its
-unchanged 520-workflow comparison schedule. Retention still requires both full
-cohorts, every control, actual candidate-work counters, failure/ownership tests,
-and final public integration acceptance. The broader owner remains open.
+The finite candidate proceeded under the archived third protocol and its
+unchanged 520-workflow comparison schedule. The completed comparison and final
+integration below satisfy its finite retention gates. The broader owner remains
+open.
 
-## Private implementation and actual work
+## Native implementation and actual work
 
-The experimental `local_primitive_relational_cyclic_exists.rs` module borrows
+The retained `local_primitive_relational_cyclic_exists.rs` module borrows
 the already bound tree and keys. Admission allocates no new plan metadata.
 It recognizes either outer-key order and either inner-projection order, checks
 the distinct Int64 columns and pure memory sources, and runs only after explicit
@@ -302,3 +300,71 @@ package regression adds native-sized nullable/duplicate sources, reversed outer
 keys, semi/anti semantics, repeated preparation and final owner cleanup; this
 test-only addition does not change the measured runtime or comparison sources.
 The broader multiway owner, platform/release gates and claim limits remain open.
+
+## Final integrated acceptance
+
+The [integration packet](../benchmarks/evidence/cyclic-existence-2026-10-21/acceptance.json)
+binds the tested runtime to compiled source `6aad1aca` and the notice-only package
+source `de2d31ea`. The public native library is byte-identical to the scored
+candidate. The additional installed-package regression changes tests only;
+no engine source changed after the comparison.
+
+- All 3,079 feature-enabled native tests pass, with 31 existing manual/opt-in
+  tests ignored. All 3,235 default workspace tests and 1,089 feature-enabled CLI
+  tests pass without ignored tests. Formatting and both required strict lint
+  configurations pass. Selection, metadata-only and public-route selectors have
+  positive matching test counts.
+- All 5,930 public cases across 39 families pass, protecting existing source,
+  relational, replay, resource, spill and failure boundaries.
+- A freshly built wheel passes isolated installation, exact CLI/native-library
+  hash checks, all 115 installed integration tests with zero skips, and uninstall.
+  The installed cyclic test exercises native-sized nullable/duplicate inputs,
+  aliases, reversed keys, semi/anti semantics and repeated prepared use.
+- Full43 passes every complete result and schema: 43 queries, one execution
+  each, 381 result rows. **Full43 engine time: 50.461833916 seconds.** The retained
+  Vortex input is checked before and after execution; no replacement ingestion
+  occurs. Its retained-native reference is regression evidence, distinct from
+  a fresh independent oracle.
+- All 18 format/lifecycle/output cohorts pass 704 native workflows and 704
+  independent pandas reference workflows. Coverage is eight input formats with
+  collection, plus eight output formats from CSV, each raw and prepared, across
+  22 workflows. It is not the complete input/output Cartesian product. Every
+  native call and output readback is checked; pandas is a comparison oracle only.
+- PERF-12 scope, runtime-gap, completion and release inspections pass in their
+  declared inspection modes. Existing completion, hosted/platform and release
+  blockers remain. Upgrade/rollback and package publication are not claimed.
+
+The original wheel attempt failed before installation because the notice bundle
+did not cover the current lockfile. The correction adds the missing notices for
+48 already-locked registry packages; source archives, licenses and all existing
+entries are checked, and seven notice-bundle tests pass. It changes no dependency,
+runtime or measured binary. A separate format-matrix attempt stopped during its
+first fixture setup, before any query, because an older PyArrow installation
+lacked its compute library. The replacement uses the intact PyArrow 25.0.1 files
+from the tested wheel environment, verified against their pinned wheel. Workloads,
+runtime, versions, resource settings, reference policy and gates are unchanged.
+Both failed attempts and exact corrections remain in the packet; neither is
+scored as successful execution.
+
+Offline replay verifies 28,468 archived members, both compiled/package source
+closures, the original 520-workflow comparison, Full43 complete values and clocks,
+all 1,408 modular results and 1,780 process payloads, public archive integrity,
+and package/test receipts. It rejects ten additional deliberate integration
+corruptions. Public expected-value checks were performed by the original public
+runner; replay does not claim a second independent public oracle. Native binaries,
+package environments and generated datasets are not archived, and replay does
+not revalidate their current residency or execute a native query.
+
+The [cleanup record](../benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json)
+retires 35,888 regular files and three environment symlinks after exact identities,
+replay, regeneration and closed-handle checks. This includes completed public and
+format fixtures/payloads, superseded libraries/wheel, the ordinary comparison
+library and unpacked package environments. The current tested CLI/library/wheel,
+original input and accepted Vortex input remain. Compact results retain every
+decision and useful failure; no payload backup or higher storage limit is created.
+
+The finite strategy is retained under ordinary automatic public selection.
+General multiway planning, SQL EXISTS lowering, additional key/source types,
+new spill/distributed behavior and the broader PERF-02/03/10/12 owners remain
+open. This acceptance closes the cyclic-existence follow-up only; prepared
+sampling is next before required breadth resumes.
