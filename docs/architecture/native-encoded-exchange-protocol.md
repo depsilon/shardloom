@@ -7,6 +7,13 @@ local foundations have been checked. No transport, negotiated native client or
 Flight SQL service is implemented by this document. The
 [acceptance record](../benchmarks/evidence/native-exchange-prerequisites-2026-10-20/native-encoded-exchange-acceptance.json)
 separates the completed prerequisite checks from the unexecuted tests below.
+The subsequent [encoded Arrow control prerequisite](native-exchange-arrow-control-2026-10-20.md)
+adds an opt-in representation check; its feature does not implement transport.
+The subsequent [fixture and measurement plan](native-exchange-experiment-plan-2026-10-20.md)
+specifies the concrete envelope, matched controls and prospective numerical gates.
+Its [immutable freeze record](../benchmarks/evidence/native-exchange-control-2026-10-20/protocol-freeze.json)
+and [control acceptance](../benchmarks/evidence/native-exchange-control-2026-10-20/acceptance.json)
+precede candidate implementation; they do not supply a transport result.
 The four `NATIVE-ENCODED-EXCHANGE` substeps remain open in the
 [phase plan](phased-execution-plan.md). This is the scoped design slice required
 by its [verification contract](native-roadmap-verification-contracts-2026-10-18.md#native-encoded-exchange),
@@ -51,7 +58,7 @@ records the existing provider and ownership patches.
 | Flight protocol and Rust binding | `arrow-flight` 58.3.0; Apache-2.0 | Match the existing Arrow 58.3.0 graph. Use generated low-level RPCs for the native extension; high-level Arrow decoders are for Arrow results. |
 | RPC and TLS integration | `tonic` / `tonic-prost` 0.14.6; MIT | Use established HTTP/2, TLS configuration, peer-certificate and request middleware APIs. |
 | TLS | `tokio-rustls` 0.26.6; `rustls` 0.23.46 with `ring` | Explicit trust roots, mandatory client certificates and ordinary server-name verification. No custom cryptography or certificate-verification bypass. |
-| Existing graph alignment | Arrow 58.3.0, Prost 0.14.3, Tokio 1.52.1 | Exact direct pins in an isolated review manifest. This is not yet the integrated workspace graph. |
+| Existing graph alignment | Arrow 58.3.0, Prost 0.14.3, Tokio 1.52.1 | Exact direct pins first reviewed in isolation, then reproduced in the opt-in integrated graph. |
 
 The isolated 161-package graph passes the repository license/source/bans policy
 and the advisory check after replacing the initial Rustls 0.23.45 pin. The first
@@ -68,8 +75,14 @@ The exact registry archives, reviewed source members, enabled features and
 licenses are bound in the acceptance record. Published manifests declare version
 ranges; the isolated lockfile establishes the versions reviewed here. A later
 workspace integration must reproduce this graph or review its differences and
-rerun the applicable audit. Flight/Tonic/TLS remain absent from the production
-workspace at this prerequisite boundary.
+rerun the applicable audit. Flight/Tonic/TLS were absent from the workspace at
+that prerequisite boundary. The subsequent control work integrates the exact
+reviewed additions only under `native-encoded-exchange-experiment`; they remain
+absent from default and release feature groups. The integrated graph passes
+license/source/bans/advisory policy checks. No transport service is implemented.
+The integrated advisory run reports no known vulnerabilities. Existing warnings
+for `paste`, `anyhow` and `event-listener` remain in its evidence; this is not a
+warning-free graph, and no new policy exception was added.
 
 Primary references checked on October 20: [Flight RPC](https://arrow.apache.org/docs/format/Flight.html),
 [Flight SQL](https://arrow.apache.org/docs/format/FlightSql.html),
@@ -209,8 +222,9 @@ not durable exactly-once delivery or recovery of interrupted computation.
 
 ## Registered test targets and evidence
 
-The following integration targets and the experimental feature are **planned and
-currently absent**. Do not run these selectors against the current tree or count
+The following integration targets are **planned and currently absent**. The
+experimental feature currently enables only the encoded Arrow control
+prerequisite. Do not run these selectors against the current tree or count
 zero tests as acceptance. The implementation must add the named tests, prove
 positive discovery counts and freeze source/build/fixture identities first.
 
@@ -290,10 +304,11 @@ contracts, while accepting copies in the existing validated IPC receiver.
 
 Important remaining risks are whole-message reconstruction cost, provider
 allocations outside native credit, extension interoperability and the difference
-between a local authenticated experiment and a deployable service. The isolated
-dependency graph has not been compiled or integrated. The protocol schema,
-adversarial test harness, independently frozen fixtures and matched encoder
-options remain implementation prerequisites. None is satisfied by this document
-or the passing local foundation tests. Continue with those prerequisites and the
+between a local authenticated experiment and a deployable service. The original
+isolated dependency review does not establish runtime acceptance. Subsequent
+opt-in control work compiles the integrated graph and tests complete independent
+fixtures with the matched encoders. The immutable fixture/protocol freeze is now
+recorded; the adversarial transport harness remains unimplemented. Continue with
+the
 registered two-process experiment; leave client, broader protocol/ownership and
 platform/publication acceptance open until their actual evidence exists.

@@ -1,0 +1,3020 @@
+{
+  "cases": [
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 0,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "0398c2c4fe42c637fab12ef2cf6a55c9b55659e5218a1df2d2e194677b0dbef8",
+          "payload_bytes": 288,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 291
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 0,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "0398c2c4fe42c637fab12ef2cf6a55c9b55659e5218a1df2d2e194677b0dbef8",
+          "payload_bytes": 288,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 291
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 0,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "0398c2c4fe42c637fab12ef2cf6a55c9b55659e5218a1df2d2e194677b0dbef8",
+          "payload_bytes": 288,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 291
+        }
+      ],
+      "dtype_sha256": "6f527570038f566cc86fec48497caf8f6abcae3ff8c2813fdb64c549e067fdf9",
+      "id": "empty",
+      "operation_sha256": "6557e83c3b6b3f1ffbe8270960ac6845c8167f0a0e4b7a587d8b28e2e26ac13c",
+      "operations_protobuf_hex": "0a590a03616c6c12160a096576656e745f6b657912096576656e745f6b657912120a076d65617375726512076d65617375726512120a07656e61626c65641207656e61626c656412120a0763617074696f6e120763617074696f6e0a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a450a126c6173745f66697273745f72656e616d656412150a0763617074696f6e120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 292,
+            "provider_part_lengths": [
+              4,
+              48,
+              240
+            ],
+            "sha256": "6f527570038f566cc86fec48497caf8f6abcae3ff8c2813fdb64c549e067fdf9"
+          },
+          {
+            "bytes": 1044,
+            "provider_part_lengths": [
+              4,
+              184,
+              0,
+              16,
+              0,
+              16,
+              0,
+              16,
+              0,
+              16,
+              0,
+              4,
+              784,
+              4
+            ],
+            "sha256": "8ec286655036a7d08b8ec35e3214ec70ff5f2333b0cfb54410796f971b0d290d"
+          }
+        ],
+        "ordered_payload_sha256": "8ba2cc7e69bfe61218fd46e37541334fe64623ae1b26dace661ee3c80c3a46b1",
+        "payload_bytes": 1336,
+        "preserved_encodings": []
+      },
+      "rows": 0,
+      "source_sha256": "aecc3b1a06e2fa3be127889f9795cb4974d00524042b28c85e07b8b0360dc5f9"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 193,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            },
+            {
+              "body_bytes": 640,
+              "body_sha256": "a674ecf7c93115109c2cdee7b10104d185c1d8e4218e26abf43d29752c8a9a22",
+              "buffers": 9,
+              "declared_decoded_buffer_bytes": 193,
+              "encoded_bytes": 943,
+              "header_bytes": 296,
+              "header_kind": "RecordBatch",
+              "header_sha256": "95626fbef49b1e1d0fc3e609435c5acf55b7f4694240668ab6ba78494588b5cd",
+              "nodes": 4,
+              "protobuf_sha256": "a65f6d602c3f3df243d5011f4d012659902e832d6e823b4cd5cae06f155194eb"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "3032317952f0505e12478d5acd3d83f1da4d7d3b55457277bbb0fb578ae94e21",
+          "payload_bytes": 1224,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 1234
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 193,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            },
+            {
+              "body_bytes": 576,
+              "body_sha256": "8f373f5d42cde63283cb3b0a2b7a31369f65568d4b0950ac89633b7e84d0d7b6",
+              "buffers": 9,
+              "declared_decoded_buffer_bytes": 193,
+              "encoded_bytes": 887,
+              "header_bytes": 304,
+              "header_kind": "RecordBatch",
+              "header_sha256": "8e8548a5c74eac0e38fb423742a49b15257a77e34ef8ddab18687e619e338668",
+              "nodes": 4,
+              "protobuf_sha256": "220255ba8ace42d34e156bbc4ac1908563e51ea0caabce9179ea5493b417f81c"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "4ea307fd9b1d3ef757307a3996edb861199a8e5ae75af043f5d74be0cfa77580",
+          "payload_bytes": 1168,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 1178
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 193,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            },
+            {
+              "body_bytes": 576,
+              "body_sha256": "b217e7fb566f973cdf19475d54bdf861ad787ddb043e88d05e0761bffc2174e4",
+              "buffers": 9,
+              "declared_decoded_buffer_bytes": 193,
+              "encoded_bytes": 895,
+              "header_bytes": 312,
+              "header_kind": "RecordBatch",
+              "header_sha256": "bc46a1397de37241de0cf01f3d7cbc56dd42c660e0ff2d223d2d6604a641a6c7",
+              "nodes": 4,
+              "protobuf_sha256": "a8652ea2107f29d63214075bfa3836669c91e3e8180f528e28fcd36efa28d6be"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "4bddecbbccfc2763d30634f8dd1bd1cd0619c5d9bc6075e666e01e877228d1ee",
+          "payload_bytes": 1176,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 1186
+        }
+      ],
+      "dtype_sha256": "6f527570038f566cc86fec48497caf8f6abcae3ff8c2813fdb64c549e067fdf9",
+      "id": "tiny",
+      "operation_sha256": "6557e83c3b6b3f1ffbe8270960ac6845c8167f0a0e4b7a587d8b28e2e26ac13c",
+      "operations_protobuf_hex": "0a590a03616c6c12160a096576656e745f6b657912096576656e745f6b657912120a076d65617375726512076d65617375726512120a07656e61626c65641207656e61626c656412120a0763617074696f6e120763617074696f6e0a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a450a126c6173745f66697273745f72656e616d656412150a0763617074696f6e120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 292,
+            "provider_part_lengths": [
+              4,
+              48,
+              240
+            ],
+            "sha256": "6f527570038f566cc86fec48497caf8f6abcae3ff8c2813fdb64c549e067fdf9"
+          },
+          {
+            "bytes": 1400,
+            "provider_part_lengths": [
+              4,
+              184,
+              0,
+              16,
+              56,
+              16,
+              28,
+              1,
+              16,
+              1,
+              1,
+              16,
+              72,
+              32,
+              1,
+              952,
+              4
+            ],
+            "sha256": "01f27df9b5e39a79ceb8c298c0ffa187fc214991147286f9aae885a41ca593dd"
+          }
+        ],
+        "ordered_payload_sha256": "6a8378fe5a7b532b61e478a76105c8b3cbd89f314ee85814d5b835c99b9e1dea",
+        "payload_bytes": 1692,
+        "preserved_encodings": []
+      },
+      "rows": 7,
+      "source_sha256": "3074fd464a50d5ffe5f85b67c7c78428e3a305a5dbe7db045bb254a3bfc60226"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 490581,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            },
+            {
+              "body_bytes": 491072,
+              "body_sha256": "d67e91983d682d1716278f4e6f185064088c95a13aed522de36f09396336e3c0",
+              "buffers": 9,
+              "declared_decoded_buffer_bytes": 490581,
+              "encoded_bytes": 491376,
+              "header_bytes": 296,
+              "header_kind": "RecordBatch",
+              "header_sha256": "24e3cc35ced81075128a0ea615bd345645a7a9a96e119335a95315f77ade017f",
+              "nodes": 4,
+              "protobuf_sha256": "eda81f9da4f759ba0b82c1e7b5cbd8203be2cbc337a97eaac36eac1451c750a5"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "dc6786b10a2a8541dfce427ef994b96e1970abf04bff9933eef86f25c2234a00",
+          "payload_bytes": 491656,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 491667
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 490581,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            },
+            {
+              "body_bytes": 187904,
+              "body_sha256": "ab3003fe7dcb95b3afd2caee3650eee125c3f84f5a164faee6bf0d2ee5a6e780",
+              "buffers": 9,
+              "declared_decoded_buffer_bytes": 490581,
+              "encoded_bytes": 188216,
+              "header_bytes": 304,
+              "header_kind": "RecordBatch",
+              "header_sha256": "b32e695b56ae983b2c3556a43d9d5637c97d5da3e4af4f1ca580db2f6c5431b0",
+              "nodes": 4,
+              "protobuf_sha256": "77cab65da9c727f719ec526f0ad16d6f2cde78b6e6d8921cbe2131acbb0e3f42"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "6c5f4f4a300f472d5f67fc611032a3e1666a721919c260d623474d0ac9e245cb",
+          "payload_bytes": 188496,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 188507
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 490581,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 291,
+              "header_bytes": 288,
+              "header_kind": "Schema",
+              "header_sha256": "9ef1ddcc4eb95624968f720b21ac3f2146baccd620cc08e769ec409b459154ba",
+              "nodes": 0,
+              "protobuf_sha256": "ff4821036638a9b08494a6fc43698d053024cd01de555c62a06c46be0d784192"
+            },
+            {
+              "body_bytes": 81856,
+              "body_sha256": "8731254bf449623bad985b6bf18ed1830cffa367d0986e0a224839fd22458935",
+              "buffers": 9,
+              "declared_decoded_buffer_bytes": 490581,
+              "encoded_bytes": 82176,
+              "header_bytes": 312,
+              "header_kind": "RecordBatch",
+              "header_sha256": "8dba94a368db2e59a7313559787cdd9034023679d3bdc68bba7d3db743636f0d",
+              "nodes": 4,
+              "protobuf_sha256": "291ef6c9f91aeb018cd1ae26aa39e8a2ad944cad277086638d6a7236fb2fe52a"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "c3fdd5ce9793a0b3e4e0dc117370612bf1193bae2e942173d0748aa6a224095c",
+          "payload_bytes": 82456,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 82467
+        }
+      ],
+      "dtype_sha256": "6f527570038f566cc86fec48497caf8f6abcae3ff8c2813fdb64c549e067fdf9",
+      "id": "nullable_plain",
+      "operation_sha256": "6557e83c3b6b3f1ffbe8270960ac6845c8167f0a0e4b7a587d8b28e2e26ac13c",
+      "operations_protobuf_hex": "0a590a03616c6c12160a096576656e745f6b657912096576656e745f6b657912120a076d65617375726512076d65617375726512120a07656e61626c65641207656e61626c656412120a0763617074696f6e120763617074696f6e0a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a450a126c6173745f66697273745f72656e616d656412150a0763617074696f6e120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 292,
+            "provider_part_lengths": [
+              4,
+              48,
+              240
+            ],
+            "sha256": "6f527570038f566cc86fec48497caf8f6abcae3ff8c2813fdb64c549e067fdf9"
+          },
+          {
+            "bytes": 489740,
+            "provider_part_lengths": [
+              4,
+              184,
+              0,
+              16,
+              131096,
+              16,
+              65548,
+              2049,
+              16,
+              2049,
+              2049,
+              16,
+              218140,
+              65552,
+              2049,
+              952,
+              4
+            ],
+            "sha256": "95824f297ae04725b4f54c7ece87cbca288663a981e77079ec6d962fe8ce5cc1"
+          }
+        ],
+        "ordered_payload_sha256": "35ac7f6c64ecd59d55505d4beb6ed9ebec590b33fe4a12950a9763f9be9af206",
+        "payload_bytes": 490032,
+        "preserved_encodings": []
+      },
+      "rows": 16387,
+      "source_sha256": "eb2d3c7aacc7e973dbd05c9e0fb7cbf3268981343fd93f01cb6ffd311390f017"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 802784,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 187,
+              "header_bytes": 184,
+              "header_kind": "Schema",
+              "header_sha256": "a34d186d2da03cfdfeb50bd6851444d640c3bfd0612a83cb5951c3f23e326f31",
+              "nodes": 0,
+              "protobuf_sha256": "e0914eaeef03c7cd4bb1ab0fed680365643d8815d01ed99ecd2569444cd7d362"
+            },
+            {
+              "body_bytes": 802816,
+              "body_sha256": "125c62526cce3e4b947fa527adf081ae0394d1ef0fbeb74db5ce742574533cf3",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 802784,
+              "encoded_bytes": 803024,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "55c6fc5187a7f06d0a571e0c30d2e7c5cb97a1414fac4cf9a005bf7bfb2a823f",
+              "nodes": 2,
+              "protobuf_sha256": "58e8b76d30c3c1a6c9ba2f329ddf4f915f3659921deccfb41bb077c865ef58a6"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "1b9b30b40ba0c707c9662a18e8464d12b39a20568aac8b9c17360aa57a4fed1c",
+          "payload_bytes": 803200,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 803211
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 802784,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 187,
+              "header_bytes": 184,
+              "header_kind": "Schema",
+              "header_sha256": "a34d186d2da03cfdfeb50bd6851444d640c3bfd0612a83cb5951c3f23e326f31",
+              "nodes": 0,
+              "protobuf_sha256": "e0914eaeef03c7cd4bb1ab0fed680365643d8815d01ed99ecd2569444cd7d362"
+            },
+            {
+              "body_bytes": 3456,
+              "body_sha256": "328b00b6f0231a822a6e5b13cff71f87afeeff4946e8d4001abeed5e6cdc1a1f",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 802784,
+              "encoded_bytes": 3671,
+              "header_bytes": 208,
+              "header_kind": "RecordBatch",
+              "header_sha256": "844bc73cdccd5bd13f28d9dda76f6d416708db6f7f3d1ea37887759e988a739b",
+              "nodes": 2,
+              "protobuf_sha256": "da3671634dfa2b8e034e40affc4959ec3bfa851d2bbfab09a31619769d96141d"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "7500def0f1200c103b15d9772b96248781b01a7dfb0d32a884524f12393065af",
+          "payload_bytes": 3848,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 3858
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 802784,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 187,
+              "header_bytes": 184,
+              "header_kind": "Schema",
+              "header_sha256": "a34d186d2da03cfdfeb50bd6851444d640c3bfd0612a83cb5951c3f23e326f31",
+              "nodes": 0,
+              "protobuf_sha256": "e0914eaeef03c7cd4bb1ab0fed680365643d8815d01ed99ecd2569444cd7d362"
+            },
+            {
+              "body_bytes": 256,
+              "body_sha256": "6c1094dc97452de30a7c306e54cffb2f161757b26533b8f1604654b611fc5d6c",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 802784,
+              "encoded_bytes": 479,
+              "header_bytes": 216,
+              "header_kind": "RecordBatch",
+              "header_sha256": "6db82f0a8b941e566b5176822339dc611531e00c735bc3afb451a6c527b9d5db",
+              "nodes": 2,
+              "protobuf_sha256": "62fa91e8f04e214c9ede7a252bb996d61238d7b79247836e39f2b990650c18ea"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "9ee28c2239e31baa0d527256330162fa8129ffab49aa4f3bc3caf9137409deff",
+          "payload_bytes": 656,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 666
+        }
+      ],
+      "dtype_sha256": "da91d16fb3384084f6680b4d499ee96912872c7b824957733f92658597432e89",
+      "id": "all_null",
+      "operation_sha256": "fd68a6d781c69f12bb4916f58ec11d571740ef2544e036144a95638c53992e54",
+      "operations_protobuf_hex": "0a410a03616c6c121a0a0b616273656e745f74657874120b616273656e745f74657874121e0a0d616273656e745f6e756d626572120d616273656e745f6e756d6265720a230a056669727374121a0a0b616273656e745f74657874120b616273656e745f746578740a4d0a126c6173745f66697273745f72656e616d6564121b0a0d616273656e745f6e756d626572120a6c6173745f76616c7565121a0a0b616273656e745f74657874120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 220,
+            "provider_part_lengths": [
+              4,
+              48,
+              168
+            ],
+            "sha256": "da91d16fb3384084f6680b4d499ee96912872c7b824957733f92658597432e89"
+          },
+          {
+            "bytes": 624,
+            "provider_part_lengths": [
+              4,
+              168,
+              0,
+              16,
+              2,
+              16,
+              2,
+              412,
+              4
+            ],
+            "sha256": "dec324d045c69f16aa6ac815d81e25149658a9765e09c998e6a7eeb5d9c3ddd3"
+          }
+        ],
+        "ordered_payload_sha256": "b798ecd8c097a4c902dd404e47ed9f4409606e4d27978b0134440056ee58e44a",
+        "payload_bytes": 844,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.constant"
+            ],
+            "path": [
+              "absent_text"
+            ]
+          },
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.constant"
+            ],
+            "path": [
+              "absent_number"
+            ]
+          }
+        ]
+      },
+      "rows": 65533,
+      "source_sha256": "5ad7093dfef0e81224dd117f83286bb070d83c654ece42ea4a43c471b3ee00e4"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 1802175,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "2691b14b7d03364eed82c71e0a27fe235a71e2f90502095ba71c3386124c9236",
+              "nodes": 0,
+              "protobuf_sha256": "be81aacc7729bab0f26ce860223f9f6f54712b144e665f3517b23ed957737e28"
+            },
+            {
+              "body_bytes": 901120,
+              "body_sha256": "6f44f1bdbdba55b6d5611792e8d7acde0ffe8a19baf3ab2b71a94050f8d8a223",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 901070,
+              "encoded_bytes": 901376,
+              "header_bytes": 248,
+              "header_kind": "RecordBatch",
+              "header_sha256": "deb0c367efdf0c7eb2ff863d07a440e716e267b572201b0443eacf866a816ea7",
+              "nodes": 3,
+              "protobuf_sha256": "6b9d358e0dc04165852d725e49c0c02a0a7e396f93e54820f901762609c3d9be"
+            },
+            {
+              "body_bytes": 901120,
+              "body_sha256": "f0f2e12b210ca0c078de4def70d53a329a64a5298994ba7cf28272a5711b9fdd",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 901070,
+              "encoded_bytes": 901376,
+              "header_bytes": 248,
+              "header_kind": "RecordBatch",
+              "header_sha256": "deb0c367efdf0c7eb2ff863d07a440e716e267b572201b0443eacf866a816ea7",
+              "nodes": 3,
+              "protobuf_sha256": "583ff8acb53e1bb35b3a32b7f49f293c83ac0a7dd475684e3b13174109e56336"
+            },
+            {
+              "body_bytes": 448,
+              "body_sha256": "3f605853b7d487faca6c8d1d08e471789aefea95a33b8f8f31ad28fb81ed0329",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 35,
+              "encoded_bytes": 703,
+              "header_bytes": 248,
+              "header_kind": "RecordBatch",
+              "header_sha256": "188ba11e0f03d3bfedb48d89f3c7755f55cbf48e3656101b7b162faece648243",
+              "nodes": 3,
+              "protobuf_sha256": "729454b0e7c0e8da015a01ab4fc2b38fc8afcce5a4746ef4f4b73096d6b93c16"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "aae2f9668fce99be0b382ecd2dac989e735162b31f0aa0f9a7378804ad45f221",
+          "payload_bytes": 1803664,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 1803690
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 1802175,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "2691b14b7d03364eed82c71e0a27fe235a71e2f90502095ba71c3386124c9236",
+              "nodes": 0,
+              "protobuf_sha256": "be81aacc7729bab0f26ce860223f9f6f54712b144e665f3517b23ed957737e28"
+            },
+            {
+              "body_bytes": 134464,
+              "body_sha256": "2aed171c1741fe704485a4547442c87b47e4cdad7d50dc85d421be917590367c",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 901070,
+              "encoded_bytes": 134728,
+              "header_bytes": 256,
+              "header_kind": "RecordBatch",
+              "header_sha256": "243145f8c512004391c72f64f20e79e5264180d2f825c945ba79ad79de9990d8",
+              "nodes": 3,
+              "protobuf_sha256": "34d7daab16ad2d617a2129e9a5009f87b29209f259578b1cfb3ea374f451b9f8"
+            },
+            {
+              "body_bytes": 134464,
+              "body_sha256": "908a135aee4353c3d232edb17fc9d9e777e58b02a43dcbac6ef337d5de4a5b0e",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 901070,
+              "encoded_bytes": 134728,
+              "header_bytes": 256,
+              "header_kind": "RecordBatch",
+              "header_sha256": "243145f8c512004391c72f64f20e79e5264180d2f825c945ba79ad79de9990d8",
+              "nodes": 3,
+              "protobuf_sha256": "885bf838757d403c64928e05cc596110b6dbb9926d6e2581a8a05bfac84d7870"
+            },
+            {
+              "body_bytes": 448,
+              "body_sha256": "7992b9cfb5a27e31e84e4530ff0279bd8b7c5c99483df9f4f96da5bfc5658b66",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 35,
+              "encoded_bytes": 711,
+              "header_bytes": 256,
+              "header_kind": "RecordBatch",
+              "header_sha256": "a5dab70de1795d198255aef675d93c2ed93b3e4fba517a0d7447dd1c6823c77d",
+              "nodes": 3,
+              "protobuf_sha256": "eb97588c87a6524919c8925f9b2829dcd14787294481a9bcc3b549bb727a32be"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "6a2438edb5860d04e447f053f71a1e212a977c13b7ce32a77d5d4ded31f535bf",
+          "payload_bytes": 270376,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 270402
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 1802175,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "2691b14b7d03364eed82c71e0a27fe235a71e2f90502095ba71c3386124c9236",
+              "nodes": 0,
+              "protobuf_sha256": "be81aacc7729bab0f26ce860223f9f6f54712b144e665f3517b23ed957737e28"
+            },
+            {
+              "body_bytes": 99328,
+              "body_sha256": "568d59e217528a8f83639e6c5e8d248123a7c87ac2ffb40eb2f302491148a095",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 901070,
+              "encoded_bytes": 99600,
+              "header_bytes": 264,
+              "header_kind": "RecordBatch",
+              "header_sha256": "919a3ee979adf583eb6d9dfd89bf5368baffb176a5a19c3e4a50c41d57d6005f",
+              "nodes": 3,
+              "protobuf_sha256": "03c11578288fbb14bc4df190eca6db696e5ba508d232d758b00da450f0c410b8"
+            },
+            {
+              "body_bytes": 99328,
+              "body_sha256": "0bdf4ebedfe0f24058791efa6da38730a68ed28d83099d389c061c4cbbe23f2e",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 901070,
+              "encoded_bytes": 99600,
+              "header_bytes": 264,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3ae7ae2dcb098f6324d8f8ab1ce5e8e601243688c573fdd7999be4244980ba83",
+              "nodes": 3,
+              "protobuf_sha256": "4baddc156c94a6124e6e453094c37c1fd9060f1694da609bfb1c4ace094ee49f"
+            },
+            {
+              "body_bytes": 448,
+              "body_sha256": "7992b9cfb5a27e31e84e4530ff0279bd8b7c5c99483df9f4f96da5bfc5658b66",
+              "buffers": 7,
+              "declared_decoded_buffer_bytes": 35,
+              "encoded_bytes": 719,
+              "header_bytes": 264,
+              "header_kind": "RecordBatch",
+              "header_sha256": "b13b995af7f2e49ceb44d41a8b8dbac6ab1514b49f04998d8fb7cb8f9f3776c5",
+              "nodes": 3,
+              "protobuf_sha256": "90b12ba2ddbf469f6b93f404ce19394b1c6fbe91c414426673473276ba2feedc"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "8d6fd7b37e62d2f0cd6188b0d734c286df8df66b82ccc486ffd42d57289fac69",
+          "payload_bytes": 200128,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 200154
+        }
+      ],
+      "dtype_sha256": "910eb7e6eedef9cb56895f8a8a9118674750301940a2b460e78afc8b9b37f62d",
+      "id": "constant",
+      "operation_sha256": "81c228acb06abcfdeb63b869ee3cf903432d7e0098d60dd674c1b35f2aab9dfc",
+      "operations_protobuf_hex": "0a570a03616c6c12180a0a66697865645f666c6167120a66697865645f666c616712180a0a66697865645f74657874120a66697865645f74657874121c0a0c66697865645f6e756d626572120c66697865645f6e756d6265720a210a05666972737412180a0a66697865645f666c6167120a66697865645f666c61670a4b0a126c6173745f66697273745f72656e616d6564121a0a0c66697865645f6e756d626572120a6c6173745f76616c756512190a0a66697865645f666c6167120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 252,
+            "provider_part_lengths": [
+              4,
+              48,
+              200
+            ],
+            "sha256": "910eb7e6eedef9cb56895f8a8a9118674750301940a2b460e78afc8b9b37f62d"
+          },
+          {
+            "bytes": 820,
+            "provider_part_lengths": [
+              4,
+              168,
+              0,
+              16,
+              2,
+              16,
+              17,
+              16,
+              9,
+              568,
+              4
+            ],
+            "sha256": "eaabb541854359894d7d6f03a3b13fb864c2ede4d481dddf19db956ebe54e489"
+          }
+        ],
+        "ordered_payload_sha256": "c0fcf4ecfb6202296b82795f52fe648c1140af1c9f200a20a6eff7aaf036e173",
+        "payload_bytes": 1072,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.constant"
+            ],
+            "path": [
+              "fixed_flag"
+            ]
+          },
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.constant"
+            ],
+            "path": [
+              "fixed_text"
+            ]
+          },
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.constant"
+            ],
+            "path": [
+              "fixed_number"
+            ]
+          }
+        ]
+      },
+      "rows": 65533,
+      "source_sha256": "af2945f4ab2b8c286e03c1270fcd6b992364442723f7c2978fb93658a22dc896"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 42866,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 1024,
+              "body_sha256": "aa08e1473f0cba7485ad2934a28360473f95423a8ed866cc5d9cbf87a58a4300",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 850,
+              "encoded_bytes": 1199,
+              "header_bytes": 168,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "2e566027040c5d11acf4702de8234e65e4585f8f20c7683ec04db9448f672cf7",
+              "nodes": 1,
+              "protobuf_sha256": "6be5990ab9fc693a3e21e707dd40c66cdd86779a5e3a618a45583152a048b40f"
+            },
+            {
+              "body_bytes": 42240,
+              "body_sha256": "0ff933440b91d8001d46f7fe65ddf315a484c97cdf89691bbca59c9931a59b40",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 42016,
+              "encoded_bytes": 42432,
+              "header_bytes": 184,
+              "header_kind": "RecordBatch",
+              "header_sha256": "97b4d2173af900679df24b2fabd943d142df88324eec8cc8ae46d486f8f8f6a9",
+              "nodes": 2,
+              "protobuf_sha256": "69906c6dcd8aed2076c7581094a0d0c37b8e8c351ba50998c0718ab70443012b"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "2c49205eb5bb2617aaaaae9c111254ea717c413c3387b1febaea45bd2bcc0706",
+          "payload_bytes": 43848,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 43866
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 42866,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 384,
+              "body_sha256": "c1a92d58899c15f9cae0ab33fe509af1977f7c672a5f9ec8d1585abbc0ca0be8",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 850,
+              "encoded_bytes": 567,
+              "header_bytes": 176,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "003cc56a935fe4a874f1c40456c34299979cec1f695c49a706b26b0b2dd1bcbc",
+              "nodes": 1,
+              "protobuf_sha256": "28876a882ea8e55d32ddc43fd00b243f55b51e230f9b3b3444a24b18af196573"
+            },
+            {
+              "body_bytes": 17408,
+              "body_sha256": "7de374dd018ea6b22d309f3dfb638ec1b557a37204045803bae2d8d167b4a35c",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 42016,
+              "encoded_bytes": 17608,
+              "header_bytes": 192,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3253626524cca0ddda9cfb3b3069bb282986938f753bb7d3f97ce647ed223ca3",
+              "nodes": 2,
+              "protobuf_sha256": "86b1e71bf1bc11ff7fb806c14514136f7bb45fef9c30b13b2043300c2eddd64a"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "ff27908d5e689fce5367cab5c6e8b3725876957b0791166dfe5c6726b0bed762",
+          "payload_bytes": 18392,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 18410
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 42866,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 320,
+              "body_sha256": "c3b546b5cdc0dcd879b6ea450b15a7f5a5f142b349612fb408192ee898fa7fa7",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 850,
+              "encoded_bytes": 511,
+              "header_bytes": 184,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "88d333128a70ee70b030a4cfaa8099bdcb03f5c13382f9185043911c7435856d",
+              "nodes": 1,
+              "protobuf_sha256": "9e628d1ed39adee2779d776a48ef6aa29e3763093ab838898a6ea5363fd948fe"
+            },
+            {
+              "body_bytes": 5952,
+              "body_sha256": "26ac9aaeb8b1aeff80d566b510ad857fba7f84add3cbfd64bbc5adccf5751e54",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 42016,
+              "encoded_bytes": 6159,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "1125c486c571ed0cbf29e868632ecce1eb47331027cbda08875210bee3358f0a",
+              "nodes": 2,
+              "protobuf_sha256": "afc909ce59d5b08661fc2382f3537bd9a96ec60389c56f11f678675a4d815809"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "152a1cab3f89a931534a3b73ca81a598059bac40e3ec2955775e7ea91bf1a3d6",
+          "payload_bytes": 6888,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 6905
+        }
+      ],
+      "dtype_sha256": "2224917a4931c29b0518a1ab78274818489f657425cbc1b63be7b4a7dbf02400",
+      "id": "dictionary_small",
+      "operation_sha256": "285aa704f31ca6ecc4b75d8d839de68bd173924b34be7e931a8057efdad70f40",
+      "operations_protobuf_hex": "0a330a03616c6c12160a096576656e745f6b657912096576656e745f6b657912140a0863617465676f7279120863617465676f72790a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a460a126c6173745f66697273745f72656e616d656412160a0863617465676f7279120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 208,
+            "provider_part_lengths": [
+              4,
+              48,
+              156
+            ],
+            "sha256": "2224917a4931c29b0518a1ab78274818489f657425cbc1b63be7b4a7dbf02400"
+          },
+          {
+            "bytes": 43298,
+            "provider_part_lengths": [
+              4,
+              208,
+              0,
+              16,
+              32792,
+              16,
+              8198,
+              513,
+              780,
+              72,
+              3,
+              692,
+              4
+            ],
+            "sha256": "ef4336950b147bfd820120242c475286f15adf0af0bf531346a594436d05f9ae"
+          }
+        ],
+        "ordered_payload_sha256": "389d67d91f8cec33001afb8e7a315e323057711aad8b5828f6a8626d49edf6f7",
+        "payload_bytes": 43506,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.dict"
+            ],
+            "path": [
+              "category"
+            ]
+          }
+        ]
+      },
+      "rows": 4099,
+      "source_sha256": "e651675f3d28d9c36f9369222b919aaeb7f232e023c5158d1707bcc7b3ad6241"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 686034,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 14464,
+              "body_sha256": "f06a872581fadfa268f0645c21a9fd8d83c609706c744b866e096276b7ba9351",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14320,
+              "encoded_bytes": 14639,
+              "header_bytes": 168,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "69404d73dad701584b79961d7c7b2b2e11cc018ee6dcea11a736bc6f2512addb",
+              "nodes": 1,
+              "protobuf_sha256": "1c4c9fba252e096704ce628f7c64fd50d7c42590ecae93157ac60efcd90b7503"
+            },
+            {
+              "body_bytes": 671744,
+              "body_sha256": "ebe087118ef77b39e80cc4fdd436cee6b0627f122ac6504f384a6995328016f1",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 671714,
+              "encoded_bytes": 671936,
+              "header_bytes": 184,
+              "header_kind": "RecordBatch",
+              "header_sha256": "a759292c9d4758cf742588d9455858372c77ee7149a5b8d5a2bfac5f4704e5c0",
+              "nodes": 2,
+              "protobuf_sha256": "984635c00cb4de9dc555fa5acf494704533889a8dbdb3e3f9dfcb654c8151039"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "0799ad896ae2832ec931c4b0e43d2c6bea584c8b7fd12a94f4749ebf4e5f8d65",
+          "payload_bytes": 686792,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 686810
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 686034,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 2560,
+              "body_sha256": "ce72f1a5aedc9888d50b0f472bf56bf482da9259a27be46060187b8dc384cf9e",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14320,
+              "encoded_bytes": 2743,
+              "header_bytes": 176,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "42886efd111891380553be4dfccedd783d9a4c4416a84885272ccfa36c29d995",
+              "nodes": 1,
+              "protobuf_sha256": "af4fab6b86a6853b4a2053db049a26d48f736985a706cbd804e351062dbfd428"
+            },
+            {
+              "body_bytes": 272512,
+              "body_sha256": "fa3a1aba79b9ae9512adf1feb5c01ce3624cd1b53af1eafab58f4f13173d0002",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 671714,
+              "encoded_bytes": 272712,
+              "header_bytes": 192,
+              "header_kind": "RecordBatch",
+              "header_sha256": "281e5560910370df4a51806d0a40caed7a17f0799a14af05ce7d7457f1b37a7c",
+              "nodes": 2,
+              "protobuf_sha256": "ed4b23ad13befa4e7ec307ad53113f5f232d094f158b788c44d5a947d2b82ab6"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "d30fbff1636b7052bc89a626c44fcb9d8933ceefc00698867aa8902e33b9d5b8",
+          "payload_bytes": 275672,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 275690
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 686034,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 1216,
+              "body_sha256": "6fbf3b179a7b320188784f3f83c714b428776366c7b41596bafff82846b41e47",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14320,
+              "encoded_bytes": 1407,
+              "header_bytes": 184,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "68452e4193b2297e377f61f7300ea8c6b2eb8abb9281bda99f55efa3dcc11a09",
+              "nodes": 1,
+              "protobuf_sha256": "ab10a9749816107334e726e5b2397fd2244053e518a4041397b851fac12d7a2f"
+            },
+            {
+              "body_bytes": 82560,
+              "body_sha256": "4283e26dc6d9c4f78a819070ffab14720097b702c4e4fd756e2dd1d7319f4c04",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 671714,
+              "encoded_bytes": 82768,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3d149418386e874f04791b1c5a7518bb2fa36cf5878a19d57ee0cf3b4386489b",
+              "nodes": 2,
+              "protobuf_sha256": "95dd3b4da3ff708b74b6b9da1cc07a3cc5fba9207cc4d1942efa6bf90770713b"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "4d48ae3bc697785688ced38d72ff5ea8c4541b091ded182082bdd36b79e41819",
+          "payload_bytes": 84392,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 84410
+        }
+      ],
+      "dtype_sha256": "2224917a4931c29b0518a1ab78274818489f657425cbc1b63be7b4a7dbf02400",
+      "id": "dictionary_large",
+      "operation_sha256": "285aa704f31ca6ecc4b75d8d839de68bd173924b34be7e931a8057efdad70f40",
+      "operations_protobuf_hex": "0a330a03616c6c12160a096576656e745f6b657912096576656e745f6b657912140a0863617465676f7279120863617465676f72790a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a460a126c6173745f66697273745f72656e616d656412160a0863617465676f7279120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 208,
+            "provider_part_lengths": [
+              4,
+              48,
+              156
+            ],
+            "sha256": "2224917a4931c29b0518a1ab78274818489f657425cbc1b63be7b4a7dbf02400"
+          },
+          {
+            "bytes": 678791,
+            "provider_part_lengths": [
+              4,
+              208,
+              0,
+              16,
+              524264,
+              16,
+              131066,
+              8192,
+              13260,
+              1032,
+              33,
+              696,
+              4
+            ],
+            "sha256": "342459c21aa5d294c5cc15a7b9a99737feb99a57a1e1523f52187a0024fa0480"
+          }
+        ],
+        "ordered_payload_sha256": "37aa02551c199dfc82ce72c9ce25dc05ddb40cc968a0c1318ae2d4046e45eeab",
+        "payload_bytes": 678999,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.dict"
+            ],
+            "path": [
+              "category"
+            ]
+          }
+        ]
+      },
+      "rows": 65533,
+      "source_sha256": "972446b8400074e5ec430461a48c95c9cfdfbe4db4b7a3582f6e4fbf6c47944b"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 685524,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 13952,
+              "body_sha256": "940efb527e83da69c387285a8fee31eb14ee3640315271294837e688f59d3e93",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 13810,
+              "encoded_bytes": 14127,
+              "header_bytes": 168,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "dfebb93add198f71ae6f4e42a9b43819556db40e9a1cc34b54162ede9da25b3c",
+              "nodes": 1,
+              "protobuf_sha256": "b7adcb42b628012764e5ec52a763f12ac408f022204810563beb61c924d36601"
+            },
+            {
+              "body_bytes": 671744,
+              "body_sha256": "ebe087118ef77b39e80cc4fdd436cee6b0627f122ac6504f384a6995328016f1",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 671714,
+              "encoded_bytes": 671936,
+              "header_bytes": 184,
+              "header_kind": "RecordBatch",
+              "header_sha256": "a759292c9d4758cf742588d9455858372c77ee7149a5b8d5a2bfac5f4704e5c0",
+              "nodes": 2,
+              "protobuf_sha256": "984635c00cb4de9dc555fa5acf494704533889a8dbdb3e3f9dfcb654c8151039"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "8348a7b6713d43accd06ae55ac42c45753c00fad9d12b3c82e35105f2059afa0",
+          "payload_bytes": 686280,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 686298
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 685524,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 2560,
+              "body_sha256": "359028b4040c5a15e11dcde5148816c1ceec43420e18f7ed665de74cf7c8ee0a",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 13810,
+              "encoded_bytes": 2743,
+              "header_bytes": 176,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "4fa58c7ea239e074aca00ca39b179d22d61d532e03b0665b322f155b38c27eac",
+              "nodes": 1,
+              "protobuf_sha256": "8fca5fd72388e1fc3af3a066c78a03c5efc9ba58cb823fb710e5c26d623e361f"
+            },
+            {
+              "body_bytes": 272512,
+              "body_sha256": "fa3a1aba79b9ae9512adf1feb5c01ce3624cd1b53af1eafab58f4f13173d0002",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 671714,
+              "encoded_bytes": 272712,
+              "header_bytes": 192,
+              "header_kind": "RecordBatch",
+              "header_sha256": "281e5560910370df4a51806d0a40caed7a17f0799a14af05ce7d7457f1b37a7c",
+              "nodes": 2,
+              "protobuf_sha256": "ed4b23ad13befa4e7ec307ad53113f5f232d094f158b788c44d5a947d2b82ab6"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "186be94862e5dea28e8b68e657b85a9311502ac719f491e1c2fe92bf5e4a76fa",
+          "payload_bytes": 275672,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 275690
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 685524,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 235,
+              "header_bytes": 232,
+              "header_kind": "Schema",
+              "header_sha256": "5e0bb6b56b56ab4741767ff1eb69ac254353aa439fc027ed289082168ec38d1c",
+              "nodes": 0,
+              "protobuf_sha256": "92515619d5436de6e348c21e46dae772d713af3b995a9a5750b9f86dc8db8cef"
+            },
+            {
+              "body_bytes": 1280,
+              "body_sha256": "dcb73c18a45715acd638c6601bf4e9de52d688d46b632aa56044dfe75518d5a7",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 13810,
+              "encoded_bytes": 1471,
+              "header_bytes": 184,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "bfd4fbead4fa25bdc3469aa188e0b8a4a36601141650716fdeab6279f4c6b7de",
+              "nodes": 1,
+              "protobuf_sha256": "217a446735f44c2648aed30331b322335a360a08797b460ec89be68b45900966"
+            },
+            {
+              "body_bytes": 82560,
+              "body_sha256": "4283e26dc6d9c4f78a819070ffab14720097b702c4e4fd756e2dd1d7319f4c04",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 671714,
+              "encoded_bytes": 82768,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3d149418386e874f04791b1c5a7518bb2fa36cf5878a19d57ee0cf3b4386489b",
+              "nodes": 2,
+              "protobuf_sha256": "95dd3b4da3ff708b74b6b9da1cc07a3cc5fba9207cc4d1942efa6bf90770713b"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "15cbe99eeff96f0f6a84f9a9cda3dafc319a0330e6739b7c64fb310c61235365",
+          "payload_bytes": 84456,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 84474
+        }
+      ],
+      "dtype_sha256": "2224917a4931c29b0518a1ab78274818489f657425cbc1b63be7b4a7dbf02400",
+      "id": "dictionary_other",
+      "operation_sha256": "285aa704f31ca6ecc4b75d8d839de68bd173924b34be7e931a8057efdad70f40",
+      "operations_protobuf_hex": "0a330a03616c6c12160a096576656e745f6b657912096576656e745f6b657912140a0863617465676f7279120863617465676f72790a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a460a126c6173745f66697273745f72656e616d656412160a0863617465676f7279120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 208,
+            "provider_part_lengths": [
+              4,
+              48,
+              156
+            ],
+            "sha256": "2224917a4931c29b0518a1ab78274818489f657425cbc1b63be7b4a7dbf02400"
+          },
+          {
+            "bytes": 678281,
+            "provider_part_lengths": [
+              4,
+              208,
+              0,
+              16,
+              524264,
+              16,
+              131066,
+              8192,
+              12750,
+              1032,
+              33,
+              696,
+              4
+            ],
+            "sha256": "21ee0b5367488d00438f620d1c4fb2b8ad9db3bc4ab1d7220aa77fbf64d2dac5"
+          }
+        ],
+        "ordered_payload_sha256": "def58f0b950d0c5e1dd2c89064289033d1f79eb1073ac2e9c40d43ff027a2d5d",
+        "payload_bytes": 678489,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.dict"
+            ],
+            "path": [
+              "category"
+            ]
+          }
+        ]
+      },
+      "rows": 65533,
+      "source_sha256": "58b4e972a6e11f7bc9b905d705ea2cc1221288c4353b30d12f1d87c9c9c647b1"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 540738,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 307,
+              "header_bytes": 304,
+              "header_kind": "Schema",
+              "header_sha256": "ca58f81957a29a28364fa50f900319b3fa68e98822a28fbf8266b662f1b52b73",
+              "nodes": 0,
+              "protobuf_sha256": "9ad2fe1c872dc25b312001fa0b478e91856a7660c82b4a545d5f9be925d67e9f"
+            },
+            {
+              "body_bytes": 540928,
+              "body_sha256": "eb19609cbf83b206b84ec3359682659c96193ab9613cf41a6abf9d078ad3197d",
+              "buffers": 6,
+              "declared_decoded_buffer_bytes": 540738,
+              "encoded_bytes": 541184,
+              "header_bytes": 248,
+              "header_kind": "RecordBatch",
+              "header_sha256": "7587c4a28373a339b0b64af6a78315a6a6e88f86977f22caed0207d1c592f75b",
+              "nodes": 4,
+              "protobuf_sha256": "c2ecb36aee07285ce895495679eada5fca3544dd63f7d5ca8c02c3d745f6082a"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "55cdd24a9a6bfb4b7d8a7e9466f4e06fd40dd99fbd7dcb405ee45fefdc0140d8",
+          "payload_bytes": 541480,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.runend"
+              ],
+              "path": [
+                "run_value"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 541491
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 540738,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 307,
+              "header_bytes": 304,
+              "header_kind": "Schema",
+              "header_sha256": "ca58f81957a29a28364fa50f900319b3fa68e98822a28fbf8266b662f1b52b73",
+              "nodes": 0,
+              "protobuf_sha256": "9ad2fe1c872dc25b312001fa0b478e91856a7660c82b4a545d5f9be925d67e9f"
+            },
+            {
+              "body_bytes": 271040,
+              "body_sha256": "cc0426de349e247a144d654ea4ee34c01692115c01ee867891ece6dcea751052",
+              "buffers": 6,
+              "declared_decoded_buffer_bytes": 540738,
+              "encoded_bytes": 271304,
+              "header_bytes": 256,
+              "header_kind": "RecordBatch",
+              "header_sha256": "73bd5dd33dec7d4794dc30135e4225ecde1e61610b9c8f3ad26ea84603214372",
+              "nodes": 4,
+              "protobuf_sha256": "7ab4ec18dd3fa11e0544160c97ebbc93b5bae694632ccdfc67f2f83349f31d77"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "448a263122caca366d43696c7574aed22bc2e28bfcc40c9db5f51897d1695645",
+          "payload_bytes": 271600,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.runend"
+              ],
+              "path": [
+                "run_value"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 271611
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 540738,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 307,
+              "header_bytes": 304,
+              "header_kind": "Schema",
+              "header_sha256": "ca58f81957a29a28364fa50f900319b3fa68e98822a28fbf8266b662f1b52b73",
+              "nodes": 0,
+              "protobuf_sha256": "9ad2fe1c872dc25b312001fa0b478e91856a7660c82b4a545d5f9be925d67e9f"
+            },
+            {
+              "body_bytes": 82368,
+              "body_sha256": "ea316b516b0b5478c95c7b58365c960dc83bcacf46b48394ec64f729512433c6",
+              "buffers": 6,
+              "declared_decoded_buffer_bytes": 540738,
+              "encoded_bytes": 82640,
+              "header_bytes": 264,
+              "header_kind": "RecordBatch",
+              "header_sha256": "0580c1168f2ea3ae09b4207bd8fdfc027e4473b7e477d77941dc1a4275b60b6b",
+              "nodes": 4,
+              "protobuf_sha256": "f9260f4e84f3e000ba357d3d9c54372c9f656d1ae18f88110252fcc3e647dac3"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "e045bbec9ad4fc2ace56246d3f184b1a886ecfa46885bc14ca92c180da9cddc0",
+          "payload_bytes": 82936,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.runend"
+              ],
+              "path": [
+                "run_value"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 82947
+        }
+      ],
+      "dtype_sha256": "ec69cad84e478c9bf3ad326610c2e383bd27400ffcea6dcd61403a4461cfe558",
+      "id": "run_end",
+      "operation_sha256": "1e18b362f3d079c4f5f639360cad3fe3b672f10aa557318cfdede59dc92c56b1",
+      "operations_protobuf_hex": "0a350a03616c6c12160a096576656e745f6b657912096576656e745f6b657912160a0972756e5f76616c7565120972756e5f76616c75650a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a470a126c6173745f66697273745f72656e616d656412170a0972756e5f76616c7565120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 216,
+            "provider_part_lengths": [
+              4,
+              48,
+              164
+            ],
+            "sha256": "ec69cad84e478c9bf3ad326610c2e383bd27400ffcea6dcd61403a4461cfe558"
+          },
+          {
+            "bytes": 531965,
+            "provider_part_lengths": [
+              4,
+              184,
+              0,
+              16,
+              524264,
+              16,
+              1352,
+              5408,
+              85,
+              632,
+              4
+            ],
+            "sha256": "07d269e1bc99847753c92d9fcb5bc855806b419f7d680b7184e858a8999783a9"
+          }
+        ],
+        "ordered_payload_sha256": "57c1c9a32c3f7535ca0a1fd05b58ef50a101db2d2b7da5278444d92250ab6f34",
+        "payload_bytes": 532181,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.runend"
+            ],
+            "path": [
+              "run_value"
+            ]
+          }
+        ]
+      },
+      "rows": 65533,
+      "source_sha256": "3045111fb2571558818202695e02f1194e24895ced0db20e30842eb5f137b9b2"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 802780,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 191,
+              "header_bytes": 188,
+              "header_kind": "Schema",
+              "header_sha256": "48a9a8875f03246c5a1dfee6c2376f99e7d0ac3424f38209e461a6bfeac2de9b",
+              "nodes": 0,
+              "protobuf_sha256": "eff6bfae8de779f4a2dfc9b4ce0fec752d5152d69b4e107c53133f05845d530d"
+            },
+            {
+              "body_bytes": 802816,
+              "body_sha256": "e7ca6d4cc7161705b0a4e2b6603e87fe57a7f3ff8808aaef9b0f18a88254f8ec",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 802780,
+              "encoded_bytes": 803008,
+              "header_bytes": 184,
+              "header_kind": "RecordBatch",
+              "header_sha256": "9a03365e87d1df84aef0ef41c7478878c1db928c311441852779416eb58192d5",
+              "nodes": 2,
+              "protobuf_sha256": "e343502385bd584f8d665fc7be0b117968c2e08386e55babf9de34b1fd2e5006"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "db200a34f937be1b75e7c32450e49c0acd8277c28e4f339dbec2a009c25ac9b3",
+          "payload_bytes": 803188,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 803199
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 802780,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 191,
+              "header_bytes": 188,
+              "header_kind": "Schema",
+              "header_sha256": "48a9a8875f03246c5a1dfee6c2376f99e7d0ac3424f38209e461a6bfeac2de9b",
+              "nodes": 0,
+              "protobuf_sha256": "eff6bfae8de779f4a2dfc9b4ce0fec752d5152d69b4e107c53133f05845d530d"
+            },
+            {
+              "body_bytes": 268096,
+              "body_sha256": "151871a64690c323cb9d12265066df3792de59bf829d07790f058d27698ac0f4",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 802780,
+              "encoded_bytes": 268296,
+              "header_bytes": 192,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3aa7707f8ddb0c495a9ac618ba22ef833236132af76fe4cef940d43e3c13c037",
+              "nodes": 2,
+              "protobuf_sha256": "28838a3816743be43442b2a4e08b10d6d2c66bc1291e5da0b5d48fc2671ed176"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "ba5d7ac86f7ecda234e1d4f4470f1e9e852b435e5690614d6267dd15bd3d1a01",
+          "payload_bytes": 268476,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 268487
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 802780,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 191,
+              "header_bytes": 188,
+              "header_kind": "Schema",
+              "header_sha256": "48a9a8875f03246c5a1dfee6c2376f99e7d0ac3424f38209e461a6bfeac2de9b",
+              "nodes": 0,
+              "protobuf_sha256": "eff6bfae8de779f4a2dfc9b4ce0fec752d5152d69b4e107c53133f05845d530d"
+            },
+            {
+              "body_bytes": 80000,
+              "body_sha256": "9dbd8da9afeb1c55cd76694171dead20890aaeb076d69763b3325976845ab113",
+              "buffers": 4,
+              "declared_decoded_buffer_bytes": 802780,
+              "encoded_bytes": 80208,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "206ab25f107e1f21b7bd91293ecb1b74f946a08cded06b55098562a264acfa3e",
+              "nodes": 2,
+              "protobuf_sha256": "b1ae194cc3338cb33f99f0f9bf7fb27684ebdb2cab0458178b43ac7e5fbe38ab"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "7e7c3ebe35314aa421377324adee5e3e8e47243bec2b4bafae8bab01a84f07d2",
+          "payload_bytes": 80388,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 80399
+        }
+      ],
+      "dtype_sha256": "7c03370eaa70ff2d7a64e27ae526013628712f364f1cb5fee479e91a76153507",
+      "id": "bitpacked",
+      "operation_sha256": "d69ab90e06dc39e3015c652947d8d315cf3aa680acbfe60f05e050535fc7b456",
+      "operations_protobuf_hex": "0a3b0a03616c6c12160a096576656e745f6b657912096576656e745f6b6579121c0a0c7061636b65645f76616c7565120c7061636b65645f76616c75650a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a4a0a126c6173745f66697273745f72656e616d6564121a0a0c7061636b65645f76616c7565120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 212,
+            "provider_part_lengths": [
+              4,
+              48,
+              160
+            ],
+            "sha256": "7c03370eaa70ff2d7a64e27ae526013628712f364f1cb5fee479e91a76153507"
+          },
+          {
+            "bytes": 565848,
+            "provider_part_lengths": [
+              4,
+              168,
+              0,
+              16,
+              524264,
+              16,
+              40960,
+              416,
+              4
+            ],
+            "sha256": "19ff556abd0a3917afd9f3ee1d83a9348bc9b0bd019074fdcc460454d87a834c"
+          }
+        ],
+        "ordered_payload_sha256": "0043330750e109202f048a4366a37343e44bac14cc7f562fa3ebb4d0f61be8f0",
+        "payload_bytes": 566060,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "fastlanes.bitpacked"
+            ],
+            "path": [
+              "packed_value"
+            ]
+          }
+        ]
+      },
+      "rows": 65533,
+      "source_sha256": "a446889e8cfb38908fb88b7e8e6cd8587133565786a281e723832095e55a04a9"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 4095226,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 203,
+              "header_bytes": 200,
+              "header_kind": "Schema",
+              "header_sha256": "a5dc03d54aad26f6adbf7ec386ce127724e08afaa2601710af1dff0f2e3fd020",
+              "nodes": 0,
+              "protobuf_sha256": "ed75c03a3797b2fdd7cf9ff251a4399cd860d16a3b989bbd128c77fe4dd2698b"
+            },
+            {
+              "body_bytes": 1023360,
+              "body_sha256": "cc12d0474adf3169280b9bf8a9030ce7d0477b437fe179db31358ffe353dd9ac",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023278,
+              "encoded_bytes": 1023568,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "40077207131885349960bdd7c5d22e029b7b99e9919e193aa530f15e0a81d58f",
+              "nodes": 2,
+              "protobuf_sha256": "5740ce723c2ad641f68e7b956e68b8c3f2bf0190c12c982fc61aafbd5ce07150"
+            },
+            {
+              "body_bytes": 1023872,
+              "body_sha256": "88a2998cdd788c84f9a79489e526530aa7c6ceda771667c23665cf9f5f8208e4",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023796,
+              "encoded_bytes": 1024080,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "96a8c652ebb6ce407ad624eeac043dd5a52bcfc49b8a8dbf5e41a2e031ce703d",
+              "nodes": 2,
+              "protobuf_sha256": "f7ee517d9ca6f3d83a24cd303c490659a3bc8cf6e40fdab89dbc1eda06240d53"
+            },
+            {
+              "body_bytes": 1023360,
+              "body_sha256": "ad57433343f562ce17fc6e121365bcaca8e2347a5acf67ddd2e84f58afb10d43",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023278,
+              "encoded_bytes": 1023568,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "40077207131885349960bdd7c5d22e029b7b99e9919e193aa530f15e0a81d58f",
+              "nodes": 2,
+              "protobuf_sha256": "99c7cdbcf81ffe761ed24151c098e997621f4a3d95684507489c41a0b71fee69"
+            },
+            {
+              "body_bytes": 1023872,
+              "body_sha256": "831cf3293b1cc6d62f64eb4bc727527268f7035e50f30d2ab62371b51c6b34f5",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023796,
+              "encoded_bytes": 1024080,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "96a8c652ebb6ce407ad624eeac043dd5a52bcfc49b8a8dbf5e41a2e031ce703d",
+              "nodes": 2,
+              "protobuf_sha256": "722ab6bc278320a60864ac9a213e3bbcb650855e9fc81197a80277200c70411a"
+            },
+            {
+              "body_bytes": 1344,
+              "body_sha256": "d515c9ac80607482f2513fe77caf7a08fd816277a67faf18aa79579f0b5e0bab",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1078,
+              "encoded_bytes": 1551,
+              "header_bytes": 200,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3176eb57cdf63f2f9495adf9b4306a7a03cfe18fe1789ec1e9ae9f91e9c78dcb",
+              "nodes": 2,
+              "protobuf_sha256": "00d7d518119fba0ca73724c606d4088e19604e605a1a2f43246406c803c75c95"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "6f130ab6f4782f8df4bd0f24d6eab868d02e9f494f3e25d39b942a208b0479e1",
+          "payload_bytes": 4097008,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 4097050
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 4095226,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 203,
+              "header_bytes": 200,
+              "header_kind": "Schema",
+              "header_sha256": "a5dc03d54aad26f6adbf7ec386ce127724e08afaa2601710af1dff0f2e3fd020",
+              "nodes": 0,
+              "protobuf_sha256": "ed75c03a3797b2fdd7cf9ff251a4399cd860d16a3b989bbd128c77fe4dd2698b"
+            },
+            {
+              "body_bytes": 28608,
+              "body_sha256": "8f3bb2cc79d42374993ca4083a7e4ecee5a4c70dbc418e130ac9732b7baf0f53",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023278,
+              "encoded_bytes": 28824,
+              "header_bytes": 208,
+              "header_kind": "RecordBatch",
+              "header_sha256": "e67ef220a28d4bf914c514211df25e93f9907ccfb5a14bae1be53eaaddd412cf",
+              "nodes": 2,
+              "protobuf_sha256": "b186a31a525cd5c130e8653888bd5211a76cb161a4d9f9ff996d499b5bc64311"
+            },
+            {
+              "body_bytes": 28800,
+              "body_sha256": "594753de9cc1828ae5f3d528d5968b6402d06a7392c7d4ff34eff3f8f522d514",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023796,
+              "encoded_bytes": 29016,
+              "header_bytes": 208,
+              "header_kind": "RecordBatch",
+              "header_sha256": "c076eca1c45c8190dbd17bdffd754d4586c3c406a4696581cf4d16c991874e4f",
+              "nodes": 2,
+              "protobuf_sha256": "0c1da718bdaed0b69df5bb1afd993d815edfa37c94037a60c36a8bb83c494f01"
+            },
+            {
+              "body_bytes": 28544,
+              "body_sha256": "c4713bf485fc21b8331a25bde80ea279769a3952d42643712240a9be2e868475",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023278,
+              "encoded_bytes": 28760,
+              "header_bytes": 208,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3600ef0159428409f2d7f7d7d71dc9e288f304f2318081c062314971614df459",
+              "nodes": 2,
+              "protobuf_sha256": "f75e3bcd25fcdddfda880f38fc603d81fa1a2efc8ec15763c9706f077002858a"
+            },
+            {
+              "body_bytes": 28544,
+              "body_sha256": "fd02dde67cc5a18b0cd9d36d87cda4918c3bfd90f02b90eee346eeb3b9bb303a",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023796,
+              "encoded_bytes": 28760,
+              "header_bytes": 208,
+              "header_kind": "RecordBatch",
+              "header_sha256": "6d275cac2ca6b61f19efca79e3a61f152c795fb57ec592114c6f6f1fb1fb8374",
+              "nodes": 2,
+              "protobuf_sha256": "2b77cc39627c5fc3fd7b8158fc5f3b7be27f109533afd79cdab65b7eb0a9e22a"
+            },
+            {
+              "body_bytes": 384,
+              "body_sha256": "f06657f0368dc55dc43292119bfd72d9ae91d1848ca79dd6dc1aa4bf0f4a1ab6",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1078,
+              "encoded_bytes": 599,
+              "header_bytes": 208,
+              "header_kind": "RecordBatch",
+              "header_sha256": "499532c50f93af4e02c633e8163cc474f0bb4fae3fcd07c835d49a38c9402daf",
+              "nodes": 2,
+              "protobuf_sha256": "d5c370b709ca3267703ec76ac5acb49549039146087009cb14d53f636430ae23"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "5093642182f604a3baabe45bdd4429e818ffe1c037da19a5ef80c98cf39fdcac",
+          "payload_bytes": 116120,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 116162
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 4095226,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 203,
+              "header_bytes": 200,
+              "header_kind": "Schema",
+              "header_sha256": "a5dc03d54aad26f6adbf7ec386ce127724e08afaa2601710af1dff0f2e3fd020",
+              "nodes": 0,
+              "protobuf_sha256": "ed75c03a3797b2fdd7cf9ff251a4399cd860d16a3b989bbd128c77fe4dd2698b"
+            },
+            {
+              "body_bytes": 13440,
+              "body_sha256": "e681a7b16d2ff59cefe6e2427f33bffb9a578af77feea5975d13d5e5aed93102",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023278,
+              "encoded_bytes": 13663,
+              "header_bytes": 216,
+              "header_kind": "RecordBatch",
+              "header_sha256": "23a0784d120603b5d38e6dd73bba0579ea84b970a98de4aea7d535f1583f0dfa",
+              "nodes": 2,
+              "protobuf_sha256": "dbcc957cfb2a73a04705962851c2abaa1e6bba96fdf137ef0da497499228f865"
+            },
+            {
+              "body_bytes": 13184,
+              "body_sha256": "8bab0182df17a2844cc1b998c9a20534405180dd63fcf99d13c2d804d3f60802",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023796,
+              "encoded_bytes": 13407,
+              "header_bytes": 216,
+              "header_kind": "RecordBatch",
+              "header_sha256": "9a1dc5800e79f3cea3ad9154b7725a02fc9f495957833b92c52176469220de37",
+              "nodes": 2,
+              "protobuf_sha256": "9c867d113c5acb05a45e37056e761042d35b5f08ee7569865d123e5fd5786756"
+            },
+            {
+              "body_bytes": 13376,
+              "body_sha256": "a813f31fa98a1118d7f93f20074abe057172e4044b0eb00883dc9adafc265856",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023278,
+              "encoded_bytes": 13599,
+              "header_bytes": 216,
+              "header_kind": "RecordBatch",
+              "header_sha256": "c1838adb19e6d69773d932b251612804c8784dc40bb46bb378b3e918ec26936d",
+              "nodes": 2,
+              "protobuf_sha256": "a3255d0d39a3450bb8fa662d484767b126a255f6a3069970c0cd64d04316238a"
+            },
+            {
+              "body_bytes": 13376,
+              "body_sha256": "f2017b772e2f6fb247ac0858d4ef4bcc539873f270207460495f4fbcb538e46d",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1023796,
+              "encoded_bytes": 13599,
+              "header_bytes": 216,
+              "header_kind": "RecordBatch",
+              "header_sha256": "2c0099ba49603f52986659209a1cc1557eb0ec75c1f411361d4b52bd9b979a9a",
+              "nodes": 2,
+              "protobuf_sha256": "f4e8490aacdbd29812ae81258d250ee2cab321ebacb53666b38944da44db9f2b"
+            },
+            {
+              "body_bytes": 384,
+              "body_sha256": "6acf21c3ba53542378eb1e538656090a565d530d97322eae8f10cc3509022a00",
+              "buffers": 5,
+              "declared_decoded_buffer_bytes": 1078,
+              "encoded_bytes": 607,
+              "header_bytes": 216,
+              "header_kind": "RecordBatch",
+              "header_sha256": "88164ee0e051223f17402be9b0e5ded7da204d577ce7fb09309d25b1de692a8e",
+              "nodes": 2,
+              "protobuf_sha256": "19d59c5778feb53e9427e375fea9c13a8dcdedf0294cb7b43df4659ff42d49ea"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "d0af69f4d438586d12b1fd1d0f9fa4165fc74c7a0c2a8c70098df33b4a8d79df",
+          "payload_bytes": 55040,
+          "preserved_encodings": [],
+          "standard_flight_protobuf_bytes": 55078
+        }
+      ],
+      "dtype_sha256": "8c16e8d5b3a3b1a8d827a0a6e14205d50b2696a6b925e0026c53777b73e5328e",
+      "id": "wide_text",
+      "operation_sha256": "a84663120d0003837050777f12957f077a4b0818f38eee3cfa40db77939820db",
+      "operations_protobuf_hex": "0a3b0a03616c6c12160a096576656e745f6b657912096576656e745f6b6579121c0a0c776964655f63617074696f6e120c776964655f63617074696f6e0a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a4a0a126c6173745f66697273745f72656e616d6564121a0a0c776964655f63617074696f6e120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 212,
+            "provider_part_lengths": [
+              4,
+              48,
+              160
+            ],
+            "sha256": "8c16e8d5b3a3b1a8d827a0a6e14205d50b2696a6b925e0026c53777b73e5328e"
+          },
+          {
+            "bytes": 4094937,
+            "provider_part_lengths": [
+              4,
+              184,
+              0,
+              16,
+              65560,
+              16,
+              3994816,
+              32784,
+              1025,
+              528,
+              4
+            ],
+            "sha256": "0968a77e938a3066ac5f9241fd2dabb8267735a94de9bb11fc7b652c06be0672"
+          }
+        ],
+        "ordered_payload_sha256": "0d457316483d364b28bc0a9dc105d2e91954f67125ba219084e1c57dfd18d596",
+        "payload_bytes": 4095149,
+        "preserved_encodings": []
+      },
+      "rows": 8195,
+      "source_sha256": "aea7780f04aed550345e28ce2dd608e2cce3f9d3ac29aedbb6f23ea88f38f855"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 95125,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 439,
+              "header_bytes": 436,
+              "header_kind": "Schema",
+              "header_sha256": "d752c78d3ad5cb21cb49755844fce92bf82840f8753a8a65143bb3c1b233bd47",
+              "nodes": 0,
+              "protobuf_sha256": "eb180464323835917231fc34eac7f3d8f05b3ba497ed9474bfc466c5cb8e0d49"
+            },
+            {
+              "body_bytes": 960,
+              "body_sha256": "e8f2769bfc75fe6d70db70f8b918d419705682a8e57aaa821062669e74a7b377",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 840,
+              "encoded_bytes": 1135,
+              "header_bytes": 168,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "111ac9f5f4cc5f5c928570ab092fae07b02b6cda80d09edca73eb916ad8b7bba",
+              "nodes": 1,
+              "protobuf_sha256": "396324a3c2d321a54a68101d6bb919096e0e1bb6516d1c77fdbfac7b92da998d"
+            },
+            {
+              "body_bytes": 94912,
+              "body_sha256": "1e0eea2332583deae26cc049d092e2543325f9e19022d70124b7ff2306d836ac",
+              "buffers": 11,
+              "declared_decoded_buffer_bytes": 94285,
+              "encoded_bytes": 95280,
+              "header_bytes": 360,
+              "header_kind": "RecordBatch",
+              "header_sha256": "e2a623782fc49b4c711ace4d993419173e044cb51706c4115f07176402db96f0",
+              "nodes": 6,
+              "protobuf_sha256": "c44eae4c5a7b3425547e5edad75e6703f54ec1bb2b2ce4c4ae59731b6cdca3ce"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "936ae196a5cbca64d1f013ad6a47c7a3b31ac803aa4890ff8572b71011d2f9ac",
+          "payload_bytes": 96836,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "attributes",
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 96854
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 95125,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 439,
+              "header_bytes": 436,
+              "header_kind": "Schema",
+              "header_sha256": "d752c78d3ad5cb21cb49755844fce92bf82840f8753a8a65143bb3c1b233bd47",
+              "nodes": 0,
+              "protobuf_sha256": "eb180464323835917231fc34eac7f3d8f05b3ba497ed9474bfc466c5cb8e0d49"
+            },
+            {
+              "body_bytes": 384,
+              "body_sha256": "fd23758e2f1b06ff08c0a0d476c6f9fd6b893809a06480379d9fb31dbb9e612b",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 840,
+              "encoded_bytes": 567,
+              "header_bytes": 176,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "d696edb0f91101bdfe8d735d5db5b62b8ef68fabc5ade9267ec5531f910af2d8",
+              "nodes": 1,
+              "protobuf_sha256": "1cdcddcf1bfd4ed05ef6587024c4b7087ec20a455957833d6c676761ce8660b1"
+            },
+            {
+              "body_bytes": 60288,
+              "body_sha256": "7f9df499a444d7118bb49d4312b928c4f1f4880de9d364723776d4731cc7e321",
+              "buffers": 11,
+              "declared_decoded_buffer_bytes": 94285,
+              "encoded_bytes": 60664,
+              "header_bytes": 368,
+              "header_kind": "RecordBatch",
+              "header_sha256": "832a4fb7f652f537fcf56754ee476b3cc82daa8dd17a918978c9c618d5d75cb0",
+              "nodes": 6,
+              "protobuf_sha256": "2e62473545911f0bdfbc38efd030432d1dfd8ae937d105121536b4d86524ba9e"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "c9ee8f9fd839b3ea263fc4252d5dadb5f688614de22243ed33b04fee112d856b",
+          "payload_bytes": 61652,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "attributes",
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 61670
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 95125,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 439,
+              "header_bytes": 436,
+              "header_kind": "Schema",
+              "header_sha256": "d752c78d3ad5cb21cb49755844fce92bf82840f8753a8a65143bb3c1b233bd47",
+              "nodes": 0,
+              "protobuf_sha256": "eb180464323835917231fc34eac7f3d8f05b3ba497ed9474bfc466c5cb8e0d49"
+            },
+            {
+              "body_bytes": 320,
+              "body_sha256": "413fc630f3ff439ecb751c6f34706dd2ba73e791b92bf352085e204ca3b8236b",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 840,
+              "encoded_bytes": 511,
+              "header_bytes": 184,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "3b2158deb0c4dacd32762fdafdb4f1e29f9d67141aa7945565488ad6a6f3b77b",
+              "nodes": 1,
+              "protobuf_sha256": "6e358c749267b892adbf0747992b5e9003d8d9287654811b763f1cfb92b33421"
+            },
+            {
+              "body_bytes": 29888,
+              "body_sha256": "ced6893e0de5c2c2a4e08b0828cad94173d7af22eeb7e9c26253201a28275b08",
+              "buffers": 11,
+              "declared_decoded_buffer_bytes": 94285,
+              "encoded_bytes": 30272,
+              "header_bytes": 376,
+              "header_kind": "RecordBatch",
+              "header_sha256": "b81a099934d7a8a3598204121e6c041c4694eaf900a191fc38ec93b16485b577",
+              "nodes": 6,
+              "protobuf_sha256": "b8414f009bf4e021fd22214cbfbd6d2f3a1e6b0f9d4521aa1b622c56e90b06d4"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "2a21e6c76b26cf4727c5e990a4d5bff05b014096d0466890a9affc1aa9463f41",
+          "payload_bytes": 31204,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "attributes",
+                "category"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 31222
+        }
+      ],
+      "dtype_sha256": "45dfeec036debf4a84d31961945ec93847309bd30264cbfd308db0dc3e69a0cb",
+      "id": "nested",
+      "operation_sha256": "b1aa2c9f49d49114572c4aec7e78c2c434ea47777f69c78715607affaed615f1",
+      "operations_protobuf_hex": "0a4b0a03616c6c12160a096576656e745f6b657912096576656e745f6b657912180a0a61747472696275746573120a6174747269627574657312120a0773616d706c6573120773616d706c65730a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a450a126c6173745f66697273745f72656e616d656412150a0773616d706c6573120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 384,
+            "provider_part_lengths": [
+              4,
+              48,
+              332
+            ],
+            "sha256": "45dfeec036debf4a84d31961945ec93847309bd30264cbfd308db0dc3e69a0cb"
+          },
+          {
+            "bytes": 112075,
+            "provider_part_lengths": [
+              4,
+              224,
+              0,
+              16,
+              32792,
+              16,
+              8198,
+              513,
+              765,
+              72,
+              3,
+              513,
+              513,
+              16,
+              32792,
+              1025,
+              32800,
+              513,
+              1296,
+              4
+            ],
+            "sha256": "9d8d5e2a1c0cc461e289502b02d1b062176a65be089cfc668b3f7bc08849ec07"
+          }
+        ],
+        "ordered_payload_sha256": "b4ba4a0326c25cf7de1efcbf8e8103fa8f397c7e4391560f9497600df9fa74bc",
+        "payload_bytes": 112459,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.dict"
+            ],
+            "path": [
+              "attributes",
+              "category"
+            ]
+          }
+        ]
+      },
+      "rows": 4099,
+      "source_sha256": "05dcbbdec5c418cc67637d01fc38d0b09f876fa53206928f30413c1577e3168c"
+    },
+    {
+      "arrow_flight": [
+        {
+          "codec": "none",
+          "declared_decoded_buffer_bytes": 230921,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 323,
+              "header_bytes": 320,
+              "header_kind": "Schema",
+              "header_sha256": "4eba8552a92394fb1d84404ebb9282106b50da6e32764a061201015e06e6774a",
+              "nodes": 0,
+              "protobuf_sha256": "742a14b8b7769407390d3c551c723fe3b24ca7566a408e5ba0de09c53e8d8366"
+            },
+            {
+              "body_bytes": 14208,
+              "body_sha256": "a3c5098fedfea9ea5a9900386e2a014fbd0e01703b4d2229c433040314ff68fa",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14065,
+              "encoded_bytes": 14383,
+              "header_bytes": 168,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "028e4643203646e08a5814baa38fd5a07a1590c15501e964585e5d317eba9374",
+              "nodes": 1,
+              "protobuf_sha256": "d1155b4fbbf2a89d1ebac854fd1e579205c6f254b8e68387137748e40dcf70a1"
+            },
+            {
+              "body_bytes": 14208,
+              "body_sha256": "a3c5098fedfea9ea5a9900386e2a014fbd0e01703b4d2229c433040314ff68fa",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14065,
+              "encoded_bytes": 14391,
+              "header_bytes": 176,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "4e9b8bf6d8b22eb3d4a4f77a0517bf3a56d1eb8ba4707ac3310b79702fc00da9",
+              "nodes": 1,
+              "protobuf_sha256": "dd2fe00e5b7315dce5e8cae2d4120fa24a5810101f44e6a6f614bff575c1f484"
+            },
+            {
+              "body_bytes": 203136,
+              "body_sha256": "bc4ce95c6b4b542cadf327d3af988430c5528864545abffa24b9322100d25273",
+              "buffers": 6,
+              "declared_decoded_buffer_bytes": 202791,
+              "encoded_bytes": 203376,
+              "header_bytes": 232,
+              "header_kind": "RecordBatch",
+              "header_sha256": "3f454d31b54ad99b139678925789c829a54408e8ea1630753c88a169f355f095",
+              "nodes": 3,
+              "protobuf_sha256": "5e2602d1532afed194b2a46702a55fd3ef6f4303be03b2d795eea1ebc187c876"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "e5e05088f218f28bac7558dc2525b31ae8532153410a9eda629d6be641c3ed5b",
+          "payload_bytes": 232448,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "left_text"
+              ]
+            },
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "right_text"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 232473
+        },
+        {
+          "codec": "lz4",
+          "declared_decoded_buffer_bytes": 230921,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 323,
+              "header_bytes": 320,
+              "header_kind": "Schema",
+              "header_sha256": "4eba8552a92394fb1d84404ebb9282106b50da6e32764a061201015e06e6774a",
+              "nodes": 0,
+              "protobuf_sha256": "742a14b8b7769407390d3c551c723fe3b24ca7566a408e5ba0de09c53e8d8366"
+            },
+            {
+              "body_bytes": 2560,
+              "body_sha256": "f059e74d257711d9a874b161fa4d04861c475e8c13dc39eddc94cf11cc37dbc2",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14065,
+              "encoded_bytes": 2743,
+              "header_bytes": 176,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "4fa58c7ea239e074aca00ca39b179d22d61d532e03b0665b322f155b38c27eac",
+              "nodes": 1,
+              "protobuf_sha256": "18859e7b6aed802310b59d442f59b6b67973548ed5f3f45d79a4e503c9e7b94c"
+            },
+            {
+              "body_bytes": 2560,
+              "body_sha256": "f059e74d257711d9a874b161fa4d04861c475e8c13dc39eddc94cf11cc37dbc2",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14065,
+              "encoded_bytes": 2759,
+              "header_bytes": 192,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "3b62589dd33dbc6cc4a58d817689d5d606d684f6e4eb90f2f2f9468cd60ef41c",
+              "nodes": 1,
+              "protobuf_sha256": "aebad259665f24660411271d686a652460489c97cd109e92475a4100bc0ca0cb"
+            },
+            {
+              "body_bytes": 72512,
+              "body_sha256": "6c03750972fff2e32d3c5843fec91dd22ffc37c0a45fb547efa9fbfc5d6dd61e",
+              "buffers": 6,
+              "declared_decoded_buffer_bytes": 202791,
+              "encoded_bytes": 72760,
+              "header_bytes": 240,
+              "header_kind": "RecordBatch",
+              "header_sha256": "12dbf5f1ff3ef2671d5e864dcdd2556526bfe7ecb19991f632b87d22a54f016d",
+              "nodes": 3,
+              "protobuf_sha256": "99611c64ed8f3cb871ce60e143fbeacba733a77c7955e2c71d66db2b47a49eca"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "8d24245d77a553c396afb7bf0efdff896c56bbfd6a9ffdf8174517444e4912c3",
+          "payload_bytes": 78560,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "left_text"
+              ]
+            },
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "right_text"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 78585
+        },
+        {
+          "codec": "zstd",
+          "declared_decoded_buffer_bytes": 230921,
+          "dictionary_handling": "Resend",
+          "frames": [
+            {
+              "body_bytes": 0,
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "buffers": 0,
+              "declared_decoded_buffer_bytes": 0,
+              "encoded_bytes": 323,
+              "header_bytes": 320,
+              "header_kind": "Schema",
+              "header_sha256": "4eba8552a92394fb1d84404ebb9282106b50da6e32764a061201015e06e6774a",
+              "nodes": 0,
+              "protobuf_sha256": "742a14b8b7769407390d3c551c723fe3b24ca7566a408e5ba0de09c53e8d8366"
+            },
+            {
+              "body_bytes": 1280,
+              "body_sha256": "b3ed6f1731d0a5e6e0e5f95ab9a2bc9380c63b0ebf298e062c94ad2e16c64157",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14065,
+              "encoded_bytes": 1471,
+              "header_bytes": 184,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "3d6ce061c696574c7d612c30aed2c378b24613da4d1566cf84a3477745bc581f",
+              "nodes": 1,
+              "protobuf_sha256": "9e16b53a5ec08920a64179176c82d2b92b01d7795c9f6483ed378a3756651258"
+            },
+            {
+              "body_bytes": 1280,
+              "body_sha256": "b3ed6f1731d0a5e6e0e5f95ab9a2bc9380c63b0ebf298e062c94ad2e16c64157",
+              "buffers": 3,
+              "declared_decoded_buffer_bytes": 14065,
+              "encoded_bytes": 1487,
+              "header_bytes": 200,
+              "header_kind": "DictionaryBatch",
+              "header_sha256": "54c5635956c7fefdc326ff064d63e1cd67b718de6dea1564ed5f7bb3890edda0",
+              "nodes": 1,
+              "protobuf_sha256": "7509a0342a265d281701da54e59a7b54d1e6cf27f9734a08a92f89dd26de9c67"
+            },
+            {
+              "body_bytes": 22912,
+              "body_sha256": "f0feed55c3fff8a66ae7fd7c83d0d9d49f391a4e33962733fc8136185465bfe6",
+              "buffers": 6,
+              "declared_decoded_buffer_bytes": 202791,
+              "encoded_bytes": 23168,
+              "header_bytes": 248,
+              "header_kind": "RecordBatch",
+              "header_sha256": "170d38f9ef561f1ef60f61c35a8bdded24ec093373176fbefde06985b99da908",
+              "nodes": 3,
+              "protobuf_sha256": "2166a542a824c93651a0c9eb7e7bbb97b00bf0d25256ff82f53c2671f3fb6082"
+            }
+          ],
+          "max_flight_data_size": 1048576,
+          "ordered_payload_sha256": "6ed099af06bacd4cbae4bc876c61a3eb51e5d49900abf727a29a0842e1e48d58",
+          "payload_bytes": 26424,
+          "preserved_encodings": [
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "left_text"
+              ]
+            },
+            {
+              "native_encodings_below_chunk_containers": [
+                "vortex.dict"
+              ],
+              "path": [
+                "right_text"
+              ]
+            }
+          ],
+          "standard_flight_protobuf_bytes": 26449
+        }
+      ],
+      "dtype_sha256": "b381ddeebb9fb2618b4e106bfef2c6c92531ff2669cd3404e845dbef80806088",
+      "id": "sliced_shared",
+      "operation_sha256": "624d149d37402a1cbf4f17ea67307f4a89015bfee02b73fd4a9a1b010edda5d8",
+      "operations_protobuf_hex": "0a4f0a03616c6c12160a096576656e745f6b657912096576656e745f6b657912160a096c6566745f7465787412096c6566745f7465787412180a0a72696768745f74657874120a72696768745f746578740a1f0a05666972737412160a096576656e745f6b657912096576656e745f6b65790a480a126c6173745f66697273745f72656e616d656412180a0a72696768745f74657874120a6c6173745f76616c756512180a096576656e745f6b6579120b66697273745f76616c7565120400010201",
+      "ordinary_native_ipc": {
+        "messages": [
+          {
+            "bytes": 252,
+            "provider_part_lengths": [
+              4,
+              48,
+              200
+            ],
+            "sha256": "b381ddeebb9fb2618b4e106bfef2c6c92531ff2669cd3404e845dbef80806088"
+          },
+          {
+            "bytes": 230292,
+            "provider_part_lengths": [
+              4,
+              208,
+              0,
+              16,
+              131096,
+              16,
+              32774,
+              2050,
+              13005,
+              1032,
+              33,
+              16,
+              32774,
+              2050,
+              13005,
+              1032,
+              33,
+              1144,
+              4
+            ],
+            "sha256": "dfb69f174685864c052f61df8748bf47b04da1f28d1ee80621c66c1833a09d8d"
+          }
+        ],
+        "ordered_payload_sha256": "9fb6f9693a4f513ae41bd86904b36fadfeb4ccaefc2bbd592e1497d392ca85d1",
+        "payload_bytes": 230544,
+        "preserved_encodings": [
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.dict"
+            ],
+            "path": [
+              "left_text"
+            ]
+          },
+          {
+            "native_encodings_below_chunk_containers": [
+              "vortex.dict"
+            ],
+            "path": [
+              "right_text"
+            ]
+          }
+        ]
+      },
+      "rows": 16387,
+      "source_sha256": "94ea3c51ef56594b1f07ac2130db4af6f6a877dd59647ff8d3235046f9c03335"
+    }
+  ],
+  "cohorts": {
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 3347,
+    "independent_cohorts": 2,
+    "role_rotation": "(case_index + sample_index) % 5; reverse roles and case order in cohort 2",
+    "samples_per_case_mode": 5,
+    "unscored_preflights": 65,
+    "upper_order_statistic_zero_based": 9499,
+    "workflows_per_cohort": 325
+  },
+  "controls": {
+    "bytes": 479306,
+    "file": "native-exchange-fixture-validation-840-a1.json",
+    "sha256": "5894ea80201d0c543724f65ef94f2829f169ca89199f756bac286c44c55e283a"
+  },
+  "execution_order": [
+    0,
+    1,
+    2,
+    1
+  ],
+  "execution_requirements": "sequential guarded local storage; fresh child pair/connection; exact source/build/argv frozen after correctness before measurement; every failure retained",
+  "fixture_manifest": {
+    "bytes": 63329,
+    "file": "fixture-manifest.json",
+    "sha256": "58a1556806cfc708a0f4fddaef6e18a81442609b2ae031fba786ca82fb43eb7f"
+  },
+  "gates": {
+    "all_cases_native_engine_max_increase": {
+      "fraction": 0.05,
+      "rule": "larger allowance",
+      "seconds": 0.0005
+    },
+    "all_cases_native_workflow_max_increase": {
+      "fraction": 0.05,
+      "rule": "larger allowance",
+      "seconds": 0.005
+    },
+    "all_correctness_security_lifetime_resources_client_checks": "required",
+    "candidate_whole_message_assembly_bytes": 0,
+    "decision": "both cohorts must pass every gate",
+    "distinct_winning_encoded_families_min": 2,
+    "native_control_whole_message_assembly_bytes": "positive in every case",
+    "nonbenefiting_each_arrow_workflow_max_increase": {
+      "fraction": 0.05,
+      "rule": "larger allowance",
+      "seconds": 0.005
+    },
+    "target_geometric_mean_workflow_ratio_max_each_arrow": 0.9,
+    "target_upper_bootstrap_ratio_exclusive_max_each_arrow": 1.0,
+    "winning_target_wire_or_combined_peer_cpu_ratio_max_each_arrow": 0.9,
+    "winning_target_workflow_ratio_max_each_arrow": 0.9
+  },
+  "limits": {
+    "complete_payload_bytes": 67108864,
+    "control_bytes": 16384,
+    "encoded_rpc_bytes": 2097152,
+    "fragment_payload_bytes": 1048576,
+    "fragment_segments": 128,
+    "frames": 256,
+    "native_memory_bytes": 268435456,
+    "queued_bytes": 4194304,
+    "queued_frames": 4
+  },
+  "modes": [
+    "native_fragments",
+    "native_assembled",
+    "arrow_none",
+    "arrow_lz4",
+    "arrow_zstd"
+  ],
+  "nonbenefiting_controls": [
+    "empty",
+    "tiny",
+    "nullable_plain",
+    "wide_text"
+  ],
+  "ordinary_sql_client": {
+    "case": "dictionary_large",
+    "provider": "arrow-flight-58.3.0 FlightSqlServiceClient",
+    "reference_query": "last_first_renamed",
+    "sql": "SELECT category AS last_value, event_key AS first_value FROM exchange_fixture"
+  },
+  "planned_commands": [
+    [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "shardloom-vortex",
+      "--features",
+      "release-user-surfaces,native-encoded-exchange-experiment",
+      "--test",
+      "native_encoded_exchange_protocol",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "--release",
+      "-p",
+      "shardloom-vortex",
+      "--features",
+      "release-user-surfaces,native-encoded-exchange-experiment",
+      "--test",
+      "native_encoded_exchange_two_process",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "--release",
+      "-p",
+      "shardloom-vortex",
+      "--features",
+      "release-user-surfaces,native-encoded-exchange-experiment",
+      "--test",
+      "native_encoded_exchange_client_interop",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    [
+      "cargo",
+      "build",
+      "--offline",
+      "--locked",
+      "--release",
+      "-p",
+      "shardloom-vortex",
+      "--features",
+      "native-encoded-exchange-experiment",
+      "--bin",
+      "shardloom-native-exchange-experiment"
+    ],
+    [
+      "shardloom-native-exchange-experiment",
+      "sender",
+      "<private-run-config.json>"
+    ],
+    [
+      "shardloom-native-exchange-experiment",
+      "receiver",
+      "<private-run-config.json>"
+    ],
+    [
+      "shardloom-native-exchange-experiment",
+      "sql-client",
+      "<private-run-config.json>"
+    ]
+  ],
+  "profile": {
+    "extension_version": 1,
+    "physical_registry": [
+      "vortex.null",
+      "vortex.bool",
+      "vortex.primitive",
+      "vortex.decimal",
+      "vortex.varbin",
+      "vortex.varbinview",
+      "vortex.list",
+      "vortex.listview",
+      "vortex.fixed_size_list",
+      "vortex.struct",
+      "vortex.ext",
+      "vortex.constant",
+      "vortex.dict",
+      "vortex.chunked",
+      "vortex.runend",
+      "fastlanes.bitpacked"
+    ],
+    "protobuf_hex": "08011206302e38352e30220b766f727465782e6e756c6c220b766f727465782e626f6f6c2210766f727465782e7072696d6974697665220e766f727465782e646563696d616c220d766f727465782e76617262696e2211766f727465782e76617262696e76696577220b766f727465782e6c697374220f766f727465782e6c697374766965772216766f727465782e66697865645f73697a655f6c697374220d766f727465782e737472756374220a766f727465782e657874220f766f727465782e636f6e7374616e74220b766f727465782e64696374220e766f727465782e6368756e6b6564220d766f727465782e72756e656e642213666173746c616e65732e6269747061636b65642a2508808080800110808080021804208080402880808001308080013880808020408002488001",
+    "sha256": "a4b6c9a431cfa01c3a4c26709d6fac2e1f025415d70113be39586058a06bc389",
+    "vortex_message_version": 0,
+    "vortex_version": "0.85.0"
+  },
+  "recipe_identities": [
+    {
+      "bytes": 8999,
+      "file": "reference.py",
+      "sha256": "bcda1f2344c84c0b862dad2326e6f7569fbebecb1921fbb044ad12f7527c53b0"
+    },
+    {
+      "bytes": 309,
+      "file": "producer/Cargo.toml",
+      "sha256": "56e0cb31c5d6fae3180d3ca31bdd8ec8fbff3ae5327afbb9631f04bbd647026b"
+    },
+    {
+      "bytes": 71432,
+      "file": "producer/Cargo.lock",
+      "sha256": "4fd19ca8f7c4ac6e908f36be3eb72118103d14d6be90302737e19dcaf1d7d88a"
+    },
+    {
+      "bytes": 8499,
+      "file": "producer/src/main.rs",
+      "sha256": "a6c383a8b27d8d860e74c924612f9723621302f6e9c438a0a9ecf61a741d6910"
+    }
+  ],
+  "repeat_controls": {
+    "bytes": 479306,
+    "file": "native-exchange-fixture-validation-840-a2.json",
+    "sha256": "5894ea80201d0c543724f65ef94f2829f169ca89199f756bac286c44c55e283a"
+  },
+  "reproducibility": {
+    "all_input_reference_and_control_identities_equal": true,
+    "complete_queries_each": 416,
+    "independent_generations": 2
+  },
+  "resources": {
+    "active_attempts": 2,
+    "active_data_rpcs_per_connection": 1,
+    "arrow_declared_decoded_bytes": 67108864,
+    "arrow_max_header_bytes": 65536,
+    "arrow_max_nodes_or_buffers": 4096,
+    "arrow_max_rows": 65536,
+    "attempt_seconds": 60,
+    "combined_peer_rss_bytes": 2147483648,
+    "connections_including_tls": 2,
+    "drain_seconds": 5,
+    "grpc_compression": false,
+    "http2_adaptive_windows": false,
+    "http2_connection_window_bytes": 2097152,
+    "http2_max_frame_bytes": 16384,
+    "http2_max_header_bytes": 16384,
+    "http2_stream_window_bytes": 1048576,
+    "idle_progress_seconds": 5,
+    "parent_workflow_seconds": 120,
+    "terminal_attempts_per_epoch": 256,
+    "tls_handshake_seconds": 5
+  },
+  "scope": "finite loopback experiment; no transport support or performance claim",
+  "sources": [
+    {
+      "bytes": 3175,
+      "file": "Cargo.toml",
+      "sha256": "7804fb90baa3c7dd102ecb60e719f6589c66474926565dca8ae40af7e5b3ef26"
+    },
+    {
+      "bytes": 113234,
+      "file": "Cargo.lock",
+      "sha256": "d0035d2a967b1a1885fb2d03a75d1c09df23195183521091dff12a3560d1debf"
+    },
+    {
+      "bytes": 4200,
+      "file": "shardloom-vortex/Cargo.toml",
+      "sha256": "3868cb153e50545d0ea192ae2725320ce224953198887fdc83f5877bf3ff92ad"
+    },
+    {
+      "bytes": 14603,
+      "file": "shardloom-vortex/src/native_payload_schema.rs",
+      "sha256": "3264a7fa9207f5c3fc2b354a8aac8e9b1b8e0914ad9f68c49204a8300e7bd71f"
+    },
+    {
+      "bytes": 4830,
+      "file": "shardloom-vortex/src/resident_memory_arrow.rs",
+      "sha256": "fe48b003755165a477ff29af6e4e99856144d182c493e10dab0a7ee63b41e404"
+    },
+    {
+      "bytes": 30008,
+      "file": "shardloom-vortex/src/resident_memory_arrow_encoded_tests.rs",
+      "sha256": "6d17dc73ff797a9238cfc7948a04b6b2216bab452c7cd3c85ce09c0b176d8007"
+    },
+    {
+      "bytes": 23428,
+      "file": "shardloom-vortex/src/resident_memory_exchange_fixture_tests.rs",
+      "sha256": "f16ed3e88630dd2f5b0bf456a0a369804cf322b4a9aa2f52935439f926daed9e"
+    },
+    {
+      "bytes": 20455,
+      "file": "shardloom-vortex/src/resident_memory_ipc.rs",
+      "sha256": "c5d66273c7c1bf9d662427664ea1df987c58e8e9cf9e87be7ad9ab0473a86f6a"
+    },
+    {
+      "bytes": 3205,
+      "file": "shardloom-vortex/tests/fixtures/native-exchange/exchange-v1.proto",
+      "sha256": "16871c62567a57826b6327935ffc57d8faf38fbc1ec995893d871b5c0505329f"
+    },
+    {
+      "bytes": 15020,
+      "file": "shardloom-vortex/tests/fixtures/native-exchange/freeze.py",
+      "sha256": "12443ddd91291a0a8e9e18849f40c5c4ba1524a237fa5adaaa642f83a8083353"
+    },
+    {
+      "bytes": 17800,
+      "file": "docs/architecture/native-exchange-experiment-plan-2026-10-20.md",
+      "sha256": "674f9812776d8741973dcf281d86ef6d6f7e3b62d102d53ab971f3ca691a9618"
+    },
+    {
+      "bytes": 22588,
+      "file": "docs/architecture/native-encoded-exchange-protocol.md",
+      "sha256": "43f94d848e04262febad91a23308e7c267ef5c0fcfe10ad4f8ec8dfbe69d361f"
+    },
+    {
+      "bytes": 7019,
+      "file": "docs/architecture/native-exchange-arrow-control-2026-10-20.md",
+      "sha256": "b8bd7d3f59509b029225e4d9d4f681b8ff3526060afe65594e54386f0120bdab"
+    }
+  ],
+  "status": "frozen_before_candidate_implementation_and_timing",
+  "targets": [
+    "all_null",
+    "constant",
+    "dictionary_small",
+    "dictionary_large",
+    "dictionary_other",
+    "run_end",
+    "bitpacked",
+    "nested",
+    "sliced_shared"
+  ],
+  "version": 1
+}

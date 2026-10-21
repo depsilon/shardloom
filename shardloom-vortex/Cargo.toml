@@ -20,6 +20,20 @@ workspace = true
 default = []
 # Opt-in bounded output-delivery diagnostics; absent from release groups.
 output-window-observation = ["vortex-local-primitives"]
+# Opt-in prerequisites and controls for the finite native transport investigation.
+# This feature is deliberately absent from every release/default group.
+native-encoded-exchange-experiment = [
+    "release-user-surfaces",
+    "dep:arrow-flight",
+    "dep:prost",
+    "dep:rustls",
+    "dep:tokio",
+    "dep:tokio-rustls",
+    "dep:tonic",
+    "dep:tonic-prost",
+    "arrow-ipc/lz4",
+    "arrow-ipc/zstd",
+]
 release-user-surfaces = [
     "universal-format-io",
     "vortex-write",
@@ -49,6 +63,7 @@ vortex-encoded-read-spike = ["vortex-file-io", "vortex-encoded-read-executor"]
 bytes = { version = "1.11.1", optional = true }
 arrow-array = { workspace = true, optional = true }
 arrow-avro = { workspace = true, optional = true }
+arrow-flight = { workspace = true, optional = true }
 arrow-ipc = { workspace = true, optional = true }
 arrow-schema = { workspace = true, optional = true }
 futures = { workspace = true }
@@ -56,8 +71,10 @@ flatbuffers = { workspace = true, optional = true }
 hashbrown = { workspace = true, optional = true }
 orc-rust = { version = "0.8.0", default-features = false, optional = true }
 parquet = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
 regex = { workspace = true }
 rustc-hash = { workspace = true }
+rustls = { workspace = true, optional = true }
 shardloom-core = { workspace = true }
 shardloom-exec = { workspace = true }
 shardloom-plan = { workspace = true }
@@ -66,6 +83,10 @@ memchr = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { version = "1.0", features = ["raw_value"] }
 sha2 = { workspace = true }
+tokio = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+tonic = { workspace = true, optional = true }
+tonic-prost = { workspace = true, optional = true }
 vortex = { workspace = true, optional = true }
 vortex-zstd = { workspace = true, optional = true }
 

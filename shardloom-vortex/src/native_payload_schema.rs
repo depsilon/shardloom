@@ -253,6 +253,32 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
                 if (1..=38).contains(precision)
                     && *scale >= 0
                     && i16::from(*scale) <= i16::from(*precision) => {}
+            #[cfg(feature = "native-encoded-exchange-experiment")]
+            A::Dictionary(keys, values)
+                if matches!(
+                    keys.as_ref(),
+                    A::Int8
+                        | A::Int16
+                        | A::Int32
+                        | A::Int64
+                        | A::UInt8
+                        | A::UInt16
+                        | A::UInt32
+                        | A::UInt64
+                ) && encoded_arrow_leaf(values) =>
+            {
+                visit(keys, depth + 1, budget)?;
+                visit(values, depth + 1, budget)?;
+            }
+            #[cfg(feature = "native-encoded-exchange-experiment")]
+            A::RunEndEncoded(ends, values)
+                if !ends.is_nullable()
+                    && matches!(ends.data_type(), A::Int16 | A::Int32 | A::Int64)
+                    && encoded_arrow_leaf(values.data_type()) =>
+            {
+                field(ends, depth + 1, budget)?;
+                field(values, depth + 1, budget)?;
+            }
             A::List(child) | A::LargeList(child) => {
                 field(child, depth + 1, budget)?;
             }
@@ -272,6 +298,32 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
     let mut budget = Budget::default();
     visit(dtype, 0, &mut budget)?;
     Ok(budget.bytes)
+}
+
+// The experimental transport control does not broaden the logical-value
+// validator. These leaves have no finite-float or decimal-precision condition;
+// Arrow's full validation checks their buffers before the owned copy/import.
+#[cfg(feature = "native-encoded-exchange-experiment")]
+fn encoded_arrow_leaf(dtype: &arrow_schema::DataType) -> bool {
+    use arrow_schema::DataType as A;
+    matches!(
+        dtype,
+        A::Boolean
+            | A::Int8
+            | A::Int16
+            | A::Int32
+            | A::Int64
+            | A::UInt8
+            | A::UInt16
+            | A::UInt32
+            | A::UInt64
+            | A::Utf8
+            | A::LargeUtf8
+            | A::Utf8View
+            | A::Binary
+            | A::LargeBinary
+            | A::BinaryView
+    )
 }
 
 fn unsupported() -> ShardLoomError {

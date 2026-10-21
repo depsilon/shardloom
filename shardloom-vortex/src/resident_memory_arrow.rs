@@ -104,3 +104,11 @@ impl ResidentMemorySource {
 #[cfg(test)]
 #[path = "resident_memory_arrow_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "resident_memory_arrow_encoded_tests.rs"]
+mod encoded_tests;
+
+#[cfg(all(test, feature = "native-encoded-exchange-experiment"))]
+#[path = "resident_memory_exchange_fixture_tests.rs"]
+mod exchange_fixture_tests;

@@ -1,0 +1,19 @@
+[package]
+name = "shardloom-native-exchange-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[workspace]
+
+[dependencies]
+vortex = { version = "=0.85.0", default-features = false }
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.release]
+debug = 0
+incremental = false
