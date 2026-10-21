@@ -43,6 +43,17 @@ impl Lowerer<'_, '_> {
                             unsupported_sql_error("native SQL source has no row-bearing field")
                         })?);
                     }
+                    if matches!(&scan.projection, ProjectionRequest::All) {
+                        let columns = self.schemas.source_columns(&scan.source_uri)?;
+                        if required.len() == columns.len()
+                            && columns.iter().all(|column| required.contains(column))
+                        {
+                            // No column is removed. Preserve the source's field
+                            // order so an identity SELECT stays identical when
+                            // the native binder validates and normalizes it.
+                            return Ok(());
+                        }
+                    }
                     scan.projection = ProjectionRequest::Columns(
                         required
                             .into_iter()

@@ -48,6 +48,23 @@ impl Binder<'_> {
             expressions.push(expression);
         }
         validate_unique(&fields)?;
+        // Normalize only after every expression and payload has passed ordinary
+        // binding. Identical names alone do not preserve types, order or NULL
+        // carrier coercion, and a computed expression may still fail at runtime.
+        if fields == input.fields
+            && expressions
+                .iter()
+                .zip(&input.fields)
+                .all(|(expression, (name, _))| {
+                    matches!(
+                        &expression.kind,
+                        crate::local_primitives::native_relational_expression::Kind::Column(column)
+                            if column == name
+                    )
+                })
+        {
+            return Ok(*input);
+        }
         Ok(Node {
             fields,
             kind: NodeKind::Project { input, expressions },

@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     local_primitives::prepared_unary::{sample_observation, sample_preparation::Preparation},
-    relational_query::{VortexRelationalLimit, VortexRelationalUnary},
+    relational_query::{VortexRelationalLimit, VortexRelationalProject, VortexRelationalUnary},
     resident_memory_source::{MemoryColumn, MemoryColumnValues, MemorySourceBounds},
 };
 use serde_json::{Value, json};
@@ -110,6 +110,90 @@ fn retained(prepared: &PreparedVortexRelational) -> u64 {
     prepared
         .sampling_preparation()
         .map_or(0, Preparation::retained_bytes)
+}
+
+fn projection(input: VortexRelationalPlan, columns: &[(&str, &str)]) -> VortexRelationalPlan {
+    VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+        input,
+        expressions: columns
+            .iter()
+            .map(|(name, source)| {
+                (
+                    (*name).into(),
+                    shardloom_core::Expression::new(
+                        shardloom_core::ExprId::new(*name).unwrap(),
+                        shardloom_core::ExpressionKind::Column(ColumnRef::new(*source).unwrap()),
+                    ),
+                )
+            })
+            .collect(),
+    }))
+}
+
+#[test]
+fn prepared_sampling_identity_projections_normalize_before_root_admission() {
+    let input = weights();
+    let prepared = prepared(&input, |mut plan| {
+        let VortexRelationalPlan::Unary(unary) = &mut plan else {
+            unreachable!()
+        };
+        unary.input = projection(
+            unary.input.clone(),
+            &[("id", "id"), ("weight", "weight"), ("other", "other")],
+        );
+        projection(projection(plan, &[("id", "id")]), &[("id", "id")])
+    });
+    assert!(prepared.sampling_preparation().is_some());
+    let memory = prepared.session.memory().clone();
+    for call in 0..3 {
+        let (rows, counts) = collect(&prepared);
+        assert_eq!(rows, expected(&input, 7));
+        assert_eq!(counts.populations, 1);
+        assert_eq!(counts.calibrations, u64::from(call == 0));
+        assert_eq!(counts.model_reuses, u64::from(call > 0));
+        assert_eq!(counts.model_searches, ROWS as u64);
+        assert!(retained(&prepared) > 0);
+    }
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+}
+
+#[test]
+fn prepared_sampling_real_projection_keeps_child_and_intervening_exclusions() {
+    for outer in [false, true] {
+        let prepared = prepared(&weights(), |mut plan| {
+            if outer {
+                return projection(plan, &[("renamed", "id")]);
+            }
+            let VortexRelationalPlan::Unary(unary) = &mut plan else {
+                unreachable!()
+            };
+            unary.input = projection(
+                unary.input.clone(),
+                &[("weight", "weight"), ("id", "id"), ("other", "other")],
+            );
+            plan
+        });
+        assert!(prepared.sampling_preparation().is_none());
+        let memory = prepared.session.memory().clone();
+        for _ in 0..2 {
+            let (rows, counts) = collect(&prepared);
+            let mut expected = expected(&weights(), 7);
+            if outer {
+                expected = expected
+                    .iter()
+                    .map(|row| json!({"renamed":row["id"]}))
+                    .collect();
+            }
+            assert_eq!(rows, expected);
+            assert_eq!(counts.calibrations, 0);
+            assert_eq!(counts.model_reuses, 0);
+            assert_eq!(counts.maximum_model_credit, 0);
+        }
+        drop(prepared);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]
