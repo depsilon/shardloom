@@ -1,0 +1,117 @@
+{
+  "cases": [
+    {
+      "diagnostic": "source closure incomplete",
+      "name": "source-closure-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "required gate missing",
+      "name": "required-native-gate-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "notice source bridge changed",
+      "name": "notice-only-bridge-denial",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "unrelated CLI test changed",
+      "name": "cleanup-original-test-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "guard did not drain",
+      "name": "missing-process-drain",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "installed proof incomplete",
+      "name": "wheel-test-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "public coverage incomplete",
+      "name": "public-case-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "Full43 query omitted or duplicated",
+      "name": "full43-query-duplicate",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "Full43 resources changed",
+      "name": "full43-resource-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "Full43 clock changed",
+      "name": "full43-clock-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "Full43 values changed",
+      "name": "full43-complete-value-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "private package copy changed",
+      "name": "private-package-origin-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "historical record omitted",
+      "name": "historical-failure-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "timing history omitted",
+      "name": "timing-history-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "timing group omitted or reordered",
+      "name": "targeted-group-omission",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "targeted result mislabeled Full43",
+      "name": "targeted-full43-mislabel",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "Full43 clock changed",
+      "name": "isolated-clock-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "isolated run scope changed",
+      "name": "isolated-workload-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "isolated cleanup or identity failed",
+      "name": "isolated-cleanup-denial",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "comparison ratio changed",
+      "name": "diagnostic-ratio-substitution",
+      "status": "rejected"
+    },
+    {
+      "diagnostic": "new native test did not pass: native_structural_metadata_layout_cache_requires_admission_before_construction",
+      "name": "new-native-regression-omission",
+      "status": "rejected"
+    }
+  ],
+  "checker_sha256": "22e0000182c3dc3761053af19a613e292218a8a7b8d148c3160fb1b1e3cc4b19",
+  "native_execution_performed": false,
+  "packet_sha256": "37828a873a3c4447e67a84721986f9eb9577a324e9ee32704124c02752e472e4",
+  "rejected": 21,
+  "schema": "shardloom.structural_acceptance_corruption_checks.v1",
+  "status": "passed",
+  "valid_packet_replayed_before_and_after": true,
+  "verifier_sha256": "96acca81f1c9baf4686e2e7e58b4bb3ae2c667732cffe6b8fb50c96ad4f655cd"
+}

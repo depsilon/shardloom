@@ -2,6 +2,14 @@
 
 These commands are part of the [active phase plan](phased-execution-plan.md), not a second queue. Each owner has an executable starting regression set and named evidence outputs. Existing regressions protect accepted foundations; they do not prove the remaining implementation by themselves. Add exact regression selectors for the changed behavior to the same owner before closing its substep. Preserve the original experiment protocols linked by the [reconciliation](native-roadmap-reconciliation-2026-10-18.md).
 
+The latest October 21 scope decision makes concrete competitive workload needs
+and existing public guarantees the basis of requirements. The phase plan moves
+additional breadth to an optional final backlog that may never be implemented.
+These verification recipes do not promote optional work into a requirement or
+an automatic next task. Use them for an admitted change or selected required
+contract; retain historical experiment gates unchanged. A passing existing
+source-bound proof may satisfy a requirement without another implementation.
+
 ## Running and recording checks
 
 Run from the repository root. On macOS, use a unique local evidence directory outside synced folders, resolve Cargo's target directory, and apply the [storage and process controls](local-development-storage.md) before builds or UAT:
@@ -24,7 +32,7 @@ cargo clippy --workspace --all-targets -- -D warnings > "$SHARDLOOM_ROADMAP_EVID
 cargo test --workspace --all-targets > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/workspace-tests.log" 2>&1
 ```
 
-Also run the applicable native/provider/public and installed-wheel matrices; default workspace gates do not enable every optional provider. New behavior needs positive, negative and composed-workflow evidence beyond these starting selectors. Performance acceptance must use the frozen complete-workload protocol and controls. Required capability completion is not conditional on a Full43 speed gain.
+Also run the applicable native/provider/public and installed-wheel matrices; default workspace gates do not enable every optional provider. New behavior needs positive, negative and composed-workflow evidence beyond these starting selectors. Performance acceptance must use the frozen complete-workload protocol and controls. A required capability need not produce a Full43 speed gain, but passing correctness alone does not accept a material performance regression; fix or revert its cause.
 
 ## PERF-01
 

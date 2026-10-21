@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "children": 58,
+  "parents": 14,
+  "required_contract_rows": 15,
+  "scheduled_rows": 5,
+  "optional_rows": 38,
+  "optional_is_final_planned_section": true,
+  "phase_sha256": "60aebbd8e57f51fc17cee51dff7f5a85e146b51496c7f43ed50956ce76fd1b8f",
+  "worker_external_identities_verified": 14
+}

@@ -7,6 +7,17 @@ finite projection-request candidate was rejected and removed. No new ordered
 candidate, preparation policy or topology comparison is admitted. These records
 do not complete the three conditional substeps or their broader owners.
 
+The latest October 21 maintainer decision schedules these prerequisites
+**after required competitive gaps and before the four pending investigations**.
+Additional breadth is optional, comes after those investigations, and may never
+be implemented. The [canonical sequence](phased-execution-plan.md#competitive-prerequisites-and-four-investigations)
+places independent-region execution, the exact local reduction needed by its
+consumers and region-cost evidence under existing owners. Ordered candidates,
+preparation design and topology comparison follow their gates; PGO has its
+separate profiling gate. This does not require every optional worker/state
+family. The source-reviewed October 20 conclusions below and their correctness,
+ownership and cost gates are unchanged.
+
 The review binds source `730f793d4509ef09a1791e2d0a5aa45de68260e4` and the
 [row-16 decision](native-region-projection-decision-2026-10-20.md). That candidate
 failed three of four actual-read targets; no timing cohort ran. Its exactness

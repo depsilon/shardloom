@@ -17,6 +17,12 @@ families that are marked as v1 candidates pending feasibility are not outside v1
 deferred rows require deterministic unsupported diagnostics, `fallback_attempted=false`, and
 `external_engine_invoked=false`.
 
+The October 21 scope decision makes selected alternative-engine comparison tasks
+and existing public guarantees the basis of requirements. Candidate status does
+not make implementation mandatory. The phase plan explicitly places additional
+breadth in a final optional backlog that may never be implemented; preserve
+accepted behavior and unsupported diagnostics when deferring those extensions.
+
 ShardLoom must not be described as a broad replacement for every SQL, DataFrame, streaming,
 object-store, platform, or Foundry workload until those exact paths have claim-grade evidence.
 

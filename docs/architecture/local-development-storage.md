@@ -39,6 +39,15 @@ sources when needed. Original Parquet and `fresh-roadmap-663-a1.vortex` remain.
 Compact comparison, integration and failure evidence replays independently of
 those retired payloads. No storage threshold changes or payload backups occur.
 
+The [structural-provider cleanup](../benchmarks/evidence/native-structural-provider-2026-10-21/cleanup.json)
+retires 39,022 generated file/symlink entries after complete portable replay
+and 21 corruption checks. Completed public/format outputs and logs, private
+reference/install environments, staged package copies and the superseded
+comparison runtime are removed with exact identities and closed-handle checks.
+The latest accepted CLI, native library and installed-tested wheel remain,
+along with the original Parquet and current Vortex input. The compact packet
+retains complete results and failures; no payload backup or limit change occurs.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in
@@ -443,6 +452,14 @@ other applications, other workspaces, or commands that bypass the runner.
 No automated deletion of old runs, cloud files, or user data is performed.
 
 ## Current runtime observation procedure
+
+Routine Full43 observations follow the October 21
+[isolated procedure](../skills/benchmarking.md#isolated-full43-procedure):
+one execution per query, with unrelated task work idle. Keep the standard
+runner's active-output storage checks and the lightweight workload guard.
+Run full input hashes and build/evidence directory inventories before or after
+query execution; do not layer recurring whole-cache scans over the query
+watchdog. Existing limits, cleanup and complete-result checks remain in force.
 
 Routine timing communication follows the standing
 [engine-time reporting decision](../skills/benchmarking.md#timing-communication-decision):

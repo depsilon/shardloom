@@ -74,6 +74,8 @@ environments. Replay verifies archived evidence without running native queries
 or asserting that old payloads remain resident. Fresh current-dependency
 correctness and installed-package results are distinct from the original
 complete-workflow and performance observations. Hosted/cross-platform checks,
-release scope and the 37 required breadth substeps retain their separate
-obligations. Vortex-native execution and explicit no-fallback policy remain
+release scope and required comparative-workload guarantees keep their
+separate gates. The current [phase plan](phased-execution-plan.md) supersedes
+the old blanket breadth requirement and places optional work last, with no
+promise that it will be implemented. Vortex-native execution and explicit no-fallback policy remain
 unchanged; no release or package publication occurs.

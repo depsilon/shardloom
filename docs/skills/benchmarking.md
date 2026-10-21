@@ -62,6 +62,30 @@ measurements and correctness checks remain required.
 
 The normal summary form is: `Full43 engine time: <seconds> s (43 queries, one execution each).`
 
+## Isolated Full43 procedure
+
+Standing maintainer decision, October 21, 2026: use the isolated single-pass
+procedure for every routine Full43 observation. Inspect and finish or stop
+unrelated task-owned work before starting; keep builds, tests, profilers,
+subagents, evidence packaging, cleanup and other task work idle during queries.
+Do not terminate unrelated user applications or operating-system services.
+
+Use the standard query runner with one execution of each of the 43 queries.
+Keep its storage watchdog, output ceilings, exclusive lock, deadlines, complete
+result validation and process cleanup. Preserve the lightweight workload guard
+and host observations. Do not add recursive build-cache/evidence-folder scans,
+whole-input hashing, broad source inventories or other heavy outer-wrapper work
+while queries execute. Perform those preparation and verification steps before
+or after the pass. Active run outputs remain subject to the standard storage
+checks; this does not raise a limit or remove a safety check.
+
+Freeze the executable, source, input, reference values and resource settings;
+record cache context and any disturbances. Report the engine sum only. Keep
+diagnostic profiling and repeated comparisons as separately declared work,
+preserve all earlier results, and do not rerun a suite merely to improve its
+presentation. An isolated observation returning near an earlier value does not
+by itself establish the cause of prior variation.
+
 ## Local end-to-end observations
 
 - Freeze the source revision, build command/features, executable hash, workload,

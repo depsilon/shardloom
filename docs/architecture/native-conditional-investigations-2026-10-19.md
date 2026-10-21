@@ -8,10 +8,15 @@ two no-signal attributions. Four have source-reviewed missing-prerequisite recor
 and the finite native-exchange transport experiment is rejected after both
 complete cohorts. Both additional follow-ups, cyclic existence and prepared
 sampling, are retained after their complete comparisons and final local
-acceptance. Required breadth resumes under the phase plan.
+acceptance. The latest October 21 decision limits requirements to concrete
+comparability with alternative compute engines and existing public guarantees.
+Required comparative gaps precede the already queued shared prerequisites and
+four investigations. Additional breadth is optional, is last, and may never be
+implemented. The [phase plan](phased-execution-plan.md#planned) is authoritative.
 No broader owner is closed.
-The maintainer requested all 21 remaining conditional investigations before the
-rest of the queue, after the PR boundary. Public API/guide work is in
+The maintainer's earlier October 19 decision requested all 21 conditional
+investigations before the rest of the queue, after the PR boundary. That finite
+pass is recorded below; its order is historical. Public API/guide work is in
 [PR #1577](https://github.com/depsilon/shardloom/pull/1577); finite native spill
 work is in [PR #1578](https://github.com/depsilon/shardloom/pull/1578). Both have
 merged after their checks, under the maintainer's subsequent merge instruction.
@@ -24,8 +29,10 @@ from each investigation's original measurements.
 
 The [phase plan](phased-execution-plan.md) remains the execution authority. This
 table orders its existing IDs; it adds no phase, owner or obligation. There are
-14 broad owners and 58 substeps: 37 required and 21 conditional. All CG-1 through
-CG-23 remain visible in the phase plan and keep their independent evidence gates.
+14 canonical owners and 58 child IDs. The former 37-required/21-conditional
+classification is historical; current required, scheduled and optional placement
+lives in the phase plan. All CG-1 through CG-23 remain visible there and keep
+their independent evidence gates.
 The earlier reconciliation and CPU intake remain historical scope records.
 
 The October 20 [additional investigations](native-investigation-followups-2026-10-20.md)
@@ -45,7 +52,23 @@ also retains its finite scalar-metadata mechanism after both comparisons,
 corrected native/public/package/Full43/format acceptance and complete portable
 replay. Neither follow-up completes a broader owner.
 
-## Execution rule
+## Current execution order and investigation rule
+
+The final isolated Full43 passed at 49.990920425 engine seconds on the
+unchanged executable and input. The maintainer accepted this observation and
+directed continuation with that isolated procedure for future passes. Preserve
+the earlier observations without claiming a proven cause or speed gain.
+Complete evidenced gaps in selected comparison workloads and existing public
+guarantees; the old blanket 37-item
+breadth requirement no longer applies. Preserve accepted behavior without
+expanding the scope merely because more implementation is possible.
+
+The already requested independent-region execution, exact local reduction,
+region/preparation cost evidence and current instruction/dispatch attribution
+prerequisites follow required competitive work. After their gates, investigate
+`PERF-10.ordered_candidates`, `PERF-09.design`, `PERF-12.topology` and
+`PERF-13.pgo`. Additional breadth and extensions of finite decisions are last,
+are not an automatic implementation queue, and may never be implemented.
 
 For each row, first bind current production callers, provider/version, observed
 cost, exact semantic/resource boundaries and the relevant
@@ -57,24 +80,26 @@ result. Existing rejected mechanisms stay rejected; no unchanged reruns.
 
 Record an evidence-backed retained result, rejected result, or a specific missing
 prerequisite. A rejection covers the evaluated mechanism and frozen scope. A
-blocked prerequisite leaves the substep open and is revisited during the pass;
-it is not accepted capability or a reason to restart unrelated required work.
+blocked prerequisite leaves the substep open for its scheduled prerequisite work;
+it is not accepted capability or a completed experiment.
 Complete an investigation only when its stated finite scope has an auditable
 decision, linked raw evidence and the applicable acceptance checks. Keep broader
 owners open when their other obligations remain.
 
 Minimal scaffolding or prerequisite evidence needed for a particular experiment
-belongs with that investigation. Separate required capability implementation
-stays deferred; this priority change does not waive provider, architecture,
-security, memory, recovery or publication contracts. Freeze new workload-specific
+belongs with its existing owner. Required competitive gaps take priority;
+the substantial shared prerequisites precede the optional backlog. This sequencing
+does not waive provider, architecture, security, memory, recovery or publication
+contracts. Freeze new workload-specific
 selectors before an experiment rather than inventing success from generic tests.
 Do not lower correctness or repeatability gates to force a positive result.
 
-## Sequence and prerequisites
+## Original finite-pass sequence and prerequisites
 
 The sequence below retains all 21 original rows. Related rows may share inventories
 or a coherent validation batch, but each retains its own cost signal and decision.
-Dependency changes may reorder rows within this pass, never silently remove one.
+This is the historical finite-pass order, not a second active queue. The current
+order above preserves every row and its remaining obligations.
 
 | Order | Existing conditional ID | Investigation boundary and prerequisite |
 | --- | --- | --- |
@@ -150,18 +175,22 @@ attribution gap. These four prerequisite records complete neither an experiment
 nor a substep. Native exchange now has a completed finite rejection with actual
 transport, matched comparisons and bounded client/failure evidence; its wider
 public service and client obligations remain open. Both authorized follow-ups
-now have retained finite decisions and final local acceptance; resume the 37
-required breadth substeps. Source-reviewed prerequisite gaps
-remain explicit and do not become accepted capability through this sequencing.
+now have retained finite decisions and final local acceptance. Follow the
+current phase plan for required comparative gaps, scheduled investigations and
+optional breadth. Source-reviewed prerequisite gaps remain explicit and do not
+become accepted capability through sequencing.
 
-## Deferred required work
+## Optional sampling extension retained for reference
 
 The fixed-count/known-bound nonreplacement sampling baseline is preserved on
 `codex/native-sampling-candidates` at `2bea9553`. It adds only the deterministic
 reference generator and fixture; it does not add candidate runtime behavior.
 The 32-case current-runtime pressure/control observation remains local in the
-sampling evidence workspace. Resume that required family after this conditional
-pass with its original grants, complete values and failure observations intact.
+sampling evidence workspace. Broader sampling is now optional in the
+PERF-06 backlog. It does not precede or block the queued prerequisites and four
+investigations. If an evidenced comparison gap or new maintainer choice promotes
+it, preserve the original grants, complete values, exact score/tie/order and
+payload-observation semantics, and failure records. No implementation is promised.
 
 ## Evidence and claims
 

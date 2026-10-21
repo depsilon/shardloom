@@ -1,0 +1,100 @@
+{
+  "files": [
+    {
+      "path": "docs/architecture/native-structural-provider-acceptance-2026-10-21.md",
+      "sha256": "f991b2751e690a08fbfd2b567430f7efc06e09152e241d36891db74cec379858",
+      "relative_links_checked": 4,
+      "link_failures": []
+    },
+    {
+      "path": "docs/architecture/native-structural-provider-ownership-2026-10-21.md",
+      "sha256": "eee1c65445d3abf2b0641de0b8a5728534bc43464edaebe7c2d3e68985e4ef9f",
+      "relative_links_checked": 3,
+      "link_failures": []
+    },
+    {
+      "path": "docs/architecture/phased-execution-completed-ledger.md",
+      "sha256": "690bdecfb308a00a6d23e5eef4d4232923b74c27fc06bef59f20ac70bc049524",
+      "relative_links_checked": 223,
+      "link_failures": []
+    },
+    {
+      "path": "docs/benchmarks/evidence/native-structural-provider-2026-10-21/README.md",
+      "sha256": "2bf9758ffa43d0b1be824a6c0417ee5c94957406d962c515ac6d209e07e1826c",
+      "relative_links_checked": 6,
+      "link_failures": []
+    }
+  ],
+  "checked_link_total": 236,
+  "failures_total": 0,
+  "manifest_counter_checks": {
+    "source_files": {
+      "documented": 2594,
+      "manifest": 2594,
+      "status": "match"
+    },
+    "public_cases": {
+      "documented": 5930,
+      "manifest": 5930,
+      "status": "match"
+    },
+    "native_tests": {
+      "documented": 3176,
+      "manifest": 3176,
+      "status": "match"
+    },
+    "cli_tests": {
+      "documented": 1091,
+      "manifest": 1091,
+      "status": "match"
+    },
+    "installed_tests": {
+      "documented": 118,
+      "manifest": 118,
+      "status": "match"
+    },
+    "full43_isolated_engine_seconds": {
+      "documented": "49.990920425",
+      "manifest": "49.990920425",
+      "status": "match"
+    },
+    "format_cohorts": {
+      "documented": 18,
+      "manifest": null,
+      "manifest_workflows_native": 704,
+      "manifest_workflows_oracle": 704,
+      "status": "workflow counts match; cohort count absent from acceptance.json"
+    }
+  },
+  "ledger_historical_37_references": [
+    {
+      "line": 65,
+      "text": "The 37 required breadth substeps resume; the seventeen original finite"
+    },
+    {
+      "line": 211,
+      "text": "`PERF-03.regions` before the 37 required substeps. All 58 substeps and"
+    },
+    {
+      "line": 427,
+      "text": "restart, not interrupted-query resume. All 14 owners, 58 substeps (37 required"
+    },
+    {
+      "line": 471,
+      "text": "interrupted execution. All 14 owners, 58 substeps (37 required and 21"
+    },
+    {
+      "line": 509,
+      "text": "37 required and 21 conditional, and CG-1 through CG-23 retain their gates."
+    },
+    {
+      "line": 545,
+      "text": "All 58 substeps, 37 required and 21 conditional, and CG-1 through CG-23"
+    },
+    {
+      "line": 571,
+      "text": "The active queue stays at 58 substeps, 37 required and 21 conditional."
+    }
+  ],
+  "assessment": "No link failures. Requested numeric counters match acceptance.json except format-cohort cardinality: manifest records 704 native and 704 oracle workflows but has no literal cohort-count field. Ledger retains older historical session statements (37 required) after the newly prepended current-scope entry; chronologically historical, but not individually labeled as superseded."
+}

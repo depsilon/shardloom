@@ -67,6 +67,14 @@ engine execution or an engine regression. This communication rule does not chang
 instrumentation, required checks, or benchmark methodology. See
 [the benchmarking policy](docs/skills/benchmarking.md#timing-communication-decision).
 
+For every routine Full43 run, follow the October 21
+[isolated single-pass procedure](docs/skills/benchmarking.md#isolated-full43-procedure).
+Finish or stop unrelated task-owned work before the pass and keep other task work idle.
+Use the standard runner and lightweight workload guard; keep full input hashes and recursive
+build/evidence inventories outside query execution. Preserve active-output storage limits,
+timeouts, cleanup, complete-result checks and all prior observations. Do not add parallel
+profiling or repeated trials to a routine pass.
+
 ## Architecture principles
 
 ShardLoom should avoid work before optimizing work.

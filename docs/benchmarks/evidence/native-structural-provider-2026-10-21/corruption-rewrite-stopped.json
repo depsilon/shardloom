@@ -1,0 +1,13 @@
+{
+  "status": "stopped_before_result",
+  "reason": "Reference repair repeatedly reserialized shared ancestors; replace with one dependency-ordered rewrite per affected record.",
+  "pid": 70549,
+  "command": "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python -B check_structural_acceptance_packet_884.py --repository /Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo --manifest structural-acceptance-packet-884/acceptance.json --verifier verify_structural_acceptance_packet_884.py --output structural-corruption-checks-889-r2.json",
+  "helper": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884-before-graph-889.py",
+    "bytes": 10573,
+    "sha256": "0aef0b64a0ea32a660f4a9ec7cef34bd748e7a3564dfdebcb35b3696e05ae9d6"
+  },
+  "result_claimed": false,
+  "runtime_or_measurements_repeated": false
+}
