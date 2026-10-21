@@ -11,10 +11,13 @@ fn fixture(rows: usize) -> Fixture {
                     .into_array()
                     .slice(0..rows)
                     .unwrap(),
-                VarBinViewArray::from_iter([Some("first"), Some("second"), None])
-                    .into_array()
-                    .slice(0..rows)
-                    .unwrap(),
+                VarBinViewArray::from_iter(
+                    [Some("first"), Some("second"), None],
+                    DType::Utf8(Nullability::Nullable),
+                )
+                .into_array()
+                .slice(0..rows)
+                .unwrap(),
             ],
             rows,
             Validity::NonNullable,
