@@ -223,15 +223,23 @@ and `perf-12-acceptance.json`, both scored cohorts, actual-work/resource checks,
 5,930 public cases, 115 installed tests, Full43 and the 18-cohort format matrix.
 This is finite acceptance, not closure of the multiway owner.
 
-The [prepared-sampling follow-up](native-investigation-followups-2026-10-20.md#reusable-weighted-sampling-preparation)
-remains prospective under the existing index/cache owners. Before implementation,
-freeze independent complete-output fixtures, original applicable failed-control
-shapes, actual activation/work counters, numerical gates and both cohorts.
-Sampling reuse must have an explicit credited
-owner and exact immutable identity within one prepared object, including pressure,
-concurrency, failure and teardown. Register concrete nonzero test selectors with
-each future protocol; the prior archived selectors are not proof for a new
-mechanism. Retention still requires final public selection and integrated checks.
+The [prepared-sampling decision](native-prepared-sampling-decision-2026-10-21.md)
+retains scalar calibration metadata within one immutable prepared object after
+both complete comparisons and corrected final local acceptance. Preserve the
+original failed-control shapes, exact fixtures, source identities, activation
+counters and both numerical gates in its
+[portable packet](../benchmarks/evidence/prepared-sampling-2026-10-21/README.md).
+Current native regressions include
+`prepared_sampling_public_reuse_owns_immutable_copied_source_and_exact_credits`,
+`prepared_sampling_same_count_total_and_uri_do_not_share_source_or_plan_identity`,
+`prepared_sampling_pressure_before_reuse_evicts_and_still_delivers_exact_rows`
+and `prepared_sampling_writer_publication_failure_clears_provisional_model`.
+The installed suite executes all three methods in
+`python/tests/test_native_prepared_sampling_binding.py` with no skips; ordinary
+SQL and DataFrame activation, real projection/filter/limit exclusions and
+teardown are part of the 118-test wheel proof. Full replay checks 5,930 public
+cases, Full43, all 18 format cohorts and source/gate bindings; all 34 corruption
+checks reject. This finite acceptance leaves broader index/cache owners open.
 
 The [compact-selection experiment](native-compact-selection-2026-10-18.md)
 retains the exact ignored selector `native_selection_complete_cost_screen`.

@@ -2,12 +2,13 @@
 
 # Follow-ups from unretained native experiments
 
-Status: of the two additional finite investigations authorized on October 20,
-2026, cyclic existence is now retained after both scored cohorts and final
-integration. Reusable weighted sampling remains next. Eligible overlap
+Status: both additional finite investigations authorized on October 20, 2026,
+are retained after their complete frozen comparisons and final local acceptance:
+[cyclic existence](native-cyclic-existence-intake-2026-10-21.md) and
+[reusable weighted sampling](native-prepared-sampling-decision-2026-10-21.md). Eligible overlap
 attribution is complete, and the
 [finite native-exchange mechanism is rejected](native-exchange-decision-2026-10-21.md).
-The remaining sampling follow-up precedes required breadth. The
+Required breadth resumes. The
 [conditional sequence](native-conditional-investigations-2026-10-19.md) and
 [phase plan](phased-execution-plan.md) remain authoritative.
 
@@ -43,6 +44,8 @@ actual-work/ownership tests pass. Final native/workspace/CLI checks, 5,930 publi
 cases, 115 installed-package tests, Full43 and 18 format cohorts also pass.
 The replayable packet preserves failures and corrections. This finite result
 does not close the broader multiway owner or authorize publication.
+
+The following records the original investigation scope.
 
 Investigate an explicit semi-join shape in which an outer row needs only one
 complete witness across two related inner inputs. For example, R(a,b) qualifies
@@ -83,9 +86,21 @@ Owner: `PERF-10.learned_indexes`, with `PERF-02.physical_cache` and PERF-03
 generation, credit and lifetime obligations. Existing PERF-06 pressure behavior
 remains binding.
 
-The [prospective protocol](native-prepared-sampling-2026-10-21.md) fixes the
+The [finite decision](native-prepared-sampling-decision-2026-10-21.md) retains
+scalar calibration metadata within one immutable prepared object. Both frozen
+comparisons pass all targets and controls; final acceptance passes 5,930 public
+cases, 118 installed-package tests, complete Full43 and all 18 format cohorts.
+The complete evidence replay and 34 corruption checks pass. Population state
+remains execution-local; broader sampling/cache owners and release gates stay
+open.
+
+The [original protocol](native-prepared-sampling-2026-10-21.md) fixed the
 immutable plan owner, local pressure/failure contract, all eight prior shapes
-at 1/4/16 calls and both complete cohorts before implementation or timing.
+at 1/4/16 calls and both complete cohorts before implementation or timing. The
+[integration protocol](native-prepared-sampling-integration-2026-10-21.md)
+separately froze ordinary public activation and its complete comparison. Both
+remain unchanged historical records. The following records the original
+investigation scope.
 
 Investigate retaining only a small exact-correction model across repeated calls
 on the same immutable prepared weighted-replacement plan. The previous model

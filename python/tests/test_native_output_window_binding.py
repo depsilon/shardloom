@@ -143,7 +143,7 @@ class NativeOutputWindowBindingTests(unittest.TestCase):
         import shardloom as sl
         from shardloom.query import SqlWorkflow
 
-        for surface in ("sql", "dataframe_scan", "dataframe_projection"):
+        for surface in ("sql", "dataframe_scan", "dataframe_projection", "dataframe_nested_projection"):
             for batch_rows in (257, 4096):
                 with self.subTest(surface=surface, batch_rows=batch_rows):
                     client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=1)
@@ -154,12 +154,14 @@ class NativeOutputWindowBindingTests(unittest.TestCase):
                                             source_bindings=(frame.source,))
                     elif surface == "dataframe_scan":
                         query = frame
-                    else:
+                    elif surface == "dataframe_projection":
                         query = frame.select("id", "id+1 AS value")
-                    # Composing this DataFrame projection retains SELECT over
-                    # SELECT. The frozen actual-plan admission rejects that
-                    # extra layer; public forwarding must not bypass admission.
-                    policy = "ordinary_ineligible" if surface == "dataframe_projection" else "two_batch_window"
+                    else:
+                        query = frame.select("id AS renamed").select("renamed AS id", "renamed+1 AS value")
+                    # Identity projections normalize away before admission. A
+                    # real rename followed by a computed projection retains two
+                    # layers and must remain outside the output-window policy.
+                    policy = "ordinary_ineligible" if surface == "dataframe_nested_projection" else "two_batch_window"
                     expected = [{"id": n} if surface == "dataframe_scan" else {"id": n, "value": n + 1}
                                 for n in range(4097)]
                     with patch("subprocess.Popen", side_effect=AssertionError("execution process")):
