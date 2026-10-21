@@ -77,6 +77,72 @@ class NativeMultiwayBindingTests(unittest.TestCase):
         gc.collect()
         self.assertEqual(session.snapshot()["reserved_bytes"], 0)
 
+    def test_cyclic_existence_native_sized_sources_preserve_exact_semantics(self):
+        from shardloom._result_schema import ResultType, schema_fields
+
+        session = self.session()
+        inputs = {
+            "r": [dict(x=None if n % 37 == 0 else n % 16,
+                       y=None if n % 41 == 0 else (n // 16) % 16, id=n)
+                  for n in range(512)],
+            "s": [dict(x=None if n % 43 == 0 else n % 16,
+                       y=None if n % 47 == 0 else n // 16, id=n)
+                  for n in range(256)],
+            "t": [dict(x=None if n % 53 == 0 else 2 * (n % 8),
+                       y=None if n % 59 == 0 else (n // 8) % 16, id=n)
+                  for n in range(256)],
+        }
+        # An independent scalar oracle preserves each outer row and its order.
+        witnesses = {(middle["x"], last["x"])
+                     for middle in inputs["s"] for last in inputs["t"]
+                     if middle["x"] is not None and last["x"] is not None
+                     and middle["y"] is not None and middle["y"] == last["y"]}
+        sources = [("memory://" + name, session.from_rows(rows, fields=[
+            (field, json.dumps({"Primitive": ["i64", field != "id"]}))
+            for field in ("x", "y", "id")])) for name, rows in inputs.items()]
+        baseline = session.snapshot()["reserved_bytes"]
+        expected_schema = (("outer_id", ResultType("int64", False)),
+                           ("b", ResultType("int64", True)),
+                           ("a", ResultType("int64", True)))
+        inner = self.native.Relation.scan("memory://s").join(
+            self.native.Relation.scan("memory://t"), [("y", "y")],
+            [("left", "x", "witness_b"), ("right", "x", "witness_a")],
+        )
+        with patch("subprocess.Popen", side_effect=AssertionError("child process")):
+            for kind in ("left_semi", "left_anti"):
+                expected = [dict(outer_id=row["id"], b=row["y"], a=row["x"])
+                            for row in inputs["r"]
+                            if ((row["y"], row["x"]) in witnesses) == (kind == "left_semi")]
+                self.assertGreater(len(expected), 0)
+                self.assertLess(len(expected), len(inputs["r"]))
+                for reverse in (False, True):
+                    with self.subTest(kind=kind, reverse=reverse):
+                        keys = [("y", "witness_b"), ("x", "witness_a")]
+                        relation = self.native.Relation.scan("memory://r").join(
+                            inner, list(reversed(keys)) if reverse else keys,
+                            [("left", "id", "outer_id"), ("left", "y", "b"),
+                             ("left", "x", "a")], kind=kind,
+                        )
+                        plan = session.plan(relation, sources=sources)
+                        plan.prepare()
+                        for _ in range(2):
+                            result = plan.collect()
+                            rows, export = result.row_export()
+                            self.assertEqual(rows, expected)
+                            self.assertTrue(export["complete"])
+                            self.assertEqual(schema_fields(result.schema_json, "vortex.dtype.serde.v1"),
+                                             expected_schema)
+                            self.assertEqual(result.report["external_engine_invoked"], "false")
+                            self.assertEqual(result.report["fallback_attempted"], "false")
+                            self.assertEqual(result.report["resident_relational_declaration_reused"], "true")
+                            del result
+                        plan.release_prepared()
+                        del plan
+                        self.assertEqual(session.snapshot()["reserved_bytes"], baseline)
+        del sources
+        gc.collect()
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
     def test_typed_cyclic_existence_preserves_outer_rows_and_prepared_reuse(self):
         from shardloom._result_schema import ResultType, schema_fields
 

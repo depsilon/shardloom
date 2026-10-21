@@ -5,8 +5,9 @@
 Status: prerequisite correctness and the ordinary-path opportunity pass; all
 four targets meet the frozen materialized-work gate. A private candidate is now
 implemented, with native/workspace validation and actual-work tests passing.
-Fresh public build provenance and both scored comparisons are pending; the candidate is not
-retained or released. This is the
+Fresh public build provenance and both complete scored comparisons now pass.
+Final public/package acceptance is pending; the candidate is not yet retained
+or released. This is the
 authorized [follow-up](native-investigation-followups-2026-10-20.md#cyclic-existence-joins)
 under `PERF-10.multiway_joins`, RFC 0044 and PERF-01/02/03/10/12. The current
 implementation phase, CG-1 through CG-23 and 37 required breadth substeps retain
@@ -276,4 +277,28 @@ and both inclusive numerical bounds. A missing/reordered workflow, one failed
 control in either cohort, changed gate or invalid clock cannot become a retained
 decision. Before scoring, a separate binding must identify the fresh committed
 candidate build, unchanged source inputs, the ordinary intake build, validation
-receipts and exact public Python/driver files. No scored comparison has begun.
+receipts and exact public Python/driver files. The completed comparison below
+preserves that binding and the original intake gates.
+
+## Completed finite comparison
+
+Both cohorts pass all 52 case/call-count cells across 520 fresh-process workflows
+and 1,300 native calls. The four target engine-time ratios range from 0.02795 to
+0.17966 across both cohorts and both call counts. Every control remains within
+its frozen 5% engine limit; the largest control increase is 2.21%. All complete
+workflow gates also pass. No warm-up, sample, failed control or cohort is removed,
+replaced or rescored under a changed threshold.
+
+Every complete ordered result, exact schema, native clock, no-fallback report
+and final zero-credit check passes. Both release libraries were freshly compiled;
+the candidate's 2,065 source inputs are unchanged before/after compilation and
+after comparison. The portable comparison packet replays all samples and actual
+work observations, preserves both earlier test/lint failures, and rejects all
+21 deliberate semantic/integrity corruptions.
+
+This result permits final integration acceptance. It does not replace installed
+wheel, native CLI, public workflow, Full43 or modular format verification. A new
+package regression adds native-sized nullable/duplicate sources, reversed outer
+keys, semi/anti semantics, repeated preparation and final owner cleanup; this
+test-only addition does not change the measured runtime or comparison sources.
+The broader multiway owner, platform/release gates and claim limits remain open.
