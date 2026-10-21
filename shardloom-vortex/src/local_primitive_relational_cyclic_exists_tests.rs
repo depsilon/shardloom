@@ -395,7 +395,7 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
 }
 
 #[test]
-fn cyclic_candidate_keeps_small_anti_filtered_and_transformed_plans_ordinary() {
+fn cyclic_candidate_admits_identity_but_keeps_real_transformations_ordinary() {
     let values = [grid(128, 16), grid(128, 16), grid(128, 16)];
     for source in 0..3 {
         for rows in [0, 127] {
@@ -426,24 +426,45 @@ fn cyclic_candidate_keeps_small_anti_filtered_and_transformed_plans_ordinary() {
         0
     );
 
-    for transformed in [false, true] {
+    for shape in ["filtered", "identity", "computed", "reordered"] {
         let VortexRelationalPlan::Join(mut plan) = existence_plan(JoinKind::LeftSemi, false) else {
             unreachable!()
         };
-        if transformed {
+        if shape != "filtered" {
+            let names = if shape == "reordered" {
+                ["id", "x", "y"]
+            } else {
+                ["x", "y", "id"]
+            };
             plan.left = VortexRelationalPlan::Project(Box::new(
                 crate::relational_query::VortexRelationalProject {
                     input: scan("r"),
-                    expressions: ["x", "y", "id"]
+                    expressions: names
                         .into_iter()
                         .map(|name| {
-                            (
-                                name.to_owned(),
-                                shardloom_core::Expression::column(
-                                    shardloom_core::ExprId::new(name).unwrap(),
-                                    ColumnRef::new(name).unwrap(),
-                                ),
-                            )
+                            use shardloom_core::{
+                                BinaryOp, ExprId, Expression, ExpressionKind, ScalarValue,
+                            };
+                            let column = Expression::column(
+                                ExprId::new(name).unwrap(),
+                                ColumnRef::new(name).unwrap(),
+                            );
+                            let expression = if shape == "computed" && name == "id" {
+                                Expression::new(
+                                    ExprId::new("computed_id").unwrap(),
+                                    ExpressionKind::Binary {
+                                        left: Box::new(column),
+                                        op: BinaryOp::Add,
+                                        right: Box::new(Expression::literal(
+                                            ExprId::new("zero").unwrap(),
+                                            ScalarValue::Int64(0),
+                                        )),
+                                    },
+                                )
+                            } else {
+                                column
+                            };
+                            (name.to_owned(), expression)
                         })
                         .collect(),
                 },
@@ -456,6 +477,7 @@ fn cyclic_candidate_keeps_small_anti_filtered_and_transformed_plans_ordinary() {
             });
         }
         let prepared = prepare(&values, VortexRelationalPlan::Join(plan));
+        let memory = prepared.session.memory().clone();
         assert_eq!(
             complete(
                 &prepared,
@@ -464,8 +486,11 @@ fn cyclic_candidate_keeps_small_anti_filtered_and_transformed_plans_ordinary() {
                 false
             )
             .executions,
-            0
+            usize::from(shape == "identity"),
+            "{shape}"
         );
+        drop(prepared);
+        assert_eq!(memory.snapshot().reserved_bytes, 0, "{shape}");
     }
 }
 
