@@ -65,6 +65,7 @@ impl PreparedVortexRelational {
         input: Option<super::batch_input::Provider<'_>>,
         consume: impl FnMut(RecordBatch) -> Result<()>,
     ) -> Result<ExecutedVortexArrowRelational> {
+        let sampling = self.sampling_failure_guard();
         let mut delivery = NativeArrowBatchDelivery::new(&self.session, cancellation, consume);
         let execution = self.for_each_batch_with_input(
             cancellation,
@@ -73,7 +74,9 @@ impl PreparedVortexRelational {
             input,
             |array, context| delivery.push(array, context),
         )?;
-        finish_delivery(execution, delivery)
+        let result = finish_delivery(execution, delivery)?;
+        sampling.complete();
+        Ok(result)
     }
 
     /// Initialize the finite output-window policy inside native execution.
@@ -104,6 +107,7 @@ impl PreparedVortexRelational {
         initialize: impl FnOnce(Option<super::OutputCreditWindow>) -> Result<()>,
         consume: impl FnMut(RecordBatch) -> Result<()>,
     ) -> Result<ExecutedVortexArrowRelational> {
+        let sampling = self.sampling_failure_guard();
         let mut delivery = NativeArrowBatchDelivery::new(&self.session, cancellation, consume);
         let execution = self.for_each_batch_with_input_and_initialize(
             cancellation,
@@ -113,7 +117,9 @@ impl PreparedVortexRelational {
             || initialize(self.output_credit_window(requested())?),
             |array, context| delivery.push(array, context),
         )?;
-        finish_delivery(execution, delivery)
+        let result = finish_delivery(execution, delivery)?;
+        sampling.complete();
+        Ok(result)
     }
 }
 
@@ -121,6 +127,12 @@ fn finish_delivery(
     execution: ExecutedVortexRelational,
     delivery: NativeArrowBatchDelivery<'_, impl FnMut(RecordBatch) -> Result<()>>,
 ) -> Result<ExecutedVortexArrowRelational> {
+    #[cfg(test)]
+    super::sample_preparation::BEFORE_ARROW_COMPLETION.with_borrow_mut(|slot| {
+        if let Some(before) = slot.take() {
+            before();
+        }
+    });
     let export = delivery.finish(execution.output_rows)?;
     if export.output_batches != execution.output_batches {
         return Err(failed(

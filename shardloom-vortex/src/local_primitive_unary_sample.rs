@@ -7,7 +7,7 @@ use super::{
 use std::{borrow::Borrow as _, cmp::Ordering};
 
 #[derive(Clone, Copy)]
-enum Score {
+pub(super) enum Score {
     Integer(u64),
     Weighted(f64),
 }
@@ -21,14 +21,14 @@ impl Score {
     }
 }
 
-struct Candidate {
-    score: Score,
-    ordinal: usize,
-    cumulative_weight: f64,
-    row: Option<OwnedRow>,
+pub(super) struct Candidate {
+    pub(super) score: Score,
+    pub(super) ordinal: usize,
+    pub(super) cumulative_weight: f64,
+    pub(super) row: Option<OwnedRow>,
 }
 
-fn exact_search(population: &[Candidate], threshold: f64) -> usize {
+pub(super) fn exact_search(population: &[Candidate], threshold: f64) -> usize {
     #[cfg(not(test))]
     {
         population.partition_point(|entry| entry.cumulative_weight < threshold)
@@ -222,6 +222,19 @@ impl Sample {
                 .sort_unstable_by_key(|candidate| candidate.ordinal);
         }
         let seed = plan.request.sample_seed.unwrap_or(0);
+        let model = if let Some(preparation) = plan.sampling_preparation() {
+            #[cfg(test)]
+            super::sample_preparation::BEFORE_MODEL_PREPARATION.with_borrow_mut(|slot| {
+                if let Some(before) = slot.take() {
+                    before();
+                }
+            });
+            preparation.prepare(&self.candidates.values, context.memory(), || {
+                context.check_cancelled()
+            })?
+        } else {
+            None
+        };
         for start in (0..target).step_by(BATCH_ROWS) {
             context.check_cancelled()?;
             output.emit_retained(
@@ -237,7 +250,11 @@ impl Sample {
                             seed ^ 0xa076_1d64_78bd_642f,
                             draw,
                         ) * self.total_weight;
-                        exact_search(&self.candidates.values, threshold)
+                        model
+                            .map_or_else(
+                                || exact_search(&self.candidates.values, threshold),
+                                |model| model.search(&self.candidates.values, threshold),
+                            )
                             .min(self.candidates.values.len() - 1)
                     } else {
                         super::super::deterministic_sample_replacement_index(
