@@ -29,6 +29,9 @@ use `PERF-10.multiway_joins` and `PERF-10.learned_indexes`, respectively, with
 existing resource and cache obligations. They add no roadmap ID. Each requires
 a materially different mechanism, independently frozen controls and numerical
 gates; the two earlier unretained results remain binding.
+The [cyclic-existence intake](native-cyclic-existence-intake-2026-10-21.md) passes
+its finite ordinary-path opportunity and correctness gates; candidate behavior
+and both scored cohorts remain pending under the frozen comparison contract.
 
 ## Execution rule
 

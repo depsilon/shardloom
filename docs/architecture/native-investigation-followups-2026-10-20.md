@@ -35,6 +35,11 @@ failure records, restored-runtime checks and reusable implementation ideas.
 Owner: `PERF-10.multiway_joins`, with PERF-03 ownership and PERF-10/12 public
 route and correctness obligations.
 
+The [October 21 intake](native-cyclic-existence-intake-2026-10-21.md) now verifies
+all thirteen ordinary native workloads, 33 complete calls and four qualifying
+intermediate-row opportunities. Its controls, both future cohorts and numerical
+gates are frozen. Candidate implementation and retention remain pending.
+
 Investigate an explicit semi-join shape in which an outer row needs only one
 complete witness across two related inner inputs. For example, R(a,b) qualifies
 when some S(b,c) and T(c,a) satisfy all three equalities. A native probe can

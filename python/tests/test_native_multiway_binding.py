@@ -77,6 +77,58 @@ class NativeMultiwayBindingTests(unittest.TestCase):
         gc.collect()
         self.assertEqual(session.snapshot()["reserved_bytes"], 0)
 
+    def test_typed_cyclic_existence_preserves_outer_rows_and_prepared_reuse(self):
+        from shardloom._result_schema import ResultType, schema_fields
+
+        session = self.session()
+        sources = [("memory://" + name, session.from_rows(
+            [dict(zip(("x", "y", "id"), row)) for row in rows],
+            fields=[(field, json.dumps({"Primitive": ["i64", True]}))
+                    for field in ("x", "y", "id")],
+        )) for name, rows in SOURCES.items()]
+        baseline = session.snapshot()["reserved_bytes"]
+        expected_schema = tuple((name, ResultType("int64", True))
+                                for name in ("outer_id", "b", "a"))
+        inner = self.native.Relation.scan("memory://s").join(
+            self.native.Relation.scan("memory://t"), [("y", "y")],
+            [("left", "x", "witness_b"), ("right", "x", "witness_a")],
+        )
+        with patch("subprocess.Popen", side_effect=AssertionError("child process")):
+            for kind, expected in (
+                ("left_semi", [dict(outer_id=0, b=5, a=1),
+                               dict(outer_id=1, b=5, a=2),
+                               dict(outer_id=2, b=5, a=1)]),
+                ("left_anti", [dict(outer_id=3, b=5, a=None),
+                               dict(outer_id=4, b=None, a=1)]),
+            ):
+                for reverse in (False, True):
+                    with self.subTest(kind=kind, reverse=reverse):
+                        keys = [("y", "witness_b"), ("x", "witness_a")]
+                        relation = self.native.Relation.scan("memory://r").join(
+                            inner, list(reversed(keys)) if reverse else keys,
+                            [("left", "id", "outer_id"), ("left", "y", "b"),
+                             ("left", "x", "a")], kind=kind,
+                        )
+                        plan = session.plan(relation, sources=sources)
+                        plan.prepare()
+                        for _ in range(2):
+                            result = plan.collect()
+                            rows, export = result.row_export()
+                            self.assertEqual(rows, expected)
+                            self.assertTrue(export["complete"])
+                            self.assertEqual(schema_fields(result.schema_json, "vortex.dtype.serde.v1"),
+                                             expected_schema)
+                            self.assertEqual(result.report["external_engine_invoked"], "false")
+                            self.assertEqual(result.report["fallback_attempted"], "false")
+                            self.assertEqual(result.report["resident_relational_declaration_reused"], "true")
+                            del result
+                        plan.release_prepared()
+                        del plan
+                        self.assertEqual(session.snapshot()["reserved_bytes"], baseline)
+        del sources
+        gc.collect()
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
