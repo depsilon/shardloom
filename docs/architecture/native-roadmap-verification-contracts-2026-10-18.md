@@ -182,13 +182,15 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib text_zone_
 
 Deliver `perf-09-acceptance.json`, per-column/whole-artifact identities and sizes, transient ownership and ordered EOF/cancel/publication evidence, plus complete first/repeated downstream results. Apply the retained writer's original ingest/size/query gate; rejected text profiles require a materially different mechanism before reconsideration.
 
-The [October 20 pre-writer attribution](native-ingest-overlap-attribution-2026-10-20.md)
-preserves two complete corrected-geometry comparisons with failed observer
-overhead gates. Its exact helper/source versions and raw numeric records are in
-the linked compact packet; the temporary ignored selectors are removed. These
-correctness passes do not admit a scheduling candidate. A new observer needs a
-materially different design, frozen protocol and all activation/lifecycle/overhead
-gates before its opportunity values can justify implementation.
+The [earlier October 20 pre-writer attribution](native-ingest-overlap-attribution-2026-10-20.md)
+preserves two complete comparisons with failed observer overhead gates. The
+[outermost-poll revision](native-ingest-overlap-observer-decision-2026-10-20.md)
+passes every overhead cell, all 14 preflight and 84 measured workflows, but only
+one target clears the opportunity gate in both cohorts. The required two-target
+repeatability gate therefore rejects admission of a scheduling design. Exact
+helpers, source deltas and results are in the linked compact packets; temporary
+selectors are removed. Do not count their absence as a zero-test pass or combine
+the earlier ineligible observations with this finite no-signal result.
 
 ## PERF-10
 
@@ -210,6 +212,17 @@ only in the compact packet. Replay that evidence or reconstruct its frozen
 source; do not count an absent selector's zero-test result as a current pass.
 Fresh restored workspace/native checks are distinct from candidate integration
 acceptance, which was not attempted after the failed retention gate.
+
+The authorized [cyclic existence and prepared-sampling follow-ups](native-investigation-followups-2026-10-20.md)
+remain prospective experiments under the existing join/index owners. Before
+implementation, freeze independent complete-output fixtures, original applicable
+failed-control shapes, actual activation/work counters, numerical gates and both
+cohorts. Existence joins must prove additional cross-relationship work avoidance
+beyond existing binary semi-joins. Sampling reuse must have an explicit credited
+owner and exact immutable identity within one prepared object, including pressure,
+concurrency, failure and teardown. Register concrete nonzero test selectors with
+each future protocol; the prior archived selectors are not proof for a new
+mechanism. Retention still requires final public selection and integrated checks.
 
 The [compact-selection experiment](native-compact-selection-2026-10-18.md)
 retains the exact ignored selector `native_selection_complete_cost_screen`.

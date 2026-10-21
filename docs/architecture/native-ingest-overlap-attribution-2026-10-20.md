@@ -2,7 +2,11 @@
 
 # Pre-writer overlap attribution — October 20, 2026
 
-Status: **inconclusive; eligible measurement is still missing**. Two observer
+Follow-up: the [outermost-poll revision](native-ingest-overlap-observer-decision-2026-10-20.md)
+now records an eligible finite no-signal decision. The original outcomes and
+evidence below remain the historical record of these earlier attempts.
+
+Status of these earlier attempts: **inconclusive; eligible measurement was missing**. Two observer
 implementations complete the corrected frozen comparison and pass exact output,
 activation, source identity and cleanup checks. Both fail the mandatory observer
 overhead gate. No scheduling candidate is designed, implemented or retained.

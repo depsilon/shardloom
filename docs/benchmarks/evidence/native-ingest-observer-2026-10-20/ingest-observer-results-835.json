@@ -1,0 +1,17 @@
+{
+  "all_member_bytes_reopened_and_equal": true,
+  "bytes": 1560548,
+  "candidate_design_admitted": false,
+  "current_outcome": "no_material_signal_in_finite_scope",
+  "decision_sha256": "0bab469761e8f7fbca7920057755cc409a55b15736004c48b5e7f2ffda1ed214",
+  "input_bytes": 7891447,
+  "members": 580,
+  "original_files_removed": false,
+  "packet": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-results-835.json.xz",
+  "raw_bytes": 10674837,
+  "scheduling_candidate_implemented": false,
+  "scheduling_change_retained": false,
+  "sha256": "bdf6200aab7b6658a5a7b288e187cf1da4de4ff5da0cf5acd59ee408bad6e57e",
+  "status": "passed",
+  "traces_indexed": 49
+}
