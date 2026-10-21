@@ -1,0 +1,95 @@
+{
+  "cases": [
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "required phase removed",
+      "reason": "required phase omitted",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "historical timing relabelled",
+      "reason": "historical measurement scope changed",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "source file omitted",
+      "reason": "source closure incomplete",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "native test count narrowed",
+      "reason": "test coverage changed: native-tests",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "native command narrowed",
+      "reason": "validation command narrowed: native-tests",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "worker drain unproved",
+      "reason": "guarded check did not finish cleanly",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "optional test family omitted",
+      "reason": "optional check omitted",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "installed package test skipped",
+      "reason": "installed wheel proof incomplete",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "installed library identity changed",
+      "reason": "installed artifact differs from fresh build",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "installed tests use an overlay",
+      "reason": "installed test runner used an overlay",
+      "rejected": true
+    },
+    {
+      "member_reference_hashes_repaired": true,
+      "name": "installed test omitted despite passing summary",
+      "reason": "normal installed test discovery narrowed",
+      "rejected": true
+    }
+  ],
+  "checker": {
+    "bytes": 7387,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_prepared_sampling_pr_packet_872.py",
+    "sha256": "5a7dd7d2c99a9dd335b5dfbd6061ae4bc2a8a20137246adac311ffd18e4f5020"
+  },
+  "manifest": {
+    "bytes": 1559,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/prepared-sampling-pr-packet-871/pr-integration.json",
+    "sha256": "853aba4313b8749d30aced459587eabac9e59bc2642136c4061029acb49fb666"
+  },
+  "native_execution_performed": false,
+  "payload": {
+    "bytes": 309852,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/prepared-sampling-pr-packet-871/pr-integration.json.xz",
+    "sha256": "7014890bb08258a1d24d21a1327ab5a3e9f8c00aa5f31b7eb0bd681d1ac37bf0"
+  },
+  "rejected_cases": 11,
+  "schema": "shardloom.prepared_sampling_pr_corruption_checks.v1",
+  "status": "passed",
+  "unchanged_positive_replayed": true,
+  "verifier": {
+    "bytes": 24180,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_prepared_sampling_pr_packet_871.py",
+    "sha256": "c95f9912ddd84cfaa1867d2be494aa43f8acfeedef80b408a94011673b8641ca"
+  }
+}

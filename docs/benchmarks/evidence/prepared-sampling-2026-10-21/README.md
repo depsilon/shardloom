@@ -79,3 +79,27 @@ fixture/documentation commit and any subsequent dependency integration do not
 become the source of the earlier timings. No release, package publication,
 cross-platform certification, process-RSS limit or competitive superiority is
 claimed by this packet.
+
+## Current PR integration
+
+The separate [current-PR acceptance](../../../architecture/native-prepared-sampling-pr-acceptance-2026-10-21.md)
+records fresh correctness and normal installed-package checks at `9e51ffc1`,
+including the existing PR dependency updates. It preserves the original
+measurements above. `pr-integration.json` identifies its compact text packet,
+`verify_pr_integration.py` replays it, and `check_pr_integration.py` exercises
+eleven bounded semantic corruptions recorded in
+`pr-integration-corruption-check.json`.
+
+```sh
+python3 -B docs/benchmarks/evidence/prepared-sampling-2026-10-21/verify_pr_integration.py \
+  --repository . \
+  --manifest docs/benchmarks/evidence/prepared-sampling-2026-10-21/pr-integration.json
+python3 -B docs/benchmarks/evidence/prepared-sampling-2026-10-21/check_pr_integration.py \
+  --repository . \
+  --manifest docs/benchmarks/evidence/prepared-sampling-2026-10-21/pr-integration.json \
+  --verifier docs/benchmarks/evidence/prepared-sampling-2026-10-21/verify_pr_integration.py \
+  --output /tmp/shardloom-pr-integration-check.json
+```
+
+Use a new output path for the corruption check. It does not replace an existing
+report. Neither command runs native workloads.

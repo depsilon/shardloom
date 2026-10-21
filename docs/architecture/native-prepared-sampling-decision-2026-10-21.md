@@ -168,3 +168,8 @@ remain separate obligations. With the finite investigation closed, the next
 authorized work is the 37 required breadth substeps, starting with the concrete
 PERF-03 ownership and bounded scheduling gaps in the authoritative
 [phase plan](phased-execution-plan.md).
+
+The subsequent [current-PR integration](native-prepared-sampling-pr-acceptance-2026-10-21.md)
+passes fresh correctness and all 118 normal installed-package tests with the
+repository fixture and the existing PR dependency updates. Its separate source
+bridge and replay keep the original measurements above unchanged.
