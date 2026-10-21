@@ -35,3 +35,7 @@ and schemas against these references, exercise every preserving Arrow codec
 control, and freeze the actual input, recipe, manifest and control hashes with
 the complete protocol and numerical gates. Recipe presence alone is not that
 freeze or fixture acceptance.
+
+The producer writes its native messages without console summaries. Fixture counts,
+sizes and checksums are recorded by `reference.py` in the generated manifest.
+The earlier frozen experiment retains its original recipe and manifest identities.

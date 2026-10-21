@@ -47,7 +47,6 @@ fn emit(root: &Path, name: &str, array: ArrayRef) -> Result<(), Error> {
         }
         output.sync_all()?;
     }
-    println!("{name}\t{}\t{dtype_bytes}\t{body_bytes}", array.len());
     Ok(())
 }
 
@@ -153,7 +152,6 @@ fn main() -> Result<(), Error> {
         .ok_or("expected a new local-only output directory")?;
     let root = Path::new(&output);
     fs::create_dir(root)?;
-    println!("fixture\trows\tdtype_bytes\tarray_bytes");
     for (name, rows) in [("empty", 0), ("tiny", 7), ("nullable_plain", 16_387)] {
         emit(root, name, plain(rows)?)?;
     }
