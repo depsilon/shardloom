@@ -28,6 +28,19 @@ struct Candidate {
     row: Option<OwnedRow>,
 }
 
+fn exact_search(population: &[Candidate], threshold: f64) -> usize {
+    #[cfg(not(test))]
+    {
+        population.partition_point(|entry| entry.cumulative_weight < threshold)
+    }
+    #[cfg(test)]
+    {
+        super::sample_observation::partition_point(population, |entry| {
+            entry.cumulative_weight < threshold
+        })
+    }
+}
+
 pub(super) struct Sample {
     candidates: ReservedVec<Candidate>,
     cap: usize,
@@ -197,6 +210,8 @@ impl Sample {
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<usize> {
         let target = super::super::sample_target_count(&plan.request, self.seen)?;
+        #[cfg(test)]
+        super::sample_observation::population(self.candidates.values.len(), target);
         if !plan.request.sample_with_replacement {
             self.candidates
                 .values
@@ -222,9 +237,7 @@ impl Sample {
                             seed ^ 0xa076_1d64_78bd_642f,
                             draw,
                         ) * self.total_weight;
-                        self.candidates
-                            .values
-                            .partition_point(|candidate| candidate.cumulative_weight < threshold)
+                        exact_search(&self.candidates.values, threshold)
                             .min(self.candidates.values.len() - 1)
                     } else {
                         super::super::deterministic_sample_replacement_index(

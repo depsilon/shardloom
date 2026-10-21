@@ -83,6 +83,10 @@ Owner: `PERF-10.learned_indexes`, with `PERF-02.physical_cache` and PERF-03
 generation, credit and lifetime obligations. Existing PERF-06 pressure behavior
 remains binding.
 
+The [prospective protocol](native-prepared-sampling-2026-10-21.md) fixes the
+immutable plan owner, local pressure/failure contract, all eight prior shapes
+at 1/4/16 calls and both complete cohorts before implementation or timing.
+
 Investigate retaining only a small exact-correction model across repeated calls
 on the same immutable prepared weighted-replacement plan. The previous model
 recalibrated on every execution. Amortizing that calibration is a different

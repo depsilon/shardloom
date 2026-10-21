@@ -53,6 +53,9 @@ mod report;
 mod rolling;
 #[path = "local_primitive_unary_sample.rs"]
 mod sample;
+#[cfg(test)]
+#[path = "local_primitive_unary_sample_observation.rs"]
+pub(crate) mod sample_observation;
 #[path = "local_primitive_unary_scalar.rs"]
 mod scalar;
 #[path = "local_primitive_unary_schema.rs"]

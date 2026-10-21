@@ -47,6 +47,8 @@ mod native_ownership_tests;
 mod nested_tests;
 #[path = "local_primitive_relational_pivot_spill_tests.rs"]
 mod pivot_spill_tests;
+#[path = "local_primitive_relational_prepared_sample_cost_tests.rs"]
+mod prepared_sample_cost_tests;
 #[path = "local_primitive_relational_scalar_tests.rs"]
 mod scalar_tests;
 #[path = "local_primitive_relational_selection_cost_tests.rs"]
