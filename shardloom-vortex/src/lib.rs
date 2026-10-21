@@ -144,20 +144,6 @@ pub mod query_primitives;
 pub mod query_trace;
 pub mod read_planning;
 pub mod relational_query;
-// The finite experiment is opt-in and requires the existing Unix native source.
-#[cfg(all(feature = "native-encoded-exchange-experiment", unix))]
-mod native_exchange_protocol;
-
-/// Run one explicitly selected, finite native-exchange experiment peer.
-/// This hidden opt-in harness is not a public remote-service interface.
-/// # Errors
-/// Refuses invalid local configuration, unauthorized work and incomplete transfers.
-#[doc(hidden)]
-#[cfg(all(feature = "native-encoded-exchange-experiment", unix))]
-pub fn run_native_exchange_experiment_peer(role: &str) -> std::result::Result<(), String> {
-    native_exchange_protocol::peer::run(role)
-        .map_err(|error| format!("{}: {}", error.code, error.detail))
-}
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 pub mod resident_memory_source;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]

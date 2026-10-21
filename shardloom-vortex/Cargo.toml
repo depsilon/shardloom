@@ -20,7 +20,7 @@ workspace = true
 default = []
 # Opt-in bounded output-delivery diagnostics; absent from release groups.
 output-window-observation = ["vortex-local-primitives"]
-# Opt-in finite native transport experiment; no public remote-service contract.
+# Opt-in prerequisites and controls for the finite native transport investigation.
 # This feature is deliberately absent from every release/default group.
 native-encoded-exchange-experiment = [
     "release-user-surfaces",
@@ -89,23 +89,6 @@ tonic = { workspace = true, optional = true }
 tonic-prost = { workspace = true, optional = true }
 vortex = { workspace = true, optional = true }
 vortex-zstd = { workspace = true, optional = true }
-
-[[bin]]
-name = "shardloom-native-exchange-experiment"
-path = "src/bin/native_exchange_experiment.rs"
-required-features = ["native-encoded-exchange-experiment"]
-
-[[test]]
-name = "native_encoded_exchange_protocol"
-required-features = ["native-encoded-exchange-experiment"]
-
-[[test]]
-name = "native_encoded_exchange_two_process"
-required-features = ["native-encoded-exchange-experiment"]
-
-[[test]]
-name = "native_encoded_exchange_client_interop"
-required-features = ["native-encoded-exchange-experiment"]
 
 [[example]]
 name = "resident_latency"

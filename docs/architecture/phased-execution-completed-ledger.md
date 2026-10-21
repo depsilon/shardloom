@@ -17,6 +17,36 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite native exchange transport decision` — reject the
+  [fragment-transport candidate](native-exchange-decision-2026-10-21.md) under
+  its frozen protocol. Both complete 325-workflow cohorts pass exact values,
+  native representation/execution, lifecycle and ordinary Vortex IPC engine
+  controls. Both fail aggregate benefit and bootstrap requirements against
+  every Arrow control, plus wide-text controls against Arrow LZ4 and Zstd.
+  Constant/dictionary family wins do not override those failures.
+  - Preserve all 650 scored workflows, 67 preflight/client workflows, 41 unique
+    protocol tests, four process-failure workflows, 24 corrupted-report refusals,
+    seven gate-arithmetic tests and every failed attempt in the
+    [replayable result packet](../benchmarks/evidence/native-exchange-2026-10-21/README.md).
+    Checks overlap. No unchanged candidate rerun or causal attribution follows.
+  - Restore three modified production files exactly to prerequisite baseline
+    `02aa39f3` and remove all 34 experiment-added runtime/test files. Fresh
+    formatting, strict workspace/feature Clippy and all 3,235 workspace tests
+    pass. The restored native suite passes 3,069 tests with 31 manual/opt-in
+    tests ignored. The
+    [restoration packet](../benchmarks/evidence/native-exchange-2026-10-21/postchecks.json)
+    verifies 1,969 retained source inputs and sixteen public certificate sets.
+  - Retire 712 exact generated files after archived-result, regeneration,
+    source identity and closed-handle checks; the
+    [cleanup receipt](../benchmarks/evidence/native-exchange-2026-10-21/cleanup.json)
+    preserves the complete scope. Keep the accepted public runtime and compact
+    results; no executable or generated-dataset rollback backup is retained.
+  - Seventeen finite decisions are complete: eleven rejected, two unretained,
+    two retained and two no-signal. The two authorized follow-ups precede
+    required breadth. The four broad exchange substeps, all 58 substeps and
+    CG-1 through CG-23 retain their separate gates. No public remote service,
+    package publication, fresh public package or Full43 acceptance is claimed.
+
 - [x] `Native exchange scoped protocol/provider prerequisite review` — record
   the [finite transport contract](native-encoded-exchange-protocol.md) and its
   replayable source, dependency and local-foundation evidence. No runtime,

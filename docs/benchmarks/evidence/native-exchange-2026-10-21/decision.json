@@ -1,0 +1,395 @@
+{
+  "baseline_commit": "02aa39f310322e019b4acc2cf631d88fe3c9edb2",
+  "candidate_commit": "6e3419bc5f36d0ec41d381420d255c77ef533409",
+  "candidate_source_changes": [
+    {
+      "file": "scripts/check_native_exchange_report_verifier.py",
+      "status": "A"
+    },
+    {
+      "file": "scripts/native_exchange_cost_gates.py",
+      "status": "A"
+    },
+    {
+      "file": "scripts/native_exchange_process_faults.py",
+      "status": "A"
+    },
+    {
+      "file": "scripts/native_exchange_result_checks.py",
+      "status": "A"
+    },
+    {
+      "file": "scripts/run_native_exchange_experiment.py",
+      "status": "A"
+    },
+    {
+      "file": "scripts/test_native_exchange_cost_gates.py",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/Cargo.toml",
+      "status": "M"
+    },
+    {
+      "file": "shardloom-vortex/src/bin/native_exchange_experiment.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/lib.rs",
+      "status": "M"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_arrow_protocol.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_arrow_protocol_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_attempt_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_attempts.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_authority.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_client.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_fault_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_payload.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_payload_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_peer.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_protocol.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_protocol_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_queue.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_response_fault_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_service.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_service_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_sql_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_transport.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_transport_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/native_exchange_wire.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/resident_memory_exchange_bridge.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/resident_memory_exchange_bridge_tests.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/src/resident_memory_source.rs",
+      "status": "M"
+    },
+    {
+      "file": "shardloom-vortex/tests/fixtures/native-exchange/certificates.py",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/tests/native_encoded_exchange_client_interop.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/tests/native_encoded_exchange_protocol.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/tests/native_encoded_exchange_two_process.rs",
+      "status": "A"
+    },
+    {
+      "file": "shardloom-vortex/tests/native_exchange_support/mod.rs",
+      "status": "A"
+    }
+  ],
+  "correctness_acceptance": {
+    "gate_arithmetic_tests": 7,
+    "process_failure_workflows": 4,
+    "protocol_tests": 41,
+    "release_client_interop_workflows": 2,
+    "release_preflight_workflows": 65,
+    "report_corruption_refusals": 24,
+    "run_end_profile_regression_tests": 1,
+    "workspace": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3235,
+      "summaries": 107
+    }
+  },
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "generated_artifact_cleanup_proof": "cleanup.json",
+  "packet": {
+    "bytes": 723720,
+    "file": "results.json.xz",
+    "members": 232,
+    "sha256": "f2db3d543aa4d911b49c0266ec56cabe7916a87be9d5b997566ea6bf548f1eb4"
+  },
+  "proof_limits": [
+    "Finite loopback harness with frozen immutable input, not a public service or arbitrary-input admission.",
+    "Cost gates are rejected in both cohorts; target-family wins do not override controls or aggregate failure.",
+    "Provider/TLS/kernel allocations and copies are not measured exactly; native grants and observed RSS are distinct.",
+    "Ordinary desktop activity is observed context, not proof of an idle host or a causal attribution.",
+    "Protocol/client checks do not close the four broader native-exchange substeps or any CG gate.",
+    "Source retirement, restored-runtime validation and generated-artifact cleanup are separate postchecks."
+  ],
+  "replay": {
+    "candidate_commit": "6e3419bc5f36d0ec41d381420d255c77ef533409",
+    "cohort_gates": [
+      {
+        "cohort": "1",
+        "gates": [
+          {
+            "gate": "gate_2_all_cases_native_workflow",
+            "passed": true
+          },
+          {
+            "gate": "gate_2_nonbenefiting_arrow_none",
+            "passed": true
+          },
+          {
+            "gate": "gate_2_nonbenefiting_arrow_lz4",
+            "passed": false
+          },
+          {
+            "gate": "gate_2_nonbenefiting_arrow_zstd",
+            "passed": false
+          },
+          {
+            "gate": "gate_3_all_cases_native_engine",
+            "passed": true
+          },
+          {
+            "gate": "gate_4_target_geomean_bootstrap_arrow_none",
+            "passed": false
+          },
+          {
+            "gate": "gate_4_target_geomean_bootstrap_arrow_lz4",
+            "passed": false
+          },
+          {
+            "gate": "gate_4_target_geomean_bootstrap_arrow_zstd",
+            "passed": false
+          },
+          {
+            "gate": "gate_5_distinct_encoded_families",
+            "passed": true
+          }
+        ]
+      },
+      {
+        "cohort": "2",
+        "gates": [
+          {
+            "gate": "gate_2_all_cases_native_workflow",
+            "passed": true
+          },
+          {
+            "gate": "gate_2_nonbenefiting_arrow_none",
+            "passed": true
+          },
+          {
+            "gate": "gate_2_nonbenefiting_arrow_lz4",
+            "passed": false
+          },
+          {
+            "gate": "gate_2_nonbenefiting_arrow_zstd",
+            "passed": false
+          },
+          {
+            "gate": "gate_3_all_cases_native_engine",
+            "passed": true
+          },
+          {
+            "gate": "gate_4_target_geomean_bootstrap_arrow_none",
+            "passed": false
+          },
+          {
+            "gate": "gate_4_target_geomean_bootstrap_arrow_lz4",
+            "passed": false
+          },
+          {
+            "gate": "gate_4_target_geomean_bootstrap_arrow_zstd",
+            "passed": false
+          },
+          {
+            "gate": "gate_5_distinct_encoded_families",
+            "passed": true
+          }
+        ]
+      }
+    ],
+    "completed_broad_substeps": [],
+    "cost_gates_passed": false,
+    "decision": "rejected_frozen_mechanism",
+    "failure_history": [
+      {
+        "name": "exchange-all-target-clippy-845-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-all-target-clippy-845-a2",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-bridge-compile-842-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-ownership-clippy-841-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-payload-tests-842-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-peer-clippy-843-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-profile-clippy-846-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-profile-regression-846-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-profile-regression-846-a2",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-registered-release-two-process-tests-845-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-release-runend-diagnostic-846-a1",
+        "returncode": 1,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-release-runend-diagnostic-846-a2",
+        "returncode": 1,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-service-clippy-842-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-service-tests-842-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-sql-tests-843-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-sql-tests-843-a2",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-sql-tests-843-a3",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-sql-tests-843-a4",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-transport-clippy-842-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-transport-tls-841-a1",
+        "returncode": 101,
+        "status": "failed"
+      },
+      {
+        "name": "exchange-transport-tls-841-a2",
+        "returncode": 101,
+        "status": "failed"
+      }
+    ],
+    "guard_receipts": 86,
+    "preflight_workflows": 67,
+    "process_failure_workflows": 4,
+    "protocol_tests": 41,
+    "report_corruption_refusals": 24,
+    "runtime_retention_claimed": false,
+    "scored_workflows": 650,
+    "source_inputs_verified": 2003,
+    "status": "verified"
+  },
+  "schema": "shardloom.native_exchange_decision.v1",
+  "source_retirement_proof": "postchecks.json",
+  "status": "rejected_frozen_mechanism"
+}

@@ -2,12 +2,12 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; sixteen finite investigations completed with
-ten rejected mechanisms, two unretained mechanisms, two retained mechanisms and
+Status: active conditional-first pass; seventeen finite investigations completed with
+eleven rejected mechanisms, two unretained mechanisms, two retained mechanisms and
 two no-signal attributions. Four have source-reviewed missing-prerequisite records,
-and native exchange has a scoped protocol/provider review with its transport
-experiment still unexecuted. Two additional follow-ups are now authorized under
-existing owners, after native exchange and before required breadth.
+and the finite native-exchange transport experiment is rejected after both
+complete cohorts. Two additional follow-ups are authorized under existing owners
+before required breadth.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -109,7 +109,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-09.design` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): the rejected request-deferral mechanism supplies no accepted runtime geometry/pruning/reduction/merge cost basis for joint preparation. | Runtime region acceptance precedes the varied preparation controls. No writer change or joint-cost comparison is admitted; the substep stays open. |
 | `PERF-12.topology` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): no newly admitted topology replaces the rejected grouping/coalescing or request-deferral attempts. | No unchanged 129-call rerun. A materially different admitted mechanism precedes the preserved immutable-input comparison; the substep stays open. |
 | `PERF-13.pgo` | [Current dispatch attribution is missing](native-pgo-prerequisite-decision-2026-10-20.md). All 36 historical Q3/Q23/Q29 raw counter records and twelve median cells are verified; absolute counts exist but cover whole old processes. Both required orchestration regressions pass. | New training is not admitted from these records. Current attributed cost, representative/held-out training, complete workflow/package and break-even gates remain. The historical tested-profile rejection stands; the conditional substep stays open. |
-| `NATIVE-ENCODED-EXCHANGE.experiment` | [Scoped protocol/provider review recorded](native-encoded-exchange-protocol.md). The two local foundation selectors and scope check pass. An isolated 161-package Flight/TLS graph passes policy checks after the first TLS pin is rejected on four advisories; both results are retained. Concrete transport and client test targets are registered. | No transport or comparison has executed. Freeze the extension schema, independent fixtures, encoder controls and numerical/resource gates, then implement and run the registered two-process tests. Local transfer and dependency checks do not close the experiment or any protocol/ownership/client substep. |
+| `NATIVE-ENCODED-EXCHANGE.experiment` | [Finite fragment transport rejected](native-exchange-decision-2026-10-21.md). All 650 scored workflows pass complete values, types, order, native encoding/execution and lifecycle checks. Both cohorts pass native engine controls but fail aggregate benefit against all three Arrow roles and wide-text controls against LZ4/Zstd. The private runtime is removed; the complete decision replays from compact evidence and Git source. | Constant/nested family wins do not override the failed gates. This completes the finite experiment without closing the four broader protocol/ownership/experiment/client substeps. The accepted local/control prerequisites remain; a materially different mechanism needs a new protocol. No public service, package or competitive claim follows. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -132,10 +132,10 @@ preserved in replayable evidence.
 earlier inconclusive observer implementations. The three region-dependent rows have
 been revisited against row 16's negative result, and PGO has an evidenced current
 attribution gap. These four prerequisite records complete neither an experiment
-nor a substep. Native exchange now has its scoped design/provider prerequisite
-record, with actual transport, matched comparisons and client evidence still
-pending. Continue those registered prerequisites, then the two newly authorized
-follow-ups, before required breadth resumes. Source-reviewed prerequisite gaps
+nor a substep. Native exchange now has a completed finite rejection with actual
+transport, matched comparisons and bounded client/failure evidence; its wider
+public service and client obligations remain open. Continue the two authorized
+follow-ups before required breadth resumes. Source-reviewed prerequisite gaps
 remain explicit and do not become accepted capability through this sequencing.
 
 ## Deferred required work

@@ -4,8 +4,9 @@
 
 Status: two additional finite investigations authorized by the maintainer on
 October 20, 2026. This is a queue addition, not an implementation or retention
-decision. Complete the active overlap and native-exchange work first, then these
-follow-ups before resuming required breadth. The
+decision. Eligible overlap attribution is complete, and the
+[finite native-exchange mechanism is rejected](native-exchange-decision-2026-10-21.md).
+These two follow-ups now precede required breadth. The
 [conditional sequence](native-conditional-investigations-2026-10-19.md) and
 [phase plan](phased-execution-plan.md) remain authoritative.
 
