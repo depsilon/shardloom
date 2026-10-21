@@ -60,6 +60,8 @@ pub use dynamic::{
 };
 #[path = "local_primitive_relational_correlated.rs"]
 mod correlated;
+#[path = "local_primitive_relational_cyclic_exists.rs"]
+mod cyclic_exists;
 #[path = "local_primitive_relational_report.rs"]
 mod report;
 #[path = "local_primitive_relational_scan.rs"]
@@ -1578,6 +1580,9 @@ impl PreparedVortexRelational {
                         add(&metrics.join_build_rows_detached, report.build_rows)?;
                     }
                     return Ok(());
+                }
+                if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec) {
+                    return cyclic.run(self, context, metrics, batch_rows, parameter, consume);
                 }
                 let mut join = native_relational_join::Join::new(spec, context.memory())?;
                 self.run(

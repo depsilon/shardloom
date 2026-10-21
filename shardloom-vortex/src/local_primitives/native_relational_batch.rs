@@ -37,6 +37,22 @@ impl Batch {
         key_names: &[String],
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
+        Self::from_names(array, key_names.iter().map(String::as_str), context)
+    }
+
+    pub(super) fn with_names<const N: usize>(
+        array: ArrayRef,
+        key_names: [&str; N],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
+        Self::from_names(array, key_names.into_iter(), context)
+    }
+
+    fn from_names<'a>(
+        array: ArrayRef,
+        key_names: impl ExactSizeIterator<Item = &'a str>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
         let mut keys = ReservedVec::new(context.memory())?;
         keys.reserve(key_names.len())?;
         let mut execution = context.native_session().create_execution_ctx();
@@ -51,6 +67,13 @@ impl Batch {
             )?);
         }
         Ok(Self { array, keys })
+    }
+
+    pub(super) fn key(&self, key: usize) -> Result<&KeyColumn> {
+        self.keys
+            .values
+            .get(key)
+            .ok_or_else(|| failed("bound scalar key is absent"))
     }
 
     pub(super) fn hash(&self, row: usize, nulls_equal: bool) -> Result<Option<u64>> {
@@ -345,7 +368,7 @@ impl Table {
     }
 
     /// Borrow one retained native key owner without reconstructing row payload.
-    fn key(&self, row: usize, key: usize) -> Result<(&KeyColumn, usize)> {
+    pub(super) fn key(&self, row: usize, key: usize) -> Result<(&KeyColumn, usize)> {
         let (segment, row) = self.locate(row)?;
         let column = self.segments.values[segment]
             .batch

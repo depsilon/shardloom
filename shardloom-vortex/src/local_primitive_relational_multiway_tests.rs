@@ -5,6 +5,9 @@ use crate::resident_memory_source::{MemoryColumn, MemoryColumnValues, MemorySour
 use serde_json::{Value, json};
 use shardloom_core::ShardLoomError;
 
+#[path = "local_primitive_relational_cyclic_exists_tests.rs"]
+mod cyclic_exists_tests;
+
 #[derive(Clone)]
 struct Relation {
     x: Vec<Option<i64>>,

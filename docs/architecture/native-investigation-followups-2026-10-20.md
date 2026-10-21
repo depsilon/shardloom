@@ -38,7 +38,9 @@ route and correctness obligations.
 The [October 21 intake](native-cyclic-existence-intake-2026-10-21.md) now verifies
 all thirteen ordinary native workloads, 33 complete calls and four qualifying
 intermediate-row opportunities. Its controls, both future cohorts and numerical
-gates are frozen. Candidate implementation and retention remain pending.
+gates are frozen. The private candidate and actual-work counters now pass the
+full native and required workspace checks. Fresh public build provenance and
+both scored cohorts are still required before any retention decision.
 
 Investigate an explicit semi-join shape in which an outer row needs only one
 complete witness across two related inner inputs. For example, R(a,b) qualifies

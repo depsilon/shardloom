@@ -3,8 +3,10 @@
 # Cyclic existence joins: prospective intake and comparison contract
 
 Status: prerequisite correctness and the ordinary-path opportunity pass; all
-four targets meet the frozen materialized-work gate. Candidate implementation
-and scored comparisons remain pending. No new execution strategy is active. This is the
+four targets meet the frozen materialized-work gate. A private candidate is now
+implemented, with native/workspace validation and actual-work tests passing.
+Fresh public build provenance and both scored comparisons are pending; the candidate is not
+retained or released. This is the
 authorized [follow-up](native-investigation-followups-2026-10-20.md#cyclic-existence-joins)
 under `PERF-10.multiway_joins`, RFC 0044 and PERF-01/02/03/10/12. The current
 implementation phase, CG-1 through CG-23 and 37 required breadth substeps retain
@@ -216,3 +218,62 @@ Proceed with the finite candidate under the archived third protocol and its
 unchanged 520-workflow comparison schedule. Retention still requires both full
 cohorts, every control, actual candidate-work counters, failure/ownership tests,
 and final public integration acceptance. The broader owner remains open.
+
+## Private implementation and actual work
+
+The experimental `local_primitive_relational_cyclic_exists.rs` module borrows
+the already bound tree and keys. Admission allocates no new plan metadata.
+It recognizes either outer-key order and either inner-projection order, checks
+the distinct Int64 columns and pure memory sources, and runs only after explicit
+spill has selected its existing strategy. The existing native path handles all
+other shapes. Indexes and gathered payload remain credited execution-local owners;
+the prepared plan does not retain a new physical cache.
+
+Native `KeyColumn` hashes select candidate entries and exact original-width
+equality proves each witness. Native Vortex gather preserves output aliases,
+types and R ordinals. The implementation creates neither the S/T product nor
+an Arrow execution representation. Test-only, thread-local counters and a
+cancellation injection hook are compiled out of ordinary release builds.
+
+All eight candidate tests and the three prerequisite tests pass, including two
+complete calls for each of the four frozen targets. Each call rebuilds all S/T
+index rows. Actual work is:
+
+| Target | S rows visited | T membership probes | Witness exits | R rows gathered |
+| --- | ---: | ---: | ---: | ---: |
+| abundant | 4,096 | 4,096 | 4,096 | 4,096 |
+| rare | 262,144 | 262,144 | 4,096 | 4,096 |
+| absent | 262,144 | 262,144 | 0 | 0 |
+| skew_wide | 4,096 | 4,096 | 4,096 | 4,096 |
+
+The tests cover admitted NULL/duplicate inputs, both alias/key orders,
+1/2/2048-row boundaries, 2051 output rows, repeated collection, failed consumers,
+cancellation within a long NULL candidate band, partial allocation denial and
+recovery. All-null inputs, full-width integer values, nonnullable keys, text and
+Boolean payloads, every source's size threshold, noninteger keys, extra
+predicates, transformed sources and explicit spill have direct boundary checks.
+Retained native output also remains valid after preparation is dropped; its
+credits drain with its final owner.
+
+The full feature-enabled native all-target suite passes 3,079 tests with no
+failures and 31 existing ignored tests, including the eleven cyclic prerequisite
+and candidate tests. The required default workspace suite passes 3,235 tests
+with no failures or ignored tests. Formatting, strict workspace lint and strict
+feature-enabled native lint also pass. These counters and tests prove actual
+work, exactness and ownership; they are not timing or retention evidence.
+
+One earlier denial-test assertion failed because the public completion boundary
+reserves report metadata before entering the candidate. The final test sweeps
+remaining grants, requires both an observed denial after candidate index work
+has begun and a successful execution, and checks exact baseline restoration at
+every grant. Preserve the failed assertion's source and receipt. This was a test
+correction; no runtime allocation policy was changed to make it pass.
+
+The [comparison runner](../../scripts/native_cyclic_existence_compare.py) has
+seven passing adversarial tests for the complete schedule, all five median
+samples, full values/schema/source identity, ownership, native clock provenance
+and both inclusive numerical bounds. A missing/reordered workflow, one failed
+control in either cohort, changed gate or invalid clock cannot become a retained
+decision. Before scoring, a separate binding must identify the fresh committed
+candidate build, unchanged source inputs, the ordinary intake build, validation
+receipts and exact public Python/driver files. No scored comparison has begun.
