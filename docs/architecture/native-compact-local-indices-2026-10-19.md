@@ -111,6 +111,12 @@ cohorts, not every possible input/output Cartesian product. Pandas is solely an
 independent test oracle. Native Vortex execution and no-fallback certificates
 remain mandatory.
 
+The later [completed-eight checkpoint](native-conditional-checkpoint-2026-10-19.md)
+validates the same retained runtime sources with two reviewed dependency patches.
+The measurements and acceptance records above retain their original compiled
+dependency identities; the checkpoint records its fresh correctness and package
+validation separately.
+
 ## Source identity, evidence and remaining scope
 
 Acceptance binds source head `89f56e36` plus the exact tracked patch and added
