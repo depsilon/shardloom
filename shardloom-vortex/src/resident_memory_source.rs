@@ -60,6 +60,10 @@ mod ipc_intake;
 #[path = "resident_memory_arrow.rs"]
 mod arrow_intake;
 
+#[cfg(feature = "native-encoded-exchange-experiment")]
+#[path = "resident_memory_exchange_bridge.rs"]
+pub(crate) mod exchange_bridge;
+
 /// Explicit typed input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]
