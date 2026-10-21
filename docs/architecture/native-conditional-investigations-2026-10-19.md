@@ -145,9 +145,10 @@ been revisited against row 16's negative result, and PGO has an evidenced curren
 attribution gap. These four prerequisite records complete neither an experiment
 nor a substep. Native exchange now has a completed finite rejection with actual
 transport, matched comparisons and bounded client/failure evidence; its wider
-public service and client obligations remain open. Continue the two authorized
-follow-ups before required breadth resumes. Source-reviewed prerequisite gaps
-remain explicit and do not become accepted capability through this sequencing.
+public service and client obligations remain open. Continue the remaining
+prepared-sampling follow-up before required breadth resumes. Source-reviewed
+prerequisite gaps remain explicit and do not become accepted capability through
+this sequencing.
 
 ## Deferred required work
 

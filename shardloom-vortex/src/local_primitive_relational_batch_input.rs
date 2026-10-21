@@ -767,6 +767,7 @@ impl VortexRelationalBatchInput<'_, '_> {
     /// Actual batch sources are excluded by the prepared-plan policy.
     /// # Errors
     /// Propagates input, policy, consumer, cancellation and resource failures.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub fn for_each_arrow_batch_with_output_window(
         self,
         cancellation: &CancellationToken,
