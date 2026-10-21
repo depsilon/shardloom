@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: provide lazy statistics entries so native
+// footer tables can reserve capacity before construction.
 // ShardLoom: bounded running file statistics; preserve unknowns and overflow.
 
 use std::future;
@@ -303,10 +305,16 @@ impl FileStatsAccumulator {
     }
 
     pub fn stats_sets(&self) -> Vec<StatsSet> {
-        self.accumulators
-            .lock()
-            .iter()
-            .map(StatsAccumulator::as_stats_set)
-            .collect()
+        self.stats_sets_iter().collect()
+    }
+
+    /// Produce statistics lazily while retaining the existing accumulator lock.
+    ///
+    /// Creating this iterator allocates no statistics table. Native consumers can
+    /// admit its exact length before producing entries. Drop it before awaiting
+    /// other work; the lock is retained until the iterator is dropped.
+    pub fn stats_sets_iter(&self) -> impl ExactSizeIterator<Item = StatsSet> + '_ {
+        let accumulators = self.accumulators.lock();
+        (0..accumulators.len()).map(move |index| accumulators[index].as_stats_set())
     }
 }

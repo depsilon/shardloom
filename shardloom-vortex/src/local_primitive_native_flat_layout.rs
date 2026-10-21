@@ -148,7 +148,10 @@ impl LayoutStrategy for SequentialNativeFlatLayout {
                     .await?;
                 children.push(leaf);
             }
-            Ok(ChunkedLayout::new(rows, dtype, layout_children(children)).into_layout())
+            Ok(
+                ChunkedLayout::try_new(rows, dtype, layout_children(children), session)?
+                    .into_layout(),
+            )
         })
     }
 }

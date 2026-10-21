@@ -122,6 +122,9 @@ fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership
     )
     .unwrap();
     let owner = prepared.session.clone();
+    crate::native_provider_memory::materialize_file_metadata_for_test(
+        prepared.source.file().unwrap().file(),
+    );
     let baseline = owner.snapshot().memory.reserved_bytes;
     let cancelled = CancellationToken::default();
     cancelled.cancel();
@@ -219,6 +222,9 @@ fn aggregate_json_topk_reserves_retained_candidates_under_a_tight_budget() {
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             policy.resource_envelope.memory_budget_bytes = BUDGET;
             let prepared = prepare_aggregate(&request, policy).unwrap();
+            crate::native_provider_memory::materialize_file_metadata_for_test(
+                prepared.source.file().unwrap().file(),
+            );
             let memory = prepared.session.memory().clone();
             let baseline = memory.snapshot().reserved_bytes;
             let collected = prepared

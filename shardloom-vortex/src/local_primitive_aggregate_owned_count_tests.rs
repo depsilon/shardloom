@@ -391,6 +391,9 @@ fn owned_count_general_shapes_preserve_reference_and_reject_excessive_output() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
+        crate::native_provider_memory::materialize_file_metadata_for_test(
+            prepared.source.file().unwrap().file(),
+        );
         let memory = prepared.session.memory().clone();
         let prepared_bytes = memory.snapshot().reserved_bytes;
         if request.simple_aggregate.as_ref().unwrap().offset > 0 {
@@ -437,6 +440,9 @@ fn owned_count_rejects_pressure_before_execution_or_output_publication() {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
+    crate::native_provider_memory::materialize_file_metadata_for_test(
+        prepared.source.file().unwrap().file(),
+    );
     let memory = prepared.session.memory().clone();
     let snapshot = memory.snapshot();
     let prepared_bytes = snapshot.reserved_bytes;

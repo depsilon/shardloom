@@ -1,11 +1,104 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: retain allocator admission with shared
+// parsed segment-table storage. See upstream-provenance.json.
 
+use std::alloc::Layout as AllocationLayout;
+use std::ops::Deref;
 use std::ops::Range;
+use std::sync::Arc;
 
+use vortex_array::memory::HostMemoryReservation;
+use vortex_array::memory::MemorySessionExt;
 use vortex_buffer::Alignment;
 use vortex_error::VortexError;
+use vortex_error::VortexResult;
+use vortex_error::vortex_err;
 use vortex_flatbuffers::footer as fb;
+use vortex_session::VortexSession;
+
+/// An immutable segment table whose clones retain its storage owner.
+///
+/// [`Self::try_from_fn`] admits the table before allocation. Conversion from an
+/// existing `Arc<[SegmentSpec]>` preserves caller-owned storage without claiming
+/// allocator admission. Borrowed slice access never exports an ownerless alias
+/// of an admitted table; clone the handle to retain it independently.
+#[derive(Clone, Debug, Default)]
+pub struct SegmentMap(SegmentMapStorage);
+
+#[derive(Clone, Debug, Default)]
+enum SegmentMapStorage {
+    #[default]
+    Empty,
+    CallerOwned(Arc<[SegmentSpec]>),
+    Admitted(Arc<OwnedSegmentMap>),
+}
+
+#[derive(Debug)]
+struct OwnedSegmentMap {
+    values: Vec<SegmentSpec>,
+    // Storage is released before its credit, including on the final clone.
+    _reservation: HostMemoryReservation,
+}
+
+impl SegmentMap {
+    /// Admit and construct exactly `count` segment specifications in index order.
+    ///
+    /// Size overflow or allocation denial occurs before `segment` is invoked.
+    /// A producer error drops the partial table and its reservation. Empty maps
+    /// allocate no table and do not call the producer or allocator.
+    pub fn try_from_fn(
+        count: usize,
+        mut segment: impl FnMut(usize) -> VortexResult<SegmentSpec>,
+        session: &VortexSession,
+    ) -> VortexResult<Self> {
+        let layout = AllocationLayout::array::<SegmentSpec>(count)
+            .map_err(|_| vortex_err!("Segment map allocation size overflow"))?;
+        if count == 0 {
+            return Ok(Self::default());
+        }
+        let reservation = session.allocator().reserve_external(layout.size())?;
+        let mut values = Vec::with_capacity(count);
+        for index in 0..count {
+            values.push(segment(index)?);
+        }
+        debug_assert_eq!(values.capacity(), count);
+        Ok(Self(SegmentMapStorage::Admitted(Arc::new(
+            OwnedSegmentMap {
+                values,
+                _reservation: reservation,
+            },
+        ))))
+    }
+}
+
+impl From<Arc<[SegmentSpec]>> for SegmentMap {
+    fn from(segments: Arc<[SegmentSpec]>) -> Self {
+        if segments.is_empty() {
+            Self::default()
+        } else {
+            Self(SegmentMapStorage::CallerOwned(segments))
+        }
+    }
+}
+
+impl Deref for SegmentMap {
+    type Target = [SegmentSpec];
+
+    fn deref(&self) -> &Self::Target {
+        match &self.0 {
+            SegmentMapStorage::Empty => &[],
+            SegmentMapStorage::CallerOwned(segments) => segments,
+            SegmentMapStorage::Admitted(owner) => &owner.values,
+        }
+    }
+}
+
+impl AsRef<[SegmentSpec]> for SegmentMap {
+    fn as_ref(&self) -> &[SegmentSpec] {
+        self
+    }
+}
 
 /// The location of a segment within a Vortex file.
 ///

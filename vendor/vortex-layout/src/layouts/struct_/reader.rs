@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // ShardLoom modification: evaluate nullable structural scopes before their expressions.
+// Modified by ShardLoom on 2026-10-21: admit lazy reader-cache and per-child
+// metadata vectors before their construction.
 
 use std::fmt;
 use std::ops::Range;
@@ -72,6 +74,33 @@ impl StructReader {
     ) -> VortexResult<Self> {
         let struct_dt = layout.struct_fields();
 
+        let nullable = layout.dtype().is_nullable();
+        let extra = usize::from(nullable);
+        let child_count = struct_dt
+            .nfields()
+            .checked_add(extra)
+            .ok_or_else(|| vortex_err!("Struct reader child count overflow"))?;
+        let lazy_children = LazyReaderChildren::try_new_with_metadata(
+            Arc::clone(layout.children()),
+            child_count,
+            |index| {
+                if nullable && index == 0 {
+                    return Ok((DType::Bool(Nullability::NonNullable), Arc::from("validity")));
+                }
+                let field_index = index - extra;
+                let dtype = struct_dt
+                    .field_by_index(field_index)
+                    .ok_or_else(|| vortex_err!("Missing struct child dtype {field_index}"))?;
+                let name = struct_dt
+                    .field_name(field_index)
+                    .ok_or_else(|| vortex_err!("Missing struct child name {field_index}"))?;
+                Ok((dtype, Arc::clone(name.inner())))
+            },
+            Arc::clone(&segment_source),
+            session.clone(),
+            ctx,
+        )?;
+
         // NOTE: This number is arbitrary and likely depends on the longest common prefix of field names
         let field_lookup = (struct_dt.nfields() > 80).then(|| {
             struct_dt
@@ -81,27 +110,6 @@ impl StructReader {
                 .map(|(i, n)| (n.clone(), i))
                 .collect()
         });
-
-        let nullable = layout.dtype().is_nullable();
-        let extra = nullable as usize;
-
-        let mut dtypes: Vec<DType> = Vec::with_capacity(struct_dt.nfields() + extra);
-        let mut names: Vec<Arc<str>> = Vec::with_capacity(struct_dt.nfields() + extra);
-        if nullable {
-            dtypes.push(DType::Bool(Nullability::NonNullable));
-            names.push(Arc::from("validity"));
-        }
-        dtypes.extend(struct_dt.fields());
-        names.extend(struct_dt.names().iter().map(|x| Arc::clone(x.inner())));
-
-        let lazy_children = LazyReaderChildren::new(
-            Arc::clone(layout.children()),
-            dtypes,
-            names,
-            Arc::clone(&segment_source),
-            session.clone(),
-            ctx,
-        );
 
         // Create an expanded root expression that contains all fields of the struct.
         // Child layouts contain unmasked fields. Parent validity is a separate dependency,

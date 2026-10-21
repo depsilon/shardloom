@@ -76,6 +76,48 @@ mod varbin_deserialize_tests;
 #[path = "native_provider_file_metadata_tests.rs"]
 mod file_metadata_tests;
 
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_provider_structural_metadata_tests.rs"]
+mod structural_metadata_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_provider_file_statistics_tests.rs"]
+mod file_statistics_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_provider_metadata_locators_tests.rs"]
+mod metadata_locators_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_provider_chunked_offsets_tests.rs"]
+mod chunked_offsets_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_provider_segment_map_tests.rs"]
+mod segment_map_tests;
+
+/// Establish retained metadata before tests measure per-execution cleanup.
+/// This visits layout slots and split metadata without requesting segment data.
+#[cfg(all(test, feature = "vortex-write"))]
+pub(crate) fn materialize_file_metadata_for_test(file: &vortex::file::VortexFile) {
+    fn visit(layout: &vortex::layout::LayoutRef) {
+        for slot in 0..layout.nslots() {
+            if let Some(child) = layout.slot(slot).unwrap() {
+                visit(&child);
+            }
+        }
+    }
+    visit(file.footer().layout());
+    let reader = file.layout_reader().unwrap();
+    vortex::layout::scan::split_by::SplitBy::Layout
+        .splits(
+            reader.as_ref(),
+            &(0..file.row_count()),
+            &[vortex::array::dtype::FieldMask::All],
+        )
+        .unwrap();
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ProviderMemory {
     memory: LiveMemoryPool,

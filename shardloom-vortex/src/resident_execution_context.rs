@@ -17,7 +17,7 @@ use std::{
 use vortex::{
     error::{SharedVortexResult, vortex_err},
     file::{
-        OpenOptionsSessionExt as _, SegmentSpec, VortexFile,
+        OpenOptionsSessionExt as _, SegmentMap, VortexFile,
         segments::{FileSegmentSource, RequestMetrics},
     },
     io::runtime::BlockingRuntime as _,
@@ -324,7 +324,7 @@ impl NativeExecutionContext<'_> {
             reader_owner: None,
         };
         let source = DeferredFileSegments {
-            segments: Arc::clone(file.footer().segment_map()),
+            segments: file.footer().segment_map().clone(),
             reader,
             scope: Arc::clone(scope),
             memory: self.owner.memory.clone(),
@@ -343,7 +343,7 @@ impl NativeExecutionContext<'_> {
 /// actual segment request admits the existing native provider exactly once;
 /// failures remain attached to this operation and never reopen/replay a source.
 struct DeferredFileSegments {
-    segments: Arc<[SegmentSpec]>,
+    segments: SegmentMap,
     reader: super::ResidentFileReadAt,
     scope: Arc<IoScope>,
     memory: shardloom_exec::live_memory::LiveMemoryPool,
@@ -369,15 +369,17 @@ impl SegmentSource for DeferredFileSegments {
             // Preserve the provider's normal live-request sharing after the
             // source handoff. Multiple readers of one segment share its read
             // and owned buffer; weak request entries do not cache answers.
-            Ok(SharedSegmentSource::new(FileSegmentSource::open(
-                Arc::clone(&self.segments),
-                reader,
-                self.reader.handle.clone(),
-                RequestMetrics::new(
-                    &vortex::metrics::DefaultMetricsRegistry::default(),
-                    Vec::new(),
+            Ok(SharedSegmentSource::new(
+                FileSegmentSource::open_with_segments(
+                    self.segments.clone(),
+                    reader,
+                    self.reader.handle.clone(),
+                    RequestMetrics::new(
+                        &vortex::metrics::DefaultMetricsRegistry::default(),
+                        Vec::new(),
+                    ),
                 ),
-            )))
+            ))
         });
         match source {
             Ok(source) => source.request(id),

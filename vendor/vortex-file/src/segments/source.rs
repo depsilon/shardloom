@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-17: admit in-memory segment alignment copies
 // through the receiving session allocator. See upstream-provenance.json.
+// Modified by ShardLoom on 2026-10-21: retain owned segment maps and address
+// optional metadata without copying the base table.
 
 use std::any::Any;
 use std::collections::VecDeque;
@@ -47,7 +49,9 @@ use vortex_metrics::Label;
 use vortex_metrics::MetricBuilder;
 use vortex_metrics::MetricsRegistry;
 
+use crate::SegmentMap;
 use crate::SegmentSpec;
+use crate::footer::MetadataSegments;
 use crate::read::IoRequest;
 use crate::read::IoRequestStream;
 use crate::read::ReadRequest;
@@ -279,8 +283,39 @@ impl<R: VortexReadAt> Stream for ReadDriver<R> {
     }
 }
 
+/// The source's existing base and metadata tables, without a concatenation copy.
+pub(crate) struct SourceSegments {
+    base: SegmentMap,
+    metadata: Option<MetadataSegments>,
+}
+
+impl SourceSegments {
+    pub(crate) fn new(base: SegmentMap, metadata: Option<MetadataSegments>) -> Self {
+        Self { base, metadata }
+    }
+
+    fn get(&self, index: usize) -> Option<&SegmentSpec> {
+        if index < self.base.len() {
+            self.base.get(index)
+        } else {
+            self.metadata
+                .as_ref()?
+                .get(index - self.base.len())
+                .map(|(_, segment)| segment)
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &SegmentSpec> {
+        self.base.iter().chain(
+            self.metadata
+                .iter()
+                .flat_map(|metadata| metadata.iter().map(|(_, segment)| segment)),
+        )
+    }
+}
+
 pub struct FileSegmentSource {
-    segments: Arc<[SegmentSpec]>,
+    segments: SourceSegments,
     /// A queue for sending read request events to the I/O stream.
     events: mpsc::UnboundedSender<ReadEvent>,
     /// Background request driver, joined by readers to surface a driver panic.
@@ -296,8 +331,31 @@ impl FileSegmentSource {
     ///
     /// The returned source spawns a background driver on `handle` that coalesces and executes
     /// random-access read requests.
+    /// The supplied raw table retains its caller-owned allocation; no retroactive
+    /// session admission is implied. Use [`Self::open_with_segments`] to retain
+    /// an admitted map obtained from a parsed footer.
     pub fn open<R: VortexReadAt + Clone>(
         segments: Arc<[SegmentSpec]>,
+        reader: R,
+        handle: Handle,
+        metrics: RequestMetrics,
+    ) -> Self {
+        Self::open_with_segments(segments.into(), reader, handle, metrics)
+    }
+
+    /// Open a source retaining the supplied segment-map owner and its admission.
+    /// No segment-table allocation or copy occurs during this handoff.
+    pub fn open_with_segments<R: VortexReadAt + Clone>(
+        segments: SegmentMap,
+        reader: R,
+        handle: Handle,
+        metrics: RequestMetrics,
+    ) -> Self {
+        Self::open_source_segments(SourceSegments::new(segments, None), reader, handle, metrics)
+    }
+
+    pub(crate) fn open_source_segments<R: VortexReadAt + Clone>(
+        segments: SourceSegments,
         reader: R,
         handle: Handle,
         metrics: RequestMetrics,
@@ -526,17 +584,13 @@ impl RequestMetrics {
 /// Resolves segments synchronously, bypassing the async I/O pipeline.
 pub(crate) struct BufferSegmentSource {
     buffer: ByteBuffer,
-    segments: Arc<[SegmentSpec]>,
+    segments: SourceSegments,
     allocator: HostAllocatorRef,
 }
 
 impl BufferSegmentSource {
     /// Create a new `BufferSegmentSource` from a buffer and its segment map.
-    pub fn new(
-        buffer: ByteBuffer,
-        segments: Arc<[SegmentSpec]>,
-        allocator: HostAllocatorRef,
-    ) -> Self {
+    pub fn new(buffer: ByteBuffer, segments: SourceSegments, allocator: HostAllocatorRef) -> Self {
         Self {
             buffer,
             segments,
@@ -567,7 +621,9 @@ impl SegmentSource for BufferSegmentSource {
             .boxed();
         }
 
-        let slice = self.buffer.slice(start..end);
+        // A segment can require less alignment than the whole input buffer.
+        // Check its actual slice against its own requirement below.
+        let slice = self.buffer.slice_unaligned(start..end);
         let buffer = if slice.is_aligned(spec.alignment) {
             Ok(slice.ensure_aligned(spec.alignment))
         } else {
@@ -593,6 +649,50 @@ mod tests {
     use vortex_metrics::DefaultMetricsRegistry;
 
     use super::*;
+
+    #[test]
+    fn source_segments_borrows_original_base_and_metadata_tables() {
+        for width in [0, 1, 8] {
+            let base: Arc<[SegmentSpec]> = (0..width)
+                .map(|index| SegmentSpec {
+                    offset: index as u64,
+                    length: 0,
+                    alignment: Alignment::none(),
+                })
+                .collect();
+            let metadata = MetadataSegments::from_unchecked(
+                (0..16)
+                    .map(|index| {
+                        (
+                            format!("metadata-{index}"),
+                            SegmentSpec {
+                                offset: 128 * index,
+                                length: 0,
+                                alignment: Alignment::new(128),
+                            },
+                        )
+                    })
+                    .collect(),
+            );
+            let source = SourceSegments::new(Arc::clone(&base).into(), Some(metadata.clone()));
+            for (index, original) in base.iter().enumerate() {
+                assert!(std::ptr::eq(source.get(index).unwrap(), original));
+            }
+            for (index, (_, original)) in metadata.iter().enumerate() {
+                assert!(std::ptr::eq(source.get(width + index).unwrap(), original));
+            }
+            assert_eq!(source.iter().count(), width + 16);
+            assert_eq!(
+                source.iter().map(|spec| spec.alignment).max(),
+                Some(Alignment::new(128))
+            );
+            assert!(source.get(width + 16).is_none());
+            assert!(source.get(usize::MAX).is_none());
+        }
+        let empty = SourceSegments::new(SegmentMap::default(), None);
+        assert_eq!(empty.iter().count(), 0);
+        assert!(empty.get(0).is_none());
+    }
 
     fn io_request(id: RequestId, offset: u64, length: usize) -> IoRequest {
         let (callback, _receiver) = oneshot::channel();

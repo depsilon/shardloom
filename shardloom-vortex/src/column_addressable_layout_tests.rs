@@ -11,6 +11,7 @@ use vortex::{
         },
         dtype::{FieldNames, Nullability},
         iter::{ArrayIteratorAdapter, ArrayIteratorExt as _},
+        memory::MemorySessionExt as _,
         scalar::Scalar,
         validity::Validity,
     },
@@ -701,7 +702,10 @@ fn root_children_clones_share_vectors_and_hold_credits_through_footer_lifetime()
             4,
         )
         .unwrap();
-    let root = matrix.into_layout(dtype, 4);
+    let session = VortexSession::default().with_allocator(Arc::new(
+        crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+    ));
+    let root = matrix.into_layout(dtype, 4, &session).unwrap();
     let children = root.as_opt::<Struct>().unwrap().children().clone();
     let cloned = children.as_ref().to_arc();
     let first = children

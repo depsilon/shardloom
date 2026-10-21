@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit reader, metadata-vector and
+// classification storage; avoid a classification array for uniform children.
 
+use std::alloc::Layout as AllocationLayout;
 use std::future;
 use std::iter::once;
 use std::ops::Range;
@@ -21,9 +24,13 @@ use vortex_array::arrays::ChunkedArray;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldMask;
 use vortex_array::expr::BoundExpression;
+use vortex_array::memory::HostAllocatorRef;
+use vortex_array::memory::HostMemoryReservation;
+use vortex_array::memory::MemorySessionExt;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
+use vortex_error::vortex_err;
 use vortex_error::vortex_panic;
 use vortex_mask::Mask;
 use vortex_session::VortexSession;
@@ -42,6 +49,7 @@ pub struct ChunkedReader {
     layout: ChunkedLayout,
     name: Arc<str>,
     lazy_children: LazyReaderChildren,
+    allocator: HostAllocatorRef,
     /// Lazily computed classification of which chunks register no interior splits, letting
     /// [`ChunkedReader::register_splits`] avoid materializing those chunks' readers.
     chunk_skips: OnceCell<ChunkSkips>,
@@ -55,37 +63,36 @@ enum ChunkSkips {
     /// No chunk can be skipped.
     None,
     /// Per-chunk answers.
-    Mixed(Box<[bool]>),
+    Mixed {
+        flags: Vec<bool>,
+        // Last field: release the flags before their payload credit.
+        _reservation: HostMemoryReservation,
+    },
 }
 
 static UNKNOWN: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("chunked-child"));
 
 impl ChunkedReader {
-    pub fn new(
+    pub fn try_new(
         layout: ChunkedLayout,
         name: Arc<str>,
         segment_source: Arc<dyn SegmentSource>,
         session: &VortexSession,
         ctx: LayoutReaderContext,
-    ) -> Self {
+    ) -> VortexResult<Self> {
         let lazy_children = if cfg!(debug_assertions) {
             // format!() has non-marginal overhead for short queries like random
             // access benchmarks
-            let nchildren = layout.nchildren();
-            let dtypes = vec![layout.dtype().clone(); nchildren];
-            let names = (0..nchildren)
-                .map(|idx| Arc::from(format!("{name}.[{idx}]")))
-                .collect();
-            LazyReaderChildren::new(
+            LazyReaderChildren::try_new_with_metadata(
                 Arc::clone(layout.children()),
-                dtypes,
-                names,
+                layout.nchildren(),
+                |idx| Ok((layout.dtype().clone(), Arc::from(format!("{name}.[{idx}]")))),
                 segment_source,
                 session.clone(),
                 ctx,
             )
         } else {
-            LazyReaderChildren::new_uniform(
+            LazyReaderChildren::try_new_uniform(
                 Arc::clone(layout.children()),
                 layout.dtype().clone(),
                 Arc::clone(&*UNKNOWN),
@@ -93,14 +100,15 @@ impl ChunkedReader {
                 session.clone(),
                 ctx,
             )
-        };
+        }?;
 
-        Self {
+        Ok(Self {
             layout,
             name,
             lazy_children,
+            allocator: session.allocator(),
             chunk_skips: OnceCell::new(),
-        }
+        })
     }
 
     /// Return the [`LayoutReader`] for the given chunk.
@@ -110,24 +118,41 @@ impl ChunkedReader {
 
     /// Classify which chunks are known to be indivisible, without materializing any chunk
     /// layouts or readers.
-    fn chunk_skips(&self) -> &ChunkSkips {
-        self.chunk_skips.get_or_init(|| {
+    fn chunk_skips(&self) -> VortexResult<&ChunkSkips> {
+        self.chunk_skips.get_or_try_init(|| {
             let children = self.layout.children();
             let nchildren = self.layout.nchildren();
             if nchildren == 0 {
-                return ChunkSkips::All;
+                return Ok(ChunkSkips::All);
             }
 
-            let skips = (0..nchildren)
-                .map(|idx| children.child_is_indivisible(idx))
-                .collect::<Box<[bool]>>();
-            if skips.iter().all(|&skip| skip) {
-                ChunkSkips::All
-            } else if skips.iter().all(|&skip| !skip) {
-                ChunkSkips::None
-            } else {
-                ChunkSkips::Mixed(skips)
+            let first = children.child_is_indivisible(0);
+            let Some(first_difference) =
+                (1..nchildren).find(|&idx| children.child_is_indivisible(idx) != first)
+            else {
+                return Ok(if first {
+                    ChunkSkips::All
+                } else {
+                    ChunkSkips::None
+                });
+            };
+
+            let bytes = AllocationLayout::array::<bool>(nchildren)
+                .map_err(|_| vortex_err!("Chunk classification size overflow: {nchildren}"))?
+                .size();
+            let reservation = self.allocator.reserve_external(bytes)?;
+            // The prefix is uniform. Record it without re-reading metadata, then
+            // evaluate each remaining child once; none are materialized here.
+            let mut flags = vec![first; nchildren];
+            debug_assert_eq!(flags.capacity(), nchildren);
+            flags[first_difference] = !first;
+            for (idx, flag) in flags.iter_mut().enumerate().skip(first_difference + 1) {
+                *flag = children.child_is_indivisible(idx);
             }
+            Ok(ChunkSkips::Mixed {
+                flags,
+                _reservation: reservation,
+            })
         })
     }
 
@@ -235,7 +260,8 @@ impl LayoutReader for ChunkedReader {
 
         // Fast path: no chunk has interior splits (e.g. all-flat chunks), so the splits are
         // exactly the chunk-end boundaries — no chunk layouts or readers needed.
-        if matches!(self.chunk_skips(), ChunkSkips::All) {
+        let chunk_skips = self.chunk_skips()?;
+        if matches!(chunk_skips, ChunkSkips::All) {
             let chunk_range = self.chunk_range(row_range);
             if chunk_range.is_empty() {
                 return Ok(());
@@ -259,8 +285,6 @@ impl LayoutReader for ChunkedReader {
         let iter = self.ranges(row_range);
         splits.reserve(iter.size_hint().0);
 
-        let chunk_skips = self.chunk_skips();
-
         for (chunk_idx, chunk_start, child_range, _) in iter {
             let child_end = child_range.end;
 
@@ -269,7 +293,7 @@ impl LayoutReader for ChunkedReader {
             let skip_child = match chunk_skips {
                 ChunkSkips::All => true,
                 ChunkSkips::None => false,
-                ChunkSkips::Mixed(skips) => skips[chunk_idx],
+                ChunkSkips::Mixed { flags, .. } => flags[chunk_idx],
             };
             if !skip_child {
                 let child = self.chunk_reader(chunk_idx)?;

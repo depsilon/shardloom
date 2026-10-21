@@ -818,14 +818,16 @@ impl<'a> GenerationBuilder<'a> {
                 }
             }
             children.push(
-                ChunkedLayout::new(
+                ChunkedLayout::try_new(
                     self.array.len() as u64,
                     field.dtype().clone(),
                     Arc::new(GenerationLayoutChildren {
                         children: Arc::new(leaves),
                         metadata: Arc::clone(&self.metadata),
                     }),
+                    native,
                 )
+                .map_err(generation_error)?
                 .into_layout(),
             );
         }
@@ -901,7 +903,8 @@ impl<'a> GenerationBuilder<'a> {
 
 fn generation_reference_bytes(segments: usize, columns: usize) -> Result<u64> {
     // Reserve exact adapter vector capacities plus Arc counters/containers.
-    // Native layout object internals and footer serializer scratch are excluded;
+    // Native chunk offsets are admitted separately by their actual provider
+    // owner. Other layout internals and footer serializer scratch are excluded;
     // the separate footer allowance is checked against actual serialized bytes.
     let per_segment = std::mem::size_of::<MemorySegment>()
         + std::mem::size_of::<SegmentSpec>()

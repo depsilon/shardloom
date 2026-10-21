@@ -1,6 +1,7 @@
 use super::*;
 use serde_json::{Value, json};
 use shardloom_exec::compute_pool::CancellationToken;
+use shardloom_vortex::resident_session::ResidentVortexSession;
 
 #[path = "sql_native_relational_aggregate_expression_tests.rs"]
 mod aggregate_expression_tests;
@@ -367,6 +368,31 @@ fn native_relational_sql_derived_discovery_and_binding_are_scope_aware() {
     }
 }
 
+fn successful_derived_relational_retained_memory(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    prepare_in: impl FnOnce(&ResidentVortexSession) -> PreparedVortexRelational,
+) -> (u64, u64) {
+    let session = ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )
+    .unwrap();
+    let memory = session.shared_memory_pool();
+    let prepared = prepare_in(&session);
+    let cold_reserved = prepared.snapshot().memory.reserved_bytes;
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(result.execution.output_columns, ["value"]);
+    assert_eq!(result.execution.output_rows, 2);
+    drop(result);
+    let reserved = prepared.snapshot().memory.reserved_bytes;
+    drop(prepared);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    (cold_reserved, reserved)
+}
+
 #[test]
 fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cleanup() {
     let directory = TestDirectory::new();
@@ -379,18 +405,40 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
         left.display(),
         right.display()
     );
-    let prepared = prepare(
-        &sql,
-        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
-            .expect("explicit fixture allocation"),
-        |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
+    let prepare_in = |session: &ResidentVortexSession| {
+        prepare_in_session(
+            &sql,
+            policy,
+            session,
+            |_| Ok(()),
+            |path, _| {
+                DatasetUri::new(path.path.to_string_lossy().into_owned()).map(|uri| vec![uri])
+            },
+            &CancellationToken::default(),
+        )
+        .unwrap()
+    };
+    // A successful cold execution independently establishes retained lazy file
+    // metadata. Failed executions must retain exactly that baseline, not state
+    // left by a failed consumer. Neither path may retain credit after teardown.
+    let (cold_reserved, reserved) =
+        successful_derived_relational_retained_memory(policy, prepare_in);
+
+    let session = ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
     )
     .unwrap();
+    let memory = session.shared_memory_pool();
+    let prepared = prepare_in(&session);
     assert_eq!(prepared.snapshot().prepared_source_opens, 2);
-    let reserved = prepared.snapshot().memory.reserved_bytes;
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, cold_reserved);
     let pre_cancel = CancellationToken::default();
     pre_cancel.cancel();
     assert!(prepared.collect_jsonl(&pre_cancel).is_err());
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, cold_reserved);
     let mut consumed = false;
     let failure = prepared
         .for_each_batch(&CancellationToken::default(), |_, _| {
@@ -440,6 +488,9 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
             .collect_jsonl(&CancellationToken::default())
             .is_err()
     );
+    drop(prepared);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit retained chunk offsets and check row sums.
 
 use std::pin::Pin;
 use std::sync::Arc;
@@ -242,12 +243,16 @@ impl LayoutStrategy for DictStrategy {
             return Ok(child_layouts.remove(0));
         }
 
-        let row_count = child_layouts.iter().map(|child| child.row_count()).sum();
-        Ok(ChunkedLayout::new(
+        let row_count = child_layouts.iter().try_fold(0_u64, |rows, child| {
+            rows.checked_add(child.row_count())
+                .ok_or_else(|| vortex_err!("Chunked child row counts overflow"))
+        })?;
+        Ok(ChunkedLayout::try_new(
             row_count,
             dtype,
             OwnedLayoutChildren::layout_children(child_layouts),
-        )
+            session,
+        )?
         .into_layout())
     }
 }

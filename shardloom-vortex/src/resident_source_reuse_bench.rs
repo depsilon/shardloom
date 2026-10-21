@@ -318,8 +318,8 @@ fn call(
                     scope: Some(scope),
                 };
                 let metrics = RequestMetrics::new(&DefaultMetricsRegistry::default(), Vec::new());
-                let segments = FileSegmentSource::open(
-                    Arc::clone(file.footer().segment_map()),
+                let segments = FileSegmentSource::open_with_segments(
+                    file.footer().segment_map().clone(),
                     TimedReadAt {
                         inner: reader,
                         events: Arc::clone(&events),

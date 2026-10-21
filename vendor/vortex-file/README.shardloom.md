@@ -1,4 +1,4 @@
-# ShardLoom file metadata buffer patch
+# ShardLoom file metadata ownership patch
 
 This directory contains the reviewed Apache-2.0 `vortex-file` 0.85.0 registry
 source. `upstream-provenance.json` records the authoritative archive, all
@@ -28,6 +28,52 @@ named byte-buffer allocations, not structural context/segment collections,
 schema field-name tables, layout child caches, statistics objects, writer
 scratch, allocator bookkeeping or process RSS. Supplied parsed footers retain
 their existing owners.
+
+The subsequent structural work admits the parsed `SegmentSpec` vector before
+construction. `SegmentMap` clones retain its reservation through the final
+storage owner, including independent source and serializer handoffs. Its slice
+access is borrowed; it does not export an unguarded shared allocation. Empty
+maps allocate no table. `Footer::segment_map` returns this owned handle, while
+`Footer::new` and `FileSegmentSource::open` retain their caller-owned `Arc` input
+compatibility boundaries. `FileSegmentSource::open_with_segments` accepts the
+owned handle. The two pinned ShardLoom raw-map clone sites use handle clones.
+Buffer and file sources address base and metadata tables directly, preserving
+metadata IDs and maximum alignment without a concatenation allocation.
+In-memory sources use the provider's unaligned slice operation before testing
+each segment's actual alignment, so a stronger whole-buffer alignment does not
+panic at an otherwise valid segment offset. Realignment copies remain admitted.
+
+The structural contract is
+`docs/architecture/native-structural-provider-ownership-2026-10-21.md`. Its
+segment-table scope excludes metadata locator/name allocation, schema and
+statistics payloads, read contexts, writer construction/scratch, fixed wrapper
+bookkeeping and process RSS. Caller-owned tables remain explicitly unadmitted.
+
+The subsequent file-statistics extension admits both `StatsSet` and `DType`
+table capacities before parsing or native writer construction. `FileStatistics`
+clones share vectors and retain their reservation through the final owner;
+`stats_sets` and `dtypes` borrow slices without exporting raw shared allocations.
+Its existing constructors preserve caller-owned inputs. The fallible indexed
+factory checks count/layout overflow, skips empty allocations and releases
+partial production on error. Parsing validates cardinality before admission and
+reads FlatBuffer entries directly. The writer consumes the accumulator's lazy
+iterator after admission, avoiding an intermediate statistics vector. Nested
+schema/scalar payloads, statistics overflow storage, accumulator state, writer
+scratch and fixed bookkeeping remain separate from these table capacities.
+
+The metadata-locator extension shares one private owner across postscript
+parsing, footer/source aliases and serialization. It admits exact locator-vector
+and UTF-8 name capacities before construction. Bounded borrowed-key validation
+keeps the existing count, byte-length, uniqueness and diagnostic rules without
+temporary owned-name collections. Incremental parsing retains that owner across
+missing-input responses and retries. Native writers supply their actual session;
+reserializing existing metadata retains its owner without another name copy.
+Empty tables allocate no payload. The resolved-payload map and its name copies,
+initial-read caches, future/serialization/sorting scratch and fixed bookkeeping
+remain outside this locator/name owner. Metadata payload buffers keep their
+separate existing allocator contract. Private format fixtures preserve their
+original assertions with tuple-based metadata construction; new factory tests
+cover exact/short grants, maximum Unicode keys and partial failure cleanup.
 
 ShardLoom's native tests exercise the linked provider with real serialized
 files, allocator refusal, exact grants, competing owners, retained clones,

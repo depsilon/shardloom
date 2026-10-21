@@ -225,7 +225,7 @@ impl LayoutStrategy for ColumnAddressableLayout {
                 groups += 1;
             }
             drop(eof);
-            Ok(matrix.into_layout(dtype, rows))
+            matrix.into_layout(dtype, rows, session)
         })
     }
 }
@@ -353,7 +353,12 @@ impl ReferenceMatrix {
         Ok(())
     }
 
-    fn into_layout(self, dtype: DType, rows: u64) -> LayoutRef {
+    fn into_layout(
+        self,
+        dtype: DType,
+        rows: u64,
+        session: &VortexSession,
+    ) -> VortexResult<LayoutRef> {
         let Self {
             columns,
             references,
@@ -364,18 +369,19 @@ impl ReferenceMatrix {
             .into_iter()
             .enumerate()
             .map(|(index, children)| {
-                ChunkedLayout::new(
+                Ok(ChunkedLayout::try_new(
                     rows,
                     fields.field_by_index(index).expect("admitted field"),
                     Arc::new(ReservedChildren {
                         children: Arc::new(children),
                         references: Arc::clone(&references),
                     }),
-                )
-                .into_layout()
+                    session,
+                )?
+                .into_layout())
             })
-            .collect();
-        LayoutParts::new(
+            .collect::<VortexResult<Vec<_>>>()?;
+        Ok(LayoutParts::new(
             Struct,
             dtype,
             rows,
@@ -387,7 +393,7 @@ impl ReferenceMatrix {
             (),
         )
         .into_typed()
-        .into_layout()
+        .into_layout())
     }
 }
 

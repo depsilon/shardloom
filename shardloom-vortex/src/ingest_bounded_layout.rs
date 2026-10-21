@@ -221,7 +221,10 @@ impl LayoutStrategy for BoundedIngestLayout {
             // Keep the enclosing EOF alive until all locally scoped children
             // finish. Child strategies may emit metadata at their own EOF.
             drop(eof);
-            Ok(ChunkedLayout::new(rows, dtype, self.reserved_children(children)).into_layout())
+            Ok(
+                ChunkedLayout::try_new(rows, dtype, self.reserved_children(children), session)?
+                    .into_layout(),
+            )
         })
     }
 }
