@@ -17,7 +17,7 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Shared native strategy selection across formats — local acceptance` —
+- [x] `Shared native strategy selection across formats` —
   [implementation and evidence](native-format-strategy-parity-2026-10-21.md)
   preserve the existing native single-input SQL alias contract, select against
   normalized native sources, and pass scalar results to the existing writers
@@ -33,8 +33,16 @@ phase plan first.
     complete-value checks. The portable packet preserves all 129 earlier writer
     results and failures. Final isolated Full43 passes 43 complete results and
     381 rows in 48.754238077 engine seconds, with one execution per query.
-  - Local correction acceptance is complete; PR checks/merge remain before the
-    already authorized version train. No whole PERF owner, competitive gate,
+  - The writer-policy review correction in `ca5a13fb` separately passes 3,162
+    native tests with the same 31 manual ignores, 3,238 workspace tests and
+    32 native count-write/reopen cases. The original collect-only Full43 is
+    unchanged. [PR #1583](https://github.com/depsilon/shardloom/pull/1583) merges
+    as `19f1892bea8aac694133c2079179bf1363b9d5ca` after all 44 required checks
+    pass; all three hosted native-wheel lanes pass 121 tests with no skips.
+    The npm audit service failure and missing dependent artifact pass on retry
+    without a source change. The merge tree equals the reviewed and tested tree.
+  - Correction acceptance and integration are complete. The authorized v0.7.0
+    train is next in the phase plan. No whole PERF owner, competitive gate,
     platform expansion, first-use preparation optimization or release is closed.
 
 - [x] `Six finite native structural ownership classes` — admit child caches,

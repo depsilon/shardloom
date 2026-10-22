@@ -10,6 +10,7 @@ import importlib.util
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 import textwrap
 import unittest
@@ -54,6 +55,56 @@ WORKSPACE_VERSION_ENV = workspace_version_env(REPO_ROOT)
 
 
 class ReleaseScriptTests(unittest.TestCase):
+    def test_source_archive_preserves_build_inputs_and_excludes_benchmark_bundles(self) -> None:
+        kept = {
+            ".gitattributes": (REPO_ROOT / ".gitattributes").read_bytes(),
+            "Cargo.toml": b"[workspace]\n",
+            "Cargo.lock": b"version = 4\n",
+            "rust-toolchain.toml": b'[toolchain]\nchannel = "stable"\n',
+            "shardloom-cli/src/main.rs": b"fn main() {}\n",
+            "python/src/shardloom/__init__.py": b"# package source\n",
+            "docs/benchmarks/evidence/index.json": b'{"archive":"records.tar.xz"}\n',
+            "docs/benchmarks/evidence/case/verify.py": b'print("verify")\n',
+            "docs/benchmarks/evidence/partial-summary.json": b"{}\n",
+            "docs/benchmarks/compiler-profile-screen-2026-09-27.json": b"{}\n",
+            "docs/benchmarks/unrelated.json.gz": b"compressed fixture",
+            "docs/benchmarks/fixtures/input.json.gz": b"nested compressed fixture",
+            "docs/release/channel-proofs/proof.json": b"{}\n",
+            "vendor/vortex-file/tests/fixture.gz": b"vendored compressed fixture",
+            "python/THIRD_PARTY_LICENSES/texts/notice.txt": b"upstream license\r\n",
+        }
+        omitted = {
+            "docs/benchmarks/compiler-profile-screen-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/json-typed-builder-screen-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/jsonl-typed-builder-screen-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/portable-release-acceptance-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/evidence/top.json.xz": b"xz proof",
+            "docs/benchmarks/evidence/top.json.gz": b"gzip proof",
+            "docs/benchmarks/evidence/top.tar.part-001": b"proof chunk",
+            "docs/benchmarks/evidence/a/b/nested.tar.xz": b"nested xz proof",
+            "docs/benchmarks/evidence/a/b/nested.log.gz": b"nested gzip proof",
+            "docs/benchmarks/evidence/a/b/packet.part-000": b"nested proof chunk",
+        }
+        with tempfile.TemporaryDirectory(prefix="shardloom-source-archive-") as directory:
+            root = Path(directory)
+            for name, data in {**kept, **omitted}.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            git = ["git", "-c", "core.autocrlf=false", "-c", f"core.attributesfile={os.devnull}"]
+            subprocess.run([*git, "init", "--quiet"], cwd=root, check=True)
+            subprocess.run([*git, "add", "--all"], cwd=root, check=True)
+            tree = subprocess.check_output([*git, "write-tree"], cwd=root, text=True).strip()
+            archive = subprocess.check_output([*git, "archive", "--format=tar", tree], cwd=root)
+            with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
+                files = [member for member in bundle if member.isfile()]
+                self.assertEqual({member.name for member in files}, set(kept))
+                self.assertEqual(len(files), len(kept))
+                for member in files:
+                    with self.subTest(path=member.name):
+                        with bundle.extractfile(member) as stream:
+                            self.assertEqual(stream.read(), kept[member.name])
+
     def _load_script_module(self, script_name: str, module_name: str) -> object:
         module_path = REPO_ROOT / "scripts" / script_name
         return self._load_module_from_path(module_path, module_name)

@@ -2,12 +2,14 @@
 
 # Native strategy parity across format boundaries
 
-Status: local acceptance passed; PR integration pending under PERF-10/11/07 and
-CG-5/20/21. The October 21
+Status: local and PR integration acceptance passed under PERF-10/11/07 and
+CG-5/20/21. [PR #1583](https://github.com/depsilon/shardloom/pull/1583) merged as
+`19f1892bea8aac694133c2079179bf1363b9d5ca` after all 44 required checks passed.
+The October 21
 maintainer explicitly requires one execution path regardless of input/output
-format, using the accepted native Full43 path as the reference. Complete this
-correction before the newly authorized release train, then resume the required
-comparison-driven queue. Optional breadth remains optional.
+format, using the accepted native Full43 path as the reference. That correction
+is complete. The newly authorized release train now precedes the
+required comparison-driven queue. Optional breadth remains optional.
 
 ## Contract and observed deviation
 
@@ -263,5 +265,22 @@ Run `python3 -B docs/benchmarks/evidence/native-format-strategy-2026-10-21/verif
 to verify the review packet without the original host. The original acceptance
 archive remains unchanged. The collect-only Full43 does not call this writer
 helper and was not repeated; its original commit, binary and measured values
-remain the performance evidence. Hosted checks of the corrected PR revision
-remain the integration gate.
+remain the performance evidence.
+
+## Hosted integration
+
+All 44 required checks pass on `3fb40a3e8fb5df58ec35f281b7fa576a2898b7b5`.
+The [CI run](https://github.com/depsilon/shardloom/actions/runs/39711720687)
+passes all nine native test groups, including 3,162 Vortex library tests and
+the 31 existing manual ignores. Each of the three installed native-wheel lanes
+passes 121 binding tests with no skips. CodeQL and the Windows CLI build also
+pass. Automated review completed for that exact head with no remaining findings;
+the writer-policy thread is resolved. This is not a formal approval claim.
+
+The initial website job received an npm audit HTTP 503, which also left the
+readiness job without its website artifact. Retrying those jobs on the unchanged
+head passes the dependency audit, website validation and readiness aggregation.
+The native and other successful results are retained. The merged commit has the
+same tree as the reviewed head and tested pull-request merge. The original
+benchmark packets remain unchanged; package publication and broad production
+readiness are separate gates.

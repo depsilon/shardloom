@@ -22,7 +22,7 @@ vortex-runend = { path = "vendor/vortex-runend" }
 vortex-zstd = { path = "vendor/vortex-zstd" }
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 description = "Pre-release Vortex-first no-fallback local compute engine with evidence-certified workflows."
 license = "Apache-2.0"
@@ -59,11 +59,11 @@ tokio = { version = "=1.52.1", default-features = false, features = ["macros", "
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
 tonic = { version = "=0.14.6", default-features = false, features = ["transport", "codegen", "router", "tls-ring"] }
 tonic-prost = "=0.14.6"
-shardloom-core = { version = "0.6.0", path = "shardloom-core" }
-shardloom-exec = { version = "0.6.0", path = "shardloom-exec" }
-shardloom-plan = { version = "0.6.0", path = "shardloom-plan" }
-shardloom-runtime = { package = "shardloom-cli", version = "0.6.0", path = "shardloom-cli" }
-shardloom-vortex = { version = "0.6.0", path = "shardloom-vortex" }
+shardloom-core = { version = "0.7.0", path = "shardloom-core" }
+shardloom-exec = { version = "0.7.0", path = "shardloom-exec" }
+shardloom-plan = { version = "0.7.0", path = "shardloom-plan" }
+shardloom-runtime = { package = "shardloom-cli", version = "0.7.0", path = "shardloom-cli" }
+shardloom-vortex = { version = "0.7.0", path = "shardloom-vortex" }
 vortex = "0.85"
 vortex-zstd = "0.85"
 

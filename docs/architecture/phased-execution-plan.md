@@ -253,8 +253,10 @@ Current autonomous execution order:
 
 The October 18 [public documentation and API consolidation](public-documentation-api-acceptance-2026-10-18.md)
 is implemented and locally validated under PERF-10/07/11/12 with PERF-03 resource
-admission preserved. Its development API remains unpublished; hosted/platform
-acceptance and the release hold remain explicit. The completed scope is in the
+admission preserved. Its API is included in the v0.7.0 release candidate; the
+October 21 authorization resumes that train after the format correction merged.
+The published guide remains on verified v0.6.0 packages until the new channel
+proofs pass. The completed scope is in the
 ledger. The subsequent [compact-selection experiment](native-compact-selection-2026-10-18.md)
 is measured and dropped: two projection regressions repeat under the frozen
 confirmation gate, and production is restored. Its corrected cost harness and
@@ -277,12 +279,19 @@ the very bottom of the queue, and may never be implemented.** The
 [conditional sequence](native-conditional-investigations-2026-10-19.md) retains
 the original decisions; it is not authority to expand the required scope.
 
-1. Integrate the October 21 maintainer-directed [format strategy parity correction](native-format-strategy-parity-2026-10-21.md). Local acceptance passes shared normalized-source selection, scalar collect/write parity, preparation reuse, and exact original Parquet/ORC wildcard reproductions. The final isolated Full43 returns all 381 rows in **48.754238077 engine seconds**, one execution per query. PRs #1580 and #1581 are merged as `1175a898` and `11e5738a`; their accepted evidence, the preceding 49.990920425-second observation and all earlier writer results remain unchanged. PR integration is the remaining gate for this correction; no broader performance claim follows.
-2. After the format correction passes and merges, complete the newly authorized version-bump train through the existing selected-channel gates. The October 21 authorization supersedes the earlier release hold for that train only. Do not convert the format-routing correction into a broader performance claim, a first-use adapter rewrite or optional breadth work.
-3. Use a concrete workload gap matrix under `PERF-12.comparisons` to identify requirements, then complete only the demonstrated gaps and existing public guarantees described below. Scope each gap before implementation and reuse valid accepted evidence. PERF-03 is the current work area, but completing every possible provider allocation is not a prerequisite to moving on once the required workload contract is met. Extra types, operators, platforms and implementation techniques do not become mandatory because they are feasible.
-4. Complete the already requested shared prerequisites under existing IDs: a justified independent-region mechanism, exact local reduction needed by its consumers, region/preparation cost evidence and current instruction/dispatch attribution. Preserve natural batch boundaries and the single CPU/memory owner. This stage precedes the optional backlog and does not promote an entire worker/state family into a requirement.
-5. When their prerequisites pass, investigate `PERF-10.ordered_candidates`, `PERF-09.design`, `PERF-12.topology`, then `PERF-13.pgo`. Freeze each comparison before collecting candidate results. Retain a verified benefit, record no signal, or drop the candidate under its original gates. A failed prerequisite remains explicit; it is not a completed experiment or permission to invent a replacement benefit.
-6. Keep additional breadth and extensions of completed conditional investigations in the [optional backlog](#optional-breadth-backlog), after all required work and the queued investigations. Do not automatically start it when the earlier stages finish. There is no delivery commitment, and optional work does not block required-area acceptance or a separately authorized release.
+The [format strategy parity correction](native-format-strategy-parity-2026-10-21.md)
+is now merged in PR #1583 as `19f1892bea8aac694133c2079179bf1363b9d5ca`, after
+all 44 required checks passed. Its shared selection, scalar collect/write parity,
+preparation reuse and original Parquet/ORC reproductions are accepted. The
+original isolated Full43 remains **48.754238077 engine seconds** for 43 queries
+and all 381 rows. The preceding 49.990920425-second observation and every earlier
+writer result remain unchanged; no broader performance claim follows.
+
+1. Complete the authorized v0.7.0 version-bump train through the existing selected-channel gates: source and package acceptance, GitHub assets, TestPyPI, PyPI, Homebrew, then proof-backed public docs and website updates. The October 21 authorization supersedes the earlier release hold for that train only. The current published contract stays at v0.6.0 until all four new proofs pass. Do not convert the format correction into a broader performance claim, a first-use adapter rewrite or optional breadth work.
+2. Use a concrete workload gap matrix under `PERF-12.comparisons` to identify requirements, then complete only the demonstrated gaps and existing public guarantees described below. Scope each gap before implementation and reuse valid accepted evidence. PERF-03 is the current work area, but completing every possible provider allocation is not a prerequisite to moving on once the required workload contract is met. Extra types, operators, platforms and implementation techniques do not become mandatory because they are feasible.
+3. Complete the already requested shared prerequisites under existing IDs: a justified independent-region mechanism, exact local reduction needed by its consumers, region/preparation cost evidence and current instruction/dispatch attribution. Preserve natural batch boundaries and the single CPU/memory owner. This stage precedes the optional backlog and does not promote an entire worker/state family into a requirement.
+4. When their prerequisites pass, investigate `PERF-10.ordered_candidates`, `PERF-09.design`, `PERF-12.topology`, then `PERF-13.pgo`. Freeze each comparison before collecting candidate results. Retain a verified benefit, record no signal, or drop the candidate under its original gates. A failed prerequisite remains explicit; it is not a completed experiment or permission to invent a replacement benefit.
+5. Keep additional breadth and extensions of completed conditional investigations in the [optional backlog](#optional-breadth-backlog), after all required work and the queued investigations. Do not automatically start it when the earlier stages finish. There is no delivery commitment, and optional work does not block required-area acceptance or a separately authorized release.
 
 Preserve the seventeen finite conditional decisions, both accepted follow-ups,
 original failed samples, rejected mechanisms and unchanged prospective gates.

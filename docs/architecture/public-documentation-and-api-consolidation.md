@@ -3,7 +3,8 @@
 Status: implemented and locally validated on October 18, 2026. The
 [acceptance record](public-documentation-api-acceptance-2026-10-18.md) pins the
 source, installed artifacts, workflow comparison and documentation checks.
-The development API remains unpublished; the default guide describes v0.6.0.
+The API is included in the v0.7.0 release candidate; the default guide describes
+verified v0.6.0 packages until the new selected-channel proofs pass.
 Work stays in the [phase plan](phased-execution-plan.md) under RFC 0044 and
 PERF-03/07/10/11/12. It is not another roadmap.
 
@@ -11,7 +12,10 @@ The brief reviewed `6780e7df564c55f3e256822be1d0383cfabff0c9`. Implementation
 starts after PR #1575, merged as `f13da73db2e7550c4c9273faa567e55e9ebaef29`.
 Its final code diff changes a `cfg(test)` pressure hook; production code is
 unchanged. The six CPU investigations in PR #1576 retain their existing owners.
-The version bump and package publication remain held.
+The October 21 authorization resumes the version train after the format
+correction merged in [PR #1583](https://github.com/depsilon/shardloom/pull/1583).
+The [v0.7.0 release notes](../release/v0.7.0-release-notes.md) describe the
+candidate; source, package and channel acceptance remain separate gates.
 
 ## Decision
 
