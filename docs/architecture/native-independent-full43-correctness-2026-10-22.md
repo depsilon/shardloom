@@ -80,3 +80,11 @@ unchanged storage/process guards and no overlapping task work. Full input hashes
 and recursive inventories remain outside query execution. Preserve failed
 observations. Required work and gated investigations continue afterward; the
 maintainer's optional backlog remains deferred.
+
+The [local acceptance and retained evidence](../benchmarks/native-independent-full43-2026-10-22.md)
+now establish complete independent parity for this workload. The final isolated
+43-query pass takes **49.953164785 engine seconds** and validates all 381 rows.
+Q29 takes **3.079574458 engine seconds**, with the restored dictionary strategy
+recorded in its counters. Both preceding slow passes and the initial stopped
+attempt remain evidence. Current matrix refresh and PR integration are separate
+remaining acceptance steps; no entire required owner or competitive gate closes.

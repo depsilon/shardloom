@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Independent Full43 local correctness acceptance` — the
+  [October 22 record](../benchmarks/native-independent-full43-2026-10-22.md)
+  binds source `a973ad72` to all 381 independently computed result rows for the
+  pinned 43 queries. Integer-input compensated accumulation and exact regex
+  semantics correct demonstrated defects; the Q29 dictionary admission fix
+  removes the resulting avoidable overhead. The final isolated single pass
+  records **49.953164785 engine seconds**, with Q29 at **3.079574458 seconds**.
+  - Two independently generated oracle versions, source-only arithmetic
+    adjudication, one stopped attempt, both slow correct passes and the final
+    dictionary pass remain in the 941-member packet. No comparison tolerance,
+    execution limit or no-fallback boundary changed.
+  - Formatting, strict workspace/native lint, 3,239 workspace tests, 3,174 native
+    library tests with 31 existing manual ignores, 1,100 public CLI tests and
+    eleven oracle tests pass. All eighteen portable verifier tests pass.
+  - This is local finite correctness acceptance. Current matrix refresh and PR
+    integration remain in the active plan; no whole owner contract, CG gate,
+    optional breadth or new release is completed by this entry.
+
 - [x] `Selected workload guarantee acceptance` — the
   [October 22 review](../benchmarks/native-workload-guarantees-2026-10-22.md)
   completes the four follow-up actions from the 22-task comparison using existing

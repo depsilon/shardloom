@@ -166,7 +166,11 @@ resource, lifecycle and installed-support guarantees. The subsequent
 [guarantee acceptance](native-workload-guarantees-2026-10-22.md) completes those
 four reviews. The acceptance JSON preserves their original owner, evidence and
 admission contracts under `reviewed_action_contracts` and links the disposition.
-The independent Full43 reference gap remains explicit.
+The independent Full43 reference gap in this original packet remains explicit.
+The subsequent [independent acceptance](native-independent-full43-2026-10-22.md)
+closes that gap for the pinned queries after integer/regex corrections. A fresh
+matrix against the corrected runtime is separate work; these original results
+are not relabelled.
 
 The fifteen required contracts, five scheduled rows and 38 optional rows keep
 their scope. The next shared prerequisite stage covers region mechanisms,

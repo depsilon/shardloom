@@ -1,0 +1,2565 @@
+{
+  "schema": "shardloom.independent_full43_correction.v1",
+  "status": "accepted_local_correctness_and_q29_regression_correction",
+  "runtime_source_commit": "a973ad72af847010594311d852da854203d01768",
+  "claims": {
+    "independent_full43_parity": true,
+    "new_release": false,
+    "performance_superiority": false,
+    "competitive_gates_closed": false
+  },
+  "queries": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/benchmarks/clickbench/queries.sql",
+    "bytes": 8551,
+    "sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b"
+  },
+  "oracles": [
+    {
+      "protocol": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/protocol.json",
+        "bytes": 64350,
+        "sha256": "d60d5b271e44e44308cfd3f4238055ed96903c351f012ca4cc355aa5998d36dd"
+      },
+      "acceptance": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/acceptance.json",
+        "bytes": 291389,
+        "sha256": "cbe3aaf85b5d9273062b02a82c8b1b11986bfcd679859f8ef1b0890d67402db2"
+      },
+      "reference": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/reference.json",
+        "bytes": 291783,
+        "sha256": "7fc4541e739925ac10bcb5360a1caf2ac93cdf0dd2cdb64d9ff406faf620fc1a"
+      },
+      "outputs": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q01.stdout.json",
+          "bytes": 2312,
+          "sha256": "fd5f552c0641958a7f2748facd77b1b21578ad6eb85bb7ab2b8367746d815f84"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q02.stdout.json",
+          "bytes": 2356,
+          "sha256": "b0e1cf9ea0018f63d2ef58ecfbbb57a31bf73cc5854ef07b0e8340396af8821a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q03.stdout.json",
+          "bytes": 2631,
+          "sha256": "f5c49d2cf0208bac06249b7240ac09943bb64dfed8706dc84392f95fc53fca73"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q04.stdout.json",
+          "bytes": 2357,
+          "sha256": "0a41c3dfc82c8dd9784ef9b72a07f0ae342f23209e01d5a6fe33c2979a4b84fa"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q05.stdout.json",
+          "bytes": 2382,
+          "sha256": "793bd4f40cd39790f9f17654e578ea374601114d846df897d46cca046b1e45a8"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q06.stdout.json",
+          "bytes": 2411,
+          "sha256": "9664cfc6ced3e0ae2958843ae1b346980674df3367acae8b461253034792f5f1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q07.stdout.json",
+          "bytes": 2457,
+          "sha256": "d0ec0e721d7b63f0280c1753ccf34f4905c6a8dc99d746b2958d60fbaa64e960"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q08.stdout.json",
+          "bytes": 3273,
+          "sha256": "f5f111aaf3f69c91927b98706a5206ad43a7e644132390ac7837ff2bdd0dfbcf"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q09.stdout.json",
+          "bytes": 2798,
+          "sha256": "c17f17a1d2753ade2a858629329075c85d1665ce25e8a6d0125b2cb78f020a8a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q10.stdout.json",
+          "bytes": 4241,
+          "sha256": "efbde9b24971c1b8971842dcf1fc5daadf6b20c00658afbd0d5a52b2b4748a61"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q11.stdout.json",
+          "bytes": 3040,
+          "sha256": "6b0efa87511d93c9a773c9512843106f0bf311121b43cf6301b74dd4674739ac"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q12.stdout.json",
+          "bytes": 3338,
+          "sha256": "27578b4f956163a43b7aa9a9689a865d2363ca46ef280731b58be00f8611b412"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q13.stdout.json",
+          "bytes": 3600,
+          "sha256": "afcc4b2f7d326ac2387c4e47051b773725361c9c2d0929897b70b2dedb4329f0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q14.stdout.json",
+          "bytes": 3746,
+          "sha256": "4c301952ca57026fc10d170bd019830ca76912455ce36b18b4cca25d363ff4c0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q15.stdout.json",
+          "bytes": 3981,
+          "sha256": "a241b69b791b5b375578da6da43e804a2e9c1826ecbbbbd7c8195331f008fa01"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q16.stdout.json",
+          "bytes": 3009,
+          "sha256": "7b08ba9fd3798c301db430e9aed239c7bf6a22ec5f00f7ab121ff87dc569f168"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q17.stdout.json",
+          "bytes": 3348,
+          "sha256": "4e60018a4bb403c47685218bef752cd37f7a3640abf4c3abc4f6cd99b60fb2be"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q18.stdout.json",
+          "bytes": 3622,
+          "sha256": "741ed255f8393018122fba69b066181b36830c6b8e457e240567ce8680ba4a81"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q19.stdout.json",
+          "bytes": 3625,
+          "sha256": "26d9518e302eb0fa8069717008c33845153302f9900b98e3eff4e0ab22f3749e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q20.stdout.json",
+          "bytes": 2524,
+          "sha256": "8372161b5f417e9ec0fa25be05d3bb0ec4ce39ef4c18bf9f21346547f756d961"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q21.stdout.json",
+          "bytes": 2362,
+          "sha256": "80140b5b25a2c4294151f553d3bd8938fc7daaeb56b35fd8f92f21219bd5fab5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q22.stdout.json",
+          "bytes": 5250,
+          "sha256": "3d6c90156e415a0fcfbcb0819d5a89de1d012d59989ba87d47946424ef3c3d5c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q23.stdout.json",
+          "bytes": 10093,
+          "sha256": "bff3aca3566d6506889692330b39b87f2315339588019ba03c3a3ee65c53a193"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q24.stdout.json",
+          "bytes": 30541,
+          "sha256": "ffd1f9dabbcae4f1f922189d9f08de725c1274e485de053852cc26c7f1e87e19"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q25.stdout.json",
+          "bytes": 3938,
+          "sha256": "7ad068a9b98db5d6b1aba3ff70b6fa3b73e5ee0ad086b770f98b25e3e0e84760"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q26.stdout.json",
+          "bytes": 3673,
+          "sha256": "317950ec58aaf20293b624faa911bc216f96fff0901d339e81498b34094dd069"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q27.stdout.json",
+          "bytes": 3977,
+          "sha256": "1872b6388f8f8f9146b21d6fe97b7e10bc842410cae62ac8e4fb4a07a3fa250b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q28.stdout.json",
+          "bytes": 4131,
+          "sha256": "4149b93281b64abf4756ff63c40623890c698b3e5e7cbb4d0dc12b65755825df"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q29.stdout.json",
+          "bytes": 7394,
+          "sha256": "43dd12038fd298d9a4cbc7d30e4784d6d275740e6cf2308f506eca3b4af57a80"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q30.stdout.json",
+          "bytes": 18370,
+          "sha256": "04d0d86b3bc69ebd56cdee2d5a179eebc746ae48e39d99a62a0707bf5a4cbc48"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q31.stdout.json",
+          "bytes": 4155,
+          "sha256": "97df321fe3601b6ac38b75988afa21ac1bccadec7ceee18700c02c9f3d532540"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q32.stdout.json",
+          "bytes": 4064,
+          "sha256": "06de752a3b10722d39be9c31f04dd28688c056db6cb198e5d19b36b5b8aa566c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q33.stdout.json",
+          "bytes": 4014,
+          "sha256": "c61da6856f8638d5cbb7cc4d29c850f5e47d08147f62c4db716cc56e16779721"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q34.stdout.json",
+          "bytes": 3087,
+          "sha256": "6d659af35cc0a50314f9eb2f86dca76d029f5d0d9ad1587b7fc01f083619ca32"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q35.stdout.json",
+          "bytes": 3333,
+          "sha256": "0cc0153d7882e73feb6f7434ee5aa373e701dddd5244d95f07a8564530e0366f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q36.stdout.json",
+          "bytes": 4307,
+          "sha256": "e10e5df23eb51112467a5b0330991c6ad244d44926debc95a32bded2bbc807cf"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q37.stdout.json",
+          "bytes": 3546,
+          "sha256": "a06a46bdb1cdd47f131a5b6140a8450cef46f2711b3b4c1dbf3f8face30e2242"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q38.stdout.json",
+          "bytes": 4277,
+          "sha256": "80cf9fa9569d86bc44164141b242832b390e865e7e378c764b4420200f45d86d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q39.stdout.json",
+          "bytes": 3447,
+          "sha256": "2668405abcb6771605bcff45015aa5c35501256b1af3f312c752d1f7b9a221f1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q40.stdout.json",
+          "bytes": 5673,
+          "sha256": "f56435b4c59a79f06b368ece2fa9d9e63ace0e207d248bec3bd8c70bc5ea98f0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q41.stdout.json",
+          "bytes": 3662,
+          "sha256": "473a58df325a0d33b766fa8af13e65a97b768f969a7093f051c0c3b3d0d3a5c5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q42.stdout.json",
+          "bytes": 3783,
+          "sha256": "4d13b28573b01996d3df20846fad6119d0eadf0e9b9cbe710cf7d56536c76414"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q43.stdout.json",
+          "bytes": 3408,
+          "sha256": "9a09dff7c432ad047cdd30902b881ce1e9b52ca54283eff900caeea8912356a7"
+        }
+      ],
+      "receipts": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q01.receipt.json",
+          "bytes": 1882,
+          "sha256": "824953508d8c9df534d6224c61a000804078a15e060edaebcfcab6703e62e978"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q02.receipt.json",
+          "bytes": 1882,
+          "sha256": "a118e29f6243a9a3c5dc88df04fdce0e6ccb588b93a9ddba7b64236684324d28"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q03.receipt.json",
+          "bytes": 1882,
+          "sha256": "84f248fadfa2d7fa7e6c0b85da600426e99430c500b5570a6d140dc681d35645"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q04.receipt.json",
+          "bytes": 1881,
+          "sha256": "b334db3dbaae81f53ddbe07fa17b935fb46d59ca8c39bb2639fe40231a59e2ff"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q05.receipt.json",
+          "bytes": 1881,
+          "sha256": "33ff05a4186ec81e3a10cedb59e8816f3484b65170cab190deb613510931db50"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q06.receipt.json",
+          "bytes": 1881,
+          "sha256": "8e0ce527919034e6992b1344ac2252388974cda686895d924f264183403b1902"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q07.receipt.json",
+          "bytes": 1882,
+          "sha256": "05456fe87b822a639ff52be9df04a4a3980d68bffdee9d34b929f01eba0a364f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q08.receipt.json",
+          "bytes": 1883,
+          "sha256": "5683bd0c58cfe23aac8ef70528cbc83b4d776b84401bddd0dd5036fccf4d6638"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q09.receipt.json",
+          "bytes": 1882,
+          "sha256": "2e3249f6e4392471606926122ba568f50c4054a0e714c91c866aad1f952ea896"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q10.receipt.json",
+          "bytes": 1884,
+          "sha256": "41e5b9e03a0888af1af1919c9053a32f806ccf995df941545209e5cc5213b399"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q11.receipt.json",
+          "bytes": 1885,
+          "sha256": "4fe21617f50e7da7ddb7999fc35bb9cdd3826335e9c19e9b5f522962960b564a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q12.receipt.json",
+          "bytes": 1885,
+          "sha256": "fdd11c048493c7700cf37133d6b4082697af9e7cf4833861e2b5c653b8f3a84d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q13.receipt.json",
+          "bytes": 1884,
+          "sha256": "836bae378738e5303698b378603d865f1477bfc733346302e55a9bdd007c929d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q14.receipt.json",
+          "bytes": 1884,
+          "sha256": "efe5e7eeb60c6081e38e52fa0bbc9e14e58de6ffc5ee51bdd80979debd4d6f26"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q15.receipt.json",
+          "bytes": 1884,
+          "sha256": "593a1680979e1bc078b6f45402297f4ed28a8e876175ed37c7a8f4e19ca14565"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q16.receipt.json",
+          "bytes": 1883,
+          "sha256": "a83c7f66183a23a5a2412f661dfb8bd580531395a840b5d51b2fe7ee3e9c6346"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q17.receipt.json",
+          "bytes": 1883,
+          "sha256": "70a080174b31f13a004baf1ffdc58f9ef1cbfbcd797f63ef05aacfa26ea7a395"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q18.receipt.json",
+          "bytes": 1884,
+          "sha256": "c281bb5e6938f8fd6814713f683112fa15708442e0f55f65fde595a1f21e2478"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q19.receipt.json",
+          "bytes": 1883,
+          "sha256": "4dd09f7d75c79d603e7522b1671233cd7016305beb7dffd50a0637f1a91097f7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q20.receipt.json",
+          "bytes": 1884,
+          "sha256": "ced610ca4972f7e831e3512340bddf499f22823eb6243c39eae1be69cf4b117b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q21.receipt.json",
+          "bytes": 1883,
+          "sha256": "defe8777fa29ca4d666484a1514be2134e26e7a190e5e991ad6f81d9fb8aa3b4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q22.receipt.json",
+          "bytes": 1883,
+          "sha256": "ced1c651eca8a798485a5dc37949d04348e432122053dffd5fee665c050a9907"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q23.receipt.json",
+          "bytes": 1886,
+          "sha256": "7a316b9fd3c7f0af8a397349398a6afb7f2cb7c9f98a3ba8ca30c7e8434eb404"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q24.receipt.json",
+          "bytes": 1886,
+          "sha256": "3770ca47f488f563c90d412c8700a6070e8c786f0841f3c8ee7ef7b45bc3b162"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q25.receipt.json",
+          "bytes": 1883,
+          "sha256": "253fc182cecb56629aac53041dc7b75827744559703523c7727a64be8b79a2f7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q26.receipt.json",
+          "bytes": 1884,
+          "sha256": "95d5042dc9eff6018d21f4b319ed12ce81c78e02f4de445d89d36544df97274d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q27.receipt.json",
+          "bytes": 1884,
+          "sha256": "d8482f9fc8589917c9a6a136c89ebec0030ad4721e344cf34d850bf9170dba1f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q28.receipt.json",
+          "bytes": 1883,
+          "sha256": "f7db80f222b9bbaef357fe2da6e2c55e8f748b671a5198ccb95176d7f77064c7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q29.receipt.json",
+          "bytes": 1884,
+          "sha256": "f26f4e483643a723a414111d0784d347bb7cff62952652f0a625e8b625f67822"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q30.receipt.json",
+          "bytes": 1885,
+          "sha256": "8a9dabf4863a0a6b3a56f10d280a73a83349d8bd68152a7f0b030b31601a81ee"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q31.receipt.json",
+          "bytes": 1884,
+          "sha256": "c0caac504f8ad90ff7e4c136cfae3f8b5319587bbff4189261f502bec3408d0f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q32.receipt.json",
+          "bytes": 1884,
+          "sha256": "f839881fdeb49ea0771504488b343bbb63768355ccb799ead19408855515f74f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q33.receipt.json",
+          "bytes": 1884,
+          "sha256": "83ea2b978130cd72515fd323ff5aaacf49d7cb4a607e600a97e159123f4b4006"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q34.receipt.json",
+          "bytes": 1884,
+          "sha256": "cf7d77ff3db385fcf67c4db0b43c12b6bf4ed7cfc10845d9f0b82caad62c2b53"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q35.receipt.json",
+          "bytes": 1884,
+          "sha256": "e9411666e40df38fd58f8b3eb221deaa6da4c18a4e5cc1fae52cb0b26a171940"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q36.receipt.json",
+          "bytes": 1884,
+          "sha256": "9a955718d2c5718e89a19f5a173a11aeb9067c26e99848909274c9b4b5ffe3e1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q37.receipt.json",
+          "bytes": 1885,
+          "sha256": "1e8491ed5ccfb964403fc006543d55a7eb58c275ef375be27cd2fa57bcf991cd"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q38.receipt.json",
+          "bytes": 1885,
+          "sha256": "f8811ac186fed5e92e9c326f068a53d2ecb55fc009010ac7abde4afa0c7aee67"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q39.receipt.json",
+          "bytes": 1885,
+          "sha256": "ca0d10c258a5f37db6c4ed87ebf330be4f9b0c7a7161695945cc999a65962f43"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q40.receipt.json",
+          "bytes": 1884,
+          "sha256": "2e1c5dc5e5a66ea601902531fae70a3c4b7acdc935d73d102a94bb1127a00e20"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q41.receipt.json",
+          "bytes": 1885,
+          "sha256": "83c329d1e3811758b78b84b8055487968959ea7269798774e7ce8cbb78779088"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q42.receipt.json",
+          "bytes": 1885,
+          "sha256": "da6ca98a742d932b83bf48c3d4d38c254e1a41b984ad6252f1db453ea21e36e6"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/logs/q43.receipt.json",
+          "bytes": 1884,
+          "sha256": "0e51a9328d0487dfe12055b6f3b7c2093f1f6fddfa225d21e18a110f8d0a2b5d"
+        }
+      ]
+    },
+    {
+      "protocol": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/protocol.json",
+        "bytes": 68770,
+        "sha256": "5fc603e98961186cd82d4c0dd706649dd0dbc8db136335fc799ccbc7fbb93dde"
+      },
+      "acceptance": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/acceptance.json",
+        "bytes": 454102,
+        "sha256": "215257830383f093501c1365805f26bd4fa0b7c6cf5670e58abfffd7fd9364a1"
+      },
+      "reference": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+        "bytes": 454630,
+        "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+      },
+      "outputs": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q01.stdout.json",
+          "bytes": 5147,
+          "sha256": "16bf1efc76f651ebacf80bb7cbf64d37e30f18e839f9d709c1b91827a268ebbf"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q02.stdout.json",
+          "bytes": 5191,
+          "sha256": "8d056073d4221c27d0f41cbbfbac76677a405a3b7ed747385826e294e079aa8a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q03.stdout.json",
+          "bytes": 5573,
+          "sha256": "715e3ffe872dd71d32e9de758e7b469228071203e0169af10e5a03c7a2b591c4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q04.stdout.json",
+          "bytes": 5256,
+          "sha256": "dc78b6b82f24992e8fed5818651d2c4f6e2399d96f2234c134c3d940765cdb3f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q05.stdout.json",
+          "bytes": 5217,
+          "sha256": "c6f4f66cbff2159194d0e4b23cd34de9b7e43fd63632d6b10047797581da3dbe"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q06.stdout.json",
+          "bytes": 5246,
+          "sha256": "3be2a488feb6e37b5c702f33d3723706257e74f61852be6622792058a98b1656"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q07.stdout.json",
+          "bytes": 5292,
+          "sha256": "9bfefd52164f546f008a89cf72fa86baf0a82479bf4370fadfc21d8fca6bbb11"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q08.stdout.json",
+          "bytes": 6108,
+          "sha256": "3f71b35b296a1fae2791786d2c15d407a7b93862d07cfea93e46bb2797570bc9"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q09.stdout.json",
+          "bytes": 5633,
+          "sha256": "4efbc91189aa06ebe9ba320389e658b3e3b3c103c69b307d5643d9196732f04e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q10.stdout.json",
+          "bytes": 7183,
+          "sha256": "cf6d75eeb192b69a11b09fd07de22d4351a6aa9270fd5f850a8f86e8d4a114d5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q11.stdout.json",
+          "bytes": 5875,
+          "sha256": "9af8528345743f94f1f018c2753b65a05d4c91d012214a239a1cae340211be23"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q12.stdout.json",
+          "bytes": 6173,
+          "sha256": "0124eb322e0d1ffa8c2f7f6b5b2f30e79265ac9b453d2a74570c98972db56704"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q13.stdout.json",
+          "bytes": 6435,
+          "sha256": "00d8fa371ff819ca875fd50bc545b8070385a03f54956edf1fb192156e190674"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q14.stdout.json",
+          "bytes": 6581,
+          "sha256": "50a95b1ccc68024c02dab88e7f98d792cdc57dd3284217d2277fe01694902e27"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q15.stdout.json",
+          "bytes": 6816,
+          "sha256": "cfa6f8b5cdcb07e498475578eca6e4fceaf197ba0ace718d7698a45553807d9c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q16.stdout.json",
+          "bytes": 5844,
+          "sha256": "a3edd0f8163feeacbdaf4d05111860280c064cb9bb0c5721cd956458b9a3433c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q17.stdout.json",
+          "bytes": 6183,
+          "sha256": "4b87b7830120725559014659bcacd3fb7fe5e54e2224ee3bd95165a72ff251b5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q18.stdout.json",
+          "bytes": 6457,
+          "sha256": "702aa416b0bda709a6385880cc79571ad95950067f3171ab8935b74872ccae33"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q19.stdout.json",
+          "bytes": 6460,
+          "sha256": "b3193bcf642fd6fc1bf9eb6e15dfc791a08ebd0dd09fbe81d884cfdbf60be82d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q20.stdout.json",
+          "bytes": 5359,
+          "sha256": "e67eb2b0b7edcf8776ca18fd0501d8be111ad6c171fcfe2842fb65cd386e4aa5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q21.stdout.json",
+          "bytes": 5197,
+          "sha256": "6093bd109c333d71a67bb57c0bc4781b5a0f926048aa3db750f8b3df8b319da4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q22.stdout.json",
+          "bytes": 8085,
+          "sha256": "d003c02ecc095bedcff25c159bd47d9d9a69d49590e62268121865adb58fbc55"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q23.stdout.json",
+          "bytes": 12928,
+          "sha256": "ae9d08c4b181b4a01a5a7a3c2d93ec6cb0f468d0e186c75ab43a27cbe29a4879"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q24.stdout.json",
+          "bytes": 33376,
+          "sha256": "eca662e1dc830debe59dfb927193d75a25e2c7b336aace4bc894697bf94efbe7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q25.stdout.json",
+          "bytes": 6773,
+          "sha256": "94b06fb94b1bc2ff0bef37a6118f18556ed3b240437e3104ca2d1d5844f3a7d4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q26.stdout.json",
+          "bytes": 6508,
+          "sha256": "ae955588f801ff6265c1f2f52243a72bf2861bcd4e8b7fa6d52d431126952787"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q27.stdout.json",
+          "bytes": 6812,
+          "sha256": "bf8c4ca952f9e5edcd644f8a104cc47507b00af0fac2f60d3e2cb98265d5808b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q28.stdout.json",
+          "bytes": 7050,
+          "sha256": "94a53a0681e2197547f1dcd1eafb5793467ba422345d6fbfb85a75756c817bd7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q29.stdout.json",
+          "bytes": 10317,
+          "sha256": "936a9cba7477162e635306057e67fa8c81cd8fdbfcdd374b1c4bae2eabc9223e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q30.stdout.json",
+          "bytes": 24175,
+          "sha256": "9faf863ca326bcdb4f968f5164d0016ccf946c0d693b70998d47530d2d6e5281"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q31.stdout.json",
+          "bytes": 7097,
+          "sha256": "2b58efb87b6c069684175fb3918c1ef1f66226b74ea9b14c09f131138f6a1604"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q32.stdout.json",
+          "bytes": 7006,
+          "sha256": "961866dc6a3fc6606e54de29ec18168415a20d6765362c9e54d574acfbb68217"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q33.stdout.json",
+          "bytes": 6956,
+          "sha256": "491ab134da05bc13d09abaf9b1d55601814e51964eb60bf60adf1dddfe798968"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q34.stdout.json",
+          "bytes": 5922,
+          "sha256": "df0e8c89330c82c90e250eac960e56c5d4117a87a83cab5c7893bb4ccc1130e5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q35.stdout.json",
+          "bytes": 6168,
+          "sha256": "74cb8e3a34cf765599d6fae633731ace702b92097be6567f81494cbb49534852"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q36.stdout.json",
+          "bytes": 7142,
+          "sha256": "ea2de712bf209d0e084c2cb7411f6d87357fb8b2cca2a3fe8d3d208a8bdca436"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q37.stdout.json",
+          "bytes": 6381,
+          "sha256": "fa14db1f1e759f093e28fd87d8ffc5c19f3423ec4acf811c06792d1bf0e07b67"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q38.stdout.json",
+          "bytes": 7112,
+          "sha256": "156453ac74a9160b6ec7877ae874d70f67acb0bde3b856cb189f2da7da43193b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q39.stdout.json",
+          "bytes": 6282,
+          "sha256": "178b1d75eee3c7e8df6444d209ab46108d999d2584b289baa83d1e2dd7448bba"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q40.stdout.json",
+          "bytes": 8508,
+          "sha256": "8e14d339115a3553f55f142b7bd86491ba9357dd94d4df93d618ac0e185245dd"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q41.stdout.json",
+          "bytes": 6497,
+          "sha256": "05eb577d13a50300555ef3eda306d4ae56b84f559bf35cddfd2222d4a72e3e1d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q42.stdout.json",
+          "bytes": 6618,
+          "sha256": "8f8d684b864c7ea47b90c5bc3614112764b04118acd8d2a8d37544a1d713d0f9"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q43.stdout.json",
+          "bytes": 6243,
+          "sha256": "5bc874fe4b04b4a941f6beeb5971eb0d2b80241df07db53dd42ca5e3e3d1b8d5"
+        }
+      ],
+      "receipts": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q01.receipt.json",
+          "bytes": 1881,
+          "sha256": "30e3654164ad5eae47d0b4b7c3462e099dc2a4aace607290a08b32f8cea7d7d9"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q02.receipt.json",
+          "bytes": 1882,
+          "sha256": "b39d889b767f7737f123e50a9b2dfd7480d36051a4de1780478818bc4527115d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q03.receipt.json",
+          "bytes": 1881,
+          "sha256": "b9b81eee679164255a4eac95d4fd6bdb525857ada50aca92d0d14421da4b3341"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q04.receipt.json",
+          "bytes": 1882,
+          "sha256": "c20e7c2eee75eff9217b59b7070677b04745be6ad23154e72cbc420adc7fd094"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q05.receipt.json",
+          "bytes": 1881,
+          "sha256": "68f28013cdf0e82709ba7e0630799c877902170b3bada400df69a57813ca50bb"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q06.receipt.json",
+          "bytes": 1881,
+          "sha256": "415c35c088f0af8f6e211e5604bf2123f919818f7c5e6a6b544b069d93fc6c08"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q07.receipt.json",
+          "bytes": 1881,
+          "sha256": "8d8cb2fdef42251c9dee8d871b009ccabb8e8463015920f640259d1e2b9f2181"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q08.receipt.json",
+          "bytes": 1882,
+          "sha256": "e825800088ab0ebe9798baf7895d1261578a66c5f542d1e5a8e76be54e2c481f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q09.receipt.json",
+          "bytes": 1882,
+          "sha256": "a61ec2288c6f04cfba41ab202f960e8e812ca180391987580bdca75ff296f551"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q10.receipt.json",
+          "bytes": 1884,
+          "sha256": "2781b79e77b4e4b734ce180c22470bbe31f7d5c9eb35602818e3dafd0e2d1804"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q11.receipt.json",
+          "bytes": 1884,
+          "sha256": "1b61eac139e617f67494f116f0a4e685e956dae50937872094bd3c1088d7875d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q12.receipt.json",
+          "bytes": 1885,
+          "sha256": "1c1afb4481228ba2ad748c2f71bd048af4100db0cb9a26e35a09a7bff5cd9599"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q13.receipt.json",
+          "bytes": 1884,
+          "sha256": "dd5a5e3e29310bd23d38f96c3d9b4f26df4425c9f4a291da06b7dc79e947cc94"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q14.receipt.json",
+          "bytes": 1884,
+          "sha256": "9024d18de3746b7db8fb3574e9dac0adc06d3d413cba5db669439ed5ca3a8f0e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q15.receipt.json",
+          "bytes": 1883,
+          "sha256": "966e46d30aba1d172f8615977cecbf33bf9e0d924e020c9dbc655fb652572a1d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q16.receipt.json",
+          "bytes": 1884,
+          "sha256": "7f763e15726b7b56866d11c7e431e115ebfe43b47e38fd4c2a9aefe6aea4b2fe"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q17.receipt.json",
+          "bytes": 1884,
+          "sha256": "7d2e44e481f6e24d188bf7741213e16e0d13226076c08c98f076a09eff163177"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q18.receipt.json",
+          "bytes": 1884,
+          "sha256": "0194d51646bc4bf65de9d5bd15a4f53a73fba3058b091f6072e21f5f916df39b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q19.receipt.json",
+          "bytes": 1883,
+          "sha256": "6b045305b84f7300ac84925a03a33b9e77c4300ac915efff2a41f231f7a9f1be"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q20.receipt.json",
+          "bytes": 1884,
+          "sha256": "5ff5ecbb8c62fde13bb92044ef5ba3cea1c81b2b3f2c96daa5ac3d2d115003d3"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q21.receipt.json",
+          "bytes": 1883,
+          "sha256": "b9afdc3029fe46756e95cf6c146179833be0d583c6c0e0802a9fde409b15af74"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q22.receipt.json",
+          "bytes": 1883,
+          "sha256": "3489c61fb082e01d8f1d6b027b6f3a4b68cf319fd07f22907003a17d26b6c164"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q23.receipt.json",
+          "bytes": 1886,
+          "sha256": "873b6536d9264e77532fdac8089ddcdaf99d249447cd50d499ed8ab1de4ad714"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q24.receipt.json",
+          "bytes": 1886,
+          "sha256": "e757552d2366ef0cb3bf0f18e55a4dff62204de4ae67fba0268b88d2c78e8f7e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q25.receipt.json",
+          "bytes": 1884,
+          "sha256": "17d127704d837d1dbaf32f0cc5212b2b1ad733fd12ac6e2af87527848dca01f1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q26.receipt.json",
+          "bytes": 1884,
+          "sha256": "e63cc1a65b58564d58853c9a23a4d49b0873d942b07aa760120c6b04cdc0adff"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q27.receipt.json",
+          "bytes": 1884,
+          "sha256": "9ddb773b12591cc5f259649d185ed976a5dbb04e2bb0820d92cee4148013ab5b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q28.receipt.json",
+          "bytes": 1884,
+          "sha256": "1915b1630c5d57d1623570f6b147f2f2f1492ba9ae41bbf493f313d3ffaef892"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q29.receipt.json",
+          "bytes": 1886,
+          "sha256": "7bd4ac81013bcf7c42a4c7f0e5752bd1da39cb12c96a22fe8d1fb951ab0bde77"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q30.receipt.json",
+          "bytes": 1885,
+          "sha256": "84bb93fdb978539ddf80740a61550539e0d9929099f957efb8fb57bfe57bb4b4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q31.receipt.json",
+          "bytes": 1884,
+          "sha256": "a39a63c4f293a5c24129c71238b9e2f1bc8ebc5a8fcaba5b1ff802546ba2444d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q32.receipt.json",
+          "bytes": 1884,
+          "sha256": "b1174bbdcbfcbf9577986e2e840f4e4b85e6f93fb6572fbab29e02d71b702b2b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q33.receipt.json",
+          "bytes": 1883,
+          "sha256": "dd33abf9a10c0cb072b21cc9be8bc05148b2c345433a2554b33676153545e16c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q34.receipt.json",
+          "bytes": 1884,
+          "sha256": "f18c28b2645fdcd9b1c257d65636919b5cc6e62de53b36639fc6da911f758ba8"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q35.receipt.json",
+          "bytes": 1884,
+          "sha256": "dfeb2157a0c74f49dbedddaff9231d22ddbdbd9a51a625504285513ac77a0622"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q36.receipt.json",
+          "bytes": 1883,
+          "sha256": "d921902c1d3dad189ee5011f202c343f77a08499dc6f38b15d2a530c207ca051"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q37.receipt.json",
+          "bytes": 1884,
+          "sha256": "55d2aaee1705503de79613e43b28798c7fcc02806775898851e372ef033295c1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q38.receipt.json",
+          "bytes": 1885,
+          "sha256": "88dc390bcc27d5cda4fd6989de1fc6203754ab82604fe7b6a057630dfdf2497c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q39.receipt.json",
+          "bytes": 1885,
+          "sha256": "00b5155eb7e192ffbd29cbe07f4c96aa572b064f855f023794c256d64d81eb6f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q40.receipt.json",
+          "bytes": 1884,
+          "sha256": "7e66734e7055fce35a608696e76f082038f37d9f0415fd7545d789bf1a0c2756"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q41.receipt.json",
+          "bytes": 1885,
+          "sha256": "63c5d2015e4dba13d9105774015b1768879a278ee71de1351084667c20a18105"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q42.receipt.json",
+          "bytes": 1885,
+          "sha256": "34dcf0adece98426104d89886b9e287da02e3f083ade9832db040d9449bb2e51"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/logs/q43.receipt.json",
+          "bytes": 1885,
+          "sha256": "7a8ea5f6b7cb51a347cc28dc5c6a7ec51667709c8384df4801731bbabc7baf1f"
+        }
+      ]
+    }
+  ],
+  "runtimes": [
+    {
+      "runtime": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/native-runtime-947.json",
+        "bytes": 7703,
+        "sha256": "c89c47e1f1c76b99c286ff9b6fa14e10fd4c02821c9ec94c8f791ccfd8718f75"
+      },
+      "build_log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/release-build-947.log",
+        "bytes": 11701,
+        "sha256": "f361e7613fe31d06d07ab0dd39700fc1159ed38f5b51c42414b94f623beafc96"
+      }
+    },
+    {
+      "runtime": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/native-runtime-950.json",
+        "bytes": 7718,
+        "sha256": "c0eca69fef12db6788a4b2190805c87e6af8442ec6fe502ff207efa39efb2f85"
+      },
+      "build_log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-release-build-950.log",
+        "bytes": 303,
+        "sha256": "154f2e63288a1266448f4ada70efe63a5e786795afd83229841d36f7419c433f"
+      }
+    }
+  ],
+  "native_runs": [
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-run-947.json",
+        "bytes": 9572,
+        "sha256": "30f61569b75493bbdee3cba63c9123bcb16af3eaeec80af3e2e992e6d77f8069"
+      },
+      "summary": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-947/logs/full43_20261022T220506854100Z/summary.json",
+        "bytes": 18335,
+        "sha256": "6fe7cca5b70c50d9df8e3cb8282f7c3fa2c24d3b316614986a11ce9b3d433658"
+      },
+      "runtime": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/native-runtime-947.json",
+        "bytes": 7703,
+        "sha256": "c89c47e1f1c76b99c286ff9b6fa14e10fd4c02821c9ec94c8f791ccfd8718f75"
+      },
+      "reference": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-945/reference.json",
+        "bytes": 291783,
+        "sha256": "7fc4541e739925ac10bcb5360a1caf2ac93cdf0dd2cdb64d9ff406faf620fc1a"
+      },
+      "complete": false,
+      "outputs": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-947/logs/full43_20261022T220506854100Z/q01_run1.stdout.json.gz",
+          "bytes": 5337,
+          "sha256": "4b75201adb739822ff31bb2972dae398c1ef3e5184942da69c0e240cbec77928"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-947/logs/full43_20261022T220506854100Z/q02_run1.stdout.json.gz",
+          "bytes": 11916,
+          "sha256": "c51c7a47255ab1391b3781debb6d785cd074dbd695f44c5c8d0010b371a65442"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-947/logs/full43_20261022T220506854100Z/q03_run1.stdout.json.gz",
+          "bytes": 18747,
+          "sha256": "63e3b90204cf2dbd7481a49c6aedc48cf7bab8e59c099724e702f71f02301b53"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-947/logs/full43_20261022T220506854100Z/q04_run1.stdout.json.gz",
+          "bytes": 18529,
+          "sha256": "c9d2221be07a0bde8afc46e8550a844b411c5a75272030f819eeec4242e3eb14"
+        }
+      ]
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-run-948.json",
+        "bytes": 58712,
+        "sha256": "02701e4e8b80f26cb9f7f10a49a06613206fd63d7db7a63fb66e1e76aeae9bee"
+      },
+      "summary": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/summary.json",
+        "bytes": 123468,
+        "sha256": "e5eaa4faea1cd7029c4b396181cb7db8ef5fe0b1d7577db812c290c2f7ed559a"
+      },
+      "runtime": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/native-runtime-947.json",
+        "bytes": 7703,
+        "sha256": "c89c47e1f1c76b99c286ff9b6fa14e10fd4c02821c9ec94c8f791ccfd8718f75"
+      },
+      "reference": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+        "bytes": 454630,
+        "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+      },
+      "complete": true,
+      "outputs": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q01_run1.stdout.json.gz",
+          "bytes": 5338,
+          "sha256": "aed26f914d15661595331a70cea2d38a88325f2b6b0653f36a61a38ce7273126"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q02_run1.stdout.json.gz",
+          "bytes": 11922,
+          "sha256": "de1ad6eb847c895c9b937fa6c2c174a9c99f738c5b0bfc8e2d0851d649a72dce"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q03_run1.stdout.json.gz",
+          "bytes": 18756,
+          "sha256": "1aec9184bd0f15baf7a504adb00ceee5301134571d93c2b48419b0d86ce4710a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q04_run1.stdout.json.gz",
+          "bytes": 18523,
+          "sha256": "d800a4b796d6e391b0d6ba37852d322bf7fb90895916b5138fe15818ae9b019c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q05_run1.stdout.json.gz",
+          "bytes": 18988,
+          "sha256": "cea16fd3890f196321f137628743779fc2ceecf3caaaf7a19da18ce6b9f08806"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q06_run1.stdout.json.gz",
+          "bytes": 18067,
+          "sha256": "7aa3d48880b60782461196817be30792686458b01d6721fbd8e5bc3cadd9f268"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q07_run1.stdout.json.gz",
+          "bytes": 17470,
+          "sha256": "0f58007a1503c4b3b4d8883fba9c7bc11a1a22abc6be686ec55d6d7f813fe077"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q08_run1.stdout.json.gz",
+          "bytes": 19240,
+          "sha256": "7383d8ee279b80b5acd9a82507a038178c7680b6200860a48236fd23cd35e0e5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q09_run1.stdout.json.gz",
+          "bytes": 21155,
+          "sha256": "a77f8e72d64fd3259e98359e50bdb529b0882c8502729074e1d5c414dbfa13ae"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q10_run1.stdout.json.gz",
+          "bytes": 21654,
+          "sha256": "b35ea2d1208472fb91405b25ff0ba119bc7ab05d2c8ed439aed66f0a9545f5c8"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q11_run1.stdout.json.gz",
+          "bytes": 21735,
+          "sha256": "87cede6b76b37f1fccd274809701eca0e4d73f390969331c64a4c09acc3eef79"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q12_run1.stdout.json.gz",
+          "bytes": 20096,
+          "sha256": "7fe9b3e8a1790a71e82f1e4812f3699704b89e1471e41dd0a6f9b3a95a31bd34"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q13_run1.stdout.json.gz",
+          "bytes": 23147,
+          "sha256": "ccf87b340c80731d1c0ef73704e4e197c9b25866784fd02ffeddd3c0883f1ede"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q14_run1.stdout.json.gz",
+          "bytes": 22414,
+          "sha256": "e86b3eb9a251bd94d6d9e46a0d8f71398609ae9ec8c2d2e2890d347794d9d638"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q15_run1.stdout.json.gz",
+          "bytes": 22738,
+          "sha256": "72823da9aa500947a35a96ec02143d3a98729a4faf61f89818403bd9a2392a40"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q16_run1.stdout.json.gz",
+          "bytes": 21416,
+          "sha256": "edc9a3ab14c76fdd7f45d7e73b603849cde23c3bf2e7bbab5bf6e80288ee0bb3"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q17_run1.stdout.json.gz",
+          "bytes": 22591,
+          "sha256": "42b49c4835b54246ce6c5b13c3cf75e721f82f6d3a5da71d68e186046023c950"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q18_run1.stdout.json.gz",
+          "bytes": 20222,
+          "sha256": "7d629709871f2a2274e60c53dfec2f767521ae40f94e6b35fda943f02d0b1431"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q19_run1.stdout.json.gz",
+          "bytes": 21244,
+          "sha256": "e53e27e996e8b52c2e5bf194d415764dd1a15d7baec43254858c102f545990c2"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q20_run1.stdout.json.gz",
+          "bytes": 3954,
+          "sha256": "2186cfbf871d1a1f05e7bca7de310c6770e739634db19599d0b69555b37b7c57"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q21_run1.stdout.json.gz",
+          "bytes": 11957,
+          "sha256": "7b2b39ba1a75b51e5f637a637458add98f24cf89332b01b224b88254aea00947"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q22_run1.stdout.json.gz",
+          "bytes": 22240,
+          "sha256": "286995f5200a3a34e6abd92202a218fba7c67282bd97318a1d846691f87af8fe"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q23_run1.stdout.json.gz",
+          "bytes": 24475,
+          "sha256": "7e2bda476bc0a2ce53c7ce85e705ff34036ba035894aeff96efb2800da1b9e33"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q24_run1.stdout.json.gz",
+          "bytes": 22982,
+          "sha256": "4e8a066f2e821ec88bc25b859e2f00e91b9091504e041db868e451b508222c8f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q25_run1.stdout.json.gz",
+          "bytes": 14578,
+          "sha256": "ec52696c39d7c59e892573a4e8d5e6e63e24267cec67d2b7429e671eb9e627d4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q26_run1.stdout.json.gz",
+          "bytes": 14294,
+          "sha256": "fe038f3d96f12a7303bbbc2733abaa8da4bda461bff1f245b24e475ba1727a36"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q27_run1.stdout.json.gz",
+          "bytes": 14443,
+          "sha256": "7b8acafdacc4b478e5855f339920a6b2a0d7cfaabaf72bb3cbdff26d14f1f388"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q28_run1.stdout.json.gz",
+          "bytes": 20755,
+          "sha256": "8b5aed3ee48fa5386b2f8cd97a1e06131e195de800a8019aeaf59358b0a3220b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q29_run1.stdout.json.gz",
+          "bytes": 24297,
+          "sha256": "0c205ba4620fd8028f914067ea2dc9de891a212ef15b33b698db5a86c12a3480"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q30_run1.stdout.json.gz",
+          "bytes": 24757,
+          "sha256": "b75bd7e4366fbd7525aa61cd247ab1e9bad5d82dc79b1c788f374c23425f53d1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q31_run1.stdout.json.gz",
+          "bytes": 21088,
+          "sha256": "ea5c95ce312415b6b16bd0f24c59bb2138fca34b1723984c240bdc89819f1b7f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q32_run1.stdout.json.gz",
+          "bytes": 20992,
+          "sha256": "b0f302e47ef383fc2410312a918f0afa7048a670bf6b9f9907dea62a654d1cab"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q33_run1.stdout.json.gz",
+          "bytes": 21952,
+          "sha256": "beb309a4cecc58b4b33df72da6eaca37ca9a3701202faf36cfb2a180ccf585c9"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q34_run1.stdout.json.gz",
+          "bytes": 23143,
+          "sha256": "6a59b6268c8c82151913fe1f82754b0bdce16012b86d9448342a6bd50e2515df"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q35_run1.stdout.json.gz",
+          "bytes": 22421,
+          "sha256": "b60fe304c99fd745bbdf5dfc048c10913669f5a96fd7621c06fdef2228902325"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q36_run1.stdout.json.gz",
+          "bytes": 21537,
+          "sha256": "e1303e45ec61f3e5cca72353a6830ae0540b92aabf8e724f1ece5c45c0084360"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q37_run1.stdout.json.gz",
+          "bytes": 21083,
+          "sha256": "9acbd10d133711f0d4e1fe48ee7baf4cdf7566f5aa742333cbd03ce8ef0a3d60"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q38_run1.stdout.json.gz",
+          "bytes": 21432,
+          "sha256": "7635644b14e3d1a7fb8ba76f4c8366c3823d4d72f23bffd2381dc4f52d0f8e18"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q39_run1.stdout.json.gz",
+          "bytes": 20947,
+          "sha256": "a9d8a0d8f73ec3c758eec759acf75e8dc87daf5688eed25ee9ee23948c4e45cd"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q40_run1.stdout.json.gz",
+          "bytes": 21251,
+          "sha256": "544c3d35be7150967e14148750494ec48bbf96bba830fb4c98d1be3910712432"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q41_run1.stdout.json.gz",
+          "bytes": 19661,
+          "sha256": "87d52c2473f2d97969e0ad5b976a0e01278c27b37dd2494ceaeb083031fb6d6f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q42_run1.stdout.json.gz",
+          "bytes": 19394,
+          "sha256": "abb51668d0640e2609735d47a16846ba24b6649ebe0b10e197cb4143cd113277"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-948/logs/full43_20261022T221215881302Z/q43_run1.stdout.json.gz",
+          "bytes": 19356,
+          "sha256": "6b22f5509e41ad27bc6668feb1f446bdc8481bf9795b235060ecf5da51578958"
+        }
+      ],
+      "engine_execution_seconds": 71.99155076
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-run-949.json",
+        "bytes": 70847,
+        "sha256": "9f8f934a162704473132f0e5b1dc2696271c55abcdd67f4e8a88061af2afac68"
+      },
+      "summary": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/summary.json",
+        "bytes": 123414,
+        "sha256": "616f7941dae3e66a5afec6201f5a1cb17df7e5700983193605246c2a3fe458d6"
+      },
+      "runtime": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/native-runtime-947.json",
+        "bytes": 7703,
+        "sha256": "c89c47e1f1c76b99c286ff9b6fa14e10fd4c02821c9ec94c8f791ccfd8718f75"
+      },
+      "reference": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+        "bytes": 454630,
+        "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+      },
+      "complete": true,
+      "outputs": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q01_run1.stdout.json.gz",
+          "bytes": 5336,
+          "sha256": "e7d912cc6f5d507812de88c8eddc3af5b2ff4432b651a46a7b68eb31bff7034a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q02_run1.stdout.json.gz",
+          "bytes": 11921,
+          "sha256": "00d9dc439fbf12e4dffb6e0cc45310cf1524f2d395b42f40312092ef01df7104"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q03_run1.stdout.json.gz",
+          "bytes": 18745,
+          "sha256": "cd72dff974a9b38bf77b8c8a118a75415048d3d591b825187fc72c021cc27534"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q04_run1.stdout.json.gz",
+          "bytes": 18529,
+          "sha256": "7f78335d7daabd21be8f6469378c2335ba5632bcd77f5a9f971ada953b8481e6"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q05_run1.stdout.json.gz",
+          "bytes": 18987,
+          "sha256": "c3abbf242d504201ee4b003294b161227160cac3629fdfb0e594a96858ece841"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q06_run1.stdout.json.gz",
+          "bytes": 18068,
+          "sha256": "25180d230ef86870b7a1b93c51c2f66b16b0f01e84eca8ea41d4a85c63fd872f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q07_run1.stdout.json.gz",
+          "bytes": 17470,
+          "sha256": "ccc520f357def6ab7284a1d7a90b411d45634fe7a9dd02037d7142369476e0ac"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q08_run1.stdout.json.gz",
+          "bytes": 19246,
+          "sha256": "f101725de82b70dd27a867200d514318f733a5fb9aaefa76d4a508ba76c7ca10"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q09_run1.stdout.json.gz",
+          "bytes": 21155,
+          "sha256": "590e9d96e635c39aead9c1ec74c53e681df2f8abba07046fbff3557af84bd17b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q10_run1.stdout.json.gz",
+          "bytes": 21658,
+          "sha256": "bebf258d5273dbb183846503ae5845d1c987bd98d12e55cabd01be9bf872f73e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q11_run1.stdout.json.gz",
+          "bytes": 21751,
+          "sha256": "bf2cbe6ad2b6a76a7da7f341ecadb9119b96280f7e5e264f2e02c394523ce6c0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q12_run1.stdout.json.gz",
+          "bytes": 20087,
+          "sha256": "e6c0e038a83033f2f055ff610aa8c3d1bbad0168e7ed7b9427fccbeb7d1b6e2a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q13_run1.stdout.json.gz",
+          "bytes": 23170,
+          "sha256": "4f0615550d3a94598c86df54eb6e4d9f242c88091320d699a2caf96ebe607966"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q14_run1.stdout.json.gz",
+          "bytes": 22423,
+          "sha256": "fd6f63cbbeb84ad42edbaf6810505b14bc22822ef8ba305262ee84345ed3e799"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q15_run1.stdout.json.gz",
+          "bytes": 22733,
+          "sha256": "0387d69a02629aff04efd17753165b071b6f7815a9965fb7554ad5a0ad374ec0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q16_run1.stdout.json.gz",
+          "bytes": 21417,
+          "sha256": "602143525e946b6aebaa9902195a9c7a51d5c54afc5fdc112365a91b02ff7c94"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q17_run1.stdout.json.gz",
+          "bytes": 22603,
+          "sha256": "1f1b4f87f99293e6586793c969c2ce22bd64acc8a28189ab0b94f7c36f5ab049"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q18_run1.stdout.json.gz",
+          "bytes": 20226,
+          "sha256": "a3ebdb864e134644e590ec52875ab7308f4f4905c5760d4f307c6e791f0b6e0b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q19_run1.stdout.json.gz",
+          "bytes": 21245,
+          "sha256": "41f6c57de08ec01396138b8accc0272f9301c73acc5df448f2db641fd9a2f60a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q20_run1.stdout.json.gz",
+          "bytes": 3955,
+          "sha256": "7b493bb51925e82f519fa5e58e2705715dc740318ed8821a3a4ab949762bb1c1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q21_run1.stdout.json.gz",
+          "bytes": 11951,
+          "sha256": "e48399e3d83906001c24c96934a32c3c1d43025b28ce77da03c3723787f2ba0e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q22_run1.stdout.json.gz",
+          "bytes": 22240,
+          "sha256": "2eec6e14d5a0d367e92bea9b21cdaa047281d69a98893fa7582b528b3668a0c1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q23_run1.stdout.json.gz",
+          "bytes": 24481,
+          "sha256": "b7c1ecee1073d6b0868a25a9c44b67dab520f07a3543b5e0a3172f65f409f685"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q24_run1.stdout.json.gz",
+          "bytes": 22982,
+          "sha256": "aa49e0e7c60c898140790c7fef8e57ae72bb0f368b613c3f75102a4cb338b9a3"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q25_run1.stdout.json.gz",
+          "bytes": 14579,
+          "sha256": "15a2f564be5247e681c8080d73345a02a3be0eb91fe69fa51a397ebd7e3c96ab"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q26_run1.stdout.json.gz",
+          "bytes": 14291,
+          "sha256": "cbfedfec5ef2266b34f212de4272c3c951ee425085e2c0483c10ab1325c02ece"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q27_run1.stdout.json.gz",
+          "bytes": 14440,
+          "sha256": "c1dad1ab3b2d9ed3a29362d4476f5ea5a678c62f0806f27bd64564672b3e40b9"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q28_run1.stdout.json.gz",
+          "bytes": 20771,
+          "sha256": "354f87a03284edf02afb517835cb507a5a10274f300b6ddb3a06712012401bfc"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q29_run1.stdout.json.gz",
+          "bytes": 24314,
+          "sha256": "9437f4b42c7cf6036f5c024938ae9b5b9fc8bf6b48f0181c47716415351da73e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q30_run1.stdout.json.gz",
+          "bytes": 24757,
+          "sha256": "0914c9fb4640c64cdcc9a609deeee9412996d5ff53529b8c2de243035d32f338"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q31_run1.stdout.json.gz",
+          "bytes": 21089,
+          "sha256": "20470d250720805a16935ca59172e193665bc5bc14512ad9c4f6947c18e560e4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q32_run1.stdout.json.gz",
+          "bytes": 20987,
+          "sha256": "68c65229700bc874cc5f6a36d426fc73bb9f06d124c5caaf366ae3649e0cc247"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q33_run1.stdout.json.gz",
+          "bytes": 21955,
+          "sha256": "1ca6a70597b46acc88e501fa429043bd657468e7598e7d51fe08b9d0ce4a65d0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q34_run1.stdout.json.gz",
+          "bytes": 23144,
+          "sha256": "f90c94b4f390f2d59af8ff4cd0e906a30cd671a91cfb9d508f1655cae72e338f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q35_run1.stdout.json.gz",
+          "bytes": 22421,
+          "sha256": "a3d7dfb525dd8634e1add09b8cc505322a8446ab20a0d8069274934fae164c25"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q36_run1.stdout.json.gz",
+          "bytes": 21544,
+          "sha256": "024c1dd4965e5b50b6d6c74319026462c65c6f05a40e1022ebc18a4ddef1eafd"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q37_run1.stdout.json.gz",
+          "bytes": 21088,
+          "sha256": "179b5e4113d3426473c5d0705b0b340278b77a4569caf29024f472375185c756"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q38_run1.stdout.json.gz",
+          "bytes": 21439,
+          "sha256": "cbc739de7da2dcc9c5371c800a6b0743ff2f48023dc596b5e63a0450314e1193"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q39_run1.stdout.json.gz",
+          "bytes": 20939,
+          "sha256": "023273cb98d08c27e33c6fcf476ea664ed832f363428b857c97ec2b317506083"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q40_run1.stdout.json.gz",
+          "bytes": 21236,
+          "sha256": "12c93db4fb1b4aeef907d3bf2e799a464950fe96d8cf4bd33f66542aa892dcc2"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q41_run1.stdout.json.gz",
+          "bytes": 19656,
+          "sha256": "4ee9231708a5d7b43ca99a0ba82a06cbf554194ba43b6cf28bff400f1a09668d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q42_run1.stdout.json.gz",
+          "bytes": 19401,
+          "sha256": "3d3e7def1bdd058a72d55ceeb30180d389beefb229fcbdd0c5d6b52f3c979463"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-949/logs/full43_20261022T221723941581Z/q43_run1.stdout.json.gz",
+          "bytes": 19346,
+          "sha256": "be4511714c00de41359d1aac3e45f6cc95595f77013ec040868ba5b04d603d8b"
+        }
+      ],
+      "engine_execution_seconds": 73.414695881
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-run-950.json",
+        "bytes": 31480,
+        "sha256": "811cbb64bcacb27414dae14ebe7ba249bb43dd73e8a959725357f4cdc28dd783"
+      },
+      "summary": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/summary.json",
+        "bytes": 123566,
+        "sha256": "c38ebb180bb3e76bbb90e8946b77623293ee34be78297c22d11246f0203534bc"
+      },
+      "runtime": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/native-runtime-950.json",
+        "bytes": 7718,
+        "sha256": "c0eca69fef12db6788a4b2190805c87e6af8442ec6fe502ff207efa39efb2f85"
+      },
+      "reference": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+        "bytes": 454630,
+        "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+      },
+      "complete": true,
+      "outputs": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q01_run1.stdout.json.gz",
+          "bytes": 5336,
+          "sha256": "903269a34dd9875147da98311db0829b4262edb9f53c9a94a38f8345ab6a9b8b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q02_run1.stdout.json.gz",
+          "bytes": 11919,
+          "sha256": "084756728ed23560850c917d2bae75e593861f25944d04f9b31db78d73f4e8de"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q03_run1.stdout.json.gz",
+          "bytes": 18747,
+          "sha256": "21a0cdcd7aca8779305adcc08fc5d4143c68bc23324349480d7261a1f7c321ee"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q04_run1.stdout.json.gz",
+          "bytes": 18528,
+          "sha256": "7d824dd6e177ded7be8d5630322c84813183e929187d279764d79444b0dd17dd"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q05_run1.stdout.json.gz",
+          "bytes": 18982,
+          "sha256": "2869912f9fa183bca4809cc36fd77877a9daebbf951bfebdd8bf97f3f4fb7c84"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q06_run1.stdout.json.gz",
+          "bytes": 18079,
+          "sha256": "ca9ec77be45476fc9d34b535dde2d2e04f80d0224d7424451a03e352feb48e62"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q07_run1.stdout.json.gz",
+          "bytes": 17470,
+          "sha256": "852f12d6b6739ced4497faa5207ee6c36f0edbb466bc996c43ccd68a752ea24a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q08_run1.stdout.json.gz",
+          "bytes": 19257,
+          "sha256": "aca2845a1f61edc1e63b1da23086c1cb9a9ca598ec41a46c12964a679cd23ff6"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q09_run1.stdout.json.gz",
+          "bytes": 21166,
+          "sha256": "791492e4738d21a9ed6e83dece5cffb4ecb0d2a442805234b32d3095cd410824"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q10_run1.stdout.json.gz",
+          "bytes": 21656,
+          "sha256": "3cf0cb997209a38ff5018b9f7c4122de23e4fb59b38f01369789f9462a186c4b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q11_run1.stdout.json.gz",
+          "bytes": 21748,
+          "sha256": "4ba19a1877551396324ae8d4801602893d3cb49c053de40c8e41420c3c34e976"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q12_run1.stdout.json.gz",
+          "bytes": 20091,
+          "sha256": "23f6495f3ddb155efbc5e4170f110765207cd8f5d02902f4b9c9907befa46a18"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q13_run1.stdout.json.gz",
+          "bytes": 23162,
+          "sha256": "c652e40f8a22193f333c85d5b85ed902f6ac8bd912eb88812633d16ac5ea8928"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q14_run1.stdout.json.gz",
+          "bytes": 22418,
+          "sha256": "7a497a3770fce2f06453c4041d952c9d67aa19a857e869220e85b863d38fd72a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q15_run1.stdout.json.gz",
+          "bytes": 22723,
+          "sha256": "1b25fe8d87a7fadad6b3bf4afbb9e7345723c7211aaf6bf852b6c4e29bc1ce3d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q16_run1.stdout.json.gz",
+          "bytes": 21417,
+          "sha256": "c14df04f0a5f83e49ad4622562bc22f9ad263a195493cb47244970296d9c2212"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q17_run1.stdout.json.gz",
+          "bytes": 22592,
+          "sha256": "2c319fdbcb27e00b00585f5987f008c1176c473691d4759a11ec549aae2a3c1b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q18_run1.stdout.json.gz",
+          "bytes": 20222,
+          "sha256": "eaba85cc37b2af73df41ce0629d29decac301618ff02b95c283b781130a2c169"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q19_run1.stdout.json.gz",
+          "bytes": 21237,
+          "sha256": "cad113e6680e87c8ce4536ae74e64d47999d2ffb6495ad6e7d1bde7067860610"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q20_run1.stdout.json.gz",
+          "bytes": 3954,
+          "sha256": "8731761862d975d8153cdf7fa86f754f257306d01501124a984dca703d328545"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q21_run1.stdout.json.gz",
+          "bytes": 11955,
+          "sha256": "afcfb529f21e0f1b192145a671518a29792a9292f1b6db8e8db4d7e03cac8e3a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q22_run1.stdout.json.gz",
+          "bytes": 22236,
+          "sha256": "90f5b4b9692a5bf9ce956a05f869a53d9ec23fe97dceebe9a6c2369c47c1fa46"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q23_run1.stdout.json.gz",
+          "bytes": 24491,
+          "sha256": "58bd91848ca0911dbf2a55aa1079003fe0a1e1e30c76c3f38f84a6aaab21ae25"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q24_run1.stdout.json.gz",
+          "bytes": 22979,
+          "sha256": "54744cff7a37573cf1683c58d02eef67e8418297a0fe57d3f52232ad2c1e0124"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q25_run1.stdout.json.gz",
+          "bytes": 14578,
+          "sha256": "b0dd395b9eb07822b4206f7048e2c4c4af9bda77106a00827e98a4855eb93593"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q26_run1.stdout.json.gz",
+          "bytes": 14289,
+          "sha256": "3fb81d2fffdae432bfcff573650044dad79ecc195d9bcc28103c07657260d485"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q27_run1.stdout.json.gz",
+          "bytes": 14440,
+          "sha256": "bebd73d480507fa6e493f215e25040a8766d3f4be6444a9bcb82e7d4f20b90d9"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q28_run1.stdout.json.gz",
+          "bytes": 20766,
+          "sha256": "b3dba89e7eac7ade1a175ba3317444618a89f128ff990d84a69cfa116d57e482"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q29_run1.stdout.json.gz",
+          "bytes": 24876,
+          "sha256": "600c48c79246246a7e290b63741ef1916e71c8862215609395ea5d7e030d9013"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q30_run1.stdout.json.gz",
+          "bytes": 24749,
+          "sha256": "b32e2378fe793dd0ccd348d681b3186453a5ab973a1458dd87004bc112063710"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q31_run1.stdout.json.gz",
+          "bytes": 21094,
+          "sha256": "070f1bf1af91d69ea43a187f984b638fdf630f94695887046d5f8abd2a1054f4"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q32_run1.stdout.json.gz",
+          "bytes": 20988,
+          "sha256": "69444219e720dee16d6787c2a25a4aacda74304e0e0e53bb0868dcd368022d04"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q33_run1.stdout.json.gz",
+          "bytes": 21952,
+          "sha256": "a1fefc89a4d9acbf434992983ecc31a48468da5c197a00957953036ccfe41180"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q34_run1.stdout.json.gz",
+          "bytes": 23128,
+          "sha256": "1344341511c6f26cf2d70dea49c21071818d40214201005ddb6b5649bbd381e6"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q35_run1.stdout.json.gz",
+          "bytes": 22417,
+          "sha256": "560b3b2487ea8234cfad2ffae236b64bfc73c29c5874cdb64d9ef99608ba887c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q36_run1.stdout.json.gz",
+          "bytes": 21549,
+          "sha256": "bfd5f9bdcabd0eb53b6e5aa77fa05297f57cfbf5117bc63bf552144b9e42d8e2"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q37_run1.stdout.json.gz",
+          "bytes": 21082,
+          "sha256": "268e12a1692741cc570e1b6a820afbafdf682afb7e1182fcad915a65a4e8cbdd"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q38_run1.stdout.json.gz",
+          "bytes": 21434,
+          "sha256": "92ad161cce21d6475314153f93857b9b99be9288fc8070b1c987746d7ec54be3"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q39_run1.stdout.json.gz",
+          "bytes": 20941,
+          "sha256": "f78ab11c7a9cd5bf7e40f65f3aac220fd36d1af31dc96b21ec56bb17263e9e2a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q40_run1.stdout.json.gz",
+          "bytes": 21241,
+          "sha256": "ba2a11446838552f3aafa2f940ece28481705bb3ccaf7ddd1d7f20b81b909ad1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q41_run1.stdout.json.gz",
+          "bytes": 19660,
+          "sha256": "b18b96545a0cb4de7328c31050e9c22d606b2b64e77ff09ca7bf100c8656598e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q42_run1.stdout.json.gz",
+          "bytes": 19398,
+          "sha256": "84ec660457a6bb673b2edd1b5ace78bb2707e599ecdc207f8d4737200edb628a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-native-950/logs/full43_20261022T224817704494Z/q43_run1.stdout.json.gz",
+          "bytes": 19345,
+          "sha256": "829a4649255b34a35870fd2f5fc5419d860c9e1bad2ea76630c4ceea2f3fb473"
+        }
+      ],
+      "engine_execution_seconds": 49.953164785
+    }
+  ],
+  "current_sources": [
+    {
+      "repository_path": "shardloom-cli/src/public_workflow_route.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-cli/src/public_workflow_route.rs",
+        "bytes": 693774,
+        "sha256": "dbf4d40aa35a65a4902629c95478a60f923223d8494eff6701c8e2129f5f3372"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitive_aggregate_result_values.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_aggregate_result_values.rs",
+        "bytes": 9090,
+        "sha256": "2573d0c873989927884c10939acb194e394992cebcafd323084821fe405477e0"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitive_completed_result.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_completed_result.rs",
+        "bytes": 35937,
+        "sha256": "4c236625d08f0b5d46353c4c6026e283b68e6d49859a0f3f30a38961e3a97123"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives.rs",
+        "bytes": 2886448,
+        "sha256": "ed86256f2317f03b18e05b6f8ccbf54b38dd9b3bf0ed789af6c7dddd79c15f2c"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_compact_numeric_updates_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_compact_numeric_updates_tests.rs",
+        "bytes": 12507,
+        "sha256": "ab16411436bfae853d5608fcb622723a45446c13c983ca8081140015edcffe79"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_numeric_updates.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_numeric_updates.rs",
+        "bytes": 7240,
+        "sha256": "b88989c9ad467787798dca0b98f49ec44aea7116449484258f9e3208544d1433"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_numeric_updates_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_numeric_updates_tests.rs",
+        "bytes": 17639,
+        "sha256": "369f344f70cf4c195d020cf5e25bfc3f00d8e55f8c7f556b29bc6baf978a06b7"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/bounded_numeric_reduction_experiment.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bounded_numeric_reduction_experiment.rs",
+        "bytes": 20202,
+        "sha256": "971fe35e66bc9ea9779de2f6e694b833409c87599d846a7a38af0e054908b22f"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/compact_numeric_block_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/compact_numeric_block_tests.rs",
+        "bytes": 13627,
+        "sha256": "ae9ac1ab7112f79f52083215a22868b38929cf31981a988e46bac81ec4c03474"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_group_partials.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_group_partials.rs",
+        "bytes": 21115,
+        "sha256": "ea7f7381aff7a131530c5a93e50347e5656e714c8d03c9e515416defed2f2471"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+        "bytes": 20054,
+        "sha256": "5aa5624f6549bff73d9303fab358fab9094e87ae74cfcb070722c3d36e59f46d"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+        "bytes": 45827,
+        "sha256": "e79a5ad425023f4fc768f2cfd472f4d8ccafc912941748d965bcf1dfc1c4b021"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_probe_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_probe_tests.rs",
+        "bytes": 9757,
+        "sha256": "3aff9865f2a07f048f006477d64a67921604a9fe35d74870cf35edbf3802ccf6"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs",
+        "bytes": 21353,
+        "sha256": "0e6bad29ad6781c8182929c224825bfa462876f82f75705842206ef119a31180"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_reduction_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_reduction_tests.rs",
+        "bytes": 21647,
+        "sha256": "9d379ee22ee56e55e91ff66b6ec46989554350c2b8e18e7187696f8394f10376"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/independent_reference_regression_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/independent_reference_regression_tests.rs",
+        "bytes": 13275,
+        "sha256": "5fd9a34bedd5df66a1f4dc66dafe6d6f9720de7a80e65b4dc27c094518c02487"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/native_numeric_accessor_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_numeric_accessor_tests.rs",
+        "bytes": 51987,
+        "sha256": "29d5443ccd1e56c825c73fd50912f30fcb422dd611292619be7a23e15c7d5b24"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/native_numeric_owner.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_numeric_owner.rs",
+        "bytes": 28536,
+        "sha256": "9cceca8176fbc6b1daf2fee98cb5c48b7e746f955b61f4bff9741deeb47da8b7"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+        "bytes": 30454,
+        "sha256": "77545216ce2085339107259f4638526642a01680fdfadc4f5052d49cbd9207ab"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/local_primitives/numeric_aggregate_sum.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/numeric_aggregate_sum.rs",
+        "bytes": 3646,
+        "sha256": "b28fc5966cfc348847fea9cde96ecd75eaee22d752cf03930df5c4bb3e517e0b"
+      }
+    },
+    {
+      "repository_path": "shardloom-vortex/src/url_domain.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/url_domain.rs",
+        "bytes": 9194,
+        "sha256": "9eed4cfd135ccf202328fa83116a1ec65ee7cc6e7ebb6d656250e8ef11394f14"
+      }
+    }
+  ],
+  "source_versions": [
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-cli/src/public_workflow_route.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-cli/src/public_workflow_route.rs",
+        "bytes": 693774,
+        "sha256": "dbf4d40aa35a65a4902629c95478a60f923223d8494eff6701c8e2129f5f3372"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-cli/src/public_workflow_route.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-cli/src/public_workflow_route.rs",
+        "bytes": 693774,
+        "sha256": "dbf4d40aa35a65a4902629c95478a60f923223d8494eff6701c8e2129f5f3372"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitive_aggregate_result_values.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_aggregate_result_values.rs",
+        "bytes": 9090,
+        "sha256": "2573d0c873989927884c10939acb194e394992cebcafd323084821fe405477e0"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitive_aggregate_result_values.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_aggregate_result_values.rs",
+        "bytes": 9090,
+        "sha256": "2573d0c873989927884c10939acb194e394992cebcafd323084821fe405477e0"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitive_completed_result.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_completed_result.rs",
+        "bytes": 35937,
+        "sha256": "4c236625d08f0b5d46353c4c6026e283b68e6d49859a0f3f30a38961e3a97123"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitive_completed_result.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_completed_result.rs",
+        "bytes": 35937,
+        "sha256": "4c236625d08f0b5d46353c4c6026e283b68e6d49859a0f3f30a38961e3a97123"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives.rs",
+        "bytes": 2885916,
+        "sha256": "aad549fea642f0a29141ad67fcadb5eeb75a5c33061d4a2e09cfd47def2ee80b"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives.rs",
+        "bytes": 2886448,
+        "sha256": "ed86256f2317f03b18e05b6f8ccbf54b38dd9b3bf0ed789af6c7dddd79c15f2c"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_compact_numeric_updates_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_compact_numeric_updates_tests.rs",
+        "bytes": 12507,
+        "sha256": "ab16411436bfae853d5608fcb622723a45446c13c983ca8081140015edcffe79"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_compact_numeric_updates_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_compact_numeric_updates_tests.rs",
+        "bytes": 12507,
+        "sha256": "ab16411436bfae853d5608fcb622723a45446c13c983ca8081140015edcffe79"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_numeric_updates.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_numeric_updates.rs",
+        "bytes": 7240,
+        "sha256": "b88989c9ad467787798dca0b98f49ec44aea7116449484258f9e3208544d1433"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_numeric_updates.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_numeric_updates.rs",
+        "bytes": 7240,
+        "sha256": "b88989c9ad467787798dca0b98f49ec44aea7116449484258f9e3208544d1433"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_numeric_updates_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_numeric_updates_tests.rs",
+        "bytes": 17639,
+        "sha256": "369f344f70cf4c195d020cf5e25bfc3f00d8e55f8c7f556b29bc6baf978a06b7"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/bound_numeric_updates_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bound_numeric_updates_tests.rs",
+        "bytes": 17639,
+        "sha256": "369f344f70cf4c195d020cf5e25bfc3f00d8e55f8c7f556b29bc6baf978a06b7"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/bounded_numeric_reduction_experiment.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bounded_numeric_reduction_experiment.rs",
+        "bytes": 20202,
+        "sha256": "971fe35e66bc9ea9779de2f6e694b833409c87599d846a7a38af0e054908b22f"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/bounded_numeric_reduction_experiment.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/bounded_numeric_reduction_experiment.rs",
+        "bytes": 20202,
+        "sha256": "971fe35e66bc9ea9779de2f6e694b833409c87599d846a7a38af0e054908b22f"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/compact_numeric_block_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/compact_numeric_block_tests.rs",
+        "bytes": 13627,
+        "sha256": "ae9ac1ab7112f79f52083215a22868b38929cf31981a988e46bac81ec4c03474"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/compact_numeric_block_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/compact_numeric_block_tests.rs",
+        "bytes": 13627,
+        "sha256": "ae9ac1ab7112f79f52083215a22868b38929cf31981a988e46bac81ec4c03474"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_group_partials.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_group_partials.rs",
+        "bytes": 21115,
+        "sha256": "ea7f7381aff7a131530c5a93e50347e5656e714c8d03c9e515416defed2f2471"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_group_partials.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_group_partials.rs",
+        "bytes": 21115,
+        "sha256": "ea7f7381aff7a131530c5a93e50347e5656e714c8d03c9e515416defed2f2471"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+        "bytes": 20054,
+        "sha256": "5aa5624f6549bff73d9303fab358fab9094e87ae74cfcb070722c3d36e59f46d"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+        "bytes": 20054,
+        "sha256": "5aa5624f6549bff73d9303fab358fab9094e87ae74cfcb070722c3d36e59f46d"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+        "bytes": 45827,
+        "sha256": "e79a5ad425023f4fc768f2cfd472f4d8ccafc912941748d965bcf1dfc1c4b021"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+        "bytes": 45827,
+        "sha256": "e79a5ad425023f4fc768f2cfd472f4d8ccafc912941748d965bcf1dfc1c4b021"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_probe_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_probe_tests.rs",
+        "bytes": 9757,
+        "sha256": "3aff9865f2a07f048f006477d64a67921604a9fe35d74870cf35edbf3802ccf6"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_probe_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_probe_tests.rs",
+        "bytes": 9757,
+        "sha256": "3aff9865f2a07f048f006477d64a67921604a9fe35d74870cf35edbf3802ccf6"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs",
+        "bytes": 21353,
+        "sha256": "0e6bad29ad6781c8182929c224825bfa462876f82f75705842206ef119a31180"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs",
+        "bytes": 21353,
+        "sha256": "0e6bad29ad6781c8182929c224825bfa462876f82f75705842206ef119a31180"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_reduction_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_reduction_tests.rs",
+        "bytes": 21647,
+        "sha256": "9d379ee22ee56e55e91ff66b6ec46989554350c2b8e18e7187696f8394f10376"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/encoded_numeric_reduction_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/encoded_numeric_reduction_tests.rs",
+        "bytes": 21647,
+        "sha256": "9d379ee22ee56e55e91ff66b6ec46989554350c2b8e18e7187696f8394f10376"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/independent_reference_regression_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/independent_reference_regression_tests.rs",
+        "bytes": 11150,
+        "sha256": "b848a225ae8e3c2ac0684fee1fd42f85d666e22b89a18ea2967f3ab9aa7ea1ef"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/independent_reference_regression_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/independent_reference_regression_tests.rs",
+        "bytes": 13275,
+        "sha256": "5fd9a34bedd5df66a1f4dc66dafe6d6f9720de7a80e65b4dc27c094518c02487"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/native_numeric_accessor_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_numeric_accessor_tests.rs",
+        "bytes": 51987,
+        "sha256": "29d5443ccd1e56c825c73fd50912f30fcb422dd611292619be7a23e15c7d5b24"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/native_numeric_accessor_tests.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_numeric_accessor_tests.rs",
+        "bytes": 51987,
+        "sha256": "29d5443ccd1e56c825c73fd50912f30fcb422dd611292619be7a23e15c7d5b24"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/native_numeric_owner.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_numeric_owner.rs",
+        "bytes": 28536,
+        "sha256": "9cceca8176fbc6b1daf2fee98cb5c48b7e746f955b61f4bff9741deeb47da8b7"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/native_numeric_owner.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_numeric_owner.rs",
+        "bytes": 28536,
+        "sha256": "9cceca8176fbc6b1daf2fee98cb5c48b7e746f955b61f4bff9741deeb47da8b7"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+        "bytes": 30454,
+        "sha256": "77545216ce2085339107259f4638526642a01680fdfadc4f5052d49cbd9207ab"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+        "bytes": 30454,
+        "sha256": "77545216ce2085339107259f4638526642a01680fdfadc4f5052d49cbd9207ab"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/local_primitives/numeric_aggregate_sum.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/numeric_aggregate_sum.rs",
+        "bytes": 3646,
+        "sha256": "b28fc5966cfc348847fea9cde96ecd75eaee22d752cf03930df5c4bb3e517e0b"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/local_primitives/numeric_aggregate_sum.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/numeric_aggregate_sum.rs",
+        "bytes": 3646,
+        "sha256": "b28fc5966cfc348847fea9cde96ecd75eaee22d752cf03930df5c4bb3e517e0b"
+      }
+    },
+    {
+      "source_commit": "d80f515301959ba7cd9d35a33ea94256160423a7",
+      "repository_path": "shardloom-vortex/src/url_domain.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/url_domain.rs",
+        "bytes": 9194,
+        "sha256": "9eed4cfd135ccf202328fa83116a1ec65ee7cc6e7ebb6d656250e8ef11394f14"
+      }
+    },
+    {
+      "source_commit": "a973ad72af847010594311d852da854203d01768",
+      "repository_path": "shardloom-vortex/src/url_domain.rs",
+      "file": {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/url_domain.rs",
+        "bytes": 9194,
+        "sha256": "9eed4cfd135ccf202328fa83116a1ec65ee7cc6e7ebb6d656250e8ef11394f14"
+      }
+    }
+  ],
+  "validations": [
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-native-tests-950.json",
+        "bytes": 496268,
+        "sha256": "9686416fece69a2285fb84a5d72117ffe8bc4a234af6f08fa671174040cdf663"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-native-tests-950.log",
+        "bytes": 395416,
+        "sha256": "cfbf5b1fdd3197e95abfd1a366a3997fc03c493cf1b452df99c23b9137ba9aa6"
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-fmt-950.json",
+        "bytes": 496190,
+        "sha256": "2d1f8f2d8f5ad8df5fa9be4bf485b25abd1e481b7b3913c82b50bf1f0e9d5182"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-fmt-950.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-workspace-clippy-950.json",
+        "bytes": 496249,
+        "sha256": "22db31b8412b8342f8ec4a65c43067b07c51b76bd6e9952d46067d6bcac2d4f5"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-workspace-clippy-950.log",
+        "bytes": 439,
+        "sha256": "57e2164434790a1645f0078a65a3f624e78b639882e20216b8d8fc9d76e629cd"
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-workspace-tests-950.json",
+        "bytes": 496214,
+        "sha256": "55e7d17992b0ddfbf807bc639a678461e8a21bc874b1381bafc4ffca318c3381"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-workspace-tests-950.log",
+        "bytes": 462718,
+        "sha256": "82aab67347ec96bd42aa57fbcbd0e554a9765389baa490a0a6a14274dab5bd62"
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-native-clippy-950.json",
+        "bytes": 496343,
+        "sha256": "b654039dcd4ffa9ece31a662e532ad1a5b89a4f39253c42171db1428f1ccc00d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-native-clippy-950.log",
+        "bytes": 301,
+        "sha256": "e81ce809fbbc88d8d03ecb1c423b57c1f5590a099fbd9db7e08a4eeac66a0291"
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-public-tests-950.json",
+        "bytes": 496453,
+        "sha256": "df0b3801541b010a84be64718daf205042e8df461d17ee256d2f3216e63d7cde"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-public-tests-950.log",
+        "bytes": 517157,
+        "sha256": "b46bd0ef5ce4c2c7bd4ef5cac016bfd1f811f3501f72d96ed7bfa481123af175"
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-oracle-tests-950.json",
+        "bytes": 496461,
+        "sha256": "3cc9bd6dc118813fc78aed337c0e61a4eeaa2f64114d5ce81151f7b88d7abc60"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-oracle-tests-950.log",
+        "bytes": 2175,
+        "sha256": "fc8d548ae3945cac45a21fc41f92ca4aba414b648be0ed3af27f3d4ff01a2eee"
+      }
+    }
+  ],
+  "retained_failures": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/integer-reference-adjudication-948/receipt.json",
+      "bytes": 925,
+      "sha256": "a2387bf7e6b0eaf4d604cc65a5a0711d4ea296f44e179843ebaae70d585155ef"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-corruptions-950-a1.json",
+      "bytes": 496260,
+      "sha256": "dde4686204cd2a747a2ef9c6453c8e608ca2a3df3c32ffb5b68b9b24896ded8f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-corruptions-950-a1.log",
+      "bytes": 4547,
+      "sha256": "8510e17a040043c8d307b3907b872ba0ef7ae6f064dacd60fdeb79bf28ed8d78"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-packet-950-a1.json",
+      "bytes": 496262,
+      "sha256": "bd8ee40a4f7a6709eb7e29716f98f24e453f5dbf3e4a37eefca7db14bf478534"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-packet-950-a1.log",
+      "bytes": 1398,
+      "sha256": "4ee66b9021983bcc6b1472767265f8c26b812238e22f074b642b3fa53453e3b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-packet-950-a2.json",
+      "bytes": 496260,
+      "sha256": "1286e7d0880ba95bbe247f41df5591af4640e7563c37a85cb569ada56fa79309"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-packet-950-a2.log",
+      "bytes": 1411,
+      "sha256": "1c437ce3770c4ead3ca0d1de54fecef1a68f9692c0a5097c280d14ed232ad2ad"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-source-lane-after-949.json",
+      "bytes": 496508,
+      "sha256": "26fc2a54b16e052a003439d9e43f21d43c312b3d27fac97459948ea6318fdcc3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-source-lane-after-949.log",
+      "bytes": 7491,
+      "sha256": "4c419ed75f5acd1e124d642f816f8f5b7ebdd36be883df2e608bc90ff29e673a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-source-lane-before-949.json",
+      "bytes": 496367,
+      "sha256": "48a86a1e76365b319d1c4947140aa183d654d9563ca3f67e4d099b443ca19c45"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-source-lane-before-949.log",
+      "bytes": 1576,
+      "sha256": "e3473a572041c2bde281e1401724fa897f6dab4d66c79962569d0ee844792354"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/test-native-946-a1.json",
+      "bytes": 495822,
+      "sha256": "5640a347e52a4411fe549533466b5dac25b9a8d06e81057a3a1d866606db5e42"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/test-native-946-a1.log",
+      "bytes": 2542,
+      "sha256": "c49619d63e210751ff27f85a71c1648a4da69376e3ff759ec91425765175bba8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/test-native-946-a2.json",
+      "bytes": 495915,
+      "sha256": "565585fdd99a08e4c0a7b5b3f2bd732fae48a9475f7db4b2feb0b613b1502ec2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/test-native-946-a2.log",
+      "bytes": 396629,
+      "sha256": "70a4a9cad4a4d75f414fa2c9ac125aa916090a79ac33b7c63edf76f1665c5735"
+    }
+  ],
+  "supporting_records": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/local-checks-947.json",
+      "bytes": 1691,
+      "sha256": "7fa5709b30ee835bf718315cc47960df99fe232c14592932a9b2e8afd5702cfb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/local-checks-950.json",
+      "bytes": 4150,
+      "sha256": "96df3dc98e952eba42a2ada39b1a0e80936f757cb24924a2f3ae9784b3d3dece"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-regression-attribution-949.json",
+      "bytes": 11202,
+      "sha256": "5c81f60d1184c6ad97842a99b184cde05dfa6e79442b62b97fbdf1715f17ba34"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/q29-correction-result-950.json",
+      "bytes": 5626,
+      "sha256": "cc778ba518fb741b03fa7c9f6a4ff2fa283ac17b50b8bb2b7e7539517ad9cfb3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-evidence-inventory-948.json",
+      "bytes": 56316,
+      "sha256": "8ccdbbfb0e19cc1bbe7184e31db5d0315bac453956ff5e4f13da44d9b9da5f2d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/correctness-evidence-primary-950.json",
+      "bytes": 417,
+      "sha256": "5a41ded3db0b30319ecd8f3ef590e12b0412e57a2d06948fb8c4209be446323c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/required-owner-evidence-primary-948.json",
+      "bytes": 292,
+      "sha256": "b71efc835d7ca0b7b574b87acdd067c5e9770fc501e92ca2f7f3faa60bff5eb9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/comparison-refresh-inventory-950.json",
+      "bytes": 37864,
+      "sha256": "23a66a1ff6b2800c4c01cdd12150d7e9e067ebfc4ae6b3c1a918face5b839abe"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/comparison-refresh-primary-950.json",
+      "bytes": 752,
+      "sha256": "23e72e0608a4f6a5d9be2d4da10e631917434ac76fd8460b0cc9f30aedce82a7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/duckdb-reference-install.json",
+      "bytes": 5735,
+      "sha256": "db817c1d6162e94b6004eb435ac94b407b4e08c0cabd71c4c6353c86f9857afd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/run_validation_947.py",
+      "bytes": 3802,
+      "sha256": "61ca09d352df2944f26502b7ef6c97f8c7aa15288cfc8b9c68994510566fdcf6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/run_checks_950.py",
+      "bytes": 1341,
+      "sha256": "429be5bc680d132ccc805abf4e1213f1f18f7cc7fc738ff0c2ddcb8b480b6d27"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/prepare_build_950.py",
+      "bytes": 2633,
+      "sha256": "2d6e1ac6fbeaae3f2b38c17d9b18f50c4a07bffa7ca7d9f9dc03faf311f18a68"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_build_950.py",
+      "bytes": 6007,
+      "sha256": "ae65c017e480af8700c84b74ee5eb65a17599462d97183a328c9127e4d4a4f5d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/diagnose_integer_reference_948.py",
+      "bytes": 8162,
+      "sha256": "fb85c5579a4c628df083c16f89170564bb01a3359106a21c856c5933796b7a59"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/diagnose_integer_reference_948b.py",
+      "bytes": 8283,
+      "sha256": "ce83db0829d7489248df04881af3c6bd0c49626c6d09aba60a84f0cb43e71ada"
+    }
+  ],
+  "input_lineage": {
+    "index": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.json",
+      "bytes": 4863,
+      "sha256": "e13e92b6935de083dc88fe0d1a0983c96f57f8ddf561a47980e1a614c5d1ab14"
+    },
+    "acceptance": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-uat663-acceptance.json",
+      "bytes": 60023,
+      "sha256": "23f1c67471922d17cfe17bdc3dae62d38c0ec5fa8ec116065780a69b5ff6fb31"
+    },
+    "summary": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20261018T121228Z/prepare_summary.json",
+      "bytes": 1770,
+      "sha256": "48153c9f7d727a7b0e5c386a177a021cd24816c6c4c18943df48b6ae6b3459f6"
+    },
+    "output": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20261018T121228Z/stdout.json",
+      "bytes": 191396,
+      "sha256": "a470982e3d07167c0d292b722eac6b8bdc44fb9cdc0cca0107bc7344dad4ab3b"
+    },
+    "plan": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-uat663-plan.json",
+      "bytes": 12292,
+      "sha256": "c3afdbf898082b3e489ba28fe24045e316b2ce140eeca8492af2285a629c81fa"
+    }
+  },
+  "adjudication": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/integer-reference-adjudication-948b/receipt.json",
+    "bytes": 1836,
+    "sha256": "5966efaa73df600b39095a8ae45648e0fabe130282eed15b1fb4739bc5fb2609"
+  },
+  "builder": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/build_correctness_packet_950.py",
+    "bytes": 9197,
+    "sha256": "6e87cbf3988dddc30d868a4df10cde0214758dc19ff35c85d63073da164e4d0d"
+  },
+  "verifier_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_correctness_packet_950.py",
+    "bytes": 24578,
+    "sha256": "7cf72df49bf2e27a779004164fbf844698ceb82f177752ce756ba10b9ae683a1"
+  },
+  "test_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/test_correctness_packet_950.py",
+    "bytes": 10337,
+    "sha256": "cdadc8124dbb3e47794de6edc5604011d92ebbe59ab389e592f45036f05fa6c1"
+  },
+  "packet": {
+    "path": "records.json.xz",
+    "bytes": 3075208,
+    "sha256": "506e5555e20f77567dcc394e9b5f357e75a7d00a06a69a635e0c33563a33592a",
+    "uncompressed_bytes": 26140039,
+    "members": 941
+  }
+}
