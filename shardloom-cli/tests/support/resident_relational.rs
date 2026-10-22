@@ -282,6 +282,7 @@ fn declared_nested_arrow_source() -> (Cleanup, PathBuf, String) {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
+#[allow(clippy::too_many_lines)] // Keep reader reuse, source changes and sink lifetimes in one scenario.
 fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation() {
     let (root, source, bindings) = declared_nested_arrow_source();
     let original = std::fs::read(&source).unwrap();
