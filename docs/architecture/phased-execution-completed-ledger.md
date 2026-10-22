@@ -17,6 +17,35 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Current declared workload comparison matrix` — the
+  [October 22 report](../benchmarks/native-workload-comparisons-2026-10-22.md)
+  and `perf-12-acceptance.json` bind the published 0.7.0 native source
+  `7ae9f0e4` and harness `f1c445eb` to 704 complete comparisons against
+  pandas 3.0.3 across all 22 existing declarations. Each task has 32 accepted
+  raw/prepared collect-or-write cells at its frozen 1,000-row fixture scale.
+  - Original envelopes additionally pass 368 collected logical-schema checks
+    and 48 explicit terminal-order checks. Normalized equality does not certify
+    SQL-derived nullability, exact floating evaluation or pressure behavior;
+    those and selected lifecycle/platform guarantees keep separate reviews.
+  - The original eighteenth cohort exceeded the unchanged retained-log budget.
+    Its failed report and partial records are retained without acceptance
+    credit. Verified completed-log compaction and one complete replacement
+    cohort finish the declared matrix without changing the runtime or limits.
+  - Portable replay verifies 11,811 stored members, 1,335 omitted payload
+    identities and every complete comparison. Forty packet/environment, five original
+    envelope and five acceptance-summary corruption checks pass. Replay runs
+    without engine execution or third-party Python packages.
+    A separately dated metadata-only observation binds all ten declared
+    distributions, distinguishing nine installed packages from source-tree
+    metadata; incomplete dependency mappings fail replay. Original run evidence
+    remains unchanged.
+  - Historical pandas 2.2.3 evidence and the original Full43 native regression
+    observation remain unchanged. This closes the finite current-source
+    comparison gap, not PERF-12, any of the fifteen protected required
+    contracts, CG-5/CG-6, a performance claim or another release. The phase
+    plan retains the named guarantee reviews and the independent Full43
+    reference gap before its separately gated investigations.
+
 - [x] `Shared native strategy selection across formats` —
   [implementation and evidence](native-format-strategy-parity-2026-10-21.md)
   preserve the existing native single-input SQL alias contract, select against

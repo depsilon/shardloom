@@ -1,0 +1,54 @@
+{
+  "status": "passed_declared_acceptance",
+  "acceptance_sha256": "e7a3f67db000391073942d06bdd5ee5c4371ab3f46fbf0ce1698031cc1a4d5f8",
+  "verifier_sha256": "a68d0c610014c28476b7f9491dd15cb2ad4e76d9c808639fc52827a48f51449f",
+  "portable_replay": {
+    "status": "passed_portable_complete_value_replay",
+    "members": 11811,
+    "omitted_payload_identities": 1335,
+    "cohorts": 18,
+    "tasks": 22,
+    "complete_result_pairs": 704,
+    "failed_attempt_retained": true,
+    "complete_baseline_distributions": 10,
+    "installed_baseline_distributions": 9,
+    "source_tree_distributions": {
+      "shardloom": "0.7.0"
+    },
+    "supplemental_metadata_observation_is_original_run_evidence": false,
+    "runtime_executed": false,
+    "omitted_physical_payloads_reopened": false,
+    "performance_or_broad_parity_claim": false
+  },
+  "tasks": 22,
+  "complete_result_pairs": 704,
+  "protected_required_contracts": 15,
+  "negative_cases": [
+    {
+      "case": "missing comparison",
+      "status": "rejected",
+      "reason": "task observations differ"
+    },
+    {
+      "case": "promoted optional scope",
+      "status": "rejected",
+      "reason": "unearned closure or promotion"
+    },
+    {
+      "case": "unearned schema parity",
+      "status": "rejected",
+      "reason": "original payload scope differs"
+    },
+    {
+      "case": "independent Full43 claim",
+      "status": "rejected",
+      "reason": "native regression relabelled as independent oracle"
+    },
+    {
+      "case": "historical baseline relabelled",
+      "status": "rejected",
+      "reason": "historical reference relabelled"
+    }
+  ],
+  "runtime_executed": false
+}

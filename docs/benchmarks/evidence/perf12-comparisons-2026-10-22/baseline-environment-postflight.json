@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "status": "passed_complete_distribution_observation",
+  "observed_at": "2026-10-22T15:18:09.660025+00:00",
+  "original_run_observation": false,
+  "runtime_executed": false,
+  "purpose": "Supplement the immutable original records with a complete metadata-only post-run observation.",
+  "python": "3.12.14",
+  "python_full": "3.12.14 (main, Aug 25 2026, 13:50:33) [Clang 22.1.3 ]",
+  "interpreter": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/baseline-env/bin/python",
+  "protocol": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/perf-12-protocol.json",
+    "bytes": 152589,
+    "sha256": "d73e72c9f462f1740c372abf2dbb528365559ce3b625fe9e88ece53b3658bfc5"
+  },
+  "preflight": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/environment-observed-1.json",
+    "bytes": 319,
+    "sha256": "b2dc81dce8df334a7a85c085b6b20f72522be1efcb5ad6cee5ef52b37b20ecd7"
+  },
+  "distributions": {
+    "fastavro": "1.12.2",
+    "numpy": "2.5.4",
+    "pandas": "3.0.3",
+    "pip": "25.0.1",
+    "psutil": "7.2.2",
+    "pyarrow": "24.0.0",
+    "python-dateutil": "3.0.0",
+    "shardloom": "0.7.0",
+    "six": "1.17.0",
+    "tzdata": "2026.5"
+  },
+  "installed_distributions": {
+    "fastavro": "1.12.2",
+    "numpy": "2.5.4",
+    "pandas": "3.0.3",
+    "pip": "25.0.1",
+    "psutil": "7.2.2",
+    "pyarrow": "24.0.0",
+    "python-dateutil": "3.0.0",
+    "six": "1.17.0",
+    "tzdata": "2026.5"
+  },
+  "source_tree_distributions": {
+    "shardloom": "0.7.0"
+  },
+  "metadata": [
+    {
+      "name": "fastavro",
+      "version": "1.12.2",
+      "origin": "installed",
+      "metadata_bytes": 5820,
+      "metadata_sha256": "95d34f97401b3851174c90a3938d8e80b7ab7fd478e36d8474d2750b3aa1cb7d"
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.4",
+      "origin": "installed",
+      "metadata_bytes": 6635,
+      "metadata_sha256": "e2b909d6a37d76c2bc130f528d7fed0c517322bce16dc7846b6a6df30e200403"
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.3",
+      "origin": "installed",
+      "metadata_bytes": 79468,
+      "metadata_sha256": "52942cad9bd7e6625ad46f983a55bef6cdd99da3822ddb19393d6d6972d1c40a"
+    },
+    {
+      "name": "pip",
+      "version": "25.0.1",
+      "origin": "installed",
+      "metadata_bytes": 3677,
+      "metadata_sha256": "4fa7318cf30f979db7cec45c12cbbc2b4f88a15f12eefbf59a6291d0a03af926"
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "origin": "installed",
+      "metadata_bytes": 22187,
+      "metadata_sha256": "525f8ba78523cf7bc3759d62a105e7c57fd679ea702402b9449fb0746aa0217f"
+    },
+    {
+      "name": "pyarrow",
+      "version": "24.0.0",
+      "origin": "installed",
+      "metadata_bytes": 3031,
+      "metadata_sha256": "c006cc50875d58fc9454198ea054ee79a834b6d3b7067161bc5306b337d4647f"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "3.0.0",
+      "origin": "installed",
+      "metadata_bytes": 8237,
+      "metadata_sha256": "e10ead93598aed51bdb28aa30ef64ee5d6ccc871e88741d220e504e979af4695"
+    },
+    {
+      "name": "shardloom",
+      "version": "0.7.0",
+      "origin": "source_tree",
+      "metadata_bytes": 31605,
+      "metadata_sha256": "b680e701fc52394095b9fc2d2380a00acfd1b86375b276a1234ca2bf4ffd3f42"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "origin": "installed",
+      "metadata_bytes": 1658,
+      "metadata_sha256": "562042078c2752549f6d8a7c86dbc5dd708088a7be6d80672ec7b07100b72468"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.5",
+      "origin": "installed",
+      "metadata_bytes": 1358,
+      "metadata_sha256": "e0780e8b6dc8882ce87e871a9d4589d59cb05a0c2d64f58b1ba62cde1ee91f6a"
+    }
+  ],
+  "source_version": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_version.py",
+    "bytes": 169,
+    "sha256": "15c2301be8f0c46290c326511c9c44251d91252f7cdc8b573b2d66e23826a328"
+  },
+  "observer": {
+    "path": "/Users/dylan/LocalData/shardloom/release-v0.7.0/observe_perf12_environment_934.py",
+    "bytes": 3228,
+    "sha256": "05e7832d7665512d2bcb7534be15e2e43fcd01b4a7d8a53336d0f85497060a7f"
+  },
+  "observer_source": "\"\"\"Observe retained distribution metadata without importing or executing either engine.\"\"\"\nimport datetime as dt\nimport hashlib\nimport importlib.metadata\nimport json\nfrom pathlib import Path\nimport platform\nimport sys\n\nROOT = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nPACKET = Path('/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022')\nOUTPUT = ROOT / 'docs/benchmarks/evidence/perf12-comparisons-2026-10-22/baseline-environment-postflight.json'\n\n\ndef identity(path):\n    raw = path.read_bytes()\n    return {'path': str(path), 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}\n\n\nprotocol = json.loads((PACKET / 'perf-12-protocol.json').read_text())\npreflight = json.loads((PACKET / 'environment-observed-1.json').read_text())\nassert sys.executable == protocol['baseline']['interpreter']\nassert sys.version == protocol['baseline']['python']\ninstalled = list(importlib.metadata.distributions())\nsource = list(importlib.metadata.distributions(path=[str(ROOT / 'python/src')]))\nrows = []\ngroups = {}\nfor origin, distributions in [('installed', installed), ('source_tree', source)]:\n    values = {}\n    for distribution in distributions:\n        name, version = distribution.metadata['Name'], distribution.version\n        assert name not in values\n        values[name] = version\n        metadata = distribution.read_text('METADATA') or distribution.read_text('PKG-INFO')\n        assert metadata\n        rows.append({'name': name, 'version': version, 'origin': origin,\n            'metadata_bytes': len(metadata.encode()),\n            'metadata_sha256': hashlib.sha256(metadata.encode()).hexdigest()})\n    groups[origin] = dict(sorted(values.items()))\nassert groups['installed'] == preflight['distributions']\nassert groups['source_tree'] == {'shardloom': '0.7.0'}\nassert not (groups['installed'].keys() & groups['source_tree'].keys())\ncombined = dict(sorted({**groups['installed'], **groups['source_tree']}.items()))\nassert combined == protocol['baseline']['distributions']\nversion_source = ROOT / 'python/src/shardloom/_version.py'\nassert identity(version_source)['sha256'] == protocol['runtime_source_hashes']['python/src/shardloom/_version.py']\nresult = {'schema_version': 1, 'status': 'passed_complete_distribution_observation',\n    'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),\n    'original_run_observation': False, 'runtime_executed': False,\n    'purpose': 'Supplement the immutable original records with a complete metadata-only post-run observation.',\n    'python': platform.python_version(), 'python_full': sys.version,\n    'interpreter': sys.executable, 'protocol': identity(PACKET / 'perf-12-protocol.json'),\n    'preflight': identity(PACKET / 'environment-observed-1.json'),\n    'distributions': combined, 'installed_distributions': groups['installed'],\n    'source_tree_distributions': groups['source_tree'],\n    'metadata': sorted(rows, key=lambda row: row['name']),\n    'source_version': identity(version_source), 'observer': identity(Path(__file__))}\nwith OUTPUT.open('x') as stream:\n    json.dump(result, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps({'status': result['status'], 'installed': len(installed), 'source': len(source)}))\n"
+}
