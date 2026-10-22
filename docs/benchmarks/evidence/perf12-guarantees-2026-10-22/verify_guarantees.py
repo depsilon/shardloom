@@ -307,6 +307,32 @@ def load(directory=HERE):
     return values['review'], values['packet']
 
 
+def verify_completion_link(document, directory=HERE):
+    """Only close the original four actions against the complete, bound review."""
+    review, packet = load(directory)
+    raw = (directory / 'review.json').read_bytes()
+    expected = dict(
+        path='docs/benchmarks/evidence/perf12-guarantees-2026-10-22/review.json',
+        bytes=len(raw), sha256=digest(raw), status=review['status'],
+        completed_action_ids=[action['id'] for action in review['completed_actions']],
+        independent_full43_reference='missing_explicit_disposition',
+        required_children_closed=review['required_children_closed'],
+        optional_rows_promoted=review['optional_rows_promoted'],
+        competitive_gates_closed=review['competitive_gates_closed'],
+    )
+    require(document.get('followup_review') == expected, 'follow-up review binding differs')
+    require(document.get('required_actions') == [], 'reviewed actions remain pending')
+    evidence = Evidence(packet)
+    prior = evidence.read(evidence.check(review['prior_comparison_acceptance']))
+    require(document.get('reviewed_action_contracts') == prior['required_actions'],
+            'original follow-up contracts differ')
+    result = verify(review, packet)
+    require(result['independent_full43_reference'] == expected['independent_full43_reference'],
+            'follow-up Full43 disposition differs')
+    return dict(status='passed_followup_completion_link', review=expected,
+                completed_followup_reviews=result['completed_followup_reviews'], runtime_executed=False)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check-current-source', type=Path)

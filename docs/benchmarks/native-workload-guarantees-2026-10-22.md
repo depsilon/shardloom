@@ -158,6 +158,11 @@ source change. The accepted replay and 52 rejected corruption cases are retained
 alongside it. Corruption checks cover missing selectors/actions, altered source,
 log and job identities, child-support promotion, installed skips, invented
 platform/publication claims, erased limits and false Full43/owner/CG closure.
+The comparison acceptance verifier also checks the current completion record
+against the review's exact path, size, digest, status and action dispositions,
+replays the guarantee proof, and compares the original action contracts with
+their retained copy. Nineteen additional corruption cases reject changed
+completion links, claims or contracts before accepting an empty action list.
 Ordinary Python CI runs the same checks from an unrelated temporary directory.
 Exported source archives omit historical evidence bundles; that specific test
 is skipped there, while a missing packet in a Git checkout fails.

@@ -4,7 +4,7 @@ import copy
 import json
 from pathlib import Path
 
-from verify_guarantees import CLAIMS, digest, load, strict_json, verify
+from verify_guarantees import CLAIMS, HERE, digest, load, strict_json, verify, verify_completion_link
 
 
 def check_corruptions(review, packet):
@@ -81,11 +81,50 @@ def check_corruptions(review, packet):
                 negative_cases=results, negative_case_count=len(results), runtime_executed=False)
 
 
+def check_completion_link(document):
+    positive = verify_completion_link(document)
+    mutations = [
+        ('missing follow-up review', lambda d: d.pop('followup_review')),
+        ('retargeted follow-up review', lambda d: d['followup_review'].update(path='other/review.json')),
+        ('absolute follow-up path', lambda d: d['followup_review'].update(path=str(HERE / 'review.json'))),
+        ('traversing follow-up path', lambda d: d['followup_review'].update(path='../review.json')),
+        ('changed review size', lambda d: d['followup_review'].update(bytes=0)),
+        ('changed review digest', lambda d: d['followup_review'].update(sha256='0' * 64)),
+        ('changed review status', lambda d: d['followup_review'].update(status='accepted_without_limits')),
+        ('missing completed action', lambda d: d['followup_review']['completed_action_ids'].pop()),
+        ('duplicate completed action', lambda d: d['followup_review']['completed_action_ids'].append(d['followup_review']['completed_action_ids'][0])),
+        ('changed Full43 disposition', lambda d: d['followup_review'].update(independent_full43_reference='accepted_independent_oracle')),
+        ('follow-up owner closure', lambda d: d['followup_review']['required_children_closed'].append('PERF-06.recovery')),
+        ('follow-up optional promotion', lambda d: d['followup_review']['optional_rows_promoted'].append('PERF-12.topology')),
+        ('follow-up competitive closure', lambda d: d['followup_review']['competitive_gates_closed'].append('CG-5')),
+        ('pending reviewed action', lambda d: d['required_actions'].append(d['reviewed_action_contracts'][0])),
+        ('missing original contracts', lambda d: d.pop('reviewed_action_contracts')),
+        ('removed original action', lambda d: d['reviewed_action_contracts'].pop()),
+        ('changed original owners', lambda d: d['reviewed_action_contracts'][0]['owners'].pop()),
+        ('changed original scope', lambda d: d['reviewed_action_contracts'][0].update(scope='unbounded')),
+        ('changed original evidence requirement', lambda d: d['reviewed_action_contracts'][0].update(next_evidence='none')),
+    ]
+    results = []
+    for name, mutate in mutations:
+        changed = copy.deepcopy(document)
+        mutate(changed)
+        try:
+            verify_completion_link(changed)
+        except ValueError as error:
+            results.append(dict(case=name, status='rejected', reason=str(error)))
+        else:
+            raise AssertionError('corrupt completion link accepted: ' + name)
+    return dict(status='passed_completion_link_corruption_checks', positive=positive,
+                negative_cases=results, negative_case_count=len(results), runtime_executed=False)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
     args = parser.parse_args()
     result = check_corruptions(*load())
+    document = strict_json((HERE.parent / 'perf12-comparisons-2026-10-22/perf-12-acceptance.json').read_bytes())
+    result['completion_link'] = check_completion_link(document)
     result['test_source_sha256'] = digest(Path(__file__).read_bytes())
     result['verifier_sha256'] = digest(Path(__file__).with_name('verify_guarantees.py').read_bytes())
     with args.output.open('x') as stream:

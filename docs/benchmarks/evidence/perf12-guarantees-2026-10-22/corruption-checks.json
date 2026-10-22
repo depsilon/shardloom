@@ -279,6 +279,129 @@
   ],
   "negative_case_count": 52,
   "runtime_executed": false,
-  "test_source_sha256": "6b72434859bc49468be204fa519aa07b3e850cf7a363ca65eafe4dd286753048",
-  "verifier_sha256": "f563c92896a216c9a6a84510ef45c01beab4d1b9a83d9ddc7c8590796eaf28e9"
+  "completion_link": {
+    "status": "passed_completion_link_corruption_checks",
+    "positive": {
+      "status": "passed_followup_completion_link",
+      "review": {
+        "path": "docs/benchmarks/evidence/perf12-guarantees-2026-10-22/review.json",
+        "bytes": 583455,
+        "sha256": "0a884ed3ff39132c27929ec426c2fefae82a02f023db333b03dc9a74b2c872ec",
+        "status": "accepted_finite_followup_review_with_explicit_limits",
+        "completed_action_ids": [
+          "selected_semantics_and_lifecycle",
+          "selected_resource_ownership",
+          "independent_full43_reference",
+          "selected_installed_support"
+        ],
+        "independent_full43_reference": "missing_explicit_disposition",
+        "required_children_closed": [],
+        "optional_rows_promoted": [],
+        "competitive_gates_closed": []
+      },
+      "completed_followup_reviews": 4,
+      "runtime_executed": false
+    },
+    "negative_cases": [
+      {
+        "case": "missing follow-up review",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "retargeted follow-up review",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "absolute follow-up path",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "traversing follow-up path",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "changed review size",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "changed review digest",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "changed review status",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "missing completed action",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "duplicate completed action",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "changed Full43 disposition",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "follow-up owner closure",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "follow-up optional promotion",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "follow-up competitive closure",
+        "status": "rejected",
+        "reason": "follow-up review binding differs"
+      },
+      {
+        "case": "pending reviewed action",
+        "status": "rejected",
+        "reason": "reviewed actions remain pending"
+      },
+      {
+        "case": "missing original contracts",
+        "status": "rejected",
+        "reason": "original follow-up contracts differ"
+      },
+      {
+        "case": "removed original action",
+        "status": "rejected",
+        "reason": "original follow-up contracts differ"
+      },
+      {
+        "case": "changed original owners",
+        "status": "rejected",
+        "reason": "original follow-up contracts differ"
+      },
+      {
+        "case": "changed original scope",
+        "status": "rejected",
+        "reason": "original follow-up contracts differ"
+      },
+      {
+        "case": "changed original evidence requirement",
+        "status": "rejected",
+        "reason": "original follow-up contracts differ"
+      }
+    ],
+    "negative_case_count": 19,
+    "runtime_executed": false
+  },
+  "test_source_sha256": "ec91bb4ea1cf79c94c0613af365840473e2749defac22ca894a346a6944151bd",
+  "verifier_sha256": "efb6ec7ae0befc8ebc9cd9eb092380494fd89c4ce92ff13edff90e8686a02be0"
 }

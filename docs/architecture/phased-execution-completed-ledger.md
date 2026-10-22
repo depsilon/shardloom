@@ -29,7 +29,8 @@ phase plan first.
     Two Rust child-process helpers and one diagnostic test receive no independent
     recovery-guarantee credit.
   - Eighty-two retained test/helper/harness/fixture files have exact source
-    bindings. Replay verifies 142 members and 52 corruption cases. The original
+    bindings. Replay verifies 142 members, 52 evidence corruption cases and 19
+    completion-link corruption cases. The original
     published 0.7.0 channel proofs remain separate from development-wheel proof.
   - The current Full43 reference and six historical candidate records retain
     their native-regression classification. Independent full-size parity remains
