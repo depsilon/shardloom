@@ -14674,13 +14674,26 @@ mod tests {
             request.input_uri = Some(format!("target/input.{format}"));
             request.requested_output = "collect".into();
             request.sql_statement = Some("SELECT COUNT(*) FROM 'input'".into());
+            request.infer_defaults();
             assert!(
                 infer_native_vortex_sql_payload(&request).is_none(),
                 "{format}"
             );
+            assert_eq!(
+                request.sql_statement.as_deref(),
+                Some("SELECT COUNT(*) FROM 'input'")
+            );
             request.sql_statement = Some("SELECT COUNT(*) FROM input".into());
             assert!(
                 infer_native_vortex_sql_payload(&request).is_some(),
+                "{format}"
+            );
+            // An unrelated name cannot silently select the declared primary
+            // source. The compatibility resolver already enforces this rule.
+            request.sql_statement = Some("SELECT COUNT(*) FROM unrelated_source".into());
+            request.infer_defaults();
+            assert!(
+                infer_native_vortex_sql_payload(&request).is_none(),
                 "{format}"
             );
         }
