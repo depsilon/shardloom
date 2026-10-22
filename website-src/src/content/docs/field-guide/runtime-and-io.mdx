@@ -28,9 +28,9 @@ permit it. Coverage depends on types and options, not just an operator's name.
 | Typed expressions | Explicit casts, scoped binary/calendar functions and exact decimal arithmetic. Decimal key precision/scale must match; explicit downscaling requires zero discarded digits. |
 
 For exact option and type contracts, see the [SQL reference](/field-guide/sql),
-[typed expressions](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-typed-expressions-2026-10-03.md),
-[unary composition](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-unary-composition-2026-10-02.md),
-and [nested pivot semantics](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-nested-pivot-state-2026-10-06.md).
+[typed expressions](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-typed-expressions-2026-10-03.md),
+[unary composition](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-unary-composition-2026-10-02.md),
+and [nested pivot semantics](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-nested-pivot-state-2026-10-06.md).
 Nested SUM/MEAN and nested-index margins are unsupported; nested MIN/MAX margins
 require a UTF8 index, and nested cells accept absent or NULL fill only.
 
@@ -38,8 +38,9 @@ require a UTF8 index, and nested cells accept absent or NULL fill only.
 
 Scalar subqueries, membership, EXISTS and quantified predicates have explicit
 cardinality and NULL contracts. Inspection does not execute a dynamic expression
-to discover its output. See the [published scalar-subquery contract](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-scalar-subqueries-2026-10-05.md).
-Later finite-streaming extensions are described only in [development](/field-guide/development).
+to discover its output. See the [published scalar-subquery contract](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-scalar-subqueries-2026-10-05.md).
+Version 0.7.0 includes the admitted finite-streaming subquery compositions
+described in the [release and migration guide](/field-guide/development).
 
 ## Local formats
 
@@ -74,8 +75,8 @@ batches; they do not require a Python row tuple.
 Use a new destination. Do not assume overwrite or atomic publication across
 multiple files. A failed write must not be reported as a completed output; retain
 the structured diagnostic for cleanup/recovery. Reopening the saved file performs
-normal source validation. See the [published output contract](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/v1-local-output-sink-scope.md)
-and [known native wrapper issue](/field-guide/limitations#known-issues).
+normal source validation. See the [published output contract](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/v1-local-output-sink-scope.md)
+and [current limitations](/field-guide/limitations#known-issues).
 
 ## Preparation and result handoffs
 

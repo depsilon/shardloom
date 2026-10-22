@@ -23,17 +23,18 @@ Environment loading is explicit through `ExecutionResources.from_env()`.
 A grant covers admitted engine allocations. It is **not a total-process RSS
 limit**: optional integrations, Python objects retained by your application,
 and unreviewed reader/codec scratch have separate allocation behavior.
-The [resource contract](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/required-execution-resources-2026-10-10.md)
+The [resource contract](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/required-execution-resources-2026-10-10.md)
 defines inheritance and administrator ceilings.
 
 ## Authorize spill
 
 Spill requires an explicit supported policy, a local workspace and a disk quota.
 Ordering, aggregation, joins, analytic windows and file/resident-memory pivot
-have their own admitted strategies. Source/result replay spill does not make
-membership, population or every other stateful operation spillable.
+have their own admitted strategies. Version 0.7.0 also includes explicitly
+admitted relational membership and sampling population pressure paths.
+Replay permission does not authorize arbitrary state spill.
 
-Use the [native spill reference](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/reference/native-query-spill.md)
+Use the [native spill reference](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/reference/native-query-spill.md)
 for exact policy examples, types and minimum quotas. Quotas must cover overlapping
 inputs, runs and outputs. Unsupported spill configurations fail explicitly.
 
@@ -43,19 +44,20 @@ refuses unknown or replaced files; do not delete an arbitrary workspace to retry
 
 ## Lifetime and cancellation
 
-In published 0.6.0, close the ordinary context's client with
-`ctx.client.close()`. A direct `shardloom.native.Session` also has `close()`.
-Completed native results keep their independently promised owners after close;
-release the result and any exported views when you no longer need them.
+Use `with sl.context(...) as ctx:` or call `ctx.close()` to revoke future work.
+A context and its sessions share the same lifetime; closing either facade also
+closes work built from the other. Completed results keep their independent
+owners after close. Release results and exported views when no longer needed.
 
-`ctx.client.cancel()` cooperatively cancels native execution at supported
-checkpoints. It does not cancel process transport in this release. A blocking
-provider call must return before cancellation and cleanup can finish. Closing a
-batch iterator is the explicit way to stop delivery early on either transport.
-Only full drain and a successful final report certify completion.
+`ctx.cancel()` stops current work while leaving the context available for later
+operations. Native cancellation is cooperative at supported checkpoints; a
+blocking provider call must return before cleanup can finish. Process cancellation
+terminates the active process and reports that staged cleanup or output publication
+may be uncertain. Inspect affected output before retrying.
 
-The [development API](/field-guide/development) consolidates context/session
-lifecycle. Do not assume those methods exist in the installed 0.6.0 package.
+Closing a batch iterator stops delivery early. Only full drain and a successful
+final report certify completion. See the [migration guide](/field-guide/development)
+for lifecycle and typed error details.
 
 ## Preparation reuse
 

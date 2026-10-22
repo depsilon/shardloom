@@ -60,20 +60,22 @@ class InstalledPublicQuickstartTests(unittest.TestCase):
             self.assertEqual(output.getvalue().splitlines(), [repr(EXPECTED)] * 3)
             for name in ("result", "sql_result", "reopened"):
                 result = namespace[name]
-                self.assertEqual(result.python_objects, EXPECTED)
+                self.assertIsInstance(result, sl.Result)
+                self.assertEqual(result.to_rows(), EXPECTED)
                 self.assertEqual(result.result_columns, ("order_id", "status"))
                 self.assertFalse(result.fallback_attempted)
                 self.assertFalse(result.external_engine_invoked)
-            self.assertEqual(namespace["result"].result_schema, namespace["sql_result"].result_schema)
+            self.assertEqual(namespace["result"].schema, namespace["sql_result"].schema)
             self.assertFalse(namespace["written"].fallback_attempted)
             self.assertFalse(namespace["written"].external_engine_invoked)
         finally:
             if "ctx" in namespace:
-                namespace["ctx"].client.close()
+                namespace["ctx"].close()
             if "workspace" in namespace:
                 namespace["workspace"].cleanup()
         # Complete native data remains usable after client close and source cleanup.
-        self.assertEqual(namespace["result"].python_objects, EXPECTED)
+        self.assertTrue(namespace["ctx"].closed)
+        self.assertEqual(namespace["result"].to_rows(), EXPECTED)
 
     def test_native(self) -> None:
         self._exercise("native")

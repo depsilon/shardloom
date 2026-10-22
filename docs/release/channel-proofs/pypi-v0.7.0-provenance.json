@@ -1,0 +1,949 @@
+{
+  "artifact_refs": [
+    {
+      "bundled_cli": {
+        "member": "shardloom/bin/linux-x86_64/shardloom",
+        "platform": "linux-x86_64",
+        "sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+        "size_bytes": 89128840
+      },
+      "filename": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+      "inspection_scope": "package_metadata_and_bundled_CLI_and_native_module_bytes;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+      "native_library": {
+        "member": "shardloom/_native.abi3.so",
+        "python_abi": "cp310-abi3",
+        "sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+        "size_bytes": 90413904
+      },
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "b680e701fc52394095b9fc2d2380a00acfd1b86375b276a1234ca2bf4ffd3f42",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.7.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0",
+      "size_bytes": 56263189,
+      "url": "https://files.pythonhosted.org/packages/3f/63/55235cb72a08c4b8094d83ea846687366c0a77edda943a4f3ed08d4cd6c9/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+      "wheel_metadata_sha256": "c9ff90564b9c5f9660a56132a3a4c1245f67e386a43506fd2e3ec1242b68305a",
+      "wheel_tag": "cp310-abi3-manylinux_2_39_x86_64",
+      "workflow_archive_retired_after_verified_extraction": true,
+      "workflow_artifact_archive_sha256": "4d4885eeb62568b5df60324d1a6a3d92f453729d2b4a6194def0b33d7073715f",
+      "workflow_artifact_archive_size_bytes": 55899799,
+      "workflow_artifact_id": 12414168775,
+      "workflow_artifact_name": "python-dist-linux"
+    },
+    {
+      "bundled_cli": {
+        "member": "shardloom/bin/macos-aarch64/shardloom",
+        "platform": "macos-aarch64",
+        "sha256": "5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d",
+        "size_bytes": 76366688
+      },
+      "filename": "shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "inspection_scope": "package_metadata_and_bundled_CLI_and_native_module_bytes;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "native_library": {
+        "member": "shardloom/_native.abi3.so",
+        "python_abi": "cp310-abi3",
+        "sha256": "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+        "size_bytes": 76221584
+      },
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "b680e701fc52394095b9fc2d2380a00acfd1b86375b276a1234ca2bf4ffd3f42",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.7.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8",
+      "size_bytes": 49863821,
+      "url": "https://files.pythonhosted.org/packages/0c/74/ba0901806b1967db1e7c4e81b7ffe71c96be9518ef17e8a17898b41d1a09/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "wheel_metadata_sha256": "0fcf37f2ddf58daad7a81acdeb4ac85cffea213bbcd387102baf481e083ae47b",
+      "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
+      "workflow_archive_retired_after_verified_extraction": true,
+      "workflow_artifact_archive_sha256": "7d002b138c0d50a9289e4f7ad31c2f0cd6ad79ad86ee0d8ca3691a4cc4b2c801",
+      "workflow_artifact_archive_size_bytes": 49528356,
+      "workflow_artifact_id": 12414738371,
+      "workflow_artifact_name": "python-dist-macos"
+    },
+    {
+      "clean_sdist_no_bundled_cli": true,
+      "filename": "shardloom-0.7.0.tar.gz",
+      "inspection_scope": "source_package_metadata_and_no_bundled_CLI;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi/shardloom-0.7.0.tar.gz",
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "b680e701fc52394095b9fc2d2380a00acfd1b86375b276a1234ca2bf4ffd3f42",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.7.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "c1fe88a71d3592ddcf30a3cd269b812ea435ac586e51497c9c76807677dcee0e",
+      "size_bytes": 855834,
+      "source_pyproject_sha256": "ccccae0c2a4c1065483a9618c7d1fe0ba4d4be509b1eaa8b742322d04f0644bb",
+      "url": "https://files.pythonhosted.org/packages/91/cd/46626c1d5dd11b2284c5c6c4679dbb2fd763963453c7ee82efe3b6b97da5/shardloom-0.7.0.tar.gz",
+      "workflow_archive_retired_after_verified_extraction": true,
+      "workflow_artifact_archive_sha256": "9cb5dfbcb3a3ab9ff86ca913c93068edb774392b0bad67aafa8c62af850a1d08",
+      "workflow_artifact_archive_size_bytes": 853070,
+      "workflow_artifact_id": 12413924460,
+      "workflow_artifact_name": "python-dist-sdist"
+    },
+    {
+      "bundled_cli": {
+        "member": "shardloom-0.7.0.data/purelib/shardloom/bin/windows-x86_64/shardloom.exe",
+        "platform": "windows-x86_64",
+        "sha256": "9f4603b26c2eb502cc9cf3470617b65d6a846becac9fa098f7af47e7f893e4b7",
+        "size_bytes": 84955136
+      },
+      "filename": "shardloom-0.7.0-cp313-cp313-win_amd64.whl",
+      "inspection_scope": "package_metadata_and_bundled_CLI_and_native_module_bytes;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi/shardloom-0.7.0-cp313-cp313-win_amd64.whl",
+      "native_library": null,
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "13e069707e68b6867a2b9fd7271dcc967adbe51eb65b4f923d307645ed444c21",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.7.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "ceb4701b180b6399d91e23be40e48fdc3105f26910b06e35ea667fffef4c2ec8",
+      "size_bytes": 25424850,
+      "url": "https://files.pythonhosted.org/packages/ed/bb/418e2c9424bedca482ea19bc374f0ea685c29dc84890d1ddb032246cb650/shardloom-0.7.0-cp313-cp313-win_amd64.whl",
+      "wheel_metadata_sha256": "d0b50da07c4bbdca70f5d6ffc745e8cc4e635bbdfefc63803bb7c30c9e17b784",
+      "wheel_tag": "cp313-cp313-win_amd64",
+      "workflow_archive_retired_after_verified_extraction": true,
+      "workflow_artifact_archive_sha256": "9cdd15564dc93b947f5f9c866f2a87a1b17fbcdc720989905d330df56a03cb6e",
+      "workflow_artifact_archive_size_bytes": 25238397,
+      "workflow_artifact_id": 12414931173,
+      "workflow_artifact_name": "python-dist-windows"
+    }
+  ],
+  "build_recipe": "locked release-user-surfaces CLI; Linux/macOS python-native ABI3 module and complete installed tests; Linux compatibility audit; Windows CLI-only wheel; clean source sdist",
+  "channel_id": "pypi",
+  "channel_proof_ref": {
+    "path": "docs/release/channel-proofs/pypi-v0.7.0-transcript.json",
+    "sha256": "742ea4c81fe135b5fc69c4fe20b6eb661878921b34f86d60a9dda55f368bf7aa"
+  },
+  "checksum_ref": {
+    "path": "docs/release/channel-proofs/pypi-v0.7.0-checksums.sha256",
+    "sha256": "d8b672c4610a9560ff8c543f2d9017e0d9db7c58ee3e7393dda8ba0327b32505"
+  },
+  "complete_compiled_dependency_inventory_claimed": false,
+  "crypto_attestation_verification_performed": false,
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "generator": {
+    "path": "scripts/registry_release_evidence.py",
+    "sha256": "21ee31c5951cd7c02e7cefb000b3c3de48acf7f6f60a43596964561042b8cb0c"
+  },
+  "local_build_or_package_execution_performed": false,
+  "native_installed_wheel_proofs": [
+    {
+      "cli_sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+      "fresh_execution_performed_by_observer": false,
+      "integration": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 121
+      },
+      "native_build": {
+        "cargo_artifact": "/home/runner/work/shardloom/shardloom/target/release/lib_native.so",
+        "command": [
+          "cargo",
+          "build",
+          "--locked",
+          "-p",
+          "shardloom-python",
+          "--features",
+          "python-native",
+          "--message-format=json-render-diagnostics",
+          "--release"
+        ],
+        "installed": false,
+        "library": "/home/runner/work/_temp/registry-python-tlt_sg3p/extension/_native.abi3.so",
+        "library_bytes": 90413904,
+        "library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+        "package_version": "0.7.0",
+        "published": false,
+        "python_abi": "cp310-abi3",
+        "schema_version": "shardloom.native_python_build.v1",
+        "status": "passed",
+        "target_directory": "/home/runner/work/shardloom/shardloom/target"
+      },
+      "native_library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+      "original_files": [
+        {
+          "name": "native-build.json",
+          "sha256": "5b0530124a4c1c9372519af2ceac7b746af4eaf49ca66fa0699d70adaa997ba2",
+          "size_bytes": 752,
+          "text": "{\n  \"schema_version\": \"shardloom.native_python_build.v1\",\n  \"status\": \"passed\",\n  \"command\": [\n    \"cargo\",\n    \"build\",\n    \"--locked\",\n    \"-p\",\n    \"shardloom-python\",\n    \"--features\",\n    \"python-native\",\n    \"--message-format=json-render-diagnostics\",\n    \"--release\"\n  ],\n  \"target_directory\": \"/home/runner/work/shardloom/shardloom/target\",\n  \"cargo_artifact\": \"/home/runner/work/shardloom/shardloom/target/release/lib_native.so\",\n  \"library\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/extension/_native.abi3.so\",\n  \"library_bytes\": 90413904,\n  \"library_sha256\": \"4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09\",\n  \"python_abi\": \"cp310-abi3\",\n  \"package_version\": \"0.7.0\",\n  \"installed\": false,\n  \"published\": false\n}\n"
+        },
+        {
+          "name": "proof/build.log",
+          "sha256": "e91ad236e473cc4dcc7d842cc3c9e435907c54429630074646796435171b159d",
+          "size_bytes": 644,
+          "text": "Processing ./package\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nBuilding wheels for collected packages: shardloom\n  Building wheel for shardloom (pyproject.toml): started\n  Building wheel for shardloom (pyproject.toml): finished with status 'done'\n  Created wheel for shardloom: filename=shardloom-0.7.0-cp310-abi3-linux_x86_64.whl size=56262187 sha256=af3256db3a4dad25b347c0692f385d3d6be5a831fca567a8674dc51d0d0e8a2f\n  Stored in directory: /tmp/pip-ephem-wheel-cache-4jfu4_q4/wheels/57/10/74/2cf22db9285840aa5deaeafb27f5f2bc3f80ea3ffb03dcb022\nSuccessfully built shardloom\n"
+        },
+        {
+          "name": "proof/create_environment.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0,
+          "text": ""
+        },
+        {
+          "name": "proof/install.log",
+          "sha256": "e1cb80ed42d261590d821ed8ee1cd38cad7514c8168a1dbaa8ad038b2a664393",
+          "size_bytes": 151,
+          "text": "Processing ./dist/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.7.0\n"
+        },
+        {
+          "name": "proof/install_optional_consumer.log",
+          "sha256": "39dc7ec6318b163360fd72a56a538dcd84a9de2a4183cdd391c025bb43268413",
+          "size_bytes": 378,
+          "text": "Looking in links: /home/runner/work/_temp/registry-python-tlt_sg3p/wheelhouse\nProcessing /home/runner/work/_temp/registry-python-tlt_sg3p/wheelhouse/pyarrow-25.0.1-cp313-cp313-manylinux_2_28_x86_64.whl (from -r /home/runner/work/shardloom/shardloom/.github/requirements/ci-native-python.txt (line 7))\nInstalling collected packages: pyarrow\nSuccessfully installed pyarrow-25.0.1\n"
+        },
+        {
+          "name": "proof/integration.json",
+          "sha256": "2348dbe8eb9afcaa419ec4fae599281944ceb03317148ddb56bf6fa0d2eecbff",
+          "size_bytes": 89,
+          "text": "{\n  \"tests\": 121,\n  \"failures\": 0,\n  \"errors\": 0,\n  \"skipped\": 0,\n  \"status\": \"passed\"\n}\n"
+        },
+        {
+          "name": "proof/integration.log",
+          "sha256": "083ce2f39567f98ca0aa2addde7ada0f5fd27eb341eb81922c0190333e98625d",
+          "size_bytes": 24169,
+          "text": "test_arrow_import_copies_source_buffers_and_accepts_empty_batches (test_native_binding.NativeBindingTests.test_arrow_import_copies_source_buffers_and_accepts_empty_batches) ... ok\ntest_columnar_stream_is_one_shot_reports_completion_and_preserves_result (test_native_binding.NativeBindingTests.test_columnar_stream_is_one_shot_reports_completion_and_preserves_result) ... ok\ntest_cross_client_binding_refusal_releases_target_copy_and_keeps_source (test_native_binding.NativeBindingTests.test_cross_client_binding_refusal_releases_target_copy_and_keeps_source) ... ok\ntest_cross_client_native_result_import_does_not_reenter_producer (test_native_binding.NativeBindingTests.test_cross_client_native_result_import_does_not_reenter_producer) ... ok\ntest_execution_resources_require_exact_positive_integer_declarations (test_native_binding.NativeBindingTests.test_execution_resources_require_exact_positive_integer_declarations) ... ok\ntest_extension_exports_expected_binding_types (test_native_binding.NativeBindingTests.test_extension_exports_expected_binding_types) ... ok\ntest_incremental_close_and_session_cancel_keep_retained_batches_valid (test_native_binding.NativeBindingTests.test_incremental_close_and_session_cancel_keep_retained_batches_valid) ... ok\ntest_incremental_execution_waits_for_demand_and_reports_only_complete_results (test_native_binding.NativeBindingTests.test_incremental_execution_waits_for_demand_and_reports_only_complete_results) ... ok\ntest_native_deadlines_reject_before_input_or_output_and_allow_session_reuse (test_native_binding.NativeBindingTests.test_native_deadlines_reject_before_input_or_output_and_allow_session_reuse) ... ok\ntest_native_failed_admission_does_not_borrow_previous_operation_observations (test_native_binding.NativeBindingTests.test_native_failed_admission_does_not_borrow_previous_operation_observations) ... ok\ntest_native_failure_observations_preserve_producer_with_custom_attribute_assignment (test_native_binding.NativeBindingTests.test_native_failure_observations_preserve_producer_with_custom_attribute_assignment) ... ok\ntest_native_fanout_reopens_complete_values_and_preserves_empty_outputs (test_native_binding.NativeBindingTests.test_native_fanout_reopens_complete_values_and_preserves_empty_outputs) ... ok\ntest_native_input_failures_keep_original_exception_and_resource_observations (test_native_binding.NativeBindingTests.test_native_input_failures_keep_original_exception_and_resource_observations) ... ok\ntest_native_ipc_denial_corruption_and_cancellation_release_the_receiving_grant (test_native_binding.NativeBindingTests.test_native_ipc_denial_corruption_and_cancellation_release_the_receiving_grant) ... ok\ntest_native_ipc_never_invokes_implicit_message_conversions (test_native_binding.NativeBindingTests.test_native_ipc_never_invokes_implicit_message_conversions) ... ok\ntest_native_ipc_public_frontdoors_preserve_all_values_and_reuse_the_source (test_native_binding.NativeBindingTests.test_native_ipc_public_frontdoors_preserve_all_values_and_reuse_the_source) ... ok\ntest_native_memory_denial_evidence_is_frozen_before_later_success (test_native_binding.NativeBindingTests.test_native_memory_denial_evidence_is_frozen_before_later_success) ... ok\ntest_native_object_input_crosses_old_total_row_limit_with_complete_values (test_native_binding.NativeBindingTests.test_native_object_input_crosses_old_total_row_limit_with_complete_values) ... ok\ntest_native_object_refusals_preserve_input_and_release_partial_construction (test_native_binding.NativeBindingTests.test_native_object_refusals_preserve_input_and_release_partial_construction) ... ok\ntest_native_plan_failures_retain_admitted_resources_for_every_terminal (test_native_binding.NativeBindingTests.test_native_plan_failures_retain_admitted_resources_for_every_terminal) ... ok\ntest_native_source_transfer_preserves_rich_values_and_lifetimes (test_native_binding.NativeBindingTests.test_native_source_transfer_preserves_rich_values_and_lifetimes) ... ok\ntest_native_spill_plan_preserves_values_owners_and_cleanup (test_native_binding.NativeBindingTests.test_native_spill_plan_preserves_values_owners_and_cleanup) ... ok\ntest_native_stream_deadline_starts_on_demand_and_expires_during_consumer_wait (test_native_binding.NativeBindingTests.test_native_stream_deadline_starts_on_demand_and_expires_during_consumer_wait) ... ok\ntest_native_workflow_rejects_unbound_options_before_execution (test_native_binding.NativeBindingTests.test_native_workflow_rejects_unbound_options_before_execution) ... ok\ntest_native_writer_outputs_reopen_all_complete_values (test_native_binding.NativeBindingTests.test_native_writer_outputs_reopen_all_complete_values) ... ok\ntest_public_native_batch_admission_precedes_factory_and_stream_close_cleans_producer (test_native_binding.NativeBindingTests.test_public_native_batch_admission_precedes_factory_and_stream_close_cleans_producer) ... ok\ntest_public_native_batch_factories_use_fresh_values_without_json_cells (test_native_binding.NativeBindingTests.test_public_native_batch_factories_use_fresh_values_without_json_cells) ... ok\ntest_public_native_batch_intake_crosses_former_total_batch_limits (test_native_binding.NativeBindingTests.test_public_native_batch_intake_crosses_former_total_batch_limits) ... ok\ntest_public_native_batch_late_errors_preserve_exception_and_existing_output (test_native_binding.NativeBindingTests.test_public_native_batch_late_errors_preserve_exception_and_existing_output) ... ok\ntest_public_native_cancel_drains_producer_and_preserves_results_and_reuse (test_native_binding.NativeBindingTests.test_public_native_cancel_drains_producer_and_preserves_results_and_reuse) ... ok\ntest_public_native_columnar_batches_preserve_large_batches_and_empty_input (test_native_binding.NativeBindingTests.test_public_native_columnar_batches_preserve_large_batches_and_empty_input) ... ok\ntest_public_native_columnar_import_ignores_unrelated_native_result (test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) ... ok\ntest_public_native_columnar_refusal_does_not_probe_producer_attributes (test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes) ... ok\ntest_public_native_columnar_workflow_retains_results_and_preparation (test_native_binding.NativeBindingTests.test_public_native_columnar_workflow_retains_results_and_preparation) ... ok\ntest_public_native_failure_envelopes_keep_observations_and_stream_errors (test_native_binding.NativeBindingTests.test_public_native_failure_envelopes_keep_observations_and_stream_errors) ... ok\ntest_public_native_fanout_producer_failure_publishes_no_prefix (test_native_binding.NativeBindingTests.test_public_native_fanout_producer_failure_publishes_no_prefix) ... ok\ntest_public_native_fanout_validates_before_factory_and_preserves_shared_owners (test_native_binding.NativeBindingTests.test_public_native_fanout_validates_before_factory_and_preserves_shared_owners) ... ok\ntest_public_native_file_sql_selects_typed_decimal_providers (test_native_binding.NativeBindingTests.test_public_native_file_sql_selects_typed_decimal_providers) ... ok\ntest_public_native_frames_compose_across_clients (test_native_binding.NativeBindingTests.test_public_native_frames_compose_across_clients) ... ok\ntest_public_native_incremental_results_keep_owners_after_close (test_native_binding.NativeBindingTests.test_public_native_incremental_results_keep_owners_after_close) ... ok\ntest_public_native_multiple_producers_drain_fail_and_close_without_publication (test_native_binding.NativeBindingTests.test_public_native_multiple_producers_drain_fail_and_close_without_publication) ... ok\ntest_public_native_object_intake_infers_and_converts_without_json_cells (test_native_binding.NativeBindingTests.test_public_native_object_intake_infers_and_converts_without_json_cells) ... ok\ntest_public_native_object_intake_preserves_rich_exact_values_and_null_masks (test_native_binding.NativeBindingTests.test_public_native_object_intake_preserves_rich_exact_values_and_null_masks) ... ok\ntest_public_native_persisted_files_reopen_in_independent_jobs (test_native_binding.NativeBindingTests.test_public_native_persisted_files_reopen_in_independent_jobs) ... ok\ntest_public_native_resource_refusal_precedes_loading_and_producer (test_native_binding.NativeBindingTests.test_public_native_resource_refusal_precedes_loading_and_producer) ... ok\ntest_public_native_spill_collect_stream_write_and_invalid_options (test_native_binding.NativeBindingTests.test_public_native_spill_collect_stream_write_and_invalid_options) ... ok\ntest_public_native_stream_composition_preserves_each_producer_across_terminals (test_native_binding.NativeBindingTests.test_public_native_stream_composition_preserves_each_producer_across_terminals) ... ok\ntest_public_native_stream_destinations_consume_once_and_preserve_empty_schema (test_native_binding.NativeBindingTests.test_public_native_stream_destinations_consume_once_and_preserve_empty_schema) ... ok\ntest_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first (test_native_binding.NativeBindingTests.test_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first) ... ok\ntest_public_native_timeout_validation_and_no_consumption (test_native_binding.NativeBindingTests.test_public_native_timeout_validation_and_no_consumption) ... ok\ntest_public_native_wide_object_and_columnar_inputs_preserve_every_field (test_native_binding.NativeBindingTests.test_public_native_wide_object_and_columnar_inputs_preserve_every_field) ... ok\ntest_public_native_writer_and_metadata_commands_never_launch_processes (test_native_binding.NativeBindingTests.test_public_native_writer_and_metadata_commands_never_launch_processes) ... ok\ntest_range_result_export_and_prepared_declaration_reuse (test_native_binding.NativeBindingTests.test_range_result_export_and_prepared_declaration_reuse) ... ok\ntest_recursive_input_callback_is_rejected_without_poisoning_later_work (test_native_binding.NativeBindingTests.test_recursive_input_callback_is_rejected_without_poisoning_later_work) ... ok\ntest_resource_free_session_command_does_not_turn_a_call_override_into_a_default (test_native_binding.NativeBindingTests.test_resource_free_session_command_does_not_turn_a_call_override_into_a_default) ... ok\ntest_resource_override_admits_before_producer_and_does_not_replace_session_default (test_native_binding.NativeBindingTests.test_resource_override_admits_before_producer_and_does_not_replace_session_default) ... ok\ntest_retained_results_compose_as_sources_without_copying (test_native_binding.NativeBindingTests.test_retained_results_compose_as_sources_without_copying) ... ok\ntest_rich_columnar_values_and_explicit_python_rows_preserve_exact_domains (test_native_binding.NativeBindingTests.test_rich_columnar_values_and_explicit_python_rows_preserve_exact_domains) ... ok\ntest_session_command_inside_columnar_producer_preserves_join_dependency (test_native_binding.NativeBindingTests.test_session_command_inside_columnar_producer_preserves_join_dependency) ... ok\ntest_session_command_refuses_smaller_grant_while_native_sources_and_results_are_retained (test_native_binding.NativeBindingTests.test_session_command_refuses_smaller_grant_while_native_sources_and_results_are_retained) ... ok\ntest_session_command_uses_the_configured_native_owner_for_generated_vortex_inputs (test_native_binding.NativeBindingTests.test_session_command_uses_the_configured_native_owner_for_generated_vortex_inputs) ... ok\ntest_sql_declaration_is_lazy_and_missing_source_fails_without_external_engine (test_native_binding.NativeBindingTests.test_sql_declaration_is_lazy_and_missing_source_fails_without_external_engine) ... ok\ntest_dynamic_inner_late_faults_and_unselected_queries_prevent_publication (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_dynamic_inner_late_faults_and_unselected_queries_prevent_publication) ... ok\ntest_dynamic_predicate_preserves_exact_typed_outer_values (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_dynamic_predicate_preserves_exact_typed_outer_values) ... ok\ntest_dynamic_predicates_rows_arrow_repeated_calls_and_owned_results (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_dynamic_predicates_rows_arrow_repeated_calls_and_owned_results) ... ok\ntest_public_dynamic_subquery_close_cancel_and_consumer_error_preserve_retained_batch (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_public_dynamic_subquery_close_cancel_and_consumer_error_preserve_retained_batch) ... ok\ntest_balanced_large_relation_tree_and_projection_width (test_native_expression_binding.NativeExpressionBindingTests.test_balanced_large_relation_tree_and_projection_width) ... ok\ntest_directory_membership_rebinds_plan_after_adding_a_vortex_part (test_native_expression_binding.NativeExpressionBindingTests.test_directory_membership_rebinds_plan_after_adding_a_vortex_part) ... ok\ntest_exact_and_rich_literals_list_struct_call_and_cast (test_native_expression_binding.NativeExpressionBindingTests.test_exact_and_rich_literals_list_struct_call_and_cast) ... ok\ntest_preflight_failures_are_side_effect_free_and_same_plan_can_retry (test_native_expression_binding.NativeExpressionBindingTests.test_preflight_failures_are_side_effect_free_and_same_plan_can_retry) ... ok\ntest_range_filter_project_reuse_vortex_roundtrip_and_stream (test_native_expression_binding.NativeExpressionBindingTests.test_range_filter_project_reuse_vortex_roundtrip_and_stream) ... ok\ntest_typed_set_join_aggregate_sort_matches_native_sql (test_native_expression_binding.NativeExpressionBindingTests.test_typed_set_join_aggregate_sort_matches_native_sql) ... ok\ntest_window_analytics_scalar_subquery_and_public_aliases (test_native_expression_binding.NativeExpressionBindingTests.test_window_analytics_scalar_subquery_and_public_aliases) ... ok\ntest_chunked_object_sources_preserve_ordinary_exact_repeated_execution (test_native_multiway_binding.NativeMultiwayBindingTests.test_chunked_object_sources_preserve_ordinary_exact_repeated_execution) ... ok\ntest_cyclic_existence_native_sized_sources_preserve_exact_semantics (test_native_multiway_binding.NativeMultiwayBindingTests.test_cyclic_existence_native_sized_sources_preserve_exact_semantics) ... ok\ntest_installed_public_command_preserves_three_input_join_semantics (test_native_multiway_binding.NativeMultiwayBindingTests.test_installed_public_command_preserves_three_input_join_semantics) ... ok\ntest_typed_cyclic_existence_preserves_outer_rows_and_prepared_reuse (test_native_multiway_binding.NativeMultiwayBindingTests.test_typed_cyclic_existence_preserves_outer_rows_and_prepared_reuse) ... ok\ntest_empty_null_and_partial_output_wait_for_final_demand (test_native_output_window_binding.NativeOutputWindowBindingTests.test_empty_null_and_partial_output_wait_for_final_demand) ... ok\ntest_late_error_keeps_prefix_and_never_certifies_completion (test_native_output_window_binding.NativeOutputWindowBindingTests.test_late_error_keeps_prefix_and_never_certifies_completion) ... ok\ntest_normal_build_validation_and_disabled_observation (test_native_output_window_binding.NativeOutputWindowBindingTests.test_normal_build_validation_and_disabled_observation) ... ok\ntest_normal_package_checks_actual_admission_boundaries (test_native_output_window_binding.NativeOutputWindowBindingTests.test_normal_package_checks_actual_admission_boundaries) ... ok\ntest_public_producer_remains_lazy_and_ordinary (test_native_output_window_binding.NativeOutputWindowBindingTests.test_public_producer_remains_lazy_and_ordinary) ... ok\ntest_public_sql_and_dataframe_slicing_preserves_values_and_policy (test_native_output_window_binding.NativeOutputWindowBindingTests.test_public_sql_and_dataframe_slicing_preserves_values_and_policy) ... ok\ntest_dataframe_sample_repeats_and_releases_through_the_native_public_path (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests.test_dataframe_sample_repeats_and_releases_through_the_native_public_path) ... ok\ntest_prepared_sql_preserves_real_projection_filter_and_limit_exclusions (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests.test_prepared_sql_preserves_real_projection_filter_and_limit_exclusions) ... ok\ntest_prepared_sql_retains_scalar_model_with_exact_source_seed_and_projection_identity (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests.test_prepared_sql_retains_scalar_model_with_exact_source_seed_and_projection_identity) ... ok\ntest_compatibility_csv_generation_change_fails_without_invalidating_retained_result (test_native_primitive_binding.NativePrimitiveBindingTests.test_compatibility_csv_generation_change_fails_without_invalidating_retained_result) ... ok\ntest_context_read_reuses_one_native_preparation_across_queries_and_writers (test_native_primitive_binding.NativePrimitiveBindingTests.test_context_read_reuses_one_native_preparation_across_queries_and_writers) ... ok\ntest_declared_csv_source_options_filter_rows_and_write_vortex_readback (test_native_primitive_binding.NativePrimitiveBindingTests.test_declared_csv_source_options_filter_rows_and_write_vortex_readback) ... ok\ntest_empty_native_projection_rewrite_and_sort_keep_typed_schemas (test_native_primitive_binding.NativePrimitiveBindingTests.test_empty_native_projection_rewrite_and_sort_keep_typed_schemas) ... ok\ntest_missing_source_admission_and_cancellation_are_side_effect_free_then_recover (test_native_primitive_binding.NativePrimitiveBindingTests.test_missing_source_admission_and_cancellation_are_side_effect_free_then_recover) ... ok\ntest_native_sort_plan_stream_has_global_order_and_completion_report (test_native_primitive_binding.NativePrimitiveBindingTests.test_native_sort_plan_stream_has_global_order_and_completion_report) ... ok\ntest_partitioned_native_aggregate_matches_single_source_with_offsets_transforms_and_having (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_native_aggregate_matches_single_source_with_offsets_transforms_and_having) ... ok\ntest_partitioned_sort_preserves_global_ties_nulls_projection_predicate_and_streamed_output (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_sort_preserves_global_ties_nulls_projection_predicate_and_streamed_output) ... ok\ntest_partitioned_sort_streams_selected_payload_in_global_order (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_sort_streams_selected_payload_in_global_order) ... ok\ntest_partitioned_structured_projection_delivers_all_rows_past_collection_threshold (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_structured_projection_delivers_all_rows_past_collection_threshold) ... ok\ntest_public_native_projection_filter_sort_rewrite_and_counts_keep_complete_values (test_native_primitive_binding.NativePrimitiveBindingTests.test_public_native_projection_filter_sort_rewrite_and_counts_keep_complete_values) ... ok\ntest_retained_collection_declarations_rebind_directory_and_manifest_membership (test_native_primitive_binding.NativePrimitiveBindingTests.test_retained_collection_declarations_rebind_directory_and_manifest_membership) ... ok\ntest_retained_parquet_and_orc_sql_plans_reject_changed_source_generation (test_native_primitive_binding.NativePrimitiveBindingTests.test_retained_parquet_and_orc_sql_plans_reject_changed_source_generation) ... ok\ntest_retained_result_denies_small_grant_then_releases_for_retry_and_rejects_stale_file (test_native_primitive_binding.NativePrimitiveBindingTests.test_retained_result_denies_small_grant_then_releases_for_retry_and_rejects_stale_file) ... ok\ntest_sql_collection_and_compatibility_writes_preserve_complete_rows (test_native_primitive_binding.NativePrimitiveBindingTests.test_sql_collection_and_compatibility_writes_preserve_complete_rows) ... ok\ntest_sql_file_declarations_reuse_the_shared_primitive_providers (test_native_primitive_binding.NativePrimitiveBindingTests.test_sql_file_declarations_reuse_the_shared_primitive_providers) ... ok\ntest_sql_provider_selection_preserves_memory_bindings_and_relational_shapes (test_native_primitive_binding.NativePrimitiveBindingTests.test_sql_provider_selection_preserves_memory_bindings_and_relational_shapes) ... ok\ntest_vortex_directory_and_explicit_manifest_preserve_part_order_and_values (test_native_primitive_binding.NativePrimitiveBindingTests.test_vortex_directory_and_explicit_manifest_preserve_part_order_and_values) ... ok\ntest_sampling_population_spill_matches_fixture_oracle_across_terminals (test_native_sampling_population_binding.NativeSamplingPopulationBindingTests.test_sampling_population_spill_matches_fixture_oracle_across_terminals) ... ok\ntest_native_set_independent_repeated_and_positional_sources_across_terminals (test_native_set_binding.NativeSetBindingTests.test_native_set_independent_repeated_and_positional_sources_across_terminals) ... ok\ntest_native_set_late_failure_zero_limit_and_early_consumer_close (test_native_set_binding.NativeSetBindingTests.test_native_set_late_failure_zero_limit_and_early_consumer_close) ... ok\ntest_native_set_membership_spill_bounded_batches_and_fanout_complete_exactly (test_native_set_binding.NativeSetBindingTests.test_native_set_membership_spill_bounded_batches_and_fanout_complete_exactly) ... ok\ntest_native_set_rich_full_row_equality_preserves_owned_output (test_native_set_binding.NativeSetBindingTests.test_native_set_rich_full_row_equality_preserves_owned_output) ... ok\ntest_native_set_rich_membership_spill_preserves_complete_nested_and_typed_rows (test_native_set_binding.NativeSetBindingTests.test_native_set_rich_membership_spill_preserves_complete_nested_and_typed_rows) ... ok\ntest_direct_scalar_typed_values_empty_inner_and_native_relation_plan (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_scalar_typed_values_empty_inner_and_native_relation_plan) ... ok\ntest_direct_subquery_plans_rows_arrow_reuse_and_retained_results (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_subquery_plans_rows_arrow_reuse_and_retained_results) ... ok\ntest_direct_unused_arrow_nan_is_validated_without_scalar_evaluation (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_unused_arrow_nan_is_validated_without_scalar_evaluation) ... ok\ntest_direct_unused_inner_faults_cancel_and_scalar_errors_prevent_publication (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_unused_inner_faults_cancel_and_scalar_errors_prevent_publication) ... ok\ntest_public_native_scalar_close_and_consumer_exception_leave_retained_rows_valid (test_native_subquery_binding.NativeSubqueryBindingTests.test_public_native_scalar_close_and_consumer_exception_leave_retained_rows_valid) ... ok\ntest_spilled_predicates_rows_arrow_collect_batches_and_publication (test_native_subquery_membership_binding.NativeSubqueryMembershipBindingTests.test_spilled_predicates_rows_arrow_collect_batches_and_publication) ... ok\ntest_native_unary_early_close_retains_output_without_completion_report (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_early_close_retains_output_without_completion_report) ... ok\ntest_native_unary_families_columnar_and_scalar_input_across_all_terminals (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_families_columnar_and_scalar_input_across_all_terminals) ... ok\ntest_native_unary_late_failure_zero_limit_cancellation_and_clean_reuse (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_late_failure_zero_limit_cancellation_and_clean_reuse) ... ok\ntest_native_unary_membership_spill_preserves_exact_rows_across_terminals (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_membership_spill_preserves_exact_rows_across_terminals) ... ok\ntest_native_unary_repeated_branch_uses_one_producer_and_explicit_replay (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_repeated_branch_uses_one_producer_and_explicit_replay) ... ok\n\n----------------------------------------------------------------------\nRan 121 tests in 93.926s\n\nOK\n"
+        },
+        {
+          "name": "proof/linux_compatibility_audit.log",
+          "sha256": "eeced54d3b828d98c8f9f260c9d42d18c3ee7c357d3bdd1569461aa896966767",
+          "size_bytes": 540,
+          "text": "INFO:auditwheel.main_repair:Repairing shardloom-0.7.0-cp310-abi3-linux_x86_64.whl\nINFO:auditwheel.wheeltools:Previous filename tags: linux_x86_64\nINFO:auditwheel.wheeltools:New filename tags: manylinux_2_39_x86_64\nINFO:auditwheel.wheeltools:Previous WHEEL info tags: cp310-abi3-linux_x86_64\nINFO:auditwheel.wheeltools:New WHEEL info tags: cp310-abi3-manylinux_2_39_x86_64\nINFO:auditwheel.main_repair:\nFixed-up wheel written to /home/runner/work/_temp/registry-python-tlt_sg3p/proof/dist/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl\n"
+        },
+        {
+          "name": "proof/load.log",
+          "sha256": "9d4a9eafea89fa2006e1d75e99df5dee9a83bb39bbb7253bcd6807059bc4d1a7",
+          "size_bytes": 508,
+          "text": "{\"package\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py\", \"native_library\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so\", \"cli\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom\", \"version\": \"0.7.0\", \"python\": \"3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]\", \"isolated_install\": true}\n"
+        },
+        {
+          "name": "proof/report.json",
+          "sha256": "7e657b656d4cb8d9d1b5a083d867849ecbffd1f1b3df21f170c6db27197becf5",
+          "size_bytes": 11078,
+          "text": "{\n  \"schema_version\": \"shardloom.native_python_wheel_proof.v1\",\n  \"status\": \"passed\",\n  \"python\": \"3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]\",\n  \"platform\": \"Linux-6.17.0-1022-azure-x86_64-with-glibc2.39\",\n  \"steps\": [\n    {\n      \"name\": \"build\",\n      \"command\": [\n        \"/opt/hostedtoolcache/Python/3.13.16/x64/bin/python\",\n        \"-m\",\n        \"pip\",\n        \"wheel\",\n        \"--no-build-isolation\",\n        \"--no-deps\",\n        \"--no-index\",\n        \"--wheel-dir\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/unaudited\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/package\"\n      ],\n      \"log\": \"build.log\",\n      \"returncode\": 0,\n      \"seconds\": 8.692135695000161,\n      \"log_sha256\": \"e91ad236e473cc4dcc7d842cc3c9e435907c54429630074646796435171b159d\"\n    },\n    {\n      \"name\": \"linux_compatibility_audit\",\n      \"command\": [\n        \"/opt/hostedtoolcache/Python/3.13.16/x64/bin/python\",\n        \"-m\",\n        \"auditwheel\",\n        \"repair\",\n        \"--only-plat\",\n        \"--plat\",\n        \"manylinux_2_39_x86_64\",\n        \"--patcher\",\n        \"none\",\n        \"--wheel-dir\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/dist\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/unaudited/shardloom-0.7.0-cp310-abi3-linux_x86_64.whl\"\n      ],\n      \"log\": \"linux_compatibility_audit.log\",\n      \"returncode\": 0,\n      \"seconds\": 9.093113613000014,\n      \"log_sha256\": \"eeced54d3b828d98c8f9f260c9d42d18c3ee7c357d3bdd1569461aa896966767\"\n    },\n    {\n      \"name\": \"create_environment\",\n      \"command\": [\n        \"/opt/hostedtoolcache/Python/3.13.16/x64/bin/python\",\n        \"-m\",\n        \"venv\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv\"\n      ],\n      \"log\": \"create_environment.log\",\n      \"returncode\": 0,\n      \"seconds\": 2.5712664709999444,\n      \"log_sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n    },\n    {\n      \"name\": \"install_optional_consumer\",\n      \"command\": [\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python\",\n        \"-I\",\n        \"-m\",\n        \"pip\",\n        \"install\",\n        \"--no-index\",\n        \"--find-links\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/wheelhouse\",\n        \"--only-binary=:all:\",\n        \"--require-hashes\",\n        \"-r\",\n        \"/home/runner/work/shardloom/shardloom/.github/requirements/ci-native-python.txt\"\n      ],\n      \"log\": \"install_optional_consumer.log\",\n      \"returncode\": 0,\n      \"seconds\": 1.8187741100000494,\n      \"log_sha256\": \"39dc7ec6318b163360fd72a56a538dcd84a9de2a4183cdd391c025bb43268413\"\n    },\n    {\n      \"name\": \"install\",\n      \"command\": [\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python\",\n        \"-I\",\n        \"-m\",\n        \"pip\",\n        \"install\",\n        \"--no-index\",\n        \"--no-deps\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/dist/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl\"\n      ],\n      \"log\": \"install.log\",\n      \"returncode\": 0,\n      \"seconds\": 1.5183284059999096,\n      \"log_sha256\": \"e1cb80ed42d261590d821ed8ee1cd38cad7514c8168a1dbaa8ad038b2a664393\"\n    },\n    {\n      \"name\": \"load\",\n      \"command\": [\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python\",\n        \"-I\",\n        \"-c\",\n        \"\\nimport hashlib, json, pathlib, subprocess, sys\\nimport shardloom\\nfrom shardloom import _native, ShardLoomClient\\nroot = pathlib.Path(sys.prefix).resolve()\\npackage = pathlib.Path(shardloom.__file__).resolve()\\nlibrary = pathlib.Path(_native.__file__).resolve()\\nassert root in package.parents and root in library.parents, (root, package, library)\\nassert _native.__version__ == shardloom.__version__\\nassert _native.execution_provider == \\\"shared_shardloom_native\\\"\\ndef digest(path):\\n    value = hashlib.sha256()\\n    with path.open(\\\"rb\\\") as stream:\\n        for block in iter(lambda: stream.read(1 << 20), b\\\"\\\"): value.update(block)\\n    return value.hexdigest()\\nassert digest(library) == sys.argv[1]\\nclient = ShardLoomClient()\\nbinary = pathlib.Path(client.binary_command()[0]).resolve()\\nassert root in binary.parents and digest(binary) == sys.argv[2]\\ncli_version = subprocess.check_output([str(binary), \\\"--version\\\"], text=True).strip()\\nassert cli_version == \\\"shardloom \\\" + shardloom.__version__, cli_version\\nclient.close()\\nprint(json.dumps({\\\"package\\\": str(package), \\\"native_library\\\": str(library),\\n                  \\\"cli\\\": str(binary), \\\"version\\\": shardloom.__version__,\\n                  \\\"python\\\": sys.version, \\\"isolated_install\\\": True}))\\n\",\n        \"4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09\",\n        \"a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea\"\n      ],\n      \"log\": \"load.log\",\n      \"returncode\": 0,\n      \"seconds\": 0.2651359849999153,\n      \"log_sha256\": \"9d4a9eafea89fa2006e1d75e99df5dee9a83bb39bbb7253bcd6807059bc4d1a7\"\n    },\n    {\n      \"name\": \"integration\",\n      \"command\": [\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python\",\n        \"-I\",\n        \"-c\",\n        \"\\nimport json, pathlib, sys, unittest\\nsuite = unittest.defaultTestLoader.discover(sys.argv[1], pattern=\\\"test_native*binding.py\\\")\\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\\nreport = {\\\"tests\\\": result.testsRun, \\\"failures\\\": len(result.failures),\\n          \\\"errors\\\": len(result.errors), \\\"skipped\\\": len(result.skipped)}\\npassed = result.wasSuccessful() and result.testsRun > 0 and not result.skipped\\nreport[\\\"status\\\"] = \\\"passed\\\" if passed else \\\"failed\\\"\\npathlib.Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + \\\"\\\\n\\\")\\nraise SystemExit(0 if passed else 1)\\n\",\n        \"/home/runner/work/shardloom/shardloom/python/tests\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/integration.json\"\n      ],\n      \"log\": \"integration.log\",\n      \"returncode\": 0,\n      \"seconds\": 94.74608428700003,\n      \"log_sha256\": \"083ce2f39567f98ca0aa2addde7ada0f5fd27eb341eb81922c0190333e98625d\"\n    },\n    {\n      \"name\": \"uninstall\",\n      \"command\": [\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python\",\n        \"-I\",\n        \"-m\",\n        \"pip\",\n        \"uninstall\",\n        \"--yes\",\n        \"shardloom\"\n      ],\n      \"log\": \"uninstall.log\",\n      \"returncode\": 0,\n      \"seconds\": 0.4150106960000812,\n      \"log_sha256\": \"bd12e73198830d25b4c657a83c4dd083f8ff52b66637e3e80b536370cb442477\"\n    },\n    {\n      \"name\": \"verify_uninstalled\",\n      \"command\": [\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python\",\n        \"-I\",\n        \"-c\",\n        \"import importlib.util, pathlib, sys; assert importlib.util.find_spec('shardloom') is None; assert all(not pathlib.Path(path).exists() for path in sys.argv[1:])\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so\",\n        \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom\"\n      ],\n      \"log\": \"verify_uninstalled.log\",\n      \"returncode\": 0,\n      \"seconds\": 0.03206637599987516,\n      \"log_sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n    }\n  ],\n  \"build_tools\": {\n    \"setuptools\": \"84.0.0\",\n    \"wheel\": \"0.48.0\",\n    \"pip\": \"26.2.1\"\n  },\n  \"publication_attempted\": false,\n  \"performance_claim\": false,\n  \"scope\": \"current_host_native_wheel_install_and_binding_integration\",\n  \"stage\": {\n    \"status\": \"passed\",\n    \"destination\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/package\",\n    \"native_library_sha256\": \"4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09\",\n    \"cli_sha256\": \"a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea\",\n    \"python_abi\": \"cp310-abi3\",\n    \"wheel_platform_tag\": null,\n    \"licenses\": {\n      \"status\": \"passed\",\n      \"registry_packages\": 428,\n      \"vendored_packages\": 8,\n      \"license_file_records\": 808,\n      \"unique_text_files\": 243\n    },\n    \"published\": false\n  },\n  \"integrity\": {\n    \"schema_version\": \"shardloom.native_python_wheel_integrity.v1\",\n    \"status\": \"passed\",\n    \"wheel\": \"shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl\",\n    \"wheel_sha256\": \"5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0\",\n    \"wheel_bytes\": 56263189,\n    \"native_library_sha256\": \"4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09\",\n    \"cli_sha256\": \"a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea\",\n    \"tag\": \"cp310-abi3-manylinux_2_39_x86_64\",\n    \"python_source_files\": 22,\n    \"linux_audit_verified\": true,\n    \"licenses\": {\n      \"status\": \"passed\",\n      \"registry_packages\": 428,\n      \"vendored_packages\": 8,\n      \"license_file_records\": 808,\n      \"unique_text_files\": 243\n    },\n    \"load_verified\": false,\n    \"published\": false\n  },\n  \"unaudited_integrity\": {\n    \"schema_version\": \"shardloom.native_python_wheel_integrity.v1\",\n    \"status\": \"passed\",\n    \"wheel\": \"shardloom-0.7.0-cp310-abi3-linux_x86_64.whl\",\n    \"wheel_sha256\": \"af3256db3a4dad25b347c0692f385d3d6be5a831fca567a8674dc51d0d0e8a2f\",\n    \"wheel_bytes\": 56262187,\n    \"native_library_sha256\": \"4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09\",\n    \"cli_sha256\": \"a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea\",\n    \"tag\": \"cp310-abi3-linux_x86_64\",\n    \"python_source_files\": 22,\n    \"linux_audit_verified\": false,\n    \"licenses\": {\n      \"status\": \"passed\",\n      \"registry_packages\": 428,\n      \"vendored_packages\": 8,\n      \"license_file_records\": 808,\n      \"unique_text_files\": 243\n    },\n    \"load_verified\": false,\n    \"published\": false\n  },\n  \"linux_audit\": {\n    \"schema_version\": \"shardloom.native_python_linux_audit.v1\",\n    \"status\": \"passed\",\n    \"platform\": \"manylinux_2_39_x86_64\",\n    \"auditwheel_version\": \"6.8.2\",\n    \"input_wheel\": \"shardloom-0.7.0-cp310-abi3-linux_x86_64.whl\",\n    \"input_wheel_sha256\": \"af3256db3a4dad25b347c0692f385d3d6be5a831fca567a8674dc51d0d0e8a2f\",\n    \"wheel\": \"shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl\",\n    \"wheel_sha256\": \"5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0\",\n    \"unchanged_payload_count\": 275,\n    \"payloads_unchanged\": true\n  },\n  \"integration\": {\n    \"tests\": 121,\n    \"failures\": 0,\n    \"errors\": 0,\n    \"skipped\": 0,\n    \"status\": \"passed\"\n  },\n  \"installed_load\": {\n    \"package\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py\",\n    \"native_library\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so\",\n    \"cli\": \"/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom\",\n    \"version\": \"0.7.0\",\n    \"python\": \"3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]\",\n    \"isolated_install\": true\n  },\n  \"uninstall_status\": \"passed\"\n}\n"
+        },
+        {
+          "name": "proof/uninstall.log",
+          "sha256": "bd12e73198830d25b4c657a83c4dd083f8ff52b66637e3e80b536370cb442477",
+          "size_bytes": 118,
+          "text": "Found existing installation: shardloom 0.7.0\nUninstalling shardloom-0.7.0:\n  Successfully uninstalled shardloom-0.7.0\n"
+        },
+        {
+          "name": "proof/verify_uninstalled.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0,
+          "text": ""
+        }
+      ],
+      "proof_report": {
+        "build_tools": {
+          "pip": "26.2.1",
+          "setuptools": "84.0.0",
+          "wheel": "0.48.0"
+        },
+        "installed_load": {
+          "cli": "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom",
+          "isolated_install": true,
+          "native_library": "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+          "package": "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+          "python": "3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]",
+          "version": "0.7.0"
+        },
+        "integration": {
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "status": "passed",
+          "tests": 121
+        },
+        "integrity": {
+          "cli_sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+          "licenses": {
+            "license_file_records": 808,
+            "registry_packages": 428,
+            "status": "passed",
+            "unique_text_files": 243,
+            "vendored_packages": 8
+          },
+          "linux_audit_verified": true,
+          "load_verified": false,
+          "native_library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+          "published": false,
+          "python_source_files": 22,
+          "schema_version": "shardloom.native_python_wheel_integrity.v1",
+          "status": "passed",
+          "tag": "cp310-abi3-manylinux_2_39_x86_64",
+          "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "wheel_bytes": 56263189,
+          "wheel_sha256": "5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0"
+        },
+        "linux_audit": {
+          "auditwheel_version": "6.8.2",
+          "input_wheel": "shardloom-0.7.0-cp310-abi3-linux_x86_64.whl",
+          "input_wheel_sha256": "af3256db3a4dad25b347c0692f385d3d6be5a831fca567a8674dc51d0d0e8a2f",
+          "payloads_unchanged": true,
+          "platform": "manylinux_2_39_x86_64",
+          "schema_version": "shardloom.native_python_linux_audit.v1",
+          "status": "passed",
+          "unchanged_payload_count": 275,
+          "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "wheel_sha256": "5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0"
+        },
+        "performance_claim": false,
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "publication_attempted": false,
+        "python": "3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]",
+        "schema_version": "shardloom.native_python_wheel_proof.v1",
+        "scope": "current_host_native_wheel_install_and_binding_integration",
+        "stage": {
+          "cli_sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+          "destination": "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/package",
+          "licenses": {
+            "license_file_records": 808,
+            "registry_packages": 428,
+            "status": "passed",
+            "unique_text_files": 243,
+            "vendored_packages": 8
+          },
+          "native_library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+          "published": false,
+          "python_abi": "cp310-abi3",
+          "status": "passed",
+          "wheel_platform_tag": null
+        },
+        "status": "passed",
+        "steps": [
+          {
+            "command": [
+              "/opt/hostedtoolcache/Python/3.13.16/x64/bin/python",
+              "-m",
+              "pip",
+              "wheel",
+              "--no-build-isolation",
+              "--no-deps",
+              "--no-index",
+              "--wheel-dir",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/unaudited",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/package"
+            ],
+            "log": "build.log",
+            "log_sha256": "e91ad236e473cc4dcc7d842cc3c9e435907c54429630074646796435171b159d",
+            "name": "build",
+            "returncode": 0,
+            "seconds": 8.692135695000161
+          },
+          {
+            "command": [
+              "/opt/hostedtoolcache/Python/3.13.16/x64/bin/python",
+              "-m",
+              "auditwheel",
+              "repair",
+              "--only-plat",
+              "--plat",
+              "manylinux_2_39_x86_64",
+              "--patcher",
+              "none",
+              "--wheel-dir",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/dist",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/unaudited/shardloom-0.7.0-cp310-abi3-linux_x86_64.whl"
+            ],
+            "log": "linux_compatibility_audit.log",
+            "log_sha256": "eeced54d3b828d98c8f9f260c9d42d18c3ee7c357d3bdd1569461aa896966767",
+            "name": "linux_compatibility_audit",
+            "returncode": 0,
+            "seconds": 9.093113613000014
+          },
+          {
+            "command": [
+              "/opt/hostedtoolcache/Python/3.13.16/x64/bin/python",
+              "-m",
+              "venv",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv"
+            ],
+            "log": "create_environment.log",
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "name": "create_environment",
+            "returncode": 0,
+            "seconds": 2.5712664709999444
+          },
+          {
+            "command": [
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python",
+              "-I",
+              "-m",
+              "pip",
+              "install",
+              "--no-index",
+              "--find-links",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/wheelhouse",
+              "--only-binary=:all:",
+              "--require-hashes",
+              "-r",
+              "/home/runner/work/shardloom/shardloom/.github/requirements/ci-native-python.txt"
+            ],
+            "log": "install_optional_consumer.log",
+            "log_sha256": "39dc7ec6318b163360fd72a56a538dcd84a9de2a4183cdd391c025bb43268413",
+            "name": "install_optional_consumer",
+            "returncode": 0,
+            "seconds": 1.8187741100000494
+          },
+          {
+            "command": [
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python",
+              "-I",
+              "-m",
+              "pip",
+              "install",
+              "--no-index",
+              "--no-deps",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/dist/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl"
+            ],
+            "log": "install.log",
+            "log_sha256": "e1cb80ed42d261590d821ed8ee1cd38cad7514c8168a1dbaa8ad038b2a664393",
+            "name": "install",
+            "returncode": 0,
+            "seconds": 1.5183284059999096
+          },
+          {
+            "command": [
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python",
+              "-I",
+              "-c",
+              "\nimport hashlib, json, pathlib, subprocess, sys\nimport shardloom\nfrom shardloom import _native, ShardLoomClient\nroot = pathlib.Path(sys.prefix).resolve()\npackage = pathlib.Path(shardloom.__file__).resolve()\nlibrary = pathlib.Path(_native.__file__).resolve()\nassert root in package.parents and root in library.parents, (root, package, library)\nassert _native.__version__ == shardloom.__version__\nassert _native.execution_provider == \"shared_shardloom_native\"\ndef digest(path):\n    value = hashlib.sha256()\n    with path.open(\"rb\") as stream:\n        for block in iter(lambda: stream.read(1 << 20), b\"\"): value.update(block)\n    return value.hexdigest()\nassert digest(library) == sys.argv[1]\nclient = ShardLoomClient()\nbinary = pathlib.Path(client.binary_command()[0]).resolve()\nassert root in binary.parents and digest(binary) == sys.argv[2]\ncli_version = subprocess.check_output([str(binary), \"--version\"], text=True).strip()\nassert cli_version == \"shardloom \" + shardloom.__version__, cli_version\nclient.close()\nprint(json.dumps({\"package\": str(package), \"native_library\": str(library),\n                  \"cli\": str(binary), \"version\": shardloom.__version__,\n                  \"python\": sys.version, \"isolated_install\": True}))\n",
+              "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+              "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea"
+            ],
+            "log": "load.log",
+            "log_sha256": "9d4a9eafea89fa2006e1d75e99df5dee9a83bb39bbb7253bcd6807059bc4d1a7",
+            "name": "load",
+            "returncode": 0,
+            "seconds": 0.2651359849999153
+          },
+          {
+            "command": [
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python",
+              "-I",
+              "-c",
+              "\nimport json, pathlib, sys, unittest\nsuite = unittest.defaultTestLoader.discover(sys.argv[1], pattern=\"test_native*binding.py\")\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\nreport = {\"tests\": result.testsRun, \"failures\": len(result.failures),\n          \"errors\": len(result.errors), \"skipped\": len(result.skipped)}\npassed = result.wasSuccessful() and result.testsRun > 0 and not result.skipped\nreport[\"status\"] = \"passed\" if passed else \"failed\"\npathlib.Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + \"\\n\")\nraise SystemExit(0 if passed else 1)\n",
+              "/home/runner/work/shardloom/shardloom/python/tests",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/integration.json"
+            ],
+            "log": "integration.log",
+            "log_sha256": "083ce2f39567f98ca0aa2addde7ada0f5fd27eb341eb81922c0190333e98625d",
+            "name": "integration",
+            "returncode": 0,
+            "seconds": 94.74608428700003
+          },
+          {
+            "command": [
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python",
+              "-I",
+              "-m",
+              "pip",
+              "uninstall",
+              "--yes",
+              "shardloom"
+            ],
+            "log": "uninstall.log",
+            "log_sha256": "bd12e73198830d25b4c657a83c4dd083f8ff52b66637e3e80b536370cb442477",
+            "name": "uninstall",
+            "returncode": 0,
+            "seconds": 0.4150106960000812
+          },
+          {
+            "command": [
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/bin/python",
+              "-I",
+              "-c",
+              "import importlib.util, pathlib, sys; assert importlib.util.find_spec('shardloom') is None; assert all(not pathlib.Path(path).exists() for path in sys.argv[1:])",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+              "/home/runner/work/_temp/registry-python-tlt_sg3p/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom"
+            ],
+            "log": "verify_uninstalled.log",
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "name": "verify_uninstalled",
+            "returncode": 0,
+            "seconds": 0.03206637599987516
+          }
+        ],
+        "unaudited_integrity": {
+          "cli_sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+          "licenses": {
+            "license_file_records": 808,
+            "registry_packages": 428,
+            "status": "passed",
+            "unique_text_files": 243,
+            "vendored_packages": 8
+          },
+          "linux_audit_verified": false,
+          "load_verified": false,
+          "native_library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+          "published": false,
+          "python_source_files": 22,
+          "schema_version": "shardloom.native_python_wheel_integrity.v1",
+          "status": "passed",
+          "tag": "cp310-abi3-linux_x86_64",
+          "wheel": "shardloom-0.7.0-cp310-abi3-linux_x86_64.whl",
+          "wheel_bytes": 56262187,
+          "wheel_sha256": "af3256db3a4dad25b347c0692f385d3d6be5a831fca567a8674dc51d0d0e8a2f"
+        },
+        "uninstall_status": "passed"
+      },
+      "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8",
+      "source_program_sha256": {
+        "IMPORT_CHECK": "648bc5fd7d4bf97209c941ed69f39f198f132d35d820d283120f4f817bcdb445",
+        "RUN_TESTS": "4572a2910b956f8e33a70f7737633a5aa0ac44187df98e6bb2b85f67e4a00015"
+      },
+      "status": "passed",
+      "uninstall_status": "passed",
+      "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+      "wheel_sha256": "5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0",
+      "workflow_artifact_archive_sha256": "450a79bd9cfefb3e78211bae4031cfad365773e248a08e5ed4b73893c4836eaa",
+      "workflow_artifact_archive_size_bytes": 9933,
+      "workflow_artifact_id": 12414168765,
+      "workflow_artifact_name": "native-registry-proof-linux",
+      "workflow_run_id": 39750575360
+    },
+    {
+      "cli_sha256": "5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d",
+      "fresh_execution_performed_by_observer": false,
+      "integration": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 121
+      },
+      "native_build": {
+        "cargo_artifact": "/Users/runner/work/shardloom/shardloom/target/release/lib_native.dylib",
+        "command": [
+          "cargo",
+          "build",
+          "--locked",
+          "-p",
+          "shardloom-python",
+          "--features",
+          "python-native",
+          "--message-format=json-render-diagnostics",
+          "--release"
+        ],
+        "installed": false,
+        "library": "/Users/runner/work/_temp/registry-python-x82m6x21/extension/_native.abi3.so",
+        "library_bytes": 76221584,
+        "library_sha256": "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+        "package_version": "0.7.0",
+        "published": false,
+        "python_abi": "cp310-abi3",
+        "schema_version": "shardloom.native_python_build.v1",
+        "status": "passed",
+        "target_directory": "/Users/runner/work/shardloom/shardloom/target"
+      },
+      "native_library_sha256": "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+      "original_files": [
+        {
+          "name": "native-build.json",
+          "sha256": "28a417931349c348d7933330df3bc9859b55ebec2bf6597058720b7b3eaa712a",
+          "size_bytes": 758,
+          "text": "{\n  \"schema_version\": \"shardloom.native_python_build.v1\",\n  \"status\": \"passed\",\n  \"command\": [\n    \"cargo\",\n    \"build\",\n    \"--locked\",\n    \"-p\",\n    \"shardloom-python\",\n    \"--features\",\n    \"python-native\",\n    \"--message-format=json-render-diagnostics\",\n    \"--release\"\n  ],\n  \"target_directory\": \"/Users/runner/work/shardloom/shardloom/target\",\n  \"cargo_artifact\": \"/Users/runner/work/shardloom/shardloom/target/release/lib_native.dylib\",\n  \"library\": \"/Users/runner/work/_temp/registry-python-x82m6x21/extension/_native.abi3.so\",\n  \"library_bytes\": 76221584,\n  \"library_sha256\": \"0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645\",\n  \"python_abi\": \"cp310-abi3\",\n  \"package_version\": \"0.7.0\",\n  \"installed\": false,\n  \"published\": false\n}\n"
+        },
+        {
+          "name": "proof/build.log",
+          "sha256": "a2ad2ea58b167824b6cbc24f3168c94de43d05b15ae5c6bb3a411f2153f49947",
+          "size_bytes": 701,
+          "text": "Processing ./package\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nBuilding wheels for collected packages: shardloom\n  Building wheel for shardloom (pyproject.toml): started\n  Building wheel for shardloom (pyproject.toml): finished with status 'done'\n  Created wheel for shardloom: filename=shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl size=49863821 sha256=2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8\n  Stored in directory: /private/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/pip-ephem-wheel-cache-ezztjp3l/wheels/c1/46/18/1c7852542f0ed4002cf621620f9b711791453a77f19716941c\nSuccessfully built shardloom\n"
+        },
+        {
+          "name": "proof/create_environment.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0,
+          "text": ""
+        },
+        {
+          "name": "proof/install.log",
+          "sha256": "c8ddf72b98729365497e84a4ba917bdbfd83f50c9e2f5e08136340317aa27807",
+          "size_bytes": 147,
+          "text": "Processing ./dist/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.7.0\n"
+        },
+        {
+          "name": "proof/install_optional_consumer.log",
+          "sha256": "ebfe99be01d237c64fde9404717b3da9dc9ab2fac6093104871a97a4a213fdba",
+          "size_bytes": 377,
+          "text": "Looking in links: /Users/runner/work/_temp/registry-python-x82m6x21/wheelhouse\nProcessing /Users/runner/work/_temp/registry-python-x82m6x21/wheelhouse/pyarrow-25.0.1-cp313-cp313-macosx_12_0_arm64.whl (from -r /Users/runner/work/shardloom/shardloom/.github/requirements/ci-native-python.txt (line 7))\nInstalling collected packages: pyarrow\nSuccessfully installed pyarrow-25.0.1\n"
+        },
+        {
+          "name": "proof/integration.json",
+          "sha256": "2348dbe8eb9afcaa419ec4fae599281944ceb03317148ddb56bf6fa0d2eecbff",
+          "size_bytes": 89,
+          "text": "{\n  \"tests\": 121,\n  \"failures\": 0,\n  \"errors\": 0,\n  \"skipped\": 0,\n  \"status\": \"passed\"\n}\n"
+        },
+        {
+          "name": "proof/integration.log",
+          "sha256": "0534a50be9fbf825a90820c6bb30857a547c1e89d480cbec79bfe08668af58a6",
+          "size_bytes": 24169,
+          "text": "test_arrow_import_copies_source_buffers_and_accepts_empty_batches (test_native_binding.NativeBindingTests.test_arrow_import_copies_source_buffers_and_accepts_empty_batches) ... ok\ntest_columnar_stream_is_one_shot_reports_completion_and_preserves_result (test_native_binding.NativeBindingTests.test_columnar_stream_is_one_shot_reports_completion_and_preserves_result) ... ok\ntest_cross_client_binding_refusal_releases_target_copy_and_keeps_source (test_native_binding.NativeBindingTests.test_cross_client_binding_refusal_releases_target_copy_and_keeps_source) ... ok\ntest_cross_client_native_result_import_does_not_reenter_producer (test_native_binding.NativeBindingTests.test_cross_client_native_result_import_does_not_reenter_producer) ... ok\ntest_execution_resources_require_exact_positive_integer_declarations (test_native_binding.NativeBindingTests.test_execution_resources_require_exact_positive_integer_declarations) ... ok\ntest_extension_exports_expected_binding_types (test_native_binding.NativeBindingTests.test_extension_exports_expected_binding_types) ... ok\ntest_incremental_close_and_session_cancel_keep_retained_batches_valid (test_native_binding.NativeBindingTests.test_incremental_close_and_session_cancel_keep_retained_batches_valid) ... ok\ntest_incremental_execution_waits_for_demand_and_reports_only_complete_results (test_native_binding.NativeBindingTests.test_incremental_execution_waits_for_demand_and_reports_only_complete_results) ... ok\ntest_native_deadlines_reject_before_input_or_output_and_allow_session_reuse (test_native_binding.NativeBindingTests.test_native_deadlines_reject_before_input_or_output_and_allow_session_reuse) ... ok\ntest_native_failed_admission_does_not_borrow_previous_operation_observations (test_native_binding.NativeBindingTests.test_native_failed_admission_does_not_borrow_previous_operation_observations) ... ok\ntest_native_failure_observations_preserve_producer_with_custom_attribute_assignment (test_native_binding.NativeBindingTests.test_native_failure_observations_preserve_producer_with_custom_attribute_assignment) ... ok\ntest_native_fanout_reopens_complete_values_and_preserves_empty_outputs (test_native_binding.NativeBindingTests.test_native_fanout_reopens_complete_values_and_preserves_empty_outputs) ... ok\ntest_native_input_failures_keep_original_exception_and_resource_observations (test_native_binding.NativeBindingTests.test_native_input_failures_keep_original_exception_and_resource_observations) ... ok\ntest_native_ipc_denial_corruption_and_cancellation_release_the_receiving_grant (test_native_binding.NativeBindingTests.test_native_ipc_denial_corruption_and_cancellation_release_the_receiving_grant) ... ok\ntest_native_ipc_never_invokes_implicit_message_conversions (test_native_binding.NativeBindingTests.test_native_ipc_never_invokes_implicit_message_conversions) ... ok\ntest_native_ipc_public_frontdoors_preserve_all_values_and_reuse_the_source (test_native_binding.NativeBindingTests.test_native_ipc_public_frontdoors_preserve_all_values_and_reuse_the_source) ... ok\ntest_native_memory_denial_evidence_is_frozen_before_later_success (test_native_binding.NativeBindingTests.test_native_memory_denial_evidence_is_frozen_before_later_success) ... ok\ntest_native_object_input_crosses_old_total_row_limit_with_complete_values (test_native_binding.NativeBindingTests.test_native_object_input_crosses_old_total_row_limit_with_complete_values) ... ok\ntest_native_object_refusals_preserve_input_and_release_partial_construction (test_native_binding.NativeBindingTests.test_native_object_refusals_preserve_input_and_release_partial_construction) ... ok\ntest_native_plan_failures_retain_admitted_resources_for_every_terminal (test_native_binding.NativeBindingTests.test_native_plan_failures_retain_admitted_resources_for_every_terminal) ... ok\ntest_native_source_transfer_preserves_rich_values_and_lifetimes (test_native_binding.NativeBindingTests.test_native_source_transfer_preserves_rich_values_and_lifetimes) ... ok\ntest_native_spill_plan_preserves_values_owners_and_cleanup (test_native_binding.NativeBindingTests.test_native_spill_plan_preserves_values_owners_and_cleanup) ... ok\ntest_native_stream_deadline_starts_on_demand_and_expires_during_consumer_wait (test_native_binding.NativeBindingTests.test_native_stream_deadline_starts_on_demand_and_expires_during_consumer_wait) ... ok\ntest_native_workflow_rejects_unbound_options_before_execution (test_native_binding.NativeBindingTests.test_native_workflow_rejects_unbound_options_before_execution) ... ok\ntest_native_writer_outputs_reopen_all_complete_values (test_native_binding.NativeBindingTests.test_native_writer_outputs_reopen_all_complete_values) ... ok\ntest_public_native_batch_admission_precedes_factory_and_stream_close_cleans_producer (test_native_binding.NativeBindingTests.test_public_native_batch_admission_precedes_factory_and_stream_close_cleans_producer) ... ok\ntest_public_native_batch_factories_use_fresh_values_without_json_cells (test_native_binding.NativeBindingTests.test_public_native_batch_factories_use_fresh_values_without_json_cells) ... ok\ntest_public_native_batch_intake_crosses_former_total_batch_limits (test_native_binding.NativeBindingTests.test_public_native_batch_intake_crosses_former_total_batch_limits) ... ok\ntest_public_native_batch_late_errors_preserve_exception_and_existing_output (test_native_binding.NativeBindingTests.test_public_native_batch_late_errors_preserve_exception_and_existing_output) ... ok\ntest_public_native_cancel_drains_producer_and_preserves_results_and_reuse (test_native_binding.NativeBindingTests.test_public_native_cancel_drains_producer_and_preserves_results_and_reuse) ... ok\ntest_public_native_columnar_batches_preserve_large_batches_and_empty_input (test_native_binding.NativeBindingTests.test_public_native_columnar_batches_preserve_large_batches_and_empty_input) ... ok\ntest_public_native_columnar_import_ignores_unrelated_native_result (test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) ... ok\ntest_public_native_columnar_refusal_does_not_probe_producer_attributes (test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes) ... ok\ntest_public_native_columnar_workflow_retains_results_and_preparation (test_native_binding.NativeBindingTests.test_public_native_columnar_workflow_retains_results_and_preparation) ... ok\ntest_public_native_failure_envelopes_keep_observations_and_stream_errors (test_native_binding.NativeBindingTests.test_public_native_failure_envelopes_keep_observations_and_stream_errors) ... ok\ntest_public_native_fanout_producer_failure_publishes_no_prefix (test_native_binding.NativeBindingTests.test_public_native_fanout_producer_failure_publishes_no_prefix) ... ok\ntest_public_native_fanout_validates_before_factory_and_preserves_shared_owners (test_native_binding.NativeBindingTests.test_public_native_fanout_validates_before_factory_and_preserves_shared_owners) ... ok\ntest_public_native_file_sql_selects_typed_decimal_providers (test_native_binding.NativeBindingTests.test_public_native_file_sql_selects_typed_decimal_providers) ... ok\ntest_public_native_frames_compose_across_clients (test_native_binding.NativeBindingTests.test_public_native_frames_compose_across_clients) ... ok\ntest_public_native_incremental_results_keep_owners_after_close (test_native_binding.NativeBindingTests.test_public_native_incremental_results_keep_owners_after_close) ... ok\ntest_public_native_multiple_producers_drain_fail_and_close_without_publication (test_native_binding.NativeBindingTests.test_public_native_multiple_producers_drain_fail_and_close_without_publication) ... ok\ntest_public_native_object_intake_infers_and_converts_without_json_cells (test_native_binding.NativeBindingTests.test_public_native_object_intake_infers_and_converts_without_json_cells) ... ok\ntest_public_native_object_intake_preserves_rich_exact_values_and_null_masks (test_native_binding.NativeBindingTests.test_public_native_object_intake_preserves_rich_exact_values_and_null_masks) ... ok\ntest_public_native_persisted_files_reopen_in_independent_jobs (test_native_binding.NativeBindingTests.test_public_native_persisted_files_reopen_in_independent_jobs) ... ok\ntest_public_native_resource_refusal_precedes_loading_and_producer (test_native_binding.NativeBindingTests.test_public_native_resource_refusal_precedes_loading_and_producer) ... ok\ntest_public_native_spill_collect_stream_write_and_invalid_options (test_native_binding.NativeBindingTests.test_public_native_spill_collect_stream_write_and_invalid_options) ... ok\ntest_public_native_stream_composition_preserves_each_producer_across_terminals (test_native_binding.NativeBindingTests.test_public_native_stream_composition_preserves_each_producer_across_terminals) ... ok\ntest_public_native_stream_destinations_consume_once_and_preserve_empty_schema (test_native_binding.NativeBindingTests.test_public_native_stream_destinations_consume_once_and_preserve_empty_schema) ... ok\ntest_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first (test_native_binding.NativeBindingTests.test_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first) ... ok\ntest_public_native_timeout_validation_and_no_consumption (test_native_binding.NativeBindingTests.test_public_native_timeout_validation_and_no_consumption) ... ok\ntest_public_native_wide_object_and_columnar_inputs_preserve_every_field (test_native_binding.NativeBindingTests.test_public_native_wide_object_and_columnar_inputs_preserve_every_field) ... ok\ntest_public_native_writer_and_metadata_commands_never_launch_processes (test_native_binding.NativeBindingTests.test_public_native_writer_and_metadata_commands_never_launch_processes) ... ok\ntest_range_result_export_and_prepared_declaration_reuse (test_native_binding.NativeBindingTests.test_range_result_export_and_prepared_declaration_reuse) ... ok\ntest_recursive_input_callback_is_rejected_without_poisoning_later_work (test_native_binding.NativeBindingTests.test_recursive_input_callback_is_rejected_without_poisoning_later_work) ... ok\ntest_resource_free_session_command_does_not_turn_a_call_override_into_a_default (test_native_binding.NativeBindingTests.test_resource_free_session_command_does_not_turn_a_call_override_into_a_default) ... ok\ntest_resource_override_admits_before_producer_and_does_not_replace_session_default (test_native_binding.NativeBindingTests.test_resource_override_admits_before_producer_and_does_not_replace_session_default) ... ok\ntest_retained_results_compose_as_sources_without_copying (test_native_binding.NativeBindingTests.test_retained_results_compose_as_sources_without_copying) ... ok\ntest_rich_columnar_values_and_explicit_python_rows_preserve_exact_domains (test_native_binding.NativeBindingTests.test_rich_columnar_values_and_explicit_python_rows_preserve_exact_domains) ... ok\ntest_session_command_inside_columnar_producer_preserves_join_dependency (test_native_binding.NativeBindingTests.test_session_command_inside_columnar_producer_preserves_join_dependency) ... ok\ntest_session_command_refuses_smaller_grant_while_native_sources_and_results_are_retained (test_native_binding.NativeBindingTests.test_session_command_refuses_smaller_grant_while_native_sources_and_results_are_retained) ... ok\ntest_session_command_uses_the_configured_native_owner_for_generated_vortex_inputs (test_native_binding.NativeBindingTests.test_session_command_uses_the_configured_native_owner_for_generated_vortex_inputs) ... ok\ntest_sql_declaration_is_lazy_and_missing_source_fails_without_external_engine (test_native_binding.NativeBindingTests.test_sql_declaration_is_lazy_and_missing_source_fails_without_external_engine) ... ok\ntest_dynamic_inner_late_faults_and_unselected_queries_prevent_publication (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_dynamic_inner_late_faults_and_unselected_queries_prevent_publication) ... ok\ntest_dynamic_predicate_preserves_exact_typed_outer_values (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_dynamic_predicate_preserves_exact_typed_outer_values) ... ok\ntest_dynamic_predicates_rows_arrow_repeated_calls_and_owned_results (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_dynamic_predicates_rows_arrow_repeated_calls_and_owned_results) ... ok\ntest_public_dynamic_subquery_close_cancel_and_consumer_error_preserve_retained_batch (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests.test_public_dynamic_subquery_close_cancel_and_consumer_error_preserve_retained_batch) ... ok\ntest_balanced_large_relation_tree_and_projection_width (test_native_expression_binding.NativeExpressionBindingTests.test_balanced_large_relation_tree_and_projection_width) ... ok\ntest_directory_membership_rebinds_plan_after_adding_a_vortex_part (test_native_expression_binding.NativeExpressionBindingTests.test_directory_membership_rebinds_plan_after_adding_a_vortex_part) ... ok\ntest_exact_and_rich_literals_list_struct_call_and_cast (test_native_expression_binding.NativeExpressionBindingTests.test_exact_and_rich_literals_list_struct_call_and_cast) ... ok\ntest_preflight_failures_are_side_effect_free_and_same_plan_can_retry (test_native_expression_binding.NativeExpressionBindingTests.test_preflight_failures_are_side_effect_free_and_same_plan_can_retry) ... ok\ntest_range_filter_project_reuse_vortex_roundtrip_and_stream (test_native_expression_binding.NativeExpressionBindingTests.test_range_filter_project_reuse_vortex_roundtrip_and_stream) ... ok\ntest_typed_set_join_aggregate_sort_matches_native_sql (test_native_expression_binding.NativeExpressionBindingTests.test_typed_set_join_aggregate_sort_matches_native_sql) ... ok\ntest_window_analytics_scalar_subquery_and_public_aliases (test_native_expression_binding.NativeExpressionBindingTests.test_window_analytics_scalar_subquery_and_public_aliases) ... ok\ntest_chunked_object_sources_preserve_ordinary_exact_repeated_execution (test_native_multiway_binding.NativeMultiwayBindingTests.test_chunked_object_sources_preserve_ordinary_exact_repeated_execution) ... ok\ntest_cyclic_existence_native_sized_sources_preserve_exact_semantics (test_native_multiway_binding.NativeMultiwayBindingTests.test_cyclic_existence_native_sized_sources_preserve_exact_semantics) ... ok\ntest_installed_public_command_preserves_three_input_join_semantics (test_native_multiway_binding.NativeMultiwayBindingTests.test_installed_public_command_preserves_three_input_join_semantics) ... ok\ntest_typed_cyclic_existence_preserves_outer_rows_and_prepared_reuse (test_native_multiway_binding.NativeMultiwayBindingTests.test_typed_cyclic_existence_preserves_outer_rows_and_prepared_reuse) ... ok\ntest_empty_null_and_partial_output_wait_for_final_demand (test_native_output_window_binding.NativeOutputWindowBindingTests.test_empty_null_and_partial_output_wait_for_final_demand) ... ok\ntest_late_error_keeps_prefix_and_never_certifies_completion (test_native_output_window_binding.NativeOutputWindowBindingTests.test_late_error_keeps_prefix_and_never_certifies_completion) ... ok\ntest_normal_build_validation_and_disabled_observation (test_native_output_window_binding.NativeOutputWindowBindingTests.test_normal_build_validation_and_disabled_observation) ... ok\ntest_normal_package_checks_actual_admission_boundaries (test_native_output_window_binding.NativeOutputWindowBindingTests.test_normal_package_checks_actual_admission_boundaries) ... ok\ntest_public_producer_remains_lazy_and_ordinary (test_native_output_window_binding.NativeOutputWindowBindingTests.test_public_producer_remains_lazy_and_ordinary) ... ok\ntest_public_sql_and_dataframe_slicing_preserves_values_and_policy (test_native_output_window_binding.NativeOutputWindowBindingTests.test_public_sql_and_dataframe_slicing_preserves_values_and_policy) ... ok\ntest_dataframe_sample_repeats_and_releases_through_the_native_public_path (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests.test_dataframe_sample_repeats_and_releases_through_the_native_public_path) ... ok\ntest_prepared_sql_preserves_real_projection_filter_and_limit_exclusions (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests.test_prepared_sql_preserves_real_projection_filter_and_limit_exclusions) ... ok\ntest_prepared_sql_retains_scalar_model_with_exact_source_seed_and_projection_identity (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests.test_prepared_sql_retains_scalar_model_with_exact_source_seed_and_projection_identity) ... ok\ntest_compatibility_csv_generation_change_fails_without_invalidating_retained_result (test_native_primitive_binding.NativePrimitiveBindingTests.test_compatibility_csv_generation_change_fails_without_invalidating_retained_result) ... ok\ntest_context_read_reuses_one_native_preparation_across_queries_and_writers (test_native_primitive_binding.NativePrimitiveBindingTests.test_context_read_reuses_one_native_preparation_across_queries_and_writers) ... ok\ntest_declared_csv_source_options_filter_rows_and_write_vortex_readback (test_native_primitive_binding.NativePrimitiveBindingTests.test_declared_csv_source_options_filter_rows_and_write_vortex_readback) ... ok\ntest_empty_native_projection_rewrite_and_sort_keep_typed_schemas (test_native_primitive_binding.NativePrimitiveBindingTests.test_empty_native_projection_rewrite_and_sort_keep_typed_schemas) ... ok\ntest_missing_source_admission_and_cancellation_are_side_effect_free_then_recover (test_native_primitive_binding.NativePrimitiveBindingTests.test_missing_source_admission_and_cancellation_are_side_effect_free_then_recover) ... ok\ntest_native_sort_plan_stream_has_global_order_and_completion_report (test_native_primitive_binding.NativePrimitiveBindingTests.test_native_sort_plan_stream_has_global_order_and_completion_report) ... ok\ntest_partitioned_native_aggregate_matches_single_source_with_offsets_transforms_and_having (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_native_aggregate_matches_single_source_with_offsets_transforms_and_having) ... ok\ntest_partitioned_sort_preserves_global_ties_nulls_projection_predicate_and_streamed_output (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_sort_preserves_global_ties_nulls_projection_predicate_and_streamed_output) ... ok\ntest_partitioned_sort_streams_selected_payload_in_global_order (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_sort_streams_selected_payload_in_global_order) ... ok\ntest_partitioned_structured_projection_delivers_all_rows_past_collection_threshold (test_native_primitive_binding.NativePrimitiveBindingTests.test_partitioned_structured_projection_delivers_all_rows_past_collection_threshold) ... ok\ntest_public_native_projection_filter_sort_rewrite_and_counts_keep_complete_values (test_native_primitive_binding.NativePrimitiveBindingTests.test_public_native_projection_filter_sort_rewrite_and_counts_keep_complete_values) ... ok\ntest_retained_collection_declarations_rebind_directory_and_manifest_membership (test_native_primitive_binding.NativePrimitiveBindingTests.test_retained_collection_declarations_rebind_directory_and_manifest_membership) ... ok\ntest_retained_parquet_and_orc_sql_plans_reject_changed_source_generation (test_native_primitive_binding.NativePrimitiveBindingTests.test_retained_parquet_and_orc_sql_plans_reject_changed_source_generation) ... ok\ntest_retained_result_denies_small_grant_then_releases_for_retry_and_rejects_stale_file (test_native_primitive_binding.NativePrimitiveBindingTests.test_retained_result_denies_small_grant_then_releases_for_retry_and_rejects_stale_file) ... ok\ntest_sql_collection_and_compatibility_writes_preserve_complete_rows (test_native_primitive_binding.NativePrimitiveBindingTests.test_sql_collection_and_compatibility_writes_preserve_complete_rows) ... ok\ntest_sql_file_declarations_reuse_the_shared_primitive_providers (test_native_primitive_binding.NativePrimitiveBindingTests.test_sql_file_declarations_reuse_the_shared_primitive_providers) ... ok\ntest_sql_provider_selection_preserves_memory_bindings_and_relational_shapes (test_native_primitive_binding.NativePrimitiveBindingTests.test_sql_provider_selection_preserves_memory_bindings_and_relational_shapes) ... ok\ntest_vortex_directory_and_explicit_manifest_preserve_part_order_and_values (test_native_primitive_binding.NativePrimitiveBindingTests.test_vortex_directory_and_explicit_manifest_preserve_part_order_and_values) ... ok\ntest_sampling_population_spill_matches_fixture_oracle_across_terminals (test_native_sampling_population_binding.NativeSamplingPopulationBindingTests.test_sampling_population_spill_matches_fixture_oracle_across_terminals) ... ok\ntest_native_set_independent_repeated_and_positional_sources_across_terminals (test_native_set_binding.NativeSetBindingTests.test_native_set_independent_repeated_and_positional_sources_across_terminals) ... ok\ntest_native_set_late_failure_zero_limit_and_early_consumer_close (test_native_set_binding.NativeSetBindingTests.test_native_set_late_failure_zero_limit_and_early_consumer_close) ... ok\ntest_native_set_membership_spill_bounded_batches_and_fanout_complete_exactly (test_native_set_binding.NativeSetBindingTests.test_native_set_membership_spill_bounded_batches_and_fanout_complete_exactly) ... ok\ntest_native_set_rich_full_row_equality_preserves_owned_output (test_native_set_binding.NativeSetBindingTests.test_native_set_rich_full_row_equality_preserves_owned_output) ... ok\ntest_native_set_rich_membership_spill_preserves_complete_nested_and_typed_rows (test_native_set_binding.NativeSetBindingTests.test_native_set_rich_membership_spill_preserves_complete_nested_and_typed_rows) ... ok\ntest_direct_scalar_typed_values_empty_inner_and_native_relation_plan (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_scalar_typed_values_empty_inner_and_native_relation_plan) ... ok\ntest_direct_subquery_plans_rows_arrow_reuse_and_retained_results (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_subquery_plans_rows_arrow_reuse_and_retained_results) ... ok\ntest_direct_unused_arrow_nan_is_validated_without_scalar_evaluation (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_unused_arrow_nan_is_validated_without_scalar_evaluation) ... ok\ntest_direct_unused_inner_faults_cancel_and_scalar_errors_prevent_publication (test_native_subquery_binding.NativeSubqueryBindingTests.test_direct_unused_inner_faults_cancel_and_scalar_errors_prevent_publication) ... ok\ntest_public_native_scalar_close_and_consumer_exception_leave_retained_rows_valid (test_native_subquery_binding.NativeSubqueryBindingTests.test_public_native_scalar_close_and_consumer_exception_leave_retained_rows_valid) ... ok\ntest_spilled_predicates_rows_arrow_collect_batches_and_publication (test_native_subquery_membership_binding.NativeSubqueryMembershipBindingTests.test_spilled_predicates_rows_arrow_collect_batches_and_publication) ... ok\ntest_native_unary_early_close_retains_output_without_completion_report (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_early_close_retains_output_without_completion_report) ... ok\ntest_native_unary_families_columnar_and_scalar_input_across_all_terminals (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_families_columnar_and_scalar_input_across_all_terminals) ... ok\ntest_native_unary_late_failure_zero_limit_cancellation_and_clean_reuse (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_late_failure_zero_limit_cancellation_and_clean_reuse) ... ok\ntest_native_unary_membership_spill_preserves_exact_rows_across_terminals (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_membership_spill_preserves_exact_rows_across_terminals) ... ok\ntest_native_unary_repeated_branch_uses_one_producer_and_explicit_replay (test_native_unary_binding.NativeUnaryBindingTests.test_native_unary_repeated_branch_uses_one_producer_and_explicit_replay) ... ok\n\n----------------------------------------------------------------------\nRan 121 tests in 85.925s\n\nOK\n"
+        },
+        {
+          "name": "proof/load.log",
+          "sha256": "bc34463db376ddd2d5db9346abf601e1269e0020508636f47177291532e87674",
+          "size_bytes": 551,
+          "text": "{\"package\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py\", \"native_library\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so\", \"cli\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom\", \"version\": \"0.7.0\", \"python\": \"3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]\", \"isolated_install\": true}\n"
+        },
+        {
+          "name": "proof/report.json",
+          "sha256": "6276bdf7a82b44db81a348e4b1f457a80aba875e05f72cd3509bc57f82d5bca6",
+          "size_bytes": 9082,
+          "text": "{\n  \"schema_version\": \"shardloom.native_python_wheel_proof.v1\",\n  \"status\": \"passed\",\n  \"python\": \"3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]\",\n  \"platform\": \"macOS-26.6.2-arm64-arm-64bit-Mach-O\",\n  \"steps\": [\n    {\n      \"name\": \"build\",\n      \"command\": [\n        \"/Library/Frameworks/Python.framework/Versions/3.13/bin/python\",\n        \"-m\",\n        \"pip\",\n        \"wheel\",\n        \"--no-build-isolation\",\n        \"--no-deps\",\n        \"--no-index\",\n        \"--wheel-dir\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/dist\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/package\"\n      ],\n      \"log\": \"build.log\",\n      \"returncode\": 0,\n      \"seconds\": 6.336890709000045,\n      \"log_sha256\": \"a2ad2ea58b167824b6cbc24f3168c94de43d05b15ae5c6bb3a411f2153f49947\"\n    },\n    {\n      \"name\": \"create_environment\",\n      \"command\": [\n        \"/Library/Frameworks/Python.framework/Versions/3.13/bin/python\",\n        \"-m\",\n        \"venv\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv\"\n      ],\n      \"log\": \"create_environment.log\",\n      \"returncode\": 0,\n      \"seconds\": 2.077786040999854,\n      \"log_sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n    },\n    {\n      \"name\": \"install_optional_consumer\",\n      \"command\": [\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python\",\n        \"-I\",\n        \"-m\",\n        \"pip\",\n        \"install\",\n        \"--no-index\",\n        \"--find-links\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/wheelhouse\",\n        \"--only-binary=:all:\",\n        \"--require-hashes\",\n        \"-r\",\n        \"/Users/runner/work/shardloom/shardloom/.github/requirements/ci-native-python.txt\"\n      ],\n      \"log\": \"install_optional_consumer.log\",\n      \"returncode\": 0,\n      \"seconds\": 1.4733147500000996,\n      \"log_sha256\": \"ebfe99be01d237c64fde9404717b3da9dc9ab2fac6093104871a97a4a213fdba\"\n    },\n    {\n      \"name\": \"install\",\n      \"command\": [\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python\",\n        \"-I\",\n        \"-m\",\n        \"pip\",\n        \"install\",\n        \"--no-index\",\n        \"--no-deps\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/dist/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl\"\n      ],\n      \"log\": \"install.log\",\n      \"returncode\": 0,\n      \"seconds\": 1.322743833000004,\n      \"log_sha256\": \"c8ddf72b98729365497e84a4ba917bdbfd83f50c9e2f5e08136340317aa27807\"\n    },\n    {\n      \"name\": \"load\",\n      \"command\": [\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python\",\n        \"-I\",\n        \"-c\",\n        \"\\nimport hashlib, json, pathlib, subprocess, sys\\nimport shardloom\\nfrom shardloom import _native, ShardLoomClient\\nroot = pathlib.Path(sys.prefix).resolve()\\npackage = pathlib.Path(shardloom.__file__).resolve()\\nlibrary = pathlib.Path(_native.__file__).resolve()\\nassert root in package.parents and root in library.parents, (root, package, library)\\nassert _native.__version__ == shardloom.__version__\\nassert _native.execution_provider == \\\"shared_shardloom_native\\\"\\ndef digest(path):\\n    value = hashlib.sha256()\\n    with path.open(\\\"rb\\\") as stream:\\n        for block in iter(lambda: stream.read(1 << 20), b\\\"\\\"): value.update(block)\\n    return value.hexdigest()\\nassert digest(library) == sys.argv[1]\\nclient = ShardLoomClient()\\nbinary = pathlib.Path(client.binary_command()[0]).resolve()\\nassert root in binary.parents and digest(binary) == sys.argv[2]\\ncli_version = subprocess.check_output([str(binary), \\\"--version\\\"], text=True).strip()\\nassert cli_version == \\\"shardloom \\\" + shardloom.__version__, cli_version\\nclient.close()\\nprint(json.dumps({\\\"package\\\": str(package), \\\"native_library\\\": str(library),\\n                  \\\"cli\\\": str(binary), \\\"version\\\": shardloom.__version__,\\n                  \\\"python\\\": sys.version, \\\"isolated_install\\\": True}))\\n\",\n        \"0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645\",\n        \"5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d\"\n      ],\n      \"log\": \"load.log\",\n      \"returncode\": 0,\n      \"seconds\": 0.40677229099992473,\n      \"log_sha256\": \"bc34463db376ddd2d5db9346abf601e1269e0020508636f47177291532e87674\"\n    },\n    {\n      \"name\": \"integration\",\n      \"command\": [\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python\",\n        \"-I\",\n        \"-c\",\n        \"\\nimport json, pathlib, sys, unittest\\nsuite = unittest.defaultTestLoader.discover(sys.argv[1], pattern=\\\"test_native*binding.py\\\")\\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\\nreport = {\\\"tests\\\": result.testsRun, \\\"failures\\\": len(result.failures),\\n          \\\"errors\\\": len(result.errors), \\\"skipped\\\": len(result.skipped)}\\npassed = result.wasSuccessful() and result.testsRun > 0 and not result.skipped\\nreport[\\\"status\\\"] = \\\"passed\\\" if passed else \\\"failed\\\"\\npathlib.Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + \\\"\\\\n\\\")\\nraise SystemExit(0 if passed else 1)\\n\",\n        \"/Users/runner/work/shardloom/shardloom/python/tests\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/integration.json\"\n      ],\n      \"log\": \"integration.log\",\n      \"returncode\": 0,\n      \"seconds\": 86.37964220899994,\n      \"log_sha256\": \"0534a50be9fbf825a90820c6bb30857a547c1e89d480cbec79bfe08668af58a6\"\n    },\n    {\n      \"name\": \"uninstall\",\n      \"command\": [\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python\",\n        \"-I\",\n        \"-m\",\n        \"pip\",\n        \"uninstall\",\n        \"--yes\",\n        \"shardloom\"\n      ],\n      \"log\": \"uninstall.log\",\n      \"returncode\": 0,\n      \"seconds\": 0.6029786670001158,\n      \"log_sha256\": \"bd12e73198830d25b4c657a83c4dd083f8ff52b66637e3e80b536370cb442477\"\n    },\n    {\n      \"name\": \"verify_uninstalled\",\n      \"command\": [\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python\",\n        \"-I\",\n        \"-c\",\n        \"import importlib.util, pathlib, sys; assert importlib.util.find_spec('shardloom') is None; assert all(not pathlib.Path(path).exists() for path in sys.argv[1:])\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so\",\n        \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom\"\n      ],\n      \"log\": \"verify_uninstalled.log\",\n      \"returncode\": 0,\n      \"seconds\": 0.04365283300012379,\n      \"log_sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n    }\n  ],\n  \"build_tools\": {\n    \"setuptools\": \"84.0.0\",\n    \"wheel\": \"0.48.0\",\n    \"pip\": \"26.2.1\"\n  },\n  \"publication_attempted\": false,\n  \"performance_claim\": false,\n  \"scope\": \"current_host_native_wheel_install_and_binding_integration\",\n  \"stage\": {\n    \"status\": \"passed\",\n    \"destination\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/package\",\n    \"native_library_sha256\": \"0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645\",\n    \"cli_sha256\": \"5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d\",\n    \"python_abi\": \"cp310-abi3\",\n    \"wheel_platform_tag\": \"macosx_26_0_arm64\",\n    \"licenses\": {\n      \"status\": \"passed\",\n      \"registry_packages\": 428,\n      \"vendored_packages\": 8,\n      \"license_file_records\": 808,\n      \"unique_text_files\": 243\n    },\n    \"published\": false\n  },\n  \"integrity\": {\n    \"schema_version\": \"shardloom.native_python_wheel_integrity.v1\",\n    \"status\": \"passed\",\n    \"wheel\": \"shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl\",\n    \"wheel_sha256\": \"2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8\",\n    \"wheel_bytes\": 49863821,\n    \"native_library_sha256\": \"0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645\",\n    \"cli_sha256\": \"5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d\",\n    \"tag\": \"cp310-abi3-macosx_26_0_arm64\",\n    \"python_source_files\": 22,\n    \"linux_audit_verified\": false,\n    \"licenses\": {\n      \"status\": \"passed\",\n      \"registry_packages\": 428,\n      \"vendored_packages\": 8,\n      \"license_file_records\": 808,\n      \"unique_text_files\": 243\n    },\n    \"load_verified\": false,\n    \"published\": false\n  },\n  \"integration\": {\n    \"tests\": 121,\n    \"failures\": 0,\n    \"errors\": 0,\n    \"skipped\": 0,\n    \"status\": \"passed\"\n  },\n  \"installed_load\": {\n    \"package\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py\",\n    \"native_library\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so\",\n    \"cli\": \"/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom\",\n    \"version\": \"0.7.0\",\n    \"python\": \"3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]\",\n    \"isolated_install\": true\n  },\n  \"uninstall_status\": \"passed\"\n}\n"
+        },
+        {
+          "name": "proof/uninstall.log",
+          "sha256": "bd12e73198830d25b4c657a83c4dd083f8ff52b66637e3e80b536370cb442477",
+          "size_bytes": 118,
+          "text": "Found existing installation: shardloom 0.7.0\nUninstalling shardloom-0.7.0:\n  Successfully uninstalled shardloom-0.7.0\n"
+        },
+        {
+          "name": "proof/verify_uninstalled.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0,
+          "text": ""
+        }
+      ],
+      "proof_report": {
+        "build_tools": {
+          "pip": "26.2.1",
+          "setuptools": "84.0.0",
+          "wheel": "0.48.0"
+        },
+        "installed_load": {
+          "cli": "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+          "isolated_install": true,
+          "native_library": "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+          "package": "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+          "python": "3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]",
+          "version": "0.7.0"
+        },
+        "integration": {
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "status": "passed",
+          "tests": 121
+        },
+        "integrity": {
+          "cli_sha256": "5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d",
+          "licenses": {
+            "license_file_records": 808,
+            "registry_packages": 428,
+            "status": "passed",
+            "unique_text_files": 243,
+            "vendored_packages": 8
+          },
+          "linux_audit_verified": false,
+          "load_verified": false,
+          "native_library_sha256": "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+          "published": false,
+          "python_source_files": 22,
+          "schema_version": "shardloom.native_python_wheel_integrity.v1",
+          "status": "passed",
+          "tag": "cp310-abi3-macosx_26_0_arm64",
+          "wheel": "shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "wheel_bytes": 49863821,
+          "wheel_sha256": "2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8"
+        },
+        "performance_claim": false,
+        "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+        "publication_attempted": false,
+        "python": "3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]",
+        "schema_version": "shardloom.native_python_wheel_proof.v1",
+        "scope": "current_host_native_wheel_install_and_binding_integration",
+        "stage": {
+          "cli_sha256": "5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d",
+          "destination": "/Users/runner/work/_temp/registry-python-x82m6x21/proof/package",
+          "licenses": {
+            "license_file_records": 808,
+            "registry_packages": 428,
+            "status": "passed",
+            "unique_text_files": 243,
+            "vendored_packages": 8
+          },
+          "native_library_sha256": "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+          "published": false,
+          "python_abi": "cp310-abi3",
+          "status": "passed",
+          "wheel_platform_tag": "macosx_26_0_arm64"
+        },
+        "status": "passed",
+        "steps": [
+          {
+            "command": [
+              "/Library/Frameworks/Python.framework/Versions/3.13/bin/python",
+              "-m",
+              "pip",
+              "wheel",
+              "--no-build-isolation",
+              "--no-deps",
+              "--no-index",
+              "--wheel-dir",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/dist",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/package"
+            ],
+            "log": "build.log",
+            "log_sha256": "a2ad2ea58b167824b6cbc24f3168c94de43d05b15ae5c6bb3a411f2153f49947",
+            "name": "build",
+            "returncode": 0,
+            "seconds": 6.336890709000045
+          },
+          {
+            "command": [
+              "/Library/Frameworks/Python.framework/Versions/3.13/bin/python",
+              "-m",
+              "venv",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv"
+            ],
+            "log": "create_environment.log",
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "name": "create_environment",
+            "returncode": 0,
+            "seconds": 2.077786040999854
+          },
+          {
+            "command": [
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python",
+              "-I",
+              "-m",
+              "pip",
+              "install",
+              "--no-index",
+              "--find-links",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/wheelhouse",
+              "--only-binary=:all:",
+              "--require-hashes",
+              "-r",
+              "/Users/runner/work/shardloom/shardloom/.github/requirements/ci-native-python.txt"
+            ],
+            "log": "install_optional_consumer.log",
+            "log_sha256": "ebfe99be01d237c64fde9404717b3da9dc9ab2fac6093104871a97a4a213fdba",
+            "name": "install_optional_consumer",
+            "returncode": 0,
+            "seconds": 1.4733147500000996
+          },
+          {
+            "command": [
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python",
+              "-I",
+              "-m",
+              "pip",
+              "install",
+              "--no-index",
+              "--no-deps",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/dist/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl"
+            ],
+            "log": "install.log",
+            "log_sha256": "c8ddf72b98729365497e84a4ba917bdbfd83f50c9e2f5e08136340317aa27807",
+            "name": "install",
+            "returncode": 0,
+            "seconds": 1.322743833000004
+          },
+          {
+            "command": [
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python",
+              "-I",
+              "-c",
+              "\nimport hashlib, json, pathlib, subprocess, sys\nimport shardloom\nfrom shardloom import _native, ShardLoomClient\nroot = pathlib.Path(sys.prefix).resolve()\npackage = pathlib.Path(shardloom.__file__).resolve()\nlibrary = pathlib.Path(_native.__file__).resolve()\nassert root in package.parents and root in library.parents, (root, package, library)\nassert _native.__version__ == shardloom.__version__\nassert _native.execution_provider == \"shared_shardloom_native\"\ndef digest(path):\n    value = hashlib.sha256()\n    with path.open(\"rb\") as stream:\n        for block in iter(lambda: stream.read(1 << 20), b\"\"): value.update(block)\n    return value.hexdigest()\nassert digest(library) == sys.argv[1]\nclient = ShardLoomClient()\nbinary = pathlib.Path(client.binary_command()[0]).resolve()\nassert root in binary.parents and digest(binary) == sys.argv[2]\ncli_version = subprocess.check_output([str(binary), \"--version\"], text=True).strip()\nassert cli_version == \"shardloom \" + shardloom.__version__, cli_version\nclient.close()\nprint(json.dumps({\"package\": str(package), \"native_library\": str(library),\n                  \"cli\": str(binary), \"version\": shardloom.__version__,\n                  \"python\": sys.version, \"isolated_install\": True}))\n",
+              "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+              "5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d"
+            ],
+            "log": "load.log",
+            "log_sha256": "bc34463db376ddd2d5db9346abf601e1269e0020508636f47177291532e87674",
+            "name": "load",
+            "returncode": 0,
+            "seconds": 0.40677229099992473
+          },
+          {
+            "command": [
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python",
+              "-I",
+              "-c",
+              "\nimport json, pathlib, sys, unittest\nsuite = unittest.defaultTestLoader.discover(sys.argv[1], pattern=\"test_native*binding.py\")\nresult = unittest.TextTestRunner(verbosity=2).run(suite)\nreport = {\"tests\": result.testsRun, \"failures\": len(result.failures),\n          \"errors\": len(result.errors), \"skipped\": len(result.skipped)}\npassed = result.wasSuccessful() and result.testsRun > 0 and not result.skipped\nreport[\"status\"] = \"passed\" if passed else \"failed\"\npathlib.Path(sys.argv[2]).write_text(json.dumps(report, indent=2) + \"\\n\")\nraise SystemExit(0 if passed else 1)\n",
+              "/Users/runner/work/shardloom/shardloom/python/tests",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/integration.json"
+            ],
+            "log": "integration.log",
+            "log_sha256": "0534a50be9fbf825a90820c6bb30857a547c1e89d480cbec79bfe08668af58a6",
+            "name": "integration",
+            "returncode": 0,
+            "seconds": 86.37964220899994
+          },
+          {
+            "command": [
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python",
+              "-I",
+              "-m",
+              "pip",
+              "uninstall",
+              "--yes",
+              "shardloom"
+            ],
+            "log": "uninstall.log",
+            "log_sha256": "bd12e73198830d25b4c657a83c4dd083f8ff52b66637e3e80b536370cb442477",
+            "name": "uninstall",
+            "returncode": 0,
+            "seconds": 0.6029786670001158
+          },
+          {
+            "command": [
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/bin/python",
+              "-I",
+              "-c",
+              "import importlib.util, pathlib, sys; assert importlib.util.find_spec('shardloom') is None; assert all(not pathlib.Path(path).exists() for path in sys.argv[1:])",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+              "/Users/runner/work/_temp/registry-python-x82m6x21/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom"
+            ],
+            "log": "verify_uninstalled.log",
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "name": "verify_uninstalled",
+            "returncode": 0,
+            "seconds": 0.04365283300012379
+          }
+        ],
+        "uninstall_status": "passed"
+      },
+      "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8",
+      "source_program_sha256": {
+        "IMPORT_CHECK": "648bc5fd7d4bf97209c941ed69f39f198f132d35d820d283120f4f817bcdb445",
+        "RUN_TESTS": "4572a2910b956f8e33a70f7737633a5aa0ac44187df98e6bb2b85f67e4a00015"
+      },
+      "status": "passed",
+      "uninstall_status": "passed",
+      "wheel": "shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "wheel_sha256": "2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8",
+      "workflow_artifact_archive_sha256": "1df14b5ebd7b6f91dab5d120d134e56846662dfb10b8f27e2a334c0eb4489ac1",
+      "workflow_artifact_archive_size_bytes": 9342,
+      "workflow_artifact_id": 12415371036,
+      "workflow_artifact_name": "native-registry-proof-macos",
+      "workflow_run_id": 39750575360
+    }
+  ],
+  "observed_at_utc": "2026-10-22T09:28:09.679854Z",
+  "package_name": "shardloom",
+  "package_upload_attempted": false,
+  "package_version": "0.7.0",
+  "proof_status": "passed",
+  "provenance_status": "unsigned_post_publication_observation",
+  "publication_attempted": false,
+  "registry_inventory_ref": {
+    "path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi-registry.json",
+    "sha256": "5356ec4a6e5b28df0efa75182859c67ce3cecbc1e43c55717c707b49f5a79262"
+  },
+  "release_source_commit": "7ae9f0e44ddf3c8f09520fe318852cd873db3817",
+  "runtime_and_packaging_source_equal_to_release": true,
+  "sbom_ref": {
+    "path": "docs/release/channel-proofs/pypi-v0.7.0-sbom.cdx.json",
+    "sha256": "8604389700a2c304baeb74bb366b2142def4460e57ab12f147e6e354013b35f0"
+  },
+  "schema_version": "shardloom.registry_release_evidence.v1",
+  "source_changes_from_release": [
+    "docs/release/channel-proofs/github-prerelease-v0.7.0-transcript.json",
+    "docs/release/channel-proofs/testpypi-v0.7.0-bundled-smoke.stdout.json",
+    "docs/release/channel-proofs/testpypi-v0.7.0-transcript.json"
+  ],
+  "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8",
+  "source_declared_inventory": {
+    "cargo_lock_package_count": 443,
+    "cargo_lock_registry_package_count": 428,
+    "python_optional_dependencies": {
+      "materialization": [
+        "numpy",
+        "pandas",
+        "pyarrow"
+      ]
+    },
+    "python_required_dependencies": [],
+    "scope": "actual build source declarations;not compiled or linked dependency proof"
+  },
+  "source_inputs": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "6ed283cf0146851122cf043f08811d9e904a4f49e67ce60c51e3de34c8b7a2ab",
+      "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8"
+    },
+    {
+      "path": "python/pyproject.toml",
+      "sha256": "ccccae0c2a4c1065483a9618c7d1fe0ba4d4be509b1eaa8b742322d04f0644bb",
+      "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8"
+    },
+    {
+      "path": ".github/workflows/pypi-publish-draft.yml",
+      "sha256": "3282bb0b3060ef1c0acd44b995f01237347b1ace623215aeb96ed11c9dbb9bcf",
+      "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8"
+    },
+    {
+      "path": "scripts/prove_native_python_wheel.py",
+      "sha256": "8e308394dbdca2185bc5a8bb4cc1cddba3a33de91050744d33be0eb44161952d",
+      "source_commit": "1147a3386558c73178a4765a872df40b222bb8d8"
+    }
+  ],
+  "workflow_artifact_inventory_ref": {
+    "path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi-artifacts.json",
+    "sha256": "efc334744202e89a164a6266354cb8e211cabb0dec501cd9abca9c4a26962f66"
+  },
+  "workflow_attempt": 1,
+  "workflow_metadata_ref": {
+    "path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-070-kxds_6kc/pypi-workflow.json",
+    "sha256": "9b57878ab0831a114886ef936a7581548c99f3d0289338ab71aedd4c5a993b48"
+  },
+  "workflow_observation": {
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "head_sha": "1147a3386558c73178a4765a872df40b222bb8d8",
+    "html_url": "https://github.com/depsilon/shardloom/actions/runs/39750575360",
+    "id": 39750575360,
+    "path": ".github/workflows/pypi-publish-draft.yml",
+    "run_attempt": 1,
+    "status": "completed"
+  },
+  "workflow_path": ".github/workflows/pypi-publish-draft.yml",
+  "workflow_run_id": 39750575360,
+  "workflow_url": "https://github.com/depsilon/shardloom/actions/runs/39750575360"
+}

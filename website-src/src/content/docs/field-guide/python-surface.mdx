@@ -17,8 +17,9 @@ copyable [paid-orders example](/field-guide/start-local-proof).
 The first workflow uses `ctx.read_csv(path)`, `filter(sl.col("status") == "paid")`,
 `sort("order_id")`, and `collect(check=True)`. Building that fluent chain does
 not execute the query. Collection executes once under the declared allocation.
-Set `check=True` in 0.6.0 to raise `ShardLoomCommandError` with its structured
-diagnostic rather than inspect a failed execution report yourself.
+Execution errors raise typed exceptions by default. Use `check=False` only when
+you intend to inspect an unsuccessful report, and check `is_error` before using
+its values.
 
 `ctx.read(path)` infers the reader from the extension. Named helpers such as
 `read_csv`, `read_json`, `read_parquet`, and `read_vortex` make the boundary explicit.
@@ -31,25 +32,26 @@ not a query execution backend. Resource validation happens before data access.
 
 ## Consume results
 
-| Intent | Published 0.6.0 operation | Result |
+| Intent | Published 0.7.0 operation | Result |
 | --- | --- | --- |
-| Collect a small complete result | `plan.collect(check=True)` | Data and execution report in `VortexWorkflowExecutionReport`; retained native owner when using native transport. |
-| Read schema | `result.result_schema` | Ordered names and logical types, including empty results. |
-| Convert to Python values | `result.python_objects` | Complete tuple of row mappings; allocates Python objects explicitly. |
+| Collect a small complete result | `plan.collect()` | `Result` with data and execution details; retained native owner when using native transport. |
+| Read schema | `result.schema` | Ordered names and logical types, including empty results. |
+| Convert to Python values | `result.to_rows()` | Complete tuple of row mappings; allocates Python objects explicitly. |
 | Export columnar data | `result.to_arrow()` | Arrow table; requires optional PyArrow and may convert encoded buffers. |
 | Export to pandas or NumPy | `result.to_pandas()`, `result.to_numpy()` | Explicit optional integration with its documented type conversion. |
 | Deliver larger admitted results | `plan.iter_batches()` or a writer | Bounded delivery rather than an arbitrary-sized Python tuple. |
-| Inspect execution | `result.envelope` | Structured diagnostics, source identity and native execution evidence. |
+| Inspect execution | `result.details` | Typed execution envelope with diagnostics, source identity and native execution evidence. |
 
 Small computed-result collection is limited to **65,536 rows and 8 MiB** in this
-release. `result_rows` is the wire-oriented row representation; `python_objects`
+release. `result_rows` is the wire-oriented row representation; `to_rows()`
 restores logical binary, decimal and temporal values. Neither conversion reruns
 the source. A query memory allocation does not bound consumer-retained Python objects.
 
 `run()` is the compatibility report-oriented operation; it is not a shortcut
 to faster execution. `profile()` performs bounded profiling and returns its
 own statistics. Prefer `collect()` for data and an explicit writer for persistence.
-The [development migration](/field-guide/development) explains the newer result names.
+The [migration guide](/field-guide/development) explains the compatibility aliases
+and changes from earlier releases.
 
 ## Consume results in batches
 
@@ -63,7 +65,7 @@ with plan.iter_batches(batch_rows=1024) as batches:
 ```
 
 Here `plan` is an admitted native or typed-input plan and `consume` is your own
-batch consumer. For compatibility files in 0.6.0, prepare them to Vortex before
+batch consumer. Prepare compatibility files to Vortex before
 batch consumption. Python batch pipes require Linux or macOS; the Windows
 CLI-backed package supports collection and writers instead. A batch is provisional until the input is fully drained and
 the final report succeeds: a later producer error invalidates completion.
@@ -90,10 +92,10 @@ The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
 
 ## Keep results native
 
-On a supported native wheel, configure `transport="native"` explicitly in 0.6.0.
-A collected result retains its native owner. Pass that result directly to
-`ctx.from_arrow_table(result)` for subsequent native work: this historical method
-name also recognizes ShardLoom-owned data and does **not** require an Arrow export.
+On Linux/macOS native installations, contexts select native transport by default
+unless an explicit CLI configuration selects process execution. A collected
+result retains its native owner. Pass it to `ctx.from_result(result)` for
+subsequent native work without an Arrow export.
 Same-owner admission shares ownership; cross-owner transfer may copy encoded
 buffers under the receiving allocation. Do not convert to rows merely to chain work.
 
@@ -102,9 +104,9 @@ messages for the pinned provider within a combined 64 MiB intake limit. Its
 [encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
 lists the accepted schemas and encodings. Native file inputs use `read_vortex`.
 
-The published context is a configuration facade; call `ctx.client.close()` when
-finished. Direct native results keep their promised independent owner after
-session close. Closing or cancelling active work has distinct semantics; see
+Use `with sl.context(...) as ctx:` or call `ctx.close()` when finished. Completed
+native results keep their independent owner after the context closes.
+Closing or cancelling active work has distinct semantics; see
 [lifetime and cancellation](/field-guide/resources#lifetime-and-cancellation).
 
 ## Next steps

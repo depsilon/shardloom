@@ -17,19 +17,23 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import registry_release_evidence as evidence
 
 
-def native_fixture(linux=False):
+def native_fixture(linux=False, package_version=evidence.VERSION):
     """Inert report/log fixture. No command or module in this fixture runs."""
+    if package_version not in evidence.NATIVE_PROOF_EXPECTATIONS:
+        raise ValueError("unsupported native proof fixture version")
+    expected = evidence.NATIVE_PROOF_EXPECTATIONS[package_version]
     kind = "python-dist-linux" if linux else "python-dist-macos"
     filename, platform, _ = evidence.KINDS[kind]
+    filename = filename.replace(evidence.VERSION, package_version)
     native_sha, cli_sha = "b" * 64, "c" * 64
     distribution = {"filename": filename, "sha256": "a" * 64, "size_bytes": 900,
-        "wheel_tag": filename[len("shardloom-0.6.0-"):-4], "url": "https://example.invalid/" + filename,
+        "wheel_tag": filename[len("shardloom-" + package_version + "-"):-4], "url": "https://example.invalid/" + filename,
         "native_library": {"member": "shardloom/_native.abi3.so", "sha256": native_sha,
                            "size_bytes": 64, "python_abi": "cp310-abi3"},
         "bundled_cli": {"member": "shardloom/bin/" + platform + "/shardloom",
                         "sha256": cli_sha, "size_bytes": 80, "platform": platform}}
-    integration = {"tests": 80, "failures": 0, "errors": 0, "skipped": 0, "status": "passed"}
-    installed = {"version": "0.6.0", "isolated_install": True,
+    integration = {"tests": expected["tests"], "failures": 0, "errors": 0, "skipped": 0, "status": "passed"}
+    installed = {"version": package_version, "isolated_install": True,
                  "native_library": "/env/site/shardloom/_native.abi3.so",
                  "cli": "/env/site/shardloom/bin/" + platform + "/shardloom"}
     programs = {"IMPORT_CHECK": "inert import program", "RUN_TESTS": "inert test program"}
@@ -63,9 +67,9 @@ def native_fixture(linux=False):
     if linux:
         proof["linux_audit"] = {"status": "passed", "auditwheel_version": "6.8.2",
             "platform": "manylinux_2_39_x86_64", "payloads_unchanged": True,
-            "unchanged_payload_count": 232, "wheel_sha256": distribution["sha256"]}
+            "unchanged_payload_count": expected["linux_payloads"], "wheel_sha256": distribution["sha256"]}
     build = {"schema_version": "shardloom.native_python_build.v1", "status": "passed",
-        "package_version": "0.6.0", "python_abi": "cp310-abi3", "library_sha256": native_sha,
+        "package_version": package_version, "python_abi": "cp310-abi3", "library_sha256": native_sha,
         "library_bytes": 64, "command": ["cargo", "build", "--locked", "-p", "shardloom-python",
             "--features", "python-native", "--message-format=json-render-diagnostics", "--release"]}
     files.update({"native-build.json": evidence.json_bytes(build),
@@ -125,8 +129,8 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         for path in ("../escape", "/absolute", "x/../escape", "x\\escape"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 evidence.safe_member(path)
-        self.assertEqual(evidence.package_metadata(b"Name: shardloom\nVersion: 0.6.0\n\n")["version"], "0.6.0")
-        for raw in (b"Name: other\nVersion: 0.6.0\n", b"Name: shardloom\nVersion: 0.2.3\n"):
+        self.assertEqual(evidence.package_metadata(f"Name: shardloom\nVersion: {evidence.VERSION}\n\n".encode())["version"], evidence.VERSION)
+        for raw in (f"Name: other\nVersion: {evidence.VERSION}\n".encode(), b"Name: shardloom\nVersion: 0.2.3\n"):
             with self.assertRaises(ValueError):
                 evidence.package_metadata(raw)
 
@@ -134,7 +138,7 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         rows = [{"filename": item[0], "sha256": "a" * 64, "size": 8, "url": "https://example.invalid/" + item[0]}
                 for item in evidence.KINDS.values()]
         proof = {"schema_version": "shardloom.python_registry_package_proof.v1", "proof_status": "passed",
-                 "package_version": "0.6.0", "channel_id": "testpypi", "fallback_attempted": False,
+                 "package_version": evidence.VERSION, "channel_id": "testpypi", "fallback_attempted": False,
                  "external_engine_invoked": False, "registry_release_artifacts": rows}
         def live():
             return {"urls": [dict(row, digests={"sha256": row["sha256"]}) for row in rows]}
@@ -148,11 +152,11 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         filename, platform, binary = evidence.KINDS["python-dist-macos"]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / filename
-            def write(extra=False, version="0.6.0", relocated=False, native=True, extra_native=False):
+            def write(extra=False, version=evidence.VERSION, relocated=False, native=True, extra_native=False):
                 with zipfile.ZipFile(path, "w") as archive:
-                    archive.writestr("shardloom-0.6.0.dist-info/METADATA", f"Name: shardloom\nVersion: {version}\n\n")
-                    archive.writestr("shardloom-0.6.0.dist-info/WHEEL", "Root-Is-Purelib: false\nTag: cp310-abi3-macosx_26_0_arm64\n\n")
-                    prefix = "shardloom-0.6.0.data/purelib/" if relocated else ""
+                    archive.writestr(f"shardloom-{evidence.VERSION}.dist-info/METADATA", f"Name: shardloom\nVersion: {version}\n\n")
+                    archive.writestr(f"shardloom-{evidence.VERSION}.dist-info/WHEEL", "Root-Is-Purelib: false\nTag: cp310-abi3-macosx_26_0_arm64\n\n")
+                    prefix = f"shardloom-{evidence.VERSION}.data/purelib/" if relocated else ""
                     archive.writestr(prefix + f"shardloom/bin/{platform}/{binary}", b"inert fixture, never executable")
                     if native:
                         archive.writestr("shardloom/_native.abi3.so", b"inert native module fixture")
@@ -165,7 +169,7 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
             self.assertEqual(result["bundled_cli"]["sha256"], evidence.sha_bytes(b"inert fixture, never executable"))
             self.assertEqual(result["native_library"]["sha256"], evidence.sha_bytes(b"inert native module fixture"))
             write(relocated=True)
-            self.assertTrue(evidence.inspect_distribution(path, "python-dist-macos", b"")["bundled_cli"]["member"].startswith("shardloom-0.6.0.data/purelib/"))
+            self.assertTrue(evidence.inspect_distribution(path, "python-dist-macos", b"")["bundled_cli"]["member"].startswith(f"shardloom-{evidence.VERSION}.data/purelib/"))
             write(extra=True)
             with self.assertRaises(ValueError):
                 evidence.inspect_distribution(path, "python-dist-macos", b"")
@@ -180,8 +184,8 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
             path = Path(directory) / filename
             for with_native in (False, True):
                 with zipfile.ZipFile(path, "w") as archive:
-                    archive.writestr("shardloom-0.6.0.dist-info/METADATA", "Name: shardloom\nVersion: 0.6.0\n\n")
-                    archive.writestr("shardloom-0.6.0.dist-info/WHEEL", "Root-Is-Purelib: false\nTag: cp313-cp313-win_amd64\n\n")
+                    archive.writestr(f"shardloom-{evidence.VERSION}.dist-info/METADATA", f"Name: shardloom\nVersion: {evidence.VERSION}\n\n")
+                    archive.writestr(f"shardloom-{evidence.VERSION}.dist-info/WHEEL", "Root-Is-Purelib: false\nTag: cp313-cp313-win_amd64\n\n")
                     archive.writestr(f"shardloom/bin/{platform}/{binary}", b"inert Windows CLI fixture")
                     if with_native:
                         archive.writestr("shardloom/_native.pyd", b"inert unexpected module")
@@ -195,7 +199,7 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         for linux in (False, True):
             files, distribution, programs = native_fixture(linux)
             result = evidence.verify_native_proof(files, distribution, programs)
-            self.assertEqual(result["integration"]["tests"], 80)
+            self.assertEqual(result["integration"]["tests"], evidence.NATIVE_PROOF_EXPECTATIONS[evidence.VERSION]["tests"])
             self.assertEqual(result["native_library_sha256"], distribution["native_library"]["sha256"])
             self.assertFalse(result["fresh_execution_performed_by_observer"])
             self.assertEqual({row["name"] for row in result["original_files"]}, set(files))

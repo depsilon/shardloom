@@ -52,13 +52,15 @@ than scraping human text.
 | Inspect planned work and boundaries | `route`, `explain`, `estimate` |
 | Inspect capabilities or setup | `capabilities`, `status`, `doctor` |
 | Read exact command arguments | `help COMMAND` |
-| Discover machine-readable command metadata | `command-metadata --format json` |
+| Discover application command metadata | `command-metadata --audience application --format json` |
+| Discover maintainer tooling | `command-metadata --audience maintainer --format json` |
+| Generate shell completion | `command-metadata --completion bash` (also `zsh` or `fish`) |
 
 The installed registry is the authority for arguments and available commands.
-In 0.6.0 the complete metadata also includes maintainer smoke/rehearsal commands;
-they are tools for contributors, not alternate ways to execute a production query.
-The [source reference](/field-guide/reference) distinguishes application and
-maintainer discovery for development builds.
+Unfiltered metadata also includes maintainer smoke/rehearsal commands.
+Application help and completion use the application vocabulary; the audience
+option selects the metadata you need. See the [reference](/field-guide/reference)
+for callable signatures and contributor tooling.
 
 Plan/capability inspection is not query execution. Writers require explicit
 destinations and follow the [format and publication contract](/field-guide/runtime-and-io#write-results).

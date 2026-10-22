@@ -7,10 +7,10 @@ ShardLoom Python provides a local, Vortex-native execution engine without extern
 ## Install
 
 <!-- BEGIN SHARDLOOM RELEASE -->
-Published **0.6.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+Published **0.7.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
 
 ```sh
-python -m pip install shardloom==0.6.0
+python -m pip install shardloom==0.7.0
 ```
 
 - macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.
@@ -42,9 +42,9 @@ ctx = sl.context(transport="native", memory_bytes=256 << 20, max_parallelism=2)
 
 paid = ctx.read_csv(orders).filter(sl.col("status") == "paid").sort("order_id")
 result = paid.collect(check=True)
-print(result.python_objects)
+print(result.to_rows())
 
-ctx.client.close()
+ctx.close()
 workspace.cleanup()
 ```
 
