@@ -1,0 +1,178 @@
+{
+  "decisions": [
+    {
+      "evidence": "Current selected aggregate caller reads native arrays before CountWorkers::submit; current ordering scans existing native chunks. Neither the rejected coalesced-job experiment nor rejected projection deferral admits the required new topology/local reduction.",
+      "id": "PERF-10.ordered_candidates",
+      "missing": "Retained independently admitted natural-region execution plus exact admitted region-local reduction under the same CPU/memory owner.",
+      "reopening": "A materially different region mechanism with coverage/skew/order/cancellation/drain and full cost acceptance, then local reduction exactness/ownership/work benefit, precedes local Top-K controls.",
+      "status": "missing_prerequisite",
+      "substep_complete": false
+    },
+    {
+      "evidence": "Projection deferral changes request activation only and is removed; it changes no retained region geometry, reduction or layout choice. Standalone numeric/text profile rejections do not supply joint runtime-preparation evidence.",
+      "id": "PERF-09.design",
+      "missing": "Accepted runtime region granularity/pruning/encoded-work/merge cost evidence to optimize preparation against.",
+      "reopening": "Freeze joint ingest/storage/query costs after runtime region acceptance, including small, wide-text, large-numeric, dictionary-heavy, unknown-row-count and constrained-memory controls.",
+      "status": "missing_prerequisite",
+      "substep_complete": false
+    },
+    {
+      "evidence": "No candidate from row 16 is retained. Repeating the old 129-call coalescing comparison would be an unchanged rejected mechanism, not new evidence.",
+      "id": "PERF-12.topology",
+      "missing": "Newly admitted topology mechanism distinct from the rejected grouping/coalescing and projection-deferral attempts.",
+      "reopening": "Freeze current/coarse/small/medium/large safe modes and actual work counters on one immutable 100M-row input, then retain original 129-call coverage and independent held-out controls.",
+      "status": "missing_prerequisite",
+      "substep_complete": false
+    }
+  ],
+  "new_workload_executed": false,
+  "provider_rejection": {
+    "artifacts": {
+      "docs/benchmarks/evidence/region-closeout-831.json.xz": {
+        "bytes": 559100,
+        "sha256": "1f293cb96ade31d6c4c5b4fbcb38983cf59c1fe29038d12fdf516309ed8a0c26"
+      },
+      "docs/benchmarks/evidence/region-closeout-831.manifest.json": {
+        "bytes": 12637,
+        "sha256": "8a26a75ea2121a1f437f839356ec8ae3da25723e93e6482168a7e539862bfe47"
+      },
+      "docs/benchmarks/evidence/region-projection-packet-831-r1.json.xz": {
+        "bytes": 1733248,
+        "sha256": "4225868b6c08d0ce9a9b6412d24a4c2c181c61684271b766fed685b560f149b0"
+      }
+    },
+    "manifest": "docs/benchmarks/evidence/region-closeout-831.manifest.json"
+  },
+  "runtime_changed": false,
+  "schema": "shardloom.region_dependent_prerequisites.v1",
+  "scope": "Source/gate review of the specified current callers and recorded experiments; not a repository-wide absence proof.",
+  "source_commit": "730f793d4509ef09a1791e2d0a5aa45de68260e4",
+  "sources": {
+    "docs/architecture/execution-aware-native-artifact-topology-2026-09-08.md": {
+      "bytes": 16847,
+      "excerpts": [
+        {
+          "end": 103,
+          "start": 45,
+          "text": "before adding a type. Record which paths execute and which merely describe work.\nUse pinned native Vortex providers inside the existing adapter boundary. Reuse a\nsource split or layout locator when it expresses the region; do not add a second\npartition model, scheduler, engine or benchmark-only executor.\n\nA region needs a generation-scoped stable identity, safe row range and physical\nlocator, with optional physical-size/statistics/encoding capability evidence from\nthe real provider. These are conceptual requirements, not mandated new fields or\na prescribed public `NativeExecutionRegion` API. Byte offsets without safe native\nexecution boundaries are inadmissible. Empty and fully pruned sources remain valid.\n\nThe number of regions is independent of worker count. Existing bounded workers\ndynamically consume safe regions; no thread is created per region. Region and\nqueue ownership, retained native buffers, compact state and ordered merge share\nadmission. Cancellation stops admission and joins/drains owned work before errors\nescape. Skew must leave workers able to consume other ready work, while any\nrepartitioning preserves source coverage and reduction order.\n\nStart with a simple costed granularity policy derived from actual native layout,\nrows/size hints, operator shape, worker ceiling and memory envelope. Avoid one\ngiant region and tiny scheduling units that cost more than their useful work.\nExisting physical boundaries can be coalesced or safely row-subdivided only where\nthe provider supports independent native execution. Unknown sizes remain unknown;\nestimates do not certify allocator or RSS bounds.\n\nConsult trustworthy existing region statistics before admitting expensive work.\nA provably impossible predicate removes a region without decoding/materializing\nits data. Unsupported or uncertain metadata remains conservative. Metadata I/O\nmust be distinguished from payload I/O. New stored summaries need demonstrated\nruntime benefit that pays for their ingest, storage and validation costs.\n\n## Source inventory and selected seams\n\nThe inventory was checked against the active native adapter and the pinned\nVortex 0.85 source. The integrated adapter has separate actual completion proof;\nexisting descriptor counters alone do not establish that it executed.\n\n| Existing mechanism | Current behavior and integration decision |\n|---|---|\n| `scheduler_bridge::VortexMorselWorkUnit` | Already carries stable work identity, source row start/count and estimated bytes. Reuse it for internal regions rather than introducing another partition model. Unknown physical sizes must remain unknown in evidence |\n| `ScanBuilder::full_file_splits`, `with_natural_splits`, `RepeatedScan::execute` | Discover safe native row boundaries after projection/filter binding, retain the complete boundary sequence, and independently execute an admitted range on the same held file. Filter-only fields participate in discovery. Coalescing changes region ownership without changing original native array boundaries |\n| `ComputePool` and `aggregate_chunk_jobs` | Supply a bounded dynamic queue, leases, cancellation and ordered owned completions. Reuse this execution seam; do not create one thread per region |\n| Legacy `execute_vortex_morsel_scheduler_with_observer` | Statically assigns descriptors to worker vectors; some query callers produce these descriptors after scanning. It does not establish independently scheduled native reads. Its queue reporting cannot substitute for live queue admission |\n| `PreparedVortexSource::with_native_execution` | Holds source-generation validation and admission around native work. Enter once around dispatch, consumption and complete drain. Entering this gate independently in each region would serialize work |\n| Aggregate `CountWorkers` and `AggregateScanRuntime` | Existing workers receive arrays after a central scan. Region workers must share the same CPU grant and replace the applicable provider/aggregate scheduling ownership before execution; nesting pools would over-admit CPUs |\n| Existing scalar/grouped native consumers | Accept native arrays and already inspect actual encodings. Stage 1 preserves their original array boundaries and ordered invocation. Existing floating SUM/AVG cannot be freely reassociated merely because partial merges are deterministic |\n| `file.can_prune`, `LayoutReader::pruning_evaluation` and embedded layout evidence | Whole-file statistics can avoid all payload work. The public layout reader can prove an original row range impossible using the exact bound predicate and an initially all-true mask. Await that proof before constructing `RepeatedScan` tasks, since task construction can register projection prefetch. Missing statistics retain the range; no-output tasks do not prove pruning |\n| Layout inventory and reader-backed split evidence | Footer segment IDs identify buffers, not necessarily row partitions. Post-read arrays and inventory counts do not by themselves establish a validated, independently readable region directory |\n| Existing sort candidates, comparison and row-reference second pass | Preserve exact multi-key/NULL/source-order semantics for later local Top-K. A selected payload must retain its global source-row identity; existing key materialization is not metadata pruning |\n| Preparation and column-addressable writer experiments | Keep the existing writer and codec defaults during topology isolation. Only measured runtime gains can justify changing physical preparation advice |\n\nThe first staged implementation exposed an ordered-output hazard: holding one\nworker for a whole coarse region parks later workers behind the frontier region.\nThe measured `a3c62434` adapter therefore uses bounded original-split steps on the\nexisting queue, releasing workers between steps. Region count, admitted regions,\noutstanding split steps and CPU workers are distinct quantities. Coarse/fine\nbenchmarks must determine whether region granularity changes useful work rather\nthan merely changing a label on otherwise identical scheduling.\n"
+        },
+        {
+          "end": 170,
+          "start": 146,
+          "text": "   infer independent region execution merely from arrays emitted by one central\n   scan. Retain only after full correctness, no material Full43 regression, and\n   meaningful gains on expensive operations or a measured, clearly identified\n   next operator bottleneck. This packet isolates topology from new reductions,\n   Top-K kernels and writer/codec changes.\n2. **Local reduction \u2014 PERF-04/05/10/12.** Push existing admitted COUNT, SUM, MIN,\n   MAX, AVG state and grouped aggregates into regions, sending compact partial\n   state to a bounded merge. Preserve integer boundaries, NULLs, global key\n   equality, overflow behavior and existing floating evaluation semantics;\n   deterministic scheduling alone does not justify floating reassociation.\n   Continue direct constant/run/dictionary and other encoded consumers wherever\n   their actual representation is admitted. Unsupported region encodings may\n   use only existing explicit bounded native materialization, with its evidence.\n   Retain each added family only with measured work reduction and performance\n   benefit, using its own packet against the retained scheduling baseline.\n3. **Local ordered reduction \u2014 PERF-07/10/12.** For semantically admitted\n   ORDER BY/LIMIT and filtered variants, form bounded local candidates and merge\n   exact global Top-K. Include offset in retained capacity, complete multi-key\n   ascending/descending and NULL ordering, duplicates/ties and projected payload\n   row identity. Preserve existing source-order tie behavior. Global merge should\n   consume approximately regions times retained-K candidates where this is exact;\n   local truncation of partial grouped counts is not generally exact. Require\n   complete-result and material performance improvement before retention.\n4. **Execution-aware preparation \u2014 PERF-08/09/12.** Only after runtime evidence\n   succeeds, feed measured region granularity, pruning, encoded work and merge"
+        }
+      ],
+      "sha256": "dc5d78e08fceed18761e5f9299f064091c89f5a5e3d1160a4424aa5fb1bd1ec9"
+    },
+    "docs/architecture/native-conditional-investigations-2026-10-19.md": {
+      "bytes": 20071,
+      "excerpts": [],
+      "sha256": "a7746902d5952fb85da2462e468e560e362a427ebd6ede18212b3bdde0ea186e"
+    },
+    "docs/architecture/native-region-projection-decision-2026-10-20.md": {
+      "bytes": 11573,
+      "excerpts": [],
+      "sha256": "64e91f0f4f9d747c1e4bd2e59913719f88d0432b01864dd91e4dc17cc0f5bc55"
+    },
+    "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md": {
+      "bytes": 29985,
+      "excerpts": [],
+      "sha256": "1842c826190d43ca7ad50652465008d6e5287dd3d46e7a97e6c007162098142a"
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "bytes": 80875,
+      "excerpts": [],
+      "sha256": "fb5ea8b3047f91594527501e053c2c90dc092637fe1abba1ebc4e48b3b7e9831"
+    },
+    "docs/benchmarks/native-topology-coalesced-2026-09-08.md": {
+      "bytes": 4927,
+      "excerpts": [
+        {
+          "end": 15,
+          "start": 1,
+          "text": "# Native coalesced jobs: September 8 decision\n\n**Decision: park, do not promote.** The maintainer requested that exploration\nstop if it does not seem materially worthwhile. Scheduling-only changes show\nno material benefit on this workload, so further implementation and long\nacceptance runs for this direction are paused. This does not reject the general\nidea of local reduction; that staged implementation is unwired and unmeasured.\n\n## Same-binary complete-result comparison\n\nFrozen source: `9152a92b7761bb9a124268f25e726a8094c637a7`.\nBinary SHA-256: `5fa36ae99ceca0782b228851c2e9b5dd8186f0ac1a07d4e4c86dc943a89932ab`.\nAll runs use the unchanged 99,997,497-row native artifact, the same 43 queries,\nrequested parallelism 12, effective source parallelism 10, and a 24 GiB memory\nenvelope. Each query runs three times in a fresh process; OS cache is uncontrolled."
+        },
+        {
+          "end": 81,
+          "start": 67,
+          "text": "Implementation validation passed 3,266 native tests, 3,420 default workspace\ntests and 54 harness tests, plus formatting and three Clippy configurations;\nnine manual native benchmarks/fixture tests remained ignored. Fresh 4,096-row\nand 131,072-row independent held-out matrices for `9152a92b` were **not run**\nafter the negative performance decision. Earlier `a3c62434` held-out results\napply only to that older revision. This candidate is not fully accepted or a\nshipping performance improvement. No competitive gate closes.\n\nThe scalar timing identifies substantial central work for the measured scalar\nquery, but it does not demonstrate a local-reduction speedup. The scalar fold,\nits unresolved evidence/ownership integration prerequisite, and the separate\nsort-source ownership patch remain preserved outside active source. They are\nnot shipped and must not automatically restart a long implementation campaign."
+        }
+      ],
+      "sha256": "72e449c2e0bdbed66c53089d52cbd07b960ec490502feca50ea457376e0bd85f"
+    },
+    "shardloom-vortex/src/local_primitives.rs": {
+      "bytes": 2879511,
+      "excerpts": [
+        {
+          "end": 21310,
+          "start": 21293,
+          "text": "    let mut count_workers = if worker_admission_selected\n        && residual_evaluator.is_none()\n        && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)\n    {\n        aggregate_count_workers::CountWorkers::admit(\n            states,\n            file.dtype(),\n            &declared_columns,\n            policy,\n            session,\n            memory,\n        )?\n    } else {\n        None\n    };\n    if count_workers.is_none()\n        && worker_admission_selected\n        && residual_evaluator.is_none()"
+        },
+        {
+          "end": 21467,
+          "start": 21415,
+          "text": "    if input_scan_required {\n        let initial_scan_denials =\n            worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);\n        let mut scan = if winner_filter.is_none() && residual_predicate.is_none() {\n            let (scan, stats) = file\n                .scan_reusing_text(session, lowering, worker_memory, cancellation)\n                .map_err(vortex_error)?;\n            text_scan_stats = stats;\n            scan\n        } else {\n            file.scan(session).map_err(vortex_error)?\n        };\n        if let Some(filter) = winner_filter.as_ref().or(plan.filter.as_ref()) {\n            scan = scan.with_filter(file.bind(filter)?);\n        }\n        if let Some(projection) = plan.projection.as_ref() {\n            scan = scan.with_projection(file.bind(projection)?);\n        }\n        scan = scan.with_concurrency(policy.scan_concurrency_per_worker());\n        let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;\n        loop {\n            check_cancelled()?;\n            if let Some(workers) = scalar_workers.as_mut() {\n                workers.before_next()?;\n            }\n            if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut())\n            {\n                workers.before_next(states)?;\n            }\n            let scan_started = Instant::now();\n            #[cfg(test)]\n            let injected = count_workers.as_ref().and_then(|workers| {\n                worker_memory.and_then(|memory| {\n                    workers.inject_scan_fault_for_test(memory, arrays_read_count)\n                })\n            });\n            #[cfg(test)]\n            let chunk = injected.or_else(|| scan.next());\n            #[cfg(not(test))]\n            let chunk = scan.next();\n            aggregate_timing.scan_next_nanos += scan_started.elapsed().as_nanos();\n            let Some(chunk) = chunk else {\n                break;\n            };\n            let chunk = match chunk {\n                Ok(chunk) => chunk,\n                Err(error) if uncached_retry.as_mut().is_some_and(|retry| retry(&error)) => {\n                    // The enclosing prepared-source boundary drops this whole\n                    // attempt and the optional cache before one uncached retry.\n                    // Classification occurs while the provider error is typed;\n                    // concurrent denials never reclassify corruption as pressure.\n                    return Err(vortex_error(error));\n                }"
+        },
+        {
+          "end": 21726,
+          "start": 21712,
+          "text": "            } else {\n                let scalar_worker_updated = if let Some(workers) = scalar_workers.as_mut() {\n                    workers.submit(&chunk)?;\n                    true\n                } else {\n                    false\n                };\n                let worker_updated = if let (Some(workers), Some(states)) =\n                    (count_workers.as_mut(), grouped_states.as_mut())\n                {\n                    workers.submit(&chunk, states)?\n                } else {\n                    false\n                };\n                if provider_drivers.is_none()"
+        },
+        {
+          "end": 23581,
+          "start": 23536,
+          "text": "    let mut topk_threshold_pruned_chunks = 0usize;\n    let mut topk_threshold_pruned_rows = 0usize;\n    let mut native_sort_work = native_sort_block::Work::default();\n    let mut scan_split_policy = \"not_scanned\";\n    if !embedded_layout.metadata_pruned_entire_input {\n        let mut scan = file.scan().map_err(vortex_error)?.with_ordered(true);\n        scan_split_policy = \"vortex_layout\";\n        if let Some(filter) = plan.filter {\n            scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);\n        }\n        if let Some(projection) = plan.projection {\n            scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);\n        }\n        // Input scheduling and bounded output delivery have separate owners.\n        // Reuse the provider's bounded layout splits when the current allocation\n        // has scratch headroom; small grants retain the existing 2048-row input.\n        // This is a planning estimate. Exact candidate and UTF8 scratch leases\n        // below remain authoritative; provider decoding is not an RSS guarantee.\n        if streaming {\n            let splits = scan.full_file_splits().map_err(vortex_error)?;\n            let maximum_rows = splits\n                .windows(2)\n                .map(|pair| pair[1] - pair[0])\n                .max()\n                .unwrap_or(0);\n            let maximum_rows = usize::try_from(maximum_rows).unwrap_or(usize::MAX);\n            let scratch_headroom =\n                sort_output_stream::scalar_scratch_bytes(maximum_rows, declared_columns.len())\n                    .saturating_mul(4);\n            let use_layout = context.is_some_and(|context| {\n                let memory = context.memory().snapshot();\n                memory.limit_bytes.saturating_sub(memory.reserved_bytes) >= scratch_headroom\n            });\n            if use_layout {\n                scan = scan.with_natural_splits(splits.into());\n                scan_split_policy = \"vortex_layout_with_scratch_headroom\";\n            } else {\n                scan = scan.with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(2048));\n                scan_split_policy = \"fixed_2048_for_scratch_headroom\";\n            }\n        }\n        scan = scan.with_concurrency(policy.scan_concurrency_per_worker());\n        for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {\n            let chunk = chunk.map_err(vortex_error)?;\n            let rows = chunk.len();\n            if let Some(context) = context {"
+        }
+      ],
+      "sha256": "8e420f269af1ead22c8d5a68b65c5caddb96ab1b0f5ff7feb18772ffd0f5ade1"
+    },
+    "shardloom-vortex/src/local_primitives/aggregate_chunk_jobs.rs": {
+      "bytes": 13552,
+      "excerpts": [
+        {
+          "end": 182,
+          "start": 150,
+          "text": "\n    pub(super) fn with_cancellation(\n        max_parallelism: usize,\n        window_limit: usize,\n        queue_byte_limit: u64,\n        memory: LiveMemoryPool,\n        cancellation: CancellationToken,\n    ) -> Result<Self> {\n        if max_parallelism == 0 || window_limit == 0 || queue_byte_limit == 0 {\n            return Err(failed(\n                \"worker, window and queue byte limits must be positive\",\n            ));\n        }\n        if queue_byte_limit > memory.snapshot().limit_bytes {\n            return Err(failed(\"queue byte limit exceeds shared capacity\"));\n        }\n        // The source/progress/merge caller occupies one CPU lane. The runtime\n        // integrating this helper must not retain a second full-budget pool.\n        // Dictionary preparation may explicitly partition a larger CPU grant\n        // between this caller, bounded preparation workers and one native provider driver.\n        let pool = (max_parallelism > 1)\n            .then(|| {\n                ComputePool::new(\n                    max_parallelism - 1,\n                    window_limit,\n                    queue_byte_limit,\n                    memory.clone(),\n                )\n            })\n            .transpose()?;\n        Ok(Self {\n            pending: VecDeque::new(),\n            pool,"
+        },
+        {
+          "end": 308,
+          "start": 262,
+          "text": "    pub(super) fn submit<F>(&mut self, initial_bytes: u64, job: F) -> Result<u64>\n    where\n        F: FnOnce(&ChunkWorkerContext, &mut MemoryLease) -> Result<T> + Send + 'static,\n    {\n        match self.try_submit(initial_bytes, job)? {\n            SubmitOutcome::Submitted(ordinal) => Ok(ordinal),\n            SubmitOutcome::InitialCapacityDenied(error) => Err(error),\n        }\n    }\n\n    pub(super) fn try_submit<F>(&mut self, initial_bytes: u64, job: F) -> Result<SubmitOutcome>\n    where\n        F: FnOnce(&ChunkWorkerContext, &mut MemoryLease) -> Result<T> + Send + 'static,\n    {\n        self.cancellation\n            .check()\n            .map_err(|error| self.failure_or(error))?;\n        if self.is_full() {\n            return Err(failed(\n                \"outstanding window is full; merge its oldest chunk before reading more input\",\n            ));\n        }\n        if initial_bytes > self.input_byte_limit {\n            return Err(failed(\"initial input exceeds the admitted task byte limit\"));\n        }\n        let next = self\n            .next_ordinal\n            .checked_add(1)\n            .ok_or_else(|| failed(\"chunk ordinal overflowed\"))?;\n        let mut lease = match self.memory.reserve(initial_bytes) {\n            Ok(lease) => lease,\n            Err(error) => return Ok(SubmitOutcome::InitialCapacityDenied(error)),\n        };\n        let count = self.window.outstanding.fetch_add(1, Ordering::AcqRel) + 1;\n        self.window.peak.fetch_max(count, Ordering::AcqRel);\n        let permit = WindowPermit(Arc::clone(&self.window));\n        let pending = if let Some(pool) = self.pool.as_ref() {\n            let failure = Arc::clone(&self.failure);\n            let busy = Arc::clone(&self.worker_busy_nanos);\n            Pending::Worker(pool.submit(\n                Budgeted::new(\n                    move |context: &WorkerContext, lease: &mut MemoryLease| {\n                        let started = Instant::now();\n                        let result = catch_unwind(AssertUnwindSafe(|| {\n                            job(&ChunkWorkerContext::Pool(context.clone()), lease)\n                        }))\n                        .unwrap_or_else(|_| Err(failed(\"worker task panicked\")));"
+        }
+      ],
+      "sha256": "f2bb6f9df4211cc3ed883eb178ce4572316c5c67f356a8598ad0e2e084f7b154"
+    },
+    "shardloom-vortex/src/local_primitives/aggregate_count_workers.rs": {
+      "bytes": 69598,
+      "excerpts": [
+        {
+          "end": 14,
+          "start": 1,
+          "text": "//! Actual source-chunk canonicalization and exact count work. Global state stays\n//! caller-owned; its ordered weighted merge is measured separately. Every key\n//! survives each partial, including candidates outside every chunk's top K.\n\nuse super::{\n    AggregateSingleNumericKey, AggregateValueTransform, GroupedAggregateStates,\n    VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,\n    aggregate_chunk_jobs::{AggregateChunkJobs, ChunkWorkerContext},\n    numeric_count_partial::{self, NumericCountKey, OwnedNumericCounts},\n    numeric_count_partitions::{self, NumericPartition, NumericPartitions},\n    string_count_partial::{self, StringCountMerge, StringCountPartial},\n    string_count_partitions::{self, PartitionReceipt, PartitionSelection, StringCountPartitions},\n};\nuse shardloom_core::{Result, ShardLoomError};"
+        },
+        {
+          "end": 144,
+          "start": 126,
+          "text": "        match self {\n            Self::PairPartitions(workers) => workers.submit(chunk, states),\n            Self::Triple(workers) => workers.submit(chunk, states),\n            Self::Single(workers) => workers.submit(chunk, states),\n            Self::Compound(workers) => workers.submit(chunk, states),\n            Self::ExactDistinct(workers) => workers.submit(chunk, states),\n            Self::MixedDistinct(workers) => workers.submit(chunk, states),\n            Self::DictionaryPrepare(workers) => workers.submit(chunk, states),\n        }\n    }\n    pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {\n        match self {\n            Self::PairPartitions(workers) => workers.finish(states),\n            Self::Triple(workers) => workers.finish(states),\n            Self::Single(workers) => workers.finish(states),\n            Self::Compound(workers) => workers.finish(states),\n            Self::MixedDistinct(workers) => workers.finish(states),\n            Self::DictionaryPrepare(workers) => workers.finish(states),\n            Self::ExactDistinct(workers) => {"
+        }
+      ],
+      "sha256": "6430a75a7e3259e2771b4b56460eeaa772950cafd1175852cceb41d9942d310e"
+    },
+    "shardloom-vortex/src/local_primitives/aggregate_scan_runtime.rs": {
+      "bytes": 1762,
+      "excerpts": [],
+      "sha256": "c759502380fb8bfebc1479d824c93a2293f2bb81aab17e5c29091fda06a47126"
+    },
+    "vendor/vortex-layout/src/scan/scan_builder.rs": {
+      "bytes": 35325,
+      "excerpts": [
+        {
+          "end": 243,
+          "start": 188,
+          "text": "        self\n    }\n\n    /// Configure how natural scan work is split for concurrency.\n    pub fn with_split_by(mut self, split_by: SplitBy) -> Self {\n        self.split_by = split_by;\n        self\n    }\n\n    /// Supply precomputed full-file natural split boundaries (see\n    /// [`full_file_splits`](Self::full_file_splits)) so [`prepare`](Self::prepare) reuses them\n    /// instead of walking the layout. Callers translating external partitions into row ranges\n    /// can compute the boundaries once per file and share them across partitions.\n    ///\n    /// Takes precedence over [`with_split_by`](Self::with_split_by); boundaries outside the\n    /// scan's row range are clamped during execution. Boundaries must be strictly increasing.\n    pub fn with_natural_splits(mut self, boundaries: Arc<[u64]>) -> Self {\n        debug_assert!(\n            boundaries.windows(2).all(|w| w[0] < w[1]),\n            \"natural split boundaries must be strictly increasing\"\n        );\n        self.natural_splits = Some(boundaries);\n        self\n    }\n\n    /// Compute the full-file natural split boundaries for the fields referenced by this scan's\n    /// projection and filter, ignoring any configured row range.\n    ///\n    /// These are the boundaries [`prepare`](Self::prepare) derives for a whole-file scan; hand\n    /// them back via [`with_natural_splits`](Self::with_natural_splits) to skip the layout walk\n    /// in `prepare`.\n    pub fn full_file_splits(&self) -> VortexResult<Vec<u64>> {\n        let field_mask = referenced_field_masks(&self.projection, self.filter.as_ref())?;\n        self.split_by.splits(\n            self.layout_reader.as_ref(),\n            &(0..self.layout_reader.row_count()),\n            &field_mask,\n        )\n    }\n\n    /// Returns the per-worker row-split concurrency.\n    pub fn concurrency(&self) -> usize {\n        self.concurrency\n    }\n\n    /// The number of row splits to make progress on concurrently per-thread, must\n    /// be greater than 0.\n    pub fn with_concurrency(mut self, concurrency: usize) -> Self {\n        assert!(concurrency > 0);\n        self.concurrency = concurrency;\n        self\n    }\n\n    /// Add or clear the metrics registry used by scan execution.\n    pub fn with_some_metrics_registry(mut self, metrics: Option<Arc<dyn MetricsRegistry>>) -> Self {\n        self.metrics_registry = metrics;"
+        }
+      ],
+      "sha256": "04b3eb66973c73e35c8bab0575e7cfadd597b041dfe5fa5c1ca4fb939f74db12"
+    }
+  }
+}

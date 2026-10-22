@@ -1,0 +1,2398 @@
+{
+  "advisory_database": {
+    "advisory-count": 1348,
+    "last-commit": "e6f94f3760d5e6c54c1b05f204002263bc025524",
+    "last-updated": "2026-10-20T21:24:19+02:00"
+  },
+  "baseline_commit": "8ab92db427c5a5288dfc931bf392d8ebf1df3733",
+  "checks": [
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-arrow-clippy-837-a1",
+      "returncode": 101,
+      "status": "failed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-arrow-clippy-837-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-arrow-clippy-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "encoded_arrow_control",
+        "--",
+        "--nocapture"
+      ],
+      "name": "exchange-arrow-default-tests-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-arrow-fmt-837-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-arrow-fmt-837-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-arrow-fmt-837-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-arrow-fmt-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets"
+      ],
+      "name": "exchange-arrow-native-full-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 30,
+          "passed": 3052
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 7
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--lib",
+        "encoded_arrow_control",
+        "--",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "name": "exchange-arrow-tests-837-a1",
+      "returncode": 101,
+      "status": "failed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--lib",
+        "encoded_arrow_control",
+        "--",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "name": "exchange-arrow-tests-837-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 7
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--lib",
+        "encoded_arrow_control",
+        "--",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "name": "exchange-arrow-tests-837-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 9
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "encoded_arrow_control",
+        "--",
+        "--nocapture"
+      ],
+      "name": "exchange-arrow-tests-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 9
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "encoded_arrow_control",
+        "--",
+        "--nocapture"
+      ],
+      "name": "exchange-arrow-tests-838-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 11
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-arrow-workspace-clippy-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "name": "exchange-arrow-workspace-fmt-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "name": "exchange-arrow-workspace-tests-838-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 803
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 26
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 21
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 11
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 9
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 6
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 19
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 10
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 11
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 10
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 6
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 29
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 8
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 7
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 13
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 14
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 15
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 10
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 15
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 18
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 13
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 58
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 714
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 317
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 120
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 756
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-fixture-clippy-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-fixture-clippy-839-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-fixture-clippy-839-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml"
+      ],
+      "name": "exchange-fixture-fmt-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml"
+      ],
+      "name": "exchange-fixture-fmt-839-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml"
+      ],
+      "name": "exchange-fixture-fmt-839-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "run",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a1"
+      ],
+      "name": "exchange-fixture-generate-839-a1",
+      "returncode": 1,
+      "status": "failed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "run",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a2"
+      ],
+      "name": "exchange-fixture-generate-839-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "run",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a3"
+      ],
+      "name": "exchange-fixture-generate-839-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-c",
+        "import json, subprocess\nfrom pathlib import Path\ncommand = ['/Users/dylan/.cargo/bin/rustup', 'run', '1.99.0', 'cargo', 'metadata', '--offline', '--format-version', '1', '--manifest-path', '/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml']\ndata = subprocess.check_output(command)\nresult = json.loads(data)\nassert result['target_directory'] == '/Users/dylan/.cache/shardloom/cargo-target'\nPath('/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/exchange-fixture-producer-metadata-839.json').write_bytes(data)\nprint(json.dumps({'packages': len(result['packages']), 'target_directory': result['target_directory'], 'workspace_members': result['workspace_members']}))\n"
+      ],
+      "name": "exchange-fixture-metadata-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/reference.py",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a2"
+      ],
+      "name": "exchange-fixture-reference-839-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/reference.py",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a3"
+      ],
+      "name": "exchange-fixture-reference-839-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/reference.py",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-840-a1"
+      ],
+      "name": "exchange-fixture-reference-840-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "run",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/tests/fixtures/native-exchange/producer/Cargo.toml",
+        "--",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-840-a1"
+      ],
+      "name": "exchange-fixture-regenerate-840-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a2",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-839-a1.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-839-a1",
+      "returncode": 101,
+      "status": "failed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a2",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-839-a2.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-839-a2",
+      "returncode": 101,
+      "status": "failed",
+      "tests": [
+        {
+          "failed": 1,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a2",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-839-a3.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-839-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a3",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-839-a4.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-839-a4",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a3",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-839-a5.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-839-a5",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-839-a3",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-840-a1.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-840-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/usr/bin/env",
+        "SHARDLOOM_EXCHANGE_FIXTURES=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixtures-840-a1",
+        "SHARDLOOM_EXCHANGE_FIXTURE_REPORT=/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native-exchange-fixture-validation-840-a2.json",
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "independent_exchange_fixtures_and_encoded_arrow_controls",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "name": "exchange-fixture-validation-840-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-fixture-validation-clippy-839-a1",
+      "returncode": 101,
+      "status": "failed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-fixture-validation-clippy-839-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-fixture-validation-clippy-840-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-fixture-validation-fmt-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-fixture-validation-fmt-839-a2",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-fixture-validation-fmt-839-a3",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "name": "exchange-fixture-validation-format-840-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/cargo-audit",
+        "audit",
+        "--json"
+      ],
+      "name": "exchange-integrated-audit-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-c",
+        "import subprocess,json\nfrom pathlib import Path\ndata=subprocess.check_output(['/Users/dylan/.cargo/bin/rustup','run','1.99.0','cargo','metadata','--offline','--format-version','1','--features','shardloom-vortex/native-encoded-exchange-experiment'])\nd=json.loads(data)\nassert d['target_directory']=='/Users/dylan/.cache/shardloom/cargo-target'\nPath('/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/exchange-integrated-metadata-839.json').write_bytes(data)\nprint(json.dumps({'packages':len(d['packages']),'target_directory':d['target_directory']}))\n"
+      ],
+      "name": "exchange-integrated-metadata-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/cargo-deny",
+        "--locked",
+        "--offline",
+        "--all-features",
+        "--format",
+        "json",
+        "check",
+        "advisories",
+        "licenses",
+        "sources",
+        "bans"
+      ],
+      "name": "exchange-integrated-policy-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "native-encoded-exchange-experiment",
+        "--all-targets"
+      ],
+      "name": "exchange-prerequisite-native-full-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 31,
+          "passed": 3052
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 7
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        }
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "name": "exchange-prerequisite-workspace-clippy-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "name": "exchange-prerequisite-workspace-fmt-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": []
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "name": "exchange-prerequisite-workspace-tests-839-a1",
+      "returncode": 0,
+      "status": "passed",
+      "tests": [
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 803
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 26
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 21
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 11
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 9
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 6
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 19
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 10
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 11
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 10
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 6
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 29
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 8
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 7
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 13
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 14
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 15
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 10
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 15
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 4
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 5
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 18
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 13
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 58
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 2
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 714
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 317
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 120
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 756
+        },
+        {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 0
+        }
+      ]
+    }
+  ],
+  "complete_query_checks_per_fixture_validation": 416,
+  "completed_native_exchange_substeps": [],
+  "existing_warnings": [
+    {
+      "advisory": "RUSTSEC-2024-0436",
+      "kind": "unmaintained",
+      "package": "paste",
+      "version": "1.0.15"
+    },
+    {
+      "advisory": "RUSTSEC-2026-0190",
+      "kind": "unsound",
+      "package": "anyhow",
+      "version": "1.0.102"
+    },
+    {
+      "advisory": "RUSTSEC-2026-0221",
+      "kind": "unsound",
+      "package": "event-listener",
+      "version": "5.4.1"
+    }
+  ],
+  "external_engine_invoked": false,
+  "failure_history": [
+    "exchange-arrow-clippy-837-a1",
+    "exchange-arrow-tests-837-a1",
+    "exchange-fixture-generate-839-a1",
+    "exchange-fixture-validation-839-a1",
+    "exchange-fixture-validation-839-a2",
+    "exchange-fixture-validation-clippy-839-a1"
+  ],
+  "fallback_attempted": false,
+  "fixture_count": 13,
+  "fixture_recipe_corrections": [
+    "register run-end/fastlanes with the isolated no-default-feature provider",
+    "use stride 19 so every dictionary code is exercised"
+  ],
+  "identical_flight_frames_across_generations": 111,
+  "known_vulnerabilities": 0,
+  "packet": {
+    "bytes": 311492,
+    "file": "prerequisites.json.xz",
+    "members": 145,
+    "sha256": "ef78d3a7513b0dd20b696a14ec7257fe7db6537eb1bda35cc0cb48410fa3182f"
+  },
+  "primary_review": [
+    "Feature-only schema intake covers integer dictionaries and signed run ends without broadening float/decimal validation; ordinary release policy still refuses wrappers.",
+    "All source and codec controls consume complete independently specified values through the native prepared relational path; repeated execution increments the native session count.",
+    "Current dictionary stride exercises every code in both domains; corrected recipes are frozen before any transport candidate. The earlier incomplete/degenerate inputs are not scored.",
+    "Control identity is reproducible, including native MessageEncoder output before original-source queries; Arrow Resend retains its standard header/body representation.",
+    "Verified all 15 transport inventory source hashes and inspected interceptor extension preservation, peer-certificate lookup, Connected TLS metadata and HTTP request propagation.",
+    "Arrow LZ4 declared size is not an allocation ceiling. The finite plan requires exact prevalidated frame identity before allocating decode; this is not arbitrary-input decompression certification.",
+    "The final change after the broad feature suite only adds ordered completion hashes/totals to its ignored fixture check. Both updated full fixture validations and strict feature Clippy pass; runtime/schema policy is unchanged."
+  ],
+  "proof_limits": [
+    "no transport candidate or network execution",
+    "no TLS/authorization/failure/client runtime acceptance",
+    "no timing comparison or performance claim",
+    "native grants do not cover all provider allocations or total RSS"
+  ],
+  "protocol_freeze": {
+    "bytes": 121059,
+    "file": "protocol-freeze.json",
+    "sha256": "bf9f6a0e5840e03bf4536d8816b6fe4138dfb9807439633135ec111c6e28e5dc"
+  },
+  "reproducible_independent_generations": 2,
+  "required_checks": [
+    "exchange-arrow-tests-838-a2",
+    "exchange-arrow-default-tests-838-a1",
+    "exchange-fixture-clippy-839-a3",
+    "exchange-fixture-generate-839-a3",
+    "exchange-fixture-reference-839-a3",
+    "exchange-integrated-policy-839-a1",
+    "exchange-integrated-audit-839-a1",
+    "exchange-prerequisite-native-full-839-a1",
+    "exchange-prerequisite-workspace-fmt-839-a1",
+    "exchange-prerequisite-workspace-clippy-839-a1",
+    "exchange-prerequisite-workspace-tests-839-a1",
+    "exchange-fixture-regenerate-840-a1",
+    "exchange-fixture-reference-840-a1",
+    "exchange-fixture-validation-840-a1",
+    "exchange-fixture-validation-840-a2",
+    "exchange-fixture-validation-clippy-840-a1"
+  ],
+  "schema": "shardloom.native_exchange_control_acceptance.v1",
+  "status": "accepted_finite_prerequisite"
+}

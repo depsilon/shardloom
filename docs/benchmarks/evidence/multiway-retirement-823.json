@@ -1,0 +1,319 @@
+{
+  "archives_created": 0,
+  "completed": [
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-source-portability-821/blobs",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-intake-817a-results.jsonl",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-preflight-819a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-cohortA-819a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-cohortB-819a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-integrated-preflight-820a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-integrated-cohortA-820a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-integrated-cohortB-820a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-projected-preflight-821a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-projected-cohortA-821a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-projected-cohortB-821a-witnesses",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/multiway-public-820",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/output-window-public-789",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/codec-cache-shardloom_exec-748",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-824/package",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-824/venv",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-823/package",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-823/venv",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-823/dist",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-installed-python-789/dist"
+  ],
+  "driver_sha256": "d161a944bde445bb4ea9bac49c02162bbe7336577edea7996e2f336e6994a1b0",
+  "free_bytes_after": 157549969408,
+  "free_bytes_before": 156225650688,
+  "plan_sha256": "6da1ad3066a6f36596dc22483cfdbd3f88001952048d591619e36000a905e9dc",
+  "retained": {
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/multiway-restored-public-823/_native.abi3.so": [
+      16777233,
+      116381917,
+      33261,
+      76162032,
+      1792523456373736834,
+      1792523457442939111,
+      76165120
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/multiway-restored-public-823/shardloom": [
+      16777233,
+      116381333,
+      33261,
+      76289856,
+      1792523280289292228,
+      1792523281946788752,
+      76292096
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823-manifest.json": [
+      16777233,
+      116302056,
+      33152,
+      1034364,
+      1792522524392376283,
+      1792522524392376283,
+      1036288
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823.tar.xz": [
+      16777233,
+      116302058,
+      33152,
+      7674288,
+      1792522582500328685,
+      1792522582500328685,
+      7675904
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restoration-closeout-823.json": [
+      16777233,
+      116412729,
+      33188,
+      1951,
+      1792523906043439210,
+      1792523906043439210,
+      4096
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restoration-closeout-823.json.xz": [
+      16777233,
+      116412723,
+      33188,
+      536844,
+      1792523905693347447,
+      1792523905693347447,
+      540672
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-824/dist/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl": [
+      16777233,
+      116385551,
+      33188,
+      49734623,
+      1792523841999033991,
+      1792523841999188533,
+      49737728
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway_acceptance_common_820.py": [
+      16777233,
+      116065061,
+      33188,
+      825,
+      1792515811761206352,
+      1792515811761206352,
+      4096
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py": [
+      16777233,
+      115975273,
+      33188,
+      1789,
+      1792509875541532126,
+      1792509875541532126,
+      4096
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/pyarrow-wheelhouse-cp312/pyarrow-25.0.1-cp312-cp312-macosx_12_0_arm64.whl": [
+      16777233,
+      116384593,
+      33188,
+      35861559,
+      1792523800344517505,
+      1792523800344732630,
+      35864576
+    ],
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded.py": [
+      16777233,
+      114157583,
+      33188,
+      6156,
+      1792509957836567950,
+      1792509957836567950,
+      8192
+    ]
+  },
+  "retained_identities_unchanged": true,
+  "retired_accounted_bytes": 1304576000,
+  "retired_files": 5702,
+  "selected": [
+    {
+      "accounted_bytes": 55468032,
+      "files": 2262,
+      "logical_bytes": 50546628,
+      "metadata_sha256": "319181f8cd1aef93f65653d4a70bb405aab6f1d693ae07914a3d7f31585aaf56",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-source-portability-821/blobs",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 10153984,
+      "files": 1,
+      "logical_bytes": 10150169,
+      "metadata_sha256": "1f6cffe70e0da1af834c9f657f29c482e2a8cf541cec1ec6a9e41d3dd77d82bd",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-intake-817a-results.jsonl",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "09330cb116a17fc014158623279582f1d2a0ab49e27e1ccb4f6b1a43897cbbd5",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-preflight-819a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "1ab9365aa6c93b5a4b460943ac16d692fc2d6e21e66845a0cdf1c7a91f02b267",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-cohortA-819a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "94e9335d1b43ce1e78200fec73b7b96fa1fdd6269c452977d6408834c1a8a07f",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-cohortB-819a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "926c9b08448103f6d1f4e69fe140f00436c21a8f0f48c796e5c94fd61f4d44d2",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-integrated-preflight-820a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "74220331db72ca64963f23b8adf77038db1eb40d3f40da571566559a55907fd5",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-integrated-cohortA-820a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "5ef3e001f371b910975d5702b4231bc54c7fcf5d6eea0b72b36b19f25ae544e4",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-integrated-cohortB-820a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "2e9191096a23fe2eaf7e3feede9ae8ba7706c027666965a26f10afcce13e1926",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-projected-preflight-821a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "047faecbebb94a47d09bc05c5a18e28c5c0e7bd5307c1cc1c8c31a5cb217dd14",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-projected-cohortA-821a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 5414912,
+      "files": 18,
+      "logical_bytes": 5384077,
+      "metadata_sha256": "7500572a684b70e82319aa4b2641b94cdae0e39637bcb4b476facba734f81bc4",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-projected-cohortB-821a-witnesses",
+      "regeneration": "exact member in verified historical evidence packet"
+    },
+    {
+      "accounted_bytes": 152514560,
+      "files": 2,
+      "identity_source": {
+        "bytes": 290205,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-acceptance-build-820.json",
+        "sha256": "d73c4b75d8e8b543a9a88db584de9895808bf75b89a2df426e085dcf4bc23407"
+      },
+      "logical_bytes": 152509632,
+      "metadata_sha256": "90cdc349c17ad82c3e9bf1a82e890f5c5cf6c0fdb33098bf55ee686d9a85d276",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/multiway-public-820",
+      "regeneration": "recorded sources and normal release build",
+      "replacement": {
+        "bytes": 4305,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-public-build-823.json",
+        "sha256": "427692cdf87edb660ad0dcedb1377849bd892c36f9f78a0e296c3aabfe7f1803"
+      }
+    },
+    {
+      "accounted_bytes": 152457216,
+      "files": 2,
+      "identity_source": {
+        "bytes": 375848,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-acceptance-build-789.json",
+        "sha256": "ad8485523142f685b438ecf6fa69abe8936c74ce8996c8f006a24ce61374927b"
+      },
+      "logical_bytes": 152451888,
+      "metadata_sha256": "7b00547feacdff4cb6946edd086a760dd6d0edbf5288bf791ed3829fbd5b237e",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/output-window-public-789",
+      "regeneration": "recorded sources and normal release build",
+      "replacement": {
+        "bytes": 4305,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-public-build-823.json",
+        "sha256": "427692cdf87edb660ad0dcedb1377849bd892c36f9f78a0e296c3aabfe7f1803"
+      }
+    },
+    {
+      "accounted_bytes": 2023424,
+      "files": 1,
+      "logical_bytes": 2020896,
+      "metadata_sha256": "79446b7f969d3634a8ecddf281c1524c046a1aa7cf3989b602b0af2b0fb41945",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/codec-cache-shardloom_exec-748",
+      "regeneration": "rejected codec experiment source/build record; no executable backup",
+      "sha256": "8cb97e915fd559246bafe2a952f64617cd35f1a2ec41daa53a59244f43c9d9ec"
+    },
+    {
+      "accounted_bytes": 312569856,
+      "files": 346,
+      "logical_bytes": 311720841,
+      "metadata_sha256": "33549e857813d234f64c268e088069eb5f90c52fdea7cb7216344e4882010c4d",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-824/package",
+      "regeneration": "tested retained wheel and normal source/build recipe"
+    },
+    {
+      "accounted_bytes": 145539072,
+      "files": 1719,
+      "logical_bytes": 141758866,
+      "metadata_sha256": "d9148012af8de27c3ff370f49ef25bad0b124f8e570433ceda5e38c40dd0727f",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-824/venv",
+      "regeneration": "tested retained wheel and normal source/build recipe"
+    },
+    {
+      "accounted_bytes": 312569856,
+      "files": 346,
+      "logical_bytes": 311720841,
+      "metadata_sha256": "1fbfb67cb09aa58a695036154cf9d12b715b5d6ffc240a42a75b802f4aa3ab8c",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-823/package",
+      "regeneration": "failed prerequisite attempt preserved; replaced by tested wheel"
+    },
+    {
+      "accounted_bytes": 13070336,
+      "files": 859,
+      "logical_bytes": 11161057,
+      "metadata_sha256": "6f7ea385b419726538f92e1973c9bbc001ed8ebb6e9b48aa2650224cbe001de0",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-823/venv",
+      "regeneration": "failed prerequisite attempt preserved; replaced by tested wheel"
+    },
+    {
+      "accounted_bytes": 49737728,
+      "files": 1,
+      "logical_bytes": 49734623,
+      "metadata_sha256": "a2db0fc28ed62b3892f6035c26222d8c9db87a134ee125ea9beabd674d6b9169",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-823/dist",
+      "regeneration": "failed prerequisite attempt preserved; replaced by tested wheel"
+    },
+    {
+      "accounted_bytes": 49737728,
+      "files": 1,
+      "logical_bytes": 49734623,
+      "metadata_sha256": "95e2c02085e2a2e44823e8e261e0a4ffa2309ad09dc83a8ce4476622c4f9dc46",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-installed-python-789/dist",
+      "regeneration": "source/build recipe; replacement is current tested wheel"
+    }
+  ],
+  "source_checkouts_removed": 0,
+  "status": "passed",
+  "storage_limits_changed": false
+}

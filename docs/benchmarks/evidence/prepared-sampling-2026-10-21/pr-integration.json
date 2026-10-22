@@ -1,0 +1,56 @@
+{
+  "original_acceptance_source": "4cd3a9e125cad4bba082b6e80c7c600f71239891",
+  "packet": {
+    "bytes": 309852,
+    "file": "pr-integration.json.xz",
+    "members": 81,
+    "sha256": "7014890bb08258a1d24d21a1327ab5a3e9f8c00aa5f31b7eb0bd681d1ac37bf0"
+  },
+  "replay": {
+    "dependency_changes": 2,
+    "guarded_commands": 23,
+    "historical_measurements_relabelled": false,
+    "installed_skipped": 0,
+    "installed_tests": 118,
+    "native_execution_performed": false,
+    "optional_tests": 36,
+    "payload_residency_revalidated": false,
+    "phases": 12,
+    "publication_attempted": false,
+    "python_core_discovered": 700,
+    "python_core_ran": 559,
+    "python_core_skipped_entries": 23,
+    "python_focused_tests": 18,
+    "python_release_tests": 168,
+    "source_commit": "9e51ffc1a490bc39d50d50acd53c56ec5d72e473",
+    "source_files": 2588,
+    "status": "passed",
+    "tests": {
+      "native-cli": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 1091,
+        "targets": 6
+      },
+      "native-tests": {
+        "failed": 0,
+        "ignored": 31,
+        "passed": 3107,
+        "targets": 13
+      },
+      "workspace-tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3235,
+        "targets": 107
+      }
+    }
+  },
+  "schema": "shardloom.prepared_sampling_pr_integration.v1",
+  "source_commit": "9e51ffc1a490bc39d50d50acd53c56ec5d72e473",
+  "verifier": {
+    "bytes": 24180,
+    "file": "verify_pr_integration.py",
+    "sha256": "c95f9912ddd84cfaa1867d2be494aa43f8acfeedef80b408a94011673b8641ca"
+  }
+}

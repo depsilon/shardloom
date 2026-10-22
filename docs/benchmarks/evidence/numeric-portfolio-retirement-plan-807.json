@@ -1,0 +1,2284 @@
+{
+  "executable_regeneration": "Git base plus exact frozen source patch and added sources in compact result packet; no executable backup.",
+  "paths": [
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9110,
+      "device": 16777233,
+      "inode": 115924321,
+      "mtime_ns": 1792493866655388593,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r0-current/config.json",
+      "sha256": "232ac0824a0b3d8b0d38411e497bceb3dfde56e68173091a118835af02573cbb"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453484,
+      "device": 16777233,
+      "inode": 115924402,
+      "mtime_ns": 1792493867536798017,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r0-current/producer.json",
+      "sha256": "7ecde2f756a3cf6c6afe761af5616ce63200ec94236c0ff0d16b676729d4b6aa"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368601,
+      "device": 16777233,
+      "inode": 115924404,
+      "mtime_ns": 1792493868014223107,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r0-current/verification.json",
+      "sha256": "dc2c4526e68a2afa7cddac76ebd97de0b82532fb53e8d8d003f5c4ab84bbedbb"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9134,
+      "device": 16777233,
+      "inode": 115924410,
+      "mtime_ns": 1792493872533382200,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r0-reduced-numeric/config.json",
+      "sha256": "11829f2422848534be6cd3466ec2effd65893b0b92e4e5a1fef5fc30167b5d1c"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454066,
+      "device": 16777233,
+      "inode": 115924491,
+      "mtime_ns": 1792493873374511778,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r0-reduced-numeric/producer.json",
+      "sha256": "91030c75927c83a528569b65193f5d90ff5bf889652676e3171d0539fdeb625c"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368124,
+      "device": 16777233,
+      "inode": 115924494,
+      "mtime_ns": 1792493873882961943,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r0-reduced-numeric/verification.json",
+      "sha256": "d5971f86c0ccb81c9ece526c0a0df54cb332b41030d348eea76f31420d6c5e7f"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9110,
+      "device": 16777233,
+      "inode": 115924585,
+      "mtime_ns": 1792493884253457663,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r1-current/config.json",
+      "sha256": "a30e5dd371a247213d9ed6dd1e9a6408235d62df2105db2e2f71ad9c63157992"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453472,
+      "device": 16777233,
+      "inode": 115924666,
+      "mtime_ns": 1792493885087660766,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r1-current/producer.json",
+      "sha256": "271c54edca328d16a13146a87f15880bb1d81c55e534351928e6d212dfa15094"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368610,
+      "device": 16777233,
+      "inode": 115924668,
+      "mtime_ns": 1792493885603272906,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r1-current/verification.json",
+      "sha256": "fb324f29b0207465451f690d6e5e5b7714df658dae30e7bb6da8dc55dec07ccb"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9134,
+      "device": 16777233,
+      "inode": 115924497,
+      "mtime_ns": 1792493878380513318,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r1-reduced-numeric/config.json",
+      "sha256": "7abb10e0111ea50242d7efa243eff69e649adbf90de32c160bbbc136d963353f"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454068,
+      "device": 16777233,
+      "inode": 115924580,
+      "mtime_ns": 1792493879212306123,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r1-reduced-numeric/producer.json",
+      "sha256": "c813eb11aeec977cb295085f34e605de7dd13231e54922f3673e7f53bddc939c"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368120,
+      "device": 16777233,
+      "inode": 115924582,
+      "mtime_ns": 1792493879731880065,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r1-reduced-numeric/verification.json",
+      "sha256": "614e51db61ff4d28fccc954737b05fbb7bd9dfc88ef2cef15a7e818b4f8d2b6e"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9110,
+      "device": 16777233,
+      "inode": 115924672,
+      "mtime_ns": 1792493890131466645,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r2-current/config.json",
+      "sha256": "1cc82b96c93609b1c07709cd85d20d9fe4a60d137adf52eed1020810bb304720"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453482,
+      "device": 16777233,
+      "inode": 115924754,
+      "mtime_ns": 1792493890977154775,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r2-current/producer.json",
+      "sha256": "adc7ea1ae5cd122b99baf6818418e20627e322756aae2a8f4345128f4ce905e5"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368608,
+      "device": 16777233,
+      "inode": 115924756,
+      "mtime_ns": 1792493891472734576,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r2-current/verification.json",
+      "sha256": "388c96354f058af7870aa20444ec00e3481a3cfadc75ce0d1c1053bbd19e76e2"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9134,
+      "device": 16777233,
+      "inode": 115924759,
+      "mtime_ns": 1792493895975019921,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r2-reduced-numeric/config.json",
+      "sha256": "6f92e056067646dca1db687e4718beef59a3e8bccad4d1f657096e18e8f07cd0"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454071,
+      "device": 16777233,
+      "inode": 115924840,
+      "mtime_ns": 1792493896810440527,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r2-reduced-numeric/producer.json",
+      "sha256": "f06381b8f6bd518f1cc76023e957c8d3530dafb24e83cc42f3ba9911797093d6"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368134,
+      "device": 16777233,
+      "inode": 115924842,
+      "mtime_ns": 1792493897309436919,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg0-r2-reduced-numeric/verification.json",
+      "sha256": "eb39f75c4856f1700f5af9bae4b61b901f618fbbe458182630cf4e69fbd6aecb"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115924845,
+      "mtime_ns": 1792493901846538680,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r0-current/config.json",
+      "sha256": "73474aee6114d14db79340a80fd9ab0b2d75ed1f2d49f62eaeb4cedd7b07f966"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453398,
+      "device": 16777233,
+      "inode": 115924926,
+      "mtime_ns": 1792493902686747089,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r0-current/producer.json",
+      "sha256": "420e5bf7ab78d6497a09f65f82b16411482d2e2bc4d12010c51995def43e674b"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364751,
+      "device": 16777233,
+      "inode": 115924928,
+      "mtime_ns": 1792493903188381653,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r0-current/verification.json",
+      "sha256": "b9c7630df1a7e1ac5b7c42d3e0ef4c6dbe994ad988a7737d7486ffb1a89a6219"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115924933,
+      "mtime_ns": 1792493907722022781,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r0-reduced-numeric/config.json",
+      "sha256": "0a2388381160ee2de62bcc8444c4609b5dc5b9ec022e302ed3104174ffcabbfe"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453988,
+      "device": 16777233,
+      "inode": 115925014,
+      "mtime_ns": 1792493908573728634,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r0-reduced-numeric/producer.json",
+      "sha256": "f649cb3e114556001f401bef7fd6f5d553db45ed15f664751fac35f5e3544208"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364334,
+      "device": 16777233,
+      "inode": 115925016,
+      "mtime_ns": 1792493909082227840,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r0-reduced-numeric/verification.json",
+      "sha256": "e7f66601258a58df761980b939912f1d2654838a72fc5288dd1e4402fde6a49d"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115925110,
+      "mtime_ns": 1792493919585662751,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r1-current/config.json",
+      "sha256": "808569e6b302d6ba9dc243d4fb35508e2c13fb1b870cac6cfd5b8e0f07aa447e"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453394,
+      "device": 16777233,
+      "inode": 115925192,
+      "mtime_ns": 1792493920424610699,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r1-current/producer.json",
+      "sha256": "79964c27b43a5068f02febc8b91571ddeec4f6e612125df82db980b12b3ebc08"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364741,
+      "device": 16777233,
+      "inode": 115925194,
+      "mtime_ns": 1792493920912561523,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r1-current/verification.json",
+      "sha256": "23b61d522538cd11969dbf3c1e2036f200e6e2bdac1b0eeea33052bb57c92972"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115925021,
+      "mtime_ns": 1792493913703066049,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r1-reduced-numeric/config.json",
+      "sha256": "fcb8d5f130074c19360a27203e7c613b7d5877f0a1e7503949ed2c1e15c19625"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453982,
+      "device": 16777233,
+      "inode": 115925102,
+      "mtime_ns": 1792493914533753352,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r1-reduced-numeric/producer.json",
+      "sha256": "eacc5fdd8e276ee629649a4122a357e794f42582d3d9514b188f008b4a663466"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364348,
+      "device": 16777233,
+      "inode": 115925104,
+      "mtime_ns": 1792493915037426672,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r1-reduced-numeric/verification.json",
+      "sha256": "b1df8507010cd0ae24cb866c1b264f0ee4b4bcbe17b85bbc132a5fcf9fd00a02"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115925201,
+      "mtime_ns": 1792493925464402943,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r2-current/config.json",
+      "sha256": "3818a1c5c56cda9b9f0649a1856cd8f316a9f7dbd898d4f809630961664f5c7e"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453402,
+      "device": 16777233,
+      "inode": 115925282,
+      "mtime_ns": 1792493926310456533,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r2-current/producer.json",
+      "sha256": "a99c9b7980b3d912e1cacbdac54a65a3c7a20b30579cd1b3deda46b8c51f6e24"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364748,
+      "device": 16777233,
+      "inode": 115925284,
+      "mtime_ns": 1792493926819611241,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r2-current/verification.json",
+      "sha256": "8a1a64fbe70a153200acad5df9e4594a12439dc9961cd46bc5279bd95f1e29ab"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115925288,
+      "mtime_ns": 1792493931367924194,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r2-reduced-numeric/config.json",
+      "sha256": "c650f8f4a8057c715c9df1819ec54a385455271d67f3abb06c1513477a1b189c"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453984,
+      "device": 16777233,
+      "inode": 115925369,
+      "mtime_ns": 1792493932202352548,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r2-reduced-numeric/producer.json",
+      "sha256": "1f84b6076e7c7c37a76beeca63023566e4d37e8a85b410f2ed3020605baf46d8"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364358,
+      "device": 16777233,
+      "inode": 115925371,
+      "mtime_ns": 1792493932711021630,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg113-r2-reduced-numeric/verification.json",
+      "sha256": "9f8eb3c443edeec976d344127cdac735efaa255fc4ee0b7bd68cc14f277e6fef"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115925375,
+      "mtime_ns": 1792493937232774770,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r0-current/config.json",
+      "sha256": "7d15e4382c1e6dbad93fa72a1258dd6a47416de17a0ca711aa80f19a8a902a36"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453499,
+      "device": 16777233,
+      "inode": 115925456,
+      "mtime_ns": 1792493938116495324,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r0-current/producer.json",
+      "sha256": "73314956a621492b53ea824fe3494f2dbffef620abdd3898df1fc7b79c43e2dc"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368336,
+      "device": 16777233,
+      "inode": 115925458,
+      "mtime_ns": 1792493938632588632,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r0-current/verification.json",
+      "sha256": "16902479bccaa08702decc8252f30b15c7520080431b092db8f0e7dc99b31254"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115925465,
+      "mtime_ns": 1792493943174730195,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r0-reduced-numeric/config.json",
+      "sha256": "ec33970e6db8d2c053f908f3bee498a4bcf57b5fc3da8a827791679b19578322"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454037,
+      "device": 16777233,
+      "inode": 115925546,
+      "mtime_ns": 1792493943992854552,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r0-reduced-numeric/producer.json",
+      "sha256": "2bb19e223b17d4685927a4ed1fe5883746db4339bf52ff1cd87c350a654cc23b"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367676,
+      "device": 16777233,
+      "inode": 115925548,
+      "mtime_ns": 1792493944464060087,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r0-reduced-numeric/verification.json",
+      "sha256": "125378dca703817e3d532923d3c77e85fd4459e4967929e59ffdb6e088880edb"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115925645,
+      "mtime_ns": 1792493954912682618,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r1-current/config.json",
+      "sha256": "b1543bce479ab9305609c7b12ce279afc874018b5ea89eeee14f79b6c503943f"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453491,
+      "device": 16777233,
+      "inode": 115925726,
+      "mtime_ns": 1792493955769258774,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r1-current/producer.json",
+      "sha256": "54cca9a2e481806484818ddc4b95fec4ab07e98f04c9f697336ad3c8088fa870"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368353,
+      "device": 16777233,
+      "inode": 115925728,
+      "mtime_ns": 1792493956273419303,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r1-current/verification.json",
+      "sha256": "81201f82d6dac32ae133e9ac1de67dab4c4ec128318eab06d1fb6e9817fd8d8a"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115925553,
+      "mtime_ns": 1792493949009977368,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r1-reduced-numeric/config.json",
+      "sha256": "8ef7d7ee1f965ff606af8bc025203208eaec1e3a07c8154bed84f11526806ed7"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454072,
+      "device": 16777233,
+      "inode": 115925635,
+      "mtime_ns": 1792493949860325052,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r1-reduced-numeric/producer.json",
+      "sha256": "768fd60816d2784e56c5064989aa451bddf66f4c634871951d38e3f7ac85b873"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367671,
+      "device": 16777233,
+      "inode": 115925640,
+      "mtime_ns": 1792493950370488845,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r1-reduced-numeric/verification.json",
+      "sha256": "faf1431d488f333c8ef647843a51d11798a11c9643f1609decbe698c1bcc656c"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115925731,
+      "mtime_ns": 1792493960809260936,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r2-current/config.json",
+      "sha256": "703d50d707b760bcb2d7d97ddf64e63505f526aeeb97b52311a8d2c894c7ef0f"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453494,
+      "device": 16777233,
+      "inode": 115925813,
+      "mtime_ns": 1792493961673502652,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r2-current/producer.json",
+      "sha256": "c60a60461fd1939c1bbe3a0bb456dba333c033a848e8dd170ebbe08a8f452256"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368353,
+      "device": 16777233,
+      "inode": 115925815,
+      "mtime_ns": 1792493962175139466,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r2-current/verification.json",
+      "sha256": "bd553fd16cfb9345630edd6760683a5f0170a5408652dee812f695008a883fb2"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115925819,
+      "mtime_ns": 1792493966717295781,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r2-reduced-numeric/config.json",
+      "sha256": "fb33d742b6aef61e3a67e0a6245dce07c4aba07495b32bc47465adf9486d7aae"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454072,
+      "device": 16777233,
+      "inode": 115925900,
+      "mtime_ns": 1792493967559216903,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r2-reduced-numeric/producer.json",
+      "sha256": "1f108f42a5b4de21207c4d59beaf0c59095dfab4d49f582f6293f592fa6e6903"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367655,
+      "device": 16777233,
+      "inode": 115925902,
+      "mtime_ns": 1792493968089049825,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/A-rg225-r2-reduced-numeric/verification.json",
+      "sha256": "82fc96c42731963513148092ab7126d5359eca056ef55c33371cf3dc632d7ee2"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9110,
+      "device": 16777233,
+      "inode": 115925995,
+      "mtime_ns": 1792493978681063072,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r0-current/config.json",
+      "sha256": "7ffc3eac8f60c633f4173a5e199d9fc775aad3ebb33b52bb4dad59839ee85198"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453487,
+      "device": 16777233,
+      "inode": 115926076,
+      "mtime_ns": 1792493979552250429,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r0-current/producer.json",
+      "sha256": "0aad086dbfecc336087e6be64b12b801e2018722d7827e66675ed97eb7708ece"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368606,
+      "device": 16777233,
+      "inode": 115926079,
+      "mtime_ns": 1792493980052429407,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r0-current/verification.json",
+      "sha256": "17ed82e0eac2a6d31ca272b320de10b994c47207f37c5f0243101e113f86e21c"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9134,
+      "device": 16777233,
+      "inode": 115925909,
+      "mtime_ns": 1792493972743993574,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r0-reduced-numeric/config.json",
+      "sha256": "eff85e5026a11ad78c643742e9c8a143be1e4ab2b86db8e29bb5575a6ca03647"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454078,
+      "device": 16777233,
+      "inode": 115925990,
+      "mtime_ns": 1792493973626219792,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r0-reduced-numeric/producer.json",
+      "sha256": "1308624355024a685263194a5453606e934a93dffea2aaa43c9245ada8cc091a"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368118,
+      "device": 16777233,
+      "inode": 115925992,
+      "mtime_ns": 1792493974127996814,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r0-reduced-numeric/verification.json",
+      "sha256": "691cd9e51ccaae3140bf25038a757e081e079d4da500dac5657928ddb791ea3d"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9110,
+      "device": 16777233,
+      "inode": 115926083,
+      "mtime_ns": 1792493984613215766,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r1-current/config.json",
+      "sha256": "c52bd7c3278add6429d38cbd4cbfeba2f3d8c8d547b40d8d88306ba626dfadcd"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453488,
+      "device": 16777233,
+      "inode": 115926164,
+      "mtime_ns": 1792493985476495688,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r1-current/producer.json",
+      "sha256": "50e6d3eef7ec3e390ceac8d85283cd610e0cae32c7c0542f4e3b0e2b36ac137b"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368602,
+      "device": 16777233,
+      "inode": 115926166,
+      "mtime_ns": 1792493985966872310,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r1-current/verification.json",
+      "sha256": "3ac6cef91dd1e3e007586c35975470c600df4f77472ab5eeb02f8dcf90ea3d7b"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9134,
+      "device": 16777233,
+      "inode": 115926169,
+      "mtime_ns": 1792493990488876617,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r1-reduced-numeric/config.json",
+      "sha256": "6161a3c3501b2adc5d69e211bc61a5ba5d66d48a27265d5b7eb284e51b1f0c90"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454068,
+      "device": 16777233,
+      "inode": 115926250,
+      "mtime_ns": 1792493991335797751,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r1-reduced-numeric/producer.json",
+      "sha256": "db4d2226a1783facae4fcc3087c59f05f1328134b54ac154ab523bda7b669560"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368128,
+      "device": 16777233,
+      "inode": 115926253,
+      "mtime_ns": 1792493991847483381,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r1-reduced-numeric/verification.json",
+      "sha256": "b848984139224c1d06cae09a7823ecac43239b4e3bbbc92059f338513a556f3b"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9110,
+      "device": 16777233,
+      "inode": 115926349,
+      "mtime_ns": 1792494002281723169,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r2-current/config.json",
+      "sha256": "b2c9d0998b07958451b3f468affc86eb8cdd558d43de6426dbb8f7d70e236b54"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453485,
+      "device": 16777233,
+      "inode": 115926430,
+      "mtime_ns": 1792494003145160675,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r2-current/producer.json",
+      "sha256": "a4d5b866e083c5fcf28af4d1c8151697d83b1bea77e2d6ffe3fafb1bbf8f2b41"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368609,
+      "device": 16777233,
+      "inode": 115926432,
+      "mtime_ns": 1792494003649305079,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r2-current/verification.json",
+      "sha256": "fe9f9e3b2c88b1f472835ba744601aa9bcf35254f0db7a96b21d91d970abcdd1"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9134,
+      "device": 16777233,
+      "inode": 115926257,
+      "mtime_ns": 1792493996395636501,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r2-reduced-numeric/config.json",
+      "sha256": "90922eee9bf158fd7d054dfde725eb24f5bc3f763ef18768bc78493c57589f5a"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454076,
+      "device": 16777233,
+      "inode": 115926338,
+      "mtime_ns": 1792493997262315431,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r2-reduced-numeric/producer.json",
+      "sha256": "4edb10ccd6ad5550b347adb606ba3409a867dc38a291956c373aec4f50a53cd9"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368126,
+      "device": 16777233,
+      "inode": 115926340,
+      "mtime_ns": 1792493997730679209,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg0-r2-reduced-numeric/verification.json",
+      "sha256": "3c28d7ef8e3249fd9cb68f32485106e6dee5ac970d5633c659bb3d546f58e2aa"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115926536,
+      "mtime_ns": 1792494014111776934,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r0-current/config.json",
+      "sha256": "15bd296c97cbd9c5d1d8093cad71c4a1b8602c3ce5ae462b2cebce604729b195"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453400,
+      "device": 16777233,
+      "inode": 115926617,
+      "mtime_ns": 1792494014968420383,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r0-current/producer.json",
+      "sha256": "5c7cbc1177b30ba083cea834c3b3694db417cdc801e6703901529e67c63f0cc0"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364726,
+      "device": 16777233,
+      "inode": 115926620,
+      "mtime_ns": 1792494015452540197,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r0-current/verification.json",
+      "sha256": "82572ee4fd221684a3b126e1dd103597af8780173738e87db6f3fa81355e01ff"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115926435,
+      "mtime_ns": 1792494008188774970,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r0-reduced-numeric/config.json",
+      "sha256": "f850672158cf427212a3c75ae5b798a8ac5f4cc29879cea82dc394bc61998e03"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453988,
+      "device": 16777233,
+      "inode": 115926530,
+      "mtime_ns": 1792494009048626801,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r0-reduced-numeric/producer.json",
+      "sha256": "ff7c4e3001954427372807eb22a15e6ad6b60170818c5b87773650c258fd37b1"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364328,
+      "device": 16777233,
+      "inode": 115926532,
+      "mtime_ns": 1792494009553390790,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r0-reduced-numeric/verification.json",
+      "sha256": "0ae2dfbcc3d0fdb83f48384f55e2f1c767ae0669df465c27031c02fcc48f407c"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115926625,
+      "mtime_ns": 1792494020016015937,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r1-current/config.json",
+      "sha256": "1aa1528118afad1242aa79ce195c0aa335d9c00aa7b10849f89551398216fa02"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453408,
+      "device": 16777233,
+      "inode": 115926707,
+      "mtime_ns": 1792494020874759391,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r1-current/producer.json",
+      "sha256": "1dafff775eb66a539500e2c558eaf5ffc5dc94bc4fe3836667a20695869af983"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364738,
+      "device": 16777233,
+      "inode": 115926711,
+      "mtime_ns": 1792494021384093098,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r1-current/verification.json",
+      "sha256": "c8028710ade6265f3ccf99896d46eacde50daa24dc9cb0e08bf3ee5e26ccc629"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115926730,
+      "mtime_ns": 1792494025954225771,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r1-reduced-numeric/config.json",
+      "sha256": "187f3bf6d2dcce5a8daecd6d58b39b79af110a12b7d2125ce933bf9199fe0cf1"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453987,
+      "device": 16777233,
+      "inode": 115926811,
+      "mtime_ns": 1792494026808730214,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r1-reduced-numeric/producer.json",
+      "sha256": "b2f343ced2d87603ac27d2cd4c5aa8b4ed9ac78551a719c5283ae6085b81f626"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364339,
+      "device": 16777233,
+      "inode": 115926813,
+      "mtime_ns": 1792494027320896428,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r1-reduced-numeric/verification.json",
+      "sha256": "c7f1e0e74194f2bd951afedf1130e76e1ea1b9bb056c45f9ec4aa8382c40ace2"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115926905,
+      "mtime_ns": 1792494037800097907,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r2-current/config.json",
+      "sha256": "3de1913687d4bd6563a3d83406f212f1db6a171d203d3697922ccd2a36153b03"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453394,
+      "device": 16777233,
+      "inode": 115926986,
+      "mtime_ns": 1792494038658086358,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r2-current/producer.json",
+      "sha256": "767887b8d829dd7007b741e84c7dd340cb7534dc30e22fde2d524d1f5c654ed6"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364751,
+      "device": 16777233,
+      "inode": 115926993,
+      "mtime_ns": 1792494039156534748,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r2-current/verification.json",
+      "sha256": "af4bf52def2d0874189659575c179b65bafcb6af160ffa046abd4c2923aef57e"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115926818,
+      "mtime_ns": 1792494031881695579,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r2-reduced-numeric/config.json",
+      "sha256": "9056fbc3939b2d71796fd5d31e5352c3a28d5e12ec504153277998ae45fdf79d"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453981,
+      "device": 16777233,
+      "inode": 115926899,
+      "mtime_ns": 1792494032708413998,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r2-reduced-numeric/producer.json",
+      "sha256": "817dea3fbfb25e46fd0b4fb9d5f14735c770a0bd09685811536baea706f11348"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364340,
+      "device": 16777233,
+      "inode": 115926901,
+      "mtime_ns": 1792494033228900148,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg113-r2-reduced-numeric/verification.json",
+      "sha256": "7b08fb376232dbba0e6455be7f3171b2ee141b7273729a00900d6331235e5cff"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115927085,
+      "mtime_ns": 1792494049668409096,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r0-current/config.json",
+      "sha256": "9106989043f17a7bbabe03a85c79f733d5ddb054e287f4e6fef579e9615fb888"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453483,
+      "device": 16777233,
+      "inode": 115927167,
+      "mtime_ns": 1792494050508692214,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r0-current/producer.json",
+      "sha256": "449c5d793b5e4692d6ea1189576bc8e0aebe3ce122f8412b1235dc1ad56f3c0d"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368347,
+      "device": 16777233,
+      "inode": 115927169,
+      "mtime_ns": 1792494051033659875,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r0-current/verification.json",
+      "sha256": "0476b562f6a2c21c5974a2e5650e0a60b967cba96df8621b775798d123c1f09e"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115926998,
+      "mtime_ns": 1792494043770685692,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r0-reduced-numeric/config.json",
+      "sha256": "b8108d51566d5eb469622dbdb2df4e002d4e397899772f904af2af4006e25b81"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454069,
+      "device": 16777233,
+      "inode": 115927080,
+      "mtime_ns": 1792494044612904148,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r0-reduced-numeric/producer.json",
+      "sha256": "294b0f996a146d1b03e86335e7d4a6282e683aa5e19e55857d6f71500f56e75e"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367697,
+      "device": 16777233,
+      "inode": 115927082,
+      "mtime_ns": 1792494045131018709,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r0-reduced-numeric/verification.json",
+      "sha256": "83e62629eef469c0e58db5b0b969508c66a48d17f56a3c20b1918d2acf6a8f6d"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115927173,
+      "mtime_ns": 1792494055581265328,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r1-current/config.json",
+      "sha256": "04c97a095fa162a036dad3a38d4ee8b7e98a3b1602f0f90ee48b34741416ab31"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453496,
+      "device": 16777233,
+      "inode": 115927254,
+      "mtime_ns": 1792494056454656774,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r1-current/producer.json",
+      "sha256": "bbf0e66f1301191248b8f9b064f668ff7b451bb25b84b25310c2423843031ad7"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368351,
+      "device": 16777233,
+      "inode": 115927256,
+      "mtime_ns": 1792494056945389105,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r1-current/verification.json",
+      "sha256": "3f1c766dd76e653ba08b58504d26d359271749c6056d65d4ea67edb1fe2cb6b8"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115927259,
+      "mtime_ns": 1792494061491731387,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r1-reduced-numeric/config.json",
+      "sha256": "1f03b5eb68a3d8ee2031eb6dbf287b98b746240acec6ef7a0b2534bdc1fc6a04"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454070,
+      "device": 16777233,
+      "inode": 115927340,
+      "mtime_ns": 1792494062337794268,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r1-reduced-numeric/producer.json",
+      "sha256": "68517552156875fb8e9b3f89f599b1be41aa544cdeb232375e895d3d8c8a4cc8"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367661,
+      "device": 16777233,
+      "inode": 115927342,
+      "mtime_ns": 1792494062835567283,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r1-reduced-numeric/verification.json",
+      "sha256": "64e297899470293ca640fb1a227229e0198e1cd367a7f8e636cc2aea168f95f8"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9116,
+      "device": 16777233,
+      "inode": 115927448,
+      "mtime_ns": 1792494073276491544,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r2-current/config.json",
+      "sha256": "731a9aa2754c39ca4a81024697b61305ddf7d7806b8df6fd49bb8fc0753bb5f0"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453499,
+      "device": 16777233,
+      "inode": 115927529,
+      "mtime_ns": 1792494074156254547,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r2-current/producer.json",
+      "sha256": "f30fd09a64f3db67c0cdbb4f308bef8e6dcfaa80de1ef59c67a79e4907b56aa2"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368349,
+      "device": 16777233,
+      "inode": 115927531,
+      "mtime_ns": 1792494074648991508,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r2-current/verification.json",
+      "sha256": "a791e56021258210dbc28e5d2c99bcc6ee08c8d82a18e3193d6579fa69dcc0ad"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9140,
+      "device": 16777233,
+      "inode": 115927355,
+      "mtime_ns": 1792494067395547972,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r2-reduced-numeric/config.json",
+      "sha256": "d0e524c026dfcf170155e564001c400f9afcc9df48b0bcee28356823f5975658"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454048,
+      "device": 16777233,
+      "inode": 115927441,
+      "mtime_ns": 1792494068230787578,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r2-reduced-numeric/producer.json",
+      "sha256": "1412332eef98a6c7b5daf6f4fe07ce800c8503c67bb7c9f5bb65a242f15a00e5"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367672,
+      "device": 16777233,
+      "inode": 115927443,
+      "mtime_ns": 1792494068713197139,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/B-rg225-r2-reduced-numeric/verification.json",
+      "sha256": "2c0653c6a605543e66c016afb573020d66e38741a570c227aa0cebe68b280793"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924323,
+      "mtime_ns": 1792493867538107686,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r0-current-producer.log",
+      "sha256": "996eae60f51a35a17a1c7348a42c3d7d449dee5d3c491bc66338ce6f5d2130be"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924403,
+      "mtime_ns": 1792493868014800025,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31120,
+      "device": 16777233,
+      "inode": 115924408,
+      "mtime_ns": 1792493872522897467,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r0-current.guard.json",
+      "sha256": "67f605678e3e80b21d1555c0856e6105bd8208c21b6a11c7e52b5f0d74efa88c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924412,
+      "mtime_ns": 1792493873375566531,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r0-reduced-numeric-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924492,
+      "mtime_ns": 1792493873887408245,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31149,
+      "device": 16777233,
+      "inode": 115924495,
+      "mtime_ns": 1792493878370292585,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r0-reduced-numeric.guard.json",
+      "sha256": "62b651cf305a2fee54e35aeafcced659431c57effaa1be2d19286ee33311dd1a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924587,
+      "mtime_ns": 1792493885088878144,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r1-current-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924667,
+      "mtime_ns": 1792493885606045663,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r1-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31125,
+      "device": 16777233,
+      "inode": 115924670,
+      "mtime_ns": 1792493890120891245,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r1-current.guard.json",
+      "sha256": "03b9416af6ccfb54f50dc0b5f40ee1a1cfc56b43939dd4512ba63f0090fbe4e2"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924499,
+      "mtime_ns": 1792493879213881419,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r1-reduced-numeric-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924581,
+      "mtime_ns": 1792493879732493149,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r1-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31158,
+      "device": 16777233,
+      "inode": 115924583,
+      "mtime_ns": 1792493884242777596,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r1-reduced-numeric.guard.json",
+      "sha256": "9cc993c32bda3a658ae07415a05945838f675586e6cc4c2f2655a286ea5dec35"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924675,
+      "mtime_ns": 1792493890978552570,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r2-current-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924755,
+      "mtime_ns": 1792493891473298911,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r2-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31125,
+      "device": 16777233,
+      "inode": 115924757,
+      "mtime_ns": 1792493895964328146,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r2-current.guard.json",
+      "sha256": "d33a58c226bc25842e5e97cb1349a8135f17513427d65ecc7304bfff8a8841ad"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924761,
+      "mtime_ns": 1792493896811646280,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r2-reduced-numeric-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924841,
+      "mtime_ns": 1792493897310035670,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r2-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31157,
+      "device": 16777233,
+      "inode": 115924843,
+      "mtime_ns": 1792493901835788696,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg0-r2-reduced-numeric.guard.json",
+      "sha256": "d8466634c55bd7a5b90828a37a183cd6455ea858d4b4499380f6ea063d4a8def"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924847,
+      "mtime_ns": 1792493902688059092,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r0-current-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924927,
+      "mtime_ns": 1792493903188947404,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31137,
+      "device": 16777233,
+      "inode": 115924931,
+      "mtime_ns": 1792493907711402797,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r0-current.guard.json",
+      "sha256": "31e644fb9b8a76add35ee0f0ee2cdee530cdc920376d4c9e26d59f582dd484ae"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924935,
+      "mtime_ns": 1792493908574781845,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r0-reduced-numeric-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925015,
+      "mtime_ns": 1792493909082817674,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31161,
+      "device": 16777233,
+      "inode": 115925019,
+      "mtime_ns": 1792493913692388274,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r0-reduced-numeric.guard.json",
+      "sha256": "0fcbe7d28e72c6328c37445c2200c5d14343ba6ed5a3846e0cffaaee499e22d7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925112,
+      "mtime_ns": 1792493920426763120,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r1-current-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925193,
+      "mtime_ns": 1792493920913142483,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r1-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31142,
+      "device": 16777233,
+      "inode": 115925199,
+      "mtime_ns": 1792493925453828709,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r1-current.guard.json",
+      "sha256": "2c64016a3876f08da42610b78455b2762da246568282ea8129b3c13e5f842978"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925023,
+      "mtime_ns": 1792493914535758982,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r1-reduced-numeric-producer.log",
+      "sha256": "6b13bc3dce11f42ce4c8d58028096edab987f557e16167bb2e38c166cea502da"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925103,
+      "mtime_ns": 1792493915040047720,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r1-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31150,
+      "device": 16777233,
+      "inode": 115925108,
+      "mtime_ns": 1792493919574742475,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r1-reduced-numeric.guard.json",
+      "sha256": "ef614492e304efb9265f245c8de8b10a48714ad2b1f1757e799490a4854c2762"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925203,
+      "mtime_ns": 1792493926311682036,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r2-current-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925283,
+      "mtime_ns": 1792493926820191617,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r2-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31135,
+      "device": 16777233,
+      "inode": 115925286,
+      "mtime_ns": 1792493931357106585,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r2-current.guard.json",
+      "sha256": "e875531678ec1039bcbc62f9adc5af5819f4c431a482dd402d2b78aecc03e770"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925290,
+      "mtime_ns": 1792493932203767593,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r2-reduced-numeric-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925370,
+      "mtime_ns": 1792493932711617965,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r2-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31160,
+      "device": 16777233,
+      "inode": 115925373,
+      "mtime_ns": 1792493937221986328,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg113-r2-reduced-numeric.guard.json",
+      "sha256": "7d32074cb7fed367dc47a29ffd7181970676c7405748f015982fe366304f3e18"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925377,
+      "mtime_ns": 1792493938117759077,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r0-current-producer.log",
+      "sha256": "dded71df55a98393a0f39a0155869d9f6b1d319c23eba1141f529d54dc8272d2"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925457,
+      "mtime_ns": 1792493938633176008,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31126,
+      "device": 16777233,
+      "inode": 115925463,
+      "mtime_ns": 1792493943163845711,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r0-current.guard.json",
+      "sha256": "af259599aef67a3810091aab201fec14aee9658fcec6457be83b99080348aafd"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925467,
+      "mtime_ns": 1792493943993673013,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r0-reduced-numeric-producer.log",
+      "sha256": "34cba781373ec1b11c2b3976dbb6b0b90f30d490a7675b2cca58d54b8326026e"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925547,
+      "mtime_ns": 1792493944464672088,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31165,
+      "device": 16777233,
+      "inode": 115925551,
+      "mtime_ns": 1792493948998904175,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r0-reduced-numeric.guard.json",
+      "sha256": "b2f271b0e0225994142633b7e4c0bef4c6d87e476c71ee74735aa688f97e68b6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925647,
+      "mtime_ns": 1792493955770206193,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r1-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925727,
+      "mtime_ns": 1792493956274018138,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r1-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31129,
+      "device": 16777233,
+      "inode": 115925729,
+      "mtime_ns": 1792493960798050659,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r1-current.guard.json",
+      "sha256": "b82af1b8a2228ee40e224ae68bd043baa4ee856965dc5604cfdc1e07ffc71b68"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925556,
+      "mtime_ns": 1792493949861378180,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r1-reduced-numeric-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925638,
+      "mtime_ns": 1792493950371057513,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r1-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31162,
+      "device": 16777233,
+      "inode": 115925643,
+      "mtime_ns": 1792493954901541300,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r1-reduced-numeric.guard.json",
+      "sha256": "d7e41cee3c6360180ebe6336fa950a9463f9cb82a162e0063fa4ae52ccf5d606"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925734,
+      "mtime_ns": 1792493961674750447,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r2-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925814,
+      "mtime_ns": 1792493962177831181,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r2-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31133,
+      "device": 16777233,
+      "inode": 115925817,
+      "mtime_ns": 1792493966705954671,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r2-current.guard.json",
+      "sha256": "c02f10c8d4a9efb079d3cb727f26f543d96dd786bbe4608ef92507efe5cbb414"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925821,
+      "mtime_ns": 1792493967561128324,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r2-reduced-numeric-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925901,
+      "mtime_ns": 1792493968089613077,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r2-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31162,
+      "device": 16777233,
+      "inode": 115925907,
+      "mtime_ns": 1792493972732518672,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/A-rg225-r2-reduced-numeric.guard.json",
+      "sha256": "99093f977a57bc7cff6039d0583481315acf27f00d198a1b34f0d22710e7bb6a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925997,
+      "mtime_ns": 1792493979553472640,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r0-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926078,
+      "mtime_ns": 1792493980053013616,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31131,
+      "device": 16777233,
+      "inode": 115926081,
+      "mtime_ns": 1792493984601735738,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r0-current.guard.json",
+      "sha256": "aea0f138af2c0d06c4e234c02b6d245d7677ea2728a2809b00b022ef800565b0"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115925911,
+      "mtime_ns": 1792493973627739795,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r0-reduced-numeric-producer.log",
+      "sha256": "dded71df55a98393a0f39a0155869d9f6b1d319c23eba1141f529d54dc8272d2"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115925991,
+      "mtime_ns": 1792493974128587858,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31146,
+      "device": 16777233,
+      "inode": 115925993,
+      "mtime_ns": 1792493978669515877,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r0-reduced-numeric.guard.json",
+      "sha256": "4e18b3ca2a93308393dc627d8c9c6c6b55cf9a428c1471d7f4c4548a8f8947bd"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926085,
+      "mtime_ns": 1792493985477937358,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r1-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926165,
+      "mtime_ns": 1792493985967453228,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r1-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31120,
+      "device": 16777233,
+      "inode": 115926167,
+      "mtime_ns": 1792493990477397257,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r1-current.guard.json",
+      "sha256": "369d137892efafbba8deba9c620c0d0a6cb79f3d09628a5c524e78e32c868eb2"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926171,
+      "mtime_ns": 1792493991336250002,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r1-reduced-numeric-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926251,
+      "mtime_ns": 1792493991848036674,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r1-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31153,
+      "device": 16777233,
+      "inode": 115926255,
+      "mtime_ns": 1792493996384268932,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r1-reduced-numeric.guard.json",
+      "sha256": "9dd32eb7489a5037370d6f3aa98d6b957e6840c3621dcb6cbc60b090c7125c16"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926351,
+      "mtime_ns": 1792494003146853262,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r2-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926431,
+      "mtime_ns": 1792494003649881247,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r2-current-verify.log",
+      "sha256": "fafbf9393097042fb9b65c27c7587d8fe84afd483a38681e006d2c11798dd23a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31117,
+      "device": 16777233,
+      "inode": 115926433,
+      "mtime_ns": 1792494008177209234,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r2-current.guard.json",
+      "sha256": "0487f7467258d96c2d63f424b3932c1a061f746a40213557bdff59172994ee2f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926259,
+      "mtime_ns": 1792493997264569978,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r2-reduced-numeric-producer.log",
+      "sha256": "996eae60f51a35a17a1c7348a42c3d7d449dee5d3c491bc66338ce6f5d2130be"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926339,
+      "mtime_ns": 1792493997731268336,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r2-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31151,
+      "device": 16777233,
+      "inode": 115926347,
+      "mtime_ns": 1792494002269934266,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg0-r2-reduced-numeric.guard.json",
+      "sha256": "96eaff86e42077873ebb12926a2e767bdbca54af6db7c8afbeba2553dd4f2d25"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926538,
+      "mtime_ns": 1792494014969764470,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r0-current-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926619,
+      "mtime_ns": 1792494015453121157,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31140,
+      "device": 16777233,
+      "inode": 115926623,
+      "mtime_ns": 1792494020004439534,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r0-current.guard.json",
+      "sha256": "723402d75e7c7b4a505fbc6cf6861dbba41869e2ad2b7141d7e8abed4abd7518"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926437,
+      "mtime_ns": 1792494009049555928,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r0-reduced-numeric-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926531,
+      "mtime_ns": 1792494009553982333,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31175,
+      "device": 16777233,
+      "inode": 115926534,
+      "mtime_ns": 1792494014100046948,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r0-reduced-numeric.guard.json",
+      "sha256": "485743c7a48961054f9c999e439ab4b939d6907f19b86c1cdee8dce2fd8cd0d0"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926628,
+      "mtime_ns": 1792494020875946519,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r1-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926709,
+      "mtime_ns": 1792494021384764183,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r1-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31142,
+      "device": 16777233,
+      "inode": 115926728,
+      "mtime_ns": 1792494025942497577,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r1-current.guard.json",
+      "sha256": "9c5d3d005520805e567867a9e155911c82b1399cf6e220b922aa47f12c49eb09"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926732,
+      "mtime_ns": 1792494026810988553,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r1-reduced-numeric-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926812,
+      "mtime_ns": 1792494027321480430,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r1-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31175,
+      "device": 16777233,
+      "inode": 115926816,
+      "mtime_ns": 1792494031869752967,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r1-reduced-numeric.guard.json",
+      "sha256": "754518f48d2493830dd4c2b6fcb65f9233340277e81fb2e8747bae9166e49c5f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926907,
+      "mtime_ns": 1792494038659180986,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r2-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926992,
+      "mtime_ns": 1792494039157105083,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r2-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31140,
+      "device": 16777233,
+      "inode": 115926996,
+      "mtime_ns": 1792494043758936289,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r2-current.guard.json",
+      "sha256": "950bb6f886958346eed25461f3c562e9fb3cec4678d0f8cb1e13d48301ded03f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115926820,
+      "mtime_ns": 1792494032708842291,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r2-reduced-numeric-producer.log",
+      "sha256": "6b13bc3dce11f42ce4c8d58028096edab987f557e16167bb2e38c166cea502da"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115926900,
+      "mtime_ns": 1792494033229497608,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r2-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31167,
+      "device": 16777233,
+      "inode": 115926903,
+      "mtime_ns": 1792494037788306504,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg113-r2-reduced-numeric.guard.json",
+      "sha256": "977dce484fe8390ecbcf2fa0a6c5859f513026b4b9ee0950772e3855ac21e318"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115927087,
+      "mtime_ns": 1792494050510028300,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r0-current-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115927168,
+      "mtime_ns": 1792494051034242043,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31136,
+      "device": 16777233,
+      "inode": 115927171,
+      "mtime_ns": 1792494055569225841,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r0-current.guard.json",
+      "sha256": "088b477ed88d4557df439438f4d72253581c1306721fcb37b4f1857a1e1e19b2"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115927001,
+      "mtime_ns": 1792494044614163692,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r0-reduced-numeric-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115927081,
+      "mtime_ns": 1792494045131709461,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31169,
+      "device": 16777233,
+      "inode": 115927083,
+      "mtime_ns": 1792494049656639026,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r0-reduced-numeric.guard.json",
+      "sha256": "923be03acb96630d76ed8800dad22682ce0952f0ab8490d7165df96f9f1b9c42"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115927175,
+      "mtime_ns": 1792494056456133486,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r1-current-producer.log",
+      "sha256": "996eae60f51a35a17a1c7348a42c3d7d449dee5d3c491bc66338ce6f5d2130be"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115927255,
+      "mtime_ns": 1792494056945978898,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r1-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31133,
+      "device": 16777233,
+      "inode": 115927257,
+      "mtime_ns": 1792494061479767109,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r1-current.guard.json",
+      "sha256": "0a0501236378cc6cdd31205e53b186ac9cd850b21bb578972215040d3cf597b8"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115927261,
+      "mtime_ns": 1792494062339804023,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r1-reduced-numeric-producer.log",
+      "sha256": "2259c4a5da46505db78454e9ca04de56fa97e41b5ce0cf9134a7a7809755ae10"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115927341,
+      "mtime_ns": 1792494062836159409,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r1-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31165,
+      "device": 16777233,
+      "inode": 115927353,
+      "mtime_ns": 1792494067383299901,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r1-reduced-numeric.guard.json",
+      "sha256": "c9e3761addb37ffc453e7a5866bce71386923f59a812d5ef008af5a9aba4b0d6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115927450,
+      "mtime_ns": 1792494074157691134,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r2-current-producer.log",
+      "sha256": "dded71df55a98393a0f39a0155869d9f6b1d319c23eba1141f529d54dc8272d2"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115927530,
+      "mtime_ns": 1792494074649588343,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r2-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31131,
+      "device": 16777233,
+      "inode": 115927535,
+      "mtime_ns": 1792494079202843350,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r2-current.guard.json",
+      "sha256": "cbeeff9f8b0452f13fd9a94c77ea928209d7a8d0c71e756884a4e9a3b74cbd2a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115927362,
+      "mtime_ns": 1792494068231682663,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r2-reduced-numeric-producer.log",
+      "sha256": "34cba781373ec1b11c2b3976dbb6b0b90f30d490a7675b2cca58d54b8326026e"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115927442,
+      "mtime_ns": 1792494068713787390,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r2-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31171,
+      "device": 16777233,
+      "inode": 115927446,
+      "mtime_ns": 1792494073264608975,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/B-rg225-r2-reduced-numeric.guard.json",
+      "sha256": "361bae58f9ebf519fb7c31d5898fc1ac171b76fff104c3ea4cc0c956f13f405e"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115923778,
+      "mtime_ns": 1792493803965701665,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg0-r0-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115923858,
+      "mtime_ns": 1792493804442172961,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg0-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31144,
+      "device": 16777233,
+      "inode": 115923860,
+      "mtime_ns": 1792493809036623524,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg0-r0-current.guard.json",
+      "sha256": "918774733b4599178a542aa73713e1cba9c3c1877385e98698e2bc35c9eb1de1"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115923864,
+      "mtime_ns": 1792493809872467715,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg0-r0-reduced-numeric-producer.log",
+      "sha256": "6b13bc3dce11f42ce4c8d58028096edab987f557e16167bb2e38c166cea502da"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115923945,
+      "mtime_ns": 1792493810380349669,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg0-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31177,
+      "device": 16777233,
+      "inode": 115923949,
+      "mtime_ns": 1792493814879692882,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg0-r0-reduced-numeric.guard.json",
+      "sha256": "0bdb825b8afd6e5c4c7e0276d2ce7eae0f0b7969f8ed6a515b73054fe381b567"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115923953,
+      "mtime_ns": 1792493815756874338,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg113-r0-current-producer.log",
+      "sha256": "996eae60f51a35a17a1c7348a42c3d7d449dee5d3c491bc66338ce6f5d2130be"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924033,
+      "mtime_ns": 1792493816280529871,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg113-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31172,
+      "device": 16777233,
+      "inode": 115924039,
+      "mtime_ns": 1792493820813405372,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg113-r0-current.guard.json",
+      "sha256": "b7100641b973c4c682ac8edb4e1b417a315214db7b1a3bfffd65baf33a81e093"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924043,
+      "mtime_ns": 1792493821655556702,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg113-r0-reduced-numeric-producer.log",
+      "sha256": "14f87d991396f17e163d7ddd4dd13daa98c23b0208403041b0ebba2ddc484bc5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924123,
+      "mtime_ns": 1792493822177614273,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg113-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31200,
+      "device": 16777233,
+      "inode": 115924133,
+      "mtime_ns": 1792493826705169762,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg113-r0-reduced-numeric.guard.json",
+      "sha256": "2be36742750c8564b38f8be7e0ee387d6aff2afb5d36574d82c7fffc8b948399"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924137,
+      "mtime_ns": 1792493827577394538,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg225-r0-current-producer.log",
+      "sha256": "3a0d7cec727d3005cc9279d6de90eb3168bb2c2ea308cd0c299bf882ba2dd144"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924217,
+      "mtime_ns": 1792493828055878714,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg225-r0-current-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31155,
+      "device": 16777233,
+      "inode": 115924222,
+      "mtime_ns": 1792493832583505745,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg225-r0-current.guard.json",
+      "sha256": "a3a21898c599658f32c33d3ffa338fd581575b9bd825d557e3ae4f53fb9ea462"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 206,
+      "device": 16777233,
+      "inode": 115924226,
+      "mtime_ns": 1792493833422678151,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg225-r0-reduced-numeric-producer.log",
+      "sha256": "6b13bc3dce11f42ce4c8d58028096edab987f557e16167bb2e38c166cea502da"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 212,
+      "device": 16777233,
+      "inode": 115924306,
+      "mtime_ns": 1792493833934789824,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg225-r0-reduced-numeric-verify.log",
+      "sha256": "a161982c2916adf2c553e7938168f69c1ee3b895eecae7292ed8d1f45c24ed0a"
+    },
+    {
+      "allocated_bytes": 32768,
+      "bytes": 31181,
+      "device": 16777233,
+      "inode": 115924311,
+      "mtime_ns": 1792493838459093263,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/logs/preflight-rg225-r0-reduced-numeric.guard.json",
+      "sha256": "79545d99e07c4624ea8271d53df16321f264310bcc71201d3a3c22fe930eab9f"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9126,
+      "device": 16777233,
+      "inode": 115923773,
+      "mtime_ns": 1792493803057567469,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg0-r0-current/config.json",
+      "sha256": "ad5c5aa8e34c6087d9895d18b799723ecf5e3e0d27046ac51a6d2dd714040fc6"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453465,
+      "device": 16777233,
+      "inode": 115923857,
+      "mtime_ns": 1792493803964779246,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg0-r0-current/producer.json",
+      "sha256": "95d09ec1b8051dcf7248cb1073d89f2acfab6ff74431d6e510e04fa83a3d7ea8"
+    },
+    {
+      "allocated_bytes": 372736,
+      "bytes": 368641,
+      "device": 16777233,
+      "inode": 115923859,
+      "mtime_ns": 1792493804441534626,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg0-r0-current/verification.json",
+      "sha256": "eae920dfb98a37feaccc28ecbd21038e29de2ce22b2425426e9f1bb73e429e52"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9150,
+      "device": 16777233,
+      "inode": 115923862,
+      "mtime_ns": 1792493809047030923,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg0-r0-reduced-numeric/config.json",
+      "sha256": "18c142cd01872b061b1a2ef794b428466ffa69f111feea5fdb25da12af4ab055"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454061,
+      "device": 16777233,
+      "inode": 115923944,
+      "mtime_ns": 1792493809871277087,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg0-r0-reduced-numeric/producer.json",
+      "sha256": "b0c5229add46156d3fed8376f9ed758b1053e4941b38afe2bf782a63ca0dbe24"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368114,
+      "device": 16777233,
+      "inode": 115923947,
+      "mtime_ns": 1792493810379765001,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg0-r0-reduced-numeric/verification.json",
+      "sha256": "c4ea7bf7170d5b59c6bd9a26a63637ab99056229eb512895e0380b929157fe3f"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9132,
+      "device": 16777233,
+      "inode": 115923951,
+      "mtime_ns": 1792493814889797656,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg113-r0-current/config.json",
+      "sha256": "e2967f33b049477609e7d0d06ff61c9ada111736eec5fd1e280d2a4535f4555e"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453405,
+      "device": 16777233,
+      "inode": 115924032,
+      "mtime_ns": 1792493815754383873,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg113-r0-current/producer.json",
+      "sha256": "34de82e7c48303717d7d6ea35f73050d3e46488ee0fed3fe3ddf888efcd3e704"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 364747,
+      "device": 16777233,
+      "inode": 115924034,
+      "mtime_ns": 1792493816277763239,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg113-r0-current/verification.json",
+      "sha256": "3e7551de376bc2dfeec62231408deb717f7d06e2dde4ce0052fb558c897f6c97"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9156,
+      "device": 16777233,
+      "inode": 115924041,
+      "mtime_ns": 1792493820823559104,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg113-r0-reduced-numeric/config.json",
+      "sha256": "b0d33feb3371ce16feb5aaefc4ee24789c737a13a6ce78ada46079cd36d9cbb9"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453984,
+      "device": 16777233,
+      "inode": 115924122,
+      "mtime_ns": 1792493821654238032,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg113-r0-reduced-numeric/producer.json",
+      "sha256": "2b9b416736351fd76cab360b9216299b83f514fa720bf9ba066ae96b4dfcf72d"
+    },
+    {
+      "allocated_bytes": 364544,
+      "bytes": 364330,
+      "device": 16777233,
+      "inode": 115924124,
+      "mtime_ns": 1792493822177029105,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg113-r0-reduced-numeric/verification.json",
+      "sha256": "bf7508b5e27676ed7792ba0ce33c9e3fefc1d85990bdd099b5f89a55b14fbe50"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9132,
+      "device": 16777233,
+      "inode": 115924135,
+      "mtime_ns": 1792493826715651536,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg225-r0-current/config.json",
+      "sha256": "95fae1733d931e9150bba12ab28c354ed5d9a9585db92c91666a0d9ef4abd7de"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 453495,
+      "device": 16777233,
+      "inode": 115924216,
+      "mtime_ns": 1792493827576168244,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg225-r0-current/producer.json",
+      "sha256": "3664a7c5c70b1c4fe35ff50800d2d3447e9935acbc7576c059d99fc04e11574f"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 368364,
+      "device": 16777233,
+      "inode": 115924218,
+      "mtime_ns": 1792493828055268046,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg225-r0-current/verification.json",
+      "sha256": "b14e74d46cb14e33f41784e40a246a1996fa7ce2157419df6dd5d674baab2622"
+    },
+    {
+      "allocated_bytes": 12288,
+      "bytes": 9156,
+      "device": 16777233,
+      "inode": 115924224,
+      "mtime_ns": 1792493832593918894,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg225-r0-reduced-numeric/config.json",
+      "sha256": "b44b43b951451c4e4088a97cd4dfb3dca25a68e111f96d7aeea5c9006f636c74"
+    },
+    {
+      "allocated_bytes": 454656,
+      "bytes": 454068,
+      "device": 16777233,
+      "inode": 115924305,
+      "mtime_ns": 1792493833422241817,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg225-r0-reduced-numeric/producer.json",
+      "sha256": "96695ce98a5af955be79c53691aba761f402d57c8fd24caffafd0dba0177042f"
+    },
+    {
+      "allocated_bytes": 368640,
+      "bytes": 367648,
+      "device": 16777233,
+      "inode": 115924307,
+      "mtime_ns": 1792493833934201448,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/numeric-portfolio-806-a1/preflight-rg225-r0-reduced-numeric/verification.json",
+      "sha256": "2ae5fef817a65dc81d2a3fb1f2b15ffad21bced1b0638ca62576577aeddcc273"
+    },
+    {
+      "allocated_bytes": 95023104,
+      "bytes": 95019440,
+      "device": 16777233,
+      "inode": 115923675,
+      "mtime_ns": 1792493738555640293,
+      "path": "/Users/dylan/.cache/shardloom/cargo-target/release/deps/shardloom_vortex-06be9021cd1aa8dd",
+      "sha256": "e18018049770df65dffb0b09a01a273d2593715790c18fbcd17d95bbe944b685"
+    }
+  ],
+  "replacement_packet_sha256": "49b5834d666e8899b3d36f75b84466fa7bf428a4682ba260dbf6c02d64762ccf",
+  "status": "verified_before_retirement"
+}

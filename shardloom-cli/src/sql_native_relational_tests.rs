@@ -8,6 +8,8 @@ mod aggregate_expression_tests;
 mod dynamic_tests;
 #[path = "sql_native_relational_memory_tests.rs"]
 mod memory_tests;
+#[path = "sql_native_relational_prepared_sampling_tests.rs"]
+mod prepared_sampling_tests;
 #[path = "sql_native_relational_scalar_tests.rs"]
 mod scalar_tests;
 #[path = "sql_native_relational_unary_tests.rs"]

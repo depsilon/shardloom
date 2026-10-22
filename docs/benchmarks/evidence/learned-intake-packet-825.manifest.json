@@ -1,0 +1,406 @@
+{
+  "calls": 16,
+  "compilation_inputs": 1546,
+  "compiled_source_checks": 1546,
+  "git_bound_fixtures": 3,
+  "individually_hashed_prebuild_inputs": 1543,
+  "members": {
+    "evidence/learned-intake-825-r1-freeze.json": {
+      "bytes": 3425,
+      "sha256": "40905d3de20e90e222008810cf26a279f7a95b4b351dd4ea2041caa4f5e416fe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r1-freeze.json"
+    },
+    "evidence/learned-intake-825-r1-freeze.log": {
+      "bytes": 695,
+      "sha256": "b062f8d3d0dae15ac6851ed1b642ab7229e285f73a06205aa69b419a5874f0e4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r1-freeze.log"
+    },
+    "evidence/learned-intake-825-r2-clippy.json": {
+      "bytes": 14182,
+      "sha256": "f8d67fd63380d5bba61ef37f8ba9216d877434ae20f586cb648faaeb00ca344f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r2-clippy.json"
+    },
+    "evidence/learned-intake-825-r2-clippy.log": {
+      "bytes": 1887,
+      "sha256": "17fbc2d64a5972f9e323592de83871a847bc6407e769cb1f2a4294173caa8a0c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r2-clippy.log"
+    },
+    "evidence/learned-intake-825-r2-freeze.json": {
+      "bytes": 3434,
+      "sha256": "5a262e166d05e61b0097bde672d074a09a87800b7c318b78bd3a0871599115ec",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r2-freeze.json"
+    },
+    "evidence/learned-intake-825-r2-freeze.log": {
+      "bytes": 55,
+      "sha256": "ceba165cdf4a2c09a45a6c73e3fb32ceeab965e636f4168050b55ac83d9a37e9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r2-freeze.log"
+    },
+    "evidence/learned-intake-825-r2-source.json": {
+      "bytes": 407321,
+      "sha256": "68b750295fd4613d9f92e0ae7a6a0dec1debc174c2b21bdf658398f1e4be1b39",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r2-source.json"
+    },
+    "evidence/learned-intake-825-r3-binary.json": {
+      "bytes": 1811,
+      "sha256": "9a7f22559c2b2c8f8356e6da514b98e3e708cc596a6cacde15a7a00bc2b9825b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-binary.json"
+    },
+    "evidence/learned-intake-825-r3-build.json": {
+      "bytes": 139689,
+      "sha256": "058d49b85569bf93c03e4a525aaac87e3e239ef1bfb0e51c52170e01d8b6a830",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-build.json"
+    },
+    "evidence/learned-intake-825-r3-build.log": {
+      "bytes": 320164,
+      "sha256": "cdc34eb542b7ba8c29bfd2e9ddb3678e484bbf57a166f7a83dad4115dd72aad4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-build.log"
+    },
+    "evidence/learned-intake-825-r3-clippy.json": {
+      "bytes": 11149,
+      "sha256": "ea5b2308cf979bd64395b4384211bf361f0930154a7363af88e94345868bac5f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-clippy.json"
+    },
+    "evidence/learned-intake-825-r3-clippy.log": {
+      "bytes": 241,
+      "sha256": "f8c7603a211dbb66f58d83c738812c976e144c5c2e40b584e9846bd7412c30bc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-clippy.log"
+    },
+    "evidence/learned-intake-825-r3-compilation-proof.json": {
+      "bytes": 380620,
+      "sha256": "d4f4897ea260dcc297e94d524a843b0b9fecc60ea0a775847a32f0f19090848b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compilation-proof.json"
+    },
+    "evidence/learned-intake-825-r3-compile-proof-complete.json": {
+      "bytes": 3420,
+      "sha256": "f60ce7359e8e1c64a6162b962825a1099409bb9cd8b2e628e5d4fc1f994d12fa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compile-proof-complete.json"
+    },
+    "evidence/learned-intake-825-r3-compile-proof-complete.log": {
+      "bytes": 65,
+      "sha256": "2123b5c3b75a7b769103426b97e400516cb32f445abab75cd63ff33db6975e14",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compile-proof-complete.log"
+    },
+    "evidence/learned-intake-825-r3-compile-proof-corrected.json": {
+      "bytes": 3428,
+      "sha256": "148f51f19f634c1e9f5f523f209505a508fe1f697b60d2bcdbbe25ec521bdd23",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compile-proof-corrected.json"
+    },
+    "evidence/learned-intake-825-r3-compile-proof-corrected.log": {
+      "bytes": 398,
+      "sha256": "704a875dfd391fb72c24e1caa9ffb2f069cc3c104746affd48941527b00503f5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compile-proof-corrected.log"
+    },
+    "evidence/learned-intake-825-r3-compile-proof.json": {
+      "bytes": 3432,
+      "sha256": "a2c561e14d512b186ada3b9da68bb2f22c98417a7c8538c6f84e2e72ad377a3e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compile-proof.json"
+    },
+    "evidence/learned-intake-825-r3-compile-proof.log": {
+      "bytes": 521,
+      "sha256": "c623c7338ae0ed34276ac8ca6c540acd7d783ea09754cc91a5fe573e570e2232",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-compile-proof.log"
+    },
+    "evidence/learned-intake-825-r3-freeze.json": {
+      "bytes": 3438,
+      "sha256": "78e7abaff3289b75682e21610e279086c8a5b2065aff4c0e1c2e4504ef31508e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-freeze.json"
+    },
+    "evidence/learned-intake-825-r3-freeze.log": {
+      "bytes": 55,
+      "sha256": "e9a8b8ca69804c8c40e97f3f1d5f29ec3c2010c1d1b741b77cc99bb492d19c11",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-freeze.log"
+    },
+    "evidence/learned-intake-825-r3-observe.json": {
+      "bytes": 3434,
+      "sha256": "3cee1ec1f7451018b9416ad8892c91cae5585d94016f8d306f07670378452c14",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-observe.json"
+    },
+    "evidence/learned-intake-825-r3-observe.log": {
+      "bytes": 642,
+      "sha256": "6013a8a4f5547c70937460948b9049c5cd261154025136bac4fba819b37c8482",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-observe.log"
+    },
+    "evidence/learned-intake-825-r3-source.json": {
+      "bytes": 407321,
+      "sha256": "3f4d1b411ee1bff6f77e9e9d7a105e67c430e6f5eabac47292dbf75e0bda4139",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-source.json"
+    },
+    "evidence/learned-intake-825-r3-unit.json": {
+      "bytes": 3425,
+      "sha256": "a6ac3ea43c8e3dcc42216251737fb49f62d83243de02f2f5639c036b4c702e0b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-unit.json"
+    },
+    "evidence/learned-intake-825-r3-unit.log": {
+      "bytes": 1126,
+      "sha256": "40c25d21c83f78da5deb4364f9735c8a18657cea17117f4ac08a1bb3a58ae589",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-unit.log"
+    },
+    "evidence/learned-intake-825-r3-verified-corrected.json": {
+      "bytes": 26247,
+      "sha256": "528225717ab63717df6781ed8d15c6751b99786fc1f1641b9183bca884f9d764",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verified-corrected.json"
+    },
+    "evidence/learned-intake-825-r3-verify-corrected-final.json": {
+      "bytes": 3842,
+      "sha256": "22718f794499b0c6d5e3944e0e5db106685cd4097529c82aa48621f076a97c7a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verify-corrected-final.json"
+    },
+    "evidence/learned-intake-825-r3-verify-corrected-final.log": {
+      "bytes": 165,
+      "sha256": "87f73221a9fe0e4d3713fc71b2e7815f651324f266628d5d097b74b23f4ca82e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verify-corrected-final.log"
+    },
+    "evidence/learned-intake-825-r3-verify-corrected.json": {
+      "bytes": 3391,
+      "sha256": "9cfbf77accb3d9975071120812f4c5398bc99a533c154d7ba846766523151820",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verify-corrected.json"
+    },
+    "evidence/learned-intake-825-r3-verify-corrected.log": {
+      "bytes": 473,
+      "sha256": "d28a5fc7ac51bff4825631b8ed695dfd01abae0734a278185e4e13008e69aa5c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verify-corrected.log"
+    },
+    "evidence/learned-intake-825-r3-verify.json": {
+      "bytes": 3426,
+      "sha256": "22d189bff33394a9f2cc5c1464e3f22fba9f9e1e755e50bed574301171e2331d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verify.json"
+    },
+    "evidence/learned-intake-825-r3-verify.log": {
+      "bytes": 645,
+      "sha256": "29223805529ec8293884f7c848d4e6cd50c938af1c8d094b69663ddc59babe45",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-verify.log"
+    },
+    "evidence/learned-intake-driver-825-r1.py": {
+      "bytes": 7749,
+      "sha256": "145807b1056ab48878c05b973eff598ac1cf440ce1d3e11bde6b93b9c0f13770",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-driver-825-r1.py"
+    },
+    "evidence/learned-intake-observer-825-r2.rs": {
+      "bytes": 4426,
+      "sha256": "88ca914ebc82c8ea7af446efaa639727bb058b8f85c9ca52d5ddaa6083273b15",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-observer-825-r2.rs"
+    },
+    "evidence/learned-intake-protocol-825-before-identity-fix.md": {
+      "bytes": 7248,
+      "sha256": "15b288d1b371b9c800004b2a9e11fc64d9b4891cbc77ef278264accd720394b6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-protocol-825-before-identity-fix.md"
+    },
+    "evidence/learned-search-research-825.md": {
+      "bytes": 4037,
+      "sha256": "c16e51452fede0c9b620fb009fb9c267947539862a03827e394485b7b68ad108",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-search-research-825.md"
+    },
+    "evidence/learned_intake_oracle_825.py": {
+      "bytes": 7081,
+      "sha256": "ee1494f12c597cb56e984218d710799b94d1caed16714496ab564e68563b560a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned_intake_oracle_825.py"
+    },
+    "evidence/learned_intake_oracle_825_corrected.py": {
+      "bytes": 7081,
+      "sha256": "3ecca9ff7eeba88124196aa51a0cddb1472e1befc6e36fec3c43f3712c571abf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned_intake_oracle_825_corrected.py"
+    },
+    "evidence/native_workload_guard_816.py": {
+      "bytes": 1789,
+      "sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py"
+    },
+    "evidence/package_learned_intake_825.py": {
+      "bytes": 9435,
+      "sha256": "4db41d5825771e2e2d2d217a232579e497432b94e70b52395d2cbb66284dfa3a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_intake_825.py"
+    },
+    "evidence/run_guarded.py": {
+      "bytes": 6156,
+      "sha256": "68ec416e4fa11cb2d40d48a5f108eb2808f886148e478e8543027837df186be4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded.py"
+    },
+    "evidence/run_learned_intake_825.py": {
+      "bytes": 7966,
+      "sha256": "d597600d9b533d4e586767680a98fb107595e1904efc242023a9cca13f789844",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_learned_intake_825.py"
+    },
+    "evidence/verify_learned_compile_825.py": {
+      "bytes": 5134,
+      "sha256": "0652067dc0a76c0d38e7ed0a3f68924be45e7db5d4d37ba9bd3c542f895b1d3b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_learned_compile_825.py"
+    },
+    "evidence/verify_learned_compile_825_before_coverage_fix.py": {
+      "bytes": 4588,
+      "sha256": "2372754bb0a0777782c134790a965a158d6d68303d3db8d0eab27e7d551da580",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_learned_compile_825_before_coverage_fix.py"
+    },
+    "evidence/verify_learned_compile_825_before_fixture_bridge.py": {
+      "bytes": 3118,
+      "sha256": "ffb329800aa4847a7874c4804b71c6421576f62ae4bd4ff1719c3104113dc19d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_learned_compile_825_before_fixture_bridge.py"
+    },
+    "evidence/verify_learned_intake_corrected_825.py": {
+      "bytes": 3169,
+      "sha256": "b5729434729e60069d83c8b5ee2cded74bb957d28398cd93d020dea5f69d6093",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_learned_intake_corrected_825.py"
+    },
+    "evidence/weighted-search-provider-inventory-824.md": {
+      "bytes": 10084,
+      "sha256": "928e7a8f00f70cee65909779d9b9bbaf85918ff1d901870dce62295d69ea1bb1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/weighted-search-provider-inventory-824.md"
+    },
+    "evidence/weighted-search-provider-verified-824.json": {
+      "bytes": 1697,
+      "sha256": "8d472d9724d0501bc254ae3b3dd24acffc34225bb4ee575cda4eb6df1c18281b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/weighted-search-provider-verified-824.json"
+    },
+    "infrastructure/local_uat_storage.py": {
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py"
+    },
+    "infrastructure/supervisor.py": {
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "source_path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py"
+    },
+    "results/witnesses/05b6590083f6fba5da1a4fbe7f54b9fda233333f70077ca831d9313d85962504.json": {
+      "bytes": 851951,
+      "sha256": "05b6590083f6fba5da1a4fbe7f54b9fda233333f70077ca831d9313d85962504",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/05b6590083f6fba5da1a4fbe7f54b9fda233333f70077ca831d9313d85962504.json"
+    },
+    "results/witnesses/3e8b477631ac99c616911177d2a372028b0d7677986cdc192590f2c0a1aa2261.json": {
+      "bytes": 110,
+      "sha256": "3e8b477631ac99c616911177d2a372028b0d7677986cdc192590f2c0a1aa2261",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/3e8b477631ac99c616911177d2a372028b0d7677986cdc192590f2c0a1aa2261.json"
+    },
+    "results/witnesses/55dd5a6e3a4a4247b046689fedbf32786032f9f76f9bc7d2c35cbc1785a2192d.json": {
+      "bytes": 3069083,
+      "sha256": "55dd5a6e3a4a4247b046689fedbf32786032f9f76f9bc7d2c35cbc1785a2192d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/55dd5a6e3a4a4247b046689fedbf32786032f9f76f9bc7d2c35cbc1785a2192d.json"
+    },
+    "results/witnesses/5e521cacc9e44ddfe0d5968b17eff9b6a3e4fa0abc0d0c3aa87f4884044c36f6.json": {
+      "bytes": 104,
+      "sha256": "5e521cacc9e44ddfe0d5968b17eff9b6a3e4fa0abc0d0c3aa87f4884044c36f6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/5e521cacc9e44ddfe0d5968b17eff9b6a3e4fa0abc0d0c3aa87f4884044c36f6.json"
+    },
+    "results/witnesses/63d814fd1f3f93027d43313b1a75fe01aa7b5367954efeaf4f52ffbcf85a9be1.json": {
+      "bytes": 74,
+      "sha256": "63d814fd1f3f93027d43313b1a75fe01aa7b5367954efeaf4f52ffbcf85a9be1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/63d814fd1f3f93027d43313b1a75fe01aa7b5367954efeaf4f52ffbcf85a9be1.json"
+    },
+    "results/witnesses/90e3570d000a9855e1d18b47d7b4d98a071ef703674a26a57b359b9e8b1f0d5b.json": {
+      "bytes": 1253,
+      "sha256": "90e3570d000a9855e1d18b47d7b4d98a071ef703674a26a57b359b9e8b1f0d5b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/90e3570d000a9855e1d18b47d7b4d98a071ef703674a26a57b359b9e8b1f0d5b.json"
+    },
+    "results/witnesses/962c0a607ab5de432243b31f59b125a116ee5d4e864fc5dddd96a8bba56c8d2f.json": {
+      "bytes": 840987,
+      "sha256": "962c0a607ab5de432243b31f59b125a116ee5d4e864fc5dddd96a8bba56c8d2f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/962c0a607ab5de432243b31f59b125a116ee5d4e864fc5dddd96a8bba56c8d2f.json"
+    },
+    "results/witnesses/a58c39b7c6a0fe6ed4850e73b1ee500ec98374a6b457638cfe79bf5c7858a640.json": {
+      "bytes": 64,
+      "sha256": "a58c39b7c6a0fe6ed4850e73b1ee500ec98374a6b457638cfe79bf5c7858a640",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/a58c39b7c6a0fe6ed4850e73b1ee500ec98374a6b457638cfe79bf5c7858a640.json"
+    },
+    "results/witnesses/b7ca05da4314a3da946a378590313454d58241bc503b7c47519e7c9ff88d6629.json": {
+      "bytes": 3069083,
+      "sha256": "b7ca05da4314a3da946a378590313454d58241bc503b7c47519e7c9ff88d6629",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/b7ca05da4314a3da946a378590313454d58241bc503b7c47519e7c9ff88d6629.json"
+    },
+    "results/witnesses/ca789813423f507b365fddb698b6fba22c5142b7986b012e114ddb2091cfd4b2.json": {
+      "bytes": 1399,
+      "sha256": "ca789813423f507b365fddb698b6fba22c5142b7986b012e114ddb2091cfd4b2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/ca789813423f507b365fddb698b6fba22c5142b7986b012e114ddb2091cfd4b2.json"
+    },
+    "results/witnesses/d4b3939599449590190f0b99dfb6fc381bb4a054baf2fbb0a0b81cf132433779.json": {
+      "bytes": 137,
+      "sha256": "d4b3939599449590190f0b99dfb6fc381bb4a054baf2fbb0a0b81cf132433779",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/d4b3939599449590190f0b99dfb6fc381bb4a054baf2fbb0a0b81cf132433779.json"
+    },
+    "results/witnesses/d6953b76a78621e17606583243392c07361da48f10ddcb52ce63b0287c6392c7.json": {
+      "bytes": 3069083,
+      "sha256": "d6953b76a78621e17606583243392c07361da48f10ddcb52ce63b0287c6392c7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/d6953b76a78621e17606583243392c07361da48f10ddcb52ce63b0287c6392c7.json"
+    },
+    "results/witnesses/d79bf5a5d0e1d9b191ba47e78d07baa3d09dcb5f70009a024735e994217e568c.json": {
+      "bytes": 3069083,
+      "sha256": "d79bf5a5d0e1d9b191ba47e78d07baa3d09dcb5f70009a024735e994217e568c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/d79bf5a5d0e1d9b191ba47e78d07baa3d09dcb5f70009a024735e994217e568c.json"
+    },
+    "results/witnesses/dcaa9044f9c4b08a1d4e913ba08328df78ff932a579f642db1baef0fa68fb6c6.json": {
+      "bytes": 840996,
+      "sha256": "dcaa9044f9c4b08a1d4e913ba08328df78ff932a579f642db1baef0fa68fb6c6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/dcaa9044f9c4b08a1d4e913ba08328df78ff932a579f642db1baef0fa68fb6c6.json"
+    },
+    "results/witnesses/e85c44cbc655439712ffe3baa4b1cceda21b1742255b19b92e2c6242389f2627.json": {
+      "bytes": 840875,
+      "sha256": "e85c44cbc655439712ffe3baa4b1cceda21b1742255b19b92e2c6242389f2627",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/e85c44cbc655439712ffe3baa4b1cceda21b1742255b19b92e2c6242389f2627.json"
+    },
+    "results/witnesses/ea96a274326bb8b1d5374259fe943a07d9efab5d73b8726f5a2b8c327a4cd792.json": {
+      "bytes": 851969,
+      "sha256": "ea96a274326bb8b1d5374259fe943a07d9efab5d73b8726f5a2b8c327a4cd792",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/witnesses/ea96a274326bb8b1d5374259fe943a07d9efab5d73b8726f5a2b8c327a4cd792.json"
+    },
+    "results/workflows.jsonl": {
+      "bytes": 150296,
+      "sha256": "b8985f0f635071ab516121c1c06d95a2979a57028ef906c1bacce24a9471da8e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-825-r3-results/workflows.jsonl"
+    },
+    "worktree.patch": {
+      "bytes": 8883,
+      "sha256": "d51189eb08c24911bcebd2f147c1d8bc4084fb96fb7d5215013337f72c6822b9",
+      "source_path": "git diff --binary HEAD"
+    },
+    "worktree/docs/architecture/native-learned-index-intake-2026-10-20.md": {
+      "bytes": 7248,
+      "sha256": "2b7a025f31f22846a743b5b31926b8d9515a9f334131be59894e69ed643ac0c6",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-learned-index-intake-2026-10-20.md"
+    },
+    "worktree/docs/architecture/phased-execution-plan.md": {
+      "bytes": 79767,
+      "sha256": "9adb0de7d6196cc9fbb083955192c8d4c6cd1b70754fb9923b4fd1be9662c511",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-plan.md"
+    },
+    "worktree/shardloom-vortex/src/local_primitive_prepared_unary.rs": {
+      "bytes": 43684,
+      "sha256": "a5435180b4dc286279c96daa63ee8efc42688cc347bf9f363af56723dfae1f4e",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_prepared_unary.rs"
+    },
+    "worktree/shardloom-vortex/src/local_primitive_relational_learned_intake_tests.rs": {
+      "bytes": 11025,
+      "sha256": "50a81db223709e418619d63b4c69e57d14c232aa945351964a7323b9a1b80eb7",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_learned_intake_tests.rs"
+    },
+    "worktree/shardloom-vortex/src/local_primitive_relational_tests.rs": {
+      "bytes": 20098,
+      "sha256": "d81f422e9e2f6aaced11d5759f5e520b7fbbd24a980afb065816926021bb8440",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_tests.rs"
+    },
+    "worktree/shardloom-vortex/src/local_primitive_unary_sample.rs": {
+      "bytes": 9270,
+      "sha256": "1e386484034c8eb8ca877bd90798532a39a0f14d36148cb4bce4f3a2d0e279a4",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_unary_sample.rs"
+    },
+    "worktree/shardloom-vortex/src/local_primitive_unary_sample_observation.rs": {
+      "bytes": 4475,
+      "sha256": "dbade4d6a686f6ed9321818a839efaaea9e806785ee67ed640e218fcd6f979be",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_unary_sample_observation.rs"
+    }
+  },
+  "packager": {
+    "bytes": 9435,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_intake_825.py",
+    "sha256": "4db41d5825771e2e2d2d217a232579e497432b94e70b52395d2cbb66284dfa3a"
+  },
+  "packet": {
+    "bytes": 969724,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-packet-825.json.xz",
+    "sha256": "6c5e5facd98e85d6c10709034244fb73248472541634bfd53a0951ea14de7bfd"
+  },
+  "preserved_failed_guards": 6,
+  "search_work_prerequisite": true,
+  "status": "passed",
+  "successful_guards": 8,
+  "timing_claim": false,
+  "verified_output_rows": 655646,
+  "verified_source_rows": 393252
+}

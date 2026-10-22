@@ -1,0 +1,143 @@
+{
+  "checker": {
+    "bytes": 28352,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_prepared_sampling_acceptance_packet_867.py",
+    "sha256": "47c1f52f83c1bef5084d2dc69cf375ceca5e8d0eb6dc0c571c5a0de17f621001"
+  },
+  "final_acceptance": {
+    "bytes": 5131415,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/prepared-sampling-final-acceptance-866.json",
+    "sha256": "a4a6f742d676c63d53f07bfa17acc03dae3f3bff9336fac87bc44a26074d59d8"
+  },
+  "packet": {
+    "bytes": 41194808,
+    "file": "acceptance.json.xz",
+    "members": 28698,
+    "sha256": "dd440de1a59028fb2a0bc40012b4ef0d13be4a40a1247d368509840eb6ea4584"
+  },
+  "replay": {
+    "comparisons": {
+      "original": {
+        "calls": 5712,
+        "compiled_input_counts": {
+          "baseline": 1549,
+          "candidate": 1553
+        },
+        "complete_results_source_schema_clocks_credits_and_order_replayed": true,
+        "failed_guards": [
+          "prepared-sampling-856-baseline-r1-admit",
+          "prepared-sampling-candidate-clippy-857-a1",
+          "prepared-sampling-candidate-clippy-857-a2",
+          "prepared-sampling-candidate-focused-857-a1",
+          "prepared-sampling-candidate-native-857-a1"
+        ],
+        "measured_calls": 5376,
+        "measured_workflows": 768,
+        "members": 923,
+        "native_test_counts": {
+          "failed": 0,
+          "ignored": 31,
+          "passed": 3101
+        },
+        "preflight_calls": 336,
+        "preflight_workflows": 48,
+        "preserved_failed_guards": 5,
+        "retention_gate_passed": true,
+        "scored_calls": 4704,
+        "scored_workflows": 672,
+        "source_files_checked": {
+          "baseline": 3165,
+          "candidate": 3169
+        },
+        "status": "passed",
+        "successful_guards": 27,
+        "verified_output_rows": 234065622,
+        "verified_source_rows": 40111704,
+        "workflows": 816
+      },
+      "public_integration": {
+        "calls": 5712,
+        "compiled_input_counts": {
+          "baseline": 1549,
+          "candidate": 1554
+        },
+        "complete_results_source_schema_clocks_credits_and_order_replayed": true,
+        "failed_guards": [
+          "prepared-sampling-856-baseline-r1-admit",
+          "prepared-sampling-856-candidate-r2-clippy",
+          "prepared-sampling-candidate-clippy-857-a1",
+          "prepared-sampling-candidate-clippy-857-a2",
+          "prepared-sampling-candidate-focused-857-a1",
+          "prepared-sampling-candidate-native-857-a1",
+          "prepared-sampling-integration-861-r3-native-all-a1"
+        ],
+        "integration_acceptance_status": "pending_corrected_native_and_remaining_gates",
+        "measured_calls": 5376,
+        "measured_workflows": 768,
+        "members": 997,
+        "native_test_counts": {
+          "failed": 1,
+          "ignored": 31,
+          "passed": 3089
+        },
+        "preflight_calls": 336,
+        "preflight_workflows": 48,
+        "preserved_failed_guards": 7,
+        "retention_gate_passed": true,
+        "scored_calls": 4704,
+        "scored_workflows": 672,
+        "source_files_checked": {
+          "baseline": 3165,
+          "candidate": 3172,
+          "test_corrected_candidate": 3172
+        },
+        "status": "passed",
+        "successful_guards": 48,
+        "verified_output_rows": 234065622,
+        "verified_source_rows": 40111704,
+        "workflows": 816
+      }
+    },
+    "full43_complete_rows": 381,
+    "full43_engine_execution_seconds": "49.077810546",
+    "full43_queries": 43,
+    "guarded_receipts": 43,
+    "installed_sampling_tests": 3,
+    "installed_tests": 118,
+    "members": 28698,
+    "modular_environment": {
+      "files": 4507,
+      "full_matrix_repeated": true,
+      "original_changed_native_files": 63,
+      "original_matrix_accepted": false,
+      "packages": 8,
+      "private_dependency_files_unchanged": true,
+      "status": "passed"
+    },
+    "modular_payload_calls_replayed": 1780,
+    "modular_records": 1408,
+    "native_execution_performed": false,
+    "payload_residency_revalidated": false,
+    "preserved_failed_guards": 4,
+    "public_cases": 5930,
+    "public_families": 39,
+    "publication_attempted": false,
+    "scope": "Complete archived values, reference comparisons, source and receipt integrity; original residency checks remain recorded.",
+    "source_files": 3172,
+    "status": "passed",
+    "wheel_test_correction": {
+      "corrected_test_files": 1,
+      "original_failed_subcases": 2,
+      "tests": 118
+    }
+  },
+  "schema": "shardloom.prepared_sampling_integration_evidence.v1",
+  "scope": "Finite integrated prepared sampling; complete result and source evidence, no runtime or generated-data backup.",
+  "scored_commit": "95fbca52a752fabd9135921a47c7baae2f90cbb7",
+  "source_commit": "4cd3a9e125cad4bba082b6e80c7c600f71239891",
+  "verifier": {
+    "bytes": 66681,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_prepared_sampling_acceptance_packet_866.py",
+    "sha256": "d658cc0da3f7937d3a0f063946de5d13074515ac3375a46702e2654ccc3dfc10"
+  }
+}

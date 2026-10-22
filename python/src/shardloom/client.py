@@ -6893,12 +6893,17 @@ class ShardLoomClient:
 
     def public_workflow_batches(
         self, surface: str, *, batch_rows: int = 2048,
-        input_batches: Mapping[str, object] | None = None, **kwargs: Any,
+        input_batches: Mapping[str, object] | None = None,
+        output_window_bytes: int = 0, **kwargs: Any,
     ):
         """Iterate native result batches; use a context manager for early close."""
         self._ensure_open()
+        from ._native_backend import validate_output_window_bytes
+        output_window_bytes = validate_output_window_bytes(output_window_bytes)
         if self.transport == "native":
             request = dict(kwargs, surface=surface, input_batches=input_batches)
+            if output_window_bytes:
+                request["output_window_bytes"] = output_window_bytes
             allocation = resolve_resources(
                 memory_gb=kwargs.get("memory_gb"), memory_bytes=kwargs.get("memory_bytes"),
                 max_parallelism=kwargs.get("max_parallelism"), resources=kwargs.get("resources"),
@@ -6910,6 +6915,8 @@ class ShardLoomClient:
                 iterator._client = self
                 self._batch_streams.add(iterator)
             return iterator
+        if output_window_bytes:
+            raise ValueError("output_window_bytes requires transport='native'")
         kwargs.pop("_native_plan", None)
         from ._batches import ResultBatchIterator, validate_inputs
         if kwargs.get("requested_output", "collect") != "collect":

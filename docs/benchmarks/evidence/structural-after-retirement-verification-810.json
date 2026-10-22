@@ -1,0 +1,122 @@
+{
+  "complete_decision_recomputed": true,
+  "current_outcome": "rejected",
+  "exact_threshold_checks_passed": true,
+  "fresh_native_processes": 126,
+  "measured_workflows": 36,
+  "members_verified": 424,
+  "native_file_records_verified": 2352,
+  "old_executable_required": false,
+  "original_member_files_required": false,
+  "original_value_checks": 38535168,
+  "original_working_tree_changes_required": false,
+  "packet_sha256": "9991f1cd88919533ca2f78260db2b93eeb51eec53e8b2f5f75ef0dee46339103",
+  "physical_artifacts_reopened": false,
+  "preflight_workflows": 6,
+  "production_admitted": false,
+  "rewritten_value_checks": 38535168,
+  "setup_checks": [
+    {
+      "name": "structural-candidate-fmt-809",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-candidate-tests-809",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "structural-candidate-tests-809b",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-fmt-check-810",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-freeze-810",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-intake-fmt-808",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-intake-run-808",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-intake-tests-808",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-measured-810",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-oracle-tests-810",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-preflight-810",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-scoring-810",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-screen-clippy-809",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "structural-screen-clippy-809b",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-screen-fmt-809",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-screen-fmt-809b",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "structural-screen-tests-809",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "structural-screen-tests-809b",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "structural-screen-tests-809c",
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "source_reconstruction": {
+    "changed_tracked": 3,
+    "extra": 6,
+    "total": 1909,
+    "unchanged_git_blobs": 1900
+  },
+  "status": "passed"
+}

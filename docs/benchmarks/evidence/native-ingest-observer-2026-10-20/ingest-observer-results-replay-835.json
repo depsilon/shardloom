@@ -1,0 +1,25 @@
+{
+  "candidate_design_admitted": false,
+  "compiled_inputs_verified": 1548,
+  "current_outcome": "no_material_signal_in_finite_scope",
+  "measured_records_recomputed": 84,
+  "members_verified": 580,
+  "native_packages": 11,
+  "original_member_files_required": false,
+  "original_working_tree_changes_required": false,
+  "packet_sha256": "bdf6200aab7b6658a5a7b288e187cf1da4de4ff5da0cf5acd59ee408bad6e57e",
+  "physical_artifacts_reopened": false,
+  "prerequisite_receipts_verified": 9,
+  "raw_event_trace_identities_indexed": 49,
+  "raw_event_traces_replayed": false,
+  "scheduling_change_retained": false,
+  "source_reconstructed": {
+    "changed_tracked": 12,
+    "extras": 5,
+    "files": 3055,
+    "unchanged_git_files": 3027
+  },
+  "status": "passed",
+  "temporary_sources_removed": true,
+  "workflow_records_verified": 98
+}

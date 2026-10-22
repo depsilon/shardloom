@@ -1,0 +1,32 @@
+{
+  "base_commit": "0485b5a321878cf3b0d69a99a4eb442b41e7c261",
+  "packet": {
+    "bytes": 237968,
+    "file": "intake.json.xz",
+    "members": 53,
+    "sha256": "ff39be55a82653347b85b858f7a4d6cea64783b70da215fe0991415d6a407ef3"
+  },
+  "replay": {
+    "build_and_python_sources": 2063,
+    "candidate_implemented": false,
+    "native_calls": 33,
+    "native_cases": 13,
+    "native_sources": 1969,
+    "passed_commands": 11,
+    "preserved_failed_commands": 5,
+    "qualifying_targets": [
+      "abundant",
+      "rare",
+      "absent",
+      "skew_wide"
+    ],
+    "scored_workflows": 0,
+    "status": "verified"
+  },
+  "schema": "shardloom.cyclic_existence_intake_evidence.v1",
+  "scope": "Ordinary native row opportunity and correctness; not a retained optimization or package release.",
+  "source_overrides": {
+    "python/tests/test_native_multiway_binding.py": "005e8662e60da08b9abf95cce5585c2f5a10d07f",
+    "shardloom-vortex/src/local_primitive_relational_multiway_tests.rs": "099e9580dc4a7377249afc57e4f765fe09a6e972"
+  }
+}

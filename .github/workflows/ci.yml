@@ -112,6 +112,8 @@ jobs:
           - lane: native_vortex_tests
             command: |
               cargo test -p shardloom-vortex --lib --features release-user-surfaces
+              cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation output_window_observation::tests
+              cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation credit_window::tests
               cp Cargo.lock vendor/vortex-array/Cargo.lock
               cargo test --manifest-path vendor/vortex-array/Cargo.toml \
                 --features _test-harness,table-display \
@@ -406,6 +408,32 @@ jobs:
         run: python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release > "$SHARDLOOM_NATIVE_WHEEL_ROOT/build.json"
       - name: Prove native wheel installation and complete binding tests
         run: python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse" --audit-linux
+      - name: Build opt-in output-window diagnostics
+        env:
+          PYO3_BUILD_EXTENSION_MODULE: "1"
+        run: |
+          PYO3_PYTHON="$(command -v python)" cargo build --locked --release -p shardloom-python --features release-user-surfaces,output-window-observation --lib --message-format=json > "$SHARDLOOM_NATIVE_WHEEL_ROOT/output-window-build.jsonl"
+      - name: Verify actual queue acknowledgments and retained owners
+        run: |
+          "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof/venv/bin/python" -I - <<'PY'
+          import json, os, pathlib, sys, unittest
+          root = pathlib.Path.cwd()
+          output = pathlib.Path(os.environ["SHARDLOOM_NATIVE_WHEEL_ROOT"])
+          sys.path[:0] = [str(root / "scripts"), str(root / "python/src")]
+          from build_native_python import native_artifact, stage_library
+          messages = [json.loads(line) for line in (output / "output-window-build.jsonl").read_text().splitlines()]
+          artifacts = [row for row in messages if row.get("reason") == "compiler-artifact" and row.get("target", {}).get("name") == "_native"]
+          assert len(artifacts) == 1 and "output-window-observation" in artifacts[0]["features"]
+          library = stage_library(native_artifact(messages), output / "output-window-extension")
+          os.environ.update(SHARDLOOM_NATIVE_TEST_LIBRARY=str(library), SHARDLOOM_REQUIRE_NATIVE_PYTHON="1", SHARDLOOM_REQUIRE_OUTPUT_WINDOW_OBSERVATION="1")
+          suite = unittest.defaultTestLoader.discover(str(root / "python/tests"), pattern="test_native_output_window_observation.py")
+          expected = suite.countTestCases()
+          assert expected == 13
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          passed = result.wasSuccessful() and result.testsRun == expected and not result.skipped
+          (output / "output-window-tests.json").write_text(json.dumps({"status": "passed" if passed else "failed", "tests": result.testsRun, "failures": len(result.failures), "errors": len(result.errors), "skipped": len(result.skipped)}, indent=2) + "\n")
+          raise SystemExit(0 if passed else 1)
+          PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
@@ -416,6 +444,8 @@ jobs:
             ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json
             ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/*.log
             ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/dist/*.whl
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/output-window-build.jsonl
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/output-window-tests.json
           if-no-files-found: error
           retention-days: 14
 

@@ -1,0 +1,215 @@
+{
+  "schema_version": "shardloom.output_window_closeout_source.v1",
+  "status": "passed",
+  "decision": "finite_two_batch_output_window_retained",
+  "accepted_source": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-acceptance-source-789.json",
+    "bytes": 369188,
+    "sha256": "72b0eb07b2eccdbd40057fb8a53bdfaa696d98daf53521d6125fea1f07160349"
+  },
+  "accepted_source_commit": "f95490279ce06a91b27d0dc44a3b9ecf41b1d0d6",
+  "commit_alone_reproduces_accepted_source": false,
+  "integrated_source_freeze": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-credit-window-integrated-790-a4-source-freeze.json",
+    "bytes": 544455,
+    "sha256": "65fa36a515610c9f769c46fd1d86dbacfa89b25f4960da58fad8812332be52b9"
+  },
+  "accepted_tracked_patch": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-credit-window-integrated-790-a4-tracked.patch",
+    "bytes": 57004,
+    "sha256": "76234c85c2af4e108db679a7ea63748f2c8e87444e995d7e26c4a9bc53ab7509"
+  },
+  "accepted_source_files": 2890,
+  "unchanged_accepted_source_files": 2885,
+  "allowed_documentation_changes": [
+    {
+      "relative_path": "docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "accepted_sha256": "cbdb8528d540ae48aff9ceaef1809911032316918c438209a48522c6aea1a5fb",
+      "final_bytes": 14335,
+      "final_sha256": "4bb628ea9b2c1e6629883f442f2450e54013540ae122800bb09e3a51c4204a43"
+    },
+    {
+      "relative_path": "docs/architecture/native-output-window-integration-2026-10-19.md",
+      "accepted_sha256": "6a7e6b65e34b45a1dba7678f395128dffe049c1d4fe9d3e04d88e6ed0dadc319",
+      "final_bytes": 8208,
+      "final_sha256": "d27a908df63c1f29661f50e82936876ca922f4bb95683e1c88452cd08a19d09d"
+    },
+    {
+      "relative_path": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "accepted_sha256": "6444470a56d552b0c4de617c54f53e90c37bd29fad98141212e520d0a61936e5",
+      "final_bytes": 28805,
+      "final_sha256": "8a484ee206c43f671b488706b0cee6b0a348e1cb145754ce6a943f6eac41e0f6"
+    },
+    {
+      "relative_path": "docs/architecture/phased-execution-completed-ledger.md",
+      "accepted_sha256": "51dd2fdb8e3074467807ecc6726b149589995a8d7db9e2fa64f77de2585df38e",
+      "final_bytes": 3983790,
+      "final_sha256": "6cfb0fe79b1e04853b5fd083bbc8429d29480e2668904027f7e5a9cdd91411f6"
+    },
+    {
+      "relative_path": "docs/architecture/phased-execution-plan.md",
+      "accepted_sha256": "41431b1923e77d935e553f5e8014a13e6f2adfbe68f7ba0b7d00c7a218cde18b",
+      "final_bytes": 77168,
+      "final_sha256": "041974c5aa8e99e088cca2b5ac2ada58791c1154b0b760c863c1cb8bb6642e4c"
+    }
+  ],
+  "all_runtime_python_test_harness_ci_contents_unchanged": true,
+  "tracked_inputs_outside_source_map_unchanged": true,
+  "tracked_changes_from_accepted_source": [
+    "docs/architecture/native-conditional-investigations-2026-10-19.md",
+    "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+    "docs/architecture/phased-execution-completed-ledger.md",
+    "docs/architecture/phased-execution-plan.md"
+  ],
+  "accepted_extra_sources_preserved": [
+    "docs/architecture/native-output-window-attribution-design-2026-10-19.md",
+    "docs/architecture/native-output-window-integration-2026-10-19.md",
+    "docs/architecture/native-two-batch-output-window-design-2026-10-19.md",
+    "python/tests/test_native_output_window_binding.py",
+    "python/tests/test_native_output_window_observation.py",
+    "python/tests/test_output_window_options.py",
+    "shardloom-vortex/src/local_primitive_relational_credit_window.rs",
+    "shardloom-vortex/src/local_primitive_relational_credit_window_tests.rs",
+    "shardloom-vortex/src/output_window_observation.rs",
+    "shardloom-vortex/src/output_window_observation_tests.rs"
+  ],
+  "pre_closeout_untracked_paths": [
+    "docs/architecture/native-output-window-attribution-design-2026-10-19.md",
+    "docs/architecture/native-output-window-integration-2026-10-19.md",
+    "docs/architecture/native-two-batch-output-window-design-2026-10-19.md",
+    "docs/benchmarks/evidence/output-window-accepted-791-manifest.json.xz",
+    "docs/benchmarks/evidence/output-window-accepted-791.json",
+    "docs/benchmarks/evidence/output-window-accepted-791.tar.xz",
+    "docs/benchmarks/evidence/output-window-accepted-packet-verification-791.json",
+    "python/tests/test_native_output_window_binding.py",
+    "python/tests/test_native_output_window_observation.py",
+    "python/tests/test_output_window_options.py",
+    "shardloom-vortex/src/local_primitive_relational_credit_window.rs",
+    "shardloom-vortex/src/local_primitive_relational_credit_window_tests.rs",
+    "shardloom-vortex/src/output_window_observation.rs",
+    "shardloom-vortex/src/output_window_observation_tests.rs"
+  ],
+  "source_hash_map_sha256": "fbc709a348fb7b962d95f7558c3db0746ddb5174b134b633278acccb4c0fd082",
+  "evidence": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/output-window-accepted-791.json",
+      "bytes": 1582,
+      "sha256": "98117cfd475917c85393444ff9145a8e3b124f2109846d5a1d04c9b40f2edd8e"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/output-window-accepted-791.tar.xz",
+      "bytes": 67119920,
+      "sha256": "d831568d8e6ed50035857637c42634ce68df65db9a4e5b8e639c5da92f80db10"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/output-window-accepted-791-manifest.json.xz",
+      "bytes": 693588,
+      "sha256": "6dbc1c8a66e985b6b3f91e3c6eb828e0cd21f2cf777947cd8da1cb9bf3b22541"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/output-window-accepted-packet-verification-791.json",
+      "bytes": 1607,
+      "sha256": "c9b162bb640ee8b98e865d48520f1547538406b1e8c1344758bb73bd1fb4a486"
+    }
+  ],
+  "final_acceptance": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-final-acceptance-791.json",
+    "bytes": 4980832,
+    "sha256": "1d57e78d9f89095077f460bb51929bcfd55920a6e76271e9a8bc6f51d0482850"
+  },
+  "conditional_sequence_preserved": 21,
+  "required_and_conditional_substeps_preserved": 58,
+  "conditional_substeps_preserved": 21,
+  "required_substeps_preserved": 37,
+  "competitive_gates_preserved": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "finite_decisions": 9,
+  "finite_retained": 2,
+  "finite_rejected": 6,
+  "finite_no_signal": 1,
+  "first_decisions_remaining": 12,
+  "next_investigation": "PERF-09.overlap",
+  "new_relative_links_checked": 17,
+  "whitespace_check": "passed",
+  "static_checks": [
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/write_public_api_reference.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": "Application exports, command metadata, signatures and counts are current.\n"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/write_python_api_exports.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": "Python API stubs are current.\n"
+    }
+  ],
+  "documentation": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-output-window-integration-2026-10-19.md",
+      "bytes": 8208,
+      "sha256": "d27a908df63c1f29661f50e82936876ca922f4bb95683e1c88452cd08a19d09d"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "bytes": 14335,
+      "sha256": "4bb628ea9b2c1e6629883f442f2450e54013540ae122800bb09e3a51c4204a43"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "bytes": 28805,
+      "sha256": "8a484ee206c43f671b488706b0cee6b0a348e1cb145754ce6a943f6eac41e0f6"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-plan.md",
+      "bytes": 77168,
+      "sha256": "041974c5aa8e99e088cca2b5ac2ada58791c1154b0b760c863c1cb8bb6642e4c"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3983790,
+      "sha256": "6cfb0fe79b1e04853b5fd083bbc8429d29480e2668904027f7e5a9cdd91411f6"
+    }
+  ],
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_output_window_closeout_792.py",
+    "bytes": 11196,
+    "sha256": "54b660140a34c92a1e0aa13d9f107af926cb0edbed1c876412200b1ec45360ab"
+  },
+  "verifier_source": "\"\"\"Bind five documentation closeout edits to the exact accepted output-window source.\"\"\"\nfrom pathlib import Path\nimport hashlib\nimport json\nimport os\nimport re\nimport subprocess\nimport sys\nimport tempfile\nfrom urllib.parse import unquote\n\nROOT = Path(__file__).resolve().parent\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nEVIDENCE = REPO / 'docs/benchmarks/evidence'\nSOURCE = ROOT / 'output-window-acceptance-source-789.json'\nFREEZE = ROOT / 'output-credit-window-integrated-790-a4-source-freeze.json'\nPATCH = ROOT / 'output-credit-window-integrated-790-a4-tracked.patch'\nOUTPUT = 'output-window-closeout-source-792.json'\nDOCS = [\n    'docs/architecture/native-output-window-integration-2026-10-19.md',\n    'docs/architecture/native-conditional-investigations-2026-10-19.md',\n    'docs/architecture/native-roadmap-verification-contracts-2026-10-18.md',\n    'docs/architecture/phased-execution-plan.md',\n    'docs/architecture/phased-execution-completed-ledger.md',\n]\nMIRRORS = [\n    'output-window-accepted-791.json',\n    'output-window-accepted-791.tar.xz',\n    'output-window-accepted-791-manifest.json.xz',\n    'output-window-accepted-packet-verification-791.json',\n]\n\n\ndef identity(path):\n    path = Path(path)\n    hasher = hashlib.sha256()\n    size = 0\n    with path.open('rb') as stream:\n        for block in iter(lambda: stream.read(1024 * 1024), b''):\n            hasher.update(block)\n            size += len(block)\n    return dict(path=str(path), bytes=size, sha256=hasher.hexdigest())\n\n\ndef check_reference(ref):\n    actual = identity(ref['path'])\n    assert (actual['bytes'], actual['sha256']) == (ref['bytes'], ref['sha256']), ref['path']\n    return actual\n\n\ndef git(*args, env=None):\n    return subprocess.check_output(['git', *args], cwd=REPO, env=env, text=True)\n\n\nsource = json.loads(SOURCE.read_bytes())\nfreeze = json.loads(FREEZE.read_bytes())\nacceptance = json.loads((ROOT / 'output-window-final-acceptance-791.json').read_bytes())\nassert acceptance['status'] == 'passed' and acceptance['production_accepted'] is True\nassert not acceptance['cpu_speedup_claim'] and not acceptance['publication_attempted']\ncheck_reference(acceptance['source'])\nassert acceptance['source']['path'] == str(SOURCE)\ncheck_reference(source['integrated_source_freeze'])\nassert source['integrated_source_freeze']['path'] == str(FREEZE)\nassert identity(PATCH)['sha256'] == freeze['patch_sha256']\nassert source['source_commit'] == freeze['head'] == git('rev-parse', 'HEAD').strip()\nassert len(source['source_hashes']) == 2890\nassert len(freeze['sources']) == 2887 and len(freeze['extra_sources']) == 10\nassert not git('diff', '--cached', '--name-only').strip(), 'Existing index must remain untouched'\n\nchanges = []\nfor relative, expected in source['source_hashes'].items():\n    actual = identity(REPO / relative)\n    if actual['sha256'] != expected:\n        assert relative in DOCS, relative\n        changes.append(dict(relative_path=relative, accepted_sha256=expected,\n                            final_bytes=actual['bytes'], final_sha256=actual['sha256']))\nassert {item['relative_path'] for item in changes} == set(DOCS)\n\n# A separate index also protects tracked inputs outside the selected source map,\n# including JSON and modes. It does not stage or alter the user's real index.\nwith tempfile.TemporaryDirectory(prefix='output-window-closeout-index-', dir=ROOT) as folder:\n    env = dict(os.environ, GIT_INDEX_FILE=str(Path(folder) / 'index'))\n    subprocess.run(['git', 'read-tree', source['source_commit']], cwd=REPO, env=env, check=True)\n    subprocess.run(['git', 'apply', '--cached', str(PATCH)], cwd=REPO, env=env, check=True)\n    tracked_changes = set(filter(None, git('diff', '--name-only', '-z', env=env).split('\\0')))\n    assert tracked_changes == set(DOCS[1:]), sorted(tracked_changes)\n\nuntracked = set(filter(None, git('ls-files', '--others', '--exclude-standard', '-z').split('\\0')))\nexpected_untracked = set(freeze['extra_sources']) | {'docs/benchmarks/evidence/' + name for name in MIRRORS}\nassert untracked == expected_untracked, sorted(untracked ^ expected_untracked)\n\nsequence_path = 'docs/architecture/native-conditional-investigations-2026-10-19.md'\nphase_path = 'docs/architecture/phased-execution-plan.md'\nold_sequence = git('show', source['source_commit'] + ':' + sequence_path)\nnew_sequence = (REPO / sequence_path).read_text()\nrows = lambda text: re.findall(r'^\\| (\\d+) \\| `([^`]+)` \\|', text, re.M)\nassert rows(old_sequence) == rows(new_sequence) and len(rows(new_sequence)) == 21\ndecisions = re.findall(r'^\\| `((?:PERF-\\d+|NATIVE-ENCODED-EXCHANGE)\\.[^`]+)` \\|', new_sequence, re.M)\nassert decisions == [identifier for _, identifier in rows(new_sequence)[:9]]\nassert 'nine finite investigations completed' in new_sequence\nassert 'six rejected mechanisms, two retained mechanisms and one no-signal attribution' in new_sequence\nassert '12 rows awaiting their first' in new_sequence\nassert 'The next investigation is `PERF-09.overlap`' in new_sequence\nold_phase = git('show', source['source_commit'] + ':' + phase_path)\nnew_phase = (REPO / phase_path).read_text()\nsubsteps = lambda text: re.findall(r'^\\s*- \\[ \\] `((?:PERF-\\d+|NATIVE-ENCODED-EXCHANGE)\\.[^`]+)`', text, re.M)\nassert substeps(old_phase) == substeps(new_phase) and len(substeps(new_phase)) == 58\nconditional = lambda text: re.findall(r'^\\s*- \\[ \\] `([^`]+)` \\*\\*Conditional\\.\\*\\*', text, re.M)\nassert conditional(old_phase) == conditional(new_phase) and len(conditional(new_phase)) == 21\nfor number in range(1, 24):\n    assert re.search(rf'\\bCG-{number}(?!\\d)', new_phase), number\n\nchecked_links = 0\nfor relative in DOCS:\n    path = REPO / relative\n    additions = path.read_text() if relative == DOCS[0] else '\\n'.join(\n        line[1:] for line in git('diff', '--unified=0', '--', relative).splitlines()\n        if line.startswith('+') and not line.startswith('+++'))\n    for target in re.findall(r'\\]\\(([^)]+)\\)', additions):\n        if target.startswith(('https:', 'http:', '#')):\n            continue\n        linked = (path.parent / unquote(target.split('#', 1)[0])).resolve()\n        if linked == EVIDENCE / OUTPUT:\n            continue\n        assert linked.is_file(), (relative, target)\n        checked_links += 1\n\nindex = json.loads((EVIDENCE / MIRRORS[0]).read_bytes())\npacket = json.loads((EVIDENCE / MIRRORS[3]).read_bytes())\nassert index['status'] == packet['status'] == 'passed'\nassert index['decision'] == packet['decision'] == acceptance['outcome']\nassert index['member_count'] == packet['member_count'] == 20059\nassert index['accepted_source_files'] == packet['accepted_source_files'] == 2890\nassert index['embedded_comparison_members'] == packet['embedded_comparison_members'] == 3213\nassert packet['all_original_and_archived_bytes_verified']\nassert packet['all_source_versions_reconstructible_without_checkout']\nassert packet['failures_and_interruptions_preserved']\nassert packet['public_compressed_logs_verified'] == 16389\nassert packet['frozen_helper_versions_verified'] == 83 and packet['guard_receipts_verified'] == 39\ncheck_reference(index['final_acceptance'])\nassert index['final_acceptance']['path'] == str(ROOT / 'output-window-final-acceptance-791.json')\nfor key in ('archive', 'manifest'):\n    actual = identity(EVIDENCE / index[key + '_file'])\n    for ref in (index[key], packet[key]):\n        assert (actual['bytes'], actual['sha256']) == (ref['bytes'], ref['sha256'])\n    check_reference(index[key])\nmirror = json.loads((ROOT / 'output-window-evidence-mirror-result-791.json').read_bytes())\nassert mirror['status'] == 'passed' and mirror['all_accepted_source_contents_unchanged']\nfor name in MIRRORS:\n    original = ROOT / 'output-window-accepted-portable-791' / name\n    if name == MIRRORS[3]:\n        original = ROOT / name\n    a, b = identity(original), identity(EVIDENCE / name)\n    assert (a['bytes'], a['sha256']) == (b['bytes'], b['sha256'])\n\nnative_log = (ROOT / 'output-credit-window-integrated-native-all-790-a4.log').read_text()\nfor selector, expected in [('credit_window::tests::', 9), ('output_window_observation::tests::', 16)]:\n    assert len([line for line in native_log.splitlines() if line.startswith('test ') and selector in line and line.endswith(' ... ok')]) == expected\nverification_doc = (REPO / DOCS[2]).read_text()\nassert '--lib credit_window::tests --' in verification_doc\nassert '--lib output_window_observation::tests --' in verification_doc\nsubprocess.run(['git', 'diff', '--check'], cwd=REPO, check=True)\nstatic_results = []\nfor script in ('write_public_api_reference.py', 'write_python_api_exports.py'):\n    command = [sys.executable, '-B', 'scripts/' + script, '--check']\n    result = subprocess.run(command, cwd=REPO, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)\n    static_results.append(dict(command=command, exit_code=result.returncode, output=result.stdout))\n    assert result.returncode == 0, static_results[-1]\n\nreport = dict(\n    schema_version='shardloom.output_window_closeout_source.v1', status='passed',\n    decision=acceptance['outcome'], accepted_source=identity(SOURCE),\n    accepted_source_commit=source['source_commit'], commit_alone_reproduces_accepted_source=False,\n    integrated_source_freeze=identity(FREEZE), accepted_tracked_patch=identity(PATCH),\n    accepted_source_files=2890, unchanged_accepted_source_files=2885,\n    allowed_documentation_changes=changes,\n    all_runtime_python_test_harness_ci_contents_unchanged=True,\n    tracked_inputs_outside_source_map_unchanged=True,\n    tracked_changes_from_accepted_source=sorted(tracked_changes),\n    accepted_extra_sources_preserved=freeze['extra_sources'],\n    pre_closeout_untracked_paths=sorted(untracked),\n    source_hash_map_sha256=hashlib.sha256(json.dumps(source['source_hashes'], sort_keys=True).encode()).hexdigest(),\n    evidence=[identity(EVIDENCE / name) for name in MIRRORS],\n    final_acceptance=identity(ROOT / 'output-window-final-acceptance-791.json'),\n    conditional_sequence_preserved=21, required_and_conditional_substeps_preserved=58,\n    conditional_substeps_preserved=21, required_substeps_preserved=37,\n    competitive_gates_preserved=list(range(1, 24)),\n    finite_decisions=9, finite_retained=2, finite_rejected=6, finite_no_signal=1,\n    first_decisions_remaining=12, next_investigation='PERF-09.overlap',\n    new_relative_links_checked=checked_links, whitespace_check='passed',\n    static_checks=static_results, documentation=[identity(REPO / path) for path in DOCS],\n    verifier=identity(Path(__file__)), verifier_source=Path(__file__).read_text(),\n    native_runs_repeated_for_closeout=False, publication_attempted=False,\n    statement='Only five documentation files differ from accepted source. Runtime, Python, tests, harness and CI are unchanged. Prior acceptance remains scoped to the frozen source; no new native run is claimed.')\nfor path in (ROOT / OUTPUT, EVIDENCE / OUTPUT):\n    with path.open('x') as stream:\n        json.dump(report, stream, indent=2)\n        stream.write('\\n')\nprint(json.dumps({key: report[key] for key in ('status', 'accepted_source_files', 'unchanged_accepted_source_files', 'finite_decisions', 'first_decisions_remaining', 'new_relative_links_checked')}))\n",
+  "native_runs_repeated_for_closeout": false,
+  "publication_attempted": false,
+  "statement": "Only five documentation files differ from accepted source. Runtime, Python, tests, harness and CI are unchanged. Prior acceptance remains scoped to the frozen source; no new native run is claimed."
+}

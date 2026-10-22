@@ -138,6 +138,28 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib corrupt_or
 
 Deliver `perf-07-acceptance.json` with complete write/reopen values, source/result drop and slice lifetime, copy/decode counters, late failure/cancel cleanup, competing-writer and generation-conditional replacement cases. Distinguish single-file visibility/durability from multi-output recovery or group atomicity. Existing new-target publication does not prove replacement.
 
+The [finite two-batch output-window acceptance](native-output-window-integration-2026-10-19.md)
+retains only the explicit native Python option and frozen actual-plan admission.
+Preserve its ledger and opt-in observer selectors:
+
+```sh
+cargo test -p shardloom-vortex --features release-user-surfaces --lib credit_window::tests -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-07-output-credit.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces,output-window-observation --lib output_window_observation::tests -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-07-output-observation.log" 2>&1
+```
+
+Run `python/tests/test_native_output_window_binding.py` against the normal native
+extension: all six tests must run without skips, including public SQL/DataFrame
+slicing, lazy producer exclusion, actual-plan admission and final-report timing.
+Run all 13 tests in `python/tests/test_native_output_window_observation.py` against
+the separately built diagnostic extension, with no skips. The normal extension
+must lack diagnostic getters. The frozen acceptance also passes 111 isolated
+installed native binding tests without skips and verifies package uninstall.
+See the CI native-wheel gate for artifact selection and strict no-skip execution.
+The [evidence packet](../benchmarks/evidence/output-window-accepted-791.json)
+preserves complete cohort results, both feature builds, final source continuity,
+Public39/Full43/modular checks and failures. This finite result does not satisfy
+generation-conditional publication, general producer overlap or CLI transport.
+
 ## PERF-08
 
 Protect exact nullable text ingestion and conservative payload avoidance:
@@ -160,6 +182,16 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib text_zone_
 
 Deliver `perf-09-acceptance.json`, per-column/whole-artifact identities and sizes, transient ownership and ordered EOF/cancel/publication evidence, plus complete first/repeated downstream results. Apply the retained writer's original ingest/size/query gate; rejected text profiles require a materially different mechanism before reconsideration.
 
+The [earlier October 20 pre-writer attribution](native-ingest-overlap-attribution-2026-10-20.md)
+preserves two complete comparisons with failed observer overhead gates. The
+[outermost-poll revision](native-ingest-overlap-observer-decision-2026-10-20.md)
+passes every overhead cell, all 14 preflight and 84 measured workflows, but only
+one target clears the opportunity gate in both cohorts. The required two-target
+repeatability gate therefore rejects admission of a scheduling design. Exact
+helpers, source deltas and results are in the linked compact packets; temporary
+selectors are removed. Do not count their absence as a zero-test pass or combine
+the earlier ineligible observations with this finite no-signal result.
+
 ## PERF-10
 
 Protect selection semantics, metadata-only work and the shared public route:
@@ -171,6 +203,43 @@ cargo test -p shardloom-cli --features release-user-surfaces --test public_workf
 ```
 
 Deliver `perf-10-acceptance.json` with complete native/reference parity, negative pruning controls, changed plan/type boundaries, actual avoided rows/bytes and public-surface agreement. New summary, join, index or fusion strategies need their own exact semantics and matched workload controls.
+
+The [October 20 weighted-search decision](native-learned-index-decision-2026-10-20.md)
+preserves the complete count intake and two-cohort predictor comparison. Both
+targets pass, but controls fail in A, so the model is not retained. Its test-only
+observer, `native_weighted_search_cost_screen` selector and candidate tests exist
+only in the compact packet. Replay that evidence or reconstruct its frozen
+source; do not count an absent selector's zero-test result as a current pass.
+Fresh restored workspace/native checks are distinct from candidate integration
+acceptance, which was not attempted after the failed retention gate.
+
+The [cyclic-existence follow-up](native-cyclic-existence-intake-2026-10-21.md)
+is retained under its frozen finite scope. Protect the eight nonzero
+`local_primitive_relational_cyclic_exists_tests` and three prerequisite
+`local_primitive_relational_multiway_tests` in the feature-enabled native suite, plus
+`test_cyclic_existence_native_sized_sources_preserve_exact_semantics` in the
+installed Python suite. The linked packet contains `perf-10-acceptance.json`
+and `perf-12-acceptance.json`, both scored cohorts, actual-work/resource checks,
+5,930 public cases, 115 installed tests, Full43 and the 18-cohort format matrix.
+This is finite acceptance, not closure of the multiway owner.
+
+The [prepared-sampling decision](native-prepared-sampling-decision-2026-10-21.md)
+retains scalar calibration metadata within one immutable prepared object after
+both complete comparisons and corrected final local acceptance. Preserve the
+original failed-control shapes, exact fixtures, source identities, activation
+counters and both numerical gates in its
+[portable packet](../benchmarks/evidence/prepared-sampling-2026-10-21/README.md).
+Current native regressions include
+`prepared_sampling_public_reuse_owns_immutable_copied_source_and_exact_credits`,
+`prepared_sampling_same_count_total_and_uri_do_not_share_source_or_plan_identity`,
+`prepared_sampling_pressure_before_reuse_evicts_and_still_delivers_exact_rows`
+and `prepared_sampling_writer_publication_failure_clears_provisional_model`.
+The installed suite executes all three methods in
+`python/tests/test_native_prepared_sampling_binding.py` with no skips; ordinary
+SQL and DataFrame activation, real projection/filter/limit exclusions and
+teardown are part of the 118-test wheel proof. Full replay checks 5,930 public
+cases, Full43, all 18 format cohorts and source/gate bindings; all 34 corruption
+checks reject. This finite acceptance leaves broader index/cache owners open.
 
 The [compact-selection experiment](native-compact-selection-2026-10-18.md)
 retains the exact ignored selector `native_selection_complete_cost_screen`.
@@ -231,7 +300,7 @@ python3 scripts/check_release_architecture_tracker.py --allow-blocked --output "
 
 The last two commands inspect blockers; their successful exit is not completion or release acceptance. Claim promotion requires the same gates without inspection allowances and the corresponding certification/platform evidence.
 
-For a batch requiring ingestion and query UAT, freeze actual binary, input, resource and independent-reference paths in `perf-12-protocol.json` before execution. Use `scripts/run_clickbench_ingest_uat.sh` for replacement ingestion and `scripts/run_clickbench_query_uat.py --repeats 1` for a standard Full43; retain their complete invoked argument vectors, `prepare_summary.json`, `summary.json`, complete values and source/child-process checks. The [latest accepted packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md) contains the executable frozen launch/verification helpers and exact protocol, including `run_native_relational_suite.py` for the 18-cohort public matrix. Adapt its declared paths/source identity to the new batch; do not reuse its results as new execution. Comparative repeats, topology experiments and format changes retain their separate frozen protocols.
+For a batch requiring ingestion and query UAT, freeze actual binary, input, resource and independent-reference paths in `perf-12-protocol.json` before execution. Use `scripts/run_clickbench_ingest_uat.sh` for replacement ingestion and `scripts/run_clickbench_query_uat.py --repeats 1` for a standard Full43; retain their complete invoked argument vectors, `prepare_summary.json`, `summary.json`, complete values and source/child-process checks. The [October 18 ingestion acceptance](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md) and [October 21 cyclic integration packet](../benchmarks/evidence/cyclic-existence-2026-10-21/README.md) contain frozen launch/verification helpers and exact protocols. The latter's `cyclic_modular_runner_853.py` drives `benchmarks/traditional_analytics/run.py` for the 18 format/lifecycle/output cohorts; `run_native_relational_suite.py` drives the separate public regression families. Adapt declared paths/source identity to a new batch; do not reuse results as new execution. Comparative repeats, topology experiments and format changes retain their separate frozen protocols.
 
 Deliver `perf-12-acceptance.json` with complete native/independent-reference records, source/build/archive identities, supported platform/runtime envelopes, failure/recovery and install/upgrade/rollback proof. A harness test, build or inspection-only exit cannot substitute for these outputs.
 
@@ -255,3 +324,14 @@ python3 scripts/check_v1_inclusion_scope.py --output "$SHARDLOOM_ROADMAP_EVIDENC
 ```
 
 Deliver `native-encoded-exchange-protocol.md` and `native-encoded-exchange-acceptance.json` with pinned provider/license/security decisions, negotiated representation/identity rules, queue/receiver/dictionary grants and deterministic unsupported boundaries. No current two-process transport or independent Flight SQL client test exists. The protocol slice must register the concrete test targets, exact commands and `native-encoded-exchange-two-process.json` / `native-encoded-exchange-client-interop.json` outputs before admitting the implementation experiment. Keep experiment/client substeps unchecked until those tests execute real downstream native operations and prove malformed input, isolation, cancellation/truncation/reconnect, lifetime and complete matched-control results. Local transfer success is not transport acceptance.
+
+The [October 20 protocol prerequisite](native-encoded-exchange-protocol.md)
+registers those prospective targets and exact commands. Its
+[acceptance record](../benchmarks/evidence/native-exchange-prerequisites-2026-10-20/native-encoded-exchange-acceptance.json)
+binds the two passing local foundation selectors, scope check, reviewed candidate
+dependency graph and preserved rejected TLS pin. Its portable replay does not
+execute a transport:
+
+```sh
+python3 docs/benchmarks/evidence/native-exchange-prerequisites-2026-10-20/verify_native_exchange_833.py --repository . --acceptance docs/benchmarks/evidence/native-exchange-prerequisites-2026-10-20/native-encoded-exchange-acceptance.json
+```

@@ -129,6 +129,34 @@ All nine generated CSS files retain identical paths and SHA-256 hashes; the
 rebuild changes no checked-in website output. Hosted checks must pass for the
 revised commit before merge.
 
+## 2026-10-21 Vite Editor Integration Update
+
+PR #1580's website job fails the unchanged dependency audit on three
+`launch-editor` advisories affecting the locked Vite 8.2.2 distribution:
+[Windows argument escaping](https://github.com/advisories/GHSA-698v-4r3x-3vcv),
+[editor flag interpretation](https://github.com/advisories/GHSA-r825-w8mm-5pxw),
+and [Windows existence-check bypass](https://github.com/advisories/GHSA-587h-7wmj-h5pm).
+The advisories identify Vite 8.2.4 as the patched release on this version line.
+The [upstream release](https://github.com/vitejs/vite/releases/tag/v8.2.4)
+and npm registry metadata bind the selected package and integrity digest.
+
+Update only the existing Vite lockfile entry to 8.2.4. Astro's existing
+`^8.0.13` requirement admits it; Vite's dependencies, Node engine requirement
+and MIT license are unchanged. No override, direct dependency, audit exception
+or runtime engine dependency is added. The revised lockfile passes the same
+audit level with zero reported vulnerabilities. These advisories concern
+development editor integration; this update does not establish an exploitable
+public request handler in the deployed static website.
+
+Local validation passes: clean `npm ci`, the website build, Astro check with
+zero errors/warnings/hints, dependency audit at the unchanged low threshold,
+public-status documentation, all ten website-link tests, website readiness and
+static assets. The rebuild changes 22 HTML files and renames the shared CSS
+asset. A complete byte comparison after substituting 29 consistent, bijective
+Astro scope identifiers and the CSS asset filename proves that those are the
+only generated changes; the 66,308-byte stylesheet retains the same rules.
+Hosted checks must pass for the corrected commit before merge.
+
 ## Runtime Boundary
 
 - Astro, Starlight, MDX, sitemap, Pagefind, TypeScript, and related packages are website-only build

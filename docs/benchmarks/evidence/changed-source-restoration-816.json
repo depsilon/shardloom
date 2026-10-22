@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "base_commit": "656e9508974358f9b3f532b249841c1e7b4df0f6",
+  "remaining_rust_cargo_files": 1895,
+  "only_remaining_source_delta": [
+    "shardloom-cli/src/public_io_route_tests.rs"
+  ],
+  "removed_modules": [
+    "shardloom-cli/src/public_io_changed_source_baseline.rs",
+    "shardloom-cli/src/public_io_changed_source_comparison.rs",
+    "shardloom-vortex/src/changed_source_comparison_workflow.rs",
+    "shardloom-vortex/src/vortex_ingest_changed_source_comparison.rs",
+    "shardloom-vortex/src/vortex_ingest_changed_source_lifecycle.rs",
+    "shardloom-vortex/src/vortex_ingest_changed_source_probe.rs",
+    "shardloom-vortex/src/vortex_ingest_changed_source_regions.rs",
+    "shardloom-vortex/src/vortex_ingest_changed_source_writer.rs"
+  ],
+  "runtime_source_matches_base": true,
+  "retained_test_sha256": "8cfbc5dba31eb4c8ab3b714019c66eb3f0c6243deca96a13db478c332dc9559c"
+}

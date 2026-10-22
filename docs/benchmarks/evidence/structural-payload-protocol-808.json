@@ -1,0 +1,1515 @@
+{
+  "admission": {
+    "max_payload_bytes": 67108864,
+    "max_rows": 32768,
+    "maximum_single_value_bytes": 2147483647,
+    "minimum_mean_nonempty_bytes": 32,
+    "minimum_nonempty_values": 1024,
+    "minimum_payload_bytes": 1048576,
+    "minimum_prefix_eligible_values": 1024,
+    "prefix_bytes": 8,
+    "repeated_prefix_fraction_denominator": 4,
+    "repeated_prefix_fraction_numerator": 3
+  },
+  "boundaries": {
+    "cache": "previous fixed-region reads and full prehash warm source; no cold-cache claim",
+    "candidate_test_only": true,
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "full_source_hash": "before preflight and after both measured cohorts; stable resident generation before/during/after each child",
+    "performance_scope": "per-column finite provider lifecycle; not complete 112-column production ingest, Full43 or production retention",
+    "resource": "native allocator claim excludes Arrow input and unreviewed OnPair allocations; finite input bounds and process peaks recorded; production admission remains prerequisite after any passing screen"
+  },
+  "cases": [
+    {
+      "cohort": "A",
+      "id": "A-rg0-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 0
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg0-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 0
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg0-r1-structural",
+      "profile": "structural",
+      "repeat": 1,
+      "row_group": 0
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg0-r1-current",
+      "profile": "current",
+      "repeat": 1,
+      "row_group": 0
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg0-r2-current",
+      "profile": "current",
+      "repeat": 2,
+      "row_group": 0
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg0-r2-structural",
+      "profile": "structural",
+      "repeat": 2,
+      "row_group": 0
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg113-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 113
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg113-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 113
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg113-r1-structural",
+      "profile": "structural",
+      "repeat": 1,
+      "row_group": 113
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg113-r1-current",
+      "profile": "current",
+      "repeat": 1,
+      "row_group": 113
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg113-r2-current",
+      "profile": "current",
+      "repeat": 2,
+      "row_group": 113
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg113-r2-structural",
+      "profile": "structural",
+      "repeat": 2,
+      "row_group": 113
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg225-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 225
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg225-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 225
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg225-r1-structural",
+      "profile": "structural",
+      "repeat": 1,
+      "row_group": 225
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg225-r1-current",
+      "profile": "current",
+      "repeat": 1,
+      "row_group": 225
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg225-r2-current",
+      "profile": "current",
+      "repeat": 2,
+      "row_group": 225
+    },
+    {
+      "cohort": "A",
+      "id": "A-rg225-r2-structural",
+      "profile": "structural",
+      "repeat": 2,
+      "row_group": 225
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg0-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 0
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg0-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 0
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg0-r1-current",
+      "profile": "current",
+      "repeat": 1,
+      "row_group": 0
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg0-r1-structural",
+      "profile": "structural",
+      "repeat": 1,
+      "row_group": 0
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg0-r2-structural",
+      "profile": "structural",
+      "repeat": 2,
+      "row_group": 0
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg0-r2-current",
+      "profile": "current",
+      "repeat": 2,
+      "row_group": 0
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg113-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 113
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg113-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 113
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg113-r1-current",
+      "profile": "current",
+      "repeat": 1,
+      "row_group": 113
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg113-r1-structural",
+      "profile": "structural",
+      "repeat": 1,
+      "row_group": 113
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg113-r2-structural",
+      "profile": "structural",
+      "repeat": 2,
+      "row_group": 113
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg113-r2-current",
+      "profile": "current",
+      "repeat": 2,
+      "row_group": 113
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg225-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 225
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg225-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 225
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg225-r1-current",
+      "profile": "current",
+      "repeat": 1,
+      "row_group": 225
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg225-r1-structural",
+      "profile": "structural",
+      "repeat": 1,
+      "row_group": 225
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg225-r2-structural",
+      "profile": "structural",
+      "repeat": 2,
+      "row_group": 225
+    },
+    {
+      "cohort": "B",
+      "id": "B-rg225-r2-current",
+      "profile": "current",
+      "repeat": 2,
+      "row_group": 225
+    }
+  ],
+  "consumers": {
+    "contains_needle": "://",
+    "cpu_clock": "CLOCK_PROCESS_CPUTIME_ID via pinned rustix, no substitution as engine clock",
+    "equality_literal": "first nonempty original value in row order; empty string if none exists",
+    "first_reads": 1,
+    "ordinary_rewrite": "same complete original values through current writer, then second fresh-process exact readback",
+    "predicates": [
+      "equal",
+      "not_equal",
+      "contains",
+      "not_contains"
+    ],
+    "repeated_reads": 3,
+    "repeats_per_predicate": 3
+  },
+  "design_path": "docs/architecture/native-structural-payload-design-2026-10-20.md",
+  "design_sha256": "c7fd7f62a8b4252545bf2214203c08ee80e1bb997277f35621b35315325afada",
+  "expected_activation": [
+    {
+      "field": "Title",
+      "nonempty": 32538,
+      "onpair_expected": true,
+      "ordered_values_sha256": "5f5ea3b37ae96839ca52411c42757cb8ef904380b486bf25638f5e08441c5cbc",
+      "payload_bytes": 7435892,
+      "prefix8_eligible": 32538,
+      "prefix8_repeated": 32538,
+      "row_group": 0,
+      "source_index": 2
+    },
+    {
+      "field": "URL",
+      "nonempty": 32595,
+      "onpair_expected": true,
+      "ordered_values_sha256": "80440605e8fd9461c8678bf9d50ae05348c97d8b176fa9f35326ba87dda47df4",
+      "payload_bytes": 2491172,
+      "prefix8_eligible": 32595,
+      "prefix8_repeated": 32593,
+      "row_group": 0,
+      "source_index": 13
+    },
+    {
+      "field": "Referer",
+      "nonempty": 31542,
+      "onpair_expected": true,
+      "ordered_values_sha256": "4bee77cc8997817e082715441d6b6869e7208e67d474a6cd54fe405852a09449",
+      "payload_bytes": 2655264,
+      "prefix8_eligible": 31542,
+      "prefix8_repeated": 31542,
+      "row_group": 0,
+      "source_index": 14
+    },
+    {
+      "field": "FlashMinor2",
+      "nonempty": 29101,
+      "onpair_expected": false,
+      "ordered_values_sha256": "ee9c982c52b09c416cc120d8e15c0203e3bd3a569c9035ad2669f95b6afa0b76",
+      "payload_bytes": 112013,
+      "prefix8_eligible": 860,
+      "prefix8_repeated": 860,
+      "row_group": 0,
+      "source_index": 25
+    },
+    {
+      "field": "UserAgentMinor",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "799ee0b395ab51bdec354e7fb0a510693a49cde8b44df7004429f60c38c33912",
+      "payload_bytes": 120580,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 29
+    },
+    {
+      "field": "MobilePhoneModel",
+      "nonempty": 892,
+      "onpair_expected": false,
+      "ordered_values_sha256": "835c0f436c2cf4d0ac3d059f0d8a41fb9cfa6e76507319b23039dcabf114b4eb",
+      "payload_bytes": 3725,
+      "prefix8_eligible": 19,
+      "prefix8_repeated": 19,
+      "row_group": 0,
+      "source_index": 34
+    },
+    {
+      "field": "Params",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 35
+    },
+    {
+      "field": "SearchPhrase",
+      "nonempty": 4488,
+      "onpair_expected": false,
+      "ordered_values_sha256": "24b2e622a70df21485e5a7ada86ffd94b14dcc8378186ac54f3f66f8764113ea",
+      "payload_bytes": 237327,
+      "prefix8_eligible": 4482,
+      "prefix8_repeated": 4480,
+      "row_group": 0,
+      "source_index": 39
+    },
+    {
+      "field": "PageCharset",
+      "nonempty": 32521,
+      "onpair_expected": false,
+      "ordered_values_sha256": "6e5ec5cab7ce25ee2924755122d2604f62ee5a52a219f0803d8e49ac7e9c39a8",
+      "payload_bytes": 650420,
+      "prefix8_eligible": 32521,
+      "prefix8_repeated": 32521,
+      "row_group": 0,
+      "source_index": 50
+    },
+    {
+      "field": "OriginalURL",
+      "nonempty": 1310,
+      "onpair_expected": false,
+      "ordered_values_sha256": "41ca8b063eb3c152bd724c3a0f3ab4c4fa1f61ca3923a3fd51a7778c33d885ef",
+      "payload_bytes": 153514,
+      "prefix8_eligible": 1310,
+      "prefix8_repeated": 1310,
+      "row_group": 0,
+      "source_index": 56
+    },
+    {
+      "field": "HitColor",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "432aed70b41d846ad5ec8ea6902b9bcbec0bb77724593931a1568f0c58b223d5",
+      "payload_bytes": 32768,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 63
+    },
+    {
+      "field": "BrowserLanguage",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "b7e61249ae135419fc60331fb11d6ab58888d1eeb98853e14553c2a0fba48047",
+      "payload_bytes": 65766,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 74
+    },
+    {
+      "field": "BrowserCountry",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9927905465214b3c110ebb8c9574b147c7b238b1ac7d876ef6a06d7b713c22c8",
+      "payload_bytes": 103082,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 75
+    },
+    {
+      "field": "SocialNetwork",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 76
+    },
+    {
+      "field": "SocialAction",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 77
+    },
+    {
+      "field": "SocialSourcePage",
+      "nonempty": 6,
+      "onpair_expected": false,
+      "ordered_values_sha256": "52abf4623695e57be376947bb4ad2ca2548a3349b746e87207d03f7a006adb72",
+      "payload_bytes": 42,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 86
+    },
+    {
+      "field": "ParamOrderID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 88
+    },
+    {
+      "field": "ParamCurrency",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "94a33997defc73b439008392797167b92600e7f6d4761535b05b62c48e033425",
+      "payload_bytes": 98304,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 89
+    },
+    {
+      "field": "OpenstatServiceName",
+      "nonempty": 126,
+      "onpair_expected": false,
+      "ordered_values_sha256": "e07d2a0d094c01800c695c362611658873951e63ba59aa56a9ffcfc784317c6f",
+      "payload_bytes": 2016,
+      "prefix8_eligible": 126,
+      "prefix8_repeated": 126,
+      "row_group": 0,
+      "source_index": 91
+    },
+    {
+      "field": "OpenstatCampaignID",
+      "nonempty": 126,
+      "onpair_expected": false,
+      "ordered_values_sha256": "b1f3e2cf925b73d2d89c0156c60d4eb7f4100f7334e5f8141a115626eb418263",
+      "payload_bytes": 935,
+      "prefix8_eligible": 19,
+      "prefix8_repeated": 19,
+      "row_group": 0,
+      "source_index": 92
+    },
+    {
+      "field": "OpenstatAdID",
+      "nonempty": 126,
+      "onpair_expected": false,
+      "ordered_values_sha256": "12e6d7bc1fb78f46632b0ab7b12ee5f54eef0883c9ef531d73087a06a54c9e1f",
+      "payload_bytes": 1188,
+      "prefix8_eligible": 116,
+      "prefix8_repeated": 116,
+      "row_group": 0,
+      "source_index": 93
+    },
+    {
+      "field": "OpenstatSourceID",
+      "nonempty": 126,
+      "onpair_expected": false,
+      "ordered_values_sha256": "42a22aabe10d2f354a2e0dc5d80ab8a611dc8c51dd63e7d5cc6434a36f285079",
+      "payload_bytes": 2506,
+      "prefix8_eligible": 126,
+      "prefix8_repeated": 126,
+      "row_group": 0,
+      "source_index": 94
+    },
+    {
+      "field": "UTMSource",
+      "nonempty": 284,
+      "onpair_expected": false,
+      "ordered_values_sha256": "f97c447bf4e1a354501ce766b4275004026eaae2849fd24267dd50bdcd027f81",
+      "payload_bytes": 3614,
+      "prefix8_eligible": 229,
+      "prefix8_repeated": 229,
+      "row_group": 0,
+      "source_index": 95
+    },
+    {
+      "field": "UTMMedium",
+      "nonempty": 284,
+      "onpair_expected": false,
+      "ordered_values_sha256": "189fa7f34d1e80fcc95975864ee77703d1984f3df877a745a2109ee26eb68e44",
+      "payload_bytes": 1142,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 96
+    },
+    {
+      "field": "UTMCampaign",
+      "nonempty": 284,
+      "onpair_expected": false,
+      "ordered_values_sha256": "16a7b7a3732a87dc0906b54b4ff948fe02550a0b7d071baeaebf5d473d6b2950",
+      "payload_bytes": 6409,
+      "prefix8_eligible": 229,
+      "prefix8_repeated": 229,
+      "row_group": 0,
+      "source_index": 97
+    },
+    {
+      "field": "UTMContent",
+      "nonempty": 125,
+      "onpair_expected": false,
+      "ordered_values_sha256": "48e3fbd7b59ea12ed6896bc9fe8242e53d072251515262023c7be2855392931e",
+      "payload_bytes": 748,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 98
+    },
+    {
+      "field": "UTMTerm",
+      "nonempty": 127,
+      "onpair_expected": false,
+      "ordered_values_sha256": "b9d8edbe2dab0b837a9a1722dfa3f4e44bfb859dad5ca7df4522b1c16ad5cecc",
+      "payload_bytes": 2016,
+      "prefix8_eligible": 127,
+      "prefix8_repeated": 127,
+      "row_group": 0,
+      "source_index": 99
+    },
+    {
+      "field": "FromTag",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 0,
+      "source_index": 100
+    },
+    {
+      "field": "Title",
+      "nonempty": 21909,
+      "onpair_expected": true,
+      "ordered_values_sha256": "692e23e3ca7eebe5543a0debc1c43f59896f1aede4e3a16ea75be5d5af6b64c3",
+      "payload_bytes": 2053674,
+      "prefix8_eligible": 21908,
+      "prefix8_repeated": 21160,
+      "row_group": 113,
+      "source_index": 2
+    },
+    {
+      "field": "URL",
+      "nonempty": 32768,
+      "onpair_expected": true,
+      "ordered_values_sha256": "3f4caac2d563617f81823feb490b539fc75dc9d128927bae7d3251387ee26c37",
+      "payload_bytes": 7866713,
+      "prefix8_eligible": 32768,
+      "prefix8_repeated": 32765,
+      "row_group": 113,
+      "source_index": 13
+    },
+    {
+      "field": "Referer",
+      "nonempty": 28027,
+      "onpair_expected": true,
+      "ordered_values_sha256": "04118423e145dd680346234032d66b4fbef55f4c6ea4c585c00cc48098c89989",
+      "payload_bytes": 1467863,
+      "prefix8_eligible": 28027,
+      "prefix8_repeated": 28025,
+      "row_group": 113,
+      "source_index": 14
+    },
+    {
+      "field": "FlashMinor2",
+      "nonempty": 26098,
+      "onpair_expected": false,
+      "ordered_values_sha256": "8e27846dee1362d6815acade4d98f6acfa1e93ae00c3cc46da734c20ef0ef7ab",
+      "payload_bytes": 84176,
+      "prefix8_eligible": 46,
+      "prefix8_repeated": 46,
+      "row_group": 113,
+      "source_index": 25
+    },
+    {
+      "field": "UserAgentMinor",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "54cfd66ad7ffc5ae7b96759bc063f39bd334bb35f0ffd94c330195a5b307745b",
+      "payload_bytes": 117016,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 29
+    },
+    {
+      "field": "MobilePhoneModel",
+      "nonempty": 4680,
+      "onpair_expected": false,
+      "ordered_values_sha256": "5c9030078259e1f32b8be5bf58a45a3f253336742f5d7639a2c38cf4804768fb",
+      "payload_bytes": 18899,
+      "prefix8_eligible": 7,
+      "prefix8_repeated": 7,
+      "row_group": 113,
+      "source_index": 34
+    },
+    {
+      "field": "Params",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 35
+    },
+    {
+      "field": "SearchPhrase",
+      "nonempty": 962,
+      "onpair_expected": false,
+      "ordered_values_sha256": "a6f1b63f079b9d84073b8c70d8c29f762291cf1ab8230a32e1fc49510fdd7734",
+      "payload_bytes": 52662,
+      "prefix8_eligible": 961,
+      "prefix8_repeated": 643,
+      "row_group": 113,
+      "source_index": 39
+    },
+    {
+      "field": "PageCharset",
+      "nonempty": 32766,
+      "onpair_expected": false,
+      "ordered_values_sha256": "a14ae40588a09b2bb9991526f6597b32ac9f194fc27a9032209d57f65f608901",
+      "payload_bytes": 514166,
+      "prefix8_eligible": 21908,
+      "prefix8_repeated": 21908,
+      "row_group": 113,
+      "source_index": 50
+    },
+    {
+      "field": "OriginalURL",
+      "nonempty": 11464,
+      "onpair_expected": true,
+      "ordered_values_sha256": "1bef5c1cc918ed4d91ecfa16538604e25810fecf3100d772f852c7eac5bffd78",
+      "payload_bytes": 8913416,
+      "prefix8_eligible": 11464,
+      "prefix8_repeated": 11461,
+      "row_group": 113,
+      "source_index": 56
+    },
+    {
+      "field": "HitColor",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "281950d460e4aca29d04fe0a9ce0c038edefdd72b3371259c15fe966877f7c34",
+      "payload_bytes": 32768,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 63
+    },
+    {
+      "field": "BrowserLanguage",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "a4b602ac90ac1217937218959ffb7c35cc60918ae7903bd7813e1bd0af273291",
+      "payload_bytes": 67077,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 74
+    },
+    {
+      "field": "BrowserCountry",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "59d0b1717c894314907d16e822c1d76bfe63a9de91f45c47e86285cdebcb995d",
+      "payload_bytes": 111808,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 75
+    },
+    {
+      "field": "SocialNetwork",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 76
+    },
+    {
+      "field": "SocialAction",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 77
+    },
+    {
+      "field": "SocialSourcePage",
+      "nonempty": 71,
+      "onpair_expected": false,
+      "ordered_values_sha256": "15f8592c9a4115107849cd2b67dbf4d03abeff59989161c145b81a520d12d8d9",
+      "payload_bytes": 1076,
+      "prefix8_eligible": 66,
+      "prefix8_repeated": 40,
+      "row_group": 113,
+      "source_index": 86
+    },
+    {
+      "field": "ParamOrderID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 88
+    },
+    {
+      "field": "ParamCurrency",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "94a33997defc73b439008392797167b92600e7f6d4761535b05b62c48e033425",
+      "payload_bytes": 98304,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 89
+    },
+    {
+      "field": "OpenstatServiceName",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 91
+    },
+    {
+      "field": "OpenstatCampaignID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 92
+    },
+    {
+      "field": "OpenstatAdID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 93
+    },
+    {
+      "field": "OpenstatSourceID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 94
+    },
+    {
+      "field": "UTMSource",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 95
+    },
+    {
+      "field": "UTMMedium",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 96
+    },
+    {
+      "field": "UTMCampaign",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 97
+    },
+    {
+      "field": "UTMContent",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 98
+    },
+    {
+      "field": "UTMTerm",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 113,
+      "source_index": 99
+    },
+    {
+      "field": "FromTag",
+      "nonempty": 3629,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9fe7d74482f5bc2d3022220404ff4b833aea02951165aa3bbec6446c7b2aa055",
+      "payload_bytes": 12886,
+      "prefix8_eligible": 13,
+      "prefix8_repeated": 12,
+      "row_group": 113,
+      "source_index": 100
+    },
+    {
+      "field": "Title",
+      "nonempty": 29052,
+      "onpair_expected": true,
+      "ordered_values_sha256": "dba2f8a293a0fd4e5dd35dae5cacdf26488f5b6b8b11551002a39b66aa8c181b",
+      "payload_bytes": 1917244,
+      "prefix8_eligible": 29052,
+      "prefix8_repeated": 28923,
+      "row_group": 225,
+      "source_index": 2
+    },
+    {
+      "field": "URL",
+      "nonempty": 32727,
+      "onpair_expected": true,
+      "ordered_values_sha256": "56fa80d84cb1fc333efe8b7c460e370b468262bcd96c6bf26391f44d467a01d6",
+      "payload_bytes": 8511278,
+      "prefix8_eligible": 32727,
+      "prefix8_repeated": 32726,
+      "row_group": 225,
+      "source_index": 13
+    },
+    {
+      "field": "Referer",
+      "nonempty": 27079,
+      "onpair_expected": true,
+      "ordered_values_sha256": "7fa6f501db7c9b11fbbed309748e0ff3cd35588ae338b711a38a0c3bd29c3710",
+      "payload_bytes": 2237804,
+      "prefix8_eligible": 27079,
+      "prefix8_repeated": 27076,
+      "row_group": 225,
+      "source_index": 14
+    },
+    {
+      "field": "FlashMinor2",
+      "nonempty": 24267,
+      "onpair_expected": false,
+      "ordered_values_sha256": "a12ffba404ed39c3c7b80140fe581c2422bcf1123a72610d02ab78dfc77afed4",
+      "payload_bytes": 85584,
+      "prefix8_eligible": 81,
+      "prefix8_repeated": 81,
+      "row_group": 225,
+      "source_index": 25
+    },
+    {
+      "field": "UserAgentMinor",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "46b83696bc5469301401e3a91f9386f38c979b1e3ec4bb08a5a21ccdb41bec32",
+      "payload_bytes": 119022,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 29
+    },
+    {
+      "field": "MobilePhoneModel",
+      "nonempty": 2090,
+      "onpair_expected": false,
+      "ordered_values_sha256": "e94d11edbb155764baf8379f5431f0eb2bf31bc027f4ccfc5de0997b3eab9b1a",
+      "payload_bytes": 8934,
+      "prefix8_eligible": 57,
+      "prefix8_repeated": 57,
+      "row_group": 225,
+      "source_index": 34
+    },
+    {
+      "field": "Params",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 35
+    },
+    {
+      "field": "SearchPhrase",
+      "nonempty": 360,
+      "onpair_expected": false,
+      "ordered_values_sha256": "e48cdebff2b142e73df7507cc6a5e09daa3ffc319a5784022f85ac5cbdd7fd9d",
+      "payload_bytes": 14819,
+      "prefix8_eligible": 345,
+      "prefix8_repeated": 285,
+      "row_group": 225,
+      "source_index": 39
+    },
+    {
+      "field": "PageCharset",
+      "nonempty": 32766,
+      "onpair_expected": false,
+      "ordered_values_sha256": "7d336081adaddcaed7cbb5cd588709fdb95307610b3af48e56649bb5d33c38ff",
+      "payload_bytes": 229362,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 50
+    },
+    {
+      "field": "OriginalURL",
+      "nonempty": 10274,
+      "onpair_expected": true,
+      "ordered_values_sha256": "d8e121c9e1dd91f943809978406e169e0b59bffcacfe762a85453e9e6b8a960e",
+      "payload_bytes": 10922700,
+      "prefix8_eligible": 10274,
+      "prefix8_repeated": 10273,
+      "row_group": 225,
+      "source_index": 56
+    },
+    {
+      "field": "HitColor",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "ddf474838aa583909fb6e0cd1febc94dcf377ca66326762d68e50cf9b27a914c",
+      "payload_bytes": 32768,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 63
+    },
+    {
+      "field": "BrowserLanguage",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "6810c244f26729b99a73aa5bc91042a4f23bbf0823400437d6d5ea23e30906db",
+      "payload_bytes": 67508,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 74
+    },
+    {
+      "field": "BrowserCountry",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "d6d90474d48b6f3e08ec52cb99b60b25c4daa6c34313f16790a6ba3024afdbc2",
+      "payload_bytes": 111514,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 75
+    },
+    {
+      "field": "SocialNetwork",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 76
+    },
+    {
+      "field": "SocialAction",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 77
+    },
+    {
+      "field": "SocialSourcePage",
+      "nonempty": 40,
+      "onpair_expected": false,
+      "ordered_values_sha256": "a3f4d1457eb1450cac540dcfbca4cdb26e8d8680b51f086da5a98003a51ef27b",
+      "payload_bytes": 629,
+      "prefix8_eligible": 31,
+      "prefix8_repeated": 23,
+      "row_group": 225,
+      "source_index": 86
+    },
+    {
+      "field": "ParamOrderID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 88
+    },
+    {
+      "field": "ParamCurrency",
+      "nonempty": 32768,
+      "onpair_expected": false,
+      "ordered_values_sha256": "3944563bcac638292c62a9dfd3f170f3d04a615f0ef716dc1a1fe76705e94e8f",
+      "payload_bytes": 98304,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 89
+    },
+    {
+      "field": "OpenstatServiceName",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 91
+    },
+    {
+      "field": "OpenstatCampaignID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 92
+    },
+    {
+      "field": "OpenstatAdID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 93
+    },
+    {
+      "field": "OpenstatSourceID",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 94
+    },
+    {
+      "field": "UTMSource",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 95
+    },
+    {
+      "field": "UTMMedium",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 96
+    },
+    {
+      "field": "UTMCampaign",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 97
+    },
+    {
+      "field": "UTMContent",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 98
+    },
+    {
+      "field": "UTMTerm",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 99
+    },
+    {
+      "field": "FromTag",
+      "nonempty": 0,
+      "onpair_expected": false,
+      "ordered_values_sha256": "9d91c1bfda7c45aae7cd74588fc811c5580df6a636411d4309260ab7a2c6df35",
+      "payload_bytes": 0,
+      "prefix8_eligible": 0,
+      "prefix8_repeated": 0,
+      "row_group": 225,
+      "source_index": 100
+    }
+  ],
+  "intake": {
+    "completion_sha256": "38db5e10783e82bb1a6de75e423c342e20827e709a738a131039d25b6bb22028",
+    "protocol_sha256": "3ab482d03bf8db619dd0affed77624cff4ccada5506091741979eb1d627404c0",
+    "result_sha256": "bba6620fc1a9e62884c7a849b4298efaffe9e11aa94613daf8b02e6448490add"
+  },
+  "limits": {
+    "diagnostic_bytes": 201326592,
+    "live_payload_bytes": 268435456,
+    "minimum_free_bytes": 12884901888,
+    "native_grant_bytes": 536870912,
+    "per_command_output_bytes": 8388608,
+    "per_file_bytes": 67108864,
+    "workspace_bytes": 107374182400
+  },
+  "preflight_cases": [
+    {
+      "cohort": "preflight",
+      "id": "preflight-rg0-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 0
+    },
+    {
+      "cohort": "preflight",
+      "id": "preflight-rg0-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 0
+    },
+    {
+      "cohort": "preflight",
+      "id": "preflight-rg113-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 113
+    },
+    {
+      "cohort": "preflight",
+      "id": "preflight-rg113-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 113
+    },
+    {
+      "cohort": "preflight",
+      "id": "preflight-rg225-r0-current",
+      "profile": "current",
+      "repeat": 0,
+      "row_group": 225
+    },
+    {
+      "cohort": "preflight",
+      "id": "preflight-rg225-r0-structural",
+      "profile": "structural",
+      "repeat": 0,
+      "row_group": 225
+    }
+  ],
+  "profiles": [
+    "current",
+    "structural"
+  ],
+  "provider": {
+    "broad_unstable_features": false,
+    "current": "retained level -3 Zstd without dictionary, 8192 values per frame",
+    "structural": "vortex-onpair =0.85.0, onpair 0.2.0; DEFAULT_CONFIG dict bits 12, threshold 0.15, seed 42; four narrowed integer children compressed by current edition-filtered non-Dict BtrBlocks"
+  },
+  "scoring": {
+    "aggregation": "sum per-field/region/profile medians within each region and cohort; both cohorts must pass",
+    "comparison_barrier": "complete both cohorts and final full source hash before comparative scoring; preflight receives no decision credit",
+    "complete_original_file_bytes_max_ratio": 0.7,
+    "complete_original_write_process_cpu_max_ratio": 1.25,
+    "each_consumer_process_cpu_max_ratio": 1.05,
+    "individual_failure": "exceeds BOTH limits for same field/region/family in BOTH cohorts",
+    "individual_regression_absolute_cpu_ns": 100000,
+    "individual_regression_ratio": 1.1,
+    "median_repeats": 3,
+    "ordinary_rewrite_process_cpu_max_ratio": 1.25,
+    "physical_column_bytes_max_ratio": 0.7,
+    "region_byte_ratio_max": 1.0
+  },
+  "source": {
+    "batch_rows": 32768,
+    "bytes": 14779976446,
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "row_groups": [
+      0,
+      113,
+      225
+    ],
+    "row_groups_total": 226,
+    "rows": 99997497,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "source_columns": 105,
+    "text_columns": [
+      {
+        "dtype": "Utf8",
+        "index": 2,
+        "metadata": {},
+        "name": "Title",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 13,
+        "metadata": {},
+        "name": "URL",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 14,
+        "metadata": {},
+        "name": "Referer",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 25,
+        "metadata": {},
+        "name": "FlashMinor2",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 29,
+        "metadata": {},
+        "name": "UserAgentMinor",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 34,
+        "metadata": {},
+        "name": "MobilePhoneModel",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 35,
+        "metadata": {},
+        "name": "Params",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 39,
+        "metadata": {},
+        "name": "SearchPhrase",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 50,
+        "metadata": {},
+        "name": "PageCharset",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 56,
+        "metadata": {},
+        "name": "OriginalURL",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 63,
+        "metadata": {},
+        "name": "HitColor",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 74,
+        "metadata": {},
+        "name": "BrowserLanguage",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 75,
+        "metadata": {},
+        "name": "BrowserCountry",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 76,
+        "metadata": {},
+        "name": "SocialNetwork",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 77,
+        "metadata": {},
+        "name": "SocialAction",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 86,
+        "metadata": {},
+        "name": "SocialSourcePage",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 88,
+        "metadata": {},
+        "name": "ParamOrderID",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 89,
+        "metadata": {},
+        "name": "ParamCurrency",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 91,
+        "metadata": {},
+        "name": "OpenstatServiceName",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 92,
+        "metadata": {},
+        "name": "OpenstatCampaignID",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 93,
+        "metadata": {},
+        "name": "OpenstatAdID",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 94,
+        "metadata": {},
+        "name": "OpenstatSourceID",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 95,
+        "metadata": {},
+        "name": "UTMSource",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 96,
+        "metadata": {},
+        "name": "UTMMedium",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 97,
+        "metadata": {},
+        "name": "UTMCampaign",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 98,
+        "metadata": {},
+        "name": "UTMContent",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 99,
+        "metadata": {},
+        "name": "UTMTerm",
+        "nullable": false
+      },
+      {
+        "dtype": "Utf8",
+        "index": 100,
+        "metadata": {},
+        "name": "FromTag",
+        "nullable": false
+      }
+    ]
+  },
+  "source_commit": "ec2b27f121ff7e5e8f740c999dca7f433737fbc7",
+  "status": "frozen_before_candidate_implementation_and_codec_measurements"
+}

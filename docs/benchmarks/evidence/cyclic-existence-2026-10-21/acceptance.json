@@ -1,0 +1,41 @@
+{
+  "compiled_source_commit": "6aad1aca5bed15157bbda7e6b9217172a185de2c",
+  "final_acceptance": {
+    "bytes": 5046139,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-final-acceptance-854.json",
+    "sha256": "3c98d89c66933b47afa759f028b86bcd432f95a392e45bf61ef25d0c20f39755"
+  },
+  "packet": {
+    "bytes": 37867272,
+    "file": "acceptance.json.xz",
+    "members": 28468,
+    "sha256": "0612b5551d3381873dae11dfc2e71185f53068fb97e306637e03f3be31e8f979"
+  },
+  "replay": {
+    "full43_complete_rows": 381,
+    "full43_engine_execution_seconds": "50.461833916",
+    "full43_queries": 43,
+    "guarded_receipts": 26,
+    "installed_tests": 115,
+    "members": 28468,
+    "modular_payload_calls_replayed": 1780,
+    "modular_records": 1408,
+    "native_execution_performed": false,
+    "payload_residency_revalidated": false,
+    "preserved_failed_guards": 2,
+    "public_cases": 5930,
+    "public_families": 39,
+    "publication_attempted": false,
+    "scope": "Archived complete outputs, reference comparisons, source and receipt integrity; original artifact-residency checks remain recorded.",
+    "source_files": 2558,
+    "status": "passed"
+  },
+  "schema": "shardloom.cyclic_existence_integration_evidence.v1",
+  "scope": "Finite integrated cyclic existence; complete results and source-bound receipts, no runtime or generated-data backup.",
+  "source_commit": "de2d31ead9b1c99547073984da07f2cdc071adde",
+  "verifier": {
+    "bytes": 23875,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_cyclic_acceptance_packet_854.py",
+    "sha256": "278a72851fb44b387015f842c081f514d966e2c5035876e703afe7a48c00cfe4"
+  }
+}

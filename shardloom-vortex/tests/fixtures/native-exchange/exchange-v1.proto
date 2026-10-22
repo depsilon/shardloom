@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: Apache-2.0
+// Finite experiment schema. This is not a general ShardLoom remote API.
+syntax = "proto3";
+package shardloom.experimental.exchange.v1;
+
+enum Mode {
+  MODE_UNSPECIFIED = 0;
+  NATIVE_FRAGMENTS = 1;
+  NATIVE_ASSEMBLED = 2;
+  ARROW_NONE = 3;
+  ARROW_LZ4 = 4;
+  ARROW_ZSTD = 5;
+}
+
+message Binding {
+  bytes server_epoch = 1;
+  string principal = 2;
+  string source_id = 3;
+  bytes source_sha256 = 4;
+  bytes dtype_sha256 = 5;
+  bytes operation_sha256 = 6;
+  bytes attempt_id = 7;
+  uint64 partition_id = 8;
+  uint64 first_row = 9;
+  uint64 rows = 10;
+  uint64 policy_version = 11;
+  string query_id = 12;
+}
+
+message Limits {
+  uint64 native_memory_bytes = 1;
+  uint64 queued_bytes = 2;
+  uint32 queued_frames = 3;
+  uint32 fragment_payload_bytes = 4;
+  uint32 encoded_rpc_bytes = 5;
+  uint32 control_bytes = 6;
+  uint64 complete_payload_bytes = 7;
+  uint32 frames = 8;
+  uint32 fragment_segments = 9;
+}
+
+message Profile {
+  uint32 extension_version = 1;
+  string vortex_version = 2;
+  uint32 vortex_message_version = 3;
+  repeated string physical_registry = 4;
+  Limits limits = 5;
+}
+
+message ProjectionField {
+  string source = 1;
+  string alias = 2;
+}
+
+message Projection {
+  string id = 1;
+  repeated ProjectionField fields = 2;
+}
+
+message Operations {
+  repeated Projection projections = 1;
+  repeated uint32 execution_order = 2;
+}
+
+// The first request FlightData carries only a CMD FlightDescriptor containing
+// this message. The request must then end cleanly before payload is admitted.
+message Open {
+  Binding binding = 1;
+  Profile profile = 2;
+  Mode mode = 3;
+}
+
+message Ack {
+  Profile profile = 1;
+  Mode mode = 2;
+  bytes expected_payload_sha256 = 3;
+  uint64 expected_payload_bytes = 4;
+  uint32 expected_messages = 5;
+}
+
+// Ordered segments are slices of the ordinary provider message. They have no
+// pointer, dictionary-cache or cross-attempt identity. Empty segments are invalid.
+message NativeFragment {
+  uint32 message_index = 1;
+  uint64 message_offset = 2;
+  uint64 message_bytes = 3;
+  repeated bytes segments = 4;
+}
+
+message Complete {
+  uint64 frames = 1;
+  uint32 messages = 2;
+  uint64 rows = 3;
+  uint64 payload_bytes = 4;
+  bytes ordered_payload_sha256 = 5;
+}
+
+// Standard Arrow data_header/data_body remain unchanged. Ack is present only
+// on the first Schema message; Complete only on the final real Arrow message.
+// For an empty input, that one Schema message carries both.
+message ArrowPosition {
+  Ack ack = 1;
+  Complete complete = 2;
+}
+
+message Frame {
+  Binding binding = 1;
+  uint64 sequence = 2;
+  oneof body {
+    Ack ack = 3;
+    NativeFragment native = 4;
+    ArrowPosition arrow = 5;
+    Complete complete = 6;
+  }
+}
+
+// Bounded experiment-only Flight actions. Authorization is checked again on
+// every call. Policy replacement is restricted to the fixture administrator.
+message Cancel {
+  Binding binding = 1;
+}
+
+message ReplacePolicy {
+  bytes server_epoch = 1;
+  uint64 expected_version = 2;
+  uint64 new_version = 3;
+}
+
+// The Flight SQL service supplies an opaque ticket, resolves it under the
+// authenticated principal, and executes only its predeclared typed query.
+message SqlTicket {
+  Binding binding = 1;
+}

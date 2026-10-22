@@ -17,6 +17,248 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite prepared weighted-sampling follow-up` — retain the
+  [scalar calibration owner](native-prepared-sampling-decision-2026-10-21.md)
+  within one immutable prepared object. Original and public-integration
+  comparisons each pass both complete cohorts, all 24 cells, 768 measured
+  workflows and 5,376 engine calls, plus all 48 observed preflights. Every
+  target/control, exact-output and ownership gate passes. The integrated
+  repeated targets use 8.35–13.71% less engine time in that finite comparison;
+  population state remains execution-local and no broader speed claim follows.
+  - Corrected source `4cd3a9e1` passes 3,235 workspace tests, 3,107 native
+    tests with 31 existing ignored tests, 1,091 CLI tests, formatting and
+    strict workspace/native/CLI lint. All 5,930 public cases, 118 isolated
+    installed-package tests, complete Full43 results and schemas, and 704
+    native plus 704 independent reference format workflows pass. Full43
+    records 49.077810546 engine seconds across one call to each query; no
+    replacement ingestion occurs.
+  - The [portable acceptance packet](../benchmarks/evidence/prepared-sampling-2026-10-21/README.md)
+    replays 28,698 members, both historical comparisons, corrected source
+    bindings and complete results. All 34 bounded corruption checks reject.
+    Preserve the cyclic/output-window fixture corrections, feature/discovery
+    correction, reference-environment change and full private-environment
+    rerun, and both verifier corrections. Original failures are retained;
+    later fixtures, dependency integration and docs do not relabel timings.
+  - Both additional finite follow-ups are now accepted under existing owners.
+    The 37 required breadth substeps resume; the seventeen original finite
+    decisions, four missing-prerequisite records, 58 broad substeps and
+    CG-1 through CG-23 retain their distinct obligations. No package
+    publication, cross-platform acceptance or broader owner completion follows.
+
+- [x] `Finite cyclic-existence join follow-up` — retain the
+  [automatic native strategy](native-cyclic-existence-intake-2026-10-21.md) after
+  both frozen cohorts pass all 52 case/call-count cells, 520 workflows and 1,300
+  native calls. All four targets meet the engine gain threshold; every control
+  stays within its unchanged limit. Exact multiplicity, NULLs, order, aliases,
+  source admission, actual work, credit denial, cancellation and teardown pass.
+  - The final integrated runtime passes 3,079 native tests (31 existing ignored),
+    3,235 workspace tests, 1,089 CLI tests, 5,930 public cases, 115 isolated
+    installed-package tests with zero skips, and uninstall. Formatting and
+    strict workspace/native lint pass. Full43 passes all 43 complete results
+    and schemas; the 18 format cohorts pass 704 native and 704 independent
+    reference workflows. The existing input is reused without ingestion.
+  - The [acceptance packet](../benchmarks/evidence/cyclic-existence-2026-10-21/README.md)
+    binds the scored library to compiled source `6aad1aca` and notice-only
+    package source `de2d31ea`. Preserve the initial notice-bundle failure and
+    zero-query PyArrow setup failure with exact corrections. Offline replay
+    verifies 28,468 archived members, source closures and complete outputs;
+    ten additional deliberate corruption checks fail as required.
+  - The [cleanup result](../benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json)
+    retires 35,888 exact generated files and three environment symlinks after
+    replay, identity, regeneration and closed-handle checks. Current tested
+    runtime/wheel and source inputs remain; no payload backup is created.
+  - This completes one additional finite follow-up under existing owners. The
+    seventeen original decisions, all 58 substeps and CG-1 through CG-23 retain
+    their separate obligations. Prepared sampling remains next before required
+    breadth; no broad multiway, release or cross-platform claim follows.
+
+- [x] `Finite native exchange transport decision` — reject the
+  [fragment-transport candidate](native-exchange-decision-2026-10-21.md) under
+  its frozen protocol. Both complete 325-workflow cohorts pass exact values,
+  native representation/execution, lifecycle and ordinary Vortex IPC engine
+  controls. Both fail aggregate benefit and bootstrap requirements against
+  every Arrow control, plus wide-text controls against Arrow LZ4 and Zstd.
+  Constant/dictionary family wins do not override those failures.
+  - Preserve all 650 scored workflows, 67 preflight/client workflows, 41 unique
+    protocol tests, four process-failure workflows, 24 corrupted-report refusals,
+    seven gate-arithmetic tests and every failed attempt in the
+    [replayable result packet](../benchmarks/evidence/native-exchange-2026-10-21/README.md).
+    Checks overlap. No unchanged candidate rerun or causal attribution follows.
+  - Restore three modified production files exactly to prerequisite baseline
+    `02aa39f3` and remove all 34 experiment-added runtime/test files. Fresh
+    formatting, strict workspace/feature Clippy and all 3,235 workspace tests
+    pass. The restored native suite passes 3,069 tests with 31 manual/opt-in
+    tests ignored. The
+    [restoration packet](../benchmarks/evidence/native-exchange-2026-10-21/postchecks.json)
+    verifies 1,969 retained source inputs and sixteen public certificate sets.
+  - Retire 712 exact generated files after archived-result, regeneration,
+    source identity and closed-handle checks; the
+    [cleanup receipt](../benchmarks/evidence/native-exchange-2026-10-21/cleanup.json)
+    preserves the complete scope. Keep the accepted public runtime and compact
+    results; no executable or generated-dataset rollback backup is retained.
+  - Seventeen finite decisions are complete: eleven rejected, two unretained,
+    two retained and two no-signal. The two authorized follow-ups precede
+    required breadth. The four broad exchange substeps, all 58 substeps and
+    CG-1 through CG-23 retain their separate gates. No public remote service,
+    package publication, fresh public package or Full43 acceptance is claimed.
+
+- [x] `Native exchange scoped protocol/provider prerequisite review` — record
+  the [finite transport contract](native-encoded-exchange-protocol.md) and its
+  replayable source, dependency and local-foundation evidence. No runtime,
+  experiment, client, protocol/ownership substep or broad owner is closed.
+  - Define explicit native selection, exact pinned representation/identity,
+    mandatory mutual TLS and per-request authorization, bounded receiving and
+    queue ownership, clean completion, cancellation, truncation and replay
+    refusal. Register actual two-process and ordinary Flight SQL client test
+    targets and their evidence outputs before implementation.
+  - Resolve an isolated 161-package candidate graph. Preserve the failed
+    Rustls 0.23.45 intake with four advisories; the 0.23.46 graph passes advisory,
+    license, source and bans policy with the existing `paste` warning retained.
+    No new policy exception or workspace dependency is added. This graph is
+    source-reviewed, not compiled or integrated.
+  - Both focused local foundation tests pass with positive discovery counts;
+    the inclusion-scope check passes. Replay verifies all 3,027 compiled-source
+    bindings and 160 registry-package identities, with the original native
+    build linked explicitly. These are local ownership and prerequisite checks,
+    not transport, client interoperability or performance acceptance. Required
+    breadth has not resumed.
+
+- [x] `Conditional rows 17–20 prerequisite review` — record the
+  [three region-dependent gaps](native-region-dependent-prerequisites-2026-10-20.md)
+  after row 16's rejection and the
+  [current PGO attribution gap](native-pgo-prerequisite-decision-2026-10-20.md).
+  This completed review closes no experiment, conditional substep or broad owner.
+  - Current array-fed workers and ordering consumers do not establish the
+    independently admitted region/local-reduction prerequisites. The rejected
+    projection deferral admits no replacement topology or joint preparation
+    basis. No unchanged large topology comparison is run.
+  - PGO raw review confirms absolute instruction/cycle counts in all 36 target
+    historical calls and verifies twelve median cells. Whole-process counters
+    from the earlier source do not isolate current dispatch cost. Both required
+    mocked orchestration regressions pass; compiler/tool version identities are
+    captured without a new training run or compatibility/benefit claim.
+  - Source and raw-counter replay are provided with the acceptance records.
+    Fifteen finite decisions remain complete; four additional rows now have
+    specific prerequisite records, overlap remains inconclusive and native
+    exchange still needs its first result. Required breadth has not resumed.
+
+- [x] `PERF-03.regions finite projection-request deferral` — reject the
+  [provider candidate before timing](native-region-projection-decision-2026-10-20.md).
+  Only one of four sparse targets passes the frozen actual-read gate. All 32
+  intake calls, 64 comparison calls and 32 ordered-value calls pass exactness
+  and ownership checks. The planned timing cohorts are not run.
+  - Copied executable names were outside the guard's recognized naming rule;
+    serial orchestration and owned drain do not prove exclusive-workload
+    isolation. This limits attribution and precludes a positive admission claim.
+    Frozen records, failed setup attempts and all source versions are preserved.
+  - Restore provider/runtime bytes and remove four temporary Rust modules.
+    A fresh native suite exposes a test-fixture filename collision before
+    execution. Retain its failure and fix the test-only fixture with a process
+    sequence plus fixed-timestamp regression. Formatting, strict workspace/native
+    Clippy, 3,235 workspace tests and 3,042 native tests pass; 30 existing native
+    manual/opt-in ignores remain. Suites overlap. Public binaries are unchanged,
+    with the one test-only source difference recorded explicitly.
+  - Portable comparison and restoration replay verify all captured results,
+    source/compiler bindings and 477 scoped retirements, including eight
+    temporary native inputs and two comparison binaries. No fresh public package
+    or Full43 claim is made. Fifteen finite decisions are complete: ten rejected,
+    two unretained, two retained and one no-signal. Five first decisions and the
+    inconclusive overlap measurement remain before required breadth; broader
+    region/topology owners and all 58 substeps/CG-1 through CG-23 keep their gates.
+
+- [x] `PERF-10.learned_indexes finite weighted-search experiment` — do not retain
+  the [bounded predictor](native-learned-index-decision-2026-10-20.md). Both large
+  targets improve engine time by the required 2% in both cohorts, but few-draw
+  and tiny controls exceed 5% in A while B passes. Both cohorts were required;
+  this is not a repeated-regression finding or a causal attribution.
+  - All 544 preflight/comparison calls pass complete source/schema/ordered-value,
+    no-fallback and ownership checks. Activation is observed in preflight;
+    timed calls disable observation counters. The 272 workflows include
+    224 scored workflows, 32 warmups and 16 preflights. Compact replay verifies
+    13,370,568 source rows and 22,291,964 output rows across these repeated calls,
+    both fresh compiler closures and all original invocation order/gates.
+  - Restore three modified source files and remove three experimental modules.
+    Fresh formatting, strict workspace/native Clippy, 3,235 workspace tests and
+    3,041 native tests pass; 30 existing native manual/opt-in ignores remain.
+    Suites overlap. All 3,024 frozen validation inputs and 2,222 public-runtime
+    source files match the restored tree. Public package and full-workload
+    integration evidence is preserved historically, not rerun or claimed fresh.
+  - Fourteen finite decisions are complete: nine rejected, two unretained,
+    two retained and one no-signal. Six first decisions and the inconclusive
+    `PERF-09.overlap` measurement prerequisite remain. Continue with
+    `PERF-03.regions` before the 37 required substeps. All 58 substeps and
+    CG-1 through CG-23 retain their broader gates; no package is published.
+
+- [x] `PERF-10.multiway_joins finite three-input experiment` — do not retain the
+  [constraint probe](native-multiway-join-2026-10-20.md). Prototype and initial
+  integration pass both cohorts, but final public-projection admission misses
+  the one-call star control in A while B passes. Retention requires both; this
+  does not establish a repeated regression. All 2,080 queries and 16,160,040
+  complete ordered rows pass semantic, activation and ownership checks.
+  - Restore eight production files and remove five experimental modules.
+    Retain ordinary native/CLI/Python regressions. Fresh formatting, strict
+    workspace/native Clippy, 3,235 workspace tests, 3,041 native tests (30
+    existing opt-in/manual ignores), 16 public CLI combinations and 113
+    installed Python tests pass. Installed tests have no skips and uninstall
+    verification passes. Suites overlap. The initial missing-dependency
+    attempt remains recorded; its exact pinned input was restored.
+  - The historical and restoration packets reproduce every result and source
+    reference after retiring 5,702 obsolete generated files. Runtime sources
+    match the accepted predecessor; Public39, Full43 and modular evidence are
+    not rerun or relabeled as fresh. No package is published.
+  - Thirteen finite decisions are complete: nine rejected, one unretained,
+    two retained and one no-signal. Seven first decisions and the inconclusive
+    `PERF-09.overlap` measurement prerequisite remain in this pass. Continue
+    with `PERF-10.learned_indexes` before required breadth. All 58 substeps
+    and CG-1 through CG-23 preserve their broader gates.
+
+- [x] `PERF-09.portfolio / PERF-09.structural_payload / PERF-02.changed_source`
+  — the three October 20 finite mechanisms have complete negative decisions:
+  [reduced numeric profile](native-numeric-portfolio-2026-10-20.md),
+  [original-text OnPair profile](native-structural-payload-2026-10-20.md) and
+  [unconditional whole-file refresh](native-changed-source-reuse-2026-10-20.md).
+  Each passes exactness/ownership checks but repeats its documented control
+  failures in both frozen cohorts. Experimental code is removed; portable
+  results, source provenance, failed observations and cleanup receipts remain.
+  These decisions do not close broader owners or the separate inconclusive
+  [ingest-overlap attribution](native-ingest-overlap-attribution-2026-10-20.md).
+
+- [x] `PERF-07.output_windows finite native delivery` — retain the explicit
+  two-batch window for the frozen immutable-memory scan/single-projection shape.
+  The [decision and acceptance](native-output-window-integration-2026-10-19.md)
+  and [portable packet](../benchmarks/evidence/output-window-accepted-791.json)
+  preserve all sources, complete results, protocols and failed observations.
+  - Both frozen cohorts pass the complete-workflow target and every control
+    across ten cells. Engine medians do not improve. The unchanged 4-MiB logical
+    window, original memory grant, two slots, FIFO acknowledgment and final
+    completion barrier retain independent native payload lifetime accounting.
+  - Normal native Python and public SQL/DataFrame batch iterators accept the
+    explicit option, defaulting to ordinary demand. Invalid arguments precede
+    source demand; actual-plan admission excludes lazy producers, files and
+    broader operators. Subprocess transport rejects a nonzero request. Diagnostic
+    instrumentation remains opt-in and absent from normal packages.
+  - Formatting, strict workspace/native lint and static surface gates pass.
+    Workspace/native/CLI tests pass 3,235/3,056/1,087 respectively, with 30 native
+    opt-in/manual ignores. Source Python runs 729 tests with 21 optional-class
+    skips; normal release binding passes 68 and diagnostic binding passes 13
+    without skips. Isolated installed Python passes 111 without skips and verifies
+    uninstall. These suites overlap.
+  - Public39 passes all 5,930 cases across 39 families, reopening 8,151 no-fallback
+    envelopes and all 16,389 stored logs. Full43 passes 43 queries once and all
+    381 rows/schemas, with 50.102590495 seconds engine time. All 18 modular cohorts
+    match 704 native workflows to 704 fresh independent oracle workflows.
+  - Independent archive verification reopens 20,059 members plus the embedded
+    original 3,213-member comparison packet, reconstructs four integration source
+    versions and binds all 2,890 accepted files. The source bridge changes only
+    five decision/roadmap documents. Earlier test expectations, a debug-suite
+    interruption and a post-build metadata-binding failure remain preserved with
+    their repairs; no failed run receives acceptance credit.
+  - This is the ninth finite decision: two retained mechanisms, six rejected
+    mechanisms and one no-signal attribution, with 12 first decisions remaining.
+    All 58 substeps and CG-1 through CG-23 retain their gates; broader output,
+    publication, hosted/platform proof and release authorization remain separate.
+    Continue with recoverable idle-time attribution under `PERF-09.overlap`.
+
 - [x] `PERF-06.rematerialization private projection experiment` — reject bounded
   private projection regeneration at the resident sort boundary. The
   [decision](native-rematerialization-2026-10-19.md) and

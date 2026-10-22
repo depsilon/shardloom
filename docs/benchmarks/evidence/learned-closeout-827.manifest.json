@@ -1,0 +1,165 @@
+{
+  "all_checks_replayed": true,
+  "comparison_calls": 544,
+  "members": {
+    "learned-cost-package-826.json": {
+      "bytes": 11590,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-package-826.json",
+      "sha256": "a90560b0d6be3b26eb5c8fa71a9a9be1d9b125bbd48a45ae123345a4dd7daeb3"
+    },
+    "learned-cost-package-826.log": {
+      "bytes": 784,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-package-826.log",
+      "sha256": "987d0a0e1bbe407c21c4060037dc6f609c50a38d3716debd4798b91cb8eab016"
+    },
+    "learned-cost-retire-827.json": {
+      "bytes": 16745,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-retire-827.json",
+      "sha256": "adb060c50da1603a1650520c4cff79ab2805e5e0333207e4fe71a785ce947d79"
+    },
+    "learned-cost-retire-827.log": {
+      "bytes": 1200,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-retire-827.log",
+      "sha256": "dd286c5f33460f94ce02622aff244db234179e583afebbd6c942e5cd26ca992f"
+    },
+    "learned-cost-retirement-827-plan.json": {
+      "bytes": 135000,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-retirement-827-plan.json",
+      "sha256": "d5307a1a8c1057363a701df08121f05c3cf42f618d72354b7ebfae62f4692662"
+    },
+    "learned-cost-retirement-827.json": {
+      "bytes": 135554,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-cost-retirement-827.json",
+      "sha256": "d27ad2b1ce81cfb0753bcf582a052f227f225fff8519fbe7ea41a6661a69e67f"
+    },
+    "learned-intake-retirement-825.json": {
+      "bytes": 9517,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-intake-retirement-825.json",
+      "sha256": "7e585a86b28fe90e2bf16aba241210a751c3e8025f3761cdb0c07a77aefe486e"
+    },
+    "learned-restoration-827-source.json": {
+      "bytes": 968791,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restoration-827-source.json",
+      "sha256": "6231e081012aff584b0f4e6d5d7edb582bec6ece3feda90f979d85bdb72db9e4"
+    },
+    "learned-restoration-827-verified.json": {
+      "bytes": 6569,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restoration-827-verified.json",
+      "sha256": "1b6ed730fafa67d5e69eb20a80f5bcc0cd3597efd96cc4f9a3a299ca31df5c4b"
+    },
+    "learned-restored-fmt-827.json": {
+      "bytes": 4049,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-fmt-827.json",
+      "sha256": "f340204038c469da92020b6683f385c42b7ed5d3142575afddf01bd0e9756123"
+    },
+    "learned-restored-fmt-827.log": {
+      "bytes": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-fmt-827.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "learned-restored-native-clippy-827.json": {
+      "bytes": 10676,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-native-clippy-827.json",
+      "sha256": "7e27cfc193e2579966408db757f823db68c22264a1783de894d0ef9203a3c478"
+    },
+    "learned-restored-native-clippy-827.log": {
+      "bytes": 184,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-native-clippy-827.log",
+      "sha256": "84843de61041c77acf41081874ee22dd025db1fbaf33f4fb541e3675ec0d0c8f"
+    },
+    "learned-restored-native-tests-827.json": {
+      "bytes": 155273,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-native-tests-827.json",
+      "sha256": "61860f607633033eb6b0a429017ef4ad3f89c4e93c9a6b02604b912dafc47037"
+    },
+    "learned-restored-native-tests-827.log": {
+      "bytes": 691087,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-native-tests-827.log",
+      "sha256": "00a9d151ab141fe3ffa201f317643a2d2635c4659799b528bd5f65e7ef5da35e"
+    },
+    "learned-restored-public-bridge-827.json": {
+      "bytes": 1287,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-public-bridge-827.json",
+      "sha256": "e19ba23cfa6554af50a018c7517fd3191376a589b1ac382dff5b68a110e1a698"
+    },
+    "learned-restored-workspace-clippy-827.json": {
+      "bytes": 3491,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-workspace-clippy-827.json",
+      "sha256": "1e5fb2d766b30e5630c734334c136d9b4a78e826c36b5578d4a01ca29d713b5c"
+    },
+    "learned-restored-workspace-clippy-827.log": {
+      "bytes": 60,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-workspace-clippy-827.log",
+      "sha256": "f1d0e587f4eaf9c5f6803d3e9210c0e1b536942252f03191c763f7b78b97cc4a"
+    },
+    "learned-restored-workspace-tests-827.json": {
+      "bytes": 4825,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-workspace-tests-827.json",
+      "sha256": "874b9a3162b375eaa1d0aeb1735e62b916627e03a468630b2b78481a47a866c3"
+    },
+    "learned-restored-workspace-tests-827.log": {
+      "bytes": 461900,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-restored-workspace-tests-827.log",
+      "sha256": "f581d3d98c6a07e2ed09b12e553b4af67f5311f8f28b63f4294d00d3a75a12e2"
+    },
+    "multiway-restored-public-build-823.json": {
+      "bytes": 4305,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-public-build-823.json",
+      "sha256": "427692cdf87edb660ad0dcedb1377849bd892c36f9f78a0e296c3aabfe7f1803"
+    },
+    "multiway-restored-source-823.json": {
+      "bytes": 384844,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-source-823.json",
+      "sha256": "7d7152c52d30792840ba30fb918e2dc29af6e10f694a9c1b5e0051cfc4795ccd"
+    },
+    "package_learned_closeout_827.py": {
+      "bytes": 10350,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_closeout_827.py",
+      "sha256": "fdd0884996d49a5d5e4ccca53441f8303dbaef2622061e70f264d7242b545709"
+    },
+    "package_learned_cost_826.py": {
+      "bytes": 12780,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_cost_826.py",
+      "sha256": "2459e4640d090529cf04049269f1edc689fb9ff5ed61eaac3097e52f6349b093"
+    },
+    "retire_learned_cost_827.py": {
+      "bytes": 4407,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/retire_learned_cost_827.py",
+      "sha256": "dfca1f31203534877eac7b929c742d8ea91c7098663e8c6506695821fe14a2d9"
+    },
+    "run_learned_restoration_827.py": {
+      "bytes": 5265,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_learned_restoration_827.py",
+      "sha256": "ef00dd2c74d43003c36f294916358685b784d6e0142780711e2eb8de71860e26"
+    }
+  },
+  "packager": {
+    "bytes": 10350,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_learned_closeout_827.py",
+    "sha256": "fdd0884996d49a5d5e4ccca53441f8303dbaef2622061e70f264d7242b545709"
+  },
+  "packet": {
+    "bytes": 314468,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/learned-closeout-827.json.xz",
+    "sha256": "1715e6d5f6df977aaf494f22bcc3ea5a8f3a4d511a5d5b39b32c5cf5f36a7bbe"
+  },
+  "public_source_bridge_files": 2222,
+  "restoration_gates": 5,
+  "restored_source_files_checked": 3035,
+  "retention_gate_passed": false,
+  "retired_bytes": 211522605,
+  "retired_files": 290,
+  "status": "passed",
+  "tests": {
+    "native-tests": {
+      "failed": 0,
+      "ignored": 30,
+      "passed": 3041
+    },
+    "workspace-tests": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3235
+    }
+  }
+}

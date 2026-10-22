@@ -106,6 +106,26 @@ contains ShardLoom afterward. To try the maintained
 [context/result example](../../examples/paid-orders/context-result.py), install the
 retained wheel in a separate environment. This development example uses native
 execution and retained ShardLoom results without optional Arrow dependencies.
+
+The current source checkout adds an explicit native delivery option:
+`query.iter_batches(output_window_bytes=4194304)`. Omission or zero keeps ordinary
+demand. Eligible immutable memory scans and single projections can keep two
+unacknowledged batches within a 4-MiB referenced-byte window. Admission is limited
+to 65,536 rows and 1–64 Int64 output fields; files, producer inputs, filtering,
+sorting, limits and spill keep ordinary delivery. Subprocess transport rejects a
+nonzero request before work begins.
+
+Admission checks the actual native plan. A composed DataFrame projection can
+retain a nested SELECT and therefore keep ordinary delivery; the final policy
+field records that decision.
+
+Use a context manager when stopping early. Batches remain provisional until the
+iterator's final report appears. Retained native buffers remain charged to the
+original memory grant until their last owner is released. The final report's
+`columnar_output_window_requested_bytes` and
+`columnar_output_window_selected_policy` fields distinguish `two_batch_window`,
+`ordinary_ineligible` and `ordinary_not_requested`. This source change is not a
+newly published package; see the [integration and acceptance boundary](../architecture/native-output-window-integration-2026-10-19.md).
 The [embedding guide](https://shardloom.io/field-guide/embedding/) covers direct
 typed native integration. The proof publishes nothing
 and does not change the caller's existing Python environment.

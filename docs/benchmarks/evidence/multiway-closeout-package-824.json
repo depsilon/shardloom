@@ -1,0 +1,104 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_multiway_restoration_823.py"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "563c91260a526f6b02ab9bbb171dd9bfb8c4c2f0",
+  "working_tree": " M shardloom-cli/tests/public_memory_inputs.rs\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n?? docs/architecture/native-multiway-join-admission-2026-10-20.md\n?? docs/architecture/native-multiway-join-comparison-design-2026-10-20.md\n?? docs/architecture/native-multiway-join-intake-2026-10-20.md\n?? docs/architecture/native-multiway-join-integration-design-2026-10-20.md\n?? docs/architecture/native-multiway-public-projection-admission-2026-10-20.md\n?? python/tests/test_native_multiway_binding.py\n?? shardloom-vortex/src/local_primitive_relational_multiway_tests.rs\n",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "guard_sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+  "runner_sha256": "68ec416e4fa11cb2d40d48a5f108eb2808f886148e478e8543027837df186be4",
+  "host_context": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "architecture": "arm64",
+    "logical_cpus": 10,
+    "physical_ram_bytes": 17179869184,
+    "observed_before_child_load_average": [
+      3.4599609375,
+      3.111328125,
+      3.326171875
+    ]
+  },
+  "host_samples": [
+    {
+      "monotonic_seconds": 462135.312971375,
+      "load_average": [
+        3.4599609375,
+        3.111328125,
+        3.326171875
+      ],
+      "child_pid": null,
+      "process_samples": []
+    },
+    {
+      "monotonic_seconds": 462135.621695125,
+      "load_average": [
+        3.4599609375,
+        3.111328125,
+        3.326171875
+      ],
+      "child_pid": 39208,
+      "process_samples": [
+        {
+          "pid": 39208,
+          "parent": 39195,
+          "group": 39208,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 196608,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462136.729921875,
+      "load_average": [
+        3.5029296875,
+        3.1259765625,
+        3.330078125
+      ],
+      "child_pid": 39208,
+      "process_samples": []
+    }
+  ],
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 3660103902,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 156231405568,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 6284304384,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 156231528448,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 300.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 39208,
+  "output_bytes": 1741,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 1.1297359169693664,
+  "log_sha256": "6370f00f7989a4baa6a6f043a00e7adc8b932832277268c16a56ce6ad4d9e430"
+}

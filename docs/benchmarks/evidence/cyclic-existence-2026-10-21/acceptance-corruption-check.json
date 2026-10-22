@@ -1,0 +1,23 @@
+{
+  "cohort_deepcopy_count": 0,
+  "corruption_count": 10,
+  "corruptions_rejected": [
+    "altered_member_without_digest_refresh",
+    "substituted_file_reference_digest",
+    "omitted_modular_row",
+    "duplicated_modular_identity",
+    "changed_native_complete_result_refreshed_hash",
+    "changed_reference_and_native_but_original_reference_process_output",
+    "changed_native_call_binary_hash",
+    "native_envelope_status_changed_with_refreshed_hashes",
+    "native_envelope_fallback_changed_with_refreshed_hashes",
+    "missing_writer_output_readback"
+  ],
+  "engine_build_or_benchmark_performed": false,
+  "native_execution_performed": false,
+  "packet_loaded_once": true,
+  "positive_first_cohort_payload_calls": 376,
+  "positive_first_cohort_records": 352,
+  "scope": "one unmodified first modular cohort plus bounded independent corruptions",
+  "status": "passed"
+}

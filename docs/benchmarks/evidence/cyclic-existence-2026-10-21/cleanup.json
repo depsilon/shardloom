@@ -1,0 +1,142 @@
+{
+  "archives_of_retired_payloads_created": 0,
+  "packet": {
+    "bytes": 1207120,
+    "file": "cleanup.json.xz",
+    "members": 9,
+    "sha256": "5ff4e809d912a3677ab48749d2828b979e8db9956c660a824e05d49e43a43f87"
+  },
+  "retained_identities_unchanged": true,
+  "retired_accounted_bytes": 2986004480,
+  "retired_regular_files": 35888,
+  "retired_symlinks": 3,
+  "schema": "shardloom.cyclic_existence_cleanup.v1",
+  "scope": "Exact retired identities and successful closed-handle/source/retention checks; results only, no payload backups.",
+  "selected_roots": [
+    {
+      "accounted_bytes": 1890684928,
+      "files": 19579,
+      "logical_bytes": 1812789678,
+      "metadata_sha256": "549bdba71854311be7d600709597ba71f3d9baa23c254427a9a631612a1c1fa8",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-public-853",
+      "regeneration": "Archived exact result/log members where present; generated fixtures and payloads recreate from frozen public/matrix commands and Git source."
+    },
+    {
+      "accounted_bytes": 1429504,
+      "files": 174,
+      "logical_bytes": 1008267,
+      "metadata_sha256": "9a8032cc51fc965c87c49f92af32053239e2e539eb61db115c82f4d64a381e41",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-full43-853",
+      "regeneration": "Archived exact result/log members where present; generated fixtures and payloads recreate from frozen public/matrix commands and Git source."
+    },
+    {
+      "accounted_bytes": 4419584,
+      "files": 29,
+      "logical_bytes": 4342335,
+      "metadata_sha256": "2266dd95d8bee6962a1993db1487ef6a05d33abb0fcc696002cd0f2d20c54c9d",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-matrix-853",
+      "regeneration": "Archived exact result/log members where present; generated fixtures and payloads recreate from frozen public/matrix commands and Git source."
+    },
+    {
+      "accounted_bytes": 313229312,
+      "files": 12715,
+      "logical_bytes": 282467163,
+      "metadata_sha256": "850bc9fcf2a089a52432a60e9c58bcb397950c935e083d7abf7aa6124d659f79",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-matrix-854",
+      "regeneration": "Archived exact result/log members where present; generated fixtures and payloads recreate from frozen public/matrix commands and Git source."
+    },
+    {
+      "accounted_bytes": 312901632,
+      "files": 383,
+      "logical_bytes": 311948096,
+      "metadata_sha256": "137141e9e206e1c450c425016920b2b2504eccd167262f78e1bb8a580ca2a0cc",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-installed-python-853-a2/package",
+      "regeneration": "Fresh install/unpack from the retained tested wheel and pinned dependency wheels.",
+      "replacement": {
+        "bytes": 49818617,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-installed-python-853-a2/dist/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "sha256": "4184e483c8a0e11743523ad3b8f781dfc8b987a5a88ea9515d35a94e4c8d51a4"
+      }
+    },
+    {
+      "accounted_bytes": 145539072,
+      "files": 1719,
+      "logical_bytes": 141759914,
+      "metadata_sha256": "0cf5b089ce031faf82ecd46cd319519beb73bbb46504b6d751b05e25616c6e4f",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-installed-python-853-a2/venv",
+      "regeneration": "Fresh install/unpack from the retained tested wheel and pinned dependency wheels.",
+      "replacement": {
+        "bytes": 49818617,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-installed-python-853-a2/dist/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "sha256": "4184e483c8a0e11743523ad3b8f781dfc8b987a5a88ea9515d35a94e4c8d51a4"
+      }
+    },
+    {
+      "accounted_bytes": 152457216,
+      "files": 2,
+      "identity_source": {
+        "bytes": 4305,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-public-build-823.json",
+        "sha256": "427692cdf87edb660ad0dcedb1377849bd892c36f9f78a0e296c3aabfe7f1803"
+      },
+      "logical_bytes": 152451888,
+      "metadata_sha256": "3344069fff2fcc736d4fcb9035b3511225a43be6f836491ac89d1751ee4f8821",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/multiway-restored-public-823",
+      "regeneration": "Superseded accepted runtime; rebuild from recorded Git source/build recipe.",
+      "replacement": {
+        "bytes": 336657,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-acceptance-build-853.json",
+        "sha256": "6b9d6d7e986e867666dac64e4d44c453b31a46e4b0c4d33aefb2d74d4a0b9f19"
+      }
+    },
+    {
+      "accounted_bytes": 76165120,
+      "files": 1,
+      "identity_source": {
+        "bytes": 5098,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-baseline-build-850.json",
+        "sha256": "3231f33d726eba650f2732cba10cbb49b0f77db5c0c533f2aed38cfee6227ebe"
+      },
+      "logical_bytes": 76162032,
+      "metadata_sha256": "aa3be84f3bd70d995df4c85b7e35e72e11410fb21b0e0e6a257e370e38bc2cd8",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/cyclic-existence-baseline-public-850",
+      "regeneration": "Completed comparison baseline; exact source/build/library identity is in the retained intake and comparison packets."
+    },
+    {
+      "accounted_bytes": 49737728,
+      "files": 1,
+      "logical_bytes": 49734623,
+      "metadata_sha256": "e8f9ed85d5cc30f19febbceea1f14c32b503adf5feefd28d98c2dd6d0627f94d",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-installed-python-824/dist",
+      "regeneration": "Superseded tested wheel; retained original report and source/build recipe.",
+      "replacement": {
+        "bytes": 49818617,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-installed-python-853-a2/dist/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "sha256": "4184e483c8a0e11743523ad3b8f781dfc8b987a5a88ea9515d35a94e4c8d51a4"
+      }
+    },
+    {
+      "accounted_bytes": 37462016,
+      "files": 1041,
+      "logical_bytes": 36918670,
+      "metadata_sha256": "32d1590b2a5d05a16bb672fec3a0d4dac000c88754845af8a7b883587001bb44",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-comparison-852-a1",
+      "regeneration": "Every exact result/log byte is in the independently replayed comparison packet.",
+      "replacement": {
+        "bytes": 533468,
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/cyclic-existence-2026-10-21/comparison.json.xz",
+        "sha256": "a604ef3a7e2f04cc5ad6b3c23b92b001f13515a0de3001f7d90076a5fe55a899"
+      }
+    },
+    {
+      "accounted_bytes": 1978368,
+      "files": 244,
+      "logical_bytes": 1325613,
+      "metadata_sha256": "9d48829724f5136427aa3b66372cb9756ed7cca9c7b3b0aeb7c22215ea01a3a2",
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/cyclic-existence-notice-candidate-853",
+      "regeneration": "Every notice is byte-identical to accepted Git source de2d31ea."
+    }
+  ],
+  "status": "passed",
+  "storage_limits_changed": false
+}

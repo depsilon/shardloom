@@ -60,8 +60,12 @@ pub use dynamic::{
 };
 #[path = "local_primitive_relational_correlated.rs"]
 mod correlated;
+#[path = "local_primitive_relational_cyclic_exists.rs"]
+mod cyclic_exists;
 #[path = "local_primitive_relational_report.rs"]
 mod report;
+#[path = "local_primitive_relational_sample_preparation.rs"]
+mod sample_preparation;
 #[path = "local_primitive_relational_scan.rs"]
 mod scan;
 #[path = "local_primitive_relational_selection.rs"]
@@ -81,6 +85,11 @@ pub use writer::{
 mod arrow;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub use arrow::ExecutedVortexArrowRelational;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_credit_window.rs"]
+mod credit_window;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub use credit_window::OutputCreditWindow;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "local_primitives/native_local_selection_observation.rs"]
 mod selection_observation;
@@ -221,7 +230,8 @@ pub struct ExecutedOwnedVortexRelational {
     pub result: OwnedVortexResultBatch,
 }
 
-/// Source identities and bound schemas are retained; operator state is fresh.
+/// Source identities and schemas are retained; operator populations are fresh.
+/// An admitted immutable sampling root may retain credited scalar calibration.
 pub struct PreparedVortexRelational {
     session: ResidentVortexSession,
     sources: Vec<PreparedVortexSource>,
@@ -605,7 +615,7 @@ fn prepare_relational_with_owner(
     let plan = lower(&mut preparation)?;
     cancellation.check()?;
     preparation.binding.validate_batch_plan(&plan)?;
-    let root = preparation.binding.bind(&plan, 0)?;
+    let mut root = preparation.binding.bind(&plan, 0)?;
     let bind::BoundSources {
         sources,
         source_paths,
@@ -613,6 +623,9 @@ fn prepare_relational_with_owner(
         batch_sources,
         metadata,
     } = preparation.binding.finish()?;
+    if sources.is_empty() && batch_sources.is_empty() && memory_sources.len() == 1 {
+        root.admit_sampling_preparation(session.memory())?;
+    }
     Ok(PreparedVortexRelational {
         session,
         sources,
@@ -643,7 +656,7 @@ pub fn prepare_relational_in_session(
 ) -> Result<PreparedVortexRelational> {
     validate_session_policy(policy, session)?;
     let mut binding = bind::Binder::new(session)?;
-    let root = binding.bind(plan, 0)?;
+    let mut root = binding.bind(plan, 0)?;
     let bind::BoundSources {
         sources,
         source_paths,
@@ -651,6 +664,9 @@ pub fn prepare_relational_in_session(
         batch_sources,
         metadata,
     } = binding.finish()?;
+    if sources.is_empty() && batch_sources.is_empty() && memory_sources.len() == 1 {
+        root.admit_sampling_preparation(session.memory())?;
+    }
     Ok(PreparedVortexRelational {
         session: session.clone(),
         sources,
@@ -918,6 +934,7 @@ impl PreparedVortexRelational {
             )?,
         );
         self.spill = Some(policy);
+        self.disable_sampling_preparation();
         Ok(self)
     }
 
@@ -927,7 +944,7 @@ impl PreparedVortexRelational {
     /// Rejects changed preparation identities or metadata beyond the shared grant.
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub fn with_preparation_sources(
-        self,
+        mut self,
         sources: Vec<std::sync::Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
     ) -> Result<Self> {
         if sources.len() > 128 {
@@ -942,6 +959,9 @@ impl PreparedVortexRelational {
             .reserve(sources.len() as u64 * 131_072)?;
         for source in &sources {
             source.validate_generation()?;
+        }
+        if !sources.is_empty() {
+            self.disable_sampling_preparation();
         }
         Ok(Self {
             preparation_sources: sources,
@@ -1000,9 +1020,35 @@ impl PreparedVortexRelational {
         batch_rows: usize,
         file_scan_batching: FileScanBatching,
         input: Option<batch_input::Provider<'_>>,
+        consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.for_each_batch_with_input_and_initialize(
+            cancellation,
+            batch_rows,
+            file_scan_batching,
+            input,
+            || Ok(()),
+            consume,
+        )
+    }
+
+    /// Policy initialization belongs to the complete native call, before any
+    /// source or output demand. Ordinary callers have no additional policy.
+    fn for_each_batch_with_input_and_initialize(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        file_scan_batching: FileScanBatching,
+        input: Option<batch_input::Provider<'_>>,
+        initialize: impl FnOnce() -> Result<()>,
         mut consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
+        let sampling = self.begin_sampling_call()?;
+        #[cfg(feature = "output-window-observation")]
+        let mut observed_engine = crate::output_window_observation::engine_scope();
+        cancellation.check()?;
         self.validate_batch_provider(input.is_some())?;
+        initialize()?;
         let mut execution =
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
@@ -1011,10 +1057,23 @@ impl PreparedVortexRelational {
                         batch_rows,
                         file_scan_batching,
                         input,
-                        &mut |array| consume(array, context),
+                        &mut |array| {
+                            #[cfg(feature = "output-window-observation")]
+                            let mut observed_sink =
+                                crate::output_window_observation::sink_scope(array.len());
+                            let result = consume(array, context);
+                            #[cfg(feature = "output-window-observation")]
+                            if result.is_ok() {
+                                observed_sink.complete();
+                            }
+                            result
+                        },
                     )
                 })?;
         execution.runtime = self.snapshot();
+        #[cfg(feature = "output-window-observation")]
+        observed_engine.complete();
+        sampling.complete();
         Ok(execution)
     }
 
@@ -1048,6 +1107,7 @@ impl PreparedVortexRelational {
         input: Option<batch_input::Provider<'_>>,
         mut consume: impl FnMut(super::collect::SerializedVortexResultBatch) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
+        let sampling = self.sampling_failure_guard();
         if batch_rows == 0
             || batch_rows > BATCH_ROWS
             || max_batch_bytes == 0
@@ -1083,6 +1143,7 @@ impl PreparedVortexRelational {
             .sink_requirement_report
             .max_chunk_size = Some(batch_rows as u64);
         execution.runtime = self.snapshot();
+        sampling.complete();
         Ok(execution)
     }
 
@@ -1537,6 +1598,9 @@ impl PreparedVortexRelational {
                     }
                     return Ok(());
                 }
+                if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec) {
+                    return cyclic.run(self, context, metrics, batch_rows, parameter, consume);
+                }
                 let mut join = native_relational_join::Join::new(spec, context.memory())?;
                 self.run(
                     right,
@@ -1697,6 +1761,7 @@ impl PreparedVortexRelational {
         input: Option<batch_input::Provider<'_>>,
     ) -> Result<CollectedVortexRelational> {
         let started = std::time::Instant::now();
+        let sampling = self.sampling_failure_guard();
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
         let mut execution = self.for_each_batch_with_input(
             cancellation,
@@ -1705,9 +1770,16 @@ impl PreparedVortexRelational {
             input,
             |array, context| sink.append_native(&array, context),
         )?;
+        #[cfg(test)]
+        sample_preparation::BEFORE_JSON_COMPLETION.with_borrow_mut(|slot| {
+            if let Some(before) = slot.take() {
+                before();
+            }
+        });
         let (result_jsonl, result_schema_json, timing) =
             sink.finish_with_timing(&mut execution.native_io_certificate, started)?;
         execution.runtime = self.snapshot();
+        sampling.complete();
         Ok(CollectedVortexRelational {
             timing,
             execution,
@@ -1744,6 +1816,7 @@ impl PreparedVortexRelational {
         small_collection: bool,
         input: Option<batch_input::Provider<'_>>,
     ) -> Result<ExecutedOwnedVortexRelational> {
+        let sampling = self.sampling_failure_guard();
         let mut arrays = ReservedVec::new(self.session.memory())?;
         let mut rows = 0usize;
         let mut bytes = 0u64;
@@ -1767,9 +1840,18 @@ impl PreparedVortexRelational {
                 arrays.push(array)
             },
         )?;
-        let (arrays, ownership) = arrays.into_parts();
+        let (mut arrays, ownership) = arrays.into_parts();
+        #[cfg(test)]
+        sample_preparation::BEFORE_RESULT_OWNERSHIP.with_borrow_mut(|slot| {
+            if let Some(before) = slot.take() {
+                before(&mut arrays);
+            }
+        });
+        #[cfg(not(test))]
+        let _ = &mut arrays;
         let result = self.session.own_completed_arrays(arrays, ownership)?;
         execution.runtime = self.snapshot();
+        sampling.complete();
         Ok(ExecutedOwnedVortexRelational { execution, result })
     }
 }

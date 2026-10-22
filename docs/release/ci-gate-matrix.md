@@ -44,6 +44,13 @@ The extension staging, dependency wheels and installation proof remain outside
 the Cargo cache, so restored build outputs cannot reuse an earlier proof or its
 uploaded results. The proof still rejects an existing destination.
 
+After the ordinary wheel proof, each native Python lane builds the explicitly
+opt-in `output-window-observation` feature and runs all 13 queue, acknowledgment,
+cancellation and retained-owner checks with the fresh diagnostic library. The
+normal wheel must omit its getters and ignore its environment setting. The
+diagnostic build messages and test result are retained separately; they do not
+replace the installed ordinary-wheel proof.
+
 ```text
 root = tempfile.mkdtemp(prefix="native-python-", dir=os.environ["RUNNER_TEMP"])
 python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
@@ -58,6 +65,8 @@ ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/report.json
 ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json
 ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/*.log
 ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/dist/*.whl
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/output-window-build.jsonl
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/output-window-tests.json
 if-no-files-found: error
 ```
 
@@ -67,6 +76,7 @@ ownership tests run as a dedicated serialized lane:
 
 ```text
 cargo test -p shardloom-vortex --lib --features release-user-surfaces
+cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation output_window_observation::tests
 cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1
 cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1
 cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1
@@ -74,6 +84,10 @@ cargo test -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test p
 cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write
 cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
 ```
+
+The native Vortex lane adds the 16 observation-only Rust regressions after its
+ordinary library tests. The byte-credit ledger tests run in the ordinary native
+feature set. Diagnostic instrumentation remains absent from normal release groups.
 
 The native Vortex test lane also runs the full library tests and strict library lints for the reviewed
 array, file, FSST, RunEnd and Zstd patches, plus the bounded file-statistics provider's

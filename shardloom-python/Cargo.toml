@@ -20,6 +20,8 @@ workspace = true
 
 [features]
 default = []
+# Opt-in bounded output-delivery diagnostics; absent from ordinary packages.
+output-window-observation = ["python-native", "shardloom-vortex/output-window-observation"]
 python-native = [
     "dep:pyo3", "dep:pyo3-build-config", "dep:arrow-pyarrow", "dep:arrow-array", "dep:arrow-schema",
     "dep:shardloom-core", "dep:shardloom-exec", "dep:shardloom-vortex",

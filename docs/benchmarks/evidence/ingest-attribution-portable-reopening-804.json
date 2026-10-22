@@ -1,0 +1,43 @@
+{
+  "candidate_design_admitted": false,
+  "current_outcome": "inconclusive_observer_overhead_gate_failed",
+  "measured_records_recomputed": 84,
+  "members_verified": 2151,
+  "original_member_files_required": false,
+  "original_working_tree_changes_required": false,
+  "packet_sha256": "4ef023256c1d16fb5a90312b67d800c1fe3560d78dbc2dda11ae3ad430477432",
+  "physical_artifacts_reopened": false,
+  "preflight_records_verified": 14,
+  "raw_event_trace_identities_indexed": 184,
+  "raw_event_traces_replayed": false,
+  "scheduling_change_retained": false,
+  "source_sets_reconstructed": [
+    {
+      "changed_tracked_files": 14,
+      "extra_files": 5,
+      "label": "ingest-harness-source-794",
+      "source_files": 1907
+    },
+    {
+      "changed_tracked_files": 14,
+      "extra_files": 5,
+      "label": "ingest-harness-source-794b",
+      "source_files": 1907
+    },
+    {
+      "changed_tracked_files": 14,
+      "extra_files": 5,
+      "label": "ingest-harness-source-797",
+      "source_files": 1907
+    },
+    {
+      "changed_tracked_files": 16,
+      "extra_files": 5,
+      "label": "ingest-harness-source-802",
+      "source_files": 1907
+    }
+  ],
+  "status": "passed",
+  "temporary_sources_removed": true,
+  "unchanged_git_sources_hashed": 1890
+}

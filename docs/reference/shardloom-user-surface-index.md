@@ -39,7 +39,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Development source identity: `984d7fd5e3176a47d512e4b8bab105224cd72826a04e3d12737f66ef28a33be0` (SHA-256 of the listed source inputs).
+Development source identity: `99ab9b028a54ec9547c8ab8a2eff3a5dcd3bffed125c8d9ee30e7e4e2bc1f800` (SHA-256 of the listed source inputs).
 This API is unpublished; the package version is held independently of source changes.
 
 ### Python application exports

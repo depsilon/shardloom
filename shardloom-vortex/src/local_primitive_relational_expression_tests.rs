@@ -8,6 +8,9 @@ use shardloom_core::{
 };
 use vortex::array::arrays::{BoolArray, VarBinViewArray};
 
+#[path = "local_primitive_relational_identity_project_tests.rs"]
+mod identity_project_tests;
+
 fn expression(kind: ExpressionKind) -> Expression {
     Expression::new(ExprId::new("test").unwrap(), kind)
 }

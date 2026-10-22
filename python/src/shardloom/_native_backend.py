@@ -19,6 +19,20 @@ from collections.abc import Mapping
 from .execution_resources import ExecutionResources
 from .models import OutputEnvelope
 
+_OUTPUT_WINDOW_BYTES = 4_194_304
+
+
+def validate_output_window_bytes(value: object) -> int:
+    """Validate the explicit native output-window request without loading native code."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError("output_window_bytes must be an integer (0 or 4194304)")
+    # Preserve the actual integer payload without invoking subclass conversion,
+    # equality or truth-value hooks before native admission.
+    value = int.__int__(value)
+    if value not in (0, _OUTPUT_WINDOW_BYTES):
+        raise ValueError("output_window_bytes must be 0 or 4194304")
+    return value
+
 
 def normalize_transport(value: object) -> str:
     if value not in ("subprocess", "native"):
@@ -389,6 +403,9 @@ class NativeBackend:
         return PublicWorkflowExecution(envelope)
 
     def batches(self, request, allocation, batch_rows):
+        output_window_bytes = validate_output_window_bytes(request.get("output_window_bytes", 0))
+        if "output_window_bytes" in request:
+            request = dict(request, output_window_bytes=output_window_bytes)
         if type(batch_rows) is not int or batch_rows <= 0:
             raise ValueError("batch_rows must be a positive integer")
         if request.get("requested_output", "collect") != "collect":
@@ -513,10 +530,14 @@ class NativeBatchIterator:
                 if self._backend.timeout is not None:
                     self._deadline = time.monotonic() + self._backend.timeout
                 plan = self._backend._plan(self._request, self._allocation, self._deadline)
-                self._stream = plan.iter_batches(
+                stream_options = dict(
                     resources=native_resources(self._backend.module, self._allocation),
                     timeout=_remaining(self._deadline),
                 )
+                output_window_bytes = self._request.get("output_window_bytes", 0)
+                if output_window_bytes:
+                    stream_options["output_window_bytes"] = output_window_bytes
+                self._stream = plan.iter_batches(**stream_options)
             if self._deadline is not None and time.monotonic() >= self._deadline:
                 from .errors import ShardLoomTimeoutError
                 raise ShardLoomTimeoutError(

@@ -1,0 +1,16 @@
+{
+  "all_member_bytes_reopened_and_equal": true,
+  "bytes": 4409808,
+  "candidate_design_admitted": false,
+  "current_outcome": "inconclusive_observer_overhead_gate_failed",
+  "decision_sha256": "63381c6b6d65a7c2e23359fee1d27cb8d5626ac0762440b3a26da8002d6e9e04",
+  "input_bytes": 42905871,
+  "member_count": 2151,
+  "original_files_removed": false,
+  "packet": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-attribution-results-803.json.xz",
+  "raw_bytes": 57768899,
+  "scheduling_change_retained": false,
+  "sha256": "4ef023256c1d16fb5a90312b67d800c1fe3560d78dbc2dda11ae3ad430477432",
+  "status": "passed",
+  "trace_identity_count": 184
+}

@@ -1,0 +1,2887 @@
+{
+  "captured_payload_identities": 8,
+  "comparison_calls": 64,
+  "compiled_source_files": {
+    "region-intake-828-r2": 1545,
+    "region-intake-828-r3": 1545,
+    "region-projection-830-baseline-r1": 1548,
+    "region-projection-830-candidate-r1": 1548
+  },
+  "complete_source_rows": 1048680,
+  "eligible_for_timings": false,
+  "exclusive_workload_isolation_proven": false,
+  "failed_attempts": [
+    "region-candidate-830-clippy-a1",
+    "region-candidate-830-clippy-a2",
+    "region-intake-828-r1-build",
+    "region-intake-828-r2-clippy"
+  ],
+  "gates": [
+    {
+      "baseline_min_rejected": 1183392,
+      "baseline_min_total": 3259376,
+      "candidate_max_rejected": 887544,
+      "candidate_max_total": 2568024,
+      "parallelism": 1,
+      "passed": true,
+      "profile": "sparse_zoned"
+    },
+    {
+      "baseline_min_rejected": 1577856,
+      "baseline_min_total": 4246440,
+      "candidate_max_rejected": 1577856,
+      "candidate_max_total": 4443792,
+      "parallelism": 4,
+      "passed": false,
+      "profile": "sparse_zoned"
+    },
+    {
+      "baseline_min_rejected": 1282008,
+      "baseline_min_total": 3485056,
+      "candidate_max_rejected": 1084776,
+      "candidate_max_total": 3221872,
+      "parallelism": 1,
+      "passed": false,
+      "profile": "sparse_plain"
+    },
+    {
+      "baseline_min_rejected": 788928,
+      "baseline_min_total": 2104224,
+      "candidate_max_rejected": 2794120,
+      "candidate_max_total": 7626928,
+      "parallelism": 4,
+      "passed": false,
+      "profile": "sparse_plain"
+    }
+  ],
+  "intake_calls": 32,
+  "members": {
+    "native_workload_guard_816.py": {
+      "bytes": 1789,
+      "sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py"
+    },
+    "package_region_projection_831.py": {
+      "bytes": 23719,
+      "sha256": "ab0a8c1a1c5cd2e0e6caea4fbf2d15f267cac9abefaa0ae64af4f8bcf6730654",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_region_projection_831.py"
+    },
+    "protocol/candidate.md": {
+      "bytes": 9259,
+      "sha256": "ce02cc2da630e5fb40a70a2f3a07846538e4990f5c05fc416c04ef43396b8518",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-region-projection-design-2026-10-20.md"
+    },
+    "protocol/intake.md": {
+      "bytes": 8131,
+      "sha256": "ccc7ed6ea29e4ae8a9d16139d94fce37214af04a513c8409d7578131a186f628",
+      "source_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-region-projection-intake-2026-10-20.md"
+    },
+    "region-candidate-830-clippy-a1.json": {
+      "bytes": 9546,
+      "sha256": "702ecafc5dadd85bcbf07cb5d34a73897bb3a5f226d36326bd6f5487fc4fb4a4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-clippy-a1.json"
+    },
+    "region-candidate-830-clippy-a1.log": {
+      "bytes": 3566,
+      "sha256": "9954d48b1aaf1e0f7b44181fc0899590d99d2e53c00451c741e0904dcd9d4d0a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-clippy-a1.log"
+    },
+    "region-candidate-830-clippy-a2.json": {
+      "bytes": 9552,
+      "sha256": "09f1e69915025458d4b3e3612239b3abc2d99da06129bb8cbf27ae67f4a2062d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-clippy-a2.json"
+    },
+    "region-candidate-830-clippy-a2.log": {
+      "bytes": 3414,
+      "sha256": "4fb3af63789a57f469286f8bf80468fb422db4df4f14c0e921258e4640e64372",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-clippy-a2.log"
+    },
+    "region-candidate-830-clippy-a3.json": {
+      "bytes": 9549,
+      "sha256": "c63cc8197371c5cc5c69eac6b85b586b01aa5321c588b04d4a4b2fbf6e0563ff",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-clippy-a3.json"
+    },
+    "region-candidate-830-clippy-a3.log": {
+      "bytes": 186,
+      "sha256": "98f0ea18b40cfe73850e96abc32c0c9cd0704b690b69a0f680928d6a21ec53a6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-clippy-a3.log"
+    },
+    "region-candidate-830-fmt-a1.json": {
+      "bytes": 3975,
+      "sha256": "93d1e1eaad90f1f254f03880a5d4a0ced605f63cd5d73072f9eb01d4f416251d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-fmt-a1.json"
+    },
+    "region-candidate-830-fmt-a1.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-fmt-a1.log"
+    },
+    "region-candidate-830-fmt-a2.json": {
+      "bytes": 3979,
+      "sha256": "ded15209e2cd876a3626432fec57445c06b9c551b80fd4f16b0f018d9981606b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-fmt-a2.json"
+    },
+    "region-candidate-830-fmt-a2.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-candidate-830-fmt-a2.log"
+    },
+    "region-guard-coverage-831.json": {
+      "bytes": 1649,
+      "sha256": "38aa6ec7e006f540c1728ac68218142845290a7a9817f21e6ad5da3b901129da",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-guard-coverage-831.json"
+    },
+    "region-intake-828-r1-build.json": {
+      "bytes": 8246,
+      "sha256": "d22a44d55196473f119c49269095bd77e3f7c990acccf213aca5990faa78961f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r1-build.json"
+    },
+    "region-intake-828-r1-build.log": {
+      "bytes": 331831,
+      "sha256": "c66fac0a71dc0c62f5840175752c494d305f687938d2f3cb4fc539693837275b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r1-build.log"
+    },
+    "region-intake-828-r1-source-content.json": {
+      "bytes": 30650,
+      "sha256": "e2251e5558cdd06fd2292fad25cfc9dbbd53d5eae537ac6fd93b23dbc111c85e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r1-source-content.json"
+    },
+    "region-intake-828-r1-source.json": {
+      "bytes": 569153,
+      "sha256": "a062b1af57314814dc45e248bdec10992ea703a3c3b83d618b8686578f0f7b00",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r1-source.json"
+    },
+    "region-intake-828-r2-binary.json": {
+      "bytes": 379195,
+      "sha256": "eccd5990e94b3bd5f0532dbe60b29ca2dee249c7a6705792517624a7095e90d3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-binary.json"
+    },
+    "region-intake-828-r2-build.json": {
+      "bytes": 139073,
+      "sha256": "45884c9c4cf4de5e7a2dc6687a53e07bacd464e1ea988fed5b2ac6592d5189b5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-build.json"
+    },
+    "region-intake-828-r2-build.log": {
+      "bytes": 320164,
+      "sha256": "6ffa22cd44800142d277210aac3dfc9969f007b8e4841698fb1e049586a12e4b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-build.log"
+    },
+    "region-intake-828-r2-clippy.json": {
+      "bytes": 12643,
+      "sha256": "d6a11f7e6fe23f9ef9b1a3aa78bd25d48c1a41fcec4f6d72d333f04d4e9aa678",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-clippy.json"
+    },
+    "region-intake-828-r2-clippy.log": {
+      "bytes": 6577,
+      "sha256": "efd9efb46bcfff5ce57441f132190a9a07aa70856c1c5d9dc8692c241e95e74d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-clippy.log"
+    },
+    "region-intake-828-r2-qualify.json": {
+      "bytes": 3183,
+      "sha256": "0dc4b6b369dfe33879938e2f362da547f8bd5afec2bd51f3262425c5304183bb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-qualify.json"
+    },
+    "region-intake-828-r2-qualify.log": {
+      "bytes": 117,
+      "sha256": "b963813f288d957bdbf6cefe2a573d1b59d2e8ae9da5846c5e9e255d201112ba",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-qualify.log"
+    },
+    "region-intake-828-r2-source-content.json": {
+      "bytes": 30764,
+      "sha256": "d1923d82a9994d02bd534e147262592887c6304d199f374d562dc04a1232cab4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-source-content.json"
+    },
+    "region-intake-828-r2-source.json": {
+      "bytes": 569153,
+      "sha256": "e2f416ba80641888913101481d15635ff9bb411f1292d42ba76b30dabac2d9c8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r2-source.json"
+    },
+    "region-intake-828-r3-binary.json": {
+      "bytes": 379195,
+      "sha256": "d36c0c30a179058f771d0724430538bd33229a5ccf4d0156063f1b2dafae4b95",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-binary.json"
+    },
+    "region-intake-828-r3-build.json": {
+      "bytes": 140878,
+      "sha256": "85d5c0202c7d7a108f6312e8cba4903c3bf65890054136f6bfb3e47352ea1946",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-build.json"
+    },
+    "region-intake-828-r3-build.log": {
+      "bytes": 320164,
+      "sha256": "ec3d3a809c63776bd6a5170aabf8993b2fa4a16a8daf73650d05d7abdc54a355",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-build.log"
+    },
+    "region-intake-828-r3-clippy.json": {
+      "bytes": 10695,
+      "sha256": "8471dc5478c90306670a0f75ab2a27b1784f0ecbb317da5c9f3108dc50f620fb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-clippy.json"
+    },
+    "region-intake-828-r3-clippy.log": {
+      "bytes": 241,
+      "sha256": "b7654fcd35ee7b54c1a2917487a584044783f955a9432df2dacc2e90fd302cd8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-clippy.log"
+    },
+    "region-intake-828-r3-observation-plan.json": {
+      "bytes": 1101,
+      "sha256": "4c8cb661531e28c76eb57af786c46ee428b84de3bb7dfdd033d2f29ce08a84ed",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-observation-plan.json"
+    },
+    "region-intake-828-r3-observe.json": {
+      "bytes": 5838,
+      "sha256": "a320bcaf6507b0e3ec3684a8eebdcabf14b5efc4ce2af882d4208776eac49dbc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-observe.json"
+    },
+    "region-intake-828-r3-observe.log": {
+      "bytes": 1514,
+      "sha256": "3f45d10c199dd74d8969859794495678a4cc4588bb3056f7bfa4f996e2558788",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-observe.log"
+    },
+    "region-intake-828-r3-qualify.json": {
+      "bytes": 3180,
+      "sha256": "7ccb412990c9e5bf70e9af833cec420b61543b801c8a53293b26558d0096a9d6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-qualify.json"
+    },
+    "region-intake-828-r3-qualify.log": {
+      "bytes": 117,
+      "sha256": "d8212b67c9b9f5f68f154b0ff69945e04e50ef2ac95d3664a8b0af049558112e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-qualify.log"
+    },
+    "region-intake-828-r3-results/all_false_zoned-p1-r0.json": {
+      "bytes": 18717,
+      "sha256": "67123dd729bf6a24e05a720eb50dea58503406754a10dedb78da1028728a2d09",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_false_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/all_false_zoned-p1-r1.json": {
+      "bytes": 18717,
+      "sha256": "5a95895963840b8db7b6b4306d3d2dee45da15e2db281f413a97c05a72b3e0dd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_false_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/all_false_zoned-p4-r0.json": {
+      "bytes": 18717,
+      "sha256": "60ae87a7dbee3b8b5d7cea1013b62f1a0e6fbfc6df881f27da0e8b2787c7f100",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_false_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/all_false_zoned-p4-r1.json": {
+      "bytes": 18715,
+      "sha256": "0884ba188a8de1765ebfa775ff3f5cab445ea29df70009d702eaab3adc957f08",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_false_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/all_false_zoned-witness.json": {
+      "bytes": 1494812,
+      "sha256": "cfc5731c4b7785648739f54caef16aa049938fac0aff6fb377706c0ee497e58d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_false_zoned-witness.json"
+    },
+    "region-intake-828-r3-results/all_true_zoned-p1-r0.json": {
+      "bytes": 123385,
+      "sha256": "c65c447a271980834d0f7e063508a91d269459a5067740d0dd6640e6f51e2bb0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_true_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/all_true_zoned-p1-r1.json": {
+      "bytes": 123383,
+      "sha256": "1e8e02a0371dc12cb91e2d011e20e197f3ef0a0ae476961f6bb8c6df7d8e2fb5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_true_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/all_true_zoned-p4-r0.json": {
+      "bytes": 123351,
+      "sha256": "7aba004930ab4353673d6bd598512d0cff299613c61ab4b34a4bd4b229a35ecc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_true_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/all_true_zoned-p4-r1.json": {
+      "bytes": 123425,
+      "sha256": "4ebed52c9d3339fe7c6a832af7b797c0eb8aa972d2796d4e95a9b850a176658c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_true_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/all_true_zoned-witness.json": {
+      "bytes": 1639566,
+      "sha256": "4d303ee09584ee0fa0d618940e8c4834d231bb2f9804cb294096d11db57b0d42",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/all_true_zoned-witness.json"
+    },
+    "region-intake-828-r3-results/index.json": {
+      "bytes": 3613,
+      "sha256": "41cd629b3e3ce8f247e3cec01081145368b22d49584ab4811e223e00b1832053",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/index.json"
+    },
+    "region-intake-828-r3-results/misaligned_zoned-p1-r0.json": {
+      "bytes": 56617,
+      "sha256": "4d267c44c9759b400b16ec129d41311bc3716a56df2d1b84c86b04c538b03ba3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/misaligned_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/misaligned_zoned-p1-r1.json": {
+      "bytes": 56616,
+      "sha256": "fa6ea931c388697f7a57c714ec833e50b47a3dd3764ee9d5348e6bba9250a694",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/misaligned_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/misaligned_zoned-p4-r0.json": {
+      "bytes": 56513,
+      "sha256": "27f15917a89987195cf525afa7742dd48ddd69a9e22777e322cf69788f5b051e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/misaligned_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/misaligned_zoned-p4-r1.json": {
+      "bytes": 56578,
+      "sha256": "ebd44d2d343e2d23b13b9250f6ae270d202a98ed4b3e77a0753ea17a6282d5c7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/misaligned_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/misaligned_zoned-witness.json": {
+      "bytes": 1526734,
+      "sha256": "47991b7e6374c72093b4c7d953a6ecafdaaefda45866ab637f0c92d734c1d0ff",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/misaligned_zoned-witness.json"
+    },
+    "region-intake-828-r3-results/mixed_zoned-p1-r0.json": {
+      "bytes": 123407,
+      "sha256": "505e9f560c47a05a6d318d64d9450a2e4057836bde86c2b19156b2aedd0e3df8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/mixed_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/mixed_zoned-p1-r1.json": {
+      "bytes": 123406,
+      "sha256": "3b7bfbc8b38c1adadc9546e7d1bd229fe1df5169fe99b2d90fde8b4827f68ae8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/mixed_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/mixed_zoned-p4-r0.json": {
+      "bytes": 123551,
+      "sha256": "fda37ffaf503a5f2c92a0a0eaafb15b2995eeec2040625de60675c0e09899c16",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/mixed_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/mixed_zoned-p4-r1.json": {
+      "bytes": 123372,
+      "sha256": "7688f00ac7016ce09cf05eb7e2f0d3e1ccc0ea2ec7c3a67768d81fc8061835ab",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/mixed_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/mixed_zoned-witness.json": {
+      "bytes": 1531106,
+      "sha256": "34035c72786877d12435ffc27a909e9f048b9c8f43353896985b48330b6fb153",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/mixed_zoned-witness.json"
+    },
+    "region-intake-828-r3-results/nullable_zoned-p1-r0.json": {
+      "bytes": 47252,
+      "sha256": "9079224bf2f05f5608d91f74ec6c07a88a506d8e18515638b064f49c7139660f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/nullable_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/nullable_zoned-p1-r1.json": {
+      "bytes": 47251,
+      "sha256": "cc263b0de18ac339680f0c09b2003f4c703b835a46d3b67e6359db16b6070493",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/nullable_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/nullable_zoned-p4-r0.json": {
+      "bytes": 47183,
+      "sha256": "4fbccf707a2280124873759c20b6f40c28374ea1f11ae3eb85cc8ee212d260ce",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/nullable_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/nullable_zoned-p4-r1.json": {
+      "bytes": 47220,
+      "sha256": "51f38720ebfd4de870a3613c66b590718afbede2f5ff201394a0f7f426231fb9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/nullable_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/nullable_zoned-witness.json": {
+      "bytes": 1602522,
+      "sha256": "af42d9b65424d161a5d45418aa84bce4d009f814ee6c0708095fce72f5052b5b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/nullable_zoned-witness.json"
+    },
+    "region-intake-828-r3-results/skew_zoned-p1-r0.json": {
+      "bytes": 72311,
+      "sha256": "68fe177682ebde11188bf21a64d2fa23944feddf87b8ecb1e67c34604988881e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/skew_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/skew_zoned-p1-r1.json": {
+      "bytes": 72310,
+      "sha256": "da66046fdeb8a62f9e573fae0744aa8df92abc264b0584720752c894c37d86bf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/skew_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/skew_zoned-p4-r0.json": {
+      "bytes": 72273,
+      "sha256": "51871567310a645bb081936b5e1effae394cbde08cea6c7ed581d3e79273c011",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/skew_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/skew_zoned-p4-r1.json": {
+      "bytes": 72240,
+      "sha256": "78c7397a2928650d52eba822c83ba569283cd2177ee7f778fe05f78b69cc83fb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/skew_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/skew_zoned-witness.json": {
+      "bytes": 1531220,
+      "sha256": "ad892d12df924a0251304e871983b213eaecd0fd120c43a606f7755a88e25638",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/skew_zoned-witness.json"
+    },
+    "region-intake-828-r3-results/sparse_plain-p1-r0.json": {
+      "bytes": 46905,
+      "sha256": "3c9ad245d9e4612975992794115514e103ba424424c05a36391265ed6c6ff9be",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_plain-p1-r0.json"
+    },
+    "region-intake-828-r3-results/sparse_plain-p1-r1.json": {
+      "bytes": 46906,
+      "sha256": "fcced64f62e0b105e245119a5d82539b4cf3cb9009f26de91d8826498bd6f556",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_plain-p1-r1.json"
+    },
+    "region-intake-828-r3-results/sparse_plain-p4-r0.json": {
+      "bytes": 47005,
+      "sha256": "ecc33d5f667c8d72b3a11d4791f6a35e3ad64d9a926c6752cd1d6dd95b73434b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_plain-p4-r0.json"
+    },
+    "region-intake-828-r3-results/sparse_plain-p4-r1.json": {
+      "bytes": 47005,
+      "sha256": "0968c4d33a21b7f6cda1e8d5b24ab5b550a31d3223ec308577ba8d8ad7341b31",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_plain-p4-r1.json"
+    },
+    "region-intake-828-r3-results/sparse_plain-witness.json": {
+      "bytes": 1530220,
+      "sha256": "1317c695897ec2384828543525045ad5423dab5c817f7d6a42bc2e8c403a6782",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_plain-witness.json"
+    },
+    "region-intake-828-r3-results/sparse_zoned-p1-r0.json": {
+      "bytes": 46973,
+      "sha256": "60b699392f908beb2c6be235fdc4c4d76bf16903b5584c4bc8870cc0bb5f3fed",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_zoned-p1-r0.json"
+    },
+    "region-intake-828-r3-results/sparse_zoned-p1-r1.json": {
+      "bytes": 46970,
+      "sha256": "3f62d7a3e9ddb06ca60986ec790d4120bc436b9267a1103487a47bd37d6d847b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_zoned-p1-r1.json"
+    },
+    "region-intake-828-r3-results/sparse_zoned-p4-r0.json": {
+      "bytes": 46935,
+      "sha256": "eab7114f7e7f9dc97590d2f406980705305cf2fbf0bb54915f231535e0548f95",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_zoned-p4-r0.json"
+    },
+    "region-intake-828-r3-results/sparse_zoned-p4-r1.json": {
+      "bytes": 46936,
+      "sha256": "243939e95bd88eafef8c7b9772d772f8c55013f136c15b59f11773b7d22b814b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_zoned-p4-r1.json"
+    },
+    "region-intake-828-r3-results/sparse_zoned-witness.json": {
+      "bytes": 1531026,
+      "sha256": "f441fb840baa4c7f7e65b30384466d3430e3325a83313b72335ce002024f1ba5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-results/sparse_zoned-witness.json"
+    },
+    "region-intake-828-r3-source-content.json": {
+      "bytes": 31507,
+      "sha256": "b0e372ec507858c6e84c37db9bf97d86e8409d290deeec9be220b9ed5a0b35d9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-source-content.json"
+    },
+    "region-intake-828-r3-source.json": {
+      "bytes": 569153,
+      "sha256": "6c900274268e5f2865f0bb7b546e5dc8cc5e4458c670afe5850daf1cc9b1d42e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-source.json"
+    },
+    "region-intake-828-r3-verified.json": {
+      "bytes": 149547,
+      "sha256": "846c8e77366089302507e843109ce31d2c94d1abcf64e537d8719fa60d091276",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-verified.json"
+    },
+    "region-intake-828-r3-verify.json": {
+      "bytes": 3170,
+      "sha256": "ad695321d91104262e86f9ba1ba3dad25e8a731406ae106c9da682b66c874342",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-verify.json"
+    },
+    "region-intake-828-r3-verify.log": {
+      "bytes": 164,
+      "sha256": "5baff13e97694a2a8209d17e32f17ecd63e1e5587b33f5c6471ce67690cb292e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-828-r3-verify.log"
+    },
+    "region-intake-fmt-828.json": {
+      "bytes": 3662,
+      "sha256": "6319ae3817cb1a34ddb51b83cede9a10231623efb6f4b2c08dc28d476ad4abeb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-fmt-828.json"
+    },
+    "region-intake-fmt-828.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-fmt-828.log"
+    },
+    "region-intake-fmt-829.json": {
+      "bytes": 3666,
+      "sha256": "46c154bd62a8ee01d5237b83b851a5716a4bb00572b922561b7594f81d3976e1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-fmt-829.json"
+    },
+    "region-intake-fmt-829.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-intake-fmt-829.log"
+    },
+    "region-projection-830-baseline-r1-binary.json": {
+      "bytes": 380029,
+      "sha256": "53218061ef31ad47801451e780018d39ea54752240417f21b74fc18b663a7b2f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-binary.json"
+    },
+    "region-projection-830-baseline-r1-build.json": {
+      "bytes": 137612,
+      "sha256": "c50b56bb5b35472c91d014d31b968b6a0c8f9d39c9544303efd83830c03a6b51",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-build.json"
+    },
+    "region-projection-830-baseline-r1-build.log": {
+      "bytes": 320184,
+      "sha256": "f850430661e25c0a18b9db18c774ac97c06862f0df9cae607be59b30bad4c328",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-build.log"
+    },
+    "region-projection-830-baseline-r1-clippy.json": {
+      "bytes": 3514,
+      "sha256": "8993cbbeec95596e18d9f70e21f62d0e47b25086bc6922e28af1d335f9b1380e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-clippy.json"
+    },
+    "region-projection-830-baseline-r1-clippy.log": {
+      "bytes": 137,
+      "sha256": "a96782fd0a098eaa1207c13c0f5534115721bed1678d79603c1b25493566001c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-clippy.log"
+    },
+    "region-projection-830-baseline-r1-frozen-binary.json": {
+      "bytes": 385141,
+      "sha256": "e7c6e7d49ab8f8f1017317e8476558dde1e060b7f217d1b663ad0da522a091ca",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-frozen-binary.json"
+    },
+    "region-projection-830-baseline-r1-observed.json": {
+      "bytes": 4377,
+      "sha256": "09cb7913f8d9e3ddbf6ea9041f55941cb50a9dd2cb266be1a44d83119fbf7561",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed.json"
+    },
+    "region-projection-830-baseline-r1-observed.log": {
+      "bytes": 1613,
+      "sha256": "a25ab3b3c3a09eabf2f8a0ffc49ad27397fe33b9e4487915eb8b2e51bb23bd2a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.json": {
+      "bytes": 18765,
+      "sha256": "c9ce5c4823cbbe2be16166f354c813852537f0ac8c9610be12c74dd4d5a8ce1f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.log": {
+      "bytes": 1052,
+      "sha256": "b80cf53eac704a4e5eb42772809ab8faf66d0b493098deb90843930e7bc7037e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.process.json": {
+      "bytes": 963,
+      "sha256": "7b5a3bf574bb445aa1e309e8aae117f953f9bb6c6e10dce736da24fd75ee1583",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.request.json": {
+      "bytes": 401,
+      "sha256": "61d76db8d07142c0ad938431f3de60148a89b92f8a61ed5437e4db751982cc24",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.json": {
+      "bytes": 18765,
+      "sha256": "e35fbe16a2e78fe52de5b4e19248a42599a7d552860228da83bac743270e4c64",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.log": {
+      "bytes": 1052,
+      "sha256": "b2bf35e01e0977710afab223c6ffbe4ba575a2045159ef20e281e857d14ba392",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.process.json": {
+      "bytes": 963,
+      "sha256": "977a430c5bf0c055a5947ccbfded73672263cb17eff19cdf7ab4a5baf260cbf1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.request.json": {
+      "bytes": 401,
+      "sha256": "88b7f8bb7a29119817a41c515185ac3f14ec32e914e62467d7771ca65eef8188",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.json": {
+      "bytes": 18765,
+      "sha256": "475efcbfaea71bfe3adb04d01cb2ec0481ddb3c528375f5f31461db7a5c3cc51",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.log": {
+      "bytes": 1052,
+      "sha256": "29a19fd116e40de9121d269634a05a64c4351006445747170780b53da32bbbab",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.process.json": {
+      "bytes": 962,
+      "sha256": "67e207acd5d177b9ebf7cb2b5352209ec50772f647497767a7de4cc003284111",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.request.json": {
+      "bytes": 401,
+      "sha256": "77aa839b191b10c9327a62f66c4a24e7a2698ff8584c0e7a3ae2e001d4ce3c92",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.json": {
+      "bytes": 18765,
+      "sha256": "ed868dfe793f3c49dd7fdb989736edfb959484de9ca6ac04b5456f54131bbd2c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.log": {
+      "bytes": 1052,
+      "sha256": "423af8e8dda5f9062bc84b39ae70dcc08f3e956d078f4916085a362079c9e3f8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.process.json": {
+      "bytes": 963,
+      "sha256": "c0a2fdd0fff2d7143961d3c00eb8d7b7c37c836ff8ff579ad04b88c5dc8ddf5d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.request.json": {
+      "bytes": 401,
+      "sha256": "c03420fee8529a08132d3ac727a406f71b229eae578e25811a6382573e40597f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_false_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.json": {
+      "bytes": 123428,
+      "sha256": "6ad0f4dd5ca0f14d3d0e4307cd91f9ba5b57c8ea4a14401d169b6219b4ff3764",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.log": {
+      "bytes": 1051,
+      "sha256": "90f640a27d53b29f14b19f42029a25485d369afe503fb2e62ac9a0211dfca9ba",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.process.json": {
+      "bytes": 962,
+      "sha256": "13a1e611b238f73c1dc8e27d1d6b4e0faa9fa921b25cd54d848b135bab302b54",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.request.json": {
+      "bytes": 399,
+      "sha256": "f2f3f3521f07b5314ba9665f16d89f8b6b3990a7a820fa5453dea804f3af8c74",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.json": {
+      "bytes": 123430,
+      "sha256": "e426d41f48cecb1e3496b8c4df44f795266d38ee73add2ff8d3b9035c1841bbf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.log": {
+      "bytes": 1051,
+      "sha256": "8d47905b945c841b6a58c3999434307690ba02f696f6d7c372e7641c83abbbaa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.process.json": {
+      "bytes": 962,
+      "sha256": "d126f20b8dbf35db6802fa9e31545dc55f1f7acd17baac4ee32a42a820f8fd09",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.request.json": {
+      "bytes": 399,
+      "sha256": "427befd4c277ca5bf4d0b008098432cccbe5318fe9decb0820239ac13ba347b2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.json": {
+      "bytes": 123400,
+      "sha256": "eb67053531c1413dd95b0b163806f26857e903311e5e780d23935d0607572632",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.log": {
+      "bytes": 1051,
+      "sha256": "55a4beb344c58176ad3623a117612a6c5b456940580068e34ab71d6aed335e6a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.process.json": {
+      "bytes": 962,
+      "sha256": "10c040b432919addb5382afbbd1e28780d02e7cedcd16f25026c4ca7dffb768e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.request.json": {
+      "bytes": 399,
+      "sha256": "056e877645a37e956d3b0c6c564b7864530a558e8ab0f049a0295e2010d4456d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.json": {
+      "bytes": 123504,
+      "sha256": "c7f661d3f8f346c1c4d0478aca2c5d3c959c4de8c44f3ba394bbd7cd63b47246",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.log": {
+      "bytes": 1051,
+      "sha256": "70e036bb159d5a8ea2762d29f9c341e03490846d294525f0d94391019878dc20",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.process.json": {
+      "bytes": 962,
+      "sha256": "c5e8452836245306e2429add60cea3eeb95012c136b034f90e2fee2da4bc7c09",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.request.json": {
+      "bytes": 399,
+      "sha256": "144f1daf0860f431558246de923c0c0e93d71800312ba6b3a2d768a98772a65b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/all_true_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/index.json": {
+      "bytes": 70092,
+      "sha256": "a29e42aaadd55dd364d7bdb700ab47afe96620a7a2d8eefaf161192c71d3096c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/index.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.json": {
+      "bytes": 56664,
+      "sha256": "9bf5fd692ae57ed9844e7d9ecc644b9108785ab9f1b8e168cb4231092a9f1691",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.log": {
+      "bytes": 1053,
+      "sha256": "9ff4dc32198840fcad1652ab3a9e072596b0092949d3efe7183fa04cca630083",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.process.json": {
+      "bytes": 966,
+      "sha256": "d2dab4029684703f5c9f7acec685edff2b97a8704b6d27fdb13d0f4e000a7fed",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.request.json": {
+      "bytes": 403,
+      "sha256": "4e4e6688af0198382af2139c66cf1417bb372442be889333208d07cba102e5f7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.json": {
+      "bytes": 56665,
+      "sha256": "2d9a2b305a9d0f19640f8e9e8664221d2552d26766d2946f61264ae7f6d48fbc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.log": {
+      "bytes": 1053,
+      "sha256": "cc1c2525203d6b890bc0efca5a1b181bd798deaa4b904c40456d11b541e6e663",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.process.json": {
+      "bytes": 966,
+      "sha256": "9b1640719f76daf367fd78b48d9733358c8623f90ebe1435c16032a3b9fdbc4b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.request.json": {
+      "bytes": 403,
+      "sha256": "3eb2817bd14d265e4bbcee5b636a2b803ce1702c6826326e90738260bce0fe6a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.json": {
+      "bytes": 56629,
+      "sha256": "d617522966809c4c42d81fffddc4d72c904fb773d09bf099b10084931ddf2295",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.log": {
+      "bytes": 1053,
+      "sha256": "2cfecaf3bf6ec32ebbdf5c73596c0fef27e3d575398b47eafba742e75363da5e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.process.json": {
+      "bytes": 966,
+      "sha256": "1173589e0c7f7aa93fda12d5db5f10249e8448dedfc96150faf0acdf818a5af4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.request.json": {
+      "bytes": 403,
+      "sha256": "e03f6f1975cca413e11953bcc63e5c320117de6f745b17b8aa1756943f07613a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.json": {
+      "bytes": 56596,
+      "sha256": "968947e4fa69163afa2c9040c66d47b3f76b17195cd501311ede690748e66dfa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.log": {
+      "bytes": 1053,
+      "sha256": "9be6718d120ae99f0f6bc5190b00c1e58f5fca1a27c7e1a648d74931b5f56d4e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.process.json": {
+      "bytes": 966,
+      "sha256": "2f6e08a8f9a1ac334cc0f2fd39ca89ad6793d514eebf947e1301f4cf3acf6b77",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.request.json": {
+      "bytes": 403,
+      "sha256": "99288e62e2afee3bfdc6e4288c9d338ab8dea22e63dda929dfd4f1ec55f151f5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/misaligned_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.json": {
+      "bytes": 123455,
+      "sha256": "625359b8e71208a75e71bb086c80a3551e0f24762a6e40a228862c7af48799f1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.log": {
+      "bytes": 1048,
+      "sha256": "540d0f127391d4f817902c814261b5503a7f4a01f29c3be087400145905fdfd6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.process.json": {
+      "bytes": 956,
+      "sha256": "f8c390be0e56443259b961cd042b844d2b3437e5df5f1c8f0ac7ed2533d04d28",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.request.json": {
+      "bytes": 393,
+      "sha256": "c6583b3ab31c833d2bae2a12d1c832bf88ea765d319b5270dbf30e8a443ad210",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.json": {
+      "bytes": 123455,
+      "sha256": "17a5dc11fcbed170b2ce69e51527181aa3b50db680b23b90377ebca59bbae149",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.log": {
+      "bytes": 1048,
+      "sha256": "3e1ecb4a5420980a5c87a7cde6a1ecb3c22c785da3cbdc6cb3b47561783fb96f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.process.json": {
+      "bytes": 957,
+      "sha256": "1f3c6eb354cd990d4647e457d527eb14206ca34906f7eb5fd78042ffa8fa4d52",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.request.json": {
+      "bytes": 393,
+      "sha256": "4c7d52381480b76babfa878a3a5cc8cfc040625545982dbf553fda41e5aed10e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.json": {
+      "bytes": 123523,
+      "sha256": "b6722d83548b3255709fce1eaa441db038629b3e4b28e485bca78e6a27b6014f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.log": {
+      "bytes": 1048,
+      "sha256": "95b71e12f9c0d8d5d532aadf9af013d1a8e61b448ec513f8c3c2e7aceaa21e35",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.process.json": {
+      "bytes": 956,
+      "sha256": "eeeef17cecf5cc2d7ca243e795254d04d67be793174dd7384108cd54b6a3cfeb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.request.json": {
+      "bytes": 393,
+      "sha256": "27dd5b8d27202f2a007ec53655844bebfd3169a43305676a4932184e556bad24",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.json": {
+      "bytes": 123525,
+      "sha256": "6fcfce0b18c839c92174cf3cf39f7e66874a8f8b60210332c91388f7584aa1a0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.log": {
+      "bytes": 1048,
+      "sha256": "350d93b70944b61b41d8ffaa7ceb2f375dbaed40ba100e1ec4a613183fc7de6a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.process.json": {
+      "bytes": 957,
+      "sha256": "8b87b42b212f716cb8e77d4043172e828af0951ae0038a0fd220bfc668f7ec77",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.request.json": {
+      "bytes": 393,
+      "sha256": "291580078166b0eca8ad6c48dbfd4b8114a7f272f29d9e702905290f3b66cada",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/mixed_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.json": {
+      "bytes": 47297,
+      "sha256": "2e9c2ab5e6b80de45f30d378b10ce6923e0966d6bb89744ccccb0984a94db618",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.log": {
+      "bytes": 1051,
+      "sha256": "90ce17cda003812acd8e4040758110587079be473f9116b775c7e9b24d80e03b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.process.json": {
+      "bytes": 962,
+      "sha256": "87f8eb448a5ca9f524490c3669640ddd4842a52c39ee78365bd2afbc85b5c61e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.request.json": {
+      "bytes": 399,
+      "sha256": "13ade440523cc780c8fcc7bd7b91dbe8df30f9d21ea69fbe541b9223b51355a9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.json": {
+      "bytes": 47299,
+      "sha256": "b22727da945dbe1f456a3cc12d8d5ca57e4040e04d9a372da70bc046446c0019",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.log": {
+      "bytes": 1051,
+      "sha256": "8ee82b433410a5bee98b84dfe59eb53032d8810118577b67f687e48d1337346c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.process.json": {
+      "bytes": 961,
+      "sha256": "69ad59beff950a6e9567e36d06af4f5ed49f6f6df7a46f83fc95f1f56a704829",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.request.json": {
+      "bytes": 399,
+      "sha256": "9a3d743f9232cbf95e053c316b4d1c355ce985addb92b9c2f38387dca0e75e9f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.json": {
+      "bytes": 47301,
+      "sha256": "84f87dd4e16456987bb51d1b8571cbca80f767d2340b801306afbd357446a565",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.log": {
+      "bytes": 1051,
+      "sha256": "b89a3c08b6f09a7cb125eebde324f7faae48127553871544f97bf6f8537e036f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.process.json": {
+      "bytes": 961,
+      "sha256": "dcad0e7c391555107c547772fcf1df4819bb7b853f0b391a002f685388819264",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.request.json": {
+      "bytes": 399,
+      "sha256": "663c96d6d631b95aa02e0b79dbd84313c4ba8620aaf6ca3a3423e276b62f7313",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.json": {
+      "bytes": 47335,
+      "sha256": "c8a39a54894d115b125d801becfdd18718ba7f967dddce1d05410ae8d5906e00",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.log": {
+      "bytes": 1051,
+      "sha256": "a266ea39689fbd2ce5162f87b89a78dd7833799023111bfe63635ad530f965fa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.process.json": {
+      "bytes": 961,
+      "sha256": "38da07df6b866ca6ac3e7af43e73ccdb4d1e4e9e19e60c3212819fadfc4e46e8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.request.json": {
+      "bytes": 399,
+      "sha256": "4a3ffb61dba375401fb436fad42a68b388053ffbee56fb5b07a84b60ecaa0ecc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/nullable_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.json": {
+      "bytes": 72359,
+      "sha256": "dc70b504be18d1282b1933f64133ce963d43b5cfd004b42bf0a68b1ccd093e19",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.log": {
+      "bytes": 1047,
+      "sha256": "8021d44d253d1ec3fced3794eed13e50b87e04496d50171c51359dbc7691b6dd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.process.json": {
+      "bytes": 954,
+      "sha256": "ffc6ffb530117dfd344fcbe7a0a6fd92baf358c54b19595c782b9013be6aef2d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.request.json": {
+      "bytes": 391,
+      "sha256": "0f796ae0a84dde60d32331668c09ca10592d0fd467fb7d7a734785466f4941b0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.json": {
+      "bytes": 72359,
+      "sha256": "0b8df873f16f3f72a6f976137cd1f8994738328e928eabf527483b005ed5f390",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.log": {
+      "bytes": 1047,
+      "sha256": "8e8b3eb2f5b376885fafcc73d631cd2ed0740aae98a50e135d8955785109b040",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.process.json": {
+      "bytes": 954,
+      "sha256": "002ba5ad640e3a7d1deb62250b47c68c247888c3f7ea53dbc6f6e3a7ff62af0b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.request.json": {
+      "bytes": 391,
+      "sha256": "05908526c2c4aca70a995df2731559cb2d5df3d231d88b9bf217b3ff5e342a07",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.json": {
+      "bytes": 72390,
+      "sha256": "39f81a47a4c56500c8a2e3d216595c0be299575038b1bd469b9bb0375faaae9f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.log": {
+      "bytes": 1047,
+      "sha256": "c8d4bbefd36dbb9f184f84ac821bf7471db446170fda4de2801a5714e92a0ae9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.process.json": {
+      "bytes": 954,
+      "sha256": "0327deac729cbd36ef28e46a8a528207f3134ea0751f2a34330ddcb37a01893e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.request.json": {
+      "bytes": 391,
+      "sha256": "07cec6fc491fac191b24f8e7ae7945f2bfb59447f651def6cd65b9584c7488f7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.json": {
+      "bytes": 72356,
+      "sha256": "f9f6462f6b16c2840bcbfe3078d67efe2f9fc72085182e04ded2d49fb59bb1ec",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.log": {
+      "bytes": 1047,
+      "sha256": "a0e90f6f1a7870933b84c1865165ae05b528b64ac46f5f24be49c892f13441a1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.process.json": {
+      "bytes": 954,
+      "sha256": "8fb0760d7e3cf2f54682bab5d7c07ed8ffd241b405cf67c5396bfd6e3cc49973",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.request.json": {
+      "bytes": 391,
+      "sha256": "abfc25c394e719529ec50069fca5b3f24cc008c84f0f963fb9d9dfe156a7d0f0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/skew_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.json": {
+      "bytes": 46954,
+      "sha256": "014078851ccd91bc2bfc293995c94fd88aa3792d5512ee548095a9bbabca3ef8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.log": {
+      "bytes": 1049,
+      "sha256": "88022bf438d0ec4c9e39bf9cfafc56199f51274b5fa13c2a63c6c638ab05d922",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.process.json": {
+      "bytes": 958,
+      "sha256": "a7c9d7aba290333b849e914fe12019551e9ba39e15dde10c9b7bc821280a89e9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.request.json": {
+      "bytes": 395,
+      "sha256": "e9b599c1049d2aaa01828506ecbc5fb2f409156dac6b3b7e1e7e797dae35b27c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.json": {
+      "bytes": 46954,
+      "sha256": "230c86a225cd2a72a2481b878962c6ba9a3cd5f5e18ed8f1b89df943c43b5ca2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.log": {
+      "bytes": 1049,
+      "sha256": "1f71332a575c8dd1efcc493a679d8a82b090f4538cc3d5fe7ad2154b46e5764a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.process.json": {
+      "bytes": 958,
+      "sha256": "cd41ae8a116c69848e14d3c5d0cdce25102723a0d473092872fd292692fbb4dd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.request.json": {
+      "bytes": 395,
+      "sha256": "a94c8af56facb80e7ca746eab1238da6852f30f59f672dcb7f1209e63b8ccad9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.json": {
+      "bytes": 47125,
+      "sha256": "06ecfc78dc6ab4a476bcee9fb4fcf0efa23fd0ca00f0ea22a6f790abeb457c49",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.log": {
+      "bytes": 1049,
+      "sha256": "ca65aaf52c40b332288d40d3cdd281ff6ebff13592b600a06d5bc13e916fb134",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.process.json": {
+      "bytes": 958,
+      "sha256": "dc4d04b5ca7b3f797c175971a9a05be4cadeba0df721d9d090000786b37a886a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.request.json": {
+      "bytes": 395,
+      "sha256": "768ead4397b8a10b31b461d8da6e1f7d663b6e88312d5cf5416bcc3679466a7c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.json": {
+      "bytes": 46850,
+      "sha256": "f66c94ef39dd20cdd6b0a141536fdc72543d62af58cb7cf6843624af871e0466",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.log": {
+      "bytes": 1049,
+      "sha256": "480b6452317e7404536c98610d72745e9b6fde14c29618aa96b57bbe0f39e2e4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.process.json": {
+      "bytes": 957,
+      "sha256": "2a37df42e9541e96eca0b80c75762b6043210a63a5536307e87d0c097cee2835",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.request.json": {
+      "bytes": 395,
+      "sha256": "92af17aceecfb4a23d73acf67c697eb3943240ac10cb35c26328a183ffa0dbcd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_plain-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.json": {
+      "bytes": 47018,
+      "sha256": "cdab59e4e06332e9339528afa8aca9a239ece2491482d20bc48b9fe0f67024b4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.log": {
+      "bytes": 1049,
+      "sha256": "c41992b049a38138d142b88b8b979d38bfbbe9f144f6f0518b132a792fe325d2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.process.json": {
+      "bytes": 957,
+      "sha256": "6993e7977d1783b58129e5517a7093f2b1bb688a88f4668dace0b5f1f301a2eb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.request.json": {
+      "bytes": 395,
+      "sha256": "bf335e2b3f57896f9b39bc99a97a189b664f8e550df8f89bd3b8cc2fe901ecde",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.json": {
+      "bytes": 47019,
+      "sha256": "fadaf76011c838e4643be033304ab37d5a36202efc48db45b5f8dc5f4d1b9bdd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.log": {
+      "bytes": 1049,
+      "sha256": "d0f2f943dd858118c6178f65fdf5464fdf2ce27778b71ddade821c198791b044",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.process.json": {
+      "bytes": 957,
+      "sha256": "1caebb64143bf8348dbbdf806fdf0cd495c45363fc86ef4af079d8c06b2c68c8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.request.json": {
+      "bytes": 395,
+      "sha256": "8808abb44cc373a9401901bb017c774814c823cd57f7339e71b6cde02b829b10",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.json": {
+      "bytes": 46951,
+      "sha256": "60f6e195112396dbbe65b09f4c352d1d377d95d403f86085a7d30e58945f2b32",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.log": {
+      "bytes": 1049,
+      "sha256": "2e25e936dc1b86eb6afd48e40f6d405b244347441a2ff55f9ac168932d1005fc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.process.json": {
+      "bytes": 958,
+      "sha256": "ac300c666c58a807853167cfeb90438af1b89672b34d9c4b636d52fb63800bdd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.request.json": {
+      "bytes": 395,
+      "sha256": "144af5841d05a4e9c7f877eafdff660878ce111b0285833ec1dbaff42573d61f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.json": {
+      "bytes": 46953,
+      "sha256": "cc87986f0640e4708c9222217f019b988d991ae673b3b7a8664ff53c756a1b83",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.log": {
+      "bytes": 1049,
+      "sha256": "4b41c8b1f6295290ff8472e938778d0ebc1393d78adcd6e18a85ecf396157c38",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.log"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.process.json": {
+      "bytes": 957,
+      "sha256": "5615a5088e5e67d3c70d71353c417a846fac8e7398693419a27aa5f1c34f010a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.request.json": {
+      "bytes": 395,
+      "sha256": "df9ac10c3f2be0b242ae0a724f4b9abc18cf305edda36991291eb46bb396d325",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-observed/sparse_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites.json": {
+      "bytes": 6120,
+      "sha256": "0cfeb41c4d9239c7182631bd2f28f962cac64904594c4caf2e6c5754915c8b2b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites.log": {
+      "bytes": 930,
+      "sha256": "5d151c12298f2987c93c47b8c8472f5033da717bf4ee172165df57837bc3fe16",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.json": {
+      "bytes": 529,
+      "sha256": "c9606e53c6942e2833fef2c406c9483c3f8afe8b59c3c29f2560c1f87be02399",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.log": {
+      "bytes": 1057,
+      "sha256": "a5a5ebee410ff852d57430c3bfb6baa8c19ab0fdc7cd3c4aae7080d257936957",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.process.json": {
+      "bytes": 973,
+      "sha256": "6ae07109c642eedc1a969612e9af1c97ab2423ab1185b31921b82d3fbc016e84",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.request.json": {
+      "bytes": 411,
+      "sha256": "82709aea936fe419a2c955367858421ebedea82c1f1c19dda1bdb286be43d4c0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.json": {
+      "bytes": 529,
+      "sha256": "d572da5ca859ccd0490ad11cc4827196571c75a569ffbd24f609899a121fc98f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.log": {
+      "bytes": 1057,
+      "sha256": "65673ed9c38a3fcf088d0d66dba4c5b0e61a3e02d1b841c7c04ae4076a075791",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.process.json": {
+      "bytes": 974,
+      "sha256": "152633c8c940f6cdfb252ff3de7e34cf9e0949c3d0ed52011cee1f0a1bd476fc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.request.json": {
+      "bytes": 411,
+      "sha256": "164e01a02468cf380c7638846a046689e61ac63c750b24f3b2fee0e2b7eb4cc3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_false_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.json": {
+      "bytes": 1610805,
+      "sha256": "ac3ad4771a890a0605f213a6769e5bd97851c44c054799ea6e17c325cc80be59",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.log": {
+      "bytes": 1056,
+      "sha256": "690a386ce28345d9c03c222d82cabdfcc2ae2c3bb7d4da83a8b89a6c6bd199ce",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.process.json": {
+      "bytes": 970,
+      "sha256": "f4773440555bb372946a923a2e343b5a4a7a249c23a186e89795a2537eef0939",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.request.json": {
+      "bytes": 409,
+      "sha256": "96a896464d15f12bd5f4bb0744cb3c61748c03dff806ec81a00dc2f1a12f91a9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.json": {
+      "bytes": 1610805,
+      "sha256": "01695a2ce3ee700d46afbbb063cf3a8dd8121f419f6d43809aba6a11e453822f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.log": {
+      "bytes": 1056,
+      "sha256": "26921e339be978e0cfe1719f48f86312dac637bb134878b187c08734fd00c788",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.process.json": {
+      "bytes": 971,
+      "sha256": "d5fd85da15b024fe7fefb74f329a1224a5de097c0305eefd4abfa15dfef5d79b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.request.json": {
+      "bytes": 409,
+      "sha256": "c20012fdc7bb9540347e5b2b6b8aabeaf755476a83313b1fe3be204ec5bf0551",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/all_true_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/index.json": {
+      "bytes": 35676,
+      "sha256": "549b4a1c30d8344ec91d11f3235bca523ce51bbad9946d2c950e1eb90c0ffdd1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/index.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.json": {
+      "bytes": 401720,
+      "sha256": "3a189456eca45b96ededb08d10c69ddad378a699d7bbf963b832eb63849ee4c9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.log": {
+      "bytes": 1058,
+      "sha256": "21eb564a62bc9a9f1cda3c6f1336b1a2518a3ad3d140af186f07f0d870d9d589",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.process.json": {
+      "bytes": 974,
+      "sha256": "0aa950fdfa14b3049eacca26aa5295662898b449c50d4b86ee608686565f8f92",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.request.json": {
+      "bytes": 413,
+      "sha256": "82ca2471ef3faba9c587539387f3e7d50cb6d898cdddf8a9dc6610dfae56cf14",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.json": {
+      "bytes": 401720,
+      "sha256": "ca7d147dd05cb492485f4f1da6e8fd320764363f5dd669dff0ddeaf71c2868c1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.log": {
+      "bytes": 1058,
+      "sha256": "839c3123165e9973084009841f50afd5b7017d427a5269f7f205b013bde02619",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.process.json": {
+      "bytes": 975,
+      "sha256": "afd129e937b7f7ef161b801852555a6ae1edad8d4baf5a6c11068d34744b6e80",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.request.json": {
+      "bytes": 413,
+      "sha256": "4baff02ee653ed99206a30b1e87456b3376987156138330946549dae7a7aa4bb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/misaligned_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.json": {
+      "bytes": 403220,
+      "sha256": "c3aa1910f3052f521081fed72e6dadf22d2aeaa612a5099a2db91a4e4ae62786",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.log": {
+      "bytes": 1053,
+      "sha256": "2a03dcf0712563865f791aac0deb625795f7254e9ec62532213e61df7178d7ad",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.process.json": {
+      "bytes": 966,
+      "sha256": "7dd861a25a82635054c157efea4635294b0113b998817af09e1b6ed972389c68",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.request.json": {
+      "bytes": 403,
+      "sha256": "5936577e42753fb369b372633c0214d6815d8a24093d1978862d69b2c11a818f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.json": {
+      "bytes": 403220,
+      "sha256": "4b159b6de7424c390f37bd1b05ab3448fcf23b05a6099f75bd014fdb48af7676",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.log": {
+      "bytes": 1053,
+      "sha256": "6112c8de835faf8a27112c85551933b8cbc6096e97d3ac94048e982c33e8d530",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.process.json": {
+      "bytes": 964,
+      "sha256": "ecb548e8693bb45b06c70f36aae0a017c598c2fa41988466212c70b74899808e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.request.json": {
+      "bytes": 403,
+      "sha256": "3c0355de8a9598131c2a86e0fed8c95ba51972040b75990730fb6024c0ce28fb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/mixed_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.json": {
+      "bytes": 362332,
+      "sha256": "e95523cd264327a3fe09b992a14fc78ea9986c43d158f0100c1fd43ef96a439a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.log": {
+      "bytes": 1056,
+      "sha256": "b82fdb77887a58de94dc4f1caafb707b2ff925896bb3968fc1d80b787484cee0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.process.json": {
+      "bytes": 970,
+      "sha256": "eeeb927ec29fc08a388d546d8fcca55bec8b7735f55dc35e93683c2ed24fd4c3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.request.json": {
+      "bytes": 409,
+      "sha256": "40230b497396cc2aa2a98d7c79e684f35c39c5b7b1979525a173da9a0dad0438",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.json": {
+      "bytes": 362332,
+      "sha256": "e1e3f5bca2de21b92c81f08a7a621d53afde026fb45465de2cabf246385fbaaa",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.log": {
+      "bytes": 1056,
+      "sha256": "0a2ce07998807804f1110f5dd0f6c34d427ac8729864e57911b51da4895e151f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.process.json": {
+      "bytes": 972,
+      "sha256": "31fc1d43d77848d381baad28630db55f686559271cca3181ac416dd938e2b58f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.request.json": {
+      "bytes": 409,
+      "sha256": "924f88d8e67cca5660c02b21a5539db83eb4267e5b0daf3371a2333db9299f3b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/nullable_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.json": {
+      "bytes": 401759,
+      "sha256": "44f07be6186ddb2621a1b4c4504468d9cb584442a900837dde7fc10a50773748",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.log": {
+      "bytes": 1052,
+      "sha256": "87c38a087623ce756f139a911b0ea9b9f6d9d93b5d13cbfd568ce7e98a4625e9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.process.json": {
+      "bytes": 964,
+      "sha256": "617b50cc47f56ae3f50921bdbdd52d5c462f035b0c776415c25097e7e95a2ae0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.request.json": {
+      "bytes": 401,
+      "sha256": "1bbd039df7b41a4494bce8be856c5084fd8300b740f6c526bb0e08b7ad6d30df",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.json": {
+      "bytes": 401759,
+      "sha256": "efa5386b56b10a073ffb84b1746a468a4a64165ae9288b77a0a346ba506d5aa0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.log": {
+      "bytes": 1052,
+      "sha256": "080a2cc433a12fa9cb150c67f1aae50ba8950297ccbc9cf47beab2f78e994539",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.process.json": {
+      "bytes": 964,
+      "sha256": "ba2784d3d05c233dee52b2e5899aa606b6f8d18d358a3545b70a7e35394074f7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.request.json": {
+      "bytes": 401,
+      "sha256": "9ae21a0120fd9e688db85144948cae4f56e028fc01796ee4eccd01b084d3c8bc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/skew_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.json": {
+      "bytes": 401633,
+      "sha256": "ef8057c1be8ef4af46c4a89daf098b060dee321511e0f7a6a07c431030d0be89",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.log": {
+      "bytes": 1054,
+      "sha256": "26842263029f7d4dc1989f9500fb1a0b1f53fc0e3c3593f3919356f33f1a540e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.process.json": {
+      "bytes": 967,
+      "sha256": "9c48071e1f07f0dd1e1e08665d960f9d8bcd7a401dc1b5254e3cd2807705d576",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.request.json": {
+      "bytes": 405,
+      "sha256": "9e09780cbb2a72e0d029a117bd411d036da8ac56799e24af9bcbf5af8bb39ec2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.json": {
+      "bytes": 401633,
+      "sha256": "b8a0ddf107f0eb1dd72d7f2ec75f59ae1d591b0d669e04ce7b661a732faf4bf9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.log": {
+      "bytes": 1054,
+      "sha256": "2104a7ed307c4bb6db89120b4f833420f641357b6f529d31f31d343e8a15d177",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.process.json": {
+      "bytes": 968,
+      "sha256": "c9f5e753fc3f89f3c4b8a8eed59c4a20ba5f11ebda300323766e2753bf34ef01",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.request.json": {
+      "bytes": 405,
+      "sha256": "c58b6a23e86cf95509782757e08e1d929b91d9d14066a738b6c5c22e57fb742a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_plain-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.json": {
+      "bytes": 405366,
+      "sha256": "d9c4b64434afb0dd670d66a37448608b5fba3c6167c154df5b6d68217905b6e7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.log": {
+      "bytes": 1054,
+      "sha256": "93e35b2b824fe209c90cfe8403860ee8fddb19490acc71d323c501a599346e7a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.process.json": {
+      "bytes": 967,
+      "sha256": "774c57e37e66ad1f385989d302c3026feafc4dc714266af7fa0829020aa0990a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.request.json": {
+      "bytes": 405,
+      "sha256": "fe795f04b627c5f9f1bfb94578d1ca841f9fe973aec95309be92f22a889d28ae",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.json": {
+      "bytes": 405498,
+      "sha256": "369f94ed90b777485dd88bd995b95d026bedaf64d07bb00c206a851a1ca43cbf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.log": {
+      "bytes": 1054,
+      "sha256": "1221becab18f08a02f84d93750a44d9614ca2a089b648230aff1748d5077b1f5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.log"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.process.json": {
+      "bytes": 967,
+      "sha256": "f25300270dcb9253611f63c0b0419b72161041a0b9fb0aa492ab94051d6f2443",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.request.json": {
+      "bytes": 405,
+      "sha256": "02dec32b20a3c80dbe3ce3167370629b512ed519c8445fcab5af219dc955ecbe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-prerequisites/sparse_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-baseline-r1-qualify.json": {
+      "bytes": 3504,
+      "sha256": "7891409a07485e257a6504f26dddf43974f109863d9cc5ff80cd7f511e4612b6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-qualify.json"
+    },
+    "region-projection-830-baseline-r1-qualify.log": {
+      "bytes": 137,
+      "sha256": "31cc2a21adf2c6ef43885f051b0268108a92daff66d5690fd8c0da053ba1b419",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-qualify.log"
+    },
+    "region-projection-830-baseline-r1-regressions.json": {
+      "bytes": 3529,
+      "sha256": "2f20f3d484ecf3aabe05e862f96ac2e86de0d389ac2115ca616545adc5d93dec",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions.json"
+    },
+    "region-projection-830-baseline-r1-regressions.log": {
+      "bytes": 80,
+      "sha256": "745c62cadadec51b981aceefb49cb73482c8b3f365ab34cc44bd0654cb447c17",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions.log"
+    },
+    "region-projection-830-baseline-r1-regressions/00.log": {
+      "bytes": 1276,
+      "sha256": "97dc794be616b46de655412113287de0f08955cd12df39fa74ad33832f6a168b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/00.log"
+    },
+    "region-projection-830-baseline-r1-regressions/00.process.json": {
+      "bytes": 675,
+      "sha256": "b945c1f8c9f809035d06088888177a9a24401790d7ff6591251142f0d2d47dfd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/00.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/01.log": {
+      "bytes": 998,
+      "sha256": "214fb6762775a06cd17c97e2fc096acbceaabef704bc3f478a4b025d2725d511",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/01.log"
+    },
+    "region-projection-830-baseline-r1-regressions/01.process.json": {
+      "bytes": 686,
+      "sha256": "de4d5f0121475a8b17233e647a079da3c91dd079ec5257e265e73d68e68cd422",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/01.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/02.log": {
+      "bytes": 1027,
+      "sha256": "caee62af71497bff7d0b151cdef1531a706a86f9869486a03f39045e767abed8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/02.log"
+    },
+    "region-projection-830-baseline-r1-regressions/02.process.json": {
+      "bytes": 702,
+      "sha256": "c11264dffc02d17696830c9a0f1c13b606c5a932a1ac7f7285eaf86ccd7c6d79",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/02.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/03.log": {
+      "bytes": 2407,
+      "sha256": "ba3e8e28665206deaaac8a62992ef494023b7bf1a91c7860c1e57b3c8a8b1eea",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/03.log"
+    },
+    "region-projection-830-baseline-r1-regressions/03.process.json": {
+      "bytes": 698,
+      "sha256": "db4e7a1fcecdaaf955811d8d6e2f9a4528f71aa460f9b5f4156604728aca700b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/03.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/04.log": {
+      "bytes": 1777,
+      "sha256": "38296406a60b63d8c4b479e16bdac0f83ca234389b6f5cbe59c388c1c8faedb0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/04.log"
+    },
+    "region-projection-830-baseline-r1-regressions/04.process.json": {
+      "bytes": 705,
+      "sha256": "2940c2538bfb1bc3909b35e78a25c9051a2cfa4ac2432986943f587b0eb11388",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/04.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/05.log": {
+      "bytes": 1024,
+      "sha256": "d7af0ae06cdf1634de7eeddacbd70002baa7f5203225225e206347298a52e5a2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/05.log"
+    },
+    "region-projection-830-baseline-r1-regressions/05.process.json": {
+      "bytes": 684,
+      "sha256": "7899e2b732f415c90781f21caadeed2d618a45aa28cc993a4ec760cdcc4a7fa9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/05.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/06.log": {
+      "bytes": 1032,
+      "sha256": "553ae6a85b21b0c8f6b9b4994045c2be204afa5766aac2965e090ef1c65a60d0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/06.log"
+    },
+    "region-projection-830-baseline-r1-regressions/06.process.json": {
+      "bytes": 748,
+      "sha256": "6aa0017d693de3429d111649f73937f9417589a32a788ee9c90571edb616f320",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/06.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/07.log": {
+      "bytes": 1026,
+      "sha256": "12f7f8592c799d3be01471c38e10cb83a44660c3ad1b960209dbef0a8532f7f8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/07.log"
+    },
+    "region-projection-830-baseline-r1-regressions/07.process.json": {
+      "bytes": 742,
+      "sha256": "df471215a46cdfed0420d0c603e6cbe6943f5cf178d0a4aa5146d76923445df6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/07.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/08.log": {
+      "bytes": 1034,
+      "sha256": "19beba54495144b573918b0ba5cc9b4c9853de09f4b5b4c52b4335c77bd4aa99",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/08.log"
+    },
+    "region-projection-830-baseline-r1-regressions/08.process.json": {
+      "bytes": 750,
+      "sha256": "816be999eabe66811560f82d11905d353c217b4490638e43ec68e4b12c2ed9c5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/08.process.json"
+    },
+    "region-projection-830-baseline-r1-regressions/index.json": {
+      "bytes": 12798,
+      "sha256": "e4d705b6c211df78276193f78122580f96e5bd3d484a386150dd85c9e52e0c6b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-regressions/index.json"
+    },
+    "region-projection-830-baseline-r1-source.json": {
+      "bytes": 645194,
+      "sha256": "b4c4eb2261b096147a790f5c996d5214776b2fb4eab76f82e2b840f393c5f3a0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-source.json"
+    },
+    "region-projection-830-baseline-r1-verified.json": {
+      "bytes": 121500,
+      "sha256": "ae2cbbb2fc1402ea666cfc065202f511134097a5924b9b72c2d3d1851bf5f659",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-baseline-r1-verified.json"
+    },
+    "region-projection-830-candidate-r1-binary.json": {
+      "bytes": 380032,
+      "sha256": "08f753022aedc48df10e16679c1e4f5a88e804f690a3ec53b1670e4cee20004b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-binary.json"
+    },
+    "region-projection-830-candidate-r1-build.json": {
+      "bytes": 141269,
+      "sha256": "7ce8cde5947eae8020381fb6910d4651d9c36dce754bb8881c6df856a1e9ad0f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-build.json"
+    },
+    "region-projection-830-candidate-r1-build.log": {
+      "bytes": 320462,
+      "sha256": "cdcca68ba8308f077b5e00fbee7b45fe5c22639d55d9b7062c38e81ef7ac7b9c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-build.log"
+    },
+    "region-projection-830-candidate-r1-clippy.json": {
+      "bytes": 12989,
+      "sha256": "62261446ff2ab95c921b5361969339167f534b9f2ba6e692a0472c6a2b73ed85",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-clippy.json"
+    },
+    "region-projection-830-candidate-r1-clippy.log": {
+      "bytes": 536,
+      "sha256": "4521ebf7548d18fcb7ccded5414eb94f5b73b4ce67c293fa7765eeca47ee52c7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-clippy.log"
+    },
+    "region-projection-830-candidate-r1-fmt.json": {
+      "bytes": 3468,
+      "sha256": "95fdcdd2e825044084bedbf3ddbb24113b7844e046cce7682a1b8aa41ce8b5d3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-fmt.json"
+    },
+    "region-projection-830-candidate-r1-fmt.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-fmt.log"
+    },
+    "region-projection-830-candidate-r1-frozen-binary.json": {
+      "bytes": 385145,
+      "sha256": "465bd75eca35028c89565f9a8f2ad472267175c6a0a1f46f301b974898b5efae",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-frozen-binary.json"
+    },
+    "region-projection-830-candidate-r1-observed.json": {
+      "bytes": 3995,
+      "sha256": "a5376ffe9a8af83a878ddec56fe499e71e4fa4c68b9d1888e25b4985503317e4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed.json"
+    },
+    "region-projection-830-candidate-r1-observed.log": {
+      "bytes": 1646,
+      "sha256": "198a68a38461677b0a00031522ce3025ce759ea40d9d2463bfab18be8a6c47c1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.json": {
+      "bytes": 18756,
+      "sha256": "a7d58dcb5387b1473c0bd63ca7e1828db5146e80786dc692bdce611a649c5aa3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.log": {
+      "bytes": 1053,
+      "sha256": "a3bcfd7a53db5221aea8dcca0b8879a69a955876ed634b174966481f846e8829",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.process.json": {
+      "bytes": 966,
+      "sha256": "396eb0c2750f7e13a8c441306eeb26b514c0887c791b15fdafb1da5dd268c75d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.request.json": {
+      "bytes": 403,
+      "sha256": "a647ce40742bcf9c3c5118084890a060be9132f8e82e823374699b0e0f7d1455",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.json": {
+      "bytes": 18757,
+      "sha256": "f62dc403167f3447f9bcc3d1c60f6cf109d2bfffcc05cb4a4d1aeb18c9d83b70",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.log": {
+      "bytes": 1053,
+      "sha256": "5725e6be4d22c196fb6759e44eb4addb88e2e04821c10df0fa39a861b7000c6e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.process.json": {
+      "bytes": 965,
+      "sha256": "75a3f9d040e8ead8be61d78ed2996d1c346f701050763d01a2f8a85a55b7ceb7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.request.json": {
+      "bytes": 403,
+      "sha256": "03c531284a9799875ff1055bac9190781b8eba1202dd1b4067502efe8aa2d47a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.json": {
+      "bytes": 18757,
+      "sha256": "ea9b3c44abb22008193a238a5a56b2f1fc6050e2337ae4faa94d0c6e63d22373",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.log": {
+      "bytes": 1053,
+      "sha256": "9b5fbcee59fab97065d968734e8da2e974ac10fe0553339d2050455d8884712b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.process.json": {
+      "bytes": 966,
+      "sha256": "66d8e28e1e6ce5017fcb96a45aa8ccf40cd0809190e4407e579fb0ba7754e470",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.request.json": {
+      "bytes": 403,
+      "sha256": "484e8dcc9411bec27a7191f8c93b2c6f598ae5115c257a5d72ddedef8fb5ab21",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.json": {
+      "bytes": 18757,
+      "sha256": "b0e8cdaaaef19bc452bcbb692673e2304d81b49ea7ad89600ecf333f8bf30991",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.log": {
+      "bytes": 1053,
+      "sha256": "98a1b9873745998842b2d85cfd3618e28887ed133aae2261cb71086c4c1c1fd6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.process.json": {
+      "bytes": 964,
+      "sha256": "646ea02ac3704c2e40c97bd4faf2d9e15d02ce15269c7353b5411ac2ad965b62",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.request.json": {
+      "bytes": 403,
+      "sha256": "3de56e0e666cdcefcf7056fee856bcf3d75512e675de7bebc236be14ed1b1062",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_false_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.json": {
+      "bytes": 123566,
+      "sha256": "bf0803719fc74dc710cb87bf94165d4f60c5326895dc63c7cebb63eb9321feed",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.log": {
+      "bytes": 1052,
+      "sha256": "1b06cc91cb7e100928f4d979e8e27adaccb0035281d6135c4c578bf8f0075894",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.process.json": {
+      "bytes": 965,
+      "sha256": "645ebd592d73e28a6633d31070aed66fa05690c20bbf063df65b76f046d3e6fe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.request.json": {
+      "bytes": 401,
+      "sha256": "333b6cd14967a675200d7198966a67617cf08ca6f500595c20be753c32743dc2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.json": {
+      "bytes": 123564,
+      "sha256": "b4d5b9ccd0d363d505a821b4b104e9cddf15b603bf8ab60888c909f20c8e5b37",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.log": {
+      "bytes": 1052,
+      "sha256": "68a8f161348632e0052298fcf7594e986aaf1b6491ca11178f892bc1f6db1d59",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.process.json": {
+      "bytes": 966,
+      "sha256": "c9627fd571f3930d14b59accd203789180764e9e53bd9c6d0cc904e613d23687",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.request.json": {
+      "bytes": 401,
+      "sha256": "c2dd4fc5511f5c3943da100133c99a287af66b516068fbd97df67358925decf6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.json": {
+      "bytes": 124011,
+      "sha256": "eddb7251db0b2aa9bc365ea2f74898ebcc910deac6088045f592c5d1b422c19e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.log": {
+      "bytes": 1052,
+      "sha256": "5bb52e0a1d6bb078f2d054553b174d135e06e587d052612b9aa5ab74f9fd517f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.process.json": {
+      "bytes": 966,
+      "sha256": "2ef1ff0348601cb27a91858eb847256db5f37037498759d9066f76b06929b1a7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.request.json": {
+      "bytes": 401,
+      "sha256": "2010667ad40a65411b0b1734a7ed67dd4f121cbce65316f58b62b93e7ad68513",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.json": {
+      "bytes": 124011,
+      "sha256": "dfda5fe1f7bf101fb6e96b7018837d0dfd670886b8dba0f806725db4f906d5f8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.log": {
+      "bytes": 1052,
+      "sha256": "1130d2974a09ad1723482022a0f6d56dd2213d1972226470051ff46b5159cb86",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.process.json": {
+      "bytes": 965,
+      "sha256": "20ced5b9fe55d0e690dc632fe34d9d1dc18ff0fb3ee6555a40c3d6518c8803dd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.request.json": {
+      "bytes": 401,
+      "sha256": "3dc499bd7779d8577d223350b4a87862cfe644e2840d7dcbac322295208dbe12",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/all_true_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/index.json": {
+      "bytes": 70316,
+      "sha256": "8a60f6f93c54b2f2accedbcbae27d5c5f16058fae2523f04036175cad211921f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/index.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.json": {
+      "bytes": 56834,
+      "sha256": "ea2012cc149d9cb0870eb0a9f6f3dfe5ccd8bd844e13642664733331b6e9bda2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.log": {
+      "bytes": 1054,
+      "sha256": "aad58500f40045661b5246a2ec2372f64a78c9586671ad2836f137bc78d636e3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.process.json": {
+      "bytes": 969,
+      "sha256": "22a67081e8df6262b810e27f2dd326bb1874eb6e85baacbb0f4e2ffb524aa92e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.request.json": {
+      "bytes": 405,
+      "sha256": "ec464ead357cd7c7290ad4abce5612e2bc726399368735b6d9d17b56db66f9bc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.json": {
+      "bytes": 56834,
+      "sha256": "6098c5ab8548baa13472322bcc0e8014af982225fa737fdbcd6ff5cd0dae94e1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.log": {
+      "bytes": 1054,
+      "sha256": "364152af7988809aca1af615b3629d09cfe6e96334809942ed2dcd9da621d08f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.process.json": {
+      "bytes": 968,
+      "sha256": "733fa2b5d07b16332d426c9a3dddb238de471cf326a2e94195b690e8b77dc019",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.request.json": {
+      "bytes": 405,
+      "sha256": "bcaed787b8068d026478daea0acf9471d949793678aca8f50089aa4c13e5cc0a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.json": {
+      "bytes": 57034,
+      "sha256": "ee8c181c465be60f8d15e01e30bcbdc39c53dd03e063791d97802163ca69d020",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.log": {
+      "bytes": 1054,
+      "sha256": "76a35f80f732d633136eec99f440a8a794b35d6666b3a13f9d1ac6d788f394c6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.process.json": {
+      "bytes": 969,
+      "sha256": "dff0d82d19bf9b3b2d22f0488223d29d1ce332212137b59bf682ce228c0c5829",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.request.json": {
+      "bytes": 405,
+      "sha256": "3a5c0d23fc71a3b8a580c1d567b4c2b435b02176eed66d0fcf908afc6f6007ba",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.json": {
+      "bytes": 56904,
+      "sha256": "aa727fc792926b34a526eae3ba96b332dc92610a14b9b272925bb3d07cdc5ac3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.log": {
+      "bytes": 1054,
+      "sha256": "a74a334519634da40871182a83528f7db535159b4478734b07abe4b93f7fd9cc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.process.json": {
+      "bytes": 969,
+      "sha256": "e9e7ad64dbaa55c150c124e6395867ecba704461c81a5825a7ab4511f54cefe4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.request.json": {
+      "bytes": 405,
+      "sha256": "d204af8e6f63afabf51313bf587ca8eda0540c1c0d1a25f19dc2752b90ae5fc9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/misaligned_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.json": {
+      "bytes": 123589,
+      "sha256": "bf55416a6b32362b5bd45f195cbc8a065c9e5825afedc5b36fcc8628daa5a806",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.log": {
+      "bytes": 1049,
+      "sha256": "35f8c87a8a99032608c42982c0a16749dc907473c3d6f511c3266b0485931f46",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.process.json": {
+      "bytes": 958,
+      "sha256": "a0b8dc19811eed92438421ddb6be486596e1d477ff6483f17f501ed5749954ef",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.request.json": {
+      "bytes": 395,
+      "sha256": "109a3a49f7c8db4b392b5d017d3d43b764e6598ffd21a998b6da3d723e517e81",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.json": {
+      "bytes": 123588,
+      "sha256": "26a8cc7b63f32bd8bd5ccaa6c590f1a912a5854d90c0f9be36d034f3834210a5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.log": {
+      "bytes": 1049,
+      "sha256": "c7a25b976c7ac74f4034a8bfbbfe53a2dfb242fc5fc86da1a043a9981bf0e295",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.process.json": {
+      "bytes": 960,
+      "sha256": "ed406260e66815d291b1bb495ee9c9c511c95eb5b98dbc59473193fe55c8009c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.request.json": {
+      "bytes": 395,
+      "sha256": "47fcdc335e1a4e49b9b2529d3c670e985f30036c690498ceabdc9146d32c2a97",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.json": {
+      "bytes": 124338,
+      "sha256": "abf144c91de96a9afe6488e106b8d0bd514ae88011d48f14051e9cb9f71093af",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.log": {
+      "bytes": 1049,
+      "sha256": "065d02b7dfb947f9351716f8f0d64013da8cfba9935b0056a59d8a6d48a16d0d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.process.json": {
+      "bytes": 959,
+      "sha256": "247452438cb7d0918c5f44b2fe264336b735e0195681c9f05bc7cbe93faeee36",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.request.json": {
+      "bytes": 395,
+      "sha256": "bb037f9cbf739880008e85fa6c1d7f03d1414413326f8f7b13d4643cbfad2bbe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.json": {
+      "bytes": 124207,
+      "sha256": "248dbdf42029955c2848eaec2ddb23187e857bdf701c28d72ffebc8a3251118e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.log": {
+      "bytes": 1049,
+      "sha256": "0816fe3beeb9ce4dfcf6070090b09332c72845d42efc11f6504adda843c4ef76",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.process.json": {
+      "bytes": 960,
+      "sha256": "48019f9f271e058a5e9596d5f41f99044197231421d06a21a20df8f2054d7425",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.request.json": {
+      "bytes": 395,
+      "sha256": "1cfbc9bf1b243fddfb4be42243de0257c15e108b55ceee71cac8cc1c80bc951c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/mixed_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.json": {
+      "bytes": 47433,
+      "sha256": "764406c0bf40b90eb344fb22679291d89398df63dcee65763832bc357dc36020",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.log": {
+      "bytes": 1052,
+      "sha256": "8442dfe33be0d6ba63019db9e6d9b131674575995cf3906d7fe6c253944ff4eb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.process.json": {
+      "bytes": 965,
+      "sha256": "6b1f9d58332c4b45047a13310a507e48f72b7bab1e6cdbd042a8b2734ca88798",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.request.json": {
+      "bytes": 401,
+      "sha256": "37ebda702cd448e826cd2aefe0537d20966251c5b2cb2b9e9c9c9486ce24283d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.json": {
+      "bytes": 47465,
+      "sha256": "2f91d89ddc672e483ae51568538d4c1c16bac926c2ebeb5e6122011aa89aa3af",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.log": {
+      "bytes": 1052,
+      "sha256": "eeb5080cbdf38257bf767f500f04399e6287a21d58e05c0c571f242be09a6abe",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.process.json": {
+      "bytes": 965,
+      "sha256": "fbc0c4412b1bbccbada065121baf98561dacafcb76c0344aeb0902dd9c27779b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.request.json": {
+      "bytes": 401,
+      "sha256": "c20c86935052b2f58ba8f3255e246ff26910062d047f2b4bbf4c4414ff14c140",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.json": {
+      "bytes": 47534,
+      "sha256": "e10308cd7708308a74158f9301422f3ae47f9835d5e83a0b3c3ff1bc03dacd9f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.log": {
+      "bytes": 1052,
+      "sha256": "86ea0643f80441340ef5973f443559ed875fa5b61476e7841a44d706f2b67c2d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.process.json": {
+      "bytes": 965,
+      "sha256": "21c594b72d4c0b73d417fb2010da0ec10eda05723e79d85e6c9bb80a9a14233e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.request.json": {
+      "bytes": 401,
+      "sha256": "be3d3c68fd15eb4fd03978a3d8abc9f7ef65f52e6a9736c2e9187cb1f1d27dca",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.json": {
+      "bytes": 47605,
+      "sha256": "66ec838411f05a0eed1446c534b609234f87583051b8cd658ea865619e180144",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.log": {
+      "bytes": 1052,
+      "sha256": "ec3a24a04271991163374e472b92c0bec99bb983d867505d5a1e51ae3df091c4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.process.json": {
+      "bytes": 965,
+      "sha256": "69fe392c49645f808ec3a8ac60855d7909ca2cda7d10472e25ca38f2ab180533",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.request.json": {
+      "bytes": 401,
+      "sha256": "cafa9318d08188d4f50436f63096057e4a85dd82e6bb3ccff559255943f556de",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/nullable_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.json": {
+      "bytes": 72526,
+      "sha256": "8d595261cfec02c689bab1325b5f4e6a382e30525b0251a8f42ffb094855c386",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.log": {
+      "bytes": 1048,
+      "sha256": "65d19ba1c6ea15c7676f57618763df4c0e757318055193c37170b8116a61c2a8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.process.json": {
+      "bytes": 957,
+      "sha256": "1721ce75f02672314cf0cbf754c25076ab3ac15fca3dfa15d905864dd6473e5e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.request.json": {
+      "bytes": 393,
+      "sha256": "989aa7b836e1332c51094f2975ec89b0e688ca46218bf29c4e20295e291981c8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.json": {
+      "bytes": 72526,
+      "sha256": "dbd552bea97b74843bc759bb515a68121fa553afd367f7c225f5712f99b6ed27",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.log": {
+      "bytes": 1048,
+      "sha256": "af9e11c5014f3402709debeba07976702f13fa11688f3d1cd6b50ec15965cc6f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.process.json": {
+      "bytes": 956,
+      "sha256": "9f79707c9b6a4e045117b5b0aa77e4313e994f69c640e792291b279693d313e5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.request.json": {
+      "bytes": 393,
+      "sha256": "24efe663eb229b94d69170874db3ba31b56f7309159804cab3b9dc53d9271d81",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.json": {
+      "bytes": 72561,
+      "sha256": "7fbae667454856feb5271d7f016f5d4f1abb8bfa03764564103f4ad1b5e8f4ec",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.log": {
+      "bytes": 1048,
+      "sha256": "04c9a27b56e31a1fb5079adc26a75b3540b0fb16b96213046a0f994f588cc9eb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.process.json": {
+      "bytes": 957,
+      "sha256": "bac52bf4003521141e5074baa186dba2e5e4fc63a0a6365874519e163b0b4e08",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.request.json": {
+      "bytes": 393,
+      "sha256": "1ebf46b9510d09465c8506854b1c847539caa922fb15ec7778cc3d31478f38f4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.json": {
+      "bytes": 72754,
+      "sha256": "18357d0a400e905c3f0c0c41197898d7c0b940a0bd3688f182227e19a35a8ab3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.log": {
+      "bytes": 1048,
+      "sha256": "e9df816c3a0ea4db70c05a93cb575a339214cc55d0ea0b60d83cff519862c6a0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.process.json": {
+      "bytes": 956,
+      "sha256": "b34a0e8dc207f937505970c94f3abd553189de565ff734fb0933805680c3a886",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.request.json": {
+      "bytes": 393,
+      "sha256": "e3321d96954d5b55403bbffcdfd44dfc1f71e48f95c093112000496bc0566d27",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/skew_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.json": {
+      "bytes": 47124,
+      "sha256": "dfe8fed5194bb948e33ee97968326799287830a8233ca15e21a5657da2b7fa58",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.log": {
+      "bytes": 1050,
+      "sha256": "665665f19589b65f1de89cb8b6a6f0d7e3e59d92483165049df6c6c24c6c9eaf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.process.json": {
+      "bytes": 960,
+      "sha256": "476c8da63ab9a3179eda046b9acef4be1126105c480560e7a91f8d769a26caa2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.request.json": {
+      "bytes": 397,
+      "sha256": "206255801de1d51d0fba1e89d78db42f02624dd3a0cbc57292c27d9fe1f72d37",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.json": {
+      "bytes": 47125,
+      "sha256": "c711d85a1b7d09e78d8cf0e9deaa2e9e939d9c5b9aec0c4ca1d092d57016a3e5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.log": {
+      "bytes": 1050,
+      "sha256": "15b7ec912dd13c59cca38ecd8a3c869e8670673a43012dd888c173160941a0a9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.process.json": {
+      "bytes": 961,
+      "sha256": "2be3bb6326ed554cbc337fca9421353c6e42e018bf0023a50a82d7da2fea6a7a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.request.json": {
+      "bytes": 397,
+      "sha256": "af5777f07a24603ee07cfbb785696684d97c03044e6ff2d6a9c23cf48b939910",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.json": {
+      "bytes": 47124,
+      "sha256": "d02f13674ccdedf908a85ec32f8521084ff0a69a6bf6fb733e470e68e14f5fd9",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.log": {
+      "bytes": 1050,
+      "sha256": "c9e46b6a75359d2f48d77b7d0197ec38f19059a0048eede660244b4a80303a2b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.process.json": {
+      "bytes": 961,
+      "sha256": "b5f88e3780b2379a05566a5e05b2c945c4be6b433c35af7ad27f48547ba7564b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.request.json": {
+      "bytes": 397,
+      "sha256": "df0815c81ec85d43c9d3f942776ff5f91d69354c1e562d965ea27403b77aefc1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.json": {
+      "bytes": 47129,
+      "sha256": "356985ad8a20af0ede33de7ccc31273427d671fd61de21db2799a7466ef6d8cb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.log": {
+      "bytes": 1050,
+      "sha256": "76911970fb853290ef5998bbc0e91c25c74ac0b01d99b8b981f6c730d612530c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.process.json": {
+      "bytes": 960,
+      "sha256": "ce76783df6fc95df41ae7ae7d607d565b2656f9176eb6cb7495775a8219f122c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.request.json": {
+      "bytes": 397,
+      "sha256": "b342684517cf34b969f6606da9cb97b61b2f64ae1756dbada1334e2f20a65ea3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_plain-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.json": {
+      "bytes": 47152,
+      "sha256": "381da2e5aa1bc4dc43e436f5362b05cf572266927d5874cabe13e5beadc28efc",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.log": {
+      "bytes": 1050,
+      "sha256": "d4f850aa560b88adf36819ed9270d80724b70a0590fbf80d643ec12846310d5a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.process.json": {
+      "bytes": 961,
+      "sha256": "61701a03185969793d97ff4f26e95a0341315f8e41deb024d74db3fe5ba997df",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.request.json": {
+      "bytes": 397,
+      "sha256": "e6e49fe37bf3a7c2f6f3d7e600efa2454d0ddd4c51bf5a9ee65f53f2b0c4faeb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.json": {
+      "bytes": 47152,
+      "sha256": "ce4e15aec2474e65102a55a58c3cd2ab267c2f7a823eeb4f21a2ae01a08700fb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.log": {
+      "bytes": 1050,
+      "sha256": "4bccd4da88ae6f72871b6c4dc2485bc98d6257c3062e112fdeab803bd47d7408",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.process.json": {
+      "bytes": 960,
+      "sha256": "d85ba28828ead4b995bc841b3a13315b69b05501b6fdf3f2ce68233a13ccc608",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.request.json": {
+      "bytes": 397,
+      "sha256": "780160932a91cac241320fa0d82934711ec7dfd5dd9ad2396f7d2b476633c89c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p1-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.json": {
+      "bytes": 47189,
+      "sha256": "3af1d735867db10528d9dadd00707035f7087423cff90895483229c80c23e698",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.log": {
+      "bytes": 1050,
+      "sha256": "fdf26614bd93eb70d28ecb60b5c02907b6f3164df9296f95f1df5b5d6ab56f64",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.process.json": {
+      "bytes": 961,
+      "sha256": "b66e207f774655f7a71e3113a1ffca9c3c3eac5e5cbbe7aefc505665d900159a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.request.json": {
+      "bytes": 397,
+      "sha256": "13b71f4c9a31d3601345a73acdc27a6ae7dfdf8d0c950ea214c51385fe0349c6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.json": {
+      "bytes": 47187,
+      "sha256": "4b217696a90494a6248d1782d25ef071c5a99b08251428f0158b4782aac09bb2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.log": {
+      "bytes": 1050,
+      "sha256": "1b23bcfb0b78dcf727a5758407ea742a01ea6d6b7d1bcc1b67f98f0fa062da42",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.log"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.process.json": {
+      "bytes": 960,
+      "sha256": "523eca4687de948cba5af288b44279fad2e30fd270a63aecc31740385fe51864",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.process.json"
+    },
+    "region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.request.json": {
+      "bytes": 397,
+      "sha256": "980a6e37cef92ed072922cabb171f284fe7db421aad5e5b170342c1b0dbe3aeb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-observed/sparse_zoned-p4-r1.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites.json": {
+      "bytes": 6193,
+      "sha256": "bd3608b870f388f7045013f815d0779bbb3b848744507790ee8cbbaeef120e99",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites.log": {
+      "bytes": 947,
+      "sha256": "dd1a17e1e9cdf1d3ac7c1e2b018e105f4a32358fce483b7cbc2d389f8c107720",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.json": {
+      "bytes": 530,
+      "sha256": "4efd2d7da0bb1526108fabb66586c5646eb84a0ac70f95b28cdb2e2fa00a48c7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.log": {
+      "bytes": 1058,
+      "sha256": "cb03373ad544135528f696444719120d49268d24d2a635a03622cec0fc0902f0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.process.json": {
+      "bytes": 977,
+      "sha256": "0dd715775bc6e1ce20c562ea994270e1651b2267273f45a13854a7f5d17cd02b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.request.json": {
+      "bytes": 413,
+      "sha256": "f58a8f4d8f3a28f1abef63ac34a6e88b8daffc7ffc1f0392b65ae4018377e837",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.json": {
+      "bytes": 530,
+      "sha256": "14a29e08edaaa8867faa6ad1806924ff2c960711db47dc70c812cdc0c6f26d39",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.log": {
+      "bytes": 1058,
+      "sha256": "d8c03fc4b7608678f58d8f0971b2cfbb0cc5fd746f05b99e09512054f06cee82",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.process.json": {
+      "bytes": 977,
+      "sha256": "e7ab6ba88e566c902f9173ca5ad847295cb8c57f972823c04acd047cb291fe29",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.request.json": {
+      "bytes": 413,
+      "sha256": "d2e403f1f7b754e3b8c1ba0f656cdd7fa0e7a9c4410af35a71e176a591c9eed6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_false_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.json": {
+      "bytes": 1610806,
+      "sha256": "92be17334a0c1c7e15d72e5c19752752bfdb6f8eb5bd424811e5ecbb6eecc4d0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.log": {
+      "bytes": 1057,
+      "sha256": "d55b85dd3b40b249d2329db966b1088adfdf66b7eae772bc1ebd68767399e9e4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.process.json": {
+      "bytes": 974,
+      "sha256": "311c2668e43bb317c4bc0e507ce071342618224d6eef279eb5e712d35b18b3c0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.request.json": {
+      "bytes": 411,
+      "sha256": "48b9b326161cd5a485b212fd7345e30616bb86d736eec8cc5cca986b4bd7918a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.json": {
+      "bytes": 1610806,
+      "sha256": "20f595395423dec2bcfd267c8288ec90804bccadc646ceecd299d8c848bedc87",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.log": {
+      "bytes": 1057,
+      "sha256": "d7396b411b66976c34f5a75472e50309dfc1ee9f24c0fe8ca561ac2a6e7c1ea3",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.process.json": {
+      "bytes": 973,
+      "sha256": "2ff3c6cabbc0fb6d0a470e59c5500ef264f89ab555267f737fc143c62a9518b7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.request.json": {
+      "bytes": 411,
+      "sha256": "3dcbcee35e9330a2085d271f6965f1f1b1d4cb96be68d20086536feabae33cd2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/all_true_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/index.json": {
+      "bytes": 35787,
+      "sha256": "284c33e57671edff7e15df058d2f2ea08227e637c73186bdd595ecf83beef135",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/index.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.json": {
+      "bytes": 401721,
+      "sha256": "3cb78d59de2d4aff76468d726b04e7672b3e904c1362cb8772e1869e500e19df",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.log": {
+      "bytes": 1059,
+      "sha256": "78f110dbedfe1bb5a4158c215db423940c047ce3d3b499e69b4170dd8ae1d88c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.process.json": {
+      "bytes": 978,
+      "sha256": "bb27a86fd6941a3fad554ba53d053e8f76e30a176449c76bcd99e1c419d04012",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.request.json": {
+      "bytes": 415,
+      "sha256": "c568c54367970eb80f880b4a1948be33d8f9075a64e8aea852b2f39a4f8aed0e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.json": {
+      "bytes": 401721,
+      "sha256": "a54bd743ed8a21d0861a1c8de2e3e02619a9b1ee102fe067b3f1a7bc8edb7756",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.log": {
+      "bytes": 1059,
+      "sha256": "be02fab4c73310310fac4ca1eacbc889c6e8b231ac21963283b09ed8f79cb699",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.process.json": {
+      "bytes": 978,
+      "sha256": "33d9bb9b84ba5d96f0da86ba1293fcd3d072fb5ea8e20bf8dd727cdaffb52804",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.request.json": {
+      "bytes": 415,
+      "sha256": "553c3c18166d517590b3184d17f95511fb7b59d7cbff108ed7a0d44a47fbc543",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/misaligned_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.json": {
+      "bytes": 403221,
+      "sha256": "599039917e11a02efab5d1205aa5eb62782be21457193bb1bf7f423af6054afd",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.log": {
+      "bytes": 1054,
+      "sha256": "e1c435473f132bcc85de30dc3f56b664273f229b23ef21781d9054c6b6e83e34",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.process.json": {
+      "bytes": 968,
+      "sha256": "342eeb2df5d6e385ba9edf194176435e1fbd5cf55ace38b8b41ce121d6cb5387",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.request.json": {
+      "bytes": 405,
+      "sha256": "529c2375cb19774477fb59fa98dd112e804277335b365a0665181388be0dc8cb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.json": {
+      "bytes": 403221,
+      "sha256": "a69d4f298a01e89773e92be514367220ea366e928990c53928873cbff44ed6a6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.log": {
+      "bytes": 1054,
+      "sha256": "c680b6d38264320f7a06ecf13cd593179b54a8b864b90022d79b4da9e8e3b37d",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.process.json": {
+      "bytes": 968,
+      "sha256": "c984c1d2805591e31537c868f89f89a961502f36837e132bed8edf8052e3f5a4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.request.json": {
+      "bytes": 405,
+      "sha256": "977e7d5a975910929fdd6e8817b07b9daab4b52e1acb51e08bb4af5992a49f95",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/mixed_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.json": {
+      "bytes": 362333,
+      "sha256": "68498766759f9ee7e53b223d97299feb231e6a7a044014e87d400fa6b6ebf0ad",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.log": {
+      "bytes": 1057,
+      "sha256": "e1bfc8e0eda8aaa5ce429303d62df883d39af40f350c7afcd4385bb767606690",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.process.json": {
+      "bytes": 973,
+      "sha256": "c833f8cb70ee1157b03378a31a3202569ebe9b04f87ebf82b1201ae52ffe8ebf",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.request.json": {
+      "bytes": 411,
+      "sha256": "1acee5ee87c97181c643c980c83634f16fa405ff4d593ab8aeb1609e0a6ab22a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.json": {
+      "bytes": 362333,
+      "sha256": "9c7c5864235ab9dd4aa4b3a15720738e4d6512a5510d81d1cf30a571ea247fe5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.log": {
+      "bytes": 1057,
+      "sha256": "d258c301cb6bc8847246db53f61ca98e0c9196e25a39c0ccec44a38fe7ad9244",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.process.json": {
+      "bytes": 973,
+      "sha256": "8ad011e6ea06202380dbaf638be1057064402f12fafb85a3194ffc5c2878691c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.request.json": {
+      "bytes": 411,
+      "sha256": "80b5e4b44301df844bdf848e80f91c17ec75f44281cede6a16275a747f858d42",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/nullable_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.json": {
+      "bytes": 401760,
+      "sha256": "7a3a3ce02055c02501497310c9b4e55bb5337de31592851443d761d2a3c88d0c",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.log": {
+      "bytes": 1053,
+      "sha256": "e3291d800c65c05f920172f110d511282875a6478cd54b678d816c6591fc5460",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.process.json": {
+      "bytes": 967,
+      "sha256": "288e75d38137ee72c5668c5ca92e7beca76e921e6301e59dd680196164a9fff8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.request.json": {
+      "bytes": 403,
+      "sha256": "e27d29167c0f5c0b1fedcf8df912883dbe1d3f76b88bd6304105a5ff83c51d57",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.json": {
+      "bytes": 401760,
+      "sha256": "edb5f68dfaf0af3b5471ba06973969a9a216542b65ef4c4dea0ac6bfb00938ce",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.log": {
+      "bytes": 1053,
+      "sha256": "2f59d8a7c694fe67b63635989c39bc839fd74abd8f5ae5f86fa6a4fa64c3d469",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.process.json": {
+      "bytes": 966,
+      "sha256": "be1c77f3b8fe7ea264557dd768290c9449bbc8765ccc031658c1ffd5002f4f47",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.request.json": {
+      "bytes": 403,
+      "sha256": "823db513678f3a5744ca14287a4a30ed1079c93dfb07fd17ab08d9839145fa09",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/skew_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.json": {
+      "bytes": 401634,
+      "sha256": "467202fb46ed839f1efeea326426ed9135642d1a65e235c237175fa94ffedc8f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.log": {
+      "bytes": 1055,
+      "sha256": "7c1b4228a403369b895a35f05a3136ea84b3024156418614075839dcf561e159",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.process.json": {
+      "bytes": 969,
+      "sha256": "22594500258f0e15d311ae6294480e58b6835f6bcd34d59fd756ca1baed338cb",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.request.json": {
+      "bytes": 407,
+      "sha256": "db246ce2ec27248bd6d55a262533d7a9c2757f63ded11e94fae2f4121e4a2741",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.json": {
+      "bytes": 401634,
+      "sha256": "24c8dd97fb59010227dd864ba36dd47d9f7a927ee0798e935200c3d22ac99b69",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.log": {
+      "bytes": 1055,
+      "sha256": "fe74610e7907a24aa64b370cf7845917fa88a0ff3e955d12e3cffdbcbd0d3f30",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.process.json": {
+      "bytes": 970,
+      "sha256": "53e058006fec15f9d906eccd17750c09d52a6f8324c3db9f6d71233302c1fc5b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.request.json": {
+      "bytes": 407,
+      "sha256": "6fea34a2ad6cc783c6645076dc4dc05e825da28979498d7e57e7b8eaf56bab9b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_plain-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.json": {
+      "bytes": 405367,
+      "sha256": "3dcc00b1fcc333a5622ffff308eb053c6d302ea30ba10672f25b63f8ccb79095",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.log": {
+      "bytes": 1055,
+      "sha256": "1f9d2050658857d7e569d4f6156e6f10b368738158c81d960ff0f57f0e0c24b1",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.process.json": {
+      "bytes": 970,
+      "sha256": "405f4a8d605fd728ab9b1e779a7478e965a69930b38ee3d61219c5fa47691644",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.request.json": {
+      "bytes": 407,
+      "sha256": "cc62b34ac8598740dc904efef81251e49adeff0667ab733ad9592016c133b603",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p1-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.json": {
+      "bytes": 405499,
+      "sha256": "b181aa18261462c3ececc5d4effaba059b6acbba49b984d3e6b2b165fe4c581a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.log": {
+      "bytes": 1055,
+      "sha256": "d4963884ea509fa50685f48da6713dfbbf281d9634eae3a7cf889e7c52762e4a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.log"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.process.json": {
+      "bytes": 971,
+      "sha256": "ea16c8f53e2d01f9ae56ffd5b34839e4d2a89513d0e749c1141cbb79ce22b6d5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.process.json"
+    },
+    "region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.request.json": {
+      "bytes": 407,
+      "sha256": "4238e76749467fe2f9f2ec2561f2ce0e323af72b8af0ea840ce49a6ea91ac5f6",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-prerequisites/sparse_zoned-p4-r0.request.json"
+    },
+    "region-projection-830-candidate-r1-qualify.json": {
+      "bytes": 3557,
+      "sha256": "d5f336b85b9fc3912c6da44c8e84b27970c71baa41a42c79265eae0f41239b8b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-qualify.json"
+    },
+    "region-projection-830-candidate-r1-qualify.log": {
+      "bytes": 138,
+      "sha256": "789585a1cde291e6f9aaf126efd46609cabf88a51316dbb5aafc5f7c50676016",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-qualify.log"
+    },
+    "region-projection-830-candidate-r1-regressions.json": {
+      "bytes": 3561,
+      "sha256": "4e7aea6a671b1463672d39fc1dc9473fd02851f161bea2d505f7e6a8e1703f70",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions.json"
+    },
+    "region-projection-830-candidate-r1-regressions.log": {
+      "bytes": 81,
+      "sha256": "1f36e156c4b3ec35abec5eac9ecdf579f142c80bc002fb12cd3376b234985c84",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions.log"
+    },
+    "region-projection-830-candidate-r1-regressions/00.log": {
+      "bytes": 1276,
+      "sha256": "6775adc74a1d4fbadba6ee20aa3e17c86e0afd96039532d082c3c519e7209094",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/00.log"
+    },
+    "region-projection-830-candidate-r1-regressions/00.process.json": {
+      "bytes": 677,
+      "sha256": "0f92a115268af19b9ac1f57f19eb27c0d69700622cf488708e0ab8c9daa84fed",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/00.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/01.log": {
+      "bytes": 998,
+      "sha256": "940a1f6887b7aa3e44460c8697666a765aa79c8040898d20263dd6dcfcf76211",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/01.log"
+    },
+    "region-projection-830-candidate-r1-regressions/01.process.json": {
+      "bytes": 688,
+      "sha256": "e0a8cac44d40a7ebbd6fd85825f95fed06dad40b9f0b539d84a7eb81050bec08",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/01.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/02.log": {
+      "bytes": 1027,
+      "sha256": "09c936a42f36b5a63d95a863675fe74df07b0d6d4c06ae546fff81bcb791acab",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/02.log"
+    },
+    "region-projection-830-candidate-r1-regressions/02.process.json": {
+      "bytes": 704,
+      "sha256": "043f26d1ad9d6b73de8233da3587032aa39d97478203e6b31f2d8dbd46423a14",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/02.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/03.log": {
+      "bytes": 2407,
+      "sha256": "f1c2490263a0b1520720b7a429c01cee560cbe800c79225e6e761bd439c58cf5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/03.log"
+    },
+    "region-projection-830-candidate-r1-regressions/03.process.json": {
+      "bytes": 700,
+      "sha256": "0cb497fc1ef919046a4fff513019821e037dd894319d9c42c6902fcf355836f5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/03.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/04.log": {
+      "bytes": 1777,
+      "sha256": "d3f5cd660fbf80d72ea9168ebc7a72415d13cdd1bb18017c253aa8f8467adfd0",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/04.log"
+    },
+    "region-projection-830-candidate-r1-regressions/04.process.json": {
+      "bytes": 707,
+      "sha256": "829a124154b53831c71b796aeb68c7fad42737d04c3c33aeba7673e0e8b69599",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/04.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/05.log": {
+      "bytes": 1024,
+      "sha256": "b1f40d84b705a95551a1b6e4f3cbf750e2cd677163f81660126a526b04531c77",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/05.log"
+    },
+    "region-projection-830-candidate-r1-regressions/05.process.json": {
+      "bytes": 686,
+      "sha256": "5ea98aea56a09e4f46c9a33aff8b903a5f7d2a398e1452ff9f1efeef27437b85",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/05.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/06.log": {
+      "bytes": 1032,
+      "sha256": "c5ba457e384f67add98ab9ffa3107fe10c6ef4d8babd1358783e580b1f9d5ad5",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/06.log"
+    },
+    "region-projection-830-candidate-r1-regressions/06.process.json": {
+      "bytes": 750,
+      "sha256": "ba8c1ce2fec07c21d0fe5499d889d816f36f704422ddd8a15ace73279bb1889e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/06.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/07.log": {
+      "bytes": 1026,
+      "sha256": "b344a5c22fe9e2a18b82e0d0983d80b21f0997e96c5d0e3522c1258d66285f91",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/07.log"
+    },
+    "region-projection-830-candidate-r1-regressions/07.process.json": {
+      "bytes": 743,
+      "sha256": "7ec340d0093423b5f4f8528a8de4a640b32116a856ba9a9690f564aef08f94e7",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/07.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/08.log": {
+      "bytes": 1034,
+      "sha256": "dbe512d81db93ca3c6ae884e0b540f83fc3a6ba9eac8fee175f02b77982ba994",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/08.log"
+    },
+    "region-projection-830-candidate-r1-regressions/08.process.json": {
+      "bytes": 751,
+      "sha256": "ebec7ea9002deb2bc627a4d58b4e1d8ed836c684eadb8a79ab3e803804fc22db",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/08.process.json"
+    },
+    "region-projection-830-candidate-r1-regressions/index.json": {
+      "bytes": 12814,
+      "sha256": "e9b8a9141a12739348f451bfae7e7449aa06d6eaeda2a89c2a7c38c141d9eeee",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-regressions/index.json"
+    },
+    "region-projection-830-candidate-r1-source.json": {
+      "bytes": 647883,
+      "sha256": "e811bdc7b4d44dad0c6a73d14829f21f4b5a604543fbfb87e4e8fd71bcc91d6f",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-candidate-r1-source.json"
+    },
+    "region-projection-830-plan-r1.json": {
+      "bytes": 49137,
+      "sha256": "732b0010762d826b221e73de3ac723db7042da2936845bca3a0930e0bce2ed70",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-plan-r1.json"
+    },
+    "region-projection-830-read-gate-r1.json": {
+      "bytes": 267199,
+      "sha256": "694e8e56a10d7ab45267d5a47e747b8380c94e2d82a6c54764187ea2bf9ed46b",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-read-gate-r1.json"
+    },
+    "region-projection-830-read-verify-r1.json": {
+      "bytes": 4818,
+      "sha256": "7d6c9db45df6acc6bf83e14afbcdb17e78a79bf16be04679b59268494abc18f8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-read-verify-r1.json"
+    },
+    "region-projection-830-read-verify-r1.log": {
+      "bytes": 844,
+      "sha256": "04a991a5c9afed2d77639cf70bffe0fa7eebb831113b6bf9b5f045bc443045f2",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-830-read-verify-r1.log"
+    },
+    "region-projection-831-before-restoration.json": {
+      "bytes": 5787,
+      "sha256": "eafd92e3dff411e961cf5d1f41aa52c35f83e60a2d99697a79989d5cf649d07a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-831-before-restoration.json"
+    },
+    "region-regression-selectors-830.json": {
+      "bytes": 13504,
+      "sha256": "bb40121ac7c8ce79316624756d88ceb8322a167ba6a538e83b01bfa42fc534ea",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-regression-selectors-830.json"
+    },
+    "region-selector-primary-verification-830.json": {
+      "bytes": 1498,
+      "sha256": "e1b474f0ae739afa83529574f2b0eed1d5d763d98b9b001651bf631d560d0694",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-selector-primary-verification-830.json"
+    },
+    "region-verifier-negative-checks-830.json": {
+      "bytes": 231,
+      "sha256": "7007fabea3bfd6826466068af868d56c83b1e208a07be38e4df4c0d2f275ffb8",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-verifier-negative-checks-830.json"
+    },
+    "run_guarded.py": {
+      "bytes": 6156,
+      "sha256": "68ec416e4fa11cb2d40d48a5f108eb2808f886148e478e8543027837df186be4",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded.py"
+    },
+    "run_region_intake_828.py": {
+      "bytes": 7886,
+      "sha256": "03ae26d0b5bea2ba35e5f70fefb2625e80985e4b70aafb9c4a6a9d4e625ee57e",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_region_intake_828.py"
+    },
+    "run_region_projection_830.py": {
+      "bytes": 12409,
+      "sha256": "b233fa6de0e2a1a15e62a95f51d1470ba57c32ff9d48e30e724d3e980e9fcb84",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_region_projection_830.py"
+    },
+    "verify_region_intake_828.py": {
+      "bytes": 12266,
+      "sha256": "644c65050a915298c49429cf2a0c3084768cabfec9423de1da6d2f449fdb521a",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_region_intake_828.py"
+    },
+    "verify_region_projection_830.py": {
+      "bytes": 16237,
+      "sha256": "036f9d12dfb7ecd699749e0121b76abde43072d8d43188b865d7a65d31ad9526",
+      "source_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_region_projection_830.py"
+    }
+  },
+  "ordered_calls": 32,
+  "packager": {
+    "bytes": 23719,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_region_projection_831.py",
+    "sha256": "ab0a8c1a1c5cd2e0e6caea4fbf2d15f267cac9abefaa0ae64af4f8bcf6730654"
+  },
+  "packet": {
+    "bytes": 1733248,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-packet-831-r1.json.xz",
+    "sha256": "4225868b6c08d0ce9a9b6412d24a4c2c181c61684271b766fed685b560f149b0"
+  },
+  "passed_guards": 26,
+  "physical_payloads_revalidated": false,
+  "regression_tests": 50,
+  "selected_rows": 1299124,
+  "source_verification": {
+    "checked_files": {
+      "region-intake-828-r1": 3047,
+      "region-intake-828-r2": 3047,
+      "region-intake-828-r3": 3047,
+      "region-projection-830-baseline-r1": 3050,
+      "region-projection-830-candidate-r1": 3050
+    },
+    "git_source_replay": true,
+    "source_versions": 5
+  },
+  "status": "passed"
+}

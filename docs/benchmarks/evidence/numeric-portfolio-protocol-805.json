@@ -1,0 +1,547 @@
+{
+  "artifact_count": 2772,
+  "cohorts": [
+    "A",
+    "B"
+  ],
+  "conditional_id": "PERF-09.portfolio",
+  "consumer_families": [
+    "first_read",
+    "repeated_read",
+    "equal_zero",
+    "not_equal_zero"
+  ],
+  "consumer_repeats": 3,
+  "created_utc": "2026-10-20T10:14:46.701045+00:00",
+  "design_path": "docs/architecture/native-numeric-portfolio-design-2026-10-20.md",
+  "design_sha256": "376e979c508360f357205fabed2774b468960d8b69b999d5ffae57430b28c60c",
+  "external_engine_invoked": false,
+  "limits": {
+    "batch_files_bytes": 268435456,
+    "block_target_bytes": 8388608,
+    "column_file_bytes": 67108864,
+    "diagnostic_bytes": 201326592,
+    "native_memory_bytes": 536870912,
+    "process_stdout_bytes": 8388608,
+    "row_block_rows": 262144,
+    "writer_drivers": 1
+  },
+  "measurement_results_inspected": false,
+  "no_fallback": true,
+  "order": "A uses current/reduced_numeric except repeat 1 reversed; B reverses A; regions original order",
+  "paired_repeats": 3,
+  "preflight_workflow_count": 6,
+  "profiles": [
+    "current",
+    "reduced_numeric"
+  ],
+  "provider": "Vortex 0.85.0 BtrBlocks default versus only_cuda_compatible, existing edition/Dict filtering unchanged",
+  "required_boundaries": [
+    "complete ordered source values with original Arrow oracle",
+    "exact types/nulls/source schema",
+    "fresh producer-closed native readback",
+    "physical segment/file byte distinction",
+    "native encoding/edition admissibility",
+    "statistics parity",
+    "source pre/post full content hashes and per-process stable generations",
+    "zero native credits after all owners drop",
+    "bounded files/logs and complete process drain",
+    "failed observations retained"
+  ],
+  "schema_version": "shardloom.numeric_portfolio.protocol.v1",
+  "scoring": {
+    "cohorts_must_both_pass": true,
+    "complete_file_bytes_max_ratio": 1.02,
+    "consumer_region_and_total_cpu_max_ratio": 1.05,
+    "field_region_profile_statistic": "median of three repeats; sum medians per region and complete cohort",
+    "individual_control_regression": {
+      "absolute_increase_ns": 100000,
+      "both_cohorts_required": true,
+      "relative_increase": 0.1
+    },
+    "numeric_thread_cpu_max_ratio": 0.98,
+    "physical_column_bytes_max_ratio": 1.02,
+    "screen_admits_production": false,
+    "write_process_cpu_max_ratio": 0.98
+  },
+  "source": {
+    "batch_rows": 32768,
+    "bytes": 14779976446,
+    "derived_columns": false,
+    "history": "Previously read fixed regions; no cold-cache/unseen-source claim.",
+    "numeric_columns": [
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "WatchID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "JavaEnable",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "GoodEvent",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "EventTime",
+        "nullable": false
+      },
+      {
+        "dtype": "UInt16",
+        "metadata": {},
+        "name": "EventDate",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "CounterID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "ClientIP",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "RegionID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "UserID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "CounterClass",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "OS",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "UserAgent",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsRefresh",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "RefererCategoryID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "RefererRegionID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "URLCategoryID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "URLRegionID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "ResolutionWidth",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "ResolutionHeight",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "ResolutionDepth",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "FlashMajor",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "FlashMinor",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "NetMajor",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "NetMinor",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "UserAgentMajor",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "CookieEnable",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "JavascriptEnable",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsMobile",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "MobilePhone",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "IPNetworkID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "TraficSourceID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "SearchEngineID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "AdvEngineID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsArtifical",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "WindowClientWidth",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "WindowClientHeight",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "ClientTimeZone",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "ClientEventTime",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "SilverlightVersion1",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "SilverlightVersion2",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "SilverlightVersion3",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "SilverlightVersion4",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "CodeVersion",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsLink",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsDownload",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsNotBounce",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "FUniqID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "HID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsOldCounter",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsEvent",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "IsParameter",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "DontCountHits",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "WithHash",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "LocalEventTime",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "Age",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "Sex",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "Income",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "Interests",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "Robotness",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "RemoteIP",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "WindowName",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "OpenerName",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "HistoryLength",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "HTTPError",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "SendTiming",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "DNSTiming",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "ConnectTiming",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "ResponseStartTiming",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "ResponseEndTiming",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "FetchTiming",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "SocialSourceNetworkID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "ParamPrice",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "ParamCurrencyID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int16",
+        "metadata": {},
+        "name": "HasGCLID",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "RefererHash",
+        "nullable": false
+      },
+      {
+        "dtype": "Int64",
+        "metadata": {},
+        "name": "URLHash",
+        "nullable": false
+      },
+      {
+        "dtype": "Int32",
+        "metadata": {},
+        "name": "CLID",
+        "nullable": false
+      }
+    ],
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "row_groups": [
+      0,
+      113,
+      225
+    ],
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "source_columns": 105
+  },
+  "source_commit": "ca72dba5ed7bd8e5dc6ee38a4f3a59ed42bc014d",
+  "workflow_count": 36
+}

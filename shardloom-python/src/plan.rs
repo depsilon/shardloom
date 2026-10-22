@@ -107,6 +107,12 @@ impl NativePlan {
 }
 
 impl PlanCore {
+    /// A producer declaration remains effectful/one-shot even when preparation
+    /// has collected its current values into a native memory source.
+    pub(super) fn output_window_source_allowed(&self) -> bool {
+        self.batches.is_empty()
+    }
+
     pub(super) fn with_prepared<T>(
         &self,
         resources: ExecutionResources,
@@ -248,11 +254,12 @@ impl PlanCore {
 impl NativePlan {
     /// Demand-driven columnar execution. The worker starts on first iteration;
     /// completion evidence is published only after the final consumer demand.
-    #[pyo3(signature = (*, resources=None, timeout=None))]
+    #[pyo3(signature = (*, resources=None, timeout=None, output_window_bytes=0))]
     fn iter_batches(
         &self,
         resources: Option<&NativeResources>,
         timeout: Option<&Bound<'_, PyAny>>,
+        #[pyo3(from_py_with = super::stream::output_window_bytes)] output_window_bytes: u64,
     ) -> PyResult<super::stream::NativeExecutionStream> {
         let timeout = super::session::timeout_duration(timeout)?;
         let cancellation = self.session.begin().map_err(native_error)?;
@@ -262,6 +269,7 @@ impl NativePlan {
             resources,
             &cancellation,
             timeout,
+            output_window_bytes != 0,
         ))
     }
 

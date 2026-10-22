@@ -1,0 +1,3040 @@
+{
+  "executable_regeneration": "Git base plus exact frozen source patch and six added sources in compact result packet; no executable backup.",
+  "paths": [
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12964,
+      "device": 16777233,
+      "inode": 115941375,
+      "mtime_ns": 1792498536866130420,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-current/config.json",
+      "sha256": "3fc0d6afc5927fadf3e74d40062fea557e0add307f7235bf8041255d3183a16a"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157489,
+      "device": 16777233,
+      "inode": 115941464,
+      "mtime_ns": 1792498537701240696,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-current/producer.json",
+      "sha256": "916147332414371c1672f9e5bd871be78e56a85c9488b142bc47fb7741d6daf5"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115941557,
+      "mtime_ns": 1792498542195449638,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-current/rewrite-verification.json",
+      "sha256": "219a607447fe46df91a5d92d50009c5979b7840656c9dbed4913192aa48da827"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435789,
+      "device": 16777233,
+      "inode": 115941553,
+      "mtime_ns": 1792498540027724223,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-current/verification.json",
+      "sha256": "6591e71e2a7f4b8cd51c8861c9dcfe4a2fabd49b5b6414935d42c6015d4e5d1f"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12973,
+      "device": 16777233,
+      "inode": 115941565,
+      "mtime_ns": 1792498545896626271,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-structural/config.json",
+      "sha256": "d727ecd0312b37dcaac38097ec9e62f334450ce4f1634c7e8b7e4fa18172df94"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160514,
+      "device": 16777233,
+      "inode": 115941655,
+      "mtime_ns": 1792498546839398597,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-structural/producer.json",
+      "sha256": "3de7f2699e5d6653fd2a626053194768215338a2e0dce82f20d3d87b15bf2423"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115941759,
+      "mtime_ns": 1792498551238070213,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-structural/rewrite-verification.json",
+      "sha256": "2be8d674e167c4d2e4f4cc13cc5f7ee051e7c39c617b03443fd6d5a928788bea"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 438270,
+      "device": 16777233,
+      "inode": 115941751,
+      "mtime_ns": 1792498549164150122,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r0-structural/verification.json",
+      "sha256": "b7d185ff5307e682576751ceaf34ebc88a97b497e9ffb488a7f403a7dc209af7"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12964,
+      "device": 16777233,
+      "inode": 115941967,
+      "mtime_ns": 1792498564085421300,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-current/config.json",
+      "sha256": "a7139bac5f96d2ab05c9abb856642bb11953e7381256e7c5b922992a2207e7c3"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157491,
+      "device": 16777233,
+      "inode": 115942055,
+      "mtime_ns": 1792498564954080826,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-current/producer.json",
+      "sha256": "2fc20893a32ddf3ec468e270fa146d41af2c8e75ff436f90afdf7fc6389da814"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115942151,
+      "mtime_ns": 1792498569569298582,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-current/rewrite-verification.json",
+      "sha256": "fa6b9b8eb8a7a6c18b921e4e772672d8a3e392e843377310a7e01805b6ceeb20"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435790,
+      "device": 16777233,
+      "inode": 115942144,
+      "mtime_ns": 1792498567444462428,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-current/verification.json",
+      "sha256": "f53b2469d787adde9ce246dc15fa56cb0f5b32bcdb22351dedbba6d72e74d625"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12973,
+      "device": 16777233,
+      "inode": 115941767,
+      "mtime_ns": 1792498555000556547,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-structural/config.json",
+      "sha256": "5c485ebb64972d85b416ec72067ba868c2267997d71d182b21ab8a6420a5b248"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160519,
+      "device": 16777233,
+      "inode": 115941856,
+      "mtime_ns": 1792498555938529284,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-structural/producer.json",
+      "sha256": "66f49ce830569c57e214d1eca0774e64945b47475447037d37fd1b11e47134c9"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115941964,
+      "mtime_ns": 1792498560395711097,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-structural/rewrite-verification.json",
+      "sha256": "fb916de8e09201acd771a44c1ff70a99bf5c48bf7c32708b98618398fefa807a"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 438265,
+      "device": 16777233,
+      "inode": 115941950,
+      "mtime_ns": 1792498558280546455,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r1-structural/verification.json",
+      "sha256": "0ea4831be3cf92c8b82925fbc8284c59f51933ea8089c6658bf6d24c362f38df"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12964,
+      "device": 16777233,
+      "inode": 115942155,
+      "mtime_ns": 1792498573260679246,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-current/config.json",
+      "sha256": "e646b025f55c7c3c6d319358d4116c1cd6b1eec581d798e4bfd3f6aec268d518"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157485,
+      "device": 16777233,
+      "inode": 115942243,
+      "mtime_ns": 1792498574121950388,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-current/producer.json",
+      "sha256": "eaba3f5829603c3ecb102e230a896ef6be0591f44707e225ecd958ce5af61955"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115942335,
+      "mtime_ns": 1792498578795338300,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-current/rewrite-verification.json",
+      "sha256": "01b20fa6f15e68d8dbea2c80ab4cc27adeeaa056e8c8a041fd74046edc768989"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435782,
+      "device": 16777233,
+      "inode": 115942332,
+      "mtime_ns": 1792498576687956875,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-current/verification.json",
+      "sha256": "11686d0d1c4fe65433700671246adcaa8f0a752642023765cf2494c8685be973"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12973,
+      "device": 16777233,
+      "inode": 115942340,
+      "mtime_ns": 1792498582681571202,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-structural/config.json",
+      "sha256": "3a92c6f31df02999766b73c3d4d6ec89e954c31b7a9c6466d5a82e59afb1aca5"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160522,
+      "device": 16777233,
+      "inode": 115942430,
+      "mtime_ns": 1792498583625803529,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-structural/producer.json",
+      "sha256": "595c6f4228e3448f49eefff79d6fb72914cd91cf9ec9554bf5c67d58d63c86f2"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115942522,
+      "mtime_ns": 1792498588056119685,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-structural/rewrite-verification.json",
+      "sha256": "1d08e47aecfaf780938d4b68fc5d716cd809762a45bdeedd5fcab2ef1639bac2"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 438264,
+      "device": 16777233,
+      "inode": 115942519,
+      "mtime_ns": 1792498585957570355,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg0-r2-structural/verification.json",
+      "sha256": "176fe9aabc0f5922979a4c0178abfdca557b6427d8a3fb0de32cfbf56131f714"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115942527,
+      "mtime_ns": 1792498591762055700,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-current/config.json",
+      "sha256": "76c107ae2aae714568c926c18a0f40ed3bd71ee42d5002419743d27099fb700d"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157489,
+      "device": 16777233,
+      "inode": 115942615,
+      "mtime_ns": 1792498592652383294,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-current/producer.json",
+      "sha256": "3d421f3794ae8891893085c344ba6fd37a517d869a0546b37635a826cf25a56e"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115942707,
+      "mtime_ns": 1792498597301350217,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-current/rewrite-verification.json",
+      "sha256": "78ad0ad067e895c947599de7f1af82aeed3017d236cc54e9272863f9b409625e"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435836,
+      "device": 16777233,
+      "inode": 115942703,
+      "mtime_ns": 1792498595164912841,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-current/verification.json",
+      "sha256": "0416a1f1b5ad4f4fce386e8ff1551ab55b9b16997b0b8650eb755812c4c635c3"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115942710,
+      "mtime_ns": 1792498601136199349,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-structural/config.json",
+      "sha256": "27d914e4f3055fe72bd2590a64b7c3ea08fdefaf5baeef0f0b8796c2161528f9"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160443,
+      "device": 16777233,
+      "inode": 115942798,
+      "mtime_ns": 1792498602213361923,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-structural/producer.json",
+      "sha256": "97b7f1e091328dc6a3961fd29eb825c3468329f9186884c869e33ea4361f906d"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115942889,
+      "mtime_ns": 1792498606737853944,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-structural/rewrite-verification.json",
+      "sha256": "4afae71fe620593cc5e0cb94832c598962c391971a5d17cd0c15afa128e79490"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438863,
+      "device": 16777233,
+      "inode": 115942886,
+      "mtime_ns": 1792498604589538052,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r0-structural/verification.json",
+      "sha256": "58b68f5174d603f3caeaf00f422aa62d05d60cc38c6ddac28f1f9492d6cfb70c"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115943089,
+      "mtime_ns": 1792498619857550363,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-current/config.json",
+      "sha256": "f029c928059e411e9dffb858cbdf52cd16bf220f2de1515ba9bc94aec4dcb2ee"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157493,
+      "device": 16777233,
+      "inode": 115943182,
+      "mtime_ns": 1792498620865641394,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-current/producer.json",
+      "sha256": "141cb9b3684e00e0ffa905826a2ac4b2549efb4af18606479bc3d4e62c6d81bc"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115943277,
+      "mtime_ns": 1792498625534367673,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-current/rewrite-verification.json",
+      "sha256": "60a3b73f0dc41bb3efa59555496c141f36aca59563017140f8c00be13b89a760"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435841,
+      "device": 16777233,
+      "inode": 115943270,
+      "mtime_ns": 1792498623398939924,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-current/verification.json",
+      "sha256": "09ad51e387871d20b725cea87f48fcb1820585af382090bf8fb55bd9c25057a1"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115942895,
+      "mtime_ns": 1792498610466288612,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-structural/config.json",
+      "sha256": "6ff8ffb502a7d6c209100e439d9d0aa493eb964db18f9ff88ca262d3a52cb3f8"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160440,
+      "device": 16777233,
+      "inode": 115942983,
+      "mtime_ns": 1792498611542886685,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-structural/producer.json",
+      "sha256": "2b2fbfbbd3580699af03ab0d3419c426594a8780b38aeaa0abee4fa97a7bb8ea"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115943078,
+      "mtime_ns": 1792498616088665148,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-structural/rewrite-verification.json",
+      "sha256": "6b956b38fb831380d759aa07cf67de783766f314a5503173440540171d77f076"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438858,
+      "device": 16777233,
+      "inode": 115943072,
+      "mtime_ns": 1792498613936720170,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r1-structural/verification.json",
+      "sha256": "2347828ae87b9384d49d381206dad5afd293b51ee13f0aca2fc60b12fdaf6661"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115943288,
+      "mtime_ns": 1792498629235916598,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-current/config.json",
+      "sha256": "92fddcee204cfb640f29d312167e67dbe095f2305bb9f713b95ea69d71f379b2"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157489,
+      "device": 16777233,
+      "inode": 115943376,
+      "mtime_ns": 1792498630140780543,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-current/producer.json",
+      "sha256": "7db275eb1d2aee2179d070b5d00950cb247d2ab986410c218ba42cf8209c12e3"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115943467,
+      "mtime_ns": 1792498634807524820,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-current/rewrite-verification.json",
+      "sha256": "c710911460f47f2967cfb877f6680bf8e2d3722bfc1a0459b91b0312ee51d60c"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435849,
+      "device": 16777233,
+      "inode": 115943464,
+      "mtime_ns": 1792498632679947038,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-current/verification.json",
+      "sha256": "7c0376505a759850d6f87bae9e052f0c6bacaaa88911c35038cede79a4e57d10"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115943475,
+      "mtime_ns": 1792498638552265005,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-structural/config.json",
+      "sha256": "e7832d0c3fc398bda6c03f8bc22f4f7160ef56ebc04c29fdfd00dfd40932b565"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160435,
+      "device": 16777233,
+      "inode": 115943563,
+      "mtime_ns": 1792498639632297541,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-structural/producer.json",
+      "sha256": "b09ada235e5f04e0963a2f069d86f302c75069a910c75bc2a9fabb6bee7070f7"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115943660,
+      "mtime_ns": 1792498644198094361,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-structural/rewrite-verification.json",
+      "sha256": "3239ea9ac4dbbf6593cc211c2a96c222b158e02e8bf181a7df62698372e7fa7d"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438853,
+      "device": 16777233,
+      "inode": 115943654,
+      "mtime_ns": 1792498642040686668,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg113-r2-structural/verification.json",
+      "sha256": "ea32260b095a1fe84902de30b8e46a132e0e9d4e521e052213ebe647556ea0c4"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12951,
+      "device": 16777233,
+      "inode": 115943663,
+      "mtime_ns": 1792498647952199724,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-current/config.json",
+      "sha256": "4e2311e5bda815a7213884facc76c550f602754f50caea569f5734d4f0deccc3"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157476,
+      "device": 16777233,
+      "inode": 115943751,
+      "mtime_ns": 1792498648852191914,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-current/producer.json",
+      "sha256": "86540ef7c4e7ba48ddebecb3137ca694847c8995e790998f31b7a4f5f766bff9"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115943844,
+      "mtime_ns": 1792498653550389146,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-current/rewrite-verification.json",
+      "sha256": "d5c0775dd8af571591a08413e08076ac8741852c48dcb05fbc046e35bc581d34"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435815,
+      "device": 16777233,
+      "inode": 115943841,
+      "mtime_ns": 1792498651379967562,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-current/verification.json",
+      "sha256": "aa9d04f454bcd3aa6a1468bee3fa9d3ba2a596be02fa8abf277a95629fac4038"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12960,
+      "device": 16777233,
+      "inode": 115943847,
+      "mtime_ns": 1792498657302501466,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-structural/config.json",
+      "sha256": "c96a6c6df7e5e36bac204ff996309086db31d5937234a642ca9593ec1735eb08"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160408,
+      "device": 16777233,
+      "inode": 115943936,
+      "mtime_ns": 1792498658385371129,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-structural/producer.json",
+      "sha256": "a06a1e3be43d81c3f0d2c7cdbe4e457076edf74de0d757b3063973b0bb89a777"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115944028,
+      "mtime_ns": 1792498662900152220,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-structural/rewrite-verification.json",
+      "sha256": "91fe27cfb760fd1416bf2876c0bd75a5baa0737fe40215bf4af1ea31fdf66c90"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439073,
+      "device": 16777233,
+      "inode": 115944025,
+      "mtime_ns": 1792498660784962537,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r0-structural/verification.json",
+      "sha256": "01ed96d60922647bd852ec5e55b23a917f3d09e48a8aff3968c19c6a8ed64feb"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12951,
+      "device": 16777233,
+      "inode": 115944216,
+      "mtime_ns": 1792498676148795169,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-current/config.json",
+      "sha256": "bef6bc7359ed6578a9b80255ffe18eb8b8ef014141aa31a2c660c29433c7d12c"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157506,
+      "device": 16777233,
+      "inode": 115944304,
+      "mtime_ns": 1792498677047066898,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-current/producer.json",
+      "sha256": "f0fc656f84de92c4634783b7648d656a868f6c3c153b4e6218c74e2edf9a394d"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115944398,
+      "mtime_ns": 1792498681696842696,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-current/rewrite-verification.json",
+      "sha256": "89505d1a4785d8dee00a01f121eb4d9261c704bc2c18904c590ca58d20e0a590"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435820,
+      "device": 16777233,
+      "inode": 115944392,
+      "mtime_ns": 1792498679551584184,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-current/verification.json",
+      "sha256": "038774b7f40a56833123bea75eb68adaff469c533718e2b4f644c13b2cc97496"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12960,
+      "device": 16777233,
+      "inode": 115944031,
+      "mtime_ns": 1792498666747108531,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-structural/config.json",
+      "sha256": "e1fce0e39b1dfe96beca71e269a9fb681254c7ba3153765594cec53eb6b1ff9a"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160433,
+      "device": 16777233,
+      "inode": 115944119,
+      "mtime_ns": 1792498667834149367,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-structural/producer.json",
+      "sha256": "df778ab640ade3fa7dad0ee3ec6c0b5063bc7ea0f43c10357dbcf3c00a35c092"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115944212,
+      "mtime_ns": 1792498672451512708,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-structural/rewrite-verification.json",
+      "sha256": "f220bd8a18277b5c3dee397c77ec0dc447444101fe9e80d6a0f8c78685d68d70"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439068,
+      "device": 16777233,
+      "inode": 115944209,
+      "mtime_ns": 1792498670246167040,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r1-structural/verification.json",
+      "sha256": "cd0e3fd3e7c28c6fd26140e849c7525906df0408b07e57430be6050940cb19fb"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12951,
+      "device": 16777233,
+      "inode": 115944401,
+      "mtime_ns": 1792498685385110353,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-current/config.json",
+      "sha256": "36e4592bfcaf1da02f95207f3b2c367bcece685afa3d7a390d2a7f012cb717c6"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157478,
+      "device": 16777233,
+      "inode": 115944490,
+      "mtime_ns": 1792498686283574167,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-current/producer.json",
+      "sha256": "c9e38db7234c7012b337d3735a035106724078b82f46ccfaa5aa94788c9746cf"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115944592,
+      "mtime_ns": 1792498691018487860,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-current/rewrite-verification.json",
+      "sha256": "48b37c96a4b7369dca5eb3b95be20341e3e36844824765b9057f57202425a584"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435826,
+      "device": 16777233,
+      "inode": 115944585,
+      "mtime_ns": 1792498688748976571,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-current/verification.json",
+      "sha256": "09181c14070100a956b964d9e8a112eafd113d7570aa785cf3ed507cebb0e91c"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12960,
+      "device": 16777233,
+      "inode": 115944598,
+      "mtime_ns": 1792498694727676627,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-structural/config.json",
+      "sha256": "e554bebd26cec68c52049608541ad932cd56f03f25f7ce3871a4c729ec00c81f"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160409,
+      "device": 16777233,
+      "inode": 115944686,
+      "mtime_ns": 1792498695826092769,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-structural/producer.json",
+      "sha256": "e26443fab3f738567df4fd32b34362b1aa56a499ea2238a78fc89512e93279e3"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115944783,
+      "mtime_ns": 1792498700385000288,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-structural/rewrite-verification.json",
+      "sha256": "3aeeec665e588c937202ee4b76a1a9daabeced358f5e3dc6b5e32d9e9b5a675a"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439061,
+      "device": 16777233,
+      "inode": 115944779,
+      "mtime_ns": 1792498698235902397,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/A-rg225-r2-structural/verification.json",
+      "sha256": "558e7abb46d2b9b6c72101f156a35e6a83c8507a65fdf185de6bc4681e8d6a98"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12964,
+      "device": 16777233,
+      "inode": 115944977,
+      "mtime_ns": 1792498713277739217,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-current/config.json",
+      "sha256": "cf21753ba67ce8c904ae6488dcea688a8cffa8d4707001f1baf47ba5a56bc76d"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157494,
+      "device": 16777233,
+      "inode": 115945065,
+      "mtime_ns": 1792498714243737862,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-current/producer.json",
+      "sha256": "83528d4382742b8f4fe86ba4301e6016e39242c6dff5e44a40553a385e36a60b"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115945157,
+      "mtime_ns": 1792498718739686012,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-current/rewrite-verification.json",
+      "sha256": "4197c7713712bd28b76e01542019a1871e392328ffe4e78d3fc701c28b4406e1"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435793,
+      "device": 16777233,
+      "inode": 115945153,
+      "mtime_ns": 1792498716629831086,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-current/verification.json",
+      "sha256": "93f66233244c8eea64b35905911a0ca6c0922836014441e18acfb4c74c2d87b2"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12973,
+      "device": 16777233,
+      "inode": 115944791,
+      "mtime_ns": 1792498704127374096,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-structural/config.json",
+      "sha256": "82cc2e5e42fd152136628a128835faabae69658d24c89859931b986d0e9278d4"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160518,
+      "device": 16777233,
+      "inode": 115944880,
+      "mtime_ns": 1792498705098987040,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-structural/producer.json",
+      "sha256": "657a8d771ff36b91a9af174b6448d7bf6b1f11a74a81fe138a3a3c1b930ea5a3"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115944972,
+      "mtime_ns": 1792498709569792659,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-structural/rewrite-verification.json",
+      "sha256": "b42ab0972256c579cc3f11d18129fc5d1f97e2d3778154a495660ad7e47f698e"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 438263,
+      "device": 16777233,
+      "inode": 115944969,
+      "mtime_ns": 1792498707451698139,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r0-structural/verification.json",
+      "sha256": "33449703fdf046ed32448b59b77c039054665f023a65088545190a4e9dcdb4b2"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12964,
+      "device": 16777233,
+      "inode": 115945165,
+      "mtime_ns": 1792498722437353431,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-current/config.json",
+      "sha256": "c2cb1751827d583669d5236982629e3d1a67e28dc951191edade241c019032d0"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157482,
+      "device": 16777233,
+      "inode": 115945253,
+      "mtime_ns": 1792498723327394901,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-current/producer.json",
+      "sha256": "676c6c10acc5c56009514345d3265f18697b14a1db23bb530681b6427c1a2989"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115945344,
+      "mtime_ns": 1792498727833900397,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-current/rewrite-verification.json",
+      "sha256": "58d9247bcf33559220540c94f6a30b48ae9381e543d2e4f914cb1e8af6e07c32"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435794,
+      "device": 16777233,
+      "inode": 115945341,
+      "mtime_ns": 1792498725700875526,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-current/verification.json",
+      "sha256": "1127a2f80c68e5a8c6a8e443664422ccc23308fc442040933a958f7b3bd209f3"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12973,
+      "device": 16777233,
+      "inode": 115945350,
+      "mtime_ns": 1792498731515857714,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-structural/config.json",
+      "sha256": "1b5b82be2fddcab13d586f64432456ef096ec3a143ca92541c84ec0db3ad5558"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160513,
+      "device": 16777233,
+      "inode": 115945438,
+      "mtime_ns": 1792498732472530181,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-structural/producer.json",
+      "sha256": "9a5c613f32e29ae757ba549b657e0bae4048428d9385fbab086f1e4b36c05c36"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115945533,
+      "mtime_ns": 1792498736922626234,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-structural/rewrite-verification.json",
+      "sha256": "b0bc5a423accf2d92036916f1025daa25cffaa920e6ecbbb415e561ef45182ec"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438276,
+      "device": 16777233,
+      "inode": 115945527,
+      "mtime_ns": 1792498734783698938,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r1-structural/verification.json",
+      "sha256": "efdc891a6921c04f8c4150b0452d01f20ca5b20c862d4943d0e4caac1eada41a"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12964,
+      "device": 16777233,
+      "inode": 115945723,
+      "mtime_ns": 1792498749864159180,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-current/config.json",
+      "sha256": "691457b999339e49534075a29a92c8af2d22d3e61ce15893ec85d944cdcbe223"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157491,
+      "device": 16777233,
+      "inode": 115945812,
+      "mtime_ns": 1792498750737063961,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-current/producer.json",
+      "sha256": "967d6d1550f32ff35820e7cfaf825b276ec700d48b5241f0927c98fa0396ac53"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115945904,
+      "mtime_ns": 1792498755277617042,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-current/rewrite-verification.json",
+      "sha256": "38e13bbff7f439bda4f1ae873ef89db13c0ff63f5d8a75518a0ebc72f293ca2f"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435794,
+      "device": 16777233,
+      "inode": 115945900,
+      "mtime_ns": 1792498753144093878,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-current/verification.json",
+      "sha256": "6900830929857400108ada11b019c2a06722a5b87ca4974f9bb7cc436d1fe6ef"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12973,
+      "device": 16777233,
+      "inode": 115945538,
+      "mtime_ns": 1792498740637965508,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-structural/config.json",
+      "sha256": "c5b8521a54bc7e54287b7308034a019093efd445a95ee690a7cc663b58b055a5"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160514,
+      "device": 16777233,
+      "inode": 115945628,
+      "mtime_ns": 1792498741607050949,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-structural/producer.json",
+      "sha256": "62a6d19c9c3ca5d3f832d3cf6244e6ff56ca6d9299e4c433e18b90c5f2df0dc4"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115945719,
+      "mtime_ns": 1792498746118368410,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-structural/rewrite-verification.json",
+      "sha256": "2a2878bec9152fc410027e76b4c3f24992a510436bd7321d5174b5a76f91e1a7"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438344,
+      "device": 16777233,
+      "inode": 115945716,
+      "mtime_ns": 1792498744029341843,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg0-r2-structural/verification.json",
+      "sha256": "0a8e07e1fafcec6411ef9dc6895136c5e881e14fdacb305ce1712ab4f82c6d39"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115946123,
+      "mtime_ns": 1792498768438056215,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-current/config.json",
+      "sha256": "062e45eba34c7d34bdbb3b5bed99d5bfc693b86c0698fdfa5175408c18ec623d"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157490,
+      "device": 16777233,
+      "inode": 115946213,
+      "mtime_ns": 1792498769340950867,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-current/producer.json",
+      "sha256": "44add09d0787c8c24bb7ab031f55fc589b0253f05e9d96ad2dd6497e597e8032"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115946308,
+      "mtime_ns": 1792498773951138408,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-current/rewrite-verification.json",
+      "sha256": "5759626b86036835f6404600e3096f441224b11857ab356c6a1798bb15fa07a5"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435857,
+      "device": 16777233,
+      "inode": 115946303,
+      "mtime_ns": 1792498771807670273,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-current/verification.json",
+      "sha256": "f6fb028d3be6933036277a7cd91d155a0d6f3196120bbd7fc0cf9b5016fc1849"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115945913,
+      "mtime_ns": 1792498759031541822,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-structural/config.json",
+      "sha256": "2c13d8aaa591371f447cacf7b81dc8f76e31e797b8f21fa0475995858d8e3dd1"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160443,
+      "device": 16777233,
+      "inode": 115946005,
+      "mtime_ns": 1792498760119198659,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-structural/producer.json",
+      "sha256": "40c49de05da025a970ecca593a9d27478ac6e42bed0473aa7b4fd393b1d7638d"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115946116,
+      "mtime_ns": 1792498764675128008,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-structural/rewrite-verification.json",
+      "sha256": "85aac29232d2b3e7254831a749a0231c0844e34ba0ac42140cc1841013b327ea"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438866,
+      "device": 16777233,
+      "inode": 115946108,
+      "mtime_ns": 1792498762520165151,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r0-structural/verification.json",
+      "sha256": "8cf38daec889eefc95c40ca944138796e0e61eed84e89105a8406f81948600e0"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115946312,
+      "mtime_ns": 1792498777671037271,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-current/config.json",
+      "sha256": "68cbd11f2fae6c91c23c7089766db0798d5f1929fb7316e6e471afdc85c0ddd7"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157487,
+      "device": 16777233,
+      "inode": 115946403,
+      "mtime_ns": 1792498778589569191,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-current/producer.json",
+      "sha256": "54e2ad5a02ca6f9dea0ea57c582a9ae82197fe56ae72d090914c9f491ab015aa"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115946501,
+      "mtime_ns": 1792498783296697185,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-current/rewrite-verification.json",
+      "sha256": "387e9ffe7a1b31599e983989d9d44aa07477a3dc78feed7cc49fb0ca2a7677ce"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435853,
+      "device": 16777233,
+      "inode": 115946498,
+      "mtime_ns": 1792498781158163224,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-current/verification.json",
+      "sha256": "fba3e033c73bfaec66e1f2720238fa539b098bd580e19569f2b4b71d147f88ce"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115946504,
+      "mtime_ns": 1792498787141837119,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-structural/config.json",
+      "sha256": "157d417cbe1dbe3a9ee72c91b3d46c4b2fa77eb0ceba11825eade0ba6d624285"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160445,
+      "device": 16777233,
+      "inode": 115946592,
+      "mtime_ns": 1792498788250006481,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-structural/producer.json",
+      "sha256": "dc0b3f44a6c1c68e55a37f683523426615875057aad214126e5701c5d1cf9584"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115946684,
+      "mtime_ns": 1792498792792356188,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-structural/rewrite-verification.json",
+      "sha256": "8e834ad132c7539c17d2045035986586138bf122291110ab02c4602f383f3443"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438857,
+      "device": 16777233,
+      "inode": 115946681,
+      "mtime_ns": 1792498790636559747,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r1-structural/verification.json",
+      "sha256": "5474536dc9267d1070744205a3b965b463ba10f56c7c80a8a1f808cb1d6ce3e7"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115946874,
+      "mtime_ns": 1792498806036127423,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-current/config.json",
+      "sha256": "b7e81c324d93fee78c4bbac9e6a3b7e75baff5debeeb8cc73f4e66d1ce55cd51"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157489,
+      "device": 16777233,
+      "inode": 115946962,
+      "mtime_ns": 1792498806932580066,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-current/producer.json",
+      "sha256": "3df567fd3a7f2fb6510bef957b5e81c8947b559ab882d2da04581973667ab3ee"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115947057,
+      "mtime_ns": 1792498811550612908,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-current/rewrite-verification.json",
+      "sha256": "a2cf5713ade029259dcda3d8e5e01f3d73ceb1751109b9e5b6cae45c77aa6371"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435847,
+      "device": 16777233,
+      "inode": 115947053,
+      "mtime_ns": 1792498809423727252,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-current/verification.json",
+      "sha256": "0276433a7da1730d0e3af0c45ae69ccf6e64dbd8554c43f40675025f48eba2a8"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115946688,
+      "mtime_ns": 1792498796542484630,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-structural/config.json",
+      "sha256": "fc222bf35becbd5f0701e40fe9c9dbfb49568162216f5519f95fad8f13977dce"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160439,
+      "device": 16777233,
+      "inode": 115946776,
+      "mtime_ns": 1792498797706586353,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-structural/producer.json",
+      "sha256": "951d7ab7bb7efa4bb9fa2107420e1d60c8e0885f1cffe8445ccad28ce97f6e36"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115946871,
+      "mtime_ns": 1792498802281569101,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-structural/rewrite-verification.json",
+      "sha256": "bed1797246c7b63fb9c9e8659e532323e491416caf62f43f1be17077d598dbe0"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438862,
+      "device": 16777233,
+      "inode": 115946866,
+      "mtime_ns": 1792498800111443934,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg113-r2-structural/verification.json",
+      "sha256": "5cb90ba661f760b974bace4aebd1f8a14c300a45d5bcc0af6163e872f8f7f391"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12951,
+      "device": 16777233,
+      "inode": 115947246,
+      "mtime_ns": 1792498824664790567,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-current/config.json",
+      "sha256": "682bfe5168d4743c966865b45cc3cedc0ad67ee2e2a81bb62b42744a862c9048"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157471,
+      "device": 16777233,
+      "inode": 115947335,
+      "mtime_ns": 1792498825568003593,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-current/producer.json",
+      "sha256": "a730ae18e2047978c57de7bc537312fa54b94bfbe26dd3f20b6f6e0de4182546"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115947433,
+      "mtime_ns": 1792498830194612197,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-current/rewrite-verification.json",
+      "sha256": "0be13d9dc836b65e2440200b882372418ef4c6864a723ec3afb132244a4bffdf"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435819,
+      "device": 16777233,
+      "inode": 115947425,
+      "mtime_ns": 1792498828055772610,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-current/verification.json",
+      "sha256": "f499c5852f6716dbf3509e1d6b58d1c912d1e64dd3cc9012d071d511a3023faa"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12960,
+      "device": 16777233,
+      "inode": 115947060,
+      "mtime_ns": 1792498815265797225,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-structural/config.json",
+      "sha256": "7398579324ebbf45dfd1d27d8b4eb451c1289f8dcc4a3d6f2d28d10640c9675e"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160414,
+      "device": 16777233,
+      "inode": 115947148,
+      "mtime_ns": 1792498816353183269,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-structural/producer.json",
+      "sha256": "ed8b23c670c846ae2a3a0150adf3c81ea732290012c1672b219342d1c536a779"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115947240,
+      "mtime_ns": 1792498820916242127,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-structural/rewrite-verification.json",
+      "sha256": "ffe99e122ff2ed4b06c379654dfe280e85d080929dc868da51d5df84a7298c2c"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439056,
+      "device": 16777233,
+      "inode": 115947236,
+      "mtime_ns": 1792498818763153856,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r0-structural/verification.json",
+      "sha256": "2d8818712d352c014f0ffee93c4a655fe8cbd67ac7b74d48e8c4d4b8a4e37126"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12951,
+      "device": 16777233,
+      "inode": 115947443,
+      "mtime_ns": 1792498833940124633,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-current/config.json",
+      "sha256": "225b05b5aa56a1d40af7a907da552dca6a88de349aa4fa49252230fb5bebe439"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157478,
+      "device": 16777233,
+      "inode": 115947531,
+      "mtime_ns": 1792498834846950914,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-current/producer.json",
+      "sha256": "e4c446b77455cecd430870af9d3daee92fa66bfa5c046637338e425705cdc374"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115947628,
+      "mtime_ns": 1792498839548443442,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-current/rewrite-verification.json",
+      "sha256": "e365bb6daa6b45070378e6806cd431369113414c9680d179046a24478aa398f4"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435817,
+      "device": 16777233,
+      "inode": 115947619,
+      "mtime_ns": 1792498837390094372,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-current/verification.json",
+      "sha256": "c77da33ac790aad1901f9d6f50aa309b9d75161217fc6a9d552d245da762916c"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12960,
+      "device": 16777233,
+      "inode": 115947633,
+      "mtime_ns": 1792498843250369325,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-structural/config.json",
+      "sha256": "1bdebe52872a55c0090d53841254f9a11be394494005524086688f2c9a8b0119"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160417,
+      "device": 16777233,
+      "inode": 115947721,
+      "mtime_ns": 1792498844349687927,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-structural/producer.json",
+      "sha256": "1f80d87743108103c1a4faa191e63f29093423abea69ef331574750e7953aa4a"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115947812,
+      "mtime_ns": 1792498848888214295,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-structural/rewrite-verification.json",
+      "sha256": "df2f3415fd20196651ca6cea9e04142e23f29a5e1a9b7f923b03e2e5924baeac"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439055,
+      "device": 16777233,
+      "inode": 115947809,
+      "mtime_ns": 1792498846745030411,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r1-structural/verification.json",
+      "sha256": "d029a1ba313369819ab4bd90f6de6840db1b49576f363dd931a51e7b6aa83396"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12951,
+      "device": 16777233,
+      "inode": 115948009,
+      "mtime_ns": 1792498862141289833,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-current/config.json",
+      "sha256": "6ea2670b5f7a62e574710849e4a7cf9f1e5d1c20414529df91bbc874bb72ee3b"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157479,
+      "device": 16777233,
+      "inode": 115948097,
+      "mtime_ns": 1792498863042448733,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-current/producer.json",
+      "sha256": "e1295e06a2284c1638f8ba750bbcdf820f2bb5b78c69c0451e3a812cbc28d5c4"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115948188,
+      "mtime_ns": 1792498867708255841,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-current/rewrite-verification.json",
+      "sha256": "b987cb5e1afd87efd24207fdfeb2a786f979f24ae3410db1adf15575bcc60202"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435812,
+      "device": 16777233,
+      "inode": 115948185,
+      "mtime_ns": 1792498865583660064,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-current/verification.json",
+      "sha256": "af5735ef1db29fd5c4e317180acc27da1fcd3205c5d7b3f9f8641c03d9ec9369"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12960,
+      "device": 16777233,
+      "inode": 115947817,
+      "mtime_ns": 1792498852628051141,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-structural/config.json",
+      "sha256": "3c59c43efb710d6600d394c8b15d6fe4b666efd7c42e6f60f46ab630cae6ef45"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160413,
+      "device": 16777233,
+      "inode": 115947905,
+      "mtime_ns": 1792498853723770905,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-structural/producer.json",
+      "sha256": "c4266d36a4714e9fc299849bed4469d2f424adca652ad404440df3aa8acd4fde"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115947998,
+      "mtime_ns": 1792498858404065032,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-structural/rewrite-verification.json",
+      "sha256": "04bd5490e5b98d163ce0036125073441b10a1540ca904f8a9b9beb9a6020ea3e"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439060,
+      "device": 16777233,
+      "inode": 115947994,
+      "mtime_ns": 1792498856133811617,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/B-rg225-r2-structural/verification.json",
+      "sha256": "a5da37c44fb3af17ac02aa51dea795d56b479da9b41740c4781e07ba5d638848"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115941379,
+      "mtime_ns": 1792498537701505154,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-current-producer.log",
+      "sha256": "f0240902b697681edcb25db2cb91ae6de3fd74132f1c007ee55ba33235754dfd"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115941468,
+      "mtime_ns": 1792498540028325974,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-current-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115941556,
+      "mtime_ns": 1792498542195810888,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77959,
+      "device": 16777233,
+      "inode": 115941563,
+      "mtime_ns": 1792498545885647674,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-current.guard.json",
+      "sha256": "77c5898e40db3616ea731917b30da229de434f7b0b7e366b8cdfa3f71f85551f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115941570,
+      "mtime_ns": 1792498546839696222,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-structural-producer.log",
+      "sha256": "c2a9b49fcd8224782f59bd0920100fd3392da162d99993255328a7e879193141"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115941664,
+      "mtime_ns": 1792498549164713748,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-structural-verify.log",
+      "sha256": "aab807c7b45d9efc849633ccef1ba33db5d79a5cdbee4d62c5a93e680639c763"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115941758,
+      "mtime_ns": 1792498551238438213,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77987,
+      "device": 16777233,
+      "inode": 115941765,
+      "mtime_ns": 1792498554989789158,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r0-structural.guard.json",
+      "sha256": "a2c7bcd9b1a64253937badcf3a95f31d732862abec086999096aab36a653649f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115941970,
+      "mtime_ns": 1792498564954471368,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-current-producer.log",
+      "sha256": "f0240902b697681edcb25db2cb91ae6de3fd74132f1c007ee55ba33235754dfd"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115942059,
+      "mtime_ns": 1792498567445013345,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-current-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115942150,
+      "mtime_ns": 1792498569569662457,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77966,
+      "device": 16777233,
+      "inode": 115942153,
+      "mtime_ns": 1792498573249045482,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-current.guard.json",
+      "sha256": "ba86e8a94d86199618942ede40a32b18b42f7a33574c04c5bbc25609004593f1"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115941771,
+      "mtime_ns": 1792498555938894367,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-structural-producer.log",
+      "sha256": "6d97a14d19710454c5f7fe4caee9314bc7e690c358a7f1aa1dfc9704c69a2a42"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115941864,
+      "mtime_ns": 1792498558281080664,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-structural-verify.log",
+      "sha256": "4591c75f09d449e40aeb34a5c8d29e45f070c38b91371f79bc1273b755c2f60b"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115941963,
+      "mtime_ns": 1792498560396091098,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77982,
+      "device": 16777233,
+      "inode": 115941965,
+      "mtime_ns": 1792498564074393120,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r1-structural.guard.json",
+      "sha256": "24e053d6ad7a955f3a3863b4405528a17bac4d251d78555f316ef38af9cda578"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115942158,
+      "mtime_ns": 1792498574122316638,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-current-producer.log",
+      "sha256": "59bcec11541eabc600a6a4d16707307b0bdb3983d8d5fd586392e54a19757656"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115942247,
+      "mtime_ns": 1792498576688589251,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-current-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115942334,
+      "mtime_ns": 1792498578795705383,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77941,
+      "device": 16777233,
+      "inode": 115942338,
+      "mtime_ns": 1792498582670319021,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-current.guard.json",
+      "sha256": "01f008eaf8c27220944ba66bd3431d8948533f9d1eee404a93b9892d19529e07"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115942345,
+      "mtime_ns": 1792498583626169697,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-structural-producer.log",
+      "sha256": "c2a9b49fcd8224782f59bd0920100fd3392da162d99993255328a7e879193141"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115942434,
+      "mtime_ns": 1792498585958153731,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-structural-verify.log",
+      "sha256": "4591c75f09d449e40aeb34a5c8d29e45f070c38b91371f79bc1273b755c2f60b"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115942521,
+      "mtime_ns": 1792498588056510227,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77993,
+      "device": 16777233,
+      "inode": 115942525,
+      "mtime_ns": 1792498591750284143,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg0-r2-structural.guard.json",
+      "sha256": "213ad94694beb98725b857a8d8e81034c1dd609435824ed01ee03b6694d89c82"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115942530,
+      "mtime_ns": 1792498592652728044,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115942618,
+      "mtime_ns": 1792498595165428717,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115942706,
+      "mtime_ns": 1792498597301738051,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78040,
+      "device": 16777233,
+      "inode": 115942708,
+      "mtime_ns": 1792498601125329127,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-current.guard.json",
+      "sha256": "761f37488c31e4c0e040e85e9a132569569a9e5114197415dd5a359a53cde907"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115942713,
+      "mtime_ns": 1792498602213684007,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115942801,
+      "mtime_ns": 1792498604590058511,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-structural-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115942888,
+      "mtime_ns": 1792498606738257569,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78090,
+      "device": 16777233,
+      "inode": 115942893,
+      "mtime_ns": 1792498610455358265,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r0-structural.guard.json",
+      "sha256": "a50126cb5e7cf66a50eeaf94ae98f68b2c28f0c62c77dd995676ea828f58fd93"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115943097,
+      "mtime_ns": 1792498620865975394,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115943185,
+      "mtime_ns": 1792498623399483008,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115943274,
+      "mtime_ns": 1792498625534758298,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78056,
+      "device": 16777233,
+      "inode": 115943286,
+      "mtime_ns": 1792498629224598167,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-current.guard.json",
+      "sha256": "9a0a11e78e38ffa1f1ee0ff8956c3f2c231a163e82e22c7b5250a010e6ba10b9"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115942898,
+      "mtime_ns": 1792498611543215102,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115942987,
+      "mtime_ns": 1792498613937272962,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-structural-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115943077,
+      "mtime_ns": 1792498616089105774,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-structural-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78078,
+      "device": 16777233,
+      "inode": 115943087,
+      "mtime_ns": 1792498619846141974,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r1-structural.guard.json",
+      "sha256": "d7efd4f74ebbd14e3b9ddcb3bb7f687dd712437d59c8a5a6900279d334183ec7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115943291,
+      "mtime_ns": 1792498630141171544,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115943379,
+      "mtime_ns": 1792498632680519914,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115943466,
+      "mtime_ns": 1792498634807917154,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78027,
+      "device": 16777233,
+      "inode": 115943473,
+      "mtime_ns": 1792498638541197241,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-current.guard.json",
+      "sha256": "044fe25aaab9223b83d96469393e72bffbd2ebf91fc9fcda649c1bbf217ce0ee"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115943478,
+      "mtime_ns": 1792498639632651416,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115943569,
+      "mtime_ns": 1792498642041231502,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-structural-verify.log",
+      "sha256": "7a16d89727aa72665624a0c2b31b9b08b9b27de285bee7971d5fb5f80974dc3c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115943659,
+      "mtime_ns": 1792498644198501820,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78053,
+      "device": 16777233,
+      "inode": 115943661,
+      "mtime_ns": 1792498647941336628,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg113-r2-structural.guard.json",
+      "sha256": "cf0b3ab81902fb3ad5142e21fbece5c5b6506eac9c96f359a600636b3bdf115a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115943666,
+      "mtime_ns": 1792498648852538539,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-current-producer.log",
+      "sha256": "433a6023c389de681d71645ab9e4708e83977338703f48d265ad8831393443a4"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115943756,
+      "mtime_ns": 1792498651380520146,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115943843,
+      "mtime_ns": 1792498653550785271,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-current-verify_rewrite.log",
+      "sha256": "15dcec4b91deb59cebf38eeb1384914857a60256b1a18fea4b8bdefe6d3e2f4b"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78041,
+      "device": 16777233,
+      "inode": 115943845,
+      "mtime_ns": 1792498657290974744,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-current.guard.json",
+      "sha256": "b0d1bedc6eaf1056cff5614c888376dbaa1ac67244a07268502bda5747090a6b"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115943851,
+      "mtime_ns": 1792498658385694255,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-structural-producer.log",
+      "sha256": "446cee04629bcf3f9a0c0f2629d76a2bebe4bc20a86412f2752394400d6778a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115943940,
+      "mtime_ns": 1792498660785519579,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-structural-verify.log",
+      "sha256": "2e1c61d20848eccbd32f7b823e7d16e6f3f4a5a0f2f4edd44a98920cc6529bbf"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115944027,
+      "mtime_ns": 1792498662900550137,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78053,
+      "device": 16777233,
+      "inode": 115944029,
+      "mtime_ns": 1792498666735634559,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r0-structural.guard.json",
+      "sha256": "33880c56675b04fa04fa73a8c80e3b08bf231c0958ccfa445fc86fcf62b608fd"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115944219,
+      "mtime_ns": 1792498677047378399,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115944307,
+      "mtime_ns": 1792498679552116893,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115944397,
+      "mtime_ns": 1792498681697238154,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-current-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78033,
+      "device": 16777233,
+      "inode": 115944399,
+      "mtime_ns": 1792498685373726173,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-current.guard.json",
+      "sha256": "05645261d48926f1fc13b5e49ab03fdf9554182bb6f9fb13c6890f0bb3314654"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115944034,
+      "mtime_ns": 1792498667834743160,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-structural-producer.log",
+      "sha256": "446cee04629bcf3f9a0c0f2629d76a2bebe4bc20a86412f2752394400d6778a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115944123,
+      "mtime_ns": 1792498670246740374,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-structural-verify.log",
+      "sha256": "a452dd8438eefc3cc1246ad35f4f695f9eb563162f3f6f016bf9926816fcdc78"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115944211,
+      "mtime_ns": 1792498672451905000,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78058,
+      "device": 16777233,
+      "inode": 115944214,
+      "mtime_ns": 1792498676137283947,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r1-structural.guard.json",
+      "sha256": "b418ad5fcac76f2dc881efe7a1a2d5ed263774528fac58b4dcb3c96bb782ea08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115944405,
+      "mtime_ns": 1792498686283890792,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-current-producer.log",
+      "sha256": "b2065a6c14877f7f397bfe75073fc608984549f2031d3fd1967437e62fe193bc"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115944498,
+      "mtime_ns": 1792498688749531697,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-current-verify.log",
+      "sha256": "f310d7b70bb822de65b578a835b4c7550b260aa08077c156c8f3c92d224f4836"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115944591,
+      "mtime_ns": 1792498691018875569,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-current-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78051,
+      "device": 16777233,
+      "inode": 115944596,
+      "mtime_ns": 1792498694715971071,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-current.guard.json",
+      "sha256": "3800416a408e7cb2b8404ebdcd52c98d45e988fd44391b69b42c0bdff03eae68"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115944601,
+      "mtime_ns": 1792498695826377186,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-structural-producer.log",
+      "sha256": "446cee04629bcf3f9a0c0f2629d76a2bebe4bc20a86412f2752394400d6778a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115944694,
+      "mtime_ns": 1792498698236763315,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-structural-verify.log",
+      "sha256": "a452dd8438eefc3cc1246ad35f4f695f9eb563162f3f6f016bf9926816fcdc78"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115944781,
+      "mtime_ns": 1792498700385402330,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78051,
+      "device": 16777233,
+      "inode": 115944789,
+      "mtime_ns": 1792498704115602290,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/A-rg225-r2-structural.guard.json",
+      "sha256": "495b239a223d82d5d459f5e2b07946a63a475e71b5a8b497cf57ecca4193627d"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115944980,
+      "mtime_ns": 1792498714244101780,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-current-producer.log",
+      "sha256": "59bcec11541eabc600a6a4d16707307b0bdb3983d8d5fd586392e54a19757656"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115945068,
+      "mtime_ns": 1792498716630382336,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-current-verify.log",
+      "sha256": "7a16d89727aa72665624a0c2b31b9b08b9b27de285bee7971d5fb5f80974dc3c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115945156,
+      "mtime_ns": 1792498718740102721,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77952,
+      "device": 16777233,
+      "inode": 115945163,
+      "mtime_ns": 1792498722425587709,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-current.guard.json",
+      "sha256": "0713947061aa32222f618f4914c853503ea1cf4d9e7271685b96c21d3f314adb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115944795,
+      "mtime_ns": 1792498705099315957,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-structural-producer.log",
+      "sha256": "6d97a14d19710454c5f7fe4caee9314bc7e690c358a7f1aa1dfc9704c69a2a42"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115944884,
+      "mtime_ns": 1792498707452233598,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-structural-verify.log",
+      "sha256": "aab807c7b45d9efc849633ccef1ba33db5d79a5cdbee4d62c5a93e680639c763"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115944971,
+      "mtime_ns": 1792498709570194660,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77976,
+      "device": 16777233,
+      "inode": 115944975,
+      "mtime_ns": 1792498713265893827,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r0-structural.guard.json",
+      "sha256": "7908bee63b91b8ca7651166e2f47e231dc4b79d4b4950881fe0422be8c902247"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115945168,
+      "mtime_ns": 1792498723327722110,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-current-producer.log",
+      "sha256": "f0240902b697681edcb25db2cb91ae6de3fd74132f1c007ee55ba33235754dfd"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115945256,
+      "mtime_ns": 1792498725701407068,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-current-verify.log",
+      "sha256": "7a16d89727aa72665624a0c2b31b9b08b9b27de285bee7971d5fb5f80974dc3c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115945343,
+      "mtime_ns": 1792498727834281189,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77978,
+      "device": 16777233,
+      "inode": 115945348,
+      "mtime_ns": 1792498731504265491,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-current.guard.json",
+      "sha256": "fccf0681fe3563367edd430c7904872461beb7d3acb76cb871ffa18de1500b7b"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115945353,
+      "mtime_ns": 1792498732472801556,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-structural-producer.log",
+      "sha256": "c2a9b49fcd8224782f59bd0920100fd3392da162d99993255328a7e879193141"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115945442,
+      "mtime_ns": 1792498734784228189,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-structural-verify.log",
+      "sha256": "4591c75f09d449e40aeb34a5c8d29e45f070c38b91371f79bc1273b755c2f60b"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115945532,
+      "mtime_ns": 1792498736923045443,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78001,
+      "device": 16777233,
+      "inode": 115945536,
+      "mtime_ns": 1792498740625321576,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r1-structural.guard.json",
+      "sha256": "4fd90f9834a24aa04312f40542fae33520b218794130dd039b761aa10bcb294a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115945727,
+      "mtime_ns": 1792498750737379212,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-current-producer.log",
+      "sha256": "59bcec11541eabc600a6a4d16707307b0bdb3983d8d5fd586392e54a19757656"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115945815,
+      "mtime_ns": 1792498753144631837,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-current-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115945903,
+      "mtime_ns": 1792498755278005209,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77985,
+      "device": 16777233,
+      "inode": 115945911,
+      "mtime_ns": 1792498759019632474,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-current.guard.json",
+      "sha256": "3888d003625ed7820897e3b213cc83f08fb743027120f5baaf7a4a2100a62944"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115945543,
+      "mtime_ns": 1792498741607346033,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-structural-producer.log",
+      "sha256": "6d97a14d19710454c5f7fe4caee9314bc7e690c358a7f1aa1dfc9704c69a2a42"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115945631,
+      "mtime_ns": 1792498744029874635,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-structural-verify.log",
+      "sha256": "8f2a70811722f53bbd38bfb8ef96f2d1d95958e471c522803f36a0ebe79cc91a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115945718,
+      "mtime_ns": 1792498746118760994,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77975,
+      "device": 16777233,
+      "inode": 115945721,
+      "mtime_ns": 1792498749852120624,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg0-r2-structural.guard.json",
+      "sha256": "336e352c617fd2415914cc0c89d0e2f452758649ef16a8e3e96ded229217a4ea"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115946128,
+      "mtime_ns": 1792498769341222951,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-current-producer.log",
+      "sha256": "b2065a6c14877f7f397bfe75073fc608984549f2031d3fd1967437e62fe193bc"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115946217,
+      "mtime_ns": 1792498771808205649,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-current-verify.log",
+      "sha256": "f310d7b70bb822de65b578a835b4c7550b260aa08077c156c8f3c92d224f4836"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115946307,
+      "mtime_ns": 1792498773951517992,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-current-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78052,
+      "device": 16777233,
+      "inode": 115946310,
+      "mtime_ns": 1792498777658199172,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-current.guard.json",
+      "sha256": "879b0d76d3035decdde08af0030a93bed33338961aee426e6505faf3dff038f1"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115945918,
+      "mtime_ns": 1792498760119490409,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115946021,
+      "mtime_ns": 1792498762520806652,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-structural-verify.log",
+      "sha256": "a452dd8438eefc3cc1246ad35f4f695f9eb563162f3f6f016bf9926816fcdc78"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115946115,
+      "mtime_ns": 1792498764675546300,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78035,
+      "device": 16777233,
+      "inode": 115946121,
+      "mtime_ns": 1792498768425375533,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r0-structural.guard.json",
+      "sha256": "a3a6ea34baff4ebb5c2ccf0b7b15b75e8c49e3efa9a449b807c6a3e94d385384"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115946316,
+      "mtime_ns": 1792498778589866608,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115946413,
+      "mtime_ns": 1792498781158704766,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-current-verify.log",
+      "sha256": "f310d7b70bb822de65b578a835b4c7550b260aa08077c156c8f3c92d224f4836"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115946500,
+      "mtime_ns": 1792498783297095311,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-current-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78058,
+      "device": 16777233,
+      "inode": 115946502,
+      "mtime_ns": 1792498787129604729,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-current.guard.json",
+      "sha256": "8ff2e921bf7d58a09269d62c3316a4a72ddbcd2eb970b25d04b7481916edcf6f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115946507,
+      "mtime_ns": 1792498788250331232,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115946595,
+      "mtime_ns": 1792498790637140956,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-structural-verify.log",
+      "sha256": "7a16d89727aa72665624a0c2b31b9b08b9b27de285bee7971d5fb5f80974dc3c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115946683,
+      "mtime_ns": 1792498792792751605,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78055,
+      "device": 16777233,
+      "inode": 115946686,
+      "mtime_ns": 1792498796530503532,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r1-structural.guard.json",
+      "sha256": "8385222070d53e65c134c26ebbc128df6a5cfdacd05eceaeb63e00e30905935f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115946877,
+      "mtime_ns": 1792498806932918608,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115946965,
+      "mtime_ns": 1792498809424263336,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115947056,
+      "mtime_ns": 1792498811551011534,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78067,
+      "device": 16777233,
+      "inode": 115947058,
+      "mtime_ns": 1792498815251846416,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-current.guard.json",
+      "sha256": "479144305d391145e70ae29078e701a924e9bc8050bfae4a0b3e2d229fcc2493"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115946691,
+      "mtime_ns": 1792498797707193520,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115946780,
+      "mtime_ns": 1792498800111965601,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-structural-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115946870,
+      "mtime_ns": 1792498802281972726,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78055,
+      "device": 16777233,
+      "inode": 115946872,
+      "mtime_ns": 1792498806022915032,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg113-r2-structural.guard.json",
+      "sha256": "c4c8c3c8b76d01f3fb2b894a3344e6c90481e97742f25abbdc61b2961c65392f"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115947249,
+      "mtime_ns": 1792498825568350927,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115947340,
+      "mtime_ns": 1792498828056349402,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115947431,
+      "mtime_ns": 1792498830194984656,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78047,
+      "device": 16777233,
+      "inode": 115947441,
+      "mtime_ns": 1792498833927642951,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-current.guard.json",
+      "sha256": "631a5888226d3474ad94b36f6f791253cbdf5e68f45d73a5584aa038eac8a477"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115947063,
+      "mtime_ns": 1792498816353519145,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-structural-producer.log",
+      "sha256": "446cee04629bcf3f9a0c0f2629d76a2bebe4bc20a86412f2752394400d6778a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115947151,
+      "mtime_ns": 1792498818763742273,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-structural-verify.log",
+      "sha256": "a452dd8438eefc3cc1246ad35f4f695f9eb563162f3f6f016bf9926816fcdc78"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115947239,
+      "mtime_ns": 1792498820916625544,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78066,
+      "device": 16777233,
+      "inode": 115947244,
+      "mtime_ns": 1792498824652341510,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r0-structural.guard.json",
+      "sha256": "1745512ceedd0f6b62c048f57966c4f5e7736bb5ab639c56032781cb0f45b7b5"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115947446,
+      "mtime_ns": 1792498834847583165,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115947534,
+      "mtime_ns": 1792498837390686665,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115947626,
+      "mtime_ns": 1792498839548812901,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78043,
+      "device": 16777233,
+      "inode": 115947631,
+      "mtime_ns": 1792498843236430267,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-current.guard.json",
+      "sha256": "94ca686495a50a612841b730f2293551a3fb4bf0a988620e3776d3ea8702d65d"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115947636,
+      "mtime_ns": 1792498844350022802,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-structural-producer.log",
+      "sha256": "446cee04629bcf3f9a0c0f2629d76a2bebe4bc20a86412f2752394400d6778a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115947724,
+      "mtime_ns": 1792498846745588620,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-structural-verify.log",
+      "sha256": "7a16d89727aa72665624a0c2b31b9b08b9b27de285bee7971d5fb5f80974dc3c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115947811,
+      "mtime_ns": 1792498848888609588,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78051,
+      "device": 16777233,
+      "inode": 115947815,
+      "mtime_ns": 1792498852614291291,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r1-structural.guard.json",
+      "sha256": "aa5df39ed8757b31d56937dc115b8dbfc2c209c89884e7146f94f615e621002a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115948012,
+      "mtime_ns": 1792498863042762316,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-current-producer.log",
+      "sha256": "aa8923166cdcdf4384f65b21e241bf851f152938807b62d6b8766cc05916e1eb"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115948100,
+      "mtime_ns": 1792498865584260273,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-current-verify.log",
+      "sha256": "7aba7cda5768d037c6759da3de98432a21c74e6d93a5f0d4adec1942267c1311"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115948187,
+      "mtime_ns": 1792498867708647092,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-current-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78013,
+      "device": 16777233,
+      "inode": 115948223,
+      "mtime_ns": 1792498871373911596,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-current.guard.json",
+      "sha256": "d755413b8e52fb909be845471ab2f863d2fe19f3d273a5681982955e9c3aef8d"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115947820,
+      "mtime_ns": 1792498853724099239,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-structural-producer.log",
+      "sha256": "446cee04629bcf3f9a0c0f2629d76a2bebe4bc20a86412f2752394400d6778a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115947909,
+      "mtime_ns": 1792498856134412618,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-structural-verify.log",
+      "sha256": "a452dd8438eefc3cc1246ad35f4f695f9eb563162f3f6f016bf9926816fcdc78"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115947997,
+      "mtime_ns": 1792498858404446490,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78054,
+      "device": 16777233,
+      "inode": 115948007,
+      "mtime_ns": 1792498862128789818,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/B-rg225-r2-structural.guard.json",
+      "sha256": "951cf84d35c163aa7b54d071455c5ef68806258afcf825851212aee3ea767f98"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115940202,
+      "mtime_ns": 1792498465996875703,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-current-producer.log",
+      "sha256": "1e19de8fd15ad70f2704b7e5269befe16d89da41aeed8ae37bc179f80fbad8a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115940290,
+      "mtime_ns": 1792498468409093043,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-current-verify.log",
+      "sha256": "2392d694514e2b5a67528ab049b28fc53143e2d52fa19814d853752e235accc7"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115940382,
+      "mtime_ns": 1792498470552756012,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-current-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 77981,
+      "device": 16777233,
+      "inode": 115940388,
+      "mtime_ns": 1792498474504142704,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-current.guard.json",
+      "sha256": "0efcbb9a3bdac4916a85aae3a23f59b81e514035bff9f28328d5305706300f02"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115940395,
+      "mtime_ns": 1792498475498614343,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-structural-producer.log",
+      "sha256": "c2a9b49fcd8224782f59bd0920100fd3392da162d99993255328a7e879193141"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115940486,
+      "mtime_ns": 1792498477808949809,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-structural-verify.log",
+      "sha256": "4591c75f09d449e40aeb34a5c8d29e45f070c38b91371f79bc1273b755c2f60b"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115940577,
+      "mtime_ns": 1792498479984077358,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-structural-verify_rewrite.log",
+      "sha256": "63879037c4a6c688edd6998ec00db1b49a8c6371d843aa3e99eaf3944d4bb984"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78003,
+      "device": 16777233,
+      "inode": 115940584,
+      "mtime_ns": 1792498483823431954,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg0-r0-structural.guard.json",
+      "sha256": "191c21243cf1e51e672c8b803f4495bb9f82d2b53f494c1216f85322b6d10c22"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115940589,
+      "mtime_ns": 1792498484733145032,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-current-producer.log",
+      "sha256": "433a6023c389de681d71645ab9e4708e83977338703f48d265ad8831393443a4"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115940678,
+      "mtime_ns": 1792498487219803006,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115940765,
+      "mtime_ns": 1792498489315278333,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-current-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78097,
+      "device": 16777233,
+      "inode": 115940769,
+      "mtime_ns": 1792498492998892987,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-current.guard.json",
+      "sha256": "86449fc35a61b9b8b311483b7b81ec51f91678d9a4d8d496604dc6b53795a7c9"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115940774,
+      "mtime_ns": 1792498494073967475,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115940865,
+      "mtime_ns": 1792498496467951168,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-structural-verify.log",
+      "sha256": "7a16d89727aa72665624a0c2b31b9b08b9b27de285bee7971d5fb5f80974dc3c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115940960,
+      "mtime_ns": 1792498498619816147,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78108,
+      "device": 16777233,
+      "inode": 115940973,
+      "mtime_ns": 1792498502345081518,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg113-r0-structural.guard.json",
+      "sha256": "a975c613b985490ceecee28ad81fb8af96a54acd46c77cfb05c5bdcb84e4560c"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115940978,
+      "mtime_ns": 1792498503256257306,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-current-producer.log",
+      "sha256": "433a6023c389de681d71645ab9e4708e83977338703f48d265ad8831393443a4"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115941066,
+      "mtime_ns": 1792498505731201681,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-current-verify.log",
+      "sha256": "50955afa763ae3e79872de723e2da6301d829b1b5b18ca2309fbb6dc35143b08"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115941157,
+      "mtime_ns": 1792498507871876354,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-current-verify_rewrite.log",
+      "sha256": "6a917f87684716c6b276047ecefaf79dd49ca130b2ff2ba7cd157b92638f71be"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78080,
+      "device": 16777233,
+      "inode": 115941161,
+      "mtime_ns": 1792498511588270756,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-current.guard.json",
+      "sha256": "86e28cd47e224f6e51b2c4483e96006e40dc2d21720eb20ae697951ca31354a6"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 198,
+      "device": 16777233,
+      "inode": 115941166,
+      "mtime_ns": 1792498512673648508,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-structural-producer.log",
+      "sha256": "2a68266d4dc1faf202acb8654e730f70c9970a0e5b409be9449e54ca320c1896"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 208,
+      "device": 16777233,
+      "inode": 115941255,
+      "mtime_ns": 1792498515192512397,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-structural-verify.log",
+      "sha256": "8f2a70811722f53bbd38bfb8ef96f2d1d95958e471c522803f36a0ebe79cc91a"
+    },
+    {
+      "allocated_bytes": 4096,
+      "bytes": 204,
+      "device": 16777233,
+      "inode": 115941342,
+      "mtime_ns": 1792498517284959386,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-structural-verify_rewrite.log",
+      "sha256": "38a8ec5b9386a6b0dbd3d86a2c4fa1a2e1d57a90abead70da662f7aaf129321c"
+    },
+    {
+      "allocated_bytes": 81920,
+      "bytes": 78086,
+      "device": 16777233,
+      "inode": 115941346,
+      "mtime_ns": 1792498520967652371,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/logs/preflight-rg225-r0-structural.guard.json",
+      "sha256": "0e9d3901c5e80467bfb9481c78c36612d5c80698b9a97e0c2612105ef55bf2ab"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12980,
+      "device": 16777233,
+      "inode": 115940198,
+      "mtime_ns": 1792498465115095661,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-current/config.json",
+      "sha256": "74208baa2f561343acffb32d0445fcf161765df70bdb9fb1c75f24e09823b3d5"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157527,
+      "device": 16777233,
+      "inode": 115940287,
+      "mtime_ns": 1792498465996300661,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-current/producer.json",
+      "sha256": "16d88e8c16afc04e5b27f08e08fe8f58cfba6fa5e7dfaceac53649e67405fd7d"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74954,
+      "device": 16777233,
+      "inode": 115940383,
+      "mtime_ns": 1792498470552367386,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-current/rewrite-verification.json",
+      "sha256": "3bdd65454ad0272c57b9c0cb0589a5c7ecd5cae48ebdcc8b1520b3185030484c"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435755,
+      "device": 16777233,
+      "inode": 115940375,
+      "mtime_ns": 1792498468408523792,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-current/verification.json",
+      "sha256": "e2b79d1af577c8bfa91352f541d7d24635abedb659a949852f05d1bac5a1807e"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12989,
+      "device": 16777233,
+      "inode": 115940390,
+      "mtime_ns": 1792498474517684721,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-structural/config.json",
+      "sha256": "c848ff6b661cf167b1449a029d7a590ab836732ee710ed2e98fafc4fd96059d6"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160520,
+      "device": 16777233,
+      "inode": 115940482,
+      "mtime_ns": 1792498475498284301,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-structural/producer.json",
+      "sha256": "e3db8898f29d4bef307b1a145bb218e89e44a1b8bc2e489144a47072ea26e7b6"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74957,
+      "device": 16777233,
+      "inode": 115940578,
+      "mtime_ns": 1792498479983689899,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-structural/rewrite-verification.json",
+      "sha256": "1f54c000848105bedd34ef43713bebb646b48ced2a5b6a5bbf45c3aaf5d9e3fe"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 438270,
+      "device": 16777233,
+      "inode": 115940572,
+      "mtime_ns": 1792498477808115891,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg0-r0-structural/verification.json",
+      "sha256": "1c48e487bd945b3c9ccce55886663c9800f24af7152c93c87763d02b9ab3287b"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12983,
+      "device": 16777233,
+      "inode": 115940586,
+      "mtime_ns": 1792498483834051259,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-current/config.json",
+      "sha256": "35ca6f9f87d8546f9b65ef285b178770de88f788ae6a3401e9510cb7d44bd2fd"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157493,
+      "device": 16777233,
+      "inode": 115940674,
+      "mtime_ns": 1792498484732509823,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-current/producer.json",
+      "sha256": "6fa09e961efdcc803ef777b8a4f29812cc6f2332c3e8e78f747afe709b9d49cf"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74982,
+      "device": 16777233,
+      "inode": 115940766,
+      "mtime_ns": 1792498489314907624,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-current/rewrite-verification.json",
+      "sha256": "b3a59d609529438ff26c493f7477e91e72b84b8373b40a33a8d26e7a0d2e8dea"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435848,
+      "device": 16777233,
+      "inode": 115940763,
+      "mtime_ns": 1792498487219231588,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-current/verification.json",
+      "sha256": "c05a2248c068297520271cf65ed4a7ba712489795c5ceb202ba44468a2a2583a"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12992,
+      "device": 16777233,
+      "inode": 115940771,
+      "mtime_ns": 1792498493009074749,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-structural/config.json",
+      "sha256": "d88172e49b280a92d05bc60bb76fb0df3bdda7c241fe7ad6f81c10c4f5d16a04"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160441,
+      "device": 16777233,
+      "inode": 115940859,
+      "mtime_ns": 1792498494073683058,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-structural/producer.json",
+      "sha256": "5541bf52ccfc0f3c1948efddee80536134fb7a892a2ed949a67da394e219c7dc"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74985,
+      "device": 16777233,
+      "inode": 115940961,
+      "mtime_ns": 1792498498619452521,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-structural/rewrite-verification.json",
+      "sha256": "88a551479856373331e7e39dccc22d3f9b42f394a77070e244f0ba0ffde9490b"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 438862,
+      "device": 16777233,
+      "inode": 115940951,
+      "mtime_ns": 1792498496467388459,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg113-r0-structural/verification.json",
+      "sha256": "cc22abaca380151214f0ca0534679db4242b7b7ae9fe01605c2e9056ef007e54"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12967,
+      "device": 16777233,
+      "inode": 115940975,
+      "mtime_ns": 1792498502355523489,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-current/config.json",
+      "sha256": "aaf13f8f43e3a2b24411baa06b34591d74e060a1136afa8eb07fc1ba29d5e685"
+    },
+    {
+      "allocated_bytes": 159744,
+      "bytes": 157478,
+      "device": 16777233,
+      "inode": 115941063,
+      "mtime_ns": 1792498503255913680,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-current/producer.json",
+      "sha256": "0280ac8e8ea15e8b23fb3574b3065f3db5f86f7e45665dbd9549c59f6d957e7e"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74947,
+      "device": 16777233,
+      "inode": 115941158,
+      "mtime_ns": 1792498507871480603,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-current/rewrite-verification.json",
+      "sha256": "4407cdbf23f8e72d1ec42ed0854b169179463dd198dccd6ef57ca0857a8d1ab3"
+    },
+    {
+      "allocated_bytes": 438272,
+      "bytes": 435812,
+      "device": 16777233,
+      "inode": 115941151,
+      "mtime_ns": 1792498505730659139,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-current/verification.json",
+      "sha256": "7b157e09085147f96559456f4942ad462659710168556b2b5d85d445e6c56b26"
+    },
+    {
+      "allocated_bytes": 16384,
+      "bytes": 12976,
+      "device": 16777233,
+      "inode": 115941163,
+      "mtime_ns": 1792498511598814852,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-structural/config.json",
+      "sha256": "0fded7b1b397646d277b216168e151d916d4e207b6b1841f5bfe4fcf7faf5357"
+    },
+    {
+      "allocated_bytes": 163840,
+      "bytes": 160412,
+      "device": 16777233,
+      "inode": 115941251,
+      "mtime_ns": 1792498512673342132,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-structural/producer.json",
+      "sha256": "5a029fece83001ec245de9d74c6fa8ee6809d5fbed2764630e47733ab55e4e3d"
+    },
+    {
+      "allocated_bytes": 77824,
+      "bytes": 74950,
+      "device": 16777233,
+      "inode": 115941343,
+      "mtime_ns": 1792498517284547677,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-structural/rewrite-verification.json",
+      "sha256": "e13924a7484ab14fbf35dfd09a5f729a1c74c80afdec52e0e1c97adc1b5570fb"
+    },
+    {
+      "allocated_bytes": 442368,
+      "bytes": 439072,
+      "device": 16777233,
+      "inode": 115941340,
+      "mtime_ns": 1792498515191919022,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-screen-809-a1/preflight-rg225-r0-structural/verification.json",
+      "sha256": "9df4add0d4fb9573b74c1ccf1204cdf15cef177d17dbf5baa7ca680b0ad4ed9e"
+    },
+    {
+      "allocated_bytes": 95199232,
+      "bytes": 95195648,
+      "device": 16777233,
+      "inode": 115939662,
+      "mtime_ns": 1792498229735276127,
+      "path": "/Users/dylan/.cache/shardloom/cargo-target/release/deps/shardloom_vortex-12b7db13fa256144",
+      "sha256": "ebf24308a6405c403845876666e3e34b0a65df6a7b5db11708c11d8f22640a36"
+    }
+  ],
+  "replacement_packet_sha256": "9991f1cd88919533ca2f78260db2b93eeb51eec53e8b2f5f75ef0dee46339103",
+  "status": "verified_before_retirement"
+}

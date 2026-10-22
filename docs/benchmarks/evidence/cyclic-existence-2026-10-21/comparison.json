@@ -1,0 +1,35 @@
+{
+  "candidate_commit": "1a8bdb984990ea92a1059c481c40f6626b80c316",
+  "intake_manifest": {
+    "bytes": 1032,
+    "sha256": "dd11d128b0579f1cce0b6d03cd980af9263c31af2561d06995f4f74fcb7e7136"
+  },
+  "intake_packet": {
+    "bytes": 237968,
+    "sha256": "ff39be55a82653347b85b858f7a4d6cea64783b70da215fe0991415d6a407ef3"
+  },
+  "packet": {
+    "bytes": 533468,
+    "file": "comparison.json.xz",
+    "members": 1091,
+    "sha256": "a604ef3a7e2f04cc5ad6b3c23b92b001f13515a0de3001f7d90076a5fe55a899"
+  },
+  "replay": {
+    "candidate_commit": "1a8bdb984990ea92a1059c481c40f6626b80c316",
+    "candidate_work_observations": 8,
+    "engine_calls": 1300,
+    "failed_complete_workflow_cells": [],
+    "failed_engine_cells": [],
+    "maximum_final_denied_reservations": 0,
+    "maximum_peak_reserved_bytes": 19294376,
+    "preserved_failed_checks": 2,
+    "retention_gate_passed": true,
+    "score_cells": 52,
+    "source_files": 2065,
+    "status": "passed",
+    "verification_receipts": 19,
+    "workflows": 520
+  },
+  "schema": "shardloom.cyclic_existence_comparison_evidence.v1",
+  "scope": "Finite private candidate comparison; public-package acceptance and release are separate."
+}

@@ -1,0 +1,514 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/replay_multiway_historical_823.py",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823.tar.xz",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823-manifest.json",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-after-retirement-824.json",
+    "--scratch-root",
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "563c91260a526f6b02ab9bbb171dd9bfb8c4c2f0",
+  "working_tree": " M shardloom-cli/tests/public_memory_inputs.rs\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n?? docs/architecture/native-multiway-join-admission-2026-10-20.md\n?? docs/architecture/native-multiway-join-comparison-design-2026-10-20.md\n?? docs/architecture/native-multiway-join-intake-2026-10-20.md\n?? docs/architecture/native-multiway-join-integration-design-2026-10-20.md\n?? docs/architecture/native-multiway-public-projection-admission-2026-10-20.md\n?? python/tests/test_native_multiway_binding.py\n?? shardloom-vortex/src/local_primitive_relational_multiway_tests.rs\n",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "guard_sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+  "runner_sha256": "68ec416e4fa11cb2d40d48a5f108eb2808f886148e478e8543027837df186be4",
+  "host_context": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "architecture": "arm64",
+    "logical_cpus": 10,
+    "physical_ram_bytes": 17179869184,
+    "observed_before_child_load_average": [
+      1.9716796875,
+      2.76416015625,
+      3.18212890625
+    ]
+  },
+  "host_samples": [
+    {
+      "monotonic_seconds": 462194.105773375,
+      "load_average": [
+        1.9716796875,
+        2.76416015625,
+        3.18212890625
+      ],
+      "child_pid": null,
+      "process_samples": []
+    },
+    {
+      "monotonic_seconds": 462194.397917416,
+      "load_average": [
+        1.9716796875,
+        2.76416015625,
+        3.18212890625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 638976,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462196.463193208,
+      "load_average": [
+        2.0537109375,
+        2.76806640625,
+        3.1806640625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 8.1,
+          "sampled_rss_bytes": 58834944,
+          "executable": "python3"
+        },
+        {
+          "pid": 39335,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 91.6,
+          "sampled_rss_bytes": 124256256,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462198.525649541,
+      "load_average": [
+        2.0537109375,
+        2.76806640625,
+        3.1806640625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39341,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 100.0,
+          "sampled_rss_bytes": 56344576,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462200.595983166,
+      "load_average": [
+        2.0537109375,
+        2.76806640625,
+        3.1806640625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56721408,
+          "executable": "python3"
+        },
+        {
+          "pid": 39348,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 97.4,
+          "sampled_rss_bytes": 56295424,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462202.658995583,
+      "load_average": [
+        2.44970703125,
+        2.837890625,
+        3.20263671875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56721408,
+          "executable": "python3"
+        },
+        {
+          "pid": 39348,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 99.1,
+          "sampled_rss_bytes": 134053888,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462204.726581666,
+      "load_average": [
+        2.44970703125,
+        2.837890625,
+        3.20263671875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39356,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 100.0,
+          "sampled_rss_bytes": 55869440,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462206.788932666,
+      "load_average": [
+        2.73388671875,
+        2.89013671875,
+        3.21875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39356,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 99.3,
+          "sampled_rss_bytes": 133038080,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462208.853179291,
+      "load_average": [
+        2.73388671875,
+        2.89013671875,
+        3.21875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39363,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 99.1,
+          "sampled_rss_bytes": 56934400,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462210.924595291,
+      "load_average": [
+        2.73388671875,
+        2.89013671875,
+        3.21875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39366,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 97.2,
+          "sampled_rss_bytes": 58589184,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462213.241375791,
+      "load_average": [
+        2.8349609375,
+        2.908203125,
+        3.22314453125
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39366,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 100.0,
+          "sampled_rss_bytes": 136036352,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462215.562864125,
+      "load_average": [
+        2.8349609375,
+        2.908203125,
+        3.22314453125
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 56737792,
+          "executable": "python3"
+        },
+        {
+          "pid": 39371,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 99.1,
+          "sampled_rss_bytes": 122322944,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462217.883795833,
+      "load_average": [
+        2.92822265625,
+        2.92626953125,
+        3.2275390625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 1.2,
+          "sampled_rss_bytes": 45219840,
+          "executable": "python3"
+        },
+        {
+          "pid": 39376,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 25.8,
+          "sampled_rss_bytes": 119832576,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462220.206656875,
+      "load_average": [
+        2.92822265625,
+        2.92626953125,
+        3.2275390625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 1.2,
+          "sampled_rss_bytes": 45219840,
+          "executable": "python3"
+        },
+        {
+          "pid": 39379,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 34.8,
+          "sampled_rss_bytes": 174931968,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462222.522175208,
+      "load_average": [
+        2.93359375,
+        2.92724609375,
+        3.22607421875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 45219840,
+          "executable": "python3"
+        },
+        {
+          "pid": 39379,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 99.4,
+          "sampled_rss_bytes": 135790592,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462224.842847583,
+      "load_average": [
+        2.93359375,
+        2.92724609375,
+        3.22607421875
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 45219840,
+          "executable": "python3"
+        },
+        {
+          "pid": 39384,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 93.1,
+          "sampled_rss_bytes": 224854016,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462227.161952875,
+      "load_average": [
+        2.7783203125,
+        2.89501953125,
+        3.212890625
+      ],
+      "child_pid": 39313,
+      "process_samples": [
+        {
+          "pid": 39313,
+          "parent": 39302,
+          "group": 39313,
+          "sampled_cpu_percent": 0.0,
+          "sampled_rss_bytes": 45219840,
+          "executable": "python3"
+        },
+        {
+          "pid": 39384,
+          "parent": 39313,
+          "group": 39313,
+          "sampled_cpu_percent": 100.0,
+          "sampled_rss_bytes": 135577600,
+          "executable": "python3"
+        }
+      ]
+    },
+    {
+      "monotonic_seconds": 462228.264344166,
+      "load_average": [
+        2.7783203125,
+        2.89501953125,
+        3.212890625
+      ],
+      "child_pid": 39313,
+      "process_samples": []
+    }
+  ],
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 2499469312,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 157350371328,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 6284304384,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 157350363136,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 300.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 39313,
+  "output_bytes": 1767,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 33.88739549997263,
+  "log_sha256": "5a6a8e451fe967b4b475c2e09d8cc29f0b423354699c434faab14f3ae4070d90"
+}

@@ -1,0 +1,1106 @@
+{
+  "all_controls": [
+    {
+      "cohort": "A",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 1.0,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 1.0,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.8584571832979476,
+        "equal": 0.7879237288135593,
+        "file_bytes": 2.110274679355983,
+        "first_read": 0.8394373445406982,
+        "not_contains": 0.8620126411476458,
+        "not_equal": 0.7670797585001589,
+        "original_write": 2.5529122573118905,
+        "physical_column_bytes": 2.1383241019632875,
+        "repeated_read": 0.6978292329956585,
+        "rewrite": 0.9252316357460714
+      },
+      "region": 0,
+      "totals": {
+        "current": {
+          "contains": 14130000,
+          "equal": 14160000,
+          "file_bytes": 1876224,
+          "first_read": 11659000,
+          "not_contains": 14081000,
+          "not_equal": 12588000,
+          "original_write": 48004000,
+          "physical_column_bytes": 1829992,
+          "repeated_read": 6910000,
+          "rewrite": 46517000
+        },
+        "structural": {
+          "contains": 12130000,
+          "equal": 11157000,
+          "file_bytes": 3959348,
+          "first_read": 9787000,
+          "not_contains": 12138000,
+          "not_equal": 9656000,
+          "original_write": 122550000,
+          "physical_column_bytes": 3913116,
+          "repeated_read": 4822000,
+          "rewrite": 43039000
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 1.0,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 1.0,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.742076200993926,
+        "equal": 0.6582825484764543,
+        "file_bytes": 1.1693739512515786,
+        "first_read": 0.7030425714636241,
+        "not_contains": 0.7345726970033296,
+        "not_equal": 0.5850622406639004,
+        "original_write": 4.01512981652149,
+        "physical_column_bytes": 1.1708540616656664,
+        "repeated_read": 0.5546506247107821,
+        "rewrite": 0.8589577164860489
+      },
+      "region": 113,
+      "totals": {
+        "current": {
+          "contains": 18110000,
+          "equal": 18050000,
+          "file_bytes": 5318244,
+          "first_read": 16302000,
+          "not_contains": 18020000,
+          "not_equal": 14942000,
+          "original_write": 59353000,
+          "physical_column_bytes": 5272172,
+          "repeated_read": 10805000,
+          "rewrite": 68561000
+        },
+        "structural": {
+          "contains": 13439000,
+          "equal": 11882000,
+          "file_bytes": 6219016,
+          "first_read": 11461000,
+          "not_contains": 13237000,
+          "not_equal": 8742000,
+          "original_write": 238310000,
+          "physical_column_bytes": 6172944,
+          "repeated_read": 5993000,
+          "rewrite": 58891000
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 1.0,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 1.0,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.762764699559282,
+        "equal": 0.6590909090909091,
+        "file_bytes": 1.5291424869006705,
+        "first_read": 0.7256753526177384,
+        "not_contains": 0.767046383604949,
+        "not_equal": 0.5924604204515962,
+        "original_write": 4.141774341235121,
+        "physical_column_bytes": 1.533955881516857,
+        "repeated_read": 0.5882569144537352,
+        "rewrite": 0.8650799402803345
+      },
+      "region": 225,
+      "totals": {
+        "current": {
+          "contains": 18606000,
+          "equal": 18392000,
+          "file_bytes": 5111712,
+          "first_read": 16732000,
+          "not_contains": 18347000,
+          "not_equal": 15412000,
+          "original_write": 58974000,
+          "physical_column_bytes": 5065632,
+          "repeated_read": 10883000,
+          "rewrite": 68989000
+        },
+        "structural": {
+          "contains": 14192000,
+          "equal": 12122000,
+          "file_bytes": 7816536,
+          "first_read": 12142000,
+          "not_contains": 14073000,
+          "not_equal": 9131000,
+          "original_write": 244257000,
+          "physical_column_bytes": 7770456,
+          "repeated_read": 6402000,
+          "rewrite": 59681000
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 0.7,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 0.7,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.7819887503441766,
+        "equal": 0.6948539583415675,
+        "file_bytes": 1.4622653008488418,
+        "first_read": 0.7470968608059427,
+        "not_contains": 0.781953694893752,
+        "not_equal": 0.6410740067998696,
+        "original_write": 3.6380289903866387,
+        "physical_column_bytes": 1.4675226310500276,
+        "repeated_read": 0.6020351073501643,
+        "rewrite": 0.8780009453079585
+      },
+      "region": "all",
+      "totals": {
+        "current": {
+          "contains": 50846000,
+          "equal": 50602000,
+          "file_bytes": 12306180,
+          "first_read": 44693000,
+          "not_contains": 50448000,
+          "not_equal": 42942000,
+          "original_write": 166331000,
+          "physical_column_bytes": 12167796,
+          "repeated_read": 28598000,
+          "rewrite": 184067000
+        },
+        "structural": {
+          "contains": 39761000,
+          "equal": 35161000,
+          "file_bytes": 17994900,
+          "first_read": 33390000,
+          "not_contains": 39448000,
+          "not_equal": 27529000,
+          "original_write": 605117000,
+          "physical_column_bytes": 17856516,
+          "repeated_read": 17217000,
+          "rewrite": 161611000
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 1.0,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 1.0,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.8988952594042792,
+        "equal": 0.8297631671968894,
+        "file_bytes": 2.110274679355983,
+        "first_read": 0.8342007434944237,
+        "not_contains": 0.8939681202162769,
+        "not_equal": 0.7914363565589724,
+        "original_write": 2.53243866464466,
+        "physical_column_bytes": 2.1383241019632875,
+        "repeated_read": 0.7059752944556162,
+        "rewrite": 0.9544151738672286
+      },
+      "region": 0,
+      "totals": {
+        "current": {
+          "contains": 14302000,
+          "equal": 14145000,
+          "file_bytes": 1876224,
+          "first_read": 12105000,
+          "not_contains": 14241000,
+          "not_equal": 12845000,
+          "original_write": 48137000,
+          "physical_column_bytes": 1829992,
+          "repeated_read": 6962000,
+          "rewrite": 47450000
+        },
+        "structural": {
+          "contains": 12856000,
+          "equal": 11737000,
+          "file_bytes": 3959348,
+          "first_read": 10098000,
+          "not_contains": 12731000,
+          "not_equal": 10166000,
+          "original_write": 121904000,
+          "physical_column_bytes": 3913116,
+          "repeated_read": 4915000,
+          "rewrite": 45287000
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 1.0,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 1.0,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.731876592745215,
+        "equal": 0.6464339908952959,
+        "file_bytes": 1.1693739512515786,
+        "first_read": 0.7043603258265453,
+        "not_contains": 0.734614328849849,
+        "not_equal": 0.5806982872200264,
+        "original_write": 4.053991968418186,
+        "physical_column_bytes": 1.1708540616656664,
+        "repeated_read": 0.5603288987435329,
+        "rewrite": 0.8627603715884831
+      },
+      "region": 113,
+      "totals": {
+        "current": {
+          "contains": 18443000,
+          "equal": 18452000,
+          "file_bytes": 5318244,
+          "first_read": 16696000,
+          "not_contains": 18215000,
+          "not_equal": 15180000,
+          "original_write": 58768000,
+          "physical_column_bytes": 5272172,
+          "repeated_read": 10824000,
+          "rewrite": 69324000
+        },
+        "structural": {
+          "contains": 13498000,
+          "equal": 11928000,
+          "file_bytes": 6219016,
+          "first_read": 11760000,
+          "not_contains": 13381000,
+          "not_equal": 8815000,
+          "original_write": 238245000,
+          "physical_column_bytes": 6172944,
+          "repeated_read": 6065000,
+          "rewrite": 59810000
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 1.0,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 1.0,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.7728079911209766,
+        "equal": 0.6535712306754585,
+        "file_bytes": 1.5291424869006705,
+        "first_read": 0.7371337109086432,
+        "not_contains": 0.7595047660786677,
+        "not_equal": 0.6006767066940888,
+        "original_write": 4.182570137290014,
+        "physical_column_bytes": 1.533955881516857,
+        "repeated_read": 0.5985531754979331,
+        "rewrite": 0.8682263281492313
+      },
+      "region": 225,
+      "totals": {
+        "current": {
+          "contains": 18020000,
+          "equal": 18047000,
+          "file_bytes": 5111712,
+          "first_read": 16244000,
+          "not_contains": 18254000,
+          "not_equal": 15073000,
+          "original_write": 58635000,
+          "physical_column_bytes": 5065632,
+          "repeated_read": 10644000,
+          "rewrite": 67707000
+        },
+        "structural": {
+          "contains": 13926000,
+          "equal": 11795000,
+          "file_bytes": 7816536,
+          "first_read": 11974000,
+          "not_contains": 13864000,
+          "not_equal": 9054000,
+          "original_write": 245245000,
+          "physical_column_bytes": 7770456,
+          "repeated_read": 6371000,
+          "rewrite": 58785000
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "failed": [
+        "file_bytes",
+        "physical_column_bytes",
+        "original_write"
+      ],
+      "limits": {
+        "contains": 1.05,
+        "equal": 1.05,
+        "file_bytes": 0.7,
+        "first_read": 1.05,
+        "not_contains": 1.05,
+        "not_equal": 1.05,
+        "original_write": 1.25,
+        "physical_column_bytes": 0.7,
+        "repeated_read": 1.05,
+        "rewrite": 1.25
+      },
+      "ratios": {
+        "contains": 0.7934600610656949,
+        "equal": 0.7001816602164126,
+        "file_bytes": 1.4622653008488418,
+        "first_read": 0.7510711510711511,
+        "not_contains": 0.7883257740090712,
+        "not_equal": 0.6504942224697202,
+        "original_write": 3.657085900688655,
+        "physical_column_bytes": 1.4675226310500276,
+        "repeated_read": 0.610306014773127,
+        "rewrite": 0.88834080474412
+      },
+      "region": "all",
+      "totals": {
+        "current": {
+          "contains": 50765000,
+          "equal": 50644000,
+          "file_bytes": 12306180,
+          "first_read": 45045000,
+          "not_contains": 50710000,
+          "not_equal": 43098000,
+          "original_write": 165540000,
+          "physical_column_bytes": 12167796,
+          "repeated_read": 28430000,
+          "rewrite": 184481000
+        },
+        "structural": {
+          "contains": 40280000,
+          "equal": 35460000,
+          "file_bytes": 17994900,
+          "first_read": 33832000,
+          "not_contains": 39976000,
+          "not_equal": 28035000,
+          "original_write": 605394000,
+          "physical_column_bytes": 17856516,
+          "repeated_read": 17351000,
+          "rewrite": 163882000
+        }
+      }
+    }
+  ],
+  "all_expected_activation_checks": true,
+  "all_native_reservations_released": true,
+  "all_original_text_fields": 28,
+  "all_process_groups_drained": true,
+  "broader_owner_closed": false,
+  "broader_substep_closed": false,
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "vortex-write,universal-format-io,vortex-local-primitives",
+        "structural_payload_",
+        "--",
+        "--test-threads=2"
+      ],
+      "log_sha256": "87c6b827c3946586fbea42b359decb077fa9921daa36cf448de11befe7fd9181",
+      "name": "structural-screen-tests-809c",
+      "receipt_sha256": "deb444d2c45421a33b2dd6483a35bb59ad1f7fb166f8299b1a2ee204e75f41c0",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019",
+        "-p",
+        "test_structural_screen_809.py",
+        "-v"
+      ],
+      "log_sha256": "bf05053a09739fb2931bab3bbf1984d9474547259f984ab9be2fc92cf3f65988",
+      "name": "structural-oracle-tests-810",
+      "receipt_sha256": "76bad4d10ceeec46fb70afaeddb9a1b9e82540bd724569196021d86f73673943",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "structural-fmt-check-810",
+      "receipt_sha256": "7a5282d50fcd03fdd3b2dea1fad53e0fa50a4634b7488eed2a31e81388c2f5e0",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--tests",
+        "--features",
+        "vortex-write,universal-format-io,vortex-local-primitives",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log_sha256": "4ef2237b6ffa46ccb7df0bfb12d7e8cbc46148a8882886ee4c516abda9a0388c",
+      "name": "structural-screen-clippy-809b",
+      "receipt_sha256": "edc405d0c47af4375c3d8612e457c4fd831e53c9185491c38dddf1d7a70e355b",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural_screen_809.py",
+        "preflight"
+      ],
+      "log_sha256": "f83d3c8e49ec55ed5efbe6dc2604c127b8b3f341ab260090708d1f3af16f4026",
+      "name": "structural-preflight-810",
+      "receipt_sha256": "f4519e60650c7e9352f4ccc4be22f8169bfbb637412cc9c7e29d23bd57cd1ef4",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural_screen_809.py",
+        "measure"
+      ],
+      "log_sha256": "6b644482fb5f74be9fc4cb09e21e1433fb5e9d70ecc6d48a793b33a7a9db5044",
+      "name": "structural-measured-810",
+      "receipt_sha256": "d3576a6178c686e20630f41564e6a4feefddbce534855c98468a04ffe475f074",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_screen_809.py"
+      ],
+      "log_sha256": "e0a285d98be2df51cec99e4026e5791fab58bf8fb3cd48f45f3864dbe1cefe0e",
+      "name": "structural-scoring-810",
+      "receipt_sha256": "c67a06f79ac1f6e91f339689f8a4787e8b3d339f83e47f9a177408d28e29e937",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "structural-restored-fmt-810",
+      "receipt_sha256": "cf050c34e01a2ce6b74eaa50ead81f28c34dea5b5297f7bd0cac4df052ece107",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "docs/benchmarks/evidence/verify_structural_packet_810.py",
+        "--packet",
+        "docs/benchmarks/evidence/structural-results-810.json.xz",
+        "--repository",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--scratch",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-portable-verification-810.json"
+      ],
+      "log_sha256": "2726e83e1f1169209612535bd57cf5a068e3a6d51b3bd22e81b9c72ae8677947",
+      "name": "structural-portable-check-810",
+      "receipt_sha256": "07cc7324bd7b077c1733ae03d6f971ff58fb986ad9465e60fae66e157ad967d1",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "docs/benchmarks/evidence/verify_structural_packet_810.py",
+        "--packet",
+        "docs/benchmarks/evidence/structural-results-810.json.xz",
+        "--repository",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--scratch",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-after-retirement-verification-810.json"
+      ],
+      "log_sha256": "2726e83e1f1169209612535bd57cf5a068e3a6d51b3bd22e81b9c72ae8677947",
+      "name": "structural-after-retirement-check-810",
+      "receipt_sha256": "bc50d080e084fca19c56045a9c258c6be6bb9c8d20982d391fcbb8fd972ef594",
+      "status": "passed"
+    }
+  ],
+  "complete_byte_null_schema_statistics_and_order_checks": true,
+  "completed_scope": "Frozen OnPair original-text provider screen and exact restoration",
+  "decision": "rejected_finite_profile",
+  "engine_clock_status": "unavailable_in_this_primitive_report",
+  "evidence_limit": "Replay verifies exact archived records; retired physical files require guarded regeneration.",
+  "exact_gate_recomputation_passed": true,
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "field_region_combinations": 84,
+  "fresh_native_processes": 126,
+  "full43_run": false,
+  "full_size_ingest_run": false,
+  "independent_original_and_rewritten_oracles": true,
+  "individual_regressions": [
+    {
+      "family": "original_write",
+      "field": "Title",
+      "observations": [
+        {
+          "candidate": 46264000,
+          "cohort": "A",
+          "current": 13863000,
+          "delta_cpu_ns": 32401000,
+          "failed": true,
+          "ratio": 3.3372285940994013
+        },
+        {
+          "candidate": 47068000,
+          "cohort": "B",
+          "current": 13823000,
+          "delta_cpu_ns": 33245000,
+          "failed": true,
+          "ratio": 3.405049555089344
+        }
+      ],
+      "region": 0
+    },
+    {
+      "family": "original_write",
+      "field": "URL",
+      "observations": [
+        {
+          "candidate": 20275000,
+          "cohort": "A",
+          "current": 3683000,
+          "delta_cpu_ns": 16592000,
+          "failed": true,
+          "ratio": 5.505023079011675
+        },
+        {
+          "candidate": 20534000,
+          "cohort": "B",
+          "current": 3664000,
+          "delta_cpu_ns": 16870000,
+          "failed": true,
+          "ratio": 5.604257641921397
+        }
+      ],
+      "region": 0
+    },
+    {
+      "family": "original_write",
+      "field": "Referer",
+      "observations": [
+        {
+          "candidate": 28733000,
+          "cohort": "A",
+          "current": 3885000,
+          "delta_cpu_ns": 24848000,
+          "failed": true,
+          "ratio": 7.395881595881596
+        },
+        {
+          "candidate": 28779000,
+          "cohort": "B",
+          "current": 3875000,
+          "delta_cpu_ns": 24904000,
+          "failed": true,
+          "ratio": 7.426838709677419
+        }
+      ],
+      "region": 0
+    },
+    {
+      "family": "original_write",
+      "field": "FlashMinor2",
+      "observations": [
+        {
+          "candidate": 1207000,
+          "cohort": "A",
+          "current": 1059000,
+          "delta_cpu_ns": 148000,
+          "failed": true,
+          "ratio": 1.1397544853635506
+        },
+        {
+          "candidate": 1370000,
+          "cohort": "B",
+          "current": 1122000,
+          "delta_cpu_ns": 248000,
+          "failed": true,
+          "ratio": 1.2210338680926915
+        }
+      ],
+      "region": 0
+    },
+    {
+      "family": "original_write",
+      "field": "SearchPhrase",
+      "observations": [
+        {
+          "candidate": 1733000,
+          "cohort": "A",
+          "current": 1538000,
+          "delta_cpu_ns": 195000,
+          "failed": true,
+          "ratio": 1.1267880364109233
+        },
+        {
+          "candidate": 1687000,
+          "cohort": "B",
+          "current": 1531000,
+          "delta_cpu_ns": 156000,
+          "failed": true,
+          "ratio": 1.101894186806009
+        }
+      ],
+      "region": 0
+    },
+    {
+      "family": "original_write",
+      "field": "Title",
+      "observations": [
+        {
+          "candidate": 18767000,
+          "cohort": "A",
+          "current": 6788000,
+          "delta_cpu_ns": 11979000,
+          "failed": true,
+          "ratio": 2.764731879787861
+        },
+        {
+          "candidate": 18972000,
+          "cohort": "B",
+          "current": 6873000,
+          "delta_cpu_ns": 12099000,
+          "failed": true,
+          "ratio": 2.7603666521169794
+        }
+      ],
+      "region": 113
+    },
+    {
+      "family": "original_write",
+      "field": "URL",
+      "observations": [
+        {
+          "candidate": 136472000,
+          "cohort": "A",
+          "current": 13173000,
+          "delta_cpu_ns": 123299000,
+          "failed": true,
+          "ratio": 10.359978744401428
+        },
+        {
+          "candidate": 137012000,
+          "cohort": "B",
+          "current": 13560000,
+          "delta_cpu_ns": 123452000,
+          "failed": true,
+          "ratio": 10.104129793510324
+        }
+      ],
+      "region": 113
+    },
+    {
+      "family": "original_write",
+      "field": "Referer",
+      "observations": [
+        {
+          "candidate": 16780000,
+          "cohort": "A",
+          "current": 3171000,
+          "delta_cpu_ns": 13609000,
+          "failed": true,
+          "ratio": 5.291706086408073
+        },
+        {
+          "candidate": 17055000,
+          "cohort": "B",
+          "current": 3426000,
+          "delta_cpu_ns": 13629000,
+          "failed": true,
+          "ratio": 4.978108581436077
+        }
+      ],
+      "region": 113
+    },
+    {
+      "family": "original_write",
+      "field": "OriginalURL",
+      "observations": [
+        {
+          "candidate": 40852000,
+          "cohort": "A",
+          "current": 10022000,
+          "delta_cpu_ns": 30830000,
+          "failed": true,
+          "ratio": 4.076232288964278
+        },
+        {
+          "candidate": 39306000,
+          "cohort": "B",
+          "current": 9897000,
+          "delta_cpu_ns": 29409000,
+          "failed": true,
+          "ratio": 3.971506517126402
+        }
+      ],
+      "region": 113
+    },
+    {
+      "family": "original_write",
+      "field": "Title",
+      "observations": [
+        {
+          "candidate": 15169000,
+          "cohort": "A",
+          "current": 5885000,
+          "delta_cpu_ns": 9284000,
+          "failed": true,
+          "ratio": 2.5775700934579437
+        },
+        {
+          "candidate": 14935000,
+          "cohort": "B",
+          "current": 5900000,
+          "delta_cpu_ns": 9035000,
+          "failed": true,
+          "ratio": 2.5313559322033896
+        }
+      ],
+      "region": 225
+    },
+    {
+      "family": "original_write",
+      "field": "URL",
+      "observations": [
+        {
+          "candidate": 116176000,
+          "cohort": "A",
+          "current": 11157000,
+          "delta_cpu_ns": 105019000,
+          "failed": true,
+          "ratio": 10.412834991485166
+        },
+        {
+          "candidate": 116634000,
+          "cohort": "B",
+          "current": 11020000,
+          "delta_cpu_ns": 105614000,
+          "failed": true,
+          "ratio": 10.583847549909256
+        }
+      ],
+      "region": 225
+    },
+    {
+      "family": "original_write",
+      "field": "Referer",
+      "observations": [
+        {
+          "candidate": 18522000,
+          "cohort": "A",
+          "current": 4787000,
+          "delta_cpu_ns": 13735000,
+          "failed": true,
+          "ratio": 3.869229162314602
+        },
+        {
+          "candidate": 18379000,
+          "cohort": "B",
+          "current": 4606000,
+          "delta_cpu_ns": 13773000,
+          "failed": true,
+          "ratio": 3.9902301346070344
+        }
+      ],
+      "region": 225
+    },
+    {
+      "family": "original_write",
+      "field": "OriginalURL",
+      "observations": [
+        {
+          "candidate": 69700000,
+          "cohort": "A",
+          "current": 11862000,
+          "delta_cpu_ns": 57838000,
+          "failed": true,
+          "ratio": 5.875906255268926
+        },
+        {
+          "candidate": 70439000,
+          "cohort": "B",
+          "current": 12205000,
+          "delta_cpu_ns": 58234000,
+          "failed": true,
+          "ratio": 5.77132322818517
+        }
+      ],
+      "region": 225
+    }
+  ],
+  "measured_workflows": 36,
+  "native_grant_bytes": 536870912,
+  "onpair_activations_per_candidate_workflow_set": 11,
+  "original_value_checks": 38535168,
+  "owner": "PERF-09",
+  "packet_sha256": "9991f1cd88919533ca2f78260db2b93eeb51eec53e8b2f5f75ef0dee46339103",
+  "preflight_workflows": 6,
+  "production_admitted": false,
+  "protocol_sha256": "c533bdf5d4211c397ef7349975b2f0a2f99ff746e2b092af5f2532979efb1bbb",
+  "restored_sources": {
+    "base_commit": "ec2b27f121ff7e5e8f740c999dca7f433737fbc7",
+    "check_scope": "Existing required workspace and native checks reused only after all 1903 Rust/Cargo sources match their exact recorded hashes; these are not fresh executions.",
+    "every_rust_cargo_source_equal_to_base_and_prior_checks": true,
+    "packet_sha256": "9991f1cd88919533ca2f78260db2b93eeb51eec53e8b2f5f75ef0dee46339103",
+    "portable_verifier_sha256": "430d744e62e34aeb431d55ee3166a2d53665bfff5c8caee88b9a259d1727b915",
+    "removed_test_sources": [
+      "shardloom-vortex/src/vortex_ingest_structural_intake.rs",
+      "shardloom-vortex/src/vortex_ingest_structural_payload.rs",
+      "shardloom-vortex/src/vortex_ingest_structural_payload_tests.rs",
+      "shardloom-vortex/src/vortex_ingest_structural_screen.rs",
+      "shardloom-vortex/src/vortex_ingest_structural_screen_tests.rs",
+      "shardloom-vortex/src/vortex_ingest_structural_verify.rs"
+    ],
+    "reused_checks": [
+      {
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "name": "ingest-restored-fmt-804",
+        "receipt_sha256": "dc8a8eedf7348d4fb4e8df81fc9aa5ced976eea5c9895602fe883df39e4a8866",
+        "result_groups": 0,
+        "status": "passed",
+        "tests_passed": 0,
+        "zero_test_groups": 0
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "vortex-write,universal-format-io,vortex-local-primitives",
+          "credit_window::tests",
+          "--",
+          "--test-threads=2"
+        ],
+        "log_sha256": "840de07141b99a68d962ceac00c782141514956c2f687c87464d01c710c78727",
+        "name": "ingest-restored-credit-default-804",
+        "receipt_sha256": "382de8d735a3067e01f4bc40ee0b4517ddb64d149126466bfc5dd09cb1dfe1ca",
+        "result_groups": 1,
+        "status": "passed",
+        "tests_passed": 9,
+        "zero_test_groups": 0
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "vortex-write,universal-format-io,vortex-local-primitives,output-window-observation",
+          "credit_window::tests",
+          "--",
+          "--test-threads=2"
+        ],
+        "log_sha256": "e6a92ca046e157d8cb380765a3b5a497ed8934ba80b863a32a82e5e6f7c3bd70",
+        "name": "ingest-restored-credit-observed-804",
+        "receipt_sha256": "a18cc3c07b451dc3eeaab0d7ca36edcb15f45232807c0df810b152eeeefa6c58",
+        "result_groups": 1,
+        "status": "passed",
+        "tests_passed": 9,
+        "zero_test_groups": 0
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "log_sha256": "e4372895071e3dd5344eb8e357d2eeeffdc7f0862e95c827354845085df7cebb",
+        "name": "ingest-restored-workspace-clippy-804",
+        "receipt_sha256": "c0ae7eddd77605e80fab62ed1c9775b8ef77eccd8c32286f8d86b7ce300c1fe2",
+        "result_groups": 0,
+        "status": "passed",
+        "tests_passed": 0,
+        "zero_test_groups": 0
+      },
+      {
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "--test-threads=2"
+        ],
+        "log_sha256": "e6100ecc5980a6eff168e6a14197c22331863d2a7b876e31c5e78b447db05b3c",
+        "name": "ingest-restored-workspace-tests-804",
+        "receipt_sha256": "d85129eae99828042d86db7dd54e34be4ee985ef41e5f205f3c39d4439c6fe92",
+        "result_groups": 107,
+        "status": "passed",
+        "tests_passed": 3235,
+        "zero_test_groups": 8
+      }
+    ],
+    "reused_checks_packet": {
+      "bytes": 222116,
+      "name": "ingest-restored-checks-805.json.xz",
+      "sha256": "12cc134488622ba40f97a4fcd7abba0b15db074cc607568d93231cf68fee8c3b"
+    },
+    "source_count": 1903,
+    "source_identity_sha256": "1949632f22b142ceada150913556d0e3019693e8d7e855ddf82579de92c1fb03",
+    "status": "passed",
+    "structural_profile_retained": false
+  },
+  "rewritten_value_checks": 38535168,
+  "schema_version": "shardloom.native_owner_acceptance.v1",
+  "source_commit": "ec2b27f121ff7e5e8f740c999dca7f433737fbc7",
+  "source_count": 1909,
+  "source_sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "substep": "PERF-09.structural_payload",
+  "unresolved": [
+    "Broader structural representations",
+    "Production OnPair allocator and untrusted-input admission",
+    "Full-artifact and complete full-ingestion/query lifecycle for any future retained mechanism",
+    "Eligible PERF-09.overlap measurement; remaining conditional rows before required breadth"
+  ],
+  "verified_native_files": 2352
+}

@@ -1334,8 +1334,13 @@ class SqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
+        output_window_bytes: int = 0,
     ):
         """Consume bounded batches; the final iterator report proves completion.
+
+        Opt into native two-batch delivery with ``output_window_bytes=4194304``;
+        zero keeps ordinary demand. Other plans keep ordinary delivery when the
+        native memory scan/projection policy does not admit a window.
 
         Use a with block when stopping early. Earlier batches are provisional
         until all source checks and the final report have succeeded.
@@ -1343,6 +1348,7 @@ class SqlWorkflow:
         """
         return self.client.public_workflow_batches(
             "sql", batch_rows=batch_rows, sql_statement=self.statement,
+            output_window_bytes=output_window_bytes,
             **_native_plan_kwargs(self),
             plan_summary=self.operation_summary,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
@@ -5510,11 +5516,17 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
+        output_window_bytes: int = 0,
     ):
         """Consume native batches incrementally; use a with block for early close.
 
-        The final iterator report establishes completion. Retaining yielded
-        Python batches uses caller memory outside the native operation grant.
+        Opt into native two-batch delivery with ``output_window_bytes=4194304``;
+        zero keeps ordinary demand. Other plans keep ordinary delivery when the
+        native memory scan/projection policy does not admit a window.
+
+        The final iterator report establishes completion. Retained native batch
+        buffers remain charged to the original grant until their last owner is
+        released; separate Python and consumer allocations use caller memory.
         Prepare compatibility file inputs to Vortex before batch consumption.
         """
         statement = self._relation_statement()
@@ -5522,6 +5534,7 @@ class LazyFrame:
             raise ValueError("batch consumption requires an admitted native SQL declaration")
         return self.client.public_workflow_batches(
             "dataframe", batch_rows=batch_rows, sql_statement=statement,
+            output_window_bytes=output_window_bytes,
             **_native_plan_kwargs(self),
             input_uri=self.source.uri, input_format=_public_workflow_input_format(self.source),
             source_bindings=_workflow_source_bindings(self._declared_sources()),

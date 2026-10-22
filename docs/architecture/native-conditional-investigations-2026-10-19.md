@@ -2,10 +2,13 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; eight finite investigations completed with
-six rejected mechanisms, one retained mechanism and one no-signal attribution,
-13 rows awaiting their first
-completed decision in this pass.
+Status: finite conditional-first pass recorded; seventeen original finite investigations completed with
+eleven rejected mechanisms, two unretained mechanisms, two retained mechanisms and
+two no-signal attributions. Four have source-reviewed missing-prerequisite records,
+and the finite native-exchange transport experiment is rejected after both
+complete cohorts. Both additional follow-ups, cyclic existence and prepared
+sampling, are retained after their complete comparisons and final local
+acceptance. Required breadth resumes under the phase plan.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -24,6 +27,23 @@ table orders its existing IDs; it adds no phase, owner or obligation. There are
 14 broad owners and 58 substeps: 37 required and 21 conditional. All CG-1 through
 CG-23 remain visible in the phase plan and keep their independent evidence gates.
 The earlier reconciliation and CPU intake remain historical scope records.
+
+The October 20 [additional investigations](native-investigation-followups-2026-10-20.md)
+cover cyclic existence joins and reusable weighted-sampling preparation. They
+use `PERF-10.multiway_joins` and `PERF-10.learned_indexes`, respectively, with
+existing resource and cache obligations. They add no roadmap ID. Each requires
+a materially different mechanism, independently frozen controls and numerical
+gates; the two earlier unretained results remain binding.
+The [cyclic-existence decision](native-cyclic-existence-intake-2026-10-21.md) retains
+the finite automatic strategy after both scored cohorts, every frozen control,
+actual-work/ownership checks and final native/public/package/Full43/format
+acceptance. Its compact packet replays without native execution. This additional
+retained decision leaves the seventeen original decisions and broader owner
+obligations unchanged. The
+[prepared-sampling decision](native-prepared-sampling-decision-2026-10-21.md)
+also retains its finite scalar-metadata mechanism after both comparisons,
+corrected native/public/package/Full43/format acceptance and complete portable
+replay. Neither follow-up completes a broader owner.
 
 ## Execution rule
 
@@ -92,6 +112,19 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-10.predicate_exclusion` | [One exact fact per immutable source rejected](native-predicate-exclusion-2026-10-19.md). All three repeated-use targets pass both frozen cohorts, but two single-call controls fail. All 1,828 workflows/4,260 operations and 16 lifecycle tests pass correctness, activation and cleanup; experimental code is archived and removed. | Positive attribution and target gains do not override controls. A materially different mechanism requires a new design and protocol; first-use summaries and broader predicate-exclusion obligations remain open. |
 | `PERF-06.merge_cost` | [No eligible final-tail signal](native-merge-tail-2026-10-19.md). All 236 release workflows pass exact output, source, trace and cleanup checks. The 84 observed measured spill workflows leave one or two final runs, so estimated adjacent-order savings are zero. No candidate is implemented; temporary observer code is archived and removed. | This frozen workload does not establish general merge optimality. A new final-tail protocol must first establish an actual choice among at least three remaining runs and material tail work. Broader merge-cost and pressure obligations remain open. |
 | `PERF-06.rematerialization` | [Private projection regeneration rejected](native-rematerialization-2026-10-19.md). All 357 release workflows pass exact semantics, source, activation and ownership checks. All four memory targets pass both cohorts, but wide-dependency/all-null controls fail in both and the one-output control fails in A. Candidate code is archived and removed. | Target memory savings do not override throughput controls. A materially different mechanism requires a new design and protocol; broader retention, regeneration, pressure and recovery remain open. |
+| `PERF-07.output_windows` | [Finite two-batch native output window retained](native-output-window-integration-2026-10-19.md). Both frozen cohorts pass the complete-workflow target and all ten cells' controls; full workspace/native, isolated installed Python, Public39, Full43 and modular acceptance pass. | The explicit 4-MiB option admits only the frozen immutable memory scan/single-projection shape. Engine medians do not improve; no CLI transport window or broader producer/publication claim follows. General output-window obligations remain open. |
+| `PERF-09.overlap` | [Eligible finite attribution finds no repeatable material signal](native-ingest-overlap-observer-decision-2026-10-20.md). The outermost-poll observer passes every overhead cell, all 14 preflight and 84 measured workflows, exact values, activation and cleanup. Only one of three targets clears the opportunity gate in both cohorts; two were required. Temporary instrumentation is removed. | No scheduling candidate is admitted. This closes the finite attribution, without establishing general ingest optimality or closing the broader overlap owner. The two earlier inconclusive observers remain recorded; no unchanged rerun or relaxed gate is authorized by this result. |
+| `PERF-09.portfolio` | [Reduced numeric profile rejected](native-numeric-portfolio-2026-10-20.md). All 42 workflows/3,234 native files pass exact checks and both cohorts pass every aggregate gate, but one individual write-control regression repeats in both. Experimental sources are restored and the compact packet reconstructs the complete source and decision. | This finite per-column screen does not establish complete ingestion behavior or rule out all costed portfolios. A materially different mechanism needs its own design and protocol; no favorable-column promotion or full-workflow claim follows. |
+| `PERF-09.structural_payload` | [Finite OnPair structural profile rejected](native-structural-payload-2026-10-20.md). All 42 workflows/2,352 original and rewritten native files pass exactness, activation and lifecycle checks. Both cohorts fail the storage and original-write aggregate controls; thirteen individual write regressions repeat. Experimental sources are restored and the compact packet reconstructs the complete source and decision. | The finite original-text screen does not establish full-ingestion behavior or rule out all structural representations. A materially different design needs new evidence; production allocator/untrusted-input admission and full-artifact lifecycle gates remain open. |
+| `PERF-02.changed_source` | [Unconditional whole-file refresh adapter rejected](native-changed-source-reuse-2026-10-20.md). All 84 workflows pass exactness, activation and cleanup. Both cohorts fail all six initial-preparation controls, all three complete-workflow controls and every reuse target's engine control; moderate reuse also misses the complete-workflow target. Experimental code is removed; the ordinary public partition regression remains. | Complete refresh gains do not override controls. Missing host samples and legacy concurrency-guard coverage are explicit; no positive admission or CPU-isolation claim follows. A different admission/reuse mechanism requires a new protocol. General partial regions and generation-conditional publication remain separate. |
+| `PERF-10.multiway_joins` | [Three-input constraint probe not retained](native-multiway-join-2026-10-20.md). Prototype and initial integration pass both cohorts; final public-projection integration misses the one-call star control in A while B passes. All 2,080 queries and 16,160,040 ordered rows pass exact checks. Production is restored, ordinary join regressions remain and fresh workspace/native/installed-Python checks pass. | The distinct [cyclic existence follow-up is retained](native-cyclic-existence-intake-2026-10-21.md): both complete cohorts and every frozen control pass, with actual intermediate-work avoidance and final native/public/package/Full43/format acceptance. The earlier failed result remains unchanged and does not establish a repeated regression. Broader multiway planning stays open. |
+| `PERF-10.learned_indexes` | [Bounded weighted-search predictor not retained](native-learned-index-decision-2026-10-20.md). Both large targets pass both cohorts, but few-draw and tiny engine controls fail in A while B passes. All 544 preflight/comparison calls pass exactness and ownership checks; preflight separately verifies activation. Experimental code is removed and fresh workspace/native checks pass. | Both cohorts had to pass; this does not establish a repeated regression or isolate the control changes' cause. Construction and complete-workflow controls remain binding. The separately frozen [prepared-sampling mechanism is retained](native-prepared-sampling-decision-2026-10-21.md) with a credited scalar-model owner, exact immutable identity, pressure reclaim and teardown. Its complete comparisons and final local acceptance do not close broader learned-index opportunities. |
+| `PERF-03.regions` | [Finite projection-request deferral rejected before timing](native-region-projection-decision-2026-10-20.md). Only one of four sparse targets meets the frozen actual-read gate. All 32 intake, 64 comparison and 32 ordered-value calls pass exactness and ownership checks. Experimental code is removed; fresh workspace/native acceptance passes after a test-only fixture collision repair. | Copied-binary naming limited concurrency-guard coverage, so no exclusive-workload or positive causal claim follows. No timing cohort ran. New topology, region-local reduction and dependent preparation/ordered-candidate gates remain unproved; a materially different mechanism needs a new protocol. |
+| `PERF-10.ordered_candidates` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): current array-fed workers and ordering consumers do not establish admitted independent region reads and region-local reduction. | Both gates remain missing. No local-candidate implementation or comparison is admitted; the substep stays open. |
+| `PERF-09.design` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): the rejected request-deferral mechanism supplies no accepted runtime geometry/pruning/reduction/merge cost basis for joint preparation. | Runtime region acceptance precedes the varied preparation controls. No writer change or joint-cost comparison is admitted; the substep stays open. |
+| `PERF-12.topology` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): no newly admitted topology replaces the rejected grouping/coalescing or request-deferral attempts. | No unchanged 129-call rerun. A materially different admitted mechanism precedes the preserved immutable-input comparison; the substep stays open. |
+| `PERF-13.pgo` | [Current dispatch attribution is missing](native-pgo-prerequisite-decision-2026-10-20.md). All 36 historical Q3/Q23/Q29 raw counter records and twelve median cells are verified; absolute counts exist but cover whole old processes. Both required orchestration regressions pass. | New training is not admitted from these records. Current attributed cost, representative/held-out training, complete workflow/package and break-even gates remain. The historical tested-profile rejection stands; the conditional substep stays open. |
+| `NATIVE-ENCODED-EXCHANGE.experiment` | [Finite fragment transport rejected](native-exchange-decision-2026-10-21.md). All 650 scored workflows pass complete values, types, order, native encoding/execution and lifecycle checks. Both cohorts pass native engine controls but fail aggregate benefit against all three Arrow roles and wide-text controls against LZ4/Zstd. The private runtime is removed; the complete decision replays from compact evidence and Git source. | Constant/nested family wins do not override the failed gates. This completes the finite experiment without closing the four broader protocol/ownership/experiment/client substeps. The accepted local/control prerequisites remain; a materially different mechanism needs a new protocol. No public service, package or competitive claim follows. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -100,7 +133,26 @@ scopes. The nested identity candidate has a completed preflight rejection, and
 the bounded local-width mechanism has completed local acceptance. Exact
 predicate exclusion and private projection regeneration have completed finite
 comparison rejections, and final-tail merge attribution has a completed no-signal
-decision. The next investigation is `PERF-07.output_windows`.
+decision. The finite two-batch output window has completed integrated local
+acceptance. The reduced numeric portfolio, original-text OnPair profile and
+unconditional whole-file refresh adapter have completed finite rejections. The
+three-input join attempt has a completed not-retained decision with restored
+runtime and fresh regression/package checks. The bounded weighted-search predictor
+also has a completed not-retained decision with exact restoration and fresh
+workspace/native checks.
+The finite projection-request deferral has a completed pre-timing rejection,
+with its guard limitation, exact restoration, fixture correction and fresh checks
+preserved in replayable evidence.
+`PERF-09.overlap` now has an eligible finite no-signal decision after two
+earlier inconclusive observer implementations. The three region-dependent rows have
+been revisited against row 16's negative result, and PGO has an evidenced current
+attribution gap. These four prerequisite records complete neither an experiment
+nor a substep. Native exchange now has a completed finite rejection with actual
+transport, matched comparisons and bounded client/failure evidence; its wider
+public service and client obligations remain open. Both authorized follow-ups
+now have retained finite decisions and final local acceptance; resume the 37
+required breadth substeps. Source-reviewed prerequisite gaps
+remain explicit and do not become accepted capability through this sequencing.
 
 ## Deferred required work
 

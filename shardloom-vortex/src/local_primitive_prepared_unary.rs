@@ -53,6 +53,11 @@ mod report;
 mod rolling;
 #[path = "local_primitive_unary_sample.rs"]
 mod sample;
+#[cfg(test)]
+#[path = "local_primitive_unary_sample_observation.rs"]
+pub(crate) mod sample_observation;
+#[path = "local_primitive_unary_sample_preparation.rs"]
+pub(super) mod sample_preparation;
 #[path = "local_primitive_unary_scalar.rs"]
 mod scalar;
 #[path = "local_primitive_unary_schema.rs"]
@@ -102,8 +107,9 @@ pub struct PreparedVortexUnary {
     bound: BoundUnary,
 }
 
-/// Source-independent schema and operation metadata. Every execution owns fresh
-/// state; direct file scans and composed native relations share the same kernels.
+/// Schema and operation metadata shared by file and composed native kernels.
+/// Populations remain execution-local; only the immutable relational root binder
+/// can admit scalar sampling calibration across executions.
 pub(super) struct BoundUnary {
     request: VortexQueryPrimitiveRequest,
     columns: Vec<String>,
@@ -117,6 +123,7 @@ pub(super) struct BoundUnary {
     melt: Option<melt::Plan>,
     explode: Option<explode::Plan>,
     pivot: Option<pivot::Plan>,
+    sampling_preparation: Option<Box<sample_preparation::Preparation>>,
     _metadata: MemoryLease,
 }
 
@@ -410,6 +417,48 @@ pub fn prepare_unary_from_source(
 }
 
 impl BoundUnary {
+    /// Only the relational root binder may prove immutable source/plan identity.
+    pub(super) fn admit_sampling_preparation(
+        &mut self,
+        rows: usize,
+        fields: &[(String, DType)],
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    ) -> Result<()> {
+        if self.request.kind != VortexQueryPrimitiveKind::SampleRows
+            || !self.request.sample_with_replacement
+            || self.request.predicate.is_some()
+            || self.predicate.is_some()
+            || rows < 4096
+        {
+            return Ok(());
+        }
+        let Some(weight) = &self.request.sample_weight_column else {
+            return Ok(());
+        };
+        if !fields.iter().any(|(name, dtype)| {
+            name == weight.as_str()
+                && matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F64, _))
+        }) {
+            return Ok(());
+        }
+        let Ok(draws) = super::sample_target_count(&self.request, rows) else {
+            // Admission must not change when the ordinary query validates a count.
+            return Ok(());
+        };
+        if draws >= 4096 && draws >= rows.div_ceil(4) {
+            self.sampling_preparation = sample_preparation::Preparation::new(rows, memory)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn sampling_preparation(&self) -> Option<&sample_preparation::Preparation> {
+        self.sampling_preparation.as_deref()
+    }
+
+    pub(super) fn disable_sampling_preparation(&mut self) {
+        self.sampling_preparation = None;
+    }
+
     pub(super) fn for_relation(
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,
@@ -570,6 +619,7 @@ impl BoundUnary {
             metadata
                 .bytes()
                 .checked_add(schema_bytes)
+                .and_then(|bytes| bytes.checked_add(sample_preparation::POINTER_BYTES))
                 .ok_or_else(|| failed("metadata size overflow"))?,
         )?;
         let schema::Binding {
@@ -623,6 +673,7 @@ impl BoundUnary {
             melt,
             explode,
             pivot,
+            sampling_preparation: None,
             _metadata: metadata,
         })
     }

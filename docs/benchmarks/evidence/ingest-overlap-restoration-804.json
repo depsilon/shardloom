@@ -1,0 +1,23 @@
+{
+  "base_commit": "ce9428fc1239ce9b6a65d55d857e05d46c878f97",
+  "equal_to_accepted_source": 1902,
+  "packet_sha256": "4ef023256c1d16fb5a90312b67d800c1fe3560d78dbc2dda11ae3ad430477432",
+  "remaining_test_only_changes": [
+    {
+      "base_sha256": "f4f02b1e548a6436e1e88770bfdc1880c61b4d0b87af5e5b3747978658fd4715",
+      "path": "shardloom-vortex/src/local_primitive_relational_credit_window_tests.rs",
+      "scope": "Feature-conditional test instrumentation only.",
+      "sha256": "8d94f1ba55c50b3974001a71d35878427212089868f619613bcfce9ee608c29d"
+    }
+  ],
+  "removed_temporary_sources": [
+    "shardloom-vortex/src/ingest_overlap_observation.rs",
+    "shardloom-vortex/src/ingest_overlap_observation_tests.rs",
+    "shardloom-vortex/src/universal_format_io_ingest_overlap_input.rs",
+    "shardloom-vortex/src/vortex_ingest_overlap_harness.rs"
+  ],
+  "runtime_and_dependency_sources_equal_to_accepted": true,
+  "rust_cargo_source_count": 1903,
+  "scheduling_change_retained": false,
+  "status": "passed"
+}

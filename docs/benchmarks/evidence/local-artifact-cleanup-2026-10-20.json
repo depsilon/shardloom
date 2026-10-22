@@ -1,0 +1,102 @@
+{
+  "active_ingest_source_binary_helpers_unchanged": true,
+  "boundary": "Accounted bytes can count hard-linked names separately; observed free-space change is separately recorded and can include host activity. Tracked Git source/evidence, ordinary project files, compact historical results, current fixture tools and distinct resident small source inputs remain.",
+  "cli_version_smoke": "shardloom 0.6.0",
+  "free_bytes_after_global_cleanup": 170379141120,
+  "free_bytes_before_global_cleanup": 44982755328,
+  "new_rollback_archives": 0,
+  "observed_free_space_increase_bytes": 125396385792,
+  "partial_retirement_closed": {
+    "completed_files": 274,
+    "native_measurements_running": false,
+    "original_receipt": "global-binary-retirement-799.json",
+    "remaining_files": 262,
+    "retired_accounted_bytes": 22446071808,
+    "status": "partial_stop_for_own_hardlink_ctime_change"
+  },
+  "prior_ingest_retirement": "ingest-retirement-complete-798.json",
+  "result_compaction": {
+    "complete_result_bytes_preserved": true,
+    "compressed_bytes": 1067268862,
+    "files": 297,
+    "original_bytes": 7820690048
+  },
+  "retained_current_input_generation": {
+    "allocated_bytes": 14779977728,
+    "ctime_ns": 1788612069108841600,
+    "device": 16777233,
+    "flags": 64,
+    "inode": 84833233,
+    "mtime_ns": 1788461344802364826,
+    "path": "<local-artifacts>/clickbench-100m-uat/sources/hits.parquet",
+    "size_bytes": 14779976446
+  },
+  "retained_current_runtimes": [
+    {
+      "bytes": 76289856,
+      "path": "<conditional-investigations>/artifacts/output-window-public-789/shardloom",
+      "sha256": "7e4b1439f85ddbb100c1906e228e8782b47dd4c2e8aa102f77a88abdf3a891b0"
+    },
+    {
+      "bytes": 76162032,
+      "path": "<conditional-investigations>/artifacts/output-window-public-789/_native.abi3.so",
+      "sha256": "cb9d705b1ed1417e8a3df8a79840d7a3886c21db37d5e65c9d01d9df2bf192b1"
+    },
+    {
+      "bytes": 95187120,
+      "path": "<conditional-investigations>/shardloom-ingest-overlap-797-test",
+      "sha256": "132f3127c8f3475aa60111eed3fc3effd9225794838c1a10bb17e2e13f4fe5a9"
+    }
+  ],
+  "retained_latest_accepted_output": "<local-artifacts>/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+  "retired_accounted_bytes": 119829762048,
+  "retired_files": 86309,
+  "retirements": [
+    {
+      "path": "<conditional-investigations>/global-cache-retirement-799.json",
+      "retired_accounted_bytes": 15704629248,
+      "retired_files": 22199,
+      "sha256": "3a97bccbcb32c557eb3f52a9ff1969b8b25b1ba59c32644129e233b9f237ec8c"
+    },
+    {
+      "path": "<conditional-investigations>/global-binary-retirement-799b.json",
+      "retired_accounted_bytes": 23661871104,
+      "retired_files": 262,
+      "sha256": "b28b713ea142667fcfa025dd0f8fb943d48bf55f0e0ef7d4f3cba28a240a7947"
+    },
+    {
+      "path": "<conditional-investigations>/global-output-retirement-799.json",
+      "retired_accounted_bytes": 21053698048,
+      "retired_files": 51450,
+      "sha256": "81b359609046cf7d2f50f16f8a24c3c94162bd29cbfaecf7c331f758c6ebebe9"
+    },
+    {
+      "path": "<conditional-investigations>/global-old-dataset-retirement-799.json",
+      "retired_accounted_bytes": 15713611776,
+      "retired_files": 1,
+      "sha256": "2c9dc7233f901ecd1b39924f34c4a049a09987f9fbedd056ba357d7bc791bbd7"
+    },
+    {
+      "path": "<conditional-investigations>/global-archive-retirement-799.json",
+      "retired_accounted_bytes": 6937939968,
+      "retired_files": 32,
+      "sha256": "992cd77e5652e62353f1f5f1723d655cebc1d82b05c3072c372b7bc0d512cc73"
+    },
+    {
+      "path": "<conditional-investigations>/global-environment-retirement-799.json",
+      "retired_accounted_bytes": 5122052096,
+      "retired_files": 11960,
+      "sha256": "40c36ed9c454db7bbce533b772d69d59bcbee7228d3940c1eaf7abbb83eefd26"
+    },
+    {
+      "path": "<conditional-investigations>/global-generated-data-retirement-799.json",
+      "retired_accounted_bytes": 9189888000,
+      "retired_files": 131,
+      "sha256": "a862206fcf82e0c9cdf49c5bc992cb53f569f41c17c06bb1e0855245f8069423"
+    }
+  ],
+  "schema_version": "shardloom.global_local_storage_cleanup.v1",
+  "scope": "All inventoried ShardLoom managed generated storage across local runs, shared cache and worktree build/package outputs.",
+  "status": "passed",
+  "storage_limits_changed": false
+}

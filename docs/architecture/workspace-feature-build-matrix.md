@@ -49,6 +49,14 @@ fallback_attempted=false
 Feature-disabled execution commands must continue returning deterministic unsupported diagnostics
 instead of reaching for a runtime fallback.
 
+The optional `output-window-observation` feature is a diagnostic test surface in
+`shardloom-vortex` and `shardloom-python`, absent from default and
+`release-user-surfaces` feature groups. The native Vortex CI lane explicitly
+tests its 16 observer regressions, and each native Python lane builds a separate
+diagnostic library for 13 delivery/lifetime checks after proving the ordinary
+installed wheel. See the [CI gate matrix](../release/ci-gate-matrix.md). These
+checks add no release feature row or package capability claim.
+
 ## Optimized Build Profile Follow-Up
 
 `GAR-PERF-2H` is the optimized build-profile and PGO benchmark lane. It is separate from the current

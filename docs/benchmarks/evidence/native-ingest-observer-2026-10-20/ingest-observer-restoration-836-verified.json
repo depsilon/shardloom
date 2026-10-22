@@ -1,0 +1,210 @@
+{
+  "all_sources_unchanged": true,
+  "gates": [
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log": {
+        "bytes": 0,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-fmt-836.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "name": "fmt",
+      "receipt": {
+        "bytes": 4540,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-fmt-836.json",
+        "sha256": "248abeecff0ac1208e68aed165296f3f4c9747697e3a8f1fbb2de20430cd6233"
+      }
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": {
+        "bytes": 439,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-workspace-clippy-836.log",
+        "sha256": "afc053a9b7b229ac6e1c7d6167286436a4f1f123c901bb7915343146a111e554"
+      },
+      "name": "workspace-clippy",
+      "receipt": {
+        "bytes": 8425,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-workspace-clippy-836.json",
+        "sha256": "3f9b480bb2606d952ca60e2c003c476537cd1b6426c3b4a34b6e2f9e08848aba"
+      }
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=2"
+      ],
+      "log": {
+        "bytes": 462280,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-workspace-tests-836.log",
+        "sha256": "04b8e4e8006e51c4239365ebe6a7c10c1ff57b6c5abdf56e58e8378634202407"
+      },
+      "name": "workspace-tests",
+      "receipt": {
+        "bytes": 20286,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-workspace-tests-836.json",
+        "sha256": "72225e5128b5c6e443f32c55787428cf126d014208123075bf521da715768447"
+      },
+      "test_counts": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3235,
+        "zero_test_unfiltered_targets": 8
+      }
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": {
+        "bytes": 184,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-native-clippy-836.log",
+        "sha256": "298cb1a6cfee5c63fd188c114e61da99feb99d635950746f8f2be42c65eda561"
+      },
+      "name": "native-clippy",
+      "receipt": {
+        "bytes": 14195,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-native-clippy-836.json",
+        "sha256": "1efb382aafdccd420690b2b0a41c230c9fb60cb315336565ca0b3ad4c64f14f7"
+      }
+    },
+    {
+      "command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--message-format=json",
+        "--",
+        "--test-threads=2"
+      ],
+      "executable": {
+        "bytes": 94905840,
+        "path": "/Users/dylan/.cache/shardloom/cargo-target/release/deps/shardloom_vortex-d4c78e24d9f9c4bd",
+        "sha256": "26f4e31b2ae354f95946e3f699bd67979eceb19f4a596f233eaa9de86f7cfeda"
+      },
+      "log": {
+        "bytes": 691221,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-native-tests-836.log",
+        "sha256": "8ad3999bbece2c6dabdb2c1a6977f59c11e5ebaa56c099c8c8e958de1599033c"
+      },
+      "name": "native-tests",
+      "native_artifact": {
+        "executable": "/Users/dylan/.cache/shardloom/cargo-target/release/deps/shardloom_vortex-d4c78e24d9f9c4bd",
+        "features": [
+          "default",
+          "release-user-surfaces",
+          "universal-format-io",
+          "upstream-vortex",
+          "vortex-encoded-read-executor",
+          "vortex-encoded-read-spike",
+          "vortex-file-io",
+          "vortex-local-primitives",
+          "vortex-write"
+        ],
+        "filenames": [
+          "/Users/dylan/.cache/shardloom/cargo-target/release/deps/shardloom_vortex-d4c78e24d9f9c4bd"
+        ],
+        "fresh": false,
+        "manifest_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/Cargo.toml",
+        "package_id": "path+file:///Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex#0.6.0",
+        "profile": {
+          "debug_assertions": false,
+          "debuginfo": 0,
+          "opt_level": "3",
+          "overflow_checks": false,
+          "test": true
+        },
+        "reason": "compiler-artifact",
+        "target": {
+          "crate_types": [
+            "lib"
+          ],
+          "doc": true,
+          "doctest": true,
+          "edition": "2024",
+          "kind": [
+            "lib"
+          ],
+          "name": "shardloom_vortex",
+          "src_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/lib.rs",
+          "test": true
+        }
+      },
+      "receipt": {
+        "bytes": 304502,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restored-native-tests-836.json",
+        "sha256": "7ed216b8f67e1232141dbcd7cfd20a83e752cb06c74126c2782ba99dabafe71c"
+      },
+      "test_counts": {
+        "failed": 0,
+        "ignored": 30,
+        "passed": 3042,
+        "zero_test_unfiltered_targets": 0
+      }
+    }
+  ],
+  "runtime_and_dependencies_equal_base": true,
+  "scheduling_change_retained": false,
+  "source": {
+    "bytes": 779471,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-restoration-836-source.json",
+    "sha256": "b18e042356ce56f62e58a6e8367d65d74618f5ea3b18cf360a540a5f5ae30f75"
+  },
+  "source_files": 2455,
+  "status": "passed"
+}

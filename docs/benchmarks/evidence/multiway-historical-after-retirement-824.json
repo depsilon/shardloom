@@ -1,0 +1,179 @@
+{
+  "archive": {
+    "bytes": 7674288,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823.tar.xz",
+    "sha256": "8d615d396758c65e44b034e66f97f7d36212dc8dee94c6697db32e96bcf6f8f3"
+  },
+  "complete_output_rows_checked": 16160040,
+  "content_bytes_verified": 134467087,
+  "historical_results_reproduced_exactly": true,
+  "manifest": {
+    "bytes": 1034364,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-historical-packet-823-manifest.json",
+    "sha256": "09793d804696d15b36c59c88dd29d2f965e32012f6be25132bdf30dfd5770777"
+  },
+  "members_verified": 2690,
+  "outcome": "not_retained",
+  "production_accepted": false,
+  "queries_replayed": 2080,
+  "requires_engine": false,
+  "requires_git": false,
+  "results": [
+    {
+      "complete_output_rows_checked": 124308,
+      "failed_gates": [],
+      "file": "multiway-intake-817a-verified.json",
+      "negative_controls_rejected": 6,
+      "quantitative_gates_passed": null,
+      "queries": 16,
+      "sha256": "cabfec318f8f98f3d6e29f25eee551ab5d7b545d92de08052d6c42d99cb01e8b",
+      "workflows": 8
+    },
+    {
+      "complete_output_rows_checked": 621540,
+      "failed_gates": [],
+      "file": "multiway-preflight-819a-verified.json",
+      "negative_controls_rejected": 18,
+      "quantitative_gates_passed": null,
+      "queries": 80,
+      "sha256": "8bf2b7119e30d5f3fda09b65c82933a63c75b2fb06025bd754167cdd33b36d0c",
+      "workflows": 32
+    },
+    {
+      "complete_output_rows_checked": 2361852,
+      "failed_gates": [],
+      "file": "multiway-cohortA-819a-verified.json",
+      "negative_controls_rejected": 17,
+      "quantitative_gates_passed": true,
+      "queries": 304,
+      "sha256": "7875182d708836dbefe607cd66c39e91afc59a13f2722404cd4edee44efa278e",
+      "workflows": 112
+    },
+    {
+      "complete_output_rows_checked": 2361852,
+      "failed_gates": [],
+      "file": "multiway-cohortB-819a-verified.json",
+      "negative_controls_rejected": 17,
+      "quantitative_gates_passed": true,
+      "queries": 304,
+      "sha256": "af1ad76675031c884ac9d7cf25685baba5e635274a96a634e310c3117ba664bc",
+      "workflows": 112
+    },
+    {
+      "complete_output_rows_checked": 621540,
+      "failed_gates": [],
+      "file": "multiway-integrated-preflight-820a-verified.json",
+      "negative_controls_rejected": 20,
+      "quantitative_gates_passed": null,
+      "queries": 80,
+      "sha256": "1661eb428233a60302d0841455f159fa3b147ccae877e79a22a27b4e7130d99a",
+      "workflows": 32
+    },
+    {
+      "complete_output_rows_checked": 2361852,
+      "failed_gates": [],
+      "file": "multiway-integrated-cohortA-820a-verified.json",
+      "negative_controls_rejected": 19,
+      "quantitative_gates_passed": true,
+      "queries": 304,
+      "sha256": "842318f4aca526476acae34e8f3cae5bcfa02fee330cc59ee961c94b2164f700",
+      "workflows": 112
+    },
+    {
+      "complete_output_rows_checked": 2361852,
+      "failed_gates": [],
+      "file": "multiway-integrated-cohortB-820a-verified.json",
+      "negative_controls_rejected": 19,
+      "quantitative_gates_passed": true,
+      "queries": 304,
+      "sha256": "3ac6ee53b11ebba3a9c2df802746a7064f94a7034692d43e5976202952c7bdf3",
+      "workflows": 112
+    },
+    {
+      "complete_output_rows_checked": 621540,
+      "failed_gates": [],
+      "file": "multiway-projected-preflight-821a-verified.json",
+      "negative_controls_rejected": 20,
+      "quantitative_gates_passed": null,
+      "queries": 80,
+      "sha256": "08d2b9c0323fb617201a44b7656cc00cc30df039f979d368e0ecb6ad5d64af19",
+      "workflows": 32
+    },
+    {
+      "complete_output_rows_checked": 2361852,
+      "failed_gates": [
+        {
+          "calls": 1,
+          "cell": "star_control",
+          "gate": "engine_execution_ns",
+          "ratio": 1.132030434505868,
+          "threshold": 1.05
+        },
+        {
+          "calls": 1,
+          "cell": "star_control",
+          "gate": "complete_ns",
+          "ratio": 1.1293447650040678,
+          "threshold": 1.05
+        }
+      ],
+      "file": "multiway-projected-cohortA-821a-verified.json",
+      "negative_controls_rejected": 19,
+      "quantitative_gates_passed": false,
+      "queries": 304,
+      "sha256": "01db4c00da3d301796a82a5bc0b4e3a65d289a10170d3633e96254fa110ff564",
+      "workflows": 112
+    },
+    {
+      "complete_output_rows_checked": 2361852,
+      "failed_gates": [],
+      "file": "multiway-projected-cohortB-821a-verified.json",
+      "negative_controls_rejected": 19,
+      "quantitative_gates_passed": true,
+      "queries": 304,
+      "sha256": "1a9a1256318ad411f1cd2ec489278d03ce881c29738b5efb2a523dedfaf6f0a3",
+      "workflows": 112
+    }
+  ],
+  "sources": {
+    "binding_file_references": 89,
+    "compile_file_references": 11432,
+    "compile_versions": 6,
+    "extra_source_references": 21,
+    "historical_binary_identities": [
+      {
+        "binding": "multiway-probe-binding-818b.json",
+        "bytes": 95087168,
+        "sha256": "248dc299b1ecc51c95810b8d3d2091eb6359a8fd7a90a594728553836727e67a"
+      },
+      {
+        "binding": "multiway-probe-binding-818c.json",
+        "bytes": 95087168,
+        "sha256": "1644c272c9102c909bdf0083f9e0818ccb4601c7ff0551688d75f03ecdb63d01"
+      },
+      {
+        "binding": "multiway-integration-binding-819a.json",
+        "bytes": 95105120,
+        "sha256": "e047fde6c448775e43015cff9995cf052f2f0062a1fa7078d24154dd59fcef11"
+      },
+      {
+        "binding": "multiway-projection-binding-821a.json",
+        "bytes": 95122560,
+        "sha256": "76d42af58093935080eaf1b1553575173267d85391e6f4a0ba288faaaa1ac821"
+      },
+      {
+        "binding": "multiway-intake-binding-817a.json",
+        "sha256": "d6057de47bdb50757a672a7407b10d702ad2c0be8eb53f41a7dbc35c62ba425c"
+      }
+    ],
+    "historical_public_labels_do_not_imply_acceptance": true,
+    "public_source_references": 2227
+  },
+  "status": "passed",
+  "timing_failure_repeated": false,
+  "verifier": {
+    "bytes": 13256,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/replay_multiway_historical_823.py",
+    "sha256": "84c27e2bf3c9f3caea5e57d37d645c158520c3e3cb1b32a9ac79cdb7d1e6542d"
+  }
+}

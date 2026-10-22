@@ -191,6 +191,109 @@ fn public_io_qualified_column_names_prepare_preserves_native_schema_and_values()
 }
 
 #[test]
+#[cfg(feature = "vortex-local-primitives")]
+fn public_io_columnar_partition_preparation_preserves_order_values_and_generation() {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    use shardloom_exec::live_memory::LiveMemoryPool;
+    let fixture = Fixture::new();
+    let resources =
+        ExecutionResources::from_bytes(256 << 20, 1, ExecutionResourceOrigin::ExecutionCall)
+            .unwrap();
+    for (format, extension) in [("parquet", "parquet"), ("arrow_ipc", "arrow")] {
+        let source = fixture.0.join(format!("partitions-{format}"));
+        fs::create_dir(&source).unwrap();
+        let columns = vec!["number".to_owned(), "text".to_owned()];
+        // Creation order differs from the required lexical source order.
+        for index in [2, 0, 1] {
+            let text = match index {
+                0 => String::new(),
+                1 => "東京\0λ".to_owned(),
+                _ => "long original value/".repeat(20),
+            };
+            let rows = vec![
+                vec![
+                    ("number".into(), ScalarValue::Int64(index * 100 + 3)),
+                    ("text".into(), ScalarValue::Utf8(text)),
+                ],
+                vec![
+                    ("number".into(), ScalarValue::Null),
+                    ("text".into(), ScalarValue::Null),
+                ],
+            ];
+            let bytes = if format == "parquet" {
+                shardloom_vortex::encode_flat_parquet_rows(&columns, &rows)
+            } else {
+                shardloom_vortex::encode_flat_arrow_ipc_rows(&columns, &rows)
+            }
+            .unwrap();
+            fs::write(source.join(format!("{index:02}.{extension}")), bytes).unwrap();
+        }
+        let target = fixture.0.join(format!("partition-result-{format}.vortex"));
+        let pool = LiveMemoryPool::new(resources.memory_bytes()).unwrap();
+        let prepare = || {
+            prepare_local_source_as_vortex_for_public_workflow_with_schema(
+                &source,
+                &target,
+                Some(format),
+                false,
+                resources,
+                Some(&pool),
+                None,
+                None,
+            )
+        };
+        prepare().unwrap_or_else(|error| panic!("{format}: {error}"));
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        let prepared = native_relational::prepare(
+            &format!("SELECT * FROM '{}'", target.display()),
+            shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(resources)
+                .unwrap(),
+            |path| shardloom_core::DatasetUri::new(path.path.to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        let result = prepared
+            .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())
+            .unwrap();
+        assert_eq!(result.execution.output_columns, ["number", "text"]);
+        let rows = result
+            .result_jsonl
+            .value()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            serde_json::json!(rows),
+            serde_json::json!([
+                {"number":3,"text":""}, {"number":null,"text":null},
+                {"number":103,"text":"東京\0λ"}, {"number":null,"text":null},
+                {"number":203,"text":"long original value/".repeat(20)},
+                {"number":null,"text":null},
+            ]),
+            "{format}"
+        );
+        drop(result);
+        drop(prepared);
+        let original = fs::read(&target).unwrap();
+        let reused = prepare().unwrap();
+        assert!(reused.fields.iter().any(|(key, value)| key
+            == "public_workflow_preparation_prepared_state_reused"
+            && value == "true"));
+        // The successful reuse result owns its generation metadata until dropped.
+        assert!(pool.snapshot().reserved_bytes > 0);
+        fs::copy(
+            source.join(format!("00.{extension}")),
+            source.join(format!("03.{extension}")),
+        )
+        .unwrap();
+        assert!(prepare().is_err(), "changed partition membership: {format}");
+        assert_eq!(fs::read(&target).unwrap(), original);
+        assert!(reused.validate_generation().is_err());
+        drop(reused);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn public_io_declared_schema_is_bound_to_cold_warm_and_held_generations() {
     let fixture = Fixture::new();
     let source = fixture.0.join("labels.csv");

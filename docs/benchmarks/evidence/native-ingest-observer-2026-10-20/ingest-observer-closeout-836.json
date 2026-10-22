@@ -1,0 +1,28 @@
+{
+  "all_member_bytes_reopened_and_equal": true,
+  "bytes": 415456,
+  "members": 27,
+  "native_tests": {
+    "failed": 0,
+    "ignored": 30,
+    "passed": 3042,
+    "zero_test_unfiltered_targets": 0
+  },
+  "no_backup_archive_created": true,
+  "packet": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/ingest-observer-closeout-836.json.xz",
+  "raw_bytes": 3146537,
+  "restored_runtime_and_dependencies": true,
+  "result_packet_sha256": "bdf6200aab7b6658a5a7b288e187cf1da4de4ff5da0cf5acd59ee408bad6e57e",
+  "retired_event_traces": 49,
+  "retired_observer_executables": 2,
+  "scheduling_change_retained": false,
+  "sha256": "07b002c1b1dd0ce8931eeb2814da3a39937ea1b8c335e1cff2f7686c537f4573",
+  "source_files_verified": 2455,
+  "status": "passed",
+  "workspace_tests": {
+    "failed": 0,
+    "ignored": 0,
+    "passed": 3235,
+    "zero_test_unfiltered_targets": 8
+  }
+}
