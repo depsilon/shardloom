@@ -607,6 +607,33 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                             self.assertEqual(result.report["public_workflow_local_source_vortex_ingest_performed"], "false")
 
             csv_path = written["csv"]
+            for count_source, input_format, source_schema in (
+                (source_path, "vortex", None),
+                (csv_path, "csv", text_schema),
+            ):
+                for threshold, expected_count in ((0, 2), (100, 0)):
+                    counted = session.sql(
+                        f"SELECT COUNT(*) FROM '{count_source}' WHERE value > {threshold}",
+                        files=[(str(count_source), input_format, source_schema)],
+                    )
+                    for output_format in ("vortex",) + formats:
+                        destination = self.root / f"count-{input_format}-{threshold}.{output_format}"
+                        writer_report = counted.write(destination, f"write_{output_format}")
+                        self.assertEqual(
+                            writer_report["local_primitive_physical_policy_writer_coalescing_enabled"],
+                            "true",
+                        )
+                        self.assertEqual(writer_report["fallback_attempted"], "false")
+                        self.assertEqual(writer_report["external_engine_invoked"], "false")
+                        schema = "count_all:uint64" if output_format in {"csv", "json", "jsonl"} else None
+                        reopened = session.sql(
+                            f"SELECT count_all FROM '{destination}'",
+                            files=[(str(destination), output_format.replace("_", "-"), schema)],
+                        ).collect()
+                        self.assertEqual(
+                            self.pa.RecordBatchReader.from_stream(reopened).read_all().to_pylist(),
+                            [{"count_all": expected_count}],
+                        )
             grouped = session.sql(
                 f"SELECT key,SUM(value) AS total FROM '{csv_path}' GROUP BY key ORDER BY total DESC",
                 files=[(str(csv_path), "csv", text_schema)],

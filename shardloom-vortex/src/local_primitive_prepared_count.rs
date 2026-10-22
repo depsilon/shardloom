@@ -140,7 +140,7 @@ pub fn write_count_result_controlled(
         .with_writer_sink_physical_policy_for_request(request)
         .1;
     // These fields describe the original producer, not the one-row memory
-    // handoff. Native-array sink counters still describe actual adapter work.
+    // handoff. Preserve the sink's policy and actual native-array adapter work.
     report.rows_scanned = source_rows;
     report.arrays_read_count = 0;
     report.max_chunk_rows = 0;
@@ -150,7 +150,6 @@ pub fn write_count_result_controlled(
         report.rows_scanned = execution.rows_scanned;
         report.arrays_read_count = execution.arrays_read_count;
         report.max_chunk_rows = execution.max_chunk_rows;
-        report.physical_policy = execution.physical_policy;
         report.evidence.pushdown.filter_pushdown_applied = execution.filter_pushdown_applied;
         report.evidence.pushdown.projection_pushdown_applied =
             execution.projection_pushdown_applied;

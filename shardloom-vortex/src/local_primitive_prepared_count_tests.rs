@@ -151,6 +151,63 @@ fn count_writers_retain_native_producer_work_and_preflight_before_execution() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
+fn filtered_count_writer_preserves_sink_policy_and_producer_evidence() {
+    use super::super::{VortexLocalPrimitiveRowExportFormat as Format, prepared_dispatch};
+    let fixture = Fixture::new();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
+    let token = CancellationToken::default();
+    for threshold in [2, 100] {
+        let request = fixture.request(threshold);
+        let source = prepared_dispatch::prepare_source(&request, policy).unwrap();
+        let producer = prepare_count_where_from_source(&request, policy, source.clone()).unwrap();
+        let expected = producer.execute().unwrap();
+        let output = fixture.0.join(format!("filtered-count-{threshold}.jsonl"));
+        // The embedded native runtime returns this helper's report directly;
+        // the direct dispatcher must not be needed to repair the sink policy.
+        let report = write_count_result_controlled(
+            &request,
+            &output,
+            Format::Jsonl,
+            false,
+            policy,
+            std::slice::from_ref(&source),
+            &token,
+            || {
+                let produced = producer.execute_native_result(&token)?;
+                Ok((Some(produced.execution.report), produced.result))
+            },
+        )
+        .unwrap();
+        assert!(report.physical_policy.writer_coalescing_enabled);
+        assert_eq!(
+            report.physical_policy,
+            policy
+                .with_writer_sink_physical_policy_for_request(&request)
+                .1,
+        );
+        assert_eq!(report.rows_scanned, expected.report.rows_scanned);
+        assert_eq!(report.arrays_read_count, expected.report.arrays_read_count);
+        assert_eq!(
+            report.evidence.upstream_scan_called,
+            expected.report.upstream_scan_called,
+        );
+        assert_eq!(
+            report.evidence.side_effects.data_read,
+            expected.report.data_read
+        );
+        assert_eq!(
+            report.evidence.pushdown.filter_pushdown_applied,
+            expected.report.filter_pushdown_applied,
+        );
+        assert_eq!(
+            std::fs::read_to_string(output).unwrap(),
+            format!("{{\"count_all\":{}}}\n", expected.count),
+        );
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
 fn count_writer_revalidates_source_after_native_scalar_completion() {
     let fixture = Fixture::new();
     let request = VortexQueryPrimitiveRequest::count_all(
