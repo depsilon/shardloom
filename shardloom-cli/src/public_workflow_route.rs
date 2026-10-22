@@ -6042,6 +6042,7 @@ impl PublicWorkflowRouteRequest {
                     .or_else(|| infer_input_format_from_ref(uri).map(str::to_string))
             });
         }
+        self.bind_single_source_alias();
         if !self.bounded {
             self.bounded = self
                 .sql_statement
@@ -6053,6 +6054,39 @@ impl PublicWorkflowRouteRequest {
                     .is_some_and(plan_summary_has_limit)
                 || !matches!(self.requested_output.as_str(), "collect");
         }
+    }
+
+    /// Preserve the native single --input shorthand for an unquoted SQL table
+    /// name. Bind before selection so compatibility and extended-type providers
+    /// receive the same exact source; explicit binding maps remain authoritative.
+    fn bind_single_source_alias(&mut self) {
+        if !self.source_bindings.is_empty()
+            || self.native_vortex_right_input.is_some()
+            || !self
+                .input_format
+                .as_deref()
+                .is_some_and(|format| format == "vortex" || is_local_file_format(format))
+        {
+            return;
+        }
+        let (Some(input), Some(statement)) =
+            (self.input_uri.as_deref(), self.sql_statement.as_deref())
+        else {
+            return;
+        };
+        if parse_native_vortex_sql_single_source_shape(statement).is_none() {
+            return;
+        }
+        let sources = sql_source_ref_ranges(statement);
+        let [source] = sources.as_slice() else {
+            return;
+        };
+        if source.quoted || !is_summary_identifier(&source.value) {
+            return;
+        }
+        let mut rebound = statement.to_string();
+        rebound.replace_range(source.start..source.end, &sql_string_literal(input));
+        self.sql_statement = Some(rebound);
     }
 }
 
@@ -14683,19 +14717,22 @@ mod tests {
                 request.sql_statement.as_deref(),
                 Some("SELECT COUNT(*) FROM 'input'")
             );
-            request.sql_statement = Some("SELECT COUNT(*) FROM input".into());
-            assert!(
-                infer_native_vortex_sql_payload(&request).is_some(),
-                "{format}"
-            );
-            // An unrelated name cannot silently select the declared primary
-            // source. The compatibility resolver already enforces this rule.
-            request.sql_statement = Some("SELECT COUNT(*) FROM unrelated_source".into());
-            request.infer_defaults();
-            assert!(
-                infer_native_vortex_sql_payload(&request).is_none(),
-                "{format}"
-            );
+            for alias in ["input", "hits"] {
+                request.sql_statement = Some(format!(
+                    "SELECT COUNT(*) FROM {alias} WHERE label = '{alias}'"
+                ));
+                request.infer_defaults();
+                assert_eq!(
+                    request.sql_statement,
+                    Some(format!(
+                        "SELECT COUNT(*) FROM 'target/input.{format}' WHERE label = '{alias}'"
+                    ))
+                );
+                assert!(
+                    infer_native_vortex_sql_payload(&request).is_some(),
+                    "{format} {alias}"
+                );
+            }
         }
     }
 
@@ -17599,7 +17636,7 @@ mod tests {
     }
 
     #[test]
-    fn local_file_prepare_once_does_not_rewrite_unmatched_bare_sql_source() {
+    fn local_file_prepare_once_does_not_rewrite_unmatched_quoted_sql_source() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -17608,7 +17645,7 @@ mod tests {
                 "--input-format",
                 "parquet",
                 "--sql",
-                "SELECT COUNT(*) FROM visits WHERE URL LIKE '%google%'",
+                "SELECT COUNT(*) FROM 'visits' WHERE URL LIKE '%google%'",
                 "--request",
                 "collect",
                 "--bounded",

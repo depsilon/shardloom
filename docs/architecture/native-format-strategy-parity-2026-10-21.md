@@ -141,10 +141,13 @@ is kept distinct from the one-row sink's array conversion; metadata-only count
 retains `data_read=false` and `upstream_vortex_scan_called=false`.
 
 Source rebinding changes only relation-source tokens, preserving literals,
-comments, quoted-path identity and nested SQL. Bare source identifiers must match
-the declared file name or stem for both native and compatibility input. An
-unrelated name cannot silently select the primary input; quoted paths retain
-exact identity and explicit source-binding maps retain their declaration checks.
+comments, quoted-path identity and nested SQL. The existing native single-input
+contract permits an unquoted SQL table alias for the explicitly supplied primary
+file. Bind that alias before strategy selection for compatibility inputs too;
+the standard Full43 runner depends on this ordinary public contract. Quoted
+paths retain exact identity, and explicit source-binding maps retain their
+declaration checks. Multiple-source and composed declarations keep their existing
+source resolver rather than using the single-source shorthand.
 Public wildcard schema discovery
 uses the same private-derived-field exclusion as the native all-column scan;
 the physical metadata remains available to native operators. Whole-document JSON

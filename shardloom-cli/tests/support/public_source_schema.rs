@@ -89,6 +89,13 @@ fn compatibility_sql_reuses_native_producers_and_preserves_path_values_through_e
             "count_all:uint64",
         ),
         (
+            "count_alias",
+            "SELECT COUNT(*) FROM arbitrary_source".into(),
+            vec![serde_json::json!({"count_all":3})],
+            "native_vortex_count_all",
+            "count_all:uint64",
+        ),
+        (
             "count_where",
             format!("SELECT COUNT(*) FROM '{source}' WHERE label = '{source}'"),
             vec![serde_json::json!({"count_all":2})],
@@ -149,7 +156,7 @@ fn compatibility_sql_reuses_native_producers_and_preserves_path_values_through_e
                 "native_vortex_primitive_row_export",
                 "{output}: {report}",
             );
-            if case == "count" {
+            if matches!(case, "count" | "count_alias") {
                 assert_eq!(
                     complete_result::field_value(&report, "upstream_vortex_scan_called"),
                     "false"
