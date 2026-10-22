@@ -10,9 +10,11 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples use the published [0.6.0 API](package-user-install.md) and
-the matching [source build](source-checkout-install.md). Upgrading from 0.5.1
-requires explicit memory and parallelism allocations. Configure them once on
+These examples use the published [0.7.0 API](package-user-install.md) and
+the matching [source build](source-checkout-install.md). The
+[migration guide](../reference/python-api-migration.md) covers the 0.7.0
+Context/Result and error contracts. Memory and parallelism allocations remain
+explicit. Configure them once on
 `sl.context(...)`, then use `ctx.read(path)`; use explicit
 schemas or format-specific helpers when a test, benchmark, or reproducibility
 workflow needs them. The examples must emit ShardLoom evidence instead of

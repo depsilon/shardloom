@@ -22,9 +22,9 @@ class NativeRegistryConsumerTests(unittest.TestCase):
         artifacts, rows = [], []
         programs = None
         for index, linux in enumerate((False, True)):
-            files, distribution, programs = native_fixture(linux)
+            files, distribution, programs = native_fixture(linux, package_version="0.6.0")
             artifacts.append(distribution)
-            row = evidence.verify_native_proof(files, distribution, programs)
+            row = evidence.verify_native_proof(files, distribution, programs, package_version="0.6.0")
             row.update(workflow_artifact_id=index + 1,
                 workflow_artifact_name="native-registry-proof-" + ("linux" if linux else "macos"),
                 workflow_run_id=44, source_commit="d" * 40,

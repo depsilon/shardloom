@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Unpublished-source example: reuse completed data after its context closes."""
+"""Reuse completed data after its context closes."""
 
 import shardloom as sl
 

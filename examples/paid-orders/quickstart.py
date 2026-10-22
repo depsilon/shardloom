@@ -15,19 +15,19 @@ ctx = sl.context(transport="native", memory_bytes=256 << 20, max_parallelism=2)
 # snippet: dataframe
 paid = ctx.read_csv(orders).filter(sl.col("status") == "paid").sort("order_id")
 result = paid.collect(check=True)
-print(result.python_objects)
+print(result.to_rows())
 # snippet: sql
 sql_result = ctx.sql(
     f"SELECT order_id, status FROM '{orders}' "
     "WHERE status = 'paid' ORDER BY order_id"
 ).collect(check=True)
-print(sql_result.python_objects)
+print(sql_result.to_rows())
 # snippet: write
 output = Path(workspace.name) / "paid.vortex"
 written = paid.write_vortex(output)
 reopened = ctx.read_vortex(output).sort("order_id").collect(check=True)
-print(reopened.python_objects)
+print(reopened.to_rows())
 # snippet: cleanup
-ctx.client.close()
+ctx.close()
 workspace.cleanup()
 # snippet: end

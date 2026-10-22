@@ -8,7 +8,7 @@ Schema marker: `shardloom.public_status_matrix.v1`.
 
 This matrix is the source-owned public posture summary for the README, getting-started docs,
 Python README, release readiness docs, and website wording. It describes what a public reader may
-infer from the current repository state. v0.6.0 package channels are published where explicitly
+infer from the current repository state. v0.7.0 package channels are published where explicitly
 listed, but that does not authorize production support, benchmark superiority, Spark displacement,
 external execution, or fallback execution.
 
@@ -19,7 +19,7 @@ The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
 The selected local/source/package v1 release track is tracked in
 [`docs/release/v1-local-source-package-release.md`](v1-local-source-package-release.md).
-Selected package channels are published for v0.6.0; real production environment gates remain
+Selected package channels are published for v0.7.0; real production environment gates remain
 blocked.
 The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
@@ -38,27 +38,31 @@ support bundles remain local/redacted and remote telemetry/upload surfaces remai
 
 **Published local engine; operational hardening in progress.** This is the current public
 support label. The technical-preview designation describes the support promise, not whether
-the engine or packages exist. v0.6.0 is available through GitHub, TestPyPI, PyPI and Homebrew;
-the [publication verification](v0.6.0-publication-verification.md) closes the selected-channel
+the engine or packages exist. v0.7.0 is available through GitHub, TestPyPI, PyPI and Homebrew;
+the [publication verification](v0.7.0-publication-verification.md) closes the selected-channel
 proof requirement.
 
-The published Linux x86_64 and macOS arm64 wheels include the optional
+The published Linux x86_64 and macOS arm64 wheels include the
 [native Python surface](../architecture/native-python-surface-2026-10-10.md).
 Its [local acceptance](../benchmarks/native-python-surface-2026-10-11.md) covers
 native input/results, in-process operations, typed plans, an isolated installed
 wheel and six paired complete Python workflows. Hosted integration completed in
 [PR #1541](https://github.com/depsilon/shardloom/pull/1541). The later
-0.6.0 publication records isolated installation and all 80 native binding tests
+0.7.0 publication records isolated installation and all 121 native binding tests
 on both registry native-wheel platforms. Windows retains the CLI-backed Python
 package. Publication does not extend the production-support promise or
 establish a new ingest or Full43 result.
 
-The maintainer-requested [v0.6.0 release](v0.6.0-release-notes.md) packages the
-subsequent native Python, typed-input, streaming-composition and resource work.
+The maintainer-requested [v0.7.0 release](v0.7.0-release-notes.md) packages the
+shared Context/Result interface, finite native ownership and spill work,
+prepared sampling and cyclic-existence follow-ups, and the shared format
+strategy correction. The [migration guide](../reference/python-api-migration.md)
+explains native transport selection on Linux/macOS, typed errors by default,
+result reuse and context lifecycle behavior.
 Linux native wheels pass the `manylinux_2_39_x86_64` compatibility audit; Linux
 and macOS use `cp310-abi3`. Data inspection, preparation and execution require
 explicit memory and parallelism allocations. The
-[publication record](v0.6.0-publication-verification.md) binds the source, actual
+[publication record](v0.7.0-publication-verification.md) binds the source, actual
 artifacts and installation proofs for all four selected channels.
 
 The local engine executes admitted SQL, Python/DataFrame and CLI workflows through one native
@@ -67,6 +71,11 @@ local writers. Native ordering spill, cancellation, corrupt-run and quota reject
 failed consumers, source-generation checks and owned cleanup have executable evidence. Their
 scope is recorded in the [resource contract](../architecture/native-relational-resources-2026-10-02.md)
 and [fresh pre-release acceptance](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md).
+
+The historical acceptance records below preserve the limits and measurements
+of each original unit. Version 0.7.0 includes the subsequent accepted work
+through the [format strategy correction](../architecture/native-format-strategy-parity-2026-10-21.md);
+later spill and ownership acceptances do not rewrite those earlier results.
 
 The v0.5.1 release includes reviewed FSST/Zstd buffer ownership,
 public resident batch intake and incremental results, plus two retained native
@@ -104,7 +113,7 @@ packages. Its original claim excludes structural metadata; the subsequent
 extension below retains a separate acceptance record. Unreviewed providers and
 process RSS retain their separate boundaries; the public support label is unchanged.
 
-The source-only [Zstd frame metadata extension](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+The [Zstd frame metadata extension](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
 admits the two frame vectors before construction, shares ownership through
 clones/slices/nullability casts and creates fresh receiving metadata for native
 transfer. Six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
@@ -116,7 +125,7 @@ preserves those separate observations. Raw caller-owned
 APIs, fixed allocator/Arc overhead, other codecs and process RSS remain outside
 this requested-capacity claim. Published 0.6.0 packages are unchanged.
 
-The source-only [variable-binary buffer-table extension](../benchmarks/native-varbin-metadata-review-2026-10-16.md)
+The [variable-binary buffer-table extension](../benchmarks/native-varbin-metadata-review-2026-10-16.md)
 shares table ownership through native text/binary selections and admits new
 tables in the reviewed constructors, codecs, Chunked builder and receiving
 session. Safe construction/replacement checks host-readable contents; checked
@@ -131,7 +140,7 @@ preserves those separate observations. Raw table exports, general builder/dedupl
 scratch, fixed allocator/Arc overhead and process RSS remain outside this finite
 claim. Published 0.6.0 packages and the public support label are unchanged.
 
-The source-only [selected text views](../benchmarks/native-selected-text-views-2026-10-15.md)
+The [selected text views](../benchmarks/native-selected-text-views-2026-10-15.md)
 construct views only for selected rows inside the admitted sparse Zstd filter.
 The frozen comparison retains this change: Q23 improves in all ten target pairs,
 while all four other parallel controls have slower medians within their declared
@@ -142,7 +151,7 @@ and preview/production source verification. The acceptance report's deployment
 addendum records the completed production check. Published 0.6.0 packages and
 decoded frame bytes are unchanged; no general speedup or process-RSS cap is claimed.
 
-Current source admits finite streaming producers through existing IN/NOT IN,
+The October 15 subquery acceptance admits finite streaming producers through existing IN/NOT IN,
 row membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries
 with statically declared inner sources and schemas. The
 [subquery acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md)
@@ -150,9 +159,11 @@ records 3,724 public cases, 96 direct methods, six Rust gates and all 43 queries
 PR #1560 merged after all 44 checks passed. Three installed-wheel lanes each
 pass 96 methods without skips, and the
 [hosted packet](../benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
-verifies preview/production source and navigation. Membership/index state remains
-resident under credit; replay spill does not spill that state. The published
-0.6.0 packages retain their release-time scope.
+verifies preview/production source and navigation. At that acceptance,
+membership/index state remained resident under credit; replay spill did not
+spill that state. The later [membership spill acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+has its own bounded state and cleanup proof. The published 0.6.0 packages
+retain their release-time scope.
 
 The [dynamic predicate extension](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
 adds declared finite streaming sources to existing parameter-dependent IN/NOT IN,
@@ -162,8 +173,9 @@ Independent inspection reopens all 25,530 evidence members. PR #1561 merged
 after all 44 checks passed; three installed-wheel lanes each pass 100 methods
 without skips. The [hosted packet](../benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
 verifies preview/production source and navigation. Dynamic scalar output-schema inference and opaque undeclared
-callbacks remain unsupported; membership/index state stays resident under credit.
-This source addition does not change the immutable 0.6.0 package scope.
+callbacks remain unsupported. The original membership/index proof used
+resident state; later membership spill has separate acceptance. This source
+addition did not change the immutable 0.6.0 package scope.
 
 The [completion-aware input unit](../architecture/native-input-completion-2026-10-07.md)
 adds opt-in `from_batches(..., streaming=True)` for one finite source used once,
@@ -260,7 +272,7 @@ the publication-attempt fields below describe this status/gate surface's side ef
 the history of the already published package channels.
 
 ```text
-package_publication_status=published_v0.6.0_selected_channels
+package_publication_status=published_v0.7.0_selected_channels
 public_package_release_claim_allowed=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
@@ -293,7 +305,7 @@ external_engine_invoked=false
 | Benchmarks | The parameterized local harness runs one ShardLoom candidate through the public native workflow, with declared input state and output format. It retains source, executable, command, timing, and complete-result evidence. Comparison engines provide independent references only. | Local correctness comparisons with explicit timing boundaries; published historical evidence keeps its original scope. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
-| Package/release channels | v0.6.0 selected channels are published and proof-backed: GitHub pre-release assets, TestPyPI, PyPI, and Homebrew. | Install access through `gh release download v0.6.0`, `python -m pip install shardloom==0.6.0`, and `brew install depsilon/tap/shardloom`; channel proof refs remain checked in. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
+| Package/release channels | v0.7.0 selected channels are published and proof-backed: GitHub pre-release assets, TestPyPI, PyPI, and Homebrew. | Install access through `gh release download v0.7.0`, `python -m pip install shardloom==0.7.0`, and `brew install depsilon/tap/shardloom`; channel proof refs remain checked in. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
 
 ## Public Docs Ownership
 
@@ -331,6 +343,6 @@ external_engine_invoked=false
   policy.
 - Benchmark wording must state `timing_surface` and `claim_gate_status` before comparing numbers.
 - Package wording must distinguish source checkout, local wheel dry run, selected published
-  v0.6.0 channels, blocked future channels, and production/package-maturity claims.
+  v0.7.0 channels, blocked future channels, and production/package-maturity claims.
 - Website and docs changes must preserve `fallback_attempted=false` and
   `external_engine_invoked=false` for ShardLoom execution evidence.

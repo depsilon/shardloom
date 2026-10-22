@@ -1383,7 +1383,7 @@
   },
   "application": {
     "schema_version": "shardloom.application_reference.v1",
-    "availability": "unpublished_source",
+    "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
     "source_identity": "39312e7a504d766a52ccc16e589930bb0e3ccb4c25beb5a9cdb651851a51a39d",
     "source_inputs": {

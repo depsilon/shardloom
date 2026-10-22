@@ -1,17 +1,15 @@
 # Python API migration: context, results and discovery
 
-This reference describes the **v0.7.0 release candidate**. The October 21
-maintainer authorization resumes the version train after the format correction
-merged. The [published guide](https://shardloom.io/field-guide/start-local-proof/)
-continues to describe the verified v0.6.0 artifact until all four v0.7.0 channel
-proofs pass. See the [release notes](../release/v0.7.0-release-notes.md).
-Exact source inputs and
-callable signatures are recorded in the generated
+This reference describes the published **v0.7.0** API. The
+[publication verification](../release/v0.7.0-publication-verification.md)
+records the four selected channel proofs, and the
+[release notes](../release/v0.7.0-release-notes.md) describe included changes
+and limits. Exact source inputs and callable signatures are recorded in the generated
 [application reference](shardloom-user-surface-index.json).
 
 ## What changes
 
-| Existing code or behavior | Development contract | Migration |
+| Existing code or behavior | Published 0.7.0 contract | Migration |
 | --- | --- | --- |
 | `sl.context(...)` implicitly used a CLI process | Linux/macOS native installations select in-process execution; Windows selects the CLI | Set `transport="subprocess"` to retain process isolation. Inspect `ctx.transport`. |
 | Context cleanup required `ctx.client.close()` | Contexts support `close()`, `cancel()`, `closed` and `with` | Prefer `with sl.context(...) as ctx:`. Existing client cleanup still works. |

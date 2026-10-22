@@ -253,10 +253,10 @@ Current autonomous execution order:
 
 The October 18 [public documentation and API consolidation](public-documentation-api-acceptance-2026-10-18.md)
 is implemented and locally validated under PERF-10/07/11/12 with PERF-03 resource
-admission preserved. Its API is included in the v0.7.0 release candidate; the
-October 21 authorization resumes that train after the format correction merged.
-The published guide remains on verified v0.6.0 packages until the new channel
-proofs pass. The completed scope is in the
+admission preserved. Its API is included in the published v0.7.0 packages.
+All four selected channel proofs pass; the [publication record](../release/v0.7.0-publication-verification.md)
+tracks documentation integration and website verification separately.
+The completed scope is in the
 ledger. The subsequent [compact-selection experiment](native-compact-selection-2026-10-18.md)
 is measured and dropped: two projection regressions repeat under the frozen
 confirmation gate, and production is restored. Its corrected cost harness and
@@ -287,7 +287,7 @@ original isolated Full43 remains **48.754238077 engine seconds** for 43 queries
 and all 381 rows. The preceding 49.990920425-second observation and every earlier
 writer result remain unchanged; no broader performance claim follows.
 
-1. Complete the authorized v0.7.0 version-bump train through the existing selected-channel gates: source and package acceptance, GitHub assets, TestPyPI, PyPI, Homebrew, then proof-backed public docs and website updates. The October 21 authorization supersedes the earlier release hold for that train only. The current published contract stays at v0.6.0 until all four new proofs pass. Do not convert the format correction into a broader performance claim, a first-use adapter rewrite or optional breadth work.
+1. Finish documentation integration and deployed-website verification for the authorized v0.7.0 train, whose GitHub, TestPyPI, PyPI and Homebrew publication proofs have passed. The [publication record](../release/v0.7.0-publication-verification.md) owns that closeout. Subsequent trains require their own authorization. Do not convert the format correction into a broader performance claim, a first-use adapter rewrite or optional breadth work.
 2. Use a concrete workload gap matrix under `PERF-12.comparisons` to identify requirements, then complete only the demonstrated gaps and existing public guarantees described below. Scope each gap before implementation and reuse valid accepted evidence. PERF-03 is the current work area, but completing every possible provider allocation is not a prerequisite to moving on once the required workload contract is met. Extra types, operators, platforms and implementation techniques do not become mandatory because they are feasible.
 3. Complete the already requested shared prerequisites under existing IDs: a justified independent-region mechanism, exact local reduction needed by its consumers, region/preparation cost evidence and current instruction/dispatch attribution. Preserve natural batch boundaries and the single CPU/memory owner. This stage precedes the optional backlog and does not promote an entire worker/state family into a requirement.
 4. When their prerequisites pass, investigate `PERF-10.ordered_candidates`, `PERF-09.design`, `PERF-12.topology`, then `PERF-13.pgo`. Freeze each comparison before collecting candidate results. Retain a verified benefit, record no signal, or drop the candidate under its original gates. A failed prerequisite remains explicit; it is not a completed experiment or permission to invent a replacement benefit.
@@ -301,9 +301,9 @@ prepared families and remote clients are optional unless a named comparison gap
 justifies them. Existing exact sampling semantics and payload-observation rules
 remain protected by their [accepted contract](native-sampling-population-spill-2026-10-19.md).
 The completed nullable-layout/cleanup/UAT and public/API/spill foundations remain
-in their existing ledgers and PRs. The October 21 release authorization applies
-after the format correction passes and merges; subsequent trains require their
-own maintainer authorization.
+in their existing ledgers and PRs. The October 21 authorization covers the
+v0.7.0 train after the merged format correction; subsequent trains require
+their own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
@@ -543,7 +543,7 @@ Optional extensions do not expand those requirements.
     - [ ] `PERF-12.workflows` **Required for the selected workload contract.** Certify the named comparison workloads and existing supported public read/transform/retain-or-spill/reconsume/write/reopen paths with complete values, types and lifecycle evidence. Cover relevant renamed schemas, distributions and failure variants. Record the selected source/type/destination matrix explicitly; an unbounded Cartesian expansion and all future wide/deep plans are optional.
     - [ ] `PERF-12.cohort` **Required for the selected workload contract.** Pin eligible ClickBench scoring and comparison cohorts separately from cached product sessions. Preserve standard Full43 acceptance as one execution per query and run repeated comparative cohorts only under their declared protocol. Bind baseline versions, workload semantics, data, build, cache context and resources before claiming parity.
     - [ ] `PERF-12.topology` **Conditional.** After a newly admitted topology mechanism, compare current/coarse and safe small/medium/large topology on identical immutable 100M-row input, build and resources. Preserve the original 129-call comparative protocol and classify scan/reduction/filter/grouped/ordered/global-state response with realized/pruned/materialized work; do not restart rejected coalescing without a new mechanism. The [October 20 dependency review](native-region-dependent-prerequisites-2026-10-20.md) finds no newly admitted replacement; no unchanged large comparison is run.
-    - [ ] `PERF-12.support` **Required for the selected workload contract.** Prove the OS/architecture and resource envelopes actually selected for the supported comparison workflows, including installed-package execution, failures, cancellation and cleanup. Keep compatibility, known limits, upgrade/rollback and the published/development distinction explicit. Preserve required hosted Linux/Windows package checks when integration is authorized; adding platforms or services is optional and the release hold remains.
+    - [ ] `PERF-12.support` **Required for the selected workload contract.** Prove the OS/architecture and resource envelopes actually selected for the supported comparison workflows, including installed-package execution, failures, cancellation and cleanup. Keep compatibility, known limits, upgrade/rollback and the published/development distinction explicit. Preserve required hosted Linux/Windows package checks when integration is authorized; adding platforms or services is optional. Publication beyond the authorized v0.7.0 train requires its own approval.
     - [ ] `PERF-12.comparisons` **Required for the selected workload contract.** Record a workload gap matrix in perf-12-acceptance.json: named task, independently supported baseline equivalent and version/settings, exact semantics, scale/resources, current ShardLoom outcome, material gap and required action or optional disposition. Use that evidence to decide additions before implementation. Compare complete outputs and paired uncertainty, preserve non-ClickBench controls and every failed sample, and keep CG-5/6 claim gates. A finite local pass is not broad engine parity or superiority.
   - Next outcome: Resolve or verify a concrete gap within the required contract above; preserve the separate gates for any scheduled investigation. Optional extensions do not block acceptance.
   - Acceptance/verification: the common contract and [PERF-12 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-12); preserve the family/protocol controls above and original experiment gates in the reconciliation.

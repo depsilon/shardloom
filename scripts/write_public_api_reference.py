@@ -150,8 +150,8 @@ def cell(value: str) -> str:
 def render_reference(application: dict) -> str:
     commands = application["command_registry"]
     lines = [
-        f"Development source identity: `{application['source_identity']}` (SHA-256 of the listed source inputs).",
-        "This API is unpublished; the package version is held independently of source changes.",
+        f"Source identity: `{application['source_identity']}` (SHA-256 of the listed source inputs).",
+        "This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).",
         "", "### Python application exports", "",
         "Names and signatures below come from the actual lazy export authority.",
         "Method contracts are available on the linked classes; normal use starts with `context`.",
@@ -192,7 +192,7 @@ def generated_files(root: Path, binary: Path | None = None) -> dict[Path, str]:
     inputs[REGISTRY.as_posix()] = commands["source_sha256"]
     identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
     application = {
-        "schema_version": "shardloom.application_reference.v1", "availability": "unpublished_source",
+        "schema_version": "shardloom.application_reference.v1", "availability": "source_reference",
         "generator": "scripts/write_public_api_reference.py", "source_identity": identity,
         "source_inputs": dict(sorted(inputs.items())),
         "python_symbols": symbols, "command_registry": commands,

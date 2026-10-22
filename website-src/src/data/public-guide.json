@@ -1,9 +1,9 @@
 {
   "release": {
-    "release_tag": "v0.6.0",
-    "source_revision": "936313473fedca78176d1fd983446673ed8ae62b",
+    "release_tag": "v0.7.0",
+    "source_revision": "7ae9f0e44ddf3c8f09520fe318852cd873db3817",
     "artifact_channel": "pypi",
-    "evidence_ref": "docs/release/v0.6.0-publication-verification.md",
+    "evidence_ref": "docs/release/v0.7.0-publication-verification.md",
     "platforms": [
       {
         "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
@@ -14,13 +14,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "filename": "shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "1dc4f6c0f0c6af61c5ee29aa46dab404f089a4a16599dbddf50c6e4bf38ad8df",
-          "size": 48975023,
-          "upload_time_iso_8601": "2026-10-15T03:07:26.465489Z",
-          "url": "https://files.pythonhosted.org/packages/b2/7f/9d871079886496b3514a286177896adc2710e47311e6ffda531faab9b48c/shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl"
+          "sha256": "2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8",
+          "size": 49863821,
+          "upload_time_iso_8601": "2026-10-22T09:26:15.175269Z",
+          "url": "https://files.pythonhosted.org/packages/0c/74/ba0901806b1967db1e7c4e81b7ffe71c96be9518ef17e8a17898b41d1a09/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl"
         }
       },
       {
@@ -32,13 +32,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "filename": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "8a1acbb83b7ce12bbb9e8adea284cfc7a74515735cb5d14c5566d8c31dc555ef",
-          "size": 55253571,
-          "upload_time_iso_8601": "2026-10-15T03:07:32.388176Z",
-          "url": "https://files.pythonhosted.org/packages/06/15/b54d6410cdcd99f8e2c913f55b33bbce174f7d1325244ce830e2452afc44/shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl"
+          "sha256": "5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0",
+          "size": 56263189,
+          "upload_time_iso_8601": "2026-10-22T09:26:21.253739Z",
+          "url": "https://files.pythonhosted.org/packages/3f/63/55235cb72a08c4b8094d83ea846687366c0a77edda943a4f3ed08d4cd6c9/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl"
         }
       },
       {
@@ -49,13 +49,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-0.6.0-cp313-cp313-win_amd64.whl",
+          "filename": "shardloom-0.7.0-cp313-cp313-win_amd64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp313",
-          "sha256": "c05f64e25fa3c9eac5b25c1758caebaf5a915238d93443a0e40e18229b90b613",
-          "size": 25173961,
-          "upload_time_iso_8601": "2026-10-15T03:07:36.996708Z",
-          "url": "https://files.pythonhosted.org/packages/d9/14/5ecbc4043a256c6e2bc51bf56510c216725ce0e8f19b39a830a8246dd039/shardloom-0.6.0-cp313-cp313-win_amd64.whl"
+          "sha256": "ceb4701b180b6399d91e23be40e48fdc3105f26910b06e35ea667fffef4c2ec8",
+          "size": 25424850,
+          "upload_time_iso_8601": "2026-10-22T09:26:25.645495Z",
+          "url": "https://files.pythonhosted.org/packages/ed/bb/418e2c9424bedca482ea19bc374f0ea685c29dc84890d1ddb032246cb650/shardloom-0.7.0-cp313-cp313-win_amd64.whl"
         }
       }
     ],
@@ -105,28 +105,28 @@
         "operation": "Reuse a native result as input",
         "types_formats": "Admitted ShardLoom-owned arrays and exact schemas",
         "artifact_requirement": "Linux or macOS native Python wheel; transport=native",
-        "restriction": "Version 0.6.0 admits owned results through from_arrow_table without an Arrow export. Cross-owner admission may copy under the receiving grant.",
+        "restriction": "Use ctx.from_result(result) for native owned data without an Arrow export. Completed results remain usable after context close. Cross-owner admission may copy under the receiving grant; process results use a bounded typed payload.",
         "reference": "/field-guide/python-surface#keep-results-native"
       }
     ],
-    "version": "0.6.0",
-    "installCommand": "python -m pip install shardloom==0.6.0",
-    "sourceUrl": "https://github.com/depsilon/shardloom/tree/936313473fedca78176d1fd983446673ed8ae62b",
-    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v0.6.0-publication-verification.md"
+    "version": "0.7.0",
+    "installCommand": "python -m pip install shardloom==0.7.0",
+    "sourceUrl": "https://github.com/depsilon/shardloom/tree/7ae9f0e44ddf3c8f09520fe318852cd873db3817",
+    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-publication-verification.md"
   },
   "examples": {
     "snippets": {
       "setup": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)",
-      "dataframe": "paid = ctx.read_csv(orders).filter(sl.col(\"status\") == \"paid\").sort(\"order_id\")\nresult = paid.collect(check=True)\nprint(result.python_objects)",
-      "sql": "sql_result = ctx.sql(\n    f\"SELECT order_id, status FROM '{orders}' \"\n    \"WHERE status = 'paid' ORDER BY order_id\"\n).collect(check=True)\nprint(sql_result.python_objects)",
-      "write": "output = Path(workspace.name) / \"paid.vortex\"\nwritten = paid.write_vortex(output)\nreopened = ctx.read_vortex(output).sort(\"order_id\").collect(check=True)\nprint(reopened.python_objects)",
-      "cleanup": "ctx.client.close()\nworkspace.cleanup()"
+      "dataframe": "paid = ctx.read_csv(orders).filter(sl.col(\"status\") == \"paid\").sort(\"order_id\")\nresult = paid.collect(check=True)\nprint(result.to_rows())",
+      "sql": "sql_result = ctx.sql(\n    f\"SELECT order_id, status FROM '{orders}' \"\n    \"WHERE status = 'paid' ORDER BY order_id\"\n).collect(check=True)\nprint(sql_result.to_rows())",
+      "write": "output = Path(workspace.name) / \"paid.vortex\"\nwritten = paid.write_vortex(output)\nreopened = ctx.read_vortex(output).sort(\"order_id\").collect(check=True)\nprint(reopened.to_rows())",
+      "cleanup": "ctx.close()\nworkspace.cleanup()"
     },
-    "pythonExample": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)\n\npaid = ctx.read_csv(orders).filter(sl.col(\"status\") == \"paid\").sort(\"order_id\")\nresult = paid.collect(check=True)\nprint(result.python_objects)\n\nctx.client.close()\nworkspace.cleanup()",
-    "sqlExample": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)\n\nsql_result = ctx.sql(\n    f\"SELECT order_id, status FROM '{orders}' \"\n    \"WHERE status = 'paid' ORDER BY order_id\"\n).collect(check=True)\nprint(sql_result.python_objects)\n\nctx.client.close()\nworkspace.cleanup()",
+    "pythonExample": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)\n\npaid = ctx.read_csv(orders).filter(sl.col(\"status\") == \"paid\").sort(\"order_id\")\nresult = paid.collect(check=True)\nprint(result.to_rows())\n\nctx.close()\nworkspace.cleanup()",
+    "sqlExample": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)\n\nsql_result = ctx.sql(\n    f\"SELECT order_id, status FROM '{orders}' \"\n    \"WHERE status = 'paid' ORDER BY order_id\"\n).collect(check=True)\nprint(sql_result.to_rows())\n\nctx.close()\nworkspace.cleanup()",
     "expectedRows": "({'order_id': 1, 'status': 'paid'}, {'order_id': 3, 'status': 'paid'})",
     "csvFixture": "order_id,status\n1,paid\n2,pending\n3,paid\n",
     "cliExample": "workspace=\"$(mktemp -d)\"\ntrap 'rm -rf \"$workspace\"' EXIT\nprintf '%s' 'order_id,status\n1,paid\n2,pending\n3,paid\n' > \"$workspace/orders.csv\"\nshardloom run sql --input \"$workspace/orders.csv\" \\\n  --sql \"SELECT order_id, status FROM '$workspace/orders.csv' WHERE status = 'paid' ORDER BY order_id\" \\\n  --request collect --bounded true --memory-bytes 268435456 --max-parallelism 2 --format json",
-    "developmentExample": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Unpublished-source example: reuse completed data after its context closes.\"\"\"\n\nimport shardloom as sl\n\n\ndef reuse_completed_result(transport=None):\n    # Illustrative caller choices, not automatic engine defaults.\n    resources = {\"memory_bytes\": 256 << 20, \"max_parallelism\": 2}\n    with sl.context(transport=transport, **resources) as ctx:\n        result = ctx.range(1, 4, column=\"id\").filter(sl.col(\"id\") != 2).collect()\n\n    # The completed result owns its data independently of the closed context.\n    with sl.context(transport=transport, **resources) as receiver:\n        return receiver.from_result(result).sort(\"id\").collect()\n\n\nif __name__ == \"__main__\":\n    print(reuse_completed_result().to_rows())"
+    "developmentExample": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Reuse completed data after its context closes.\"\"\"\n\nimport shardloom as sl\n\n\ndef reuse_completed_result(transport=None):\n    # Illustrative caller choices, not automatic engine defaults.\n    resources = {\"memory_bytes\": 256 << 20, \"max_parallelism\": 2}\n    with sl.context(transport=transport, **resources) as ctx:\n        result = ctx.range(1, 4, column=\"id\").filter(sl.col(\"id\") != 2).collect()\n\n    # The completed result owns its data independently of the closed context.\n    with sl.context(transport=transport, **resources) as receiver:\n        return receiver.from_result(result).sort(\"id\").collect()\n\n\nif __name__ == \"__main__\":\n    print(reuse_completed_result().to_rows())"
   }
 }

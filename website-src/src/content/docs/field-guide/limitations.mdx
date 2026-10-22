@@ -31,8 +31,6 @@ is not evidence that an unrelated workload is implemented.
 | --- | --- |
 | No wheel matches the OS, architecture or Python ABI | Use a listed environment or follow the source-build reference. Do not rename a wheel to bypass its platform tag. |
 | Computed result exceeds collection limits | Consume admitted batches or write output; requesting a Python tuple does not enable unbounded collection. |
-| Native write succeeds but `output_commit_status` is absent | In 0.6.0 that wrapper field can be absent on native writes. Check the operation's success and reopen the destination; the field's absence alone is not a failed publication. |
-| Native `session.sql(...).collect(reuse=False)` closes the client before executing | Avoid this combination in 0.6.0; use a fresh context and the ordinary SQL plan. A lifecycle correction is tracked in development. |
 | A process input/result crosses a Python boundary | Expect explicit serialization and bounded protocol frames; it is not zero-copy. |
 | Python batch iteration on Windows | Process batch pipes currently require POSIX. Use bounded collection or a writer; Windows batch delivery remains development work. |
 | Memory remains live after close | Retained results and consumer objects keep their own owners. Release those references when no longer needed. |
@@ -62,8 +60,9 @@ performance claim.
 ## Extending breadth and volume
 
 Development adds supported shapes to the same native engine. The
-[development page](/field-guide/development) identifies source-only work and
-migration notes. Immutable published packages retain their release-time behavior.
+[development and migration page](/field-guide/development) describes the 0.7.0
+API changes and how to distinguish later source work. Immutable published packages
+retain their release-time behavior.
 
 ## Failure behavior
 

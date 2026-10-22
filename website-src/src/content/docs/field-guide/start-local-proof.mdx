@@ -61,7 +61,7 @@ Expected values:
 <Code code={expectedRows} lang="python" />
 
 `read_csv`, `filter`, and `sort` declare the plan. `collect(check=True)` executes
-it and raises a typed error on execution failure. Accessing `python_objects`
+it and raises a typed error on execution failure. Calling `to_rows()`
 explicitly allocates Python values from the completed result. This example is
 small; use [batches or a writer](/field-guide/python-surface#consume-results)
 for larger output.
@@ -89,8 +89,8 @@ have explicit type and fidelity contracts. Cleanup removes this example's tempor
 
 <details>
   <summary>Inspect execution details</summary>
-  <p><code>result.result_schema</code> describes the delivered columns.
-  <code>result.envelope</code> contains the structured execution report;
+  <p><code>result.schema</code> describes the delivered columns.
+  <code>result.details</code> contains the typed execution envelope;
   <code>result.fallback_attempted</code> and <code>result.external_engine_invoked</code>
   are false. Inspection does not rerun the query.</p>
   <p>See <a href="/field-guide/execution-model#execution-evidence">execution evidence</a>
@@ -115,5 +115,5 @@ before expanding this example. Unsupported work raises a diagnostic; it is never
 delegated to another query engine.
 
 <a id="develop-from-source"></a>
-Source builds and unreleased API changes have their own
+Source builds and compatibility changes are covered in the
 [development and migration page](/field-guide/development).

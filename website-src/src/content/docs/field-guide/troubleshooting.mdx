@@ -20,8 +20,10 @@ import GuideVersion from '../../../components/GuideVersion.astro';
 
 ## Inspect an error
 
-Use `collect(check=True)` for throwing execution in published 0.6.0.
-`ShardLoomCommandError` carries its structured output envelope. Keep the stable
+`collect()` and other execution helpers raise typed errors by default.
+The `ShardLoomError` hierarchy exposes structured `diagnostics`;
+`ShardLoomCommandError` also carries its execution envelope. Use `check=False`
+only when deliberately handling unsuccessful reports. Keep the stable
 diagnostic code and input/type/resource context when reporting a problem;
 avoid including credentials or private data. Unsupported execution never falls
 back to another engine.

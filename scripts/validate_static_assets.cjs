@@ -348,14 +348,14 @@ for (const required of [
   `Published ${guideData.release.version}`,
   'id="read-and-collect"', 'id="write-and-reopen"',
   'href="/field-guide/troubleshooting"', 'data-pagefind-body',
-  "order_id", "paid", "python_objects",
+  "order_id", "paid", "to_rows()", "result.schema", "result.details",
 ]) {
   assert(startLocalProof.includes(required), `first workflow doc missing ${required}`);
 }
 const pythonSurface = read("field-guide/python-surface/index.html");
 for (const required of [
   'href="/field-guide/start-local-proof"', 'id="consume-results"',
-  "result.result_schema", "result.python_objects", "result.envelope",
+  "result.schema", "result.to_rows()", "result.details", "ctx.from_result(result)",
 ]) {
   assert(pythonSurface.includes(required), `Python task guide missing ${required}`);
 }

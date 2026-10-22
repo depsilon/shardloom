@@ -5,7 +5,7 @@
 Status marker: `source_checkout_install_v1=true`.
 
 Use this path to run the current repository revision. For the published
-v0.6.0 packages, see [Package User Install Status](package-user-install.md). Build the CLI and use the Python package
+v0.7.0 packages, see [Package User Install Status](package-user-install.md). Build the CLI and use the Python package
 from the same checkout. This local proof does not establish production readiness,
 performance superiority, Spark replacement, or broad SQL/DataFrame support.
 
@@ -58,8 +58,9 @@ $env:SHARDLOOM_BIN = "target\debug\shardloom.exe"
 
 ## Optional Native Python Binding
 
-Published 0.6.0 Linux x86_64 and macOS arm64 wheels include `shardloom.native`
-and the explicit client option `transport="native"`. This section builds the
+Published 0.7.0 Linux x86_64 and macOS arm64 wheels include `shardloom.native`;
+`sl.context(...)` selects native transport on those platforms by default.
+Explicit `transport="native"` remains available. This section builds the
 matching extension from source. An editable Python install alone does not
 compile the extension. Build the extension, CLI
 and Python package from one checkout, then verify the resulting wheel in an
@@ -107,7 +108,7 @@ contains ShardLoom afterward. To try the maintained
 retained wheel in a separate environment. This development example uses native
 execution and retained ShardLoom results without optional Arrow dependencies.
 
-The current source checkout adds an explicit native delivery option:
+Version 0.7.0 includes an explicit native delivery option:
 `query.iter_batches(output_window_bytes=4194304)`. Omission or zero keeps ordinary
 demand. Eligible immutable memory scans and single projections can keep two
 unacknowledged batches within a 4-MiB referenced-byte window. Admission is limited
@@ -124,8 +125,9 @@ iterator's final report appears. Retained native buffers remain charged to the
 original memory grant until their last owner is released. The final report's
 `columnar_output_window_requested_bytes` and
 `columnar_output_window_selected_policy` fields distinguish `two_batch_window`,
-`ordinary_ineligible` and `ordinary_not_requested`. This source change is not a
-newly published package; see the [integration and acceptance boundary](../architecture/native-output-window-integration-2026-10-19.md).
+`ordinary_ineligible` and `ordinary_not_requested`. See the
+[integration and acceptance boundary](../architecture/native-output-window-integration-2026-10-19.md)
+for this finite delivery contract.
 The [embedding guide](https://shardloom.io/field-guide/embedding/) covers direct
 typed native integration. The proof publishes nothing
 and does not change the caller's existing Python environment.
@@ -134,7 +136,7 @@ Local Linux wheels built by the command above retain their host-specific tag.
 The publication workflow separately runs the compatibility audit and installed
 proof for the published `manylinux_2_39_x86_64` wheel. Windows native extension
 execution remains unsupported; its published Python wheel uses the bundled CLI.
-See the [0.6.0 distribution proof](../release/v0.6.0-publication-verification.md)
+See the [0.7.0 distribution proof](../release/v0.7.0-publication-verification.md)
 for actual platform and interpreter coverage.
 
 ## Single Local Proof

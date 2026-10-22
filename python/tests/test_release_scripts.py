@@ -6440,7 +6440,7 @@ jobs:
     def test_public_guide_contract_rejects_divergent_examples_links_and_search(self) -> None:
         module = self._load_script_module("check_v1_docs_productization.py", "public_guide_contract_test")
         mutations = (
-            ("python/README.md", 'print(result.python_objects)', 'print(result.output_row_count)', "differs from the executable"),
+            ("python/README.md", 'print(result.to_rows())', 'print(result.output_row_count)', "differs from the executable"),
             ("website-src/src/data/public-guide.json", 'paid.collect(check=True)', 'paid.collect()', "generated guide snippets"),
             ("examples/paid-orders/context-result.py", 'ctx.range(1, 4', 'ctx.range(1, 5', "development example"),
             ("docs/getting-started/install.md", 'https://shardloom.io/field-guide/start-local-proof', 'https://example.com', "canonical first-workflow"),

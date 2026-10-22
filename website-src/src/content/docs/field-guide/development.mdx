@@ -1,6 +1,6 @@
 ---
 title: "Development and migration"
-description: "Distinguish unpublished source changes, compatibility migration, and contributor tooling."
+description: "Understand the v0.7.0 context and result API, bounded capabilities, and contributor tooling."
 pagefind: false
 ---
 
@@ -8,21 +8,23 @@ import GuideVersion from '../../../components/GuideVersion.astro';
 import { Code } from '@astrojs/starlight/components';
 import { developmentExample } from '../../../data/quickstart.mjs';
 
-<GuideVersion development />
+<GuideVersion />
 
-## Published versus source
+## Published package and source
 
-The default guide describes the named published package. Source work after that
-release does not change installed artifacts. For a reproducible source build,
-pin a commit and follow [source installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
+The lifecycle and `Result` API described here is included in
+[v0.7.0](https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-release-notes.md). Published package availability
+is tracked in the [selected-channel package readiness matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/package-channel-readiness-matrix.md).
+For reproducible future source work, pin source commits and follow
+[source installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
 ## API migration
 
-Development source adds one context lifecycle and one collected `Result` contract.
+Version 0.7.0 adds one context lifecycle and one collected `Result` contract.
 The [migration reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/python-api-migration.md)
 describes the deliberate changes and compatibility window.
 
-| Task | Development API |
+| Task | Current API |
 | --- | --- |
 | Own execution resources and lifetime | `with sl.context(...) as ctx:` |
 | Inspect the selected installation backend | `ctx.transport` |
@@ -38,7 +40,7 @@ selected backend. Memory and parallelism remain explicit caller choices.
 
 ## Reuse completed data
 
-This maintained development example returns the same two rows after the original
+This example for the published 0.7.0 API returns the same two rows after the original
 context closes. Native admission retains ShardLoom-owned data without an Arrow
 or Python-row export. A process-backed context uses typed payload conversion.
 
@@ -49,16 +51,24 @@ or Python-row export. A process-backed context uses typed payload conversion.
 ```
 
 `to_rows()` allocates Python objects explicitly. Keep large delivery in batches
-or a writer. These convenience methods are source changes, not additions to
-the installed 0.6.0 package.
+or a writer. See the [v0.7.0 release notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-release-notes.md)
+for the included API and its compatibility details.
 
-## Source-only capabilities
+## Included 0.7.0 capabilities
 
-Finite-streaming composition and further native resource accounting have advanced
-after 0.6.0. Their exact revisions, restrictions and acceptance are retained in the
-[completed ledger](https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-completed-ledger.md)
-and linked contracts. Query/provider optimization evidence remains in the
-[benchmark records](https://github.com/depsilon/shardloom/tree/main/docs/benchmarks).
+Version 0.7.0 includes finite streaming composition and bounded native resource
+accounting. Streaming covers the admitted compatibility destinations, set and
+unary operations, and static/dynamic subquery composition; late producer errors,
+cancellation, and invalid generations prevent successful completion or final
+publication. Explicit spill permission covers the listed relational membership
+and sampling workloads. These are finite operator contracts: they do not make all
+state spillable, establish a total-process memory ceiling, promise multi-file
+atomic publication, or resume interrupted queries. Native structural storage
+admission covers six classes: child caches/classification, cumulative row offsets,
+reader metadata vectors, segment specifications, file statistics tables, and user
+metadata names/locators. See the [v0.7.0 release notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-release-notes.md)
+and its linked acceptance records for exact workloads and limits. Future source
+work is separate; pin source commits for reproducibility.
 
 ## Roadmap and contributor material
 
