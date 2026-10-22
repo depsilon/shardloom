@@ -5092,94 +5092,125 @@ fn prepared_local_workflow_sql_statement(
 ) -> Option<String> {
     let statement = request.sql_statement.as_deref()?;
     let input_uri = request.input_uri.as_deref()?;
-    let mut rewritten =
-        replace_quoted_sql_source_ref(statement, input_uri, &left_target.display().to_string());
-    rewritten = replace_declared_sql_source_identifier(
-        &rewritten,
-        input_uri,
-        &left_target.display().to_string(),
-    );
-    if let Some(right) = right_source {
-        rewritten = replace_quoted_sql_source_ref(
-            &rewritten,
-            &right.source_uri,
-            &right.target.display().to_string(),
-        );
-        rewritten = replace_declared_sql_source_identifier(
-            &rewritten,
-            &right.source_uri,
-            &right.target.display().to_string(),
-        );
+    let source_refs = sql_source_ref_ranges(statement);
+    let mut rewritten = statement.to_string();
+    for source_ref in source_refs.iter().rev() {
+        let matches = |uri: &str| {
+            source_ref.value == uri
+                || (!source_ref.quoted
+                    && declared_sql_source_identifier_matches(&source_ref.value, uri))
+        };
+        let target = if matches(input_uri) {
+            Some(left_target)
+        } else {
+            right_source
+                .filter(|right| matches(&right.source_uri))
+                .map(|right| right.target.as_path())
+        };
+        if let Some(target) = target {
+            rewritten.replace_range(
+                source_ref.start..source_ref.end,
+                &sql_string_literal(&target.display().to_string()),
+            );
+        }
     }
     (rewritten != statement).then_some(rewritten)
 }
 
-fn replace_quoted_sql_source_ref(statement: &str, old_ref: &str, new_ref: &str) -> String {
-    let old_literal = sql_string_literal(old_ref);
-    let new_literal = sql_string_literal(new_ref);
-    statement.replace(&old_literal, &new_literal)
-}
-
-fn replace_declared_sql_source_identifier(statement: &str, old_ref: &str, new_ref: &str) -> String {
-    let source_refs = bare_sql_source_ref_ranges(statement);
-    if source_refs.is_empty() {
-        return statement.to_string();
-    }
-    let matching_refs = source_refs
-        .iter()
-        .copied()
-        .filter(|source_ref| declared_sql_source_identifier_matches(source_ref.value, old_ref))
-        .collect::<Vec<_>>();
-    if matching_refs.is_empty() {
-        return statement.to_string();
-    }
-
-    let replacement = sql_string_literal(new_ref);
-    let mut rewritten = statement.to_string();
-    for source_ref in matching_refs.into_iter().rev() {
-        rewritten.replace_range(source_ref.start..source_ref.end, &replacement);
-    }
-    rewritten
-}
-
-#[derive(Clone, Copy)]
-struct SqlSourceRefRange<'a> {
-    value: &'a str,
+struct SqlSourceRefRange {
+    value: String,
     start: usize,
     end: usize,
+    quoted: bool,
 }
 
-fn bare_sql_source_ref_ranges(statement: &str) -> Vec<SqlSourceRefRange<'_>> {
+#[derive(Default)]
+struct SqlSourceScope<'a> {
+    select: bool,
+    source_clause: bool,
+    expect_source: bool,
+    previous_word: &'a str,
+}
+
+/// Locate source tokens without touching values, comments or expression FROMs.
+/// Each parenthesized scope must introduce its own SELECT before admitting a
+/// source. The complete SQL parser still owns syntax and semantic admission.
+fn sql_source_ref_ranges(statement: &str) -> Vec<SqlSourceRefRange> {
     let mut ranges = Vec::new();
-    for keyword in ["FROM", "JOIN"] {
-        let mut search_start = 0usize;
-        while search_start < statement.len() {
-            let Some(relative_index) =
-                find_sql_keyword_outside_quotes_and_parens(&statement[search_start..], keyword)
+    let mut scopes = vec![SqlSourceScope::default()];
+    let mut index = 0;
+    while index < statement.len() {
+        let remaining = trim_sql_leading_comments_and_whitespace(&statement[index..]);
+        index = statement.len() - remaining.len();
+        let Some(byte) = remaining.as_bytes().first().copied() else {
+            break;
+        };
+        let scope = scopes.last_mut().expect("root SQL scope is retained");
+        if byte == b'\'' || byte == b'"' {
+            let Some((value, consumed)) = leading_quoted_sql_literal_with_consumed(remaining)
             else {
                 break;
             };
-            let index = search_start + relative_index + keyword.len();
-            let tail = &statement[index..];
-            let trimmed = tail.trim_start();
-            let leading_ws = tail.len() - trimmed.len();
-            if trimmed.starts_with('\'') {
-                search_start = index;
-                continue;
-            }
-            if let Some((source_ref, _consumed)) = leading_sql_source_ref_with_consumed(tail) {
-                let start = index + leading_ws;
-                let end = start + source_ref.len();
+            if scope.expect_source {
                 ranges.push(SqlSourceRefRange {
-                    value: &statement[start..end],
-                    start,
-                    end,
+                    value,
+                    start: index,
+                    end: index + consumed,
+                    quoted: true,
                 });
             }
-            search_start = index;
+            scope.expect_source = false;
+            scope.previous_word = "";
+            index += consumed;
+        } else if byte.is_ascii_alphabetic() || byte == b'_' {
+            let consumed = remaining
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+                .count();
+            let word = &remaining[..consumed];
+            if scope.expect_source {
+                ranges.push(SqlSourceRefRange {
+                    value: word.to_string(),
+                    start: index,
+                    end: index + consumed,
+                    quoted: false,
+                });
+                scope.expect_source = false;
+            } else if word.eq_ignore_ascii_case("select") {
+                scope.select = true;
+                scope.source_clause = false;
+            } else if scope.select
+                && ((word.eq_ignore_ascii_case("from")
+                    && !scope.previous_word.eq_ignore_ascii_case("distinct"))
+                    || (word.eq_ignore_ascii_case("join") && scope.source_clause))
+            {
+                scope.source_clause = true;
+                scope.expect_source = true;
+            } else if ["where", "group", "having", "order", "limit", "offset"]
+                .iter()
+                .any(|keyword| word.eq_ignore_ascii_case(keyword))
+            {
+                scope.source_clause = false;
+            }
+            scope.previous_word = word;
+            index += consumed;
+        } else {
+            scope.expect_source = false;
+            scope.previous_word = "";
+            match byte {
+                b'(' => scopes.push(SqlSourceScope::default()),
+                b')' if scopes.len() > 1 => {
+                    scopes.pop();
+                }
+                _ => {}
+            }
+            index += remaining
+                .chars()
+                .next()
+                .expect("nonempty SQL tail")
+                .len_utf8();
         }
     }
-    ranges.sort_by_key(|source_ref| source_ref.start);
     ranges
 }
 
@@ -5265,7 +5296,11 @@ fn local_prepared_vortex_execution_attachment_fields(
         ),
         (
             "public_workflow_local_source_vortex_ingest_performed".to_string(),
-            "true".to_string(),
+            preparation
+                .fields
+                .iter()
+                .find(|(key, _)| key == "public_workflow_preparation_vortex_ingest_performed")
+                .map_or_else(|| "not_reported".to_string(), |(_, value)| value.clone()),
         ),
         (
             "public_workflow_local_source_prepared_vortex_path".to_string(),
@@ -5988,12 +6023,15 @@ impl PublicWorkflowRouteRequest {
         }
         if self.input_uri.is_none() {
             self.input_uri = self.sql_statement.as_deref().and_then(|statement| {
-                extract_first_quoted_source_ref(statement).or_else(|| {
-                    self.input_format
-                        .as_deref()
-                        .filter(|format| is_local_file_format(format) || *format == "vortex")
-                        .and_then(|_| extract_first_declared_sql_source_ref(statement))
-                })
+                extract_first_declared_sql_source_ref(statement)
+                    .filter(|source| self.source_bindings.contains_key(source))
+                    .or_else(|| extract_first_quoted_source_ref(statement))
+                    .or_else(|| {
+                        self.input_format
+                            .as_deref()
+                            .filter(|format| is_local_file_format(format) || *format == "vortex")
+                            .and_then(|_| extract_first_declared_sql_source_ref(statement))
+                    })
             });
         }
         if self.input_format.is_none() {
@@ -7032,7 +7070,9 @@ fn native_vortex_primitive_row_export_route(
     }
     if !matches!(
         primitive,
-        PublicVortexPrimitive::Filter
+        PublicVortexPrimitive::Count
+            | PublicVortexPrimitive::CountWhere
+            | PublicVortexPrimitive::Filter
             | PublicVortexPrimitive::Project
             | PublicVortexPrimitive::FilterProject
             | PublicVortexPrimitive::Distinct
@@ -7647,14 +7687,14 @@ impl InferredNativeVortexRoutePayload {
 fn infer_native_vortex_route_payload(
     request: &PublicWorkflowRouteRequest,
 ) -> Option<InferredNativeVortexRoutePayload> {
-    if request.input_format.as_deref() != Some("vortex") {
-        return None;
-    }
     if request.vortex_primitive.is_some() {
         return None;
     }
     if request.surface == "sql" || request.sql_statement.is_some() {
         return infer_native_vortex_sql_payload(request);
+    }
+    if request.input_format.as_deref() != Some("vortex") {
+        return None;
     }
     infer_native_vortex_primitive_payload(request)
 }
@@ -7665,21 +7705,6 @@ fn effective_public_workflow_request(
     let mut effective_request = request.clone();
     if let Some(payload) = infer_native_vortex_route_payload(&effective_request) {
         payload.apply(&mut effective_request);
-    }
-    if is_write_request(&effective_request)
-        && matches!(
-            normalized_vortex_primitive(&effective_request),
-            Some(PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere)
-        )
-        && effective_request.vortex_aggregate.is_none()
-    {
-        effective_request.vortex_primitive = Some("aggregate".into());
-        effective_request.vortex_aggregate = Some(
-            serde_json::json!({"measures":[{"function":"count","alias":"count"}]}).to_string(),
-        );
-        if effective_request.native_vortex_operation_family.as_deref() == Some("count") {
-            effective_request.native_vortex_operation_family = Some("aggregate".into());
-        }
     }
     effective_request
 }
@@ -7727,6 +7752,7 @@ fn native_relational_sql_candidate(statement: &str) -> bool {
 struct NativeVortexSqlSingleSourceShape {
     projection: String,
     source_ref: String,
+    source_is_identifier: bool,
     where_clause: Option<String>,
     group_by: Option<String>,
     having: Option<String>,
@@ -7754,14 +7780,16 @@ fn infer_native_vortex_sql_primitive_payload(
     ) {
         return None;
     }
-    if !native_vortex_sql_source_ref_matches_request(&shape.source_ref, request) {
+    if !native_vortex_sql_source_ref_matches_request(
+        &shape.source_ref,
+        shape.source_is_identifier,
+        request,
+    ) {
         return None;
     }
     let projection = compact_ascii_lower(&shape.projection);
-    // Collection keeps its metadata/encoded count route. A file sink needs a
-    // typed result column, supplied by the same native aggregate lowering below.
+    // Every result boundary consumes the same metadata/encoded count producer.
     if projection == "count(*)"
-        && !is_write_request(request)
         && shape.group_by.is_none()
         && shape.having.is_none()
         && shape.order_by.is_none()
@@ -7955,6 +7983,7 @@ fn parse_native_vortex_sql_single_source_shape(
     Some(NativeVortexSqlSingleSourceShape {
         projection: projection.to_string(),
         source_ref,
+        source_is_identifier: !from_tail.starts_with(['\'', '"']),
         where_clause: tail.where_clause,
         group_by: tail.group_by,
         having: tail.having,
@@ -7993,19 +8022,16 @@ fn leading_sql_source_ref_with_consumed(value: &str) -> Option<(String, usize)> 
 
 fn native_vortex_sql_source_ref_matches_request(
     source_ref: &str,
+    source_is_identifier: bool,
     request: &PublicWorkflowRouteRequest,
 ) -> bool {
-    if request.input_format.as_deref() == Some("vortex")
-        && request.input_uri.as_deref() == Some(source_ref)
-    {
-        return true;
-    }
-    is_summary_identifier(source_ref)
-        && request.input_format.as_deref() == Some("vortex")
+    request
+        .input_format
+        .as_deref()
+        .is_some_and(|format| format == "vortex" || is_local_file_format(format))
         && request.input_uri.as_deref().is_some_and(|uri| {
-            infer_input_format_from_ref(uri) == Some("vortex")
-                || uri.ends_with(".vortex")
-                || uri.contains(".vortex/")
+            uri == source_ref
+                || (source_is_identifier && declared_sql_source_identifier_matches(source_ref, uri))
         })
 }
 
@@ -10660,7 +10686,9 @@ fn native_vortex_row_export_requires_structured_payload(
             native_vortex_primitive_materializes(primitive)
                 || matches!(
                     primitive,
-                    PublicVortexPrimitive::Project
+                    PublicVortexPrimitive::Count
+                        | PublicVortexPrimitive::CountWhere
+                        | PublicVortexPrimitive::Project
                         | PublicVortexPrimitive::Filter
                         | PublicVortexPrimitive::FilterProject
                 )
@@ -12839,25 +12867,12 @@ fn extract_first_declared_sql_source_ref(statement: &str) -> Option<String> {
 }
 
 fn extract_first_sql_source_ref(statement: &str, require_known_format: bool) -> Option<String> {
-    for keyword in ["FROM", "JOIN"] {
-        let mut search_start = 0usize;
-        while search_start < statement.len() {
-            let Some(relative_index) =
-                find_sql_keyword_outside_quotes_and_parens(&statement[search_start..], keyword)
-            else {
-                break;
-            };
-            let index = search_start + relative_index + keyword.len();
-            if let Some(candidate) = leading_quoted_sql_literal(&statement[index..]) {
-                let candidate = candidate.trim();
-                if !require_known_format || infer_input_format_from_ref(candidate).is_some() {
-                    return Some(candidate.to_string());
-                }
-            }
-            search_start = index;
-        }
-    }
-    None
+    sql_source_ref_ranges(statement)
+        .into_iter()
+        .find(|source| {
+            !require_known_format || infer_input_format_from_ref(&source.value).is_some()
+        })
+        .map(|source| source.value)
 }
 
 fn sql_statement_has_limit(statement: &str) -> bool {
@@ -12957,10 +12972,6 @@ fn trim_sql_leading_comments_and_whitespace(mut raw: &str) -> &str {
         }
         return trimmed;
     }
-}
-
-fn leading_quoted_sql_literal(raw: &str) -> Option<String> {
-    leading_quoted_sql_literal_with_consumed(raw).map(|(literal, _)| literal)
 }
 
 fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)> {
@@ -14447,6 +14458,235 @@ mod tests {
     }
 
     #[test]
+    fn source_rebinding_changes_only_relation_source_tokens() {
+        let target = Path::new("target/prepared.vortex");
+        for (source, statement, expected) in [
+            (
+                "target/input.csv",
+                "SELECT 'target/input.csv' AS value FROM 'target/input.csv' WHERE label = 'target/input.csv'",
+                "SELECT 'target/input.csv' AS value FROM 'target/prepared.vortex' WHERE label = 'target/input.csv'",
+            ),
+            (
+                "target/input.csv",
+                "SELECT label IS DISTINCT FROM 'target/input.csv' FROM /* 'target/input.csv' */ 'target/input.csv' WHERE label IS NOT DISTINCT FROM 'target/input.csv' -- FROM 'target/input.csv'\n",
+                "SELECT label IS DISTINCT FROM 'target/input.csv' FROM /* 'target/input.csv' */ 'target/prepared.vortex' WHERE label IS NOT DISTINCT FROM 'target/input.csv' -- FROM 'target/input.csv'\n",
+            ),
+            (
+                "target/input.csv",
+                "SELECT EXTRACT(YEAR FROM EventTime) FROM input WHERE label IS /* keep */ DISTINCT FROM 'target/input.csv'",
+                "SELECT EXTRACT(YEAR FROM EventTime) FROM 'target/prepared.vortex' WHERE label IS /* keep */ DISTINCT FROM 'target/input.csv'",
+            ),
+            (
+                "target/input.csv",
+                "SELECT q.label FROM (SELECT label FROM 'target/input.csv' WHERE label = 'target/input.csv') AS q",
+                "SELECT q.label FROM (SELECT label FROM 'target/prepared.vortex' WHERE label = 'target/input.csv') AS q",
+            ),
+            (
+                "target/é's.csv",
+                "SELECT 'target/é''s.csv' AS value FROM 'target/é''s.csv' WHERE label = 'target/é''s.csv'",
+                "SELECT 'target/é''s.csv' AS value FROM 'target/prepared.vortex' WHERE label = 'target/é''s.csv'",
+            ),
+        ] {
+            let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.input_uri = Some(source.into());
+            request.input_format = Some("csv".into());
+            request.sql_statement = Some(statement.into());
+            assert_eq!(
+                prepared_local_workflow_sql_statement(&request, target, None).as_deref(),
+                Some(expected),
+                "{statement}",
+            );
+            let spans = sql_source_ref_ranges(statement);
+            assert_eq!(spans.len(), 1, "{statement}");
+            assert_eq!(
+                extract_first_sql_source_ref(statement, false).as_deref(),
+                Some(spans[0].value.as_str()),
+            );
+        }
+        let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.input_uri = Some("left.csv".into());
+        request.input_format = Some("csv".into());
+        request.sql_statement = Some(
+            "SELECT l.id FROM 'left.csv' AS l JOIN 'right.csv' AS r ON l.id = r.id WHERE l.label = 'right.csv'".into(),
+        );
+        let right = PreparedLocalWorkflowRightSource {
+            source_uri: "right.csv".into(),
+            source_format: "csv".into(),
+            target: PathBuf::from("right.vortex"),
+        };
+        assert_eq!(
+            prepared_local_workflow_sql_statement(&request, target, Some(&right)).as_deref(),
+            Some(
+                "SELECT l.id FROM 'target/prepared.vortex' AS l JOIN 'right.vortex' AS r ON l.id = r.id WHERE l.label = 'right.csv'"
+            ),
+        );
+    }
+
+    #[cfg(all(
+        unix,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io"
+    ))]
+    #[test]
+    fn sql_native_strategy_inference_is_independent_of_input_format() {
+        let queries = [
+            "SELECT COUNT(*) FROM input",
+            "SELECT COUNT(*) FROM input WHERE metric > 3",
+            "SELECT SUM(metric),COUNT(*),AVG(metric) FROM input",
+            "SELECT label,COUNT(*) AS n FROM input GROUP BY label ORDER BY n DESC LIMIT 3",
+            "SELECT metric FROM input WHERE metric > 3 LIMIT 2",
+            "SELECT label,metric FROM input ORDER BY metric DESC LIMIT 2",
+        ];
+        let make_request = |format: &str, sql: &str, output: &str| {
+            let input = format!("target/input.{format}");
+            let mut arguments = vec![
+                "sql",
+                "--input",
+                &input,
+                "--input-format",
+                format,
+                "--sql",
+                sql,
+                "--request",
+                output,
+                "--bounded",
+                "true",
+            ];
+            if output != "collect" {
+                arguments.extend(["--output", "target/result"]);
+            }
+            effective_public_workflow_request(
+                &PublicWorkflowRouteRequest::parse(arguments.into_iter().map(str::to_string))
+                    .unwrap(),
+            )
+        };
+        for sql in queries {
+            let collected = make_request("vortex", sql, "collect");
+            for output in [
+                "collect",
+                "write_vortex",
+                "write_parquet",
+                "write_arrow_ipc",
+                "write_avro",
+                "write_orc",
+                "write_csv",
+                "write_json",
+                "write_jsonl",
+            ] {
+                let native = make_request("vortex", sql, output);
+                assert!(native.vortex_primitive.is_some(), "native control: {sql}");
+                assert_eq!(
+                    native.vortex_primitive, collected.vortex_primitive,
+                    "{sql} {output}"
+                );
+                for format in [
+                    "csv",
+                    "json",
+                    "jsonl",
+                    "ndjson",
+                    "parquet",
+                    "arrow-ipc",
+                    "avro",
+                    "orc",
+                ] {
+                    let request = make_request(format, sql, output);
+                    assert_eq!(
+                        (
+                            &request.vortex_primitive,
+                            &request.vortex_predicate,
+                            &request.vortex_columns,
+                            &request.vortex_aggregate,
+                            &request.vortex_sort_rows,
+                            &request.vortex_source_order_limit,
+                        ),
+                        (
+                            &native.vortex_primitive,
+                            &native.vortex_predicate,
+                            &native.vortex_columns,
+                            &native.vortex_aggregate,
+                            &native.vortex_sort_rows,
+                            &native.vortex_source_order_limit,
+                        ),
+                        "format={format} output={output} sql={sql}",
+                    );
+                    let plan = plan_public_workflow_route(&request);
+                    assert_eq!(plan.status, CommandStatus::Success, "{plan:?}");
+                    assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
+                    let prepared = prepared_local_workflow_native_request(&request).unwrap();
+                    let prepared_plan = plan_public_workflow_route(&prepared.request);
+                    assert_eq!(
+                        prepared_plan.route_id,
+                        plan_public_workflow_route(&native).route_id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_source_binding_inference_honors_declared_format_without_filename_hint() {
+        for format in [
+            "vortex",
+            "csv",
+            "json",
+            "jsonl",
+            "ndjson",
+            "parquet",
+            "arrow-ipc",
+            "avro",
+            "orc",
+        ] {
+            for (sql, expected) in [
+                ("SELECT COUNT(*) FROM 'declared.data'", "count"),
+                ("SELECT SUM(value) FROM 'declared.data'", "aggregate"),
+            ] {
+                // Embedded SQL declarations have no separately supplied primary
+                // input; the binding is authoritative even with an opaque name.
+                let mut request = PublicWorkflowRouteRequest::new("python".into());
+                request.sql_statement = Some(sql.into());
+                request.source_bindings.insert(
+                    "declared.data".into(),
+                    PublicSourceBinding {
+                        input_format: format.into(),
+                        source_schema: None,
+                        memory_input: None,
+                    },
+                );
+                request.infer_defaults();
+                let request = effective_public_workflow_request(&request);
+                assert_eq!(request.input_uri.as_deref(), Some("declared.data"));
+                assert_eq!(request.input_format.as_deref(), Some(format));
+                assert_eq!(
+                    request.vortex_primitive.as_deref(),
+                    Some(expected),
+                    "{format} {sql}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sql_source_alias_inference_does_not_reinterpret_quoted_paths() {
+        for format in ["vortex", "parquet", "orc", "csv"] {
+            let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.input_format = Some(format.into());
+            request.input_uri = Some(format!("target/input.{format}"));
+            request.requested_output = "collect".into();
+            request.sql_statement = Some("SELECT COUNT(*) FROM 'input'".into());
+            assert!(
+                infer_native_vortex_sql_payload(&request).is_none(),
+                "{format}"
+            );
+            request.sql_statement = Some("SELECT COUNT(*) FROM input".into());
+            assert!(
+                infer_native_vortex_sql_payload(&request).is_some(),
+                "{format}"
+            );
+        }
+    }
+
+    #[test]
     fn route_planner_admits_equivalent_sql_and_dataframe_local_file_routes_through_vortex_middle() {
         let sql = PublicWorkflowRouteRequest::parse(
             [
@@ -14494,13 +14734,13 @@ mod tests {
         if cfg!(feature = "vortex-local-primitives") {
             for plan in [&sql_plan, &dataframe_plan] {
                 assert_eq!(plan.status, CommandStatus::Success);
-                assert_eq!(plan.route_id, "native_vortex_relational_collect");
-                assert_eq!(plan.resolved_internal_command, "native-vortex-relational");
+                assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
                 assert_eq!(
-                    plan.vortex_normalization_point,
-                    "all_sources_normalized_to_native_vortex_before_binding"
+                    plan.resolved_internal_command,
+                    "vortex-prepare->native-vortex"
                 );
-                assert_eq!(plan.execution_mode, "native_vortex");
+                assert_eq!(plan.vortex_normalization_point, "VortexPreparedState");
+                assert_eq!(plan.execution_mode, "prepared_vortex");
                 assert!(plan.preparation_included);
                 assert!(plan.query_timing_starts_after_preparation);
             }
@@ -14617,14 +14857,7 @@ mod tests {
 
         assert_eq!(plan.status, CommandStatus::Unsupported);
         assert_eq!(plan.route_id, "blocked");
-        assert_eq!(
-            plan.blocker_id,
-            if cfg!(all(feature = "vortex-local-primitives", unix)) {
-                "cg21.route.native_relational_not_admitted"
-            } else {
-                "cg21.route.direct_local_file_blocked"
-            }
-        );
+        assert_eq!(plan.blocker_id, "cg21.route.direct_local_file_blocked");
         assert_eq!(
             field(&fields, "route_support_status"),
             "unsupported_boundary"
@@ -14853,7 +15086,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_lowers_count_output_to_aggregate() {
+    fn route_planner_preserves_count_producer_for_output() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "cli",
@@ -14878,8 +15111,8 @@ mod tests {
         .expect("native output route request");
 
         let request = effective_public_workflow_request(&request);
-        assert_eq!(request.vortex_primitive.as_deref(), Some("aggregate"));
-        assert!(request.vortex_aggregate.is_some());
+        assert_eq!(request.vortex_primitive.as_deref(), Some("count"));
+        assert!(request.vortex_aggregate.is_none());
         let plan = plan_public_workflow_route(&request);
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
@@ -17150,14 +17383,7 @@ mod tests {
             feature = "vortex-local-primitives"
         )) {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(
-                plan.route_id,
-                if cfg!(all(feature = "vortex-local-primitives", unix)) {
-                    "native_vortex_relational_collect"
-                } else {
-                    "local_file_prepare_once_first_query"
-                }
-            );
+            assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(

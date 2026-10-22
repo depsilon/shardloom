@@ -22,6 +22,26 @@ fn session() -> ResidentVortexSession {
     ResidentVortexSession::new(allocation.memory_bytes(), allocation.max_parallelism()).unwrap()
 }
 
+#[test]
+fn sql_file_binding_format_uses_public_normalization() {
+    let mut request = sql_request(
+        "SELECT COUNT(*) FROM 'declared.data'",
+        allocation(),
+        &[SqlSourceBinding {
+            reference: "declared.data".into(),
+            source: SqlSource::File {
+                format: " ARROW_IPC ".into(),
+                schema: None,
+            },
+        }],
+        None,
+    )
+    .unwrap();
+    request.infer_defaults();
+    assert_eq!(request.input_format.as_deref(), Some("arrow-ipc"));
+    assert_eq!(request.input_uri.as_deref(), Some("declared.data"));
+}
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn prepared_native_query_timing_excludes_preparation_and_later_row_export() {

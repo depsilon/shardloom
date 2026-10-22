@@ -176,6 +176,7 @@ pub fn request_requires_relational(
 ) -> Result<bool> {
     use super::VortexQueryPrimitiveKind as Kind;
     let mut columns = match request.kind {
+        Kind::CountAll => return Ok(false),
         Kind::SimpleAggregate => super::required_simple_aggregate(request)?.projected_columns(),
         Kind::CountWhere => Vec::new(),
         Kind::ProjectColumns | Kind::FilterPredicate | Kind::FilterAndProject | Kind::SortRows => {
@@ -573,6 +574,7 @@ pub fn try_write_source(
 /// Rejects cancellation, changed sources, unsupported requests, resource pressure
 /// and failed output.
 #[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)] // Keep terminal provider choices in one dispatch table.
 pub fn try_write_source_controlled(
     request: &VortexQueryPrimitiveRequest,
     output: &std::path::Path,
@@ -587,6 +589,46 @@ pub fn try_write_source_controlled(
     source_session(&source, request, Some(policy))?;
     cancellation.check()?;
     let report = match request.kind {
+        super::VortexQueryPrimitiveKind::CountAll => {
+            let operation =
+                super::collect::prepare_count_from_source(request, &source, cancellation)?;
+            super::prepared_count::write_count_result_controlled(
+                request,
+                output,
+                format,
+                overwrite,
+                policy,
+                std::slice::from_ref(&source),
+                cancellation,
+                || {
+                    operation
+                        .execute_native_result(cancellation)
+                        .map(|(_, result)| (None, result))
+                },
+            )?
+        }
+        super::VortexQueryPrimitiveKind::CountWhere => {
+            let operation = super::prepared_count::prepare_count_where_from_source_controlled(
+                request,
+                policy,
+                source.clone(),
+                cancellation,
+            )?;
+            super::prepared_count::write_count_result_controlled(
+                request,
+                output,
+                format,
+                overwrite,
+                policy,
+                std::slice::from_ref(&source),
+                cancellation,
+                || {
+                    operation
+                        .execute_native_result(cancellation)
+                        .map(|completed| (Some(completed.execution.report), completed.result))
+                },
+            )?
+        }
         super::VortexQueryPrimitiveKind::SimpleAggregate => {
             super::prepared_aggregate::prepare_aggregate_from_source(request, policy, source)?
                 .write_controlled(output, format, overwrite, cancellation)?

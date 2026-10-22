@@ -27,6 +27,11 @@ phase plan first.
   3,176 native, 1,091 CLI, 249 layout, 145 file and 118 installed binding
   tests. Native tests retain 31 existing ignored tests. All 5,930 public
   cases and 18 format cohorts pass.
+  - Merged in [PR #1581](https://github.com/depsilon/shardloom/pull/1581)
+    as `11e5738a56c55bc4e6b5bc3de90b1cb2aa74820a`, following accepted
+    investigation [PR #1580](https://github.com/depsilon/shardloom/pull/1580)
+    at `1175a8986700bfdbf10b5864df18198ba7fc3ede`. Both merges retain their
+    original acceptance boundaries; the format correction is a separate follow-up.
   - The final isolated Full43 passes all 43 complete results and schemas at
     49.990920425 engine seconds, with one execution per query on the unchanged
     executable and input. Earlier observations and failures remain in the

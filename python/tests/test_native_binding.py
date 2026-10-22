@@ -2025,6 +2025,7 @@ assert later.row_count == 2
     def test_public_native_file_sql_selects_typed_decimal_providers(self):
         from decimal import Decimal
         import shardloom as sl
+        import pyarrow.parquet as parquet
 
         pa = self.arrow()
         client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
@@ -2049,12 +2050,26 @@ assert later.row_count == 2
 
         with tempfile.TemporaryDirectory(prefix="shardloom-native-decimal-file-") as directory:
             root = Path(directory)
+            compatibility = root / "compatibility-fixtures"
+            compatibility.mkdir()
             with patch("subprocess.Popen", side_effect=AssertionError("execution child process")):
                 for index in range(2):
                     sl.from_arrow_table(table, client=client).write_vortex(root / f"part-{index}.vortex", check=True)
-                for source, copies in ((root / "part-0.vortex", 1), (root, 2)):
+                parquet_source = compatibility / "decimal.parquet"
+                parquet.write_table(table, parquet_source)
+                ipc_source = compatibility / "decimal.arrow"
+                with ipc_source.open("wb") as sink:
+                    with pa.ipc.new_file(sink, table.schema) as writer:
+                        writer.write_table(table)
+                for source, copies, input_format in (
+                    (root / "part-0.vortex", 1, "vortex"),
+                    (root, 2, "vortex"),
+                    (parquet_source, 1, "parquet"),
+                    (ipc_source, 1, "arrow-ipc"),
+                ):
                     with self.subTest(source=source.name):
-                        base = sl.read_vortex(source, client=client)
+                        base = (sl.read_vortex(source, client=client) if input_format == "vortex"
+                                else sl.read(source, client=client))
                         grouped = base.group_by("group_id").agg(total="sum(amount)", mean="avg(amount)").sort("group_id")
                         expected = [
                             {"group_id": 1, "total": Decimal(3 * copies), "mean": Decimal("1.500000")},
@@ -2069,10 +2084,13 @@ assert later.row_count == 2
                         # turn a correct first result into a different provider.
                         check(grouped, expected)
                         check(sl.sql(f"SELECT amount FROM '{source}' WHERE amount IS NOT NULL ORDER BY amount DESC",
-                                     input=source, input_format="vortex", client=client),
+                                     input=source, input_format=input_format, client=client),
                               [{"amount": Decimal(value)} for value in ("3.00", "2.00", "1.00") for _ in range(copies)])
+                        check(sl.sql(f"SELECT COUNT(*) FROM '{source}' WHERE amount IS NOT NULL",
+                                     input=source, input_format=input_format, client=client),
+                              [{"count_all": 3 * copies}])
                         check(sl.sql(f"SELECT COUNT(*) AS n FROM '{source}' WHERE amount IS NOT NULL",
-                                     input=source, input_format="vortex", client=client),
+                                     input=source, input_format=input_format, client=client),
                               [{"n": 3 * copies}])
                         # Unreferenced decimal fields do not require the typed
                         # strategy for an otherwise ordinary primitive sort.

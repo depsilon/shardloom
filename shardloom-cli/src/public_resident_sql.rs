@@ -5,11 +5,10 @@ use super::{
     PublicSourcePreparations, PublicVortexPrimitive, PublicWorkflowRoutePlan,
     PublicWorkflowRouteRequest, ShardLoomError, effective_public_workflow_request,
     emit_blocked_facade, execute_native_vortex_materializing_with_source,
-    execute_native_vortex_owned_collect_with_source, is_write_request,
-    native_vortex_bound_request_and_arg, native_vortex_input_binding_for_request,
-    native_vortex_materializing_error, native_vortex_materializing_policy,
-    normalized_vortex_primitive, resident_aggregate, resident_count_where, resident_relational,
-    sql_local_source_runtime,
+    execute_native_vortex_owned_collect_with_source, native_vortex_bound_request_and_arg,
+    native_vortex_input_binding_for_request, native_vortex_materializing_error,
+    native_vortex_materializing_policy, normalized_vortex_primitive, resident_aggregate,
+    resident_count_where, resident_relational, sql_local_source_runtime,
 };
 #[cfg(feature = "vortex-write")]
 use super::{emit_native_vortex_primitive_row_export, native_vortex_primitive_row_export_targets};
@@ -20,11 +19,10 @@ pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkfl
     if request.requested_output == "prepare" {
         return None;
     }
-    if request.input_format.as_deref() != Some("vortex") {
-        if request.execution_policy == "native_vortex" {
-            return None;
-        }
-        return resident_relational::route_admitted_statement(request);
+    if request.input_format.as_deref() != Some("vortex")
+        && request.execution_policy == "native_vortex"
+    {
+        return None;
     }
     if matches!(
         sql_local_source_runtime::native_relational::is_plain_select(statement),
@@ -51,12 +49,7 @@ pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkfl
                 | PublicVortexPrimitive::SortRows
         )
     );
-    let scalar_write = is_write_request(request)
-        && matches!(
-            normalized_vortex_primitive(request),
-            Some(PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere)
-        );
-    if !optimized || scalar_write {
+    if !optimized {
         return resident_relational::route_admitted_statement(request);
     }
     None
@@ -80,7 +73,9 @@ pub(super) fn write_if_needed(
     let primitive = normalized_vortex_primitive(request)?;
     if !matches!(
         primitive,
-        PublicVortexPrimitive::Project
+        PublicVortexPrimitive::Count
+            | PublicVortexPrimitive::CountWhere
+            | PublicVortexPrimitive::Project
             | PublicVortexPrimitive::Filter
             | PublicVortexPrimitive::FilterProject
             | PublicVortexPrimitive::Aggregate
@@ -292,6 +287,8 @@ pub(super) fn run_if_needed(
                 admission,
             )
         } else {
+            #[cfg(feature = "universal-format-io")]
+            let source = source.with_preparation_sources(preparations.sources)?;
             run_optimized_source(
                 request, plan, format, fields, &binding, session, source, admission,
             )?

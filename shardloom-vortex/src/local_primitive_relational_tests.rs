@@ -403,6 +403,68 @@ fn native_relational_schema_lowering_and_execution_share_each_prepared_source() 
     assert_eq!(result.execution.runtime.completed_executions, 1);
 }
 
+#[test]
+fn native_relational_schema_columns_match_all_projection_without_hidden_metadata() {
+    for rows in [0, 2] {
+        let fields = [
+            ("entity", [1_u64, 2]),
+            ("__shardloom_derived_utf8_len_entity", [3, 4]),
+            ("amount", [10, 20]),
+            ("__shardloom_derived_extract_minute_amount", [5, 6]),
+        ];
+        let array = StructArray::try_new(
+            FieldNames::from_iter(fields.iter().map(|(name, _)| *name)),
+            fields.iter().map(|(_, values)| {
+                PrimitiveArray::from_iter(values.iter().copied().take(rows)).into_array()
+            }),
+            rows,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array();
+        let fixture = Fixture::new(array, 1);
+        let uri = DatasetUri::new(fixture.path().display().to_string()).unwrap();
+        let prepared = prepare_relational_with_schema(policy(), |schemas| {
+            assert_eq!(schemas.source_columns(&uri)?, ["entity", "amount"]);
+            Ok(fixture.scan())
+        })
+        .unwrap();
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&result),
+            [
+                serde_json::json!({"entity":1,"amount":10}),
+                serde_json::json!({"entity":2,"amount":20}),
+            ][..rows]
+        );
+        drop(result);
+        drop(prepared);
+
+        // Schema discovery must not remove the physical metadata that native
+        // operators may explicitly address below the public SQL boundary.
+        let metadata = VortexRelationalPlan::Scan(VortexRelationalScan {
+            source_uri: uri,
+            projection: shardloom_plan::ProjectionRequest::Columns(vec![
+                ColumnRef::new("__shardloom_derived_utf8_len_entity").unwrap(),
+            ]),
+            predicate: None,
+        });
+        let result = prepare_relational(&metadata, policy())
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&result),
+            [
+                serde_json::json!({"__shardloom_derived_utf8_len_entity":3}),
+                serde_json::json!({"__shardloom_derived_utf8_len_entity":4}),
+            ][..rows]
+        );
+    }
+}
+
 fn single(name: &str, values: ArrayRef) -> ArrayRef {
     let rows = values.len();
     StructArray::try_new(

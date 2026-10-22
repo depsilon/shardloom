@@ -31,10 +31,8 @@ use arrow_schema::DataType;
 use arrow_schema::{ArrowError, Field, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{
     CommandStatus, ExecutionResources, ExpressionInputRow, LogicalDType, OutputFormat, ScalarValue,
-    ShardLoomError, decimal128_dtype,
+    ShardLoomError, decimal128_dtype, parse_iso_date32, parse_iso_timestamp_micros,
 };
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use shardloom_core::{parse_iso_date32, parse_iso_timestamp_micros};
 use shardloom_exec::compute_pool::CancellationToken;
 
 use crate::{
@@ -1861,7 +1859,6 @@ fn parse_schema_declared_text_scalar(
     }
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::cast_precision_loss)]
 fn coerce_schema_declared_json_scalar(
     value: ScalarValue,
@@ -1904,7 +1901,7 @@ fn coerce_schema_declared_json_scalar(
             parse_iso_timestamp_micros(&value).map(ScalarValue::TimestampMicros)
         }
         (dtype, value) => Err(ShardLoomError::InvalidOperation(format!(
-            "{context} column '{column}' declared {} but JSONL value was {}; no fallback execution was attempted",
+            "{context} column '{column}' declared {} but JSON value was {}; no fallback execution was attempted",
             dtype.as_str(),
             value.summary()
         ))),
@@ -2123,7 +2120,9 @@ pub(crate) fn parse_vortex_ingest_schema_hints(
 fn apply_vortex_ingest_schema_hints(
     source: &mut CsvSourceData,
     hints: &[(String, LogicalDType)],
+    cancellation: &CancellationToken,
 ) -> Result<(), ShardLoomError> {
+    cancellation.check()?;
     if hints.is_empty() {
         return Ok(());
     }
@@ -2142,6 +2141,22 @@ fn apply_vortex_ingest_schema_hints(
             )));
         };
         source.column_dtypes[index] = Some(dtype.clone());
+        if matches!(
+            source.source_format,
+            LocalSourceFormat::Json | LocalSourceFormat::JsonLines
+        ) {
+            for row in &mut source.rows {
+                cancellation.check()?;
+                if let Some(value) = row.get_mut(name) {
+                    *value = coerce_schema_declared_json_scalar(
+                        std::mem::replace(value, ScalarValue::Null),
+                        dtype,
+                        name,
+                        "schema-declared JSON input",
+                    )?;
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -4501,7 +4516,7 @@ fn run_scalar_vortex_prepare(
         source_adapter,
         request.runtime_profile.read_limits(),
     )?;
-    apply_vortex_ingest_schema_hints(&mut source, source_schema_hints)?;
+    apply_vortex_ingest_schema_hints(&mut source, source_schema_hints, &request.cancellation)?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
         run_text_streaming_vortex_prepare(request, source, prepare_start)
