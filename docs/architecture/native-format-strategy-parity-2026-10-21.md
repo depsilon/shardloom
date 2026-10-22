@@ -231,3 +231,37 @@ and original fixture readback, and checks all 141 prior-audit source digests.
 Runtime reproduction requires rebuilding the recorded revision and binding the
 retained driver to resident inputs and a new output directory. The archive does
 not include large input data, executables, libraries, wheels or environments.
+
+## Review correction: filtered-count writer policy
+
+[PR #1583 review](https://github.com/depsilon/shardloom/pull/1583#discussion_r4343835241)
+identified a report-only defect in the new scalar handoff. The filtered-count
+writer correctly selected its sink policy, then replaced that policy with the
+count producer's non-writer policy. The ordinary dispatcher corrected it later,
+but embedded native sessions returned the incorrect writer flag. Commit
+`ca5a13fbfcf1fd7be4108f18d1af2c4159a9a554` preserves the sink policy while copying
+only the producer's execution evidence. Producer selection and result values
+are unchanged.
+
+The direct regression fails on the original assignment and passes after its
+removal, covering scanned and completely pruned counts. The native Python test
+adds 32 complete write/reopen cases: Vortex and CSV input, two filter outcomes,
+and all eight sinks. Each checks the writer policy and no-fallback fields.
+All 18 primitive binding tests pass against the rebuilt optimized extension.
+The same clean commit passes formatting, strict default/native Clippy, all
+3,238 default workspace tests, and 3,162 native library tests with the existing
+31 manual benchmarks ignored. All 17 focused prepared-count tests also pass.
+
+The [separate review packet](../benchmarks/evidence/native-format-strategy-2026-10-21/review-index.json)
+preserves source identities, the patch, every command/log, cleanup receipts and
+the failing regression. An earlier reduced-feature probe failed to compile an
+existing test import gated by `universal-format-io`; that is retained separately
+and is not the regression's failing-test proof. The corrected probe and full
+native checks use `release-user-surfaces`.
+
+Run `python3 -B docs/benchmarks/evidence/native-format-strategy-2026-10-21/verify_review.py`
+to verify the review packet without the original host. The original acceptance
+archive remains unchanged. The collect-only Full43 does not call this writer
+helper and was not repeated; its original commit, binary and measured values
+remain the performance evidence. Hosted checks of the corrected PR revision
+remain the integration gate.
