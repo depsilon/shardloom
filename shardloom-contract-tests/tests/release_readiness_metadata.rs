@@ -3987,8 +3987,10 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         "/field-guide/development",
         "sl.context",
         "ctx.read",
-        "result.envelope",
-        "result.python_objects",
+        "result.details",
+        "result.to_rows()",
+        "result.schema",
+        "ctx.from_result(result)",
     ] {
         assert!(
             website_python_surface.contains(required),
@@ -4220,8 +4222,10 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
         "Python",
         "sl.context",
         "ctx.read",
-        "result.envelope",
-        "result.python_objects",
+        "result.details",
+        "result.to_rows()",
+        "result.schema",
+        "ctx.from_result(result)",
         "/field-guide/start-local-proof",
         "/field-guide/development",
     ] {
