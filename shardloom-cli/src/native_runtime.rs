@@ -397,7 +397,9 @@ fn sql_request(
     request.spill = spill.map(super::spill::Options::parse).transpose()?;
     for binding in bindings {
         let (format, schema) = match &binding.source {
-            SqlSource::File { format, schema } => (format.clone(), schema.clone()),
+            SqlSource::File { format, schema } => {
+                (super::normalize_input_format(format)?, schema.clone())
+            }
             SqlSource::Memory(_) => ("memory".into(), None),
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             SqlSource::ColumnarStream(_) => ("memory".into(), None),

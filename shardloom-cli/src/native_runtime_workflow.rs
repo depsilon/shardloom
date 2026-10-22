@@ -34,9 +34,12 @@ impl NativeWorkflowDeclaration {
         mut request: workflow::PublicWorkflowRouteRequest,
     ) -> Result<Option<Self>> {
         request.infer_defaults();
-        let request = workflow::effective_public_workflow_request(&request);
+        let mut request = workflow::effective_public_workflow_request(&request);
         if workflow::normalized_vortex_primitive(&request).is_none() {
             return Ok(None);
+        }
+        if !request.source_bindings.is_empty() {
+            request.bind_flat_source()?;
         }
         validate_route(&request)?;
         let statement_bytes = request.sql_statement.as_ref().map_or(0, String::capacity);
@@ -232,9 +235,7 @@ impl NativeWorkflowDeclaration {
         // Preserve complete SQL (including grouping transforms, ordering and
         // HAVING), and hand already admitted sources to the shared typed binder.
         // Explicit primitive payloads are not replaced by their advisory SQL.
-        // Compatibility preparation retains its existing report attachment path.
-        if self.sql_preserves_operation
-            && preparation_identity.is_none()
+        let provider = if self.sql_preserves_operation
             && matches!(
                 primitive_request.kind,
                 Kind::SimpleAggregate | Kind::SortRows | Kind::CountWhere
@@ -243,8 +244,7 @@ impl NativeWorkflowDeclaration {
             && sources.iter().try_fold(false, |extended, source| {
                 prepared_dispatch::request_requires_relational(source, &primitive_request)
                     .map(|required| extended || required)
-            })?
-        {
+            })? {
             let operation = workflow::resident_relational::prepare_in_session(
                 statement,
                 &request,
@@ -257,11 +257,8 @@ impl NativeWorkflowDeclaration {
                 },
                 cancellation,
             )?;
-            let mut prepared = PreparedNativeOperation::relational(operation, resources);
-            prepared.reusable = binding.mode == "single_file";
-            return Ok(prepared);
-        }
-        let provider = if primitive_request.kind == Kind::CountAll {
+            PrimitiveProvider::Relational(Box::new(operation))
+        } else if primitive_request.kind == Kind::CountAll {
             let mut counts = Vec::with_capacity(sources.len());
             for (source, uri) in sources.iter().zip(&source_uris) {
                 let mut part = primitive_request.clone();

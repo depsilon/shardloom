@@ -791,7 +791,10 @@ fn vortex_prepare_normalizes_nested_jsonl_as_utf8_payload() {
     #[cfg(all(unix, feature = "vortex-local-primitives"))]
     assert_prepared_collect_values(
         &target_path,
-        "SELECT id, payload FROM hits LIMIT 10",
+        &format!(
+            "SELECT id, payload FROM '{}' LIMIT 10",
+            target_path.display()
+        ),
         &serde_json::json!([{"id": 1, "payload": "{\"nested\":true}"}]),
     );
 
@@ -1086,7 +1089,10 @@ fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
     #[cfg(all(unix, feature = "vortex-local-primitives"))]
     assert_prepared_collect_values(
         &target_path,
-        "SELECT id, label, amount FROM hits LIMIT 10",
+        &format!(
+            "SELECT id, label, amount FROM '{}' LIMIT 10",
+            target_path.display()
+        ),
         &serde_json::json!([
             {"id": 1, "label": "alpha", "amount": 8},
             {"id": 2, "label": "beta", "amount": 15},
@@ -1516,7 +1522,10 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
         #[cfg(all(unix, feature = "vortex-local-primitives"))]
         assert_prepared_collect_values(
             &target_path,
-            "SELECT id, label, amount, active FROM hits LIMIT 10",
+            &format!(
+                "SELECT id, label, amount, active FROM '{}' LIMIT 10",
+                target_path.display()
+            ),
             &serde_json::json!([
                 {"id": 1, "label": "alpha", "amount": 8, "active": true},
                 {"id": 2, "label": "beta", "amount": 15, "active": false},

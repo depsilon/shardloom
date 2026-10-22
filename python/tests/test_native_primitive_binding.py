@@ -543,6 +543,236 @@ class NativePrimitiveBindingTests(unittest.TestCase):
         finally:
             session.close()
 
+    def test_sql_collection_and_compatibility_writes_preserve_complete_rows(self):
+        source_path = self.root / "schema-regression.vortex"
+        table = self.pa.table({
+            "key": self.pa.array(["a", "b", "a", "c", "b"], type=self.pa.string()),
+            "value": self.pa.array([2, None, 4, -3, 0], type=self.pa.int64()),
+        })
+        self._write_table_fixture(source_path, table)
+        ipc_path = self.root / "schema-regression.arrow"
+        with ipc_path.open("wb") as sink:
+            with self.pa.ipc.new_file(sink, table.schema) as writer:
+                writer.write_table(table)
+
+        formats = ("csv", "json", "jsonl", "arrow_ipc", "parquet", "avro", "orc")
+        text_schema = "key:utf8,value:int64"
+        queries = (
+            ("COUNT(*)", "", [{"count_all": 5}]),
+            ("SUM(value) AS total,COUNT(value) AS present,COUNT(*) AS rows", "",
+             [{"total": 3.0, "present": 4, "rows": 5}]),
+            ("key,SUM(value) AS total", " GROUP BY key ORDER BY total DESC",
+             [{"key": "a", "total": 6.0}, {"key": "b", "total": 0.0}, {"key": "c", "total": -3.0}]),
+            ("value", " WHERE value >= 0 ORDER BY value DESC LIMIT 2",
+             [{"value": 4}, {"value": 2}]),
+            ("SUM(value) AS total", " WHERE value > 100", [{"total": None}]),
+        )
+        resources = self.native.ExecutionResources(self.memory_bytes, self.max_parallelism)
+        session = self.native.Session(resources)
+        try:
+            written = {}
+            for output_format in formats:
+                destination = self.root / f"schema-regression.{output_format}"
+                write_plan = session.sql(
+                    f"SELECT key,value FROM '{ipc_path}'",
+                    files=[(str(ipc_path), "arrow-ipc", None)],
+                )
+                write_plan.write(destination, f"write_{output_format}")
+                written[output_format] = destination
+
+            sources = [(source_path, "vortex", None)] + [
+                (path, output_format.replace("_", "-"), text_schema if output_format in {"csv", "json", "jsonl"} else None)
+                for output_format, path in written.items()
+            ]
+            control_reports = {}
+            for source_index, (source_path_for_query, input_format, schema) in enumerate(sources):
+                for query_index, (projection, suffix, expected) in enumerate(queries):
+                    statement = f"SELECT {projection} FROM '{source_path_for_query}'{suffix}"
+                    plan = session.sql(statement, files=[(str(source_path_for_query), input_format, schema)])
+                    result = plan.collect()
+                    self.assertTrue("resident_native_preparation_reused" in result.report,
+                                    (input_format, projection, suffix, result.report.get("mode")))
+                    actual_rows = self.pa.RecordBatchReader.from_stream(result).read_all().to_pylist()
+                    self.assertEqual(actual_rows, expected)
+                    if source_index == 0:
+                        control_reports[projection, suffix] = result.report
+                    else:
+                        control_report = control_reports[projection, suffix]
+                        for field in ("mode", "primitive", "vortex_primitive_arg"):
+                            self.assertEqual(result.report.get(field), control_report.get(field), field)
+                        self.assertEqual(result.report.get("fallback_attempted"), "false")
+                        self.assertEqual(result.report.get("external_engine_invoked"), "false")
+                        if query_index > 0:
+                            self.assertEqual(result.report["public_workflow_preparation_prepared_state_reuse_hit"], "true")
+                            self.assertEqual(result.report["public_workflow_local_source_vortex_ingest_performed"], "false")
+
+            csv_path = written["csv"]
+            for count_source, input_format, source_schema in (
+                (source_path, "vortex", None),
+                (csv_path, "csv", text_schema),
+            ):
+                for threshold, expected_count in ((0, 2), (100, 0)):
+                    counted = session.sql(
+                        f"SELECT COUNT(*) FROM '{count_source}' WHERE value > {threshold}",
+                        files=[(str(count_source), input_format, source_schema)],
+                    )
+                    for output_format in ("vortex",) + formats:
+                        destination = self.root / f"count-{input_format}-{threshold}.{output_format}"
+                        writer_report = counted.write(destination, f"write_{output_format}")
+                        self.assertEqual(
+                            writer_report["local_primitive_physical_policy_writer_coalescing_enabled"],
+                            "true",
+                        )
+                        self.assertEqual(writer_report["fallback_attempted"], "false")
+                        self.assertEqual(writer_report["external_engine_invoked"], "false")
+                        schema = "count_all:uint64" if output_format in {"csv", "json", "jsonl"} else None
+                        reopened = session.sql(
+                            f"SELECT count_all FROM '{destination}'",
+                            files=[(str(destination), output_format.replace("_", "-"), schema)],
+                        ).collect()
+                        self.assertEqual(
+                            self.pa.RecordBatchReader.from_stream(reopened).read_all().to_pylist(),
+                            [{"count_all": expected_count}],
+                        )
+            grouped = session.sql(
+                f"SELECT key,SUM(value) AS total FROM '{csv_path}' GROUP BY key ORDER BY total DESC",
+                files=[(str(csv_path), "csv", text_schema)],
+            )
+            for output_format in ("vortex",) + formats:
+                destination = self.root / f"grouped.{output_format}"
+                writer_report = grouped.write(destination, f"write_{output_format}")
+                self.assertEqual(writer_report.get("fallback_attempted"), "false")
+                self.assertEqual(writer_report.get("external_engine_invoked"), "false")
+                schema = "key:utf8,total:float64" if output_format in {"csv", "json", "jsonl"} else None
+                reopened = session.sql(
+                    f"SELECT key,total FROM '{destination}'",
+                    files=[(str(destination), output_format.replace("_", "-"), schema)],
+                ).collect()
+                self.assertEqual(
+                    self.pa.RecordBatchReader.from_stream(reopened).read_all().to_pylist(),
+                    [{"key": "a", "total": 6.0}, {"key": "b", "total": 0.0}, {"key": "c", "total": -3.0}],
+                )
+                self.assertEqual(reopened.report.get("fallback_attempted"), "false")
+                self.assertEqual(reopened.report.get("external_engine_invoked"), "false")
+        finally:
+            session.close()
+
+    def test_retained_parquet_and_orc_sql_plans_reject_changed_source_generation(self):
+        table = self.pa.table({"value": self.pa.array([2, None, 4], type=self.pa.int64())})
+        replacement = self.pa.table({"value": self.pa.array([40, None, 20], type=self.pa.int64())})
+        resources = self.native.ExecutionResources(self.memory_bytes, self.max_parallelism)
+        session = self.native.Session(resources)
+        try:
+            ipc_path = self.root / "generation-source.arrow"
+            with ipc_path.open("wb") as sink:
+                with self.pa.ipc.new_file(sink, table.schema) as writer:
+                    writer.write_table(table)
+            replacement_ipc = self.root / "generation-replacement.arrow"
+            with replacement_ipc.open("wb") as sink:
+                with self.pa.ipc.new_file(sink, replacement.schema) as writer:
+                    writer.write_table(replacement)
+            for input_format in ("parquet", "orc"):
+                path = self.root / f"generation.{input_format}"
+                session.sql(
+                    f"SELECT value FROM '{ipc_path}'",
+                    files=[(str(ipc_path), "arrow-ipc", None)],
+                ).write(path, f"write_{input_format}")
+                replacement_path = self.root / f"replacement.{input_format}"
+                session.sql(
+                    f"SELECT value FROM '{replacement_ipc}'",
+                    files=[(str(replacement_ipc), "arrow-ipc", None)],
+                ).write(replacement_path, f"write_{input_format}")
+                plan = session.sql(
+                    f"SELECT SUM(value) AS total FROM '{path}'",
+                    files=[(str(path), input_format, None)],
+                )
+                retained = plan.collect()
+                retained_table = self.pa.RecordBatchReader.from_stream(retained).read_all()
+                self.assertEqual(retained_table.to_pylist(), [{"total": 6.0}])
+                path.write_bytes(replacement_path.read_bytes())
+                with self.assertRaises(RuntimeError) as raised:
+                    plan.collect()
+                self.assertIn("source generation changed", str(raised.exception).lower())
+                self.assertEqual(retained_table.to_pylist(), [{"total": 6.0}])
+
+            primary = self.root / "declaration-primary.parquet"
+            extra = self.root / "unused-extra.parquet"
+            session.sql(
+                f"SELECT value FROM '{ipc_path}'",
+                files=[(str(ipc_path), "arrow-ipc", None)],
+            ).write(primary, "write_parquet")
+            before = session.snapshot()["prepared_source_opens"]
+            plan = session.sql(
+                f"SELECT SUM(value) AS total FROM '{primary}'",
+                files=[(str(primary), "parquet", None), (str(extra), "parquet", None)],
+            )
+            self.assertEqual(session.snapshot()["prepared_source_opens"], before)
+            with self.assertRaises(RuntimeError):
+                plan.collect()
+            self.assertEqual(session.snapshot()["prepared_source_opens"], before)
+        finally:
+            session.close()
+
+    def test_context_read_reuses_one_native_preparation_across_queries_and_writers(self):
+        import shardloom as sl
+        import pyarrow.orc as orc
+        import pyarrow.parquet as parquet
+
+        table = self.pa.table({
+            "key": ["a", "b", "a", "c", "b"],
+            "value": self.pa.array([2, None, 4, -3, 0], type=self.pa.int64()),
+        })
+        expected = [{"key": "a", "total": 6.0}, {"key": "b", "total": 0.0},
+                    {"key": "c", "total": -3.0}]
+        ctx = sl.context(transport="native", memory_bytes=self.memory_bytes,
+                         max_parallelism=self.max_parallelism)
+        self.addCleanup(ctx.client.close)
+
+        def generation(path):
+            stat = path.stat()
+            return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+        for input_format, write_fixture in (("parquet", parquet.write_table), ("orc", orc.write_table)):
+            source = self.root / f"context-reuse.{input_format}"
+            write_fixture(table, source)
+
+            def grouped(path):
+                return ctx.read(path).group_by("key").agg(total="sum(value)").sort("key")
+
+            first = grouped(source).collect(check=True)
+            self.assertEqual(first.to_arrow().to_pylist(), expected)
+            prepared = Path(first.envelope.field("public_workflow_local_source_prepared_vortex_path"))
+            original_generation = generation(prepared)
+            def filtered(path):
+                return ctx.read(path).filter(sl.col("value") >= 0).select("value").sort("value")
+
+            altered = filtered(source).collect(check=True)
+            altered_control = filtered(prepared).collect(check=True)
+            for result in (altered, altered_control):
+                self.assertEqual(result.to_arrow().to_pylist(), [{"value": 0}, {"value": 2}, {"value": 4}])
+                self.assertFalse(result.envelope.fallback.attempted)
+            for field in ("mode", "primitive", "vortex_primitive_arg", "resident_relational_declaration_reused"):
+                self.assertEqual(altered.envelope.field(field), altered_control.envelope.field(field), field)
+            # Composed relational plans retain preparation identities internally;
+            # their report does not carry the single-source primitive attachments.
+            # The same persisted generation proves the changed query did not rewrite it.
+            self.assertEqual(generation(prepared), original_generation)
+            repeated = grouped(source).collect(check=True)
+            self.assertEqual(repeated.to_arrow().to_pylist(), expected)
+            self.assertEqual(repeated.envelope.field("public_workflow_preparation_prepared_state_reuse_hit"), "true")
+            self.assertEqual(repeated.envelope.field("public_workflow_local_source_vortex_ingest_performed"), "false")
+            native_control = grouped(prepared).collect(check=True)
+            self.assertEqual(native_control.to_arrow().to_pylist(), expected)
+            for field in ("mode", "primitive", "vortex_primitive_arg"):
+                self.assertEqual(first.envelope.field(field), native_control.envelope.field(field), field)
+            for output_format in ("parquet", "orc"):
+                destination = self.root / f"context-{input_format}-to-{output_format}.{output_format}"
+                written = grouped(source).write(destination, output_format=output_format, check=True)
+                self.assertFalse(written.envelope.fallback.attempted)
+                self.assertEqual(ctx.read(destination).sort("key").collect(check=True).to_arrow().to_pylist(), expected)
+                self.assertEqual(generation(prepared), original_generation)
+            self.assertEqual(first.to_arrow().to_pylist(), expected)
+
     def test_sql_provider_selection_preserves_memory_bindings_and_relational_shapes(self):
         path = self.root / "sql-provider-selection-boundaries.vortex"
         self._write_table_fixture(path, self.pa.table({"value": [2, 4, -3, 0]}))

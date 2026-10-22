@@ -740,44 +740,25 @@ impl PreparedPrimitive {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<OutputReport> {
-        use shardloom_vortex::{
-            relational_query::{VortexRelationalPlan, VortexRelationalScan},
-            resident_memory_source::ResidentMemorySource,
-        };
-        // Preflight precedes the scalar operation, including existing targets.
-        shardloom_vortex::local_primitives::output_fanout::preflight_targets(
-            &[(path.to_path_buf(), format)],
+        shardloom_vortex::local_primitives::prepared_count::write_count_result_controlled(
+            &self.shared.request,
+            path,
+            format,
             overwrite,
-        )?;
-        let (_, result) = self.execute_native(cancellation)?;
-        let result = Arc::new(result);
-        let source = ResidentMemorySource::from_completed_result(&result, cancellation)?;
-        let uri = shardloom_core::DatasetUri::new("memory://native-count-result")?;
-        let operation = shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session_controlled(
-            self.shared.policy, &self.session,
-            |schemas| {
-                schemas.register_memory_source(uri.clone(), |_| Ok(source))?;
-                Ok(VortexRelationalPlan::Scan(VortexRelationalScan { source_uri: uri, projection: shardloom_plan::ProjectionRequest::All, predicate: None }))
-            }, cancellation,
-        )?;
-        // A scalar result no longer carries file readers into the memory scan.
-        // Keep the original generations in the shared publication validator so
-        // a source change during conversion cannot publish a stale count.
-        let mut reports = shardloom_vortex::local_primitives::output_fanout::write(
-            &[(path.to_path_buf(), format)],
-            overwrite,
-            |target| self.validate_output(target, cancellation),
-            |staged, format| {
-                operation
-                    .write_controlled(staged, format, false, cancellation)
-                    .map(WrittenVortexRelational::into_output_report)
+            self.shared.policy,
+            &self.shared.sources,
+            cancellation,
+            || {
+                let (execution, result) = self.execute_native(cancellation)?;
+                match execution {
+                    PrimitiveExecution::Count { .. } => Ok((None, result)),
+                    PrimitiveExecution::CountWhere(execution) => {
+                        Ok((Some(execution.report), result))
+                    }
+                    _ => Err(failed("count writer requires a count producer")),
+                }
             },
-        )?;
-        let mut report = reports
-            .pop()
-            .ok_or_else(|| failed("count writer produced no report"))?;
-        report.output_path = path.display().to_string();
-        Ok(report)
+        )
     }
 
     fn written_fields(

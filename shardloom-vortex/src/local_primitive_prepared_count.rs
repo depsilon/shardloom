@@ -42,6 +42,126 @@ pub struct PreparedVortexCountWhere {
     physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
 }
 
+/// Deliver the existing count producer's owned scalar through the common native
+/// writers. Preflight precedes execution, and the original source generations
+/// remain owned and validated through final publication. No source is replayed.
+///
+/// # Errors
+/// Rejects non-count operations, unsafe targets, cancellation, source changes,
+/// producer failures and writer failures without publishing a partial result.
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_arguments)] // One producer and its existing source/policy/sink contract.
+pub fn write_count_result_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    output: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    sources: &[PreparedVortexSource],
+    cancellation: &CancellationToken,
+    produce: impl FnOnce() -> Result<(
+        Option<VortexLocalPrimitiveExecutionReport>,
+        crate::resident_session::OwnedVortexResultBatch,
+    )>,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    use crate::{
+        relational_query::{VortexRelationalPlan, VortexRelationalScan},
+        resident_memory_source::ResidentMemorySource,
+    };
+    if !matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere
+    ) {
+        return Err(failed("scalar writer requires a count producer"));
+    }
+    cancellation.check()?;
+    let source = sources
+        .first()
+        .ok_or_else(|| failed("count writer source is absent"))?;
+    let session = source.retained_session();
+    super::prepared_relational::validate_session_policy(policy, &session)?;
+    let validate = |path: &std::path::Path| {
+        cancellation.check()?;
+        for source in sources {
+            cancellation.check()?;
+            source.validate_generation()?;
+            if source.aliases_file(path)? {
+                return Err(failed("source and output must be different files"));
+            }
+        }
+        cancellation.check()
+    };
+    validate(output)?;
+    let source_rows = sources.iter().try_fold(0_u64, |rows, source| {
+        rows.checked_add(source.file().row_count())
+            .ok_or_else(|| failed("combined source row count overflow"))
+    })?;
+    let targets = [(output.to_path_buf(), format)];
+    super::output_fanout::preflight_targets(&targets, overwrite)?;
+    let (execution, result) = produce()?;
+    if (request.kind == VortexQueryPrimitiveKind::CountWhere) != execution.is_some()
+        || execution
+            .as_ref()
+            .is_some_and(|report| report.primitive_kind != request.kind || report.has_errors())
+    {
+        return Err(failed(
+            "scalar writer received inconsistent producer evidence",
+        ));
+    }
+    let result = std::sync::Arc::new(result);
+    let memory_source = ResidentMemorySource::from_completed_result(&result, cancellation)?;
+    let uri = shardloom_core::DatasetUri::new("memory://native-count-result")?;
+    let operation =
+        super::prepared_relational::prepare_relational_with_schema_in_session_controlled(
+            policy,
+            &session,
+            |schemas| {
+                schemas.register_memory_source(uri.clone(), |_| Ok(memory_source))?;
+                Ok(VortexRelationalPlan::Scan(VortexRelationalScan {
+                    source_uri: uri,
+                    projection: shardloom_plan::ProjectionRequest::All,
+                    predicate: None,
+                }))
+            },
+            cancellation,
+        )?;
+    let mut reports =
+        super::output_fanout::write(&targets, overwrite, validate, |staged, format| {
+            operation
+                .write_controlled(staged, format, false, cancellation)
+                .map(super::prepared_relational::WrittenVortexRelational::into_output_report)
+        })?;
+    let mut report = reports
+        .pop()
+        .ok_or_else(|| failed("count writer produced no report"))?;
+    report.output_path = output.display().to_string();
+    report.primitive_kind = request.kind;
+    report.physical_policy = policy
+        .with_writer_sink_physical_policy_for_request(request)
+        .1;
+    // These fields describe the original producer, not the one-row memory
+    // handoff. Preserve the sink's policy and actual native-array adapter work.
+    report.rows_scanned = source_rows;
+    report.arrays_read_count = 0;
+    report.max_chunk_rows = 0;
+    report.evidence.upstream_scan_called = false;
+    report.evidence.side_effects.data_read = false;
+    if let Some(execution) = execution {
+        report.rows_scanned = execution.rows_scanned;
+        report.arrays_read_count = execution.arrays_read_count;
+        report.max_chunk_rows = execution.max_chunk_rows;
+        report.evidence.pushdown.filter_pushdown_applied = execution.filter_pushdown_applied;
+        report.evidence.pushdown.projection_pushdown_applied =
+            execution.projection_pushdown_applied;
+        report.evidence.upstream_scan_called = execution.upstream_scan_called;
+        report.evidence.side_effects.data_read = execution.data_read;
+        report.evidence.side_effects.data_decoded |= execution.data_decoded;
+        report.evidence.side_effects.data_materialized |= execution.data_materialized;
+        report.evidence.side_effects.row_read |= execution.row_read;
+    }
+    Ok(report)
+}
+
 /// Prepare a filtered count in an existing native session.
 ///
 /// # Errors

@@ -502,7 +502,8 @@ impl VortexRelationalPreparation<'_> {
         self.binding.register_batch_source(uri, build_schema)
     }
 
-    /// Resolve authoritative column names from the retained native source schema.
+    /// Resolve public column names from the retained native source schema,
+    /// excluding private derived metadata just as an all-column scan does.
     /// # Errors
     /// Rejects unavailable sources, nonstruct schemas and denied metadata capacity.
     pub fn source_columns(&mut self, uri: &shardloom_core::DatasetUri) -> Result<Vec<String>> {

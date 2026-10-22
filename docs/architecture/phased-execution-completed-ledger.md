@@ -17,6 +17,26 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Shared native strategy selection across formats — local acceptance` —
+  [implementation and evidence](native-format-strategy-parity-2026-10-21.md)
+  preserve the existing native single-input SQL alias contract, select against
+  normalized native sources, and pass scalar results to the existing writers
+  without changing the count producer. Preparation owners, complete SQL semantics,
+  and exact quoted-source identity survive selection and publication.
+  Public wildcard discovery excludes the same private metadata as native scans.
+  - Source `dd1e190e` passes 3,238 workspace tests, 3,161 Vortex library tests
+    with 31 existing manual ignores, 1,099 affected CLI tests, both lint gates,
+    formatting, public reference/golden checks and 121 installed native tests
+    with no skips. The receipt boundaries distinguish pre-commit working-tree
+    tests from the clean-source optimized build and installed proof.
+  - Both original minimized Parquet/ORC readback failures pass independent
+    complete-value checks. The portable packet preserves all 129 earlier writer
+    results and failures. Final isolated Full43 passes 43 complete results and
+    381 rows in 48.754238077 engine seconds, with one execution per query.
+  - Local correction acceptance is complete; PR checks/merge remain before the
+    already authorized version train. No whole PERF owner, competitive gate,
+    platform expansion, first-use preparation optimization or release is closed.
+
 - [x] `Six finite native structural ownership classes` — admit child caches,
   cumulative row offsets, reader metadata vectors, segment specifications,
   file statistics and user metadata names/locators before allocation; retain
@@ -27,6 +47,11 @@ phase plan first.
   3,176 native, 1,091 CLI, 249 layout, 145 file and 118 installed binding
   tests. Native tests retain 31 existing ignored tests. All 5,930 public
   cases and 18 format cohorts pass.
+  - Merged in [PR #1581](https://github.com/depsilon/shardloom/pull/1581)
+    as `11e5738a56c55bc4e6b5bc3de90b1cb2aa74820a`, following accepted
+    investigation [PR #1580](https://github.com/depsilon/shardloom/pull/1580)
+    at `1175a8986700bfdbf10b5864df18198ba7fc3ede`. Both merges retain their
+    original acceptance boundaries; the format correction is a separate follow-up.
   - The final isolated Full43 passes all 43 complete results and schemas at
     49.990920425 engine seconds, with one execution per query on the unchanged
     executable and input. Earlier observations and failures remain in the

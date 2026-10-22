@@ -454,6 +454,9 @@ impl<'a> Binder<'a> {
         fields
             .names()
             .iter()
+            // Match ProjectionRequest::All without removing physical metadata
+            // that native operators may still address explicitly.
+            .filter(|name| !super::super::is_shardloom_hidden_derived_column(name.as_ref()))
             .map(|name| {
                 validate_name(name.as_ref())?;
                 Ok(name.to_string())

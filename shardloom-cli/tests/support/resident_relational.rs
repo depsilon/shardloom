@@ -282,6 +282,7 @@ fn declared_nested_arrow_source() -> (Cleanup, PathBuf, String) {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
+#[allow(clippy::too_many_lines)] // Keep reader reuse, source changes and sink lifetimes in one scenario.
 fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation() {
     let (root, source, bindings) = declared_nested_arrow_source();
     let original = std::fs::read(&source).unwrap();
@@ -329,11 +330,32 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
                     case * 3 + execution,
                     execution > 1,
                 );
-                assert_eq!(
-                    field(&result, "public_workflow_preparation_included"),
-                    (execution == 1).to_string()
-                );
-                assert_eq!(field(&result, "relational_normalized_source_count"), "1");
+                if matches!(index, 0 | 3) {
+                    // Eligible flat declarations normalize before metadata
+                    // selection; extended values still use the shared binder.
+                    assert_eq!(
+                        field(&result, "public_workflow_local_source_format"),
+                        "arrow-ipc"
+                    );
+                    assert_eq!(
+                        field(&result, "public_workflow_local_source_preparation_included"),
+                        "true"
+                    );
+                    assert_eq!(field(&result, "relational_normalized_source_count"), "0");
+                    assert_eq!(
+                        field(
+                            &result,
+                            "public_workflow_local_source_vortex_ingest_performed"
+                        ),
+                        (surface_index == 0 && index == 0 && execution == 1).to_string()
+                    );
+                } else {
+                    assert_eq!(
+                        field(&result, "public_workflow_preparation_included"),
+                        (execution == 1).to_string()
+                    );
+                    assert_eq!(field(&result, "relational_normalized_source_count"), "1");
+                }
                 assert_eq!(
                     field(&result, "resident_source_generation_validation"),
                     "all_sources_before_and_after_native_execution_and_final_consumer"

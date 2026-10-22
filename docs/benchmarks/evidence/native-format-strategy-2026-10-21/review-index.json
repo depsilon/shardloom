@@ -1,0 +1,291 @@
+{
+  "archive": {
+    "bytes": 240904,
+    "deterministic_tar_metadata": true,
+    "member_count": 30,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-format-strategy-2026-10-21/review-records.tar.xz",
+    "sha256": "a8a1339d9395e9f53b42068504a1d0b89f298482c3dee293ea0fca5f99f78fc8",
+    "uncompressed_member_bytes": 1599610,
+    "verified_readback": true
+  },
+  "members": [
+    {
+      "archive_member": "review-records/b1a41a1530075341/build_native_python.py",
+      "bytes": 5799,
+      "categories": [
+        "shared_guard_or_build_script"
+      ],
+      "original_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/build_native_python.py",
+      "sha256": "47ad0e730ff3adc87d2d7a0c1f936ce0ad3974af63d5025ef7184aaf964485e0"
+    },
+    {
+      "archive_member": "review-records/6d27bb306ab5bf17/local_uat_storage.py",
+      "bytes": 8451,
+      "categories": [
+        "shared_guard_or_build_script"
+      ],
+      "original_path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py",
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    {
+      "archive_member": "review-records/18ef7d1ab95972f9/accept_format_review_910.py",
+      "bytes": 5556,
+      "categories": [
+        "review_acceptance_or_guard_script"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/accept_format_review_910.py",
+      "sha256": "444077cd6d891b2d21958811928a0e4f9d53d6598a4d504a845f78a11c6f505a"
+    },
+    {
+      "archive_member": "review-records/c1db535fedb10b92/accept_format_strategy_907.py",
+      "bytes": 18185,
+      "categories": [
+        "review_acceptance_or_guard_script"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/accept_format_strategy_907.py",
+      "sha256": "bb21f718cde3917e3c92c032701d2bc36b5b3bc3a89ac1aecc5fddb0b2a4014c"
+    },
+    {
+      "archive_member": "review-records/499e80f2dec8ba10/format-strategy-review-acceptance-910.json",
+      "bytes": 13980,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-acceptance-910.json",
+      "sha256": "48eb99e4fa70457b62f477e449526c9c682cec465c570b22635b70a773ce00eb"
+    },
+    {
+      "archive_member": "review-records/17e37b62d68155b4/format-strategy-review-extension-910.json",
+      "bytes": 45538,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-extension-910.json",
+      "sha256": "ed29ae22ad3f3c972daa39384660e96d1a3d5cfe9e5603986e1043ad8142b439"
+    },
+    {
+      "archive_member": "review-records/263a4eb781a9c624/format-strategy-review-extension-910.log",
+      "bytes": 1248,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-extension-910.log",
+      "sha256": "e5ed295ec43c1f5d2a8b73a26250dd6c5e6444427ca892d90eda832aa673255e"
+    },
+    {
+      "archive_member": "review-records/e051deb454bdef57/format-strategy-review-fix-ca5.patch",
+      "bytes": 6908,
+      "categories": [
+        "review_patch"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-fix-ca5.patch",
+      "sha256": "43db62a8aa5521aa5ba537e7a7397c88f288871598f635e460761661c4b3da5c"
+    },
+    {
+      "archive_member": "review-records/46b029e828ba7211/format-strategy-review-fmt-910.json",
+      "bytes": 3518,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-fmt-910.json",
+      "sha256": "e4695420e041017fd1ec57a1f24c63de74a0beec317734df1179cced40754951"
+    },
+    {
+      "archive_member": "review-records/39d68facbeef48ae/format-strategy-review-fmt-910.log",
+      "bytes": 0,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-fmt-910.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "archive_member": "review-records/008323a65f44759b/format-strategy-review-green-910.json",
+      "bytes": 12362,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-green-910.json",
+      "sha256": "cb42d836a04b244885533b702404c97226a4a625afdc7485e24967ea9831ea93"
+    },
+    {
+      "archive_member": "review-records/460c71a36e2175e6/format-strategy-review-green-910.log",
+      "bytes": 2828,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-green-910.log",
+      "sha256": "5a951947ee4b757a137b87baa853a31d65d2ec3a1127d79158de6ccdef71f829"
+    },
+    {
+      "archive_member": "review-records/baca4a8f7eef5e58/format-strategy-review-native-clippy-910.json",
+      "bytes": 11692,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-native-clippy-910.json",
+      "sha256": "39b76e7bab8334d88551f0c770506406d46cae25e77a70c8e551608193a56b1d"
+    },
+    {
+      "archive_member": "review-records/6cd7007143cd612c/format-strategy-review-native-clippy-910.log",
+      "bytes": 301,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-native-clippy-910.log",
+      "sha256": "918cf95dc5bd5f9c48c5407882506d1270c1d76837058c288b9205aaa9f20819"
+    },
+    {
+      "archive_member": "review-records/e437d412de21bb60/format-strategy-review-native-tests-910.json",
+      "bytes": 200055,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-native-tests-910.json",
+      "sha256": "054a5d89fb9ca60e203400a87ea12ada528572271309405959d82f2645718d14"
+    },
+    {
+      "archive_member": "review-records/3b82d867dbba1b18/format-strategy-review-native-tests-910.log",
+      "bytes": 393830,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-native-tests-910.log",
+      "sha256": "51d61f71d3342e39b9b5831a8bb840cabcbe4edc6b2d9f3f12400cabf1d4a4e7"
+    },
+    {
+      "archive_member": "review-records/89e52d0933a6f43d/format-strategy-review-python-native-910.json",
+      "bytes": 3227,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-python-native-910.json",
+      "sha256": "808cb7e615ed29c34f06280112481e240779ada855282f35c50117ca90775063"
+    },
+    {
+      "archive_member": "review-records/f8b53c334da2753b/format-strategy-review-python-native-910.log",
+      "bytes": 4057,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-python-native-910.log",
+      "sha256": "1c09e842c353f4d08cf8347eb5d0d35b4aad14386b83af2699ed805613d8af8e"
+    },
+    {
+      "archive_member": "review-records/8f5cc90559f0a43c/format-strategy-review-red-909.json",
+      "bytes": 16989,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-red-909.json",
+      "sha256": "b4a1ce71b80226de438444ed9ff4f5e85cc0d2027a6e54f9454b8f08982c56c6"
+    },
+    {
+      "archive_member": "review-records/eea1fa53085b2997/format-strategy-review-red-909.log",
+      "bytes": 3912,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-red-909.log",
+      "sha256": "93df3b728eeb04e14f079ac8d836956df0563271430c041ee00bb62aead4f07d"
+    },
+    {
+      "archive_member": "review-records/fb24618f0ad69fe6/format-strategy-review-red-909b.json",
+      "bytes": 12150,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-red-909b.json",
+      "sha256": "b6cd3d3f00262b7b16747ab5d0950177674782ee6ffeddc381b9644ae587fa5a"
+    },
+    {
+      "archive_member": "review-records/0b7f67d557d3e74d/format-strategy-review-red-909b.log",
+      "bytes": 1516,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-red-909b.log",
+      "sha256": "d5b86303850a2120d88266c11e763bab8f51f9e7100b9c56f8d824240150c588"
+    },
+    {
+      "archive_member": "review-records/6772b58d2773b530/format-strategy-review-source-910.json",
+      "bytes": 342059,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-source-910.json",
+      "sha256": "ac9f94dfb8f53dcdf5d2c7ab975b53a8b4ad1540c70899153f59b9c7a6aabff9"
+    },
+    {
+      "archive_member": "review-records/0d8a5674930bff55/format-strategy-review-workspace-clippy-910.json",
+      "bytes": 2971,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-workspace-clippy-910.json",
+      "sha256": "818cad97df491f70650e069d9e3723e43dd389ffa911051bd4e5d5846b65f193"
+    },
+    {
+      "archive_member": "review-records/451f7697feb3b5ef/format-strategy-review-workspace-clippy-910.log",
+      "bytes": 60,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-workspace-clippy-910.log",
+      "sha256": "7e8397b3c3d5ef73830e57f61ffa6f2cfd565f338d3d371aefe79dbf3b020764"
+    },
+    {
+      "archive_member": "review-records/334cca6e74424daa/format-strategy-review-workspace-tests-910.json",
+      "bytes": 3821,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-workspace-tests-910.json",
+      "sha256": "541c94e3fa54bf80c3bdd9b87ef3ebdb38808fac902500507fe83fd2078eca38"
+    },
+    {
+      "archive_member": "review-records/61664ef9991dfd89/format-strategy-review-workspace-tests-910.log",
+      "bytes": 462222,
+      "categories": [
+        "top_level_review_record"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-review-workspace-tests-910.log",
+      "sha256": "b623189a7257fac3e01c0a70bbd502cd22e9d3e8df20970c7df7f81b5e5b4a7a"
+    },
+    {
+      "archive_member": "review-records/6b6b7f6870fcf33b/native_workload_guard_816.py",
+      "bytes": 1789,
+      "categories": [
+        "review_acceptance_or_guard_script"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py",
+      "sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76"
+    },
+    {
+      "archive_member": "review-records/2208b55937e4daf1/run_native_breadth_guard_871.py",
+      "bytes": 6155,
+      "categories": [
+        "review_acceptance_or_guard_script"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_native_breadth_guard_871.py",
+      "sha256": "8e0f77a628137dd424dec8201a4f12519834f06237cc20d2337944e12b4e6206"
+    },
+    {
+      "archive_member": "review-records/6871826e552be072/bounded_build_process_resume_20260912.py",
+      "bytes": 8431,
+      "categories": [
+        "shared_guard_or_build_script"
+      ],
+      "original_path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    }
+  ],
+  "missing_required_inputs": [],
+  "rejected_inputs": [],
+  "schema": "shardloom.native_format_strategy_evidence_package.v1",
+  "verification": {
+    "every_member_byte_count_and_sha256_verified": true,
+    "exact_member_set": true,
+    "source_bytes_rechecked_after_archive_readback": true
+  }
+}

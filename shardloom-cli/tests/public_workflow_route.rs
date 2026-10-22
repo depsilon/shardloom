@@ -19,6 +19,15 @@ mod typed_sql;
     feature = "vortex-write",
     feature = "universal-format-io"
 ))]
+#[path = "support/public_source_schema.rs"]
+mod source_schema;
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
 #[path = "support/public_aggregate_spill.rs"]
 mod aggregate_spill;
 
@@ -1175,7 +1184,11 @@ fn public_raw_sql_prepares_vortex_for_text_aggregates_and_writes() {
 fn public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths() {
     let root = unique_vortex_binding_dir("raw-null-nested");
     std::fs::create_dir(&root).unwrap();
-    let collect = |source: &std::path::Path, format: &str, schema: Option<&str>, sql: &str| {
+    let collect = |source: &std::path::Path,
+                   format: &str,
+                   schema: Option<&str>,
+                   sql: &str,
+                   expected_route: &str| {
         let mut binding = serde_json::json!({"input_format":format});
         if let Some(schema) = schema {
             binding["source_schema"] = schema.into();
@@ -1201,12 +1214,33 @@ fn public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths() {
         ]))
         .unwrap();
         for (key, value) in [
-            ("relational_normalized_source_count", "1"),
-            ("public_workflow_preparation_included", "true"),
+            ("public_workflow_route_id", expected_route),
             ("public_workflow_fallback_attempted", "false"),
             ("public_workflow_external_engine_invoked", "false"),
         ] {
             assert_eq!(complete_result::field_value(&envelope, key), value);
+        }
+        if expected_route == "native_vortex_aggregate" {
+            assert_eq!(
+                complete_result::field_value(&envelope, "public_workflow_local_source_format"),
+                format
+            );
+            assert_eq!(
+                complete_result::field_value(
+                    &envelope,
+                    "public_workflow_local_source_preparation_included"
+                ),
+                "true"
+            );
+        } else {
+            assert_eq!(
+                complete_result::field_value(&envelope, "relational_normalized_source_count"),
+                "1"
+            );
+            assert_eq!(
+                complete_result::field_value(&envelope, "public_workflow_preparation_included"),
+                "true"
+            );
         }
         complete_result::rows(&envelope)
     };
@@ -1228,7 +1262,13 @@ fn public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths() {
         source.display()
     );
     assert_eq!(
-        collect(&source, "csv", Some("group_key:utf8,amount:float64"), &sql),
+        collect(
+            &source,
+            "csv",
+            Some("group_key:utf8,amount:float64"),
+            &sql,
+            "native_vortex_aggregate"
+        ),
         *serde_json::json!([
             {"group_key":"all_null","rows":16,"present":0,"total":null,"mean":null},
             {"group_key":"mixed","rows":16,"present":2,"total":10.0,"mean":5.0},
@@ -1246,7 +1286,8 @@ fn public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths() {
             &format!(
                 "SELECT COUNT(*) AS rows,COUNT(amount) AS present,SUM(amount) AS total FROM '{}'",
                 empty.display()
-            )
+            ),
+            "native_vortex_aggregate",
         ),
         *serde_json::json!([{"rows":0,"present":0,"total":null}])
             .as_array()
@@ -1268,7 +1309,8 @@ fn public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths() {
             &format!(
                 "SELECT id,CAST(JSON_EXTRACT(payload,'$.metrics[1]') AS double) AS score FROM '{}' ORDER BY id",
                 nested.display()
-            )
+            ),
+            "native_vortex_relational_collect",
         ),
         *serde_json::json!([{"id":1,"score":2.5},{"id":2,"score":null},{"id":3,"score":null}])
             .as_array()
@@ -2660,16 +2702,16 @@ fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
     )) {
         assert!(success);
         assert!(stdout.contains("\"status\":\"success\""));
-        assert!(stdout.contains(&field(
-            "public_workflow_route_id",
-            "native_vortex_relational_collect"
-        )));
+        assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_project")));
         assert!(stdout.contains(&field(
             "public_workflow_resolved_internal_command",
-            "native-vortex-relational"
+            "vortex-project"
         )));
-        assert!(stdout.contains(&field("relational_normalized_source_count", "1")));
-        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
+        assert!(stdout.contains(&field("public_workflow_local_source_format", "csv")));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_preparation_included",
+            "true"
+        )));
         assert_eq!(
             complete_result::rows(&serde_json::from_str(&stdout).unwrap()),
             vec![
@@ -2741,16 +2783,16 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
     )) {
         assert!(success);
         assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_project")));
         assert!(stdout.contains(&field(
-            "public_workflow_route_id",
-            "native_vortex_relational_collect"
+            "public_workflow_local_source_preparation_included",
+            "true"
         )));
-        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
         assert_eq!(
             complete_result::rows(&serde_json::from_str(&stdout).unwrap()),
             vec![serde_json::json!({"id":1,"label":"alpha"})]
         );
-        assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
+        assert!(stdout.contains(&field("public_workflow_local_source_format", "csv")));
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
     } else {
@@ -2815,10 +2857,13 @@ fn public_run_executes_local_write_through_prepared_vortex_row_export() {
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field(
             "public_workflow_route_id",
-            "native_vortex_relational_write"
+            "native_vortex_primitive_row_export"
         )));
-        assert!(stdout.contains(&field("relational_normalized_source_count", "1")));
-        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
+        assert!(stdout.contains(&field("public_workflow_local_source_format", "csv")));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_preparation_included",
+            "true"
+        )));
         assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
         assert!(stdout.contains(&field("native_vortex_result_export_format", "csv")));
         assert!(stdout.contains(&field("native_vortex_result_export_rows_written", "2")));
@@ -3451,6 +3496,7 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         std::process::id()
     ));
     assert!(!missing.exists());
+    let statement = format!("SELECT SUM(renamed_measure) FROM '{}'", missing.display());
     let (success, stdout) = run_facade(&[
         "run",
         "sql",
@@ -3461,7 +3507,7 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         "--request",
         "collect",
         "--sql",
-        "SELECT SUM(renamed_measure) FROM hits",
+        &statement,
         "--bounded",
         "true",
         "--materialization-policy",

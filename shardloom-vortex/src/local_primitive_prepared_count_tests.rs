@@ -66,6 +66,179 @@ fn filtered_count_source_handoff_reuses_one_generation() {
     assert_eq!(session.snapshot().prepared_source_opens, 1);
 }
 
+#[cfg(feature = "vortex-write")]
+#[test]
+fn count_writers_retain_native_producer_work_and_preflight_before_execution() {
+    use super::super::{VortexLocalPrimitiveRowExportFormat as Format, prepared_dispatch};
+    let fixture = Fixture::new();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
+    let token = CancellationToken::default();
+    for (index, request) in [
+        VortexQueryPrimitiveRequest::count_all(
+            DatasetUri::new(fixture.path().display().to_string()).unwrap(),
+        ),
+        fixture.request(2),
+        fixture.request(100),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let source = prepared_dispatch::prepare_source(&request, policy).unwrap();
+        let session = source.retained_session();
+        let expected = if request.kind == VortexQueryPrimitiveKind::CountWhere {
+            Some(
+                prepare_count_where_from_source(&request, policy, source.clone())
+                    .unwrap()
+                    .execute()
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+        let output = fixture.0.join(format!("count-{index}.jsonl"));
+        let report = prepared_dispatch::try_write_source_controlled(
+            &request,
+            &output,
+            Format::Jsonl,
+            false,
+            policy,
+            source.clone(),
+            &token,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(report.primitive_kind, request.kind);
+        assert_eq!(report.rows_written, 1);
+        assert_eq!(report.projected_columns, ["count_all"]);
+        assert_eq!(session.snapshot().prepared_source_opens, 1);
+        let count = expected.as_ref().map_or(5, |value| value.count);
+        assert_eq!(
+            std::fs::read_to_string(&output).unwrap(),
+            format!("{{\"count_all\":{count}}}\n")
+        );
+        if let Some(expected) = expected {
+            assert_eq!(report.arrays_read_count, expected.report.arrays_read_count);
+            assert_eq!(report.rows_scanned, expected.report.rows_scanned);
+            assert_eq!(
+                report.evidence.upstream_scan_called,
+                expected.report.upstream_scan_called
+            );
+            assert_eq!(
+                report.evidence.side_effects.data_read,
+                expected.report.data_read
+            );
+        } else {
+            assert_eq!(report.arrays_read_count, 0);
+            assert!(!report.evidence.upstream_scan_called);
+            assert!(!report.evidence.side_effects.data_read);
+        }
+        let before = session.snapshot().completed_executions;
+        assert!(
+            prepared_dispatch::try_write_source_controlled(
+                &request,
+                &output,
+                Format::Jsonl,
+                false,
+                policy,
+                source,
+                &token,
+            )
+            .is_err()
+        );
+        assert_eq!(session.snapshot().completed_executions, before);
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn filtered_count_writer_preserves_sink_policy_and_producer_evidence() {
+    use super::super::{VortexLocalPrimitiveRowExportFormat as Format, prepared_dispatch};
+    let fixture = Fixture::new();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
+    let token = CancellationToken::default();
+    for threshold in [2, 100] {
+        let request = fixture.request(threshold);
+        let source = prepared_dispatch::prepare_source(&request, policy).unwrap();
+        let producer = prepare_count_where_from_source(&request, policy, source.clone()).unwrap();
+        let expected = producer.execute().unwrap();
+        let output = fixture.0.join(format!("filtered-count-{threshold}.jsonl"));
+        // The embedded native runtime returns this helper's report directly;
+        // the direct dispatcher must not be needed to repair the sink policy.
+        let report = write_count_result_controlled(
+            &request,
+            &output,
+            Format::Jsonl,
+            false,
+            policy,
+            std::slice::from_ref(&source),
+            &token,
+            || {
+                let produced = producer.execute_native_result(&token)?;
+                Ok((Some(produced.execution.report), produced.result))
+            },
+        )
+        .unwrap();
+        assert!(report.physical_policy.writer_coalescing_enabled);
+        assert_eq!(
+            report.physical_policy,
+            policy
+                .with_writer_sink_physical_policy_for_request(&request)
+                .1,
+        );
+        assert_eq!(report.rows_scanned, expected.report.rows_scanned);
+        assert_eq!(report.arrays_read_count, expected.report.arrays_read_count);
+        assert_eq!(
+            report.evidence.upstream_scan_called,
+            expected.report.upstream_scan_called,
+        );
+        assert_eq!(
+            report.evidence.side_effects.data_read,
+            expected.report.data_read
+        );
+        assert_eq!(
+            report.evidence.pushdown.filter_pushdown_applied,
+            expected.report.filter_pushdown_applied,
+        );
+        assert_eq!(
+            std::fs::read_to_string(output).unwrap(),
+            format!("{{\"count_all\":{}}}\n", expected.count),
+        );
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn count_writer_revalidates_source_after_native_scalar_completion() {
+    let fixture = Fixture::new();
+    let request = VortexQueryPrimitiveRequest::count_all(
+        DatasetUri::new(fixture.path().display().to_string()).unwrap(),
+    );
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
+    let token = CancellationToken::default();
+    let source = super::super::prepared_dispatch::prepare_source(&request, policy).unwrap();
+    let producer =
+        super::super::collect::prepare_count_from_source(&request, &source, &token).unwrap();
+    let output = fixture.0.join("count.vortex");
+    let result = write_count_result_controlled(
+        &request,
+        &output,
+        super::super::VortexLocalPrimitiveRowExportFormat::Vortex,
+        false,
+        policy,
+        std::slice::from_ref(&source),
+        &token,
+        || {
+            let (_, result) = producer.execute_native_result(&token)?;
+            let replacement = fixture.0.join("replacement.vortex");
+            std::fs::copy(fixture.path(), &replacement).unwrap();
+            std::fs::rename(replacement, fixture.path()).unwrap();
+            Ok((None, result))
+        },
+    );
+    assert!(result.is_err());
+    assert!(!output.exists());
+}
+
 #[test]
 fn configurable_filtered_count_uses_current_grant_for_every_result_boundary() {
     use crate::resident_session::ConfigurableResidentSession;
