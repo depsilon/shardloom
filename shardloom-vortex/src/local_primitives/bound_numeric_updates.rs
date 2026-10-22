@@ -150,13 +150,13 @@ impl CompactAggregateMeasureValue {
         Ok(())
     }
 
-    pub(super) fn add_numeric(&mut self, numeric: f64) -> Result<()> {
+    pub(super) fn add_numeric(&mut self, numeric: f64, integer_input: bool) -> Result<()> {
         self.count = self.count.checked_add(1).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex compact numeric aggregate count overflowed u64".to_string(),
             )
         })?;
-        self.sum += numeric;
+        self.sum.add(numeric, integer_input);
         if !self.sum.is_finite() {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex compact numeric aggregate sum became non-finite; no fallback execution was attempted"

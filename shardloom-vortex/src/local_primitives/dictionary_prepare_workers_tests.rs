@@ -294,6 +294,57 @@ fn assert_workers(work: &serde_json::Value, parallelism: usize) {
 }
 
 #[test]
+fn regex_dictionary_workers_preserve_nonmatching_urls_and_complete_measures() {
+    if std::thread::available_parallelism().unwrap().get() < 4 {
+        return;
+    }
+    let mut request = request();
+    request.group_expressions[0].function = "regex_domain".into();
+    let columns = vec!["Referer".to_owned()];
+    let texts = (0..256)
+        .map(|row| {
+            if row % 2 == 0 {
+                "http://example.test".to_owned()
+            } else {
+                format!("http://example.test/{row:04}")
+            }
+        })
+        .collect::<Vec<_>>();
+    let input = chunk(&texts);
+    let memory = LiveMemoryPool::new(MEMORY).unwrap();
+    let mut states =
+        GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let mut serial =
+        GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let mut workers =
+        DictionaryPrepareWorkers::admit(&states, input.dtype(), &columns, policy(4), &memory, None)
+            .unwrap()
+            .unwrap();
+    assert!(workers.submit(&input, &mut states).unwrap());
+    workers.finish(&mut states).unwrap();
+    assert!(
+        serial
+            .update_compact_direct_from_chunk(&input, &columns, None)
+            .unwrap()
+    );
+    let expected = serde_json::json!([
+        {"k":"example.test","c":128,"l":24.0,"m":"http://example.test/0001"},
+        {"k":"http://example.test","c":128,"l":19.0,"m":"http://example.test"},
+    ]);
+    assert_eq!(state_values(&mut states), expected);
+    assert_eq!(state_values(&mut serial), expected);
+    let mut summary = "{}".to_owned();
+    workers.annotate_summary(&mut summary).unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        summary["aggregate_dictionary_preparation_workers"]["worker_dense_partial_groups"],
+        2
+    );
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn dictionary_preparation_dense_out_of_order_completion_keeps_ordered_merge() {
     if std::thread::available_parallelism().unwrap().get() < 4 {
         return;

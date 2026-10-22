@@ -65,7 +65,7 @@ fn assert_state_equal(actual: &GroupedAggregateStates<'_>, expected: &GroupedAgg
         };
         for (actual, expected) in actual.values().iter().zip(expected.values()) {
             assert_eq!(actual.count, expected.count);
-            assert_eq!(actual.sum.to_bits(), expected.sum.to_bits());
+            assert_eq!(actual.sum.total().to_bits(), expected.sum.total().to_bits());
         }
     }
 }
@@ -257,7 +257,8 @@ fn compact_numeric_block_preserves_error_and_partial_state_in_both_measure_order
                     .compact_measures_mut()
                     .unwrap()
                     .values_mut();
-                values[usize::from(count_first)].sum = seed_sum;
+                values[usize::from(count_first)].sum =
+                    super::super::NumericAggregateSum::Ordered(seed_sum);
                 if let Some(index) = overflow_index {
                     values[index].count = u64::MAX;
                 }

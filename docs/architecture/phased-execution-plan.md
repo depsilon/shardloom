@@ -307,6 +307,15 @@ their own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
+The October 22 maintainer instruction is to finish the required work and gated
+investigations above, with one isolated standard Full43 pass after each coherent
+implementation; optional items stay deferred. The subsequently frozen
+independent Full43 reference exposes two differences in prior native results:
+large-integer average accumulation and regex-domain grouping. Their
+[required correctness correction](native-independent-full43-correctness-2026-10-22.md)
+precedes new performance mechanisms. Independent native/reference Full43 parity
+is still pending; generating the reference alone does not establish it.
+
 The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) and
 [CPU intake](native-cpu-investigations-2026-10-18.md) retain their historical
 37-required/21-conditional classification. All 58 child IDs and 14 canonical

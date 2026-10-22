@@ -147,8 +147,12 @@ integer counterpart. Scalar predicates, NULLIF, joins and IN/ANY/ALL therefore
 share exact equality and ordering, including above 2^53 and at the signed and
 unsigned endpoints. NULLIF retains its first operand's dtype. This does not admit
 a lossy common output type for mixed set branches or change arithmetic's checked
-integer-to-float conversion policy. Primitive SUM/AVG retain their existing F64
-accumulation and output contract in both general and specialized native owners.
+integer-to-float conversion policy. Primitive SUM/AVG retain their F64 output
+contract in both general and specialized native owners. The
+[October 22 independent-reference correction](native-independent-full43-correctness-2026-10-22.md)
+amends integer-input addition to compensate accumulation error; floating inputs
+retain their existing ordered evaluation. Historical observations below retain
+the policy and source used when they were collected.
 
 Calendar helpers and comparisons against a declared date/timestamp convert UTF8
 through the existing strict ISO cast kernel, preserving NULLs and rejecting

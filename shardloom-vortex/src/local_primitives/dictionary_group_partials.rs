@@ -2,10 +2,10 @@
 //! ordered merge. Source indices identify keys without copying string payloads.
 
 use super::{
-    AggregateDirectColumnAccessor, GroupedAggregateStates,
+    AggregateDirectColumnAccessor, AggregateValueTransform, GroupedAggregateStates,
     TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_SAMPLE_LIMIT,
     TransformedDictionaryDenseGeneralPlan, TransformedDictionaryDenseGeneralState,
-    Utf8DictionaryValue, aggregate_url_domain_str, reserve_hash_map_capacity,
+    Utf8DictionaryValue, reserve_hash_map_capacity,
     transformed_dictionary_dense_general_should_use_chunk_partials,
     utf8_chunk_dictionary::exact_row_vec,
 };
@@ -56,6 +56,7 @@ impl DictionaryPartial {
 }
 
 pub(super) struct PreparedDictionaryPartials {
+    transform: AggregateValueTransform,
     plan: TransformedDictionaryDenseGeneralPlan,
     rows: usize,
     value_count: usize,
@@ -103,6 +104,7 @@ pub(super) fn bounded_capacity_bytes(rows: usize) -> Result<u64> {
 
 pub(super) fn prepare(
     accessor: &AggregateDirectColumnAccessor,
+    transform: AggregateValueTransform,
     plan: TransformedDictionaryDenseGeneralPlan,
     check_cancelled: &impl Fn() -> Result<()>,
 ) -> Result<Option<PreparedDictionaryPartials>> {
@@ -141,11 +143,19 @@ pub(super) fn prepare(
             .checked_add(1)
             .ok_or_else(|| failed("dictionary count overflow"))?;
     }
-    if !transformed_dictionary_dense_general_should_use_chunk_partials(values, &counts) {
+    if !transformed_dictionary_dense_general_should_use_chunk_partials(transform, values, &counts) {
         return Ok(None);
     }
-    let partials = reduce(plan, values, &counts, FxBuildHasher, check_cancelled)?;
+    let partials = reduce(
+        transform,
+        plan,
+        values,
+        &counts,
+        FxBuildHasher,
+        check_cancelled,
+    )?;
     Ok(Some(PreparedDictionaryPartials {
+        transform,
         plan,
         rows: row_ids.len(),
         value_count: values.len(),
@@ -155,6 +165,7 @@ pub(super) fn prepare(
 }
 
 fn reduce<S: BuildHasher>(
+    transform: AggregateValueTransform,
     plan: TransformedDictionaryDenseGeneralPlan,
     values: &[Utf8DictionaryValue],
     counts: &[u64],
@@ -179,7 +190,7 @@ fn reduce<S: BuildHasher>(
         }
         if count != 0 {
             groups
-                .entry(aggregate_url_domain_str(value))
+                .entry(transform.domain_str(value))
                 .or_insert_with(|| (index, PartialState::default()))
                 .1
                 .update_weighted_utf8_dictionary_value_with(plan, value, count, |value| {
@@ -221,7 +232,11 @@ impl PreparedDictionaryPartials {
         values: &[Utf8DictionaryValue],
         rows: usize,
     ) -> Result<()> {
-        if plan != self.plan || rows != self.rows || values.len() != self.value_count {
+        if plan != self.plan
+            || rows != self.rows
+            || values.len() != self.value_count
+            || states.group_columns.first().map(|column| column.transform) != Some(self.transform)
+        {
             return Err(failed("ordered consumer recipe or source shape changed"));
         }
         let groups = states
@@ -239,7 +254,7 @@ impl PreparedDictionaryPartials {
                 .ok_or_else(|| failed("partial source index was out of bounds"))?;
             let key = states
                 .string_interner
-                .intern(aggregate_url_domain_str(value))?;
+                .intern(self.transform.domain_str(value))?;
             groups
                 .entry(key)
                 .or_default()
@@ -305,6 +320,7 @@ mod tests {
         let counts = [(1_u64 << 53) + 1, 3, 7, 0];
         native_utf8::SOURCE_PROMOTIONS.with(Cell::take);
         let partials = reduce(
+            AggregateValueTransform::UrlDomain,
             plan(),
             &values,
             &counts,
@@ -339,6 +355,7 @@ mod tests {
         );
         assert!(
             reduce(
+                AggregateValueTransform::UrlDomain,
                 plan(),
                 &values,
                 &[u64::MAX, 0, 1, 0],
@@ -369,6 +386,7 @@ mod tests {
         };
         native_utf8::SOURCE_PROMOTIONS.with(Cell::take);
         let mut partials = reduce(
+            AggregateValueTransform::UrlDomain,
             plan,
             &values,
             &[3, 2, 7, 0],
@@ -438,13 +456,66 @@ mod tests {
     }
 
     #[test]
+    fn regex_dictionary_partials_keep_the_transform_in_the_recipe() {
+        let texts = (0..256)
+            .map(|row| {
+                if row % 2 == 0 {
+                    "http://example.test".to_owned()
+                } else {
+                    format!("http://example.test/{row:04}")
+                }
+            })
+            .collect::<Vec<_>>();
+        let input = accessor(&texts);
+        let regex = prepare(
+            &input,
+            AggregateValueTransform::RegexDomain,
+            plan(),
+            &|| Ok(()),
+        )
+        .unwrap()
+        .unwrap();
+        let url = prepare(&input, AggregateValueTransform::UrlDomain, plan(), &|| {
+            Ok(())
+        })
+        .unwrap()
+        .unwrap();
+        assert_eq!(regex.group_count(), 2);
+        assert_eq!(url.group_count(), 1);
+        let request = crate::VortexSimpleAggregateRequest::new(vec![
+            crate::VortexSimpleAggregateMeasure::new("count", None, "count".into()),
+        ])
+        .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+            "domain".into(),
+            shardloom_core::ColumnRef::new("url").unwrap(),
+            "url_domain",
+        )]);
+        let columns = ["url".into()];
+        let mut states =
+            GroupedAggregateStates::new(&request, None, &columns, false, false).unwrap();
+        assert!(
+            regex
+                .merge(&mut states, plan(), &values(&texts), texts.len())
+                .unwrap_err()
+                .to_string()
+                .contains("recipe or source shape changed")
+        );
+    }
+
+    #[test]
     fn dictionary_partials_keep_sample_admission_and_reject_invalid_ids_and_nulls() {
         for rows in [0, 1, 63, 64, 512] {
             for unique in [false, true] {
                 let texts = (0..rows)
                     .map(|i| format!("http://{}.test/{i}", if unique { i } else { i % 2 }))
                     .collect::<Vec<_>>();
-                let prepared = prepare(&accessor(&texts), plan(), &|| Ok(())).unwrap();
+                let prepared = prepare(
+                    &accessor(&texts),
+                    AggregateValueTransform::UrlDomain,
+                    plan(),
+                    &|| Ok(()),
+                )
+                .unwrap();
                 assert_eq!(prepared.is_some(), rows >= 64 && !unique);
                 if let Some(prepared) = prepared {
                     assert_eq!(prepared.active_values(), rows);
@@ -457,11 +528,16 @@ mod tests {
             row_ids[0] = 1;
         }
         assert!(
-            prepare(&invalid, plan(), &|| Ok(()))
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("out of bounds")
+            prepare(
+                &invalid,
+                AggregateValueTransform::UrlDomain,
+                plan(),
+                &|| Ok(())
+            )
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("out of bounds")
         );
         if let AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids, row_nulls, ..
@@ -470,7 +546,15 @@ mod tests {
             row_ids[0] = 0;
             *row_nulls = Some(vec![true]);
         }
-        assert!(prepare(&invalid, plan(), &|| Ok(())).is_err());
+        assert!(
+            prepare(
+                &invalid,
+                AggregateValueTransform::UrlDomain,
+                plan(),
+                &|| Ok(())
+            )
+            .is_err()
+        );
         assert!(bounded_capacity_bytes(usize::MAX).is_err());
     }
 
@@ -490,11 +574,16 @@ mod tests {
             }
         };
         assert!(
-            prepare(&input, plan(), &cancelled)
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("cancellation")
+            prepare(
+                &input,
+                AggregateValueTransform::UrlDomain,
+                plan(),
+                &cancelled
+            )
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("cancellation")
         );
         assert_eq!(calls.get(), 3);
         calls.set(0);
@@ -502,6 +591,7 @@ mod tests {
         native_utf8::SOURCE_PROMOTIONS.with(Cell::take);
         assert!(
             reduce(
+                AggregateValueTransform::UrlDomain,
                 plan(),
                 &values,
                 &vec![1; values.len()],

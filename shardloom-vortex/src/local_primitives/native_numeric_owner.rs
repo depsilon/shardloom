@@ -14,9 +14,9 @@ use vortex::mask::Mask;
 use super::{
     AGGREGATE_DIRECT_DISTINCT_DENSE_RANGE_LIMIT, AggregateDirectCountDistinctUpdate,
     AggregateDirectIntegerKeySlice, AggregateDistinctSet, AggregateDistinctValue,
-    AggregateIntegerKeyPart, AggregateValueTransform, ComparisonOp, StatValue, TypedFloatInList,
-    TypedHashInList, coerce_compare_rhs_f64, coerce_compare_rhs_i64, coerce_compare_rhs_u64,
-    coerce_in_list_rhs_f64, coerce_in_list_rhs_i64, coerce_in_list_rhs_u64,
+    AggregateIntegerKeyPart, AggregateValueTransform, ComparisonOp, NumericAggregateSum, StatValue,
+    TypedFloatInList, TypedHashInList, coerce_compare_rhs_f64, coerce_compare_rhs_i64,
+    coerce_compare_rhs_u64, coerce_in_list_rhs_f64, coerce_in_list_rhs_i64, coerce_in_list_rhs_u64,
     comparison_op_matches_ordering, float_in_list_contains, native_numeric_accessor::failed,
     reserve_hash_set_capacity, vortex_error,
 };
@@ -188,7 +188,7 @@ impl NativeNumericOwner {
         count_only: bool,
     ) -> super::bound_numeric_updates::RowKernel<'_, super::CompactAggregateMeasureValue> {
         if count_only {
-            self.bind_typed_row_update::<T, ALL_VALID, _>(|state, _| {
+            self.bind_typed_row_update::<T, ALL_VALID, _>(|state, _, _| {
                 super::CompactAggregateMeasureValue::increment_count(state)
             })
         } else {
@@ -200,7 +200,7 @@ impl NativeNumericOwner {
 
     fn bind_typed_row_update<T: Numeric, const ALL_VALID: bool, State: 'static>(
         &self,
-        update: impl Fn(&mut State, f64) -> Result<()> + 'static,
+        update: impl Fn(&mut State, f64, bool) -> Result<()> + 'static,
     ) -> super::bound_numeric_updates::RowKernel<'_, State> {
         let values = self.primitive.as_slice::<T>();
         let valid = &self.valid;
@@ -209,7 +209,7 @@ impl NativeNumericOwner {
                 .get(row)
                 .ok_or_else(|| failed("native typed row index was out of bounds"))?;
             if ALL_VALID || valid.value(row) {
-                update(state, value.widen().numeric())?;
+                update(state, value.widen().numeric(), T::Wide::INTEGER)?;
             }
             Ok(())
         })
@@ -267,7 +267,8 @@ impl NativeNumericOwner {
                     .get(row)
                     .ok_or_else(|| failed("native typed row index was out of bounds"))?;
                 if ALL_VALID || valid.value(row) {
-                    measures[usize::from(COUNT_FIRST)].add_numeric(value.widen().numeric())?;
+                    measures[usize::from(COUNT_FIRST)]
+                        .add_numeric(value.widen().numeric(), T::Wide::INTEGER)?;
                 }
                 if !COUNT_FIRST {
                     measures[1].increment_count()?;
@@ -382,7 +383,7 @@ impl NativeNumericOwner {
             .filter(|&row| self.valid.value(row) != want_null)
             .collect()
     }
-    pub(super) fn sum_count(&self, rows: Option<&[usize]>) -> Result<(u64, f64)> {
+    pub(super) fn sum_count(&self, rows: Option<&[usize]>) -> Result<(u64, NumericAggregateSum)> {
         numeric_dispatch!(self, sum_count_typed, rows)
     }
     pub(super) fn update_distinct(
@@ -487,10 +488,10 @@ impl NativeNumericOwner {
     fn sum_count_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
         rows: Option<&[usize]>,
-    ) -> Result<(u64, f64)> {
+    ) -> Result<(u64, NumericAggregateSum)> {
         let values = self.primitive.as_slice::<T>();
         let mut count = 0u64;
-        let mut sum = 0.0;
+        let mut sum = NumericAggregateSum::default();
         let mut add = |row: usize| -> Result<()> {
             let value = values
                 .get(row)
@@ -507,7 +508,7 @@ impl NativeNumericOwner {
             count = count
                 .checked_add(1)
                 .ok_or_else(|| failed("direct fused numeric count overflowed"))?;
-            sum += value;
+            sum.add(value, T::Wide::INTEGER);
             if !sum.is_finite() {
                 return Err(failed("direct fused numeric sum became non-finite"));
             }
@@ -623,6 +624,7 @@ numeric_types!(i64; i8, i16, i32, i64);
 numeric_types!(f64; f32, f64);
 
 trait Wide: Copy + PartialOrd {
+    const INTEGER: bool;
     type List;
     fn stat(self) -> StatValue;
     fn distinct(self) -> AggregateDistinctValue;
@@ -636,6 +638,7 @@ trait Wide: Copy + PartialOrd {
 macro_rules! integer_wide {
     ($ty:ty, $variant:ident, $signed:expr, $bits:expr, $compare:ident, $list:ident) => {
         impl Wide for $ty {
+            const INTEGER: bool = true;
             type List = TypedHashInList<Self>;
             fn stat(self) -> StatValue {
                 StatValue::$variant(self)
@@ -685,6 +688,7 @@ integer_wide!(
     coerce_in_list_rhs_i64
 );
 impl Wide for f64 {
+    const INTEGER: bool = false;
     type List = TypedFloatInList;
     fn stat(self) -> StatValue {
         StatValue::Float64(self)

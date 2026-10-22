@@ -1,8 +1,9 @@
 //! Exact grouping and distinct membership over native keys. Additive measures
-//! retain the existing ordered floating policy, with separate exact decimal totals.
+//! retain ordered floating inputs and compensate integer-input additions, with
+//! separate exact decimal totals.
 
 use super::{
-    SimpleAggregateFunction as Function, logical_field_from_native_array,
+    NumericAggregateSum, SimpleAggregateFunction as Function, logical_field_from_native_array,
     native_capacity::ReservedVec,
     native_decimal_reduce, native_payload,
     native_relational_batch::{failed, index_array},
@@ -45,7 +46,7 @@ pub(super) struct Spec {
 #[derive(Default)]
 struct State {
     count: u64,
-    sum: f64,
+    sum: NumericAggregateSum,
     extreme: Option<Cell>,
 }
 
@@ -581,11 +582,16 @@ fn update(
     match measure.function {
         Function::Count => Ok(()),
         Function::Sum | Function::Avg => {
-            state.sum += number(
-                value
-                    .as_ref()
-                    .ok_or_else(|| failed("numeric argument absent"))?,
-            )?;
+            let value = value
+                .as_ref()
+                .ok_or_else(|| failed("numeric argument absent"))?;
+            state.sum.add(
+                number(value)?,
+                matches!(
+                    value,
+                    Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_)
+                ),
+            );
             if !state.sum.is_finite() {
                 return Err(failed("aggregate sum became nonfinite"));
             }
@@ -630,7 +636,7 @@ fn owned_extreme(value: Cell, context: &NativeExecutionContext<'_>) -> Result<Ce
     })
 }
 
-#[allow(clippy::cast_precision_loss)] // Same explicit ordered floating SUM/AVG policy as the existing aggregate runner.
+#[allow(clippy::cast_precision_loss)] // Preserve the shared primitive integer-to-F64 conversion before accumulation.
 pub(super) fn number(value: &Cell) -> Result<f64> {
     match value {
         Cell::NegativeInteger(value) => Ok(*value as f64),
@@ -646,8 +652,8 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
     Ok(match measure.function {
         Function::Count | Function::CountDistinct => Value::UInt(state.count),
         Function::Sum | Function::Avg if state.count == 0 => Value::Null,
-        Function::Sum => Value::Float(state.sum),
-        Function::Avg => Value::Float(super::simple_average_value(state.sum, state.count)),
+        Function::Sum => Value::Float(state.sum.total()),
+        Function::Avg => Value::Float(super::simple_average_value(state.sum.total(), state.count)),
         Function::Min | Function::Max => match &state.extreme {
             None | Some(Cell::Null) => Value::Null,
             Some(Cell::NegativeInteger(value) | Cell::Timestamp(value)) => Value::Int(*value),

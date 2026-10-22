@@ -330,6 +330,11 @@ mod weighted_count_spill_intake;
 mod weighted_count_spill_query;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_owner::NativeNumericOwner;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/numeric_aggregate_sum.rs"]
+mod numeric_aggregate_sum;
+#[cfg(feature = "vortex-local-primitives")]
+use numeric_aggregate_sum::NumericAggregateSum;
 #[cfg(all(
     feature = "vortex-local-primitives",
     feature = "vortex-write",
@@ -338,6 +343,9 @@ use native_numeric_owner::NativeNumericOwner;
 ))]
 #[path = "local_primitive_columnar_compat_sink.rs"]
 mod columnar_compat_sink;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/independent_reference_regression_tests.rs"]
+mod independent_reference_regression_tests;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitive_native_sink.rs"]
 pub(crate) mod native_sink;
@@ -26081,7 +26089,7 @@ impl SimpleAggregateStates {
                 ));
             }
             let mut count = 0_u64;
-            let mut base_sum = 0.0_f64;
+            let mut base_sum = NumericAggregateSum::default();
             for value in values.iter().take(rows) {
                 if matches!(value, StatValue::Null) {
                     continue;
@@ -26098,12 +26106,15 @@ impl SimpleAggregateStates {
                         "local Vortex simple aggregate fused count overflowed u64".to_string(),
                     )
                 })?;
-                base_sum += numeric;
+                base_sum.add(
+                    numeric,
+                    matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)),
+                );
             }
             for index in state_indices {
                 let state = &mut self.states[index];
                 let offset = state.argument_offset.unwrap_or(0);
-                let adjusted_sum = base_sum + offset as f64 * count as f64;
+                let adjusted_sum = base_sum.with_offset(offset as f64 * count as f64);
                 if !adjusted_sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate fused argument offset produced a non-finite value; no fallback execution was attempted"
@@ -26115,7 +26126,7 @@ impl SimpleAggregateStates {
                         "local Vortex simple aggregate fused count overflowed u64".to_string(),
                     )
                 })?;
-                state.sum += adjusted_sum;
+                state.sum.merge(adjusted_sum);
                 if !state.sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate fused sum became non-finite; no fallback execution was attempted"
@@ -26381,8 +26392,8 @@ impl SimpleAggregateStates {
             for index in state_indices {
                 let state = &mut self.states[index];
                 let offset = state.argument_offset.unwrap_or(0);
-                let adjusted_sum =
-                    base_sum + int64_stat_to_float64(offset) * uint64_stat_to_float64(count);
+                let adjusted_sum = base_sum
+                    .with_offset(int64_stat_to_float64(offset) * uint64_stat_to_float64(count));
                 if !adjusted_sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate direct fused argument offset produced a non-finite value; no fallback execution was attempted"
@@ -26395,7 +26406,7 @@ impl SimpleAggregateStates {
                             .to_string(),
                     )
                 })?;
-                state.sum += adjusted_sum;
+                state.sum.merge(adjusted_sum);
                 if !state.sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate direct fused sum became non-finite; no fallback execution was attempted"
@@ -27106,6 +27117,7 @@ struct TransformedDictionaryKeyCache {
     // both maps. Only admitted misses need independent persistent ownership.
     length: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
     url_domain: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
+    regex_domain: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -27114,6 +27126,7 @@ impl TransformedDictionaryKeyCache {
         match transform {
             AggregateValueTransform::Length => self.length.get(value),
             AggregateValueTransform::UrlDomain => self.url_domain.get(value),
+            AggregateValueTransform::RegexDomain => self.regex_domain.get(value),
             _ => unreachable!("transformed dictionary cache admits only length and URL domain"),
         }
     }
@@ -27127,17 +27140,18 @@ impl TransformedDictionaryKeyCache {
         let entries = match transform {
             AggregateValueTransform::Length => &mut self.length,
             AggregateValueTransform::UrlDomain => &mut self.url_domain,
+            AggregateValueTransform::RegexDomain => &mut self.regex_domain,
             _ => unreachable!("transformed dictionary cache admits only length and URL domain"),
         };
         entries.insert(value, key);
     }
 
     fn len(&self) -> usize {
-        self.length.len() + self.url_domain.len()
+        self.length.len() + self.url_domain.len() + self.regex_domain.len()
     }
 
     fn is_empty(&self) -> bool {
-        self.length.is_empty() && self.url_domain.is_empty()
+        self.length.is_empty() && self.url_domain.is_empty() && self.regex_domain.is_empty()
     }
 }
 
@@ -27171,7 +27185,7 @@ enum TransformedDictionaryCompactMeasureUpdate {
 #[derive(Clone, Copy, Default)]
 struct CompactAggregateMeasureValue {
     count: u64,
-    sum: f64,
+    sum: NumericAggregateSum,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -28383,7 +28397,10 @@ impl CompactAggregateMeasures {
                     else {
                         continue;
                     };
-                    value.add_numeric(numeric)?;
+                    let integer = spec.value_transform == AggregateValueTransform::Identity
+                        && accessors[spec.column_index.expect("numeric measure has a source")]
+                            .numeric_input_is_integer(row_index)?;
+                    value.add_numeric(numeric, integer)?;
                 }
                 SimpleAggregateFunction::CountDistinct
                 | SimpleAggregateFunction::Min
@@ -28446,7 +28463,10 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    value.sum += numeric;
+                    value.sum.add(
+                        numeric,
+                        accessors[*column_index].numeric_input_is_integer(row_index)?,
+                    );
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary compact numeric sum became non-finite; no fallback execution was attempted"
@@ -28506,7 +28526,7 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    value.sum += length;
+                    value.sum.add(length, false);
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary compact length sum became non-finite; no fallback execution was attempted"
@@ -28572,7 +28592,7 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    value.sum += length * weight_float;
+                    value.sum.add(length * weight_float, false);
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary compact code-pair length sum became non-finite; no fallback execution was attempted"
@@ -28634,7 +28654,13 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    value.sum += numeric;
+                    let integer = spec.value_transform == AggregateValueTransform::Identity
+                        && matches!(
+                            columns[spec.column_index.expect("numeric measure has a source")]
+                                [row_index],
+                            StatValue::Int64(_) | StatValue::UInt64(_)
+                        );
+                    value.sum.add(numeric, integer);
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex compact materialized numeric aggregate sum became non-finite; no fallback execution was attempted"
@@ -28677,7 +28703,7 @@ impl CompactAggregateMeasures {
                     "local Vortex numeric-pair aggregate demotion count overflowed u64".to_string(),
                 )
             })?;
-            target.sum += source.sum;
+            target.sum.merge(source.sum);
             if !target.sum.is_finite() {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex numeric-pair aggregate demotion sum became non-finite; no fallback execution was attempted"
@@ -28710,7 +28736,7 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    target.sum += source.sum;
+                    target.sum.merge(source.sum);
                     if !target.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex dictionary-group aggregate compact sum became non-finite; no fallback execution was attempted"
@@ -28898,6 +28924,7 @@ impl TransformedDictionaryCompactMeasurePlan {
                         | AggregateValueTransform::ExtractMinute
                         | AggregateValueTransform::DateTruncMinute
                         | AggregateValueTransform::UrlDomain
+                        | AggregateValueTransform::RegexDomain
                         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                             return Ok(None);
                         }
@@ -28986,6 +29013,7 @@ impl TransformedDictionaryDenseGeneralPlan {
                         | AggregateValueTransform::ExtractMinute
                         | AggregateValueTransform::DateTruncMinute
                         | AggregateValueTransform::UrlDomain
+                        | AggregateValueTransform::RegexDomain
                         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                             return None;
                         }
@@ -29009,6 +29037,7 @@ impl TransformedDictionaryDenseGeneralPlan {
                         | AggregateValueTransform::ExtractMinute
                         | AggregateValueTransform::DateTruncMinute
                         | AggregateValueTransform::UrlDomain
+                        | AggregateValueTransform::RegexDomain
                         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                             return None;
                         }
@@ -29299,7 +29328,7 @@ impl NumericPairCompactMeasures {
                             "local Vortex numeric-pair numeric count overflowed u64".to_string(),
                         )
                     })?;
-                    value.sum += numeric;
+                    value.sum.add(numeric, accessors[column_index].numeric_input_is_integer(row_index)?);
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex numeric-pair numeric sum became non-finite; no fallback execution was attempted"
@@ -29329,7 +29358,7 @@ impl CompactAggregateMeasureValue {
                 if self.count == 0 {
                     Ok(GroupedAggregateOrderValue::Null)
                 } else {
-                    Ok(GroupedAggregateOrderValue::Float64(self.sum))
+                    Ok(GroupedAggregateOrderValue::Float64(self.sum.total()))
                 }
             }
             SimpleAggregateFunction::Avg => {
@@ -29337,7 +29366,7 @@ impl CompactAggregateMeasureValue {
                     Ok(GroupedAggregateOrderValue::Null)
                 } else {
                     Ok(GroupedAggregateOrderValue::Float64(simple_average_value(
-                        self.sum, self.count,
+                        self.sum.total(), self.count,
                     )))
                 }
             }
@@ -29381,6 +29410,7 @@ fn compact_aggregate_direct_measure_value(
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::UrlDomain
+        | AggregateValueTransform::RegexDomain
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
             Err(ShardLoomError::InvalidOperation(
                 "local Vortex compact aggregate measure only admits identity numeric or UTF-8 length transforms; no fallback execution was attempted"
@@ -29464,6 +29494,7 @@ fn compact_aggregate_materialized_measure_value(
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::UrlDomain
+        | AggregateValueTransform::RegexDomain
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
             Err(ShardLoomError::InvalidOperation(
                 "local Vortex compact materialized aggregate measure only admits identity numeric or UTF-8 length transforms; no fallback execution was attempted"
@@ -29483,6 +29514,7 @@ enum AggregateValueTransform {
     ExtractMinute,
     DateTruncMinute,
     UrlDomain,
+    RegexDomain,
     CaseSearchAdvZeroRefererElseEmpty,
 }
 
@@ -29501,7 +29533,8 @@ impl AggregateValueTransform {
             "length" | "byte_length" => Ok(Self::Length),
             "extract_minute" | "minute" => Ok(Self::ExtractMinute),
             "date_trunc_minute" | "truncate_minute" => Ok(Self::DateTruncMinute),
-            "regex_domain" | "regex_replace_domain" | "url_domain" => Ok(Self::UrlDomain),
+            "url_domain" => Ok(Self::UrlDomain),
+            "regex_domain" | "regex_replace_domain" => Ok(Self::RegexDomain),
             "case_search_adv_zero_referer_else_empty" => {
                 Ok(Self::CaseSearchAdvZeroRefererElseEmpty)
             }
@@ -29540,9 +29573,24 @@ impl AggregateValueTransform {
             Self::ExtractMinute => aggregate_extract_minute(value),
             Self::DateTruncMinute => aggregate_date_trunc_minute(value),
             Self::UrlDomain => aggregate_url_domain(value),
+            Self::RegexDomain => match value {
+                StatValue::Null => Ok(StatValue::Null),
+                StatValue::Utf8(value) => Ok(StatValue::Utf8(self.domain_str(value).to_owned())),
+                _ => Err(ShardLoomError::InvalidOperation(
+                    "local Vortex aggregate regex-domain expression requires UTF-8 input; no fallback execution was attempted".into(),
+                )),
+            },
             Self::CaseSearchAdvZeroRefererElseEmpty => {
                 aggregate_case_search_adv_zero_referer_else_empty(value, extra_values)
             }
+        }
+    }
+
+    fn domain_str(self, value: &str) -> &str {
+        match self {
+            Self::UrlDomain => crate::url_domain::shardloom_url_domain(value),
+            Self::RegexDomain => crate::url_domain::shardloom_regex_domain(value),
+            _ => unreachable!("domain consumer requires an admitted domain transform"),
         }
     }
 }
@@ -29574,6 +29622,7 @@ fn aggregate_group_key_indices(columns: &[AggregateGroupRuntimeColumn]) -> Vec<u
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty
             | AggregateValueTransform::ConstantInt(_) => key_indices.push(index),
         }
@@ -31326,6 +31375,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 AggregateValueTransform::Identity
                     | AggregateValueTransform::Length
                     | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
             )
         {
             return Ok(false);
@@ -31427,7 +31477,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if !group_column.extra_column_indices.is_empty()
             || !matches!(
                 group_column.transform,
-                AggregateValueTransform::Length | AggregateValueTransform::UrlDomain
+                AggregateValueTransform::Length
+                    | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
             )
         {
             return Ok(false);
@@ -31533,10 +31585,9 @@ impl<'a> GroupedAggregateStates<'a> {
             AggregateValueTransform::Length => AggregateGroupKey::single(
                 AggregateDistinctValue::UInt64(usize_to_u64(value.len())?),
             ),
-            AggregateValueTransform::UrlDomain => {
+            AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain => {
                 AggregateGroupKey::single(AggregateDistinctValue::Utf8Interned(
-                    self.string_interner
-                        .intern(aggregate_url_domain_str(value))?,
+                    self.string_interner.intern(transform.domain_str(value))?,
                 ))
             }
             AggregateValueTransform::Identity
@@ -33790,7 +33841,10 @@ impl<'a> GroupedAggregateStates<'a> {
             )
         })?;
         if !group_column.extra_column_indices.is_empty()
-            || !matches!(group_column.transform, AggregateValueTransform::UrlDomain)
+            || !matches!(
+                group_column.transform,
+                AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain
+            )
         {
             return Ok(false);
         }
@@ -33849,6 +33903,7 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             partials.merge(self, plan, group_values, group_row_ids.len())?;
         } else if transformed_dictionary_dense_general_should_use_chunk_partials(
+            self.group_columns[0].transform,
             group_values,
             &counts,
         ) {
@@ -33896,7 +33951,7 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             let key_id = self
                 .string_interner
-                .intern(aggregate_url_domain_str(value))?;
+                .intern(self.group_columns[0].transform.domain_str(value))?;
             let groups = self
                 .transformed_dictionary_dense_general_groups
                 .as_mut()
@@ -33938,7 +33993,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 continue;
             }
             partials
-                .entry(aggregate_url_domain_str(value))
+                .entry(self.group_columns[0].transform.domain_str(value))
                 .or_default()
                 .update_weighted_utf8_dictionary_value_with(plan, value, count, |value| value)?;
         }
@@ -34007,7 +34062,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if !group_column.extra_column_indices.is_empty()
             || !matches!(
                 group_column.transform,
-                AggregateValueTransform::Length | AggregateValueTransform::UrlDomain
+                AggregateValueTransform::Length
+                    | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
             )
         {
             return Ok(false);
@@ -34120,7 +34177,9 @@ impl<'a> GroupedAggregateStates<'a> {
         if !group_column.extra_column_indices.is_empty()
             || !matches!(
                 group_column.transform,
-                AggregateValueTransform::Length | AggregateValueTransform::UrlDomain
+                AggregateValueTransform::Length
+                    | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
             )
         {
             return Ok(false);
@@ -38927,6 +38986,7 @@ impl<'a> GroupedAggregateStates<'a> {
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                 Err(ShardLoomError::InvalidOperation(
                     "local Vortex grouped aggregate compact group value was not reconstructable from key; no fallback execution was attempted"
@@ -41505,10 +41565,15 @@ fn single_group_fast_key(
                 other.dtype().as_str()
             ))),
         },
-        AggregateValueTransform::UrlDomain => match value {
+        AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain => match value {
+            StatValue::Null if group_column.transform == AggregateValueTransform::RegexDomain => {
+                Ok(Some(AggregateGroupKey::single(
+                    AggregateDistinctValue::Null,
+                )))
+            }
             StatValue::Utf8(value) => Ok(Some(AggregateGroupKey::single(
                 AggregateDistinctValue::Utf8(std::sync::Arc::<str>::from(
-                    aggregate_url_domain_str(value),
+                    group_column.transform.domain_str(value),
                 )),
             ))),
             other => Err(ShardLoomError::InvalidOperation(format!(
@@ -41538,10 +41603,13 @@ fn single_group_fast_value(
                 other.dtype().as_str()
             ))),
         },
-        AggregateValueTransform::UrlDomain => match value {
-            StatValue::Utf8(value) => {
-                Ok(StatValue::Utf8(aggregate_url_domain_str(value).to_string()))
+        AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain => match value {
+            StatValue::Null if group_column.transform == AggregateValueTransform::RegexDomain => {
+                Ok(StatValue::Null)
             }
+            StatValue::Utf8(value) => Ok(StatValue::Utf8(
+                group_column.transform.domain_str(value).to_string(),
+            )),
             other => Err(ShardLoomError::InvalidOperation(format!(
                 "local Vortex grouped aggregate URL-domain fast path requires UTF-8 input, got {}; no fallback execution was attempted",
                 other.dtype().as_str()
@@ -41748,9 +41816,11 @@ fn aggregate_materialized_string_partial_key(
                 other.dtype().as_str()
             ))),
         },
-        AggregateValueTransform::UrlDomain => match value {
+        AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain => match value {
+            StatValue::Null if transform == AggregateValueTransform::RegexDomain =>
+                Ok(AggregateMaterializedStringPartialKey::Null),
             StatValue::Utf8(value) => Ok(AggregateMaterializedStringPartialKey::Utf8(
-                aggregate_url_domain_str(value),
+                transform.domain_str(value),
             )),
             other => Err(ShardLoomError::InvalidOperation(format!(
                 "local Vortex grouped aggregate materialized string-partial URL-domain key requires UTF-8 input, got {}; no fallback execution was attempted",
@@ -41772,6 +41842,20 @@ fn aggregate_materialized_string_partial_key(
 
 #[cfg(feature = "vortex-local-primitives")]
 impl AggregateDirectColumnAccessor {
+    fn numeric_input_is_integer(&self, row: usize) -> Result<bool> {
+        Ok(match self {
+            Self::NativeNumeric(owner) => owner.is_integer(),
+            Self::UInt64(_) | Self::NullableUInt64 { .. }
+            | Self::Int64(_) | Self::NullableInt64 { .. } => true,
+            Self::Materialized { values, .. } => matches!(values.get(row).ok_or_else(|| {
+                ShardLoomError::InvalidOperation("local Vortex numeric input row was out of bounds; no fallback execution was attempted".into())
+            })?, StatValue::Int64(_) | StatValue::UInt64(_)),
+            Self::Boolean(_) | Self::NullableBoolean { .. }
+            | Self::Float64(_) | Self::NullableFloat64 { .. }
+            | Self::Utf8Dictionary { .. } => false,
+        })
+    }
+
     fn materialized(values: Vec<StatValue>, blocker: &'static str) -> Self {
         Self::Materialized { values, blocker }
     }
@@ -44235,8 +44319,10 @@ fn aggregate_direct_transformed_group_key(
         AggregateValueTransform::Length => {
             Ok(Some(aggregate_direct_length_key(accessor, row_index)?))
         }
-        AggregateValueTransform::UrlDomain => {
-            let Some(domain) = aggregate_direct_url_domain_key(accessor, row_index)? else {
+        AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain => {
+            let Some(domain) =
+                aggregate_direct_url_domain_key(accessor, row_index, group_column.transform)?
+            else {
                 return Ok(None);
             };
             Ok(Some(AggregateDistinctValue::Utf8Interned(
@@ -44277,8 +44363,10 @@ fn aggregate_direct_transformed_group_key_existing(
         AggregateValueTransform::Length => {
             Ok(Some(aggregate_direct_length_key(accessor, row_index)?))
         }
-        AggregateValueTransform::UrlDomain => {
-            let Some(domain) = aggregate_direct_url_domain_key(accessor, row_index)? else {
+        AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain => {
+            let Some(domain) =
+                aggregate_direct_url_domain_key(accessor, row_index, group_column.transform)?
+            else {
                 return Ok(None);
             };
             Ok(string_interner
@@ -44579,12 +44667,12 @@ fn aggregate_direct_numeric_value(
 fn aggregate_direct_numeric_sum_count(
     accessor: &AggregateDirectColumnAccessor,
     row_indices: Option<&[usize]>,
-) -> Result<(u64, f64)> {
+) -> Result<(u64, NumericAggregateSum)> {
     if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
         return owner.sum_count(row_indices);
     }
     let mut count = 0_u64;
-    let mut sum = 0.0_f64;
+    let mut sum = NumericAggregateSum::default();
     let mut update_row = |row_index| -> Result<()> {
         let Some(value) = aggregate_direct_numeric_value(accessor, row_index)? else {
             return Ok(());
@@ -44600,7 +44688,7 @@ fn aggregate_direct_numeric_sum_count(
                 "local Vortex aggregate direct fused numeric count overflowed u64".to_string(),
             )
         })?;
-        sum += value;
+        sum.add(value, accessor.numeric_input_is_integer(row_index)?);
         if !sum.is_finite() {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex aggregate direct fused numeric sum became non-finite; no fallback execution was attempted"
@@ -45307,6 +45395,7 @@ fn string_topk_candidate_code_ids_from_values(
 fn aggregate_direct_url_domain_key(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
+    transform: AggregateValueTransform,
 ) -> Result<Option<&str>> {
     match accessor {
         AggregateDirectColumnAccessor::Utf8Dictionary {
@@ -45326,7 +45415,7 @@ fn aggregate_direct_url_domain_key(
             else {
                 return Ok(None);
             };
-            Ok(Some(aggregate_url_domain_str(value)))
+            Ok(Some(transform.domain_str(value)))
         }
         _ => Ok(None),
     }
@@ -45379,6 +45468,7 @@ fn dictionary_value_counts_for_rows(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn transformed_dictionary_dense_general_should_use_chunk_partials(
+    transform: AggregateValueTransform,
     group_values: &[Utf8DictionaryValue],
     counts: &[u64],
 ) -> bool {
@@ -45392,7 +45482,7 @@ fn transformed_dictionary_dense_general_should_use_chunk_partials(
             continue;
         }
         sampled = sampled.saturating_add(1);
-        unique_domains.insert(aggregate_url_domain_str(value));
+        unique_domains.insert(transform.domain_str(value));
         if sampled >= TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_SAMPLE_LIMIT {
             break;
         }
@@ -46160,11 +46250,6 @@ fn aggregate_url_domain(value: &StatValue) -> Result<StatValue> {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn aggregate_url_domain_str(value: &str) -> &str {
-    crate::url_domain::shardloom_url_domain(value)
-}
-
-#[cfg(feature = "vortex-local-primitives")]
 fn aggregate_case_search_adv_zero_referer_else_empty(
     referer: &StatValue,
     extra_values: &[&StatValue],
@@ -46238,7 +46323,7 @@ struct SimpleAggregateState {
     column_index: Option<usize>,
     alias: String,
     count: u64,
-    sum: f64,
+    sum: NumericAggregateSum,
     min: Option<StatValue>,
     max: Option<StatValue>,
     distinct_values: AggregateDistinctSet,
@@ -46318,7 +46403,7 @@ impl SimpleAggregateState {
             column_index,
             alias,
             count: 0,
-            sum: 0.0,
+            sum: NumericAggregateSum::default(),
             min: None,
             max: None,
             distinct_values: AggregateDistinctSet::default(),
@@ -46428,7 +46513,11 @@ impl SimpleAggregateState {
                 let Some(numeric) = self.direct_numeric_measure_value(accessor, row_index)? else {
                     return Ok(());
                 };
-                self.update_direct_numeric_value(numeric)
+                self.update_direct_numeric_value(
+                    numeric,
+                    self.value_transform == AggregateValueTransform::Identity
+                        && accessor.numeric_input_is_integer(row_index)?,
+                )
             }
         }
     }
@@ -46448,7 +46537,7 @@ impl SimpleAggregateState {
         Ok(())
     }
 
-    fn update_direct_numeric_value(&mut self, mut numeric: f64) -> Result<()> {
+    fn update_direct_numeric_value(&mut self, mut numeric: f64, integer_input: bool) -> Result<()> {
         if let Some(offset) = self.argument_offset {
             numeric += int64_stat_to_float64(offset);
         }
@@ -46463,7 +46552,7 @@ impl SimpleAggregateState {
                 "local Vortex grouped aggregate direct numeric count overflowed u64".to_string(),
             )
         })?;
-        self.sum += numeric;
+        self.sum.add(numeric, integer_input);
         if !self.sum.is_finite() {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex grouped aggregate direct numeric sum became non-finite; no fallback execution was attempted"
@@ -46516,7 +46605,7 @@ impl SimpleAggregateState {
                             .to_string(),
                     )
                 })?;
-                self.sum += other.sum;
+                self.sum.merge(other.sum);
                 if !self.sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex grouped aggregate preaggregated numeric sum became non-finite; no fallback execution was attempted"
@@ -46663,6 +46752,7 @@ impl SimpleAggregateState {
                     | AggregateValueTransform::ExtractMinute
                     | AggregateValueTransform::DateTruncMinute
                     | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
                     | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary weighted numeric aggregate only admits UTF-8 length; no fallback execution was attempted"
@@ -46671,7 +46761,7 @@ impl SimpleAggregateState {
                     }
                 };
                 add_weight(&mut self.count)?;
-                self.sum += numeric * uint64_stat_to_float64(weight);
+                self.sum.add(numeric * uint64_stat_to_float64(weight), false);
                 if !self.sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex transformed-dictionary weighted numeric aggregate became non-finite; no fallback execution was attempted"
@@ -46752,6 +46842,7 @@ impl SimpleAggregateState {
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                 Err(ShardLoomError::InvalidOperation(
                     "local Vortex transformed-dictionary weighted stat aggregate reached an unsupported transform; no fallback execution was attempted"
@@ -46798,7 +46889,7 @@ impl SimpleAggregateState {
                     ));
                 }
                 self.add_weighted_utf8_count(weight)?;
-                self.sum += length_f64 * uint64_stat_to_float64(weight);
+                self.sum.add(length_f64 * uint64_stat_to_float64(weight), false);
                 if !self.sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex transformed-dictionary fused numeric aggregate became non-finite; no fallback execution was attempted"
@@ -46820,6 +46911,7 @@ impl SimpleAggregateState {
                     | AggregateValueTransform::ExtractMinute
                     | AggregateValueTransform::DateTruncMinute
                     | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
                     | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary fused min aggregate only admits identity or UTF-8 length; no fallback execution was attempted"
@@ -46844,6 +46936,7 @@ impl SimpleAggregateState {
                     | AggregateValueTransform::ExtractMinute
                     | AggregateValueTransform::DateTruncMinute
                     | AggregateValueTransform::UrlDomain
+                    | AggregateValueTransform::RegexDomain
                     | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary fused max aggregate only admits identity or UTF-8 length; no fallback execution was attempted"
@@ -46946,6 +47039,7 @@ impl SimpleAggregateState {
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => false,
         }
     }
@@ -46979,6 +47073,7 @@ impl SimpleAggregateState {
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => false,
         }
     }
@@ -47006,7 +47101,11 @@ impl SimpleAggregateState {
                     "local Vortex simple aggregate direct numeric count overflowed u64".to_string(),
                 )
             })?;
-            state.sum += numeric;
+            state.sum.add(
+                numeric,
+                state.value_transform == AggregateValueTransform::Identity
+                    && accessor.numeric_input_is_integer(row_index)?,
+            );
             if !state.sum.is_finite() {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex simple aggregate direct numeric sum became non-finite; no fallback execution was attempted"
@@ -47063,6 +47162,7 @@ impl SimpleAggregateState {
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
                 Err(ShardLoomError::InvalidOperation(
                     "local Vortex simple aggregate direct numeric update only admits identity numeric or UTF-8 length transforms; no fallback execution was attempted"
@@ -47108,7 +47208,13 @@ impl SimpleAggregateState {
                             .to_string(),
                     ));
                 }
-                self.sum += numeric;
+                self.sum.add(
+                    numeric,
+                    matches!(
+                        transformed_value,
+                        StatValue::Int64(_) | StatValue::UInt64(_)
+                    ),
+                );
             }
             SimpleAggregateFunction::Min => {
                 self.min = Some(simple_aggregate_min_value(
@@ -47614,7 +47720,9 @@ fn should_preserve_transformed_dictionary_source_lane(
     let group_transform = AggregateValueTransform::from_expression(expression)?;
     if !matches!(
         group_transform,
-        AggregateValueTransform::Length | AggregateValueTransform::UrlDomain
+        AggregateValueTransform::Length
+            | AggregateValueTransform::UrlDomain
+            | AggregateValueTransform::RegexDomain
     ) {
         return Ok(false);
     }
@@ -47692,6 +47800,7 @@ fn embedded_derived_column_for_transform(
             Some(shardloom_date_trunc_minute_derived_column(column))
         }
         AggregateValueTransform::Identity
+        | AggregateValueTransform::RegexDomain
         | AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => None,
@@ -59776,7 +59885,9 @@ mod tests {
             vec![StatValue::Int64(10), StatValue::Null, StatValue::Int64(10)]
         );
         assert_eq!(
-            aggregate_direct_numeric_sum_count(&accessor, None).unwrap(),
+            aggregate_direct_numeric_sum_count(&accessor, None)
+                .map(|(count, sum)| (count, sum.total()))
+                .unwrap(),
             (2, 20.0)
         );
     }
@@ -59797,7 +59908,9 @@ mod tests {
             StatValue::Null
         );
         assert_eq!(
-            aggregate_direct_numeric_sum_count(&accessor, None).expect("sum/count"),
+            aggregate_direct_numeric_sum_count(&accessor, None)
+                .map(|(count, sum)| (count, sum.total()))
+                .expect("sum/count"),
             (2, 20.0)
         );
 
@@ -69759,7 +69872,7 @@ mod tests {
     fn compact_numeric_measure_order_value_comparison_matches_json_ordering() {
         let value = CompactAggregateMeasureValue {
             count: 2,
-            sum: 15.0,
+            sum: NumericAggregateSum::Ordered(15.0),
         };
         let sum_value = value
             .order_value(SimpleAggregateFunction::Sum)
