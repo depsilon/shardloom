@@ -295,3 +295,49 @@ fn independent_regex_domain_keeps_nulls_cache_identity_and_embedded_rewrites_sep
         AggregateMaterializedStringPartialKey::Null
     ));
 }
+
+#[test]
+fn independent_regex_dictionary_admission_needs_shared_length_not_url_domain_metadata() {
+    let length = shardloom_utf8_length_derived_column("Referer");
+    let domain = shardloom_url_domain_derived_column("Referer");
+    let mut request = VortexSimpleAggregateRequest::new(vec![
+        VortexSimpleAggregateMeasure::new("count", None, "c".into()),
+        VortexSimpleAggregateMeasure::new(
+            "avg",
+            Some(ColumnRef::new("Referer").unwrap()),
+            "l".into(),
+        )
+        .with_value_transform("length"),
+        VortexSimpleAggregateMeasure::new(
+            "min",
+            Some(ColumnRef::new("Referer").unwrap()),
+            "m".into(),
+        ),
+    ])
+    .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+        "k".into(),
+        ColumnRef::new("Referer").unwrap(),
+        "regex_domain",
+    )])
+    .with_order_by(vec![VortexAggregateOrderExpr::new("l", true)]);
+    // Regex admission must not require metadata with different semantics. The
+    // same-source contract also applies when that unrelated column is absent.
+    for has_domain in [false, true] {
+        let mut available = std::collections::BTreeSet::from(["Referer", length.as_str()]);
+        if has_domain {
+            available.insert(domain.as_str());
+        }
+        assert!(should_preserve_transformed_dictionary_source_lane(&request, &available).unwrap());
+        let saved = request.measures[1]
+            .column
+            .replace(ColumnRef::new("Other").unwrap());
+        assert!(!should_preserve_transformed_dictionary_source_lane(&request, &available).unwrap());
+        request.measures[1].column = saved;
+    }
+    let available = std::collections::BTreeSet::from(["Referer", length.as_str()]);
+    request.group_expressions[0].function = "url_domain".into();
+    assert!(!should_preserve_transformed_dictionary_source_lane(&request, &available).unwrap());
+    request.group_expressions[0].function = "regex_domain".into();
+    request.order_by.clear();
+    assert!(!should_preserve_transformed_dictionary_source_lane(&request, &available).unwrap());
+}

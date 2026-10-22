@@ -7,7 +7,8 @@ installed in a separate environment. Result values are computed from Parquet;
 neither a ShardLoom binary nor a native result packet is an input.
 
 The finite dialect map makes existing native semantics explicit: byte lengths,
-integer epoch dates/times, floating SUM/AVG, declared group-key tie breaking,
+integer epoch dates/times, F64 SUM/AVG with exact integer accumulation,
+declared group-key tie breaking,
 and absolute source-row order for raw ties and unordered limited groups.
 It is deliberately not a general SQL translator.
 """
@@ -28,6 +29,9 @@ from clickbench_reference_packet import query_statements
 
 QUERIES_SHA256 = "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b"
 ORDINAL = "__shardloom_reference_source_row"
+INTEGER_AGGREGATE_COLUMNS = {"AdvEngineID", "ResolutionWidth", "UserID", "IsRefresh"}
+INTEGER_TYPES = {"TINYINT", "SMALLINT", "INTEGER", "BIGINT", "HUGEINT",
+                 "UTINYINT", "USMALLINT", "UINTEGER", "UBIGINT", "UHUGEINT"}
 EPOCH_MINUTE = "(EventTime // 60 - CASE WHEN EventTime < 0 AND EventTime % 60 <> 0 THEN 1 ELSE 0 END)"
 GROUP_KEYS = {
     8: ["AdvEngineID"], 9: ["RegionID"], 10: ["RegionID"],
@@ -51,6 +55,14 @@ def quote_identifier(value: str) -> str:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*", value):
         raise ValueError(f"unsupported reference identifier: {value!r}")
     return '"' + value + '"'
+
+
+def validate_arithmetic_schema(source_types: dict[str, str]) -> None:
+    """The pinned numeric aggregates require integral inputs, not rounded floats."""
+    invalid = {name: source_types.get(name) for name in sorted(INTEGER_AGGREGATE_COLUMNS)
+               if source_types.get(name) not in INTEGER_TYPES}
+    if invalid:
+        raise ValueError(f"independent integer aggregate schema differs: {invalid}")
 
 
 def split_projection(value: str) -> list[str]:
@@ -121,13 +133,18 @@ def projection_item(item: str, index: int, query_id: int) -> tuple[str, str]:
             else:
                 alias = f"{function}_{'distinct_' if distinct else ''}{column}_{index}"
         if function in ("sum", "avg"):
-            # Freeze the existing primitive floating aggregate contract. Cast
-            # before additive arithmetic, so a narrow Parquet integer cannot
-            # overflow in the baseline before the floating aggregate starts.
+            # Preserve per-input F64 conversion and widen before addition.
+            # Every admitted operand in these pinned queries is integral. Sum
+            # those converted values exactly in HUGEINT, then round the total
+            # once to DOUBLE. Ordinary floating AVG itself drifted beyond the
+            # acceptance tolerance on Q4; an oracle must not impose that error.
+            # Overflow is an explicit baseline failure, never a wrapped total.
             additive = re.fullmatch(r"(\w+) ([+-]) (\d+)", argument)
             argument = (f"CAST({additive[1]} AS DOUBLE) {additive[2]} {additive[3]}"
                         if additive else f"CAST({dialect_expression(argument)} AS DOUBLE)")
-            expression = f"{function.upper()}({argument})"
+            expression = f"CAST(SUM(CAST({argument} AS HUGEINT)) AS DOUBLE)"
+            if function == "avg":
+                expression += f" / COUNT({argument})"
         else:
             expression = dialect_expression(expression)
     else:
@@ -241,7 +258,10 @@ def main() -> int:
     with duckdb.connect(config=settings) as connection:
         # file_row_number is absolute within this single immutable source file.
         connection.from_parquet(str(parquet), file_row_number=True).create_view("reference_input")
-        source_columns = [entry[0] for entry in connection.execute("DESCRIBE reference_input").fetchall()]
+        description = connection.execute("DESCRIBE reference_input").fetchall()
+        source_columns = [entry[0] for entry in description]
+        source_types = {entry[0]: entry[1] for entry in description}
+        validate_arithmetic_schema(source_types)
         if ORDINAL in source_columns or source_columns.count("file_row_number") != 1:
             raise ValueError("ambiguous independent source-row identity")
         connection.execute(f"CREATE VIEW hits AS SELECT * EXCLUDE (file_row_number), "
@@ -249,7 +269,7 @@ def main() -> int:
         record = execute_plan(connection, plan)
         record.update(oracle="duckdb", oracle_version=duckdb.__version__,
                       engine_version=connection.execute("SELECT version()").fetchone()[0],
-                      settings=settings, source_columns=source_columns,
+                      settings=settings, source_columns=source_columns, source_types=source_types,
                       baseline_only=True, native_runtime_invoked=False)
     print(json.dumps(record, allow_nan=False, sort_keys=True))
     return 0

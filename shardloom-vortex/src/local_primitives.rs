@@ -47727,14 +47727,13 @@ fn should_preserve_transformed_dictionary_source_lane(
         return Ok(false);
     }
     let source_column = expression.column.as_str();
-    let Some(hidden_group_column) =
-        embedded_derived_column_for_transform(group_transform, source_column)
-    else {
-        return Ok(false);
-    };
     let hidden_length_column = shardloom_utf8_length_derived_column(source_column);
-    if !available.contains(hidden_group_column.as_str())
-        || !available.contains(hidden_length_column.as_str())
+    // RegexDomain has no equivalent embedded group column. Its key and length
+    // measures can still share the source dictionary; rewriting only length
+    // would split that source and disable the admitted dictionary reduction.
+    if !available.contains(hidden_length_column.as_str())
+        || embedded_derived_column_for_transform(group_transform, source_column)
+            .is_some_and(|hidden| !available.contains(hidden.as_str()))
     {
         return Ok(false);
     }
@@ -53795,6 +53794,15 @@ mod tests {
 
     #[test]
     fn simple_aggregate_preserves_source_dictionary_fusion_for_ordered_domain_length() {
+        assert_source_dictionary_fusion_for_ordered_domain_length("url_domain");
+    }
+
+    #[test]
+    fn independent_regex_domain_preserves_source_dictionary_fusion_with_embedded_lengths() {
+        assert_source_dictionary_fusion_for_ordered_domain_length("regex_domain");
+    }
+
+    fn assert_source_dictionary_fusion_for_ordered_domain_length(transform: &str) {
         let path = unique_vortex_path("simple-aggregate-dictionary-fused-domain-length");
         write_dictionary_embedded_derived_url_fixture(&path).expect("fixture");
         let uri = DatasetUri::new(path.display().to_string()).expect("uri");
@@ -53821,7 +53829,7 @@ mod tests {
         .with_group_expressions(vec![crate::VortexAggregateExpression::new(
             "domain".to_string(),
             ColumnRef::new("URL").expect("url"),
-            "url_domain",
+            transform,
         )])
         .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
         let mut request = VortexQueryPrimitiveRequest::simple_aggregate(uri, aggregate)

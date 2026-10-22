@@ -6,8 +6,17 @@ An independently calculated, frozen DuckDB 2.0.0 reference over the original
 Parquet input exposes two differences from the retained native results: Q4's
 large-integer average exceeds the runner's existing 1e-12 relative tolerance,
 and Q29 groups nonmatching URLs as though its regex were a URL parser. The
-reference was frozen before comparison; its values and the tolerance remain
-unchanged. DuckDB is a separate test oracle, never an execution dependency.
+first reference was frozen before comparison and remains retained. The first
+corrected native pass stops at Q4: source-only adjudication then establishes that
+the reference's ordinary floating AVG also accumulates error. An exact total of
+the original integers, an exact total after the specified F64 input conversion,
+and independent compensated AVG all give the corrected native value. The new
+reference therefore uses exact integer accumulation for the pinned integral
+SUM/AVG operands, followed by F64 output conversion and count division. It
+rejects fractional source types and fails on integer overflow. This changes the
+oracle arithmetic, not the 1e-12 tolerance or any native result. Both references
+and the stopped pass remain evidence. DuckDB is a separate test oracle, never
+an execution dependency.
 
 ## Integer-input aggregation
 
@@ -42,6 +51,18 @@ Carry the transform identity through dictionary caches, local reduction,
 worker recipes and ordered merge. Reject a changed transform before merging
 prepared partials. Existing embedded URL-domain columns are not evidence of the
 regex result and cannot satisfy this expression, even in an older Vortex file.
+
+The first complete corrected pass and the maintainer-requested isolated repeat
+expose a Q29 planning regression. The existing same-source dictionary preservation
+check admits the regex transform, but then requires a corresponding embedded
+group column. Regex intentionally has no such column. The check therefore fails,
+and independently rewriting the length measure/predicate introduces a second
+projected column, disabling the existing dense dictionary reduction. Preserve
+the shared source dictionary when a regex group and its length measures satisfy
+the existing fusion contract; do not require or consume an unrelated URL-domain
+column as proof. Keep the same native dictionary consumers, CPU/memory owner,
+ordered partial merge, cancellation and pressure behavior. This is a correction
+to the rewrite admission rule, not a new execution provider or metadata format.
 
 ## Provider decision and acceptance
 

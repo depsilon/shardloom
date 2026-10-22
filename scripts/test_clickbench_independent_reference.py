@@ -9,13 +9,21 @@ import tempfile
 import unittest
 
 from clickbench_independent_reference import (
-    ORDINAL, dialect_expression, execute_plan, query_plan, split_projection,
+    INTEGER_AGGREGATE_COLUMNS, ORDINAL, dialect_expression, execute_plan, query_plan,
+    split_projection, validate_arithmetic_schema,
 )
 
 QUERIES = Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql"
 
 
 class IndependentPlanTests(unittest.TestCase):
+    def test_integer_arithmetic_rejects_fractional_or_missing_source_types(self):
+        columns = dict.fromkeys(INTEGER_AGGREGATE_COLUMNS, "BIGINT")
+        validate_arithmetic_schema(columns)
+        for invalid in ("DOUBLE", "FLOAT", "DECIMAL(18,2)", "VARCHAR", None):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "aggregate schema"):
+                validate_arithmetic_schema(dict(columns, UserID=invalid))
+
     def test_exact_query_identity_and_complete_projection_manifest(self):
         plans = query_plan(QUERIES)
         self.assertEqual([p["query_id"] for p in plans], list(range(1, 44)))
@@ -100,6 +108,27 @@ class IndependentSqlTests(unittest.TestCase):
         sums = self.values(30)[0]
         self.assertEqual([sums[f"sum_ResolutionWidth_{i}"] for i in range(90)],
                          [32768.0 + 2 * i for i in range(90)])
+
+    def test_large_integer_average_uses_exact_total_of_converted_inputs(self):
+        self.connection.execute("CREATE TABLE hits (UserID BIGINT)")
+        values = [10**18, 1, -(10**18), None]
+        self.connection.executemany("INSERT INTO hits VALUES (?)", [(value,) for value in values])
+        expected = float(sum(int(float(value)) for value in values if value is not None)) / 3
+        self.assertEqual(self.values(4), [{"avg_UserID_0": expected}])
+        ordinary = self.connection.execute("SELECT AVG(CAST(UserID AS DOUBLE)) FROM hits").fetchone()[0]
+        self.assertNotEqual(ordinary, expected)
+        self.connection.execute("DELETE FROM hits")
+        self.connection.execute("INSERT INTO hits VALUES (NULL),(NULL)")
+        self.assertEqual(self.values(4), [{"avg_UserID_0": None}])
+
+    def test_integer_oracle_preserves_initial_conversion_and_final_f64_rounding(self):
+        self.connection.execute("CREATE TABLE hits (UserID UBIGINT)")
+        values = [2**64 - 1, 2**53 + 3, 7, None]
+        self.connection.executemany("INSERT INTO hits VALUES (?)", [(value,) for value in values])
+        converted = [int(float(value)) for value in values if value is not None]
+        expected = float(sum(converted)) / len(converted)
+        self.assertEqual(self.values(4), [{"avg_UserID_0": expected}])
+        self.assertNotEqual(sum(converted), sum(value for value in values if value is not None))
 
     def test_raw_sort_source_ties_and_group_key_ties_are_distinct(self):
         self.connection.execute(f"CREATE TABLE hits (UserID BIGINT, SearchPhrase VARCHAR, "
