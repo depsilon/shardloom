@@ -1,0 +1,284 @@
+{
+  "status": "passed_guarantee_corruption_checks",
+  "positive": {
+    "status": "passed_selected_guarantee_bindings",
+    "completed_followup_reviews": 4,
+    "rust_selectors": 183,
+    "ordinary_rust_selectors": 180,
+    "rust_terminal_observations": 192,
+    "python_methods": 20,
+    "installed_lanes": 3,
+    "selected_installed_observations": 60,
+    "source_files": 82,
+    "packet_members": 142,
+    "independent_full43_reference": "missing_explicit_disposition",
+    "current_source_checked": false,
+    "runtime_executed": false
+  },
+  "negative_cases": [
+    {
+      "case": "missing action",
+      "status": "rejected",
+      "reason": "follow-up action disposition differs"
+    },
+    {
+      "case": "owner closed",
+      "status": "rejected",
+      "reason": "unearned owner closure or scope promotion"
+    },
+    {
+      "case": "optional scope promoted",
+      "status": "rejected",
+      "reason": "unearned owner closure or scope promotion"
+    },
+    {
+      "case": "competitive gate closed",
+      "status": "rejected",
+      "reason": "unearned owner closure or scope promotion"
+    },
+    {
+      "case": "missing Rust selector",
+      "status": "rejected",
+      "reason": "selected Rust inventory differs"
+    },
+    {
+      "case": "duplicate Rust selector",
+      "status": "rejected",
+      "reason": "duplicate Rust selector"
+    },
+    {
+      "case": "changed definition line",
+      "status": "rejected",
+      "reason": "test definition location differs"
+    },
+    {
+      "case": "changed source identity",
+      "status": "rejected",
+      "reason": "test source identity differs"
+    },
+    {
+      "case": "missing terminal observation",
+      "status": "rejected",
+      "reason": "exact terminal test observations differ"
+    },
+    {
+      "case": "changed terminal test",
+      "status": "rejected",
+      "reason": "exact terminal test observations differ"
+    },
+    {
+      "case": "invented passing line",
+      "status": "rejected",
+      "reason": "exact terminal test observations differ"
+    },
+    {
+      "case": "child process promoted",
+      "status": "rejected",
+      "reason": "test support role promoted to guarantee"
+    },
+    {
+      "case": "diagnostic capture promoted",
+      "status": "rejected",
+      "reason": "test support role promoted to guarantee"
+    },
+    {
+      "case": "different Rust job",
+      "status": "rejected",
+      "reason": "Rust job set differs"
+    },
+    {
+      "case": "unfinished Rust job",
+      "status": "rejected",
+      "reason": "Rust job is not a completed source-bound check"
+    },
+    {
+      "case": "changed raw Rust log",
+      "status": "rejected",
+      "reason": "raw Rust log changed"
+    },
+    {
+      "case": "different checkout tree",
+      "status": "rejected",
+      "reason": "test checkout tree differs"
+    },
+    {
+      "case": "missing source commit binding",
+      "status": "rejected",
+      "reason": "whole source file commit binding differs: shardloom-cli/tests/public_workflow_route.rs"
+    },
+    {
+      "case": "missing Python method",
+      "status": "rejected",
+      "reason": "selected Python inventory differs"
+    },
+    {
+      "case": "changed Python method",
+      "status": "rejected",
+      "reason": "Python method source differs"
+    },
+    {
+      "case": "missing installed lane",
+      "status": "rejected",
+      "reason": "installed lane set differs"
+    },
+    {
+      "case": "Windows lane invented",
+      "status": "rejected",
+      "reason": "installed lane set differs"
+    },
+    {
+      "case": "development wheel relabelled",
+      "status": "rejected",
+      "reason": "installed source observation changed"
+    },
+    {
+      "case": "installed skips hidden",
+      "status": "rejected",
+      "reason": "installed source observation changed"
+    },
+    {
+      "case": "installed selector missing",
+      "status": "rejected",
+      "reason": "installed source observation changed"
+    },
+    {
+      "case": "summary promoted to per-test proof",
+      "status": "rejected",
+      "reason": "installed source observation changed"
+    },
+    {
+      "case": "missing guarantee review",
+      "status": "rejected",
+      "reason": "guarantee review coverage differs"
+    },
+    {
+      "case": "support test added to guarantee",
+      "status": "rejected",
+      "reason": "unbound or support-only test promoted to a guarantee"
+    },
+    {
+      "case": "semantic limit erased",
+      "status": "rejected",
+      "reason": "guarantee disposition missing"
+    },
+    {
+      "case": "independent native oracle asserted",
+      "status": "rejected",
+      "reason": "Full43 reference boundary changed"
+    },
+    {
+      "case": "historical payload parity asserted",
+      "status": "rejected",
+      "reason": "Full43 reference boundary changed"
+    },
+    {
+      "case": "exhaustive historical search asserted",
+      "status": "rejected",
+      "reason": "Full43 reference boundary changed"
+    },
+    {
+      "case": "historical candidate missing",
+      "status": "rejected",
+      "reason": "historical candidate set differs"
+    },
+    {
+      "case": "historical excerpt changed",
+      "status": "rejected",
+      "reason": "historical excerpt set differs"
+    },
+    {
+      "case": "Full43 reference removed",
+      "status": "rejected",
+      "reason": "Full43 member set differs"
+    },
+    {
+      "case": "unearned engine_changes",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned new_runtime_test_execution",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned new_benchmark_run",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned independent_full43_parity",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned whole_process_rss_ceiling",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned group_atomic_fanout",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned partial_query_resume",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned windows_native_extension",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned cross_platform_full_matrix",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned broad_engine_parity",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned performance_superiority",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned production_certification",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "unearned new_release",
+      "status": "rejected",
+      "reason": "unearned guarantee claim"
+    },
+    {
+      "case": "changed stored member",
+      "status": "rejected",
+      "reason": "changed member: /Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/.github/workflows/ci.yml"
+    },
+    {
+      "case": "duplicate stored member",
+      "status": "rejected",
+      "reason": "duplicate stored member"
+    },
+    {
+      "case": "duplicate JSON field",
+      "status": "rejected",
+      "reason": "duplicate JSON key: status"
+    },
+    {
+      "case": "nonfinite JSON value",
+      "status": "rejected",
+      "reason": "non-finite JSON value: NaN"
+    }
+  ],
+  "negative_case_count": 52,
+  "runtime_executed": false,
+  "test_source_sha256": "6b72434859bc49468be204fa519aa07b3e850cf7a363ca65eafe4dd286753048",
+  "verifier_sha256": "f563c92896a216c9a6a84510ef45c01beab4d1b9a83d9ddc7c8590796eaf28e9"
+}

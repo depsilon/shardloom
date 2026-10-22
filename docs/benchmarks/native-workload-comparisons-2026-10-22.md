@@ -133,6 +133,12 @@ full-size oracle and paired performance comparison remain unproven.
 
 ## Verification and next decision
 
+The subsequent [selected guarantee review](native-workload-guarantees-2026-10-22.md)
+completes the four named follow-up reviews with source-bound existing regressions
+and an explicit missing-independent-Full43 disposition. The matrix observations
+and limits below remain unchanged. This finite review advances the shared
+prerequisite stage without closing all required owner contracts or CG-5/CG-6.
+
 The complete portable replay passes. Forty corruption cases reject altered
 identities, incomplete coverage, changed baseline/resources/SQL, fallback,
 missing writer readbacks, an erased interruption, incomplete dependency mappings
@@ -155,16 +161,15 @@ python3 "$evidence/verify_collected_payloads.py" --repository . --manifest "$evi
 python3 "$evidence/verify_acceptance.py" --repository . --acceptance "$evidence/perf-12-acceptance.json" --output /tmp/perf12-acceptance-check.json
 ```
 
-The next required decision is a source-bound review of existing semantic,
-resource, lifecycle and installed-support guarantees for these selected paths.
-The acceptance JSON names the owners, evidence needed and admission rule for
-each review. Existing valid regression evidence can satisfy a guarantee; missing
-documentation does not prove a runtime defect. Fix a demonstrated selected-path
-gap before adding breadth. Keep the independent Full43 reference gap explicit.
+The original next decision was a source-bound review of existing semantic,
+resource, lifecycle and installed-support guarantees. The subsequent
+[guarantee acceptance](native-workload-guarantees-2026-10-22.md) completes those
+four reviews. The acceptance JSON preserves their original owner, evidence and
+admission contracts under `reviewed_action_contracts` and links the disposition.
+The independent Full43 reference gap remains explicit.
 
-PERF-03 remains the current implementation area. The fifteen required contracts,
-five scheduled rows and 38 optional rows keep their scope. Region mechanisms,
-exact local reduction, preparation costs and instruction attribution retain
-their separate prerequisites; dependent investigations do not start merely
-because this matrix passes. No release, performance superiority, production
-certification or new execution provider is admitted by this report.
+The fifteen required contracts, five scheduled rows and 38 optional rows keep
+their scope. The next shared prerequisite stage covers region mechanisms,
+exact local reduction, preparation costs and instruction attribution. Dependent
+investigations retain their admission gates. No release, performance superiority,
+production certification or new execution provider is admitted by this report.

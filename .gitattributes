@@ -9,6 +9,9 @@ website-src/src/data/benchmark-manifest.json linguist-generated=true
 # Preserve the hash-bound timing evidence CSV's standard CRLF record endings.
 docs/benchmarks/evidence/native-query-timing-uat-2026-10-15.csv -text whitespace=cr-at-eol
 
+# Keep this portable guarantee packet and its hash-bound records byte-exact.
+docs/benchmarks/evidence/perf12-guarantees-2026-10-22/** -text
+
 # Preserve upstream legal texts byte-for-byte, including original line endings
 # and whitespace. Their content hashes are verified by the license manifest.
 python/THIRD_PARTY_LICENSES/texts/*.txt -text -whitespace linguist-vendored=true
