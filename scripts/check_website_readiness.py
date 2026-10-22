@@ -44,6 +44,7 @@ EXPECTED_PAGES = [
 EXPECTED_ASSETS = [
     "assets/logo/shardloom-mark.svg",
     "assets/parallax-home.css",
+    "assets/home-studies.css",
     "assets/parallax-home.js",
     "assets/site.css",
     "assets/data/compute-engine-flow-reference.md",
@@ -548,6 +549,8 @@ def check_parallax_homepage(website: Path, blockers: list[str]) -> None:
         'class="page-progress"',
         'data-outcome="unsupported"',
         'data-timing="publication"',
+        'data-materialization-choice="rows"',
+        'data-journey-choice="4"',
     ]:
         if control not in html:
             blockers.append(f"parallax homepage missing interaction hook: {control}")

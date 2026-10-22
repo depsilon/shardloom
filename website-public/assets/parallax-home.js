@@ -542,6 +542,27 @@ $('#copyInstall').addEventListener('click',()=>copyText(samples.install.code,$('
 setCode('python');
 
 /* These studies visualize documented contracts, not live engine outcomes. */
+const materializationBoundaries={
+ native:['01 / Native result','Native arrays','Keep ownership with the result.','Supported in-process results retain native arrays and their memory credits. Chaining can use those arrays without first building Python rows.'],
+ file:['02 / Typed file','Writer boundary','Translate when the output requires it.','A supported typed export can write the retained result without rerunning the query. The chosen writer still determines representation and metadata loss.'],
+ rows:['03 / Python rows','Python values','Make row materialization explicit.','Call to_rows() when you need Python values. This materializes rows from the result; keeping a native result does not promise that every earlier operation avoided decoding.']
+};
+$$('[data-materialization-choice]').forEach(button=>button.addEventListener('click',()=>{
+ const choice=button.dataset.materializationChoice;
+ $('.materialization-study').dataset.materialization=choice;
+ $$('[data-materialization-choice]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+ ['materializationReadout','materializationOutput','materializationTitle','materializationDescription'].forEach((id,i)=>$('#'+id).textContent=materializationBoundaries[choice][i]);
+}));
+$$('[data-journey-choice]').forEach(button=>button.addEventListener('click',()=>{
+ const stage=button.dataset.journeyChoice;
+ $('.execution-journey').dataset.journeyStage=stage;
+ $$('[data-journey-choice]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+ $$('[data-journey-node]').forEach(node=>node.dataset.active=String(node.dataset.journeyNode===stage));
+ $('#journeyTitle').textContent=button.dataset.title;
+ $('#journeyDescription').textContent=button.dataset.description;
+ $('#journeyLink').setAttribute('href',button.dataset.link);
+ $('#journeyLink span').textContent=button.dataset.linkLabel;
+}));
 const outcomes={
  admitted:['Native route','Explicit result','Admitted execution','One admitted route','Source, preparation, execution, and output remain connected by route evidence.'],
  unsupported:['Admission gate','Diagnostic','No external execution','An explicit stop','Unsupported work stops at the admission boundary. A diagnostic replaces execution, not an unreported engine.']

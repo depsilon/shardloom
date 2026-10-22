@@ -1,0 +1,169 @@
+/* Three architectural studies use the homepage's fine-line, native-material vocabulary.
+   Diagrams are decorative; labels, controls, and explanations remain ordinary HTML. */
+.study-topline{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:17px;color:#95b1c5;font:10px/1.6 var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.study-guide{fill:none;stroke:#90aec3;stroke-width:.6;stroke-dasharray:1 8;opacity:.22}
+.study-switch{display:flex;gap:4px;border:1px solid var(--line);padding:4px;border-radius:4px;margin:0}
+.study-switch button{flex:1;min-height:44px;padding:11px 8px;border:0;border-radius:2px;background:transparent;color:#a5bacb;font-size:12px;line-height:1.4}
+.study-switch button:hover{background:#bddfff0a;color:var(--ink)}
+.study-switch button[aria-pressed=true]{background:#adcff0;color:#152e42}
+.study-switch button[aria-pressed=true]:hover{color:#152e42}
+
+/* 05 — the retained representation survives; only the requested output changes. */
+.materialization-section{padding:104px 0 56px}
+.materialization-layout{display:grid;grid-template-columns:.85fr 1.15fr;gap:72px;align-items:center}
+.materialization-heading h2{font-size:clamp(48px,4.7vw,70px)}
+.materialization-heading .copy{max-width:380px;font-size:17px;margin-top:28px}
+.materialization-heading .text-link{margin-top:22px;color:#365979}
+.materialization-study{min-width:0}
+.paper .study-topline{color:#546e7d}
+.materialization-drawing{position:relative;padding:16px 0 25px}
+.materialization-drawing svg{width:100%;height:auto}
+.materialization-boundary{fill:none;stroke:#607f8d;stroke-dasharray:3 6;stroke-width:.8}
+.materialization-bracket{fill:none;stroke:#607f8d;stroke-width:.6;opacity:.5}
+.materialization-output{display:none}
+[data-materialization=native] .output-native,[data-materialization=file] .output-file,[data-materialization=rows] .output-rows{display:inline}
+.materialization-labels{display:grid;grid-template-columns:60% 40%;text-align:center;font:10px/1.5 var(--mono);color:#526f7e;letter-spacing:.02em}
+.materialization-switch button{color:#526a78}
+.materialization-switch button:hover{color:#14212a;background:#668a9c12}
+.materialization-switch button[aria-pressed=true]{color:#edf3f3;background:#234758}
+.materialization-switch button[aria-pressed=true]:hover{color:#fff}
+.materialization-detail{min-height:126px;padding-top:23px}
+.materialization-detail strong{font-size:14px;font-weight:530;color:#24404e}
+.materialization-detail p{max-width:580px;margin-top:10px;font-size:13px;line-height:1.7;color:#536974}
+.materialization-foot{border-top:1px solid var(--line);margin-top:40px;padding-top:23px;display:grid;grid-template-columns:.85fr 1.15fr;gap:72px;color:#596f7a}
+.materialization-foot .mono{font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.materialization-foot p{font-size:12px;line-height:1.7;max-width:620px}
+
+/* 07 — one gate and an explicit stop, with no hidden continuation. */
+.contract-section{padding:110px 0 82px}
+.contract-layout{grid-template-columns:.72fr 1.28fr;gap:75px;align-items:center}
+.contract-heading h2{font-size:clamp(54px,5.4vw,80px)}
+.contract-heading .copy{font-size:17px;max-width:350px;margin-top:28px}
+.contract-visual{min-width:0}
+.admission-drawing{padding:10px 0 28px}
+.admission-drawing svg{width:100%;height:auto}
+.admission-labels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;padding-inline:0}
+.admission-labels strong{display:block;font-size:13px;font-weight:450;color:#d6e5ef}
+.admission-labels span{display:block;font:10px/1.6 var(--mono);margin-top:8px;color:#8aa4b7}
+.admission-pass,.admission-stop{transition:opacity .18s}
+.admission-stop{opacity:0}
+[data-route-outcome=unsupported] .admission-stop{opacity:1}
+[data-route-outcome=unsupported] .admission-pass{opacity:0}
+[data-route-outcome=unsupported] #routeOutcome{color:var(--gold)}
+[data-route-outcome=unsupported] .study-switch button[aria-pressed=true]{background:var(--gold);color:#30271c}
+.contract-visual .outcome-detail{min-height:102px;padding:23px 0 15px;gap:9px}
+.contract-visual .contract-fields{display:grid;grid-template-columns:1fr 1.2fr;gap:24px;margin-top:13px;border-top:0;font-size:10px}
+.contract-fields div{border-top:1px solid var(--line)}
+.contract-visual .contract-note{font-size:10px;line-height:1.7}
+
+/* 09 — a continuous pipeline; selection reveals a boundary, never a faster mode. */
+.architecture{padding:105px 0 58px}
+.journey-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:60px}
+.journey-heading h2{font-size:clamp(48px,4.8vw,72px)}
+.journey-heading .copy{font-size:16px;max-width:310px;margin-bottom:6px}
+.execution-journey{margin-top:25px}
+.journey-drawing svg{width:100%;height:auto}
+.journey-node{color:#7699b4}
+.journey-node-glow{opacity:0;transition:opacity .18s}
+.journey-node-axis{stroke:currentColor;stroke-width:.7;opacity:.6}
+.journey-node-orbit{stroke:currentColor;stroke-width:.7;stroke-dasharray:2 5}
+.journey-glyph{fill:#112331;stroke:currentColor;stroke-width:.85}
+.journey-node[data-active=true]{color:#cae7f8}
+.journey-node[data-active=true] .journey-node-glow{opacity:1}
+.journey-node[data-active=true] .journey-node-orbit{stroke-dasharray:none}
+.journey-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
+.journey-step{position:relative;min-width:0;min-height:107px;text-align:center;padding:12px 10px 25px;background:none;border:0;border-bottom:1px solid var(--line);color:#99b0c2}
+.journey-step-number{display:block;font:10px var(--mono);color:#7d9ab0;margin-bottom:10px}
+.journey-step strong{font-size:17px;font-weight:450;display:block}
+.journey-step-detail{display:block;font-size:11px;line-height:1.5;margin-top:9px;color:#859eaf}
+.journey-step[aria-pressed=true]{color:#e2f0f9;border-bottom-color:#adcff0}
+.journey-step[aria-pressed=true] .journey-step-number{color:var(--mint)}
+.journey-step[aria-pressed=true]::after{content:"";position:absolute;bottom:-3px;left:calc(50% - 3px);width:6px;height:6px;border-radius:50%;background:var(--mint)}
+.journey-step:hover{color:#e2f0f9;background:#bddfff04}
+.journey-detail{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:start;padding:35px 0 30px;min-height:193px}
+.journey-detail h3{font-size:28px;line-height:1.2;max-width:420px;color:#d4e5f2}
+.journey-detail p{font-size:14px;line-height:1.7;max-width:560px;color:#a0b6c7}
+.journey-detail .text-link{font-size:12px;margin-top:8px;color:#c1d9ec}
+.journey-timing{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.journey-timing summary{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:23px 0;min-height:60px;cursor:pointer;list-style:none;font-size:14px;color:#b5c9d8}
+.journey-timing summary::-webkit-details-marker{display:none}
+.journey-timing summary:focus-visible{outline:2px solid #7cbbf4;outline-offset:4px}
+.journey-timing summary .mono{font-size:10px;letter-spacing:0;color:#93aec2}
+.journey-timing summary .mono span{display:inline-block;margin-left:18px;font-size:16px}
+.journey-timing[open] summary .mono span{transform:rotate(45deg)}
+.journey-timing .timing-boundaries{margin:0;padding:8px 0 16px;border:0}
+.journey-disclosure{font:10px/1.7 var(--mono);color:#839db1;margin-top:21px}
+.journey-static{padding-left:22px;color:#9fb4c6;font-size:14px;line-height:1.7}
+.journey-static li{margin-bottom:18px}
+html:not(.js) .materialization-switch,html:not(.js) .journey-steps,html:not(.js) .journey-timing,html:not(.js) .journey-detail{display:none}
+
+@media(max-width:1100px){
+ .materialization-layout,.materialization-foot{gap:35px;grid-template-columns:.85fr 1.15fr}
+ .materialization-heading h2{font-size:50px}
+ .contract-layout{gap:40px;grid-template-columns:.72fr 1.28fr}
+ .contract-visual .contract-fields{grid-template-columns:1fr;gap:0}
+ .contract-fields div+div{border-top:0}
+ .journey-heading{gap:35px}
+ .journey-heading h2{font-size:50px}
+ .journey-heading .copy{max-width:245px;font-size:14px}
+}
+@media(max-width:800px){
+ .materialization-layout{grid-template-columns:1fr;gap:35px}
+ .materialization-heading{display:grid;grid-template-columns:1fr 1fr;gap:0 35px}
+ .materialization-heading .eyebrow,.materialization-heading h2{grid-column:1}
+ .materialization-heading .copy{grid-column:2;grid-row:2;margin:0;font-size:15px}
+ .materialization-heading .text-link{grid-column:2;justify-self:start}
+ .materialization-study{width:100%;max-width:700px;justify-self:center}
+ .contract-layout{grid-template-columns:1fr;gap:38px}
+ .contract-heading .copy{max-width:500px}
+ .contract-visual{margin-top:0}
+ .contract-visual .contract-fields{grid-template-columns:1fr 1.2fr;gap:24px}
+ .contract-fields div+div{border-top:1px solid var(--line)}
+}
+@media(max-width:680px){
+ .materialization-section,.contract-section,.architecture{padding:74px 0 45px}
+ .materialization-heading{display:block}
+ .materialization-heading h2,.contract-heading h2,.journey-heading h2{font-size:clamp(39px,9.7vw,56px)}
+ .materialization-heading .copy{margin-top:24px;font-size:16px;max-width:360px}
+ .materialization-heading .text-link{margin-top:15px;font-size:12px}
+ .materialization-layout{gap:37px}
+ .study-topline{font-size:8px;gap:12px;padding-bottom:14px;letter-spacing:.04em}
+ .materialization-drawing{padding:15px 0 23px}
+ .materialization-labels{font-size:9px;gap:5px;grid-template-columns:58% 42%}
+ .study-switch button{font-size:11px;padding:11px 5px}
+ .materialization-detail{min-height:148px;padding-top:22px}
+ .materialization-detail p{font-size:12px}
+ .materialization-foot{display:block;margin-top:20px;padding-top:20px}
+ .materialization-foot p{margin-top:13px;font-size:11px}
+ .contract-layout{gap:32px}
+ .contract-heading .copy{font-size:16px;margin-top:23px}
+ .admission-drawing{padding:10px 0 24px}
+ .admission-labels{gap:8px}
+ .admission-labels strong{font-size:11px}
+ .admission-labels span{font-size:8px;margin-top:7px;line-height:1.6}
+ .contract-visual .outcome-detail{min-height:125px}
+ .contract-visual .contract-fields{grid-template-columns:1fr;gap:0;font-size:10px}
+ .contract-fields div+div{border-top:0}
+ .contract-visual .contract-note{font-size:9px}
+ .journey-heading{display:block}
+ .journey-heading .copy{max-width:360px;margin-top:24px;font-size:16px}
+ .journey-drawing{display:none}
+ .execution-journey{margin-top:38px}
+ .journey-steps{grid-template-columns:1fr}
+ .journey-step{display:grid;grid-template-columns:38px 1fr;gap:6px 17px;min-height:78px;text-align:left;padding:12px 0 15px;border-bottom:0}
+ .journey-step::before{content:"";position:absolute;left:17px;top:47px;bottom:-8px;width:1px;background:#436177}
+ .journey-step:last-child::before{display:none}
+ .journey-step-number{grid-row:1/3;align-self:start;width:35px;height:35px;border:1px solid #436177;border-radius:50%;display:grid;place-items:center;margin:0;background:#0a121b}
+ .journey-step strong{font-size:16px;margin-top:1px}
+ .journey-step-detail{font-size:12px;margin:0}
+ .journey-step[aria-pressed=true] .journey-step-number{border-color:#b6d8ee;color:#142c3d;background:#b6d8ee}
+ .journey-step[aria-pressed=true]::after{display:none}
+ .journey-detail{display:block;border-top:1px solid var(--line);padding:26px 0;min-height:245px;margin-top:17px}
+ .journey-detail h3{font-size:25px;max-width:330px}
+ .journey-detail p{margin-top:17px;font-size:13px}
+ .journey-timing summary{display:block;font-size:13px;padding:20px 0}
+ .journey-timing summary .mono{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+ .journey-disclosure{font-size:9px}
+}
+html[data-motion=off] .admission-pass,html[data-motion=off] .admission-stop,html[data-motion=off] .journey-node-glow{transition:none}
+@media(prefers-reduced-motion:reduce){.admission-pass,.admission-stop,.journey-node-glow{transition:none}}

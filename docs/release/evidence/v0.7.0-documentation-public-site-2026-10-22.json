@@ -1,0 +1,778 @@
+{
+  "schema_version": "shardloom.release_documentation_public_site_verification.v1",
+  "status": "passed",
+  "release_tag": "v0.7.0",
+  "release_source": "7ae9f0e44ddf3c8f09520fe318852cd873db3817",
+  "documentation_source": "5ef95f451ee9cf84e7cb0416e3e3fab350bdddc0",
+  "documentation_tree": "e7502faca49a553859d80c51cc31d4c1b4e4fc4d",
+  "documentation_pr": "https://github.com/depsilon/shardloom/pull/1585",
+  "hosted": {
+    "head": "f1c445eb8314b361ae9d920fce47f8d63c9615eb",
+    "base": "7ae9f0e44ddf3c8f09520fe318852cd873db3817",
+    "merge_commit": "5ef95f451ee9cf84e7cb0416e3e3fab350bdddc0",
+    "trees": {
+      "f1c445eb8314b361ae9d920fce47f8d63c9615eb": "e7502faca49a553859d80c51cc31d4c1b4e4fc4d",
+      "c56a52f4991c8604822dd1d4277092379cfc4854": "e7502faca49a553859d80c51cc31d4c1b4e4fc4d",
+      "5ef95f451ee9cf84e7cb0416e3e3fab350bdddc0": "e7502faca49a553859d80c51cc31d4c1b4e4fc4d"
+    },
+    "successful_hosted_checks": 44,
+    "hosted_check_names": [
+      "CI gate matrix contract",
+      "CI work shaping plan",
+      "CodeQL",
+      "CodeQL python",
+      "CodeQL rust",
+      "Dependency and security gates",
+      "Native Python wheel (py310_ubuntu)",
+      "Native Python wheel (py313_macos)",
+      "Native Python wheel (py313_ubuntu)",
+      "Python and package smoke",
+      "Python compatibility (macos-latest, 3.11)",
+      "Python compatibility (ubuntu-latest, 3.10)",
+      "Python compatibility (ubuntu-latest, 3.11)",
+      "Python compatibility (ubuntu-latest, 3.12)",
+      "Python compatibility (ubuntu-latest, 3.13)",
+      "Python compatibility (windows-latest, 3.11)",
+      "Python test shard (core)",
+      "Python test shard (front_door_benchmark_publication)",
+      "Python test shard (release_scripts)",
+      "Python tests",
+      "Release package and governance evidence",
+      "Release readiness reports",
+      "Release runtime core evidence",
+      "Release user-surface evidence",
+      "Rust MSRV validation",
+      "Rust baseline (clippy)",
+      "Rust baseline (fmt)",
+      "Rust baseline (test)",
+      "Rust feature matrix (all_features)",
+      "Rust feature matrix (default_features)",
+      "Rust feature matrix (native_public_surface_tests)",
+      "Rust feature matrix (native_release_clippy)",
+      "Rust feature matrix (native_vortex_tests)",
+      "Rust feature matrix (no_default_features)",
+      "Rust feature matrix (packaging_deployment)",
+      "Rust feature matrix (preparation_resource_profile)",
+      "Rust feature matrix (release_user_surfaces)",
+      "Rust feature matrix (synthetic_spill_resources)",
+      "Rust feature matrix (upstream_vortex)",
+      "Rust feature matrix (vortex_encoded_read_spike)",
+      "Rust feature matrix (vortex_file_io)",
+      "Rust feature matrix (vortex_local_primitives)",
+      "Website and docs validation",
+      "Workers Builds: shardloom"
+    ],
+    "changed_files_verified": 106,
+    "runtime_build_dependency_and_workflow_changes": false,
+    "installed_wheel_lanes": [
+      {
+        "job_id": 119794202657,
+        "lane": "py310_ubuntu",
+        "integrity": {
+          "schema_version": "shardloom.native_python_wheel_integrity.v1",
+          "status": "passed",
+          "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "wheel_sha256": "5b44ab35f0ac7802a0a25791afd63403010a1f35a0c58f872996381498f3f0ff",
+          "wheel_bytes": 56263184,
+          "native_library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+          "cli_sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+          "tag": "cp310-abi3-manylinux_2_39_x86_64",
+          "python_source_files": 22,
+          "linux_audit_verified": true,
+          "licenses": {
+            "status": "passed",
+            "registry_packages": 428,
+            "vendored_packages": 8,
+            "license_file_records": 808,
+            "unique_text_files": 243
+          },
+          "load_verified": false,
+          "published": false
+        },
+        "integration": {
+          "tests": 121,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "status": "passed"
+        },
+        "installed_load": {
+          "package": "/home/runner/work/_temp/native-python-aekl5ziw/proof/venv/lib/python3.10/site-packages/shardloom/__init__.py",
+          "native_library": "/home/runner/work/_temp/native-python-aekl5ziw/proof/venv/lib/python3.10/site-packages/shardloom/_native.abi3.so",
+          "cli": "/home/runner/work/_temp/native-python-aekl5ziw/proof/venv/lib/python3.10/site-packages/shardloom/bin/linux-x86_64/shardloom",
+          "version": "0.7.0",
+          "python": "3.10.22 (main, Oct  1 2026, 14:30:20) [GCC 13.3.0]",
+          "isolated_install": true
+        },
+        "uninstall_status": "passed",
+        "linux_audit": {
+          "schema_version": "shardloom.native_python_linux_audit.v1",
+          "status": "passed",
+          "platform": "manylinux_2_39_x86_64",
+          "auditwheel_version": "6.8.2",
+          "input_wheel": "shardloom-0.7.0-cp310-abi3-linux_x86_64.whl",
+          "input_wheel_sha256": "2ce04679b4e4e423c01838b04a07c87c94ece5c20e3c4211d6d964f57723426e",
+          "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "wheel_sha256": "5b44ab35f0ac7802a0a25791afd63403010a1f35a0c58f872996381498f3f0ff",
+          "unchanged_payload_count": 275,
+          "payloads_unchanged": true
+        },
+        "original_log_carrier": {
+          "path": "/Users/dylan/LocalData/shardloom/release-v0.7.0/hosted-pr1585/job-119794202657-original.json",
+          "size_bytes": 187508,
+          "sha256": "a3724e63cdabafe9cb68d225ae3e08fadc5e649558b46c44fa49e791bf78b114"
+        }
+      },
+      {
+        "job_id": 119794202589,
+        "lane": "py313_ubuntu",
+        "integrity": {
+          "schema_version": "shardloom.native_python_wheel_integrity.v1",
+          "status": "passed",
+          "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "wheel_sha256": "f7605e78672e1f3c570d803570cfef4b6ba75f2d7ec5b50b21a7da6584774ecb",
+          "wheel_bytes": 56263184,
+          "native_library_sha256": "4d3888f8d0f13975e13979c73bc51b279fe66f9f13401dc013a62969f5026a09",
+          "cli_sha256": "a2f8d63fcc9a5b60a6d95cc5aa1f683d6296c1f26cb5aa75e4142015232612ea",
+          "tag": "cp310-abi3-manylinux_2_39_x86_64",
+          "python_source_files": 22,
+          "linux_audit_verified": true,
+          "licenses": {
+            "status": "passed",
+            "registry_packages": 428,
+            "vendored_packages": 8,
+            "license_file_records": 808,
+            "unique_text_files": 243
+          },
+          "load_verified": false,
+          "published": false
+        },
+        "integration": {
+          "tests": 121,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "status": "passed"
+        },
+        "installed_load": {
+          "package": "/home/runner/work/_temp/native-python-zitv2ur9/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+          "native_library": "/home/runner/work/_temp/native-python-zitv2ur9/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+          "cli": "/home/runner/work/_temp/native-python-zitv2ur9/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom",
+          "version": "0.7.0",
+          "python": "3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]",
+          "isolated_install": true
+        },
+        "uninstall_status": "passed",
+        "linux_audit": {
+          "schema_version": "shardloom.native_python_linux_audit.v1",
+          "status": "passed",
+          "platform": "manylinux_2_39_x86_64",
+          "auditwheel_version": "6.8.2",
+          "input_wheel": "shardloom-0.7.0-cp310-abi3-linux_x86_64.whl",
+          "input_wheel_sha256": "feb3b988ae29f8d303c54403a5893475763fb4646d7396684a468268ff338567",
+          "wheel": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "wheel_sha256": "f7605e78672e1f3c570d803570cfef4b6ba75f2d7ec5b50b21a7da6584774ecb",
+          "unchanged_payload_count": 275,
+          "payloads_unchanged": true
+        },
+        "original_log_carrier": {
+          "path": "/Users/dylan/LocalData/shardloom/release-v0.7.0/hosted-pr1585/job-119794202589-original.json",
+          "size_bytes": 189187,
+          "sha256": "210ea2b6a18d81bcaea8c2d49e89e8bff762355d387364fe5e11f55259031276"
+        }
+      },
+      {
+        "job_id": 119794202961,
+        "lane": "py313_macos",
+        "integrity": {
+          "schema_version": "shardloom.native_python_wheel_integrity.v1",
+          "status": "passed",
+          "wheel": "shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "wheel_sha256": "dd81deb0edb4406c0b52bde4a94ddf7247d0123e15545a59c205d78bae754cfb",
+          "wheel_bytes": 49863816,
+          "native_library_sha256": "0d10aa2d6758aaa4057c29cd0fd3b4fe377cf69e54c816363cd0c6fa640f6645",
+          "cli_sha256": "5485638b8c0e3c39f7d4d21f6ca8245d4f3f52faa08370ed844dc0568a61d55d",
+          "tag": "cp310-abi3-macosx_26_0_arm64",
+          "python_source_files": 22,
+          "linux_audit_verified": false,
+          "licenses": {
+            "status": "passed",
+            "registry_packages": 428,
+            "vendored_packages": 8,
+            "license_file_records": 808,
+            "unique_text_files": 243
+          },
+          "load_verified": false,
+          "published": false
+        },
+        "integration": {
+          "tests": 121,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "status": "passed"
+        },
+        "installed_load": {
+          "package": "/Users/runner/work/_temp/native-python-2l62ydz3/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+          "native_library": "/Users/runner/work/_temp/native-python-2l62ydz3/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+          "cli": "/Users/runner/work/_temp/native-python-2l62ydz3/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+          "version": "0.7.0",
+          "python": "3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]",
+          "isolated_install": true
+        },
+        "uninstall_status": "passed",
+        "linux_audit": null,
+        "original_log_carrier": {
+          "path": "/Users/dylan/LocalData/shardloom/release-v0.7.0/hosted-pr1585/job-119794202961-original.json",
+          "size_bytes": 103718,
+          "sha256": "eb90f627a791584a31e94bfac8c61b196f5b610d426770fe452f734716f14dd0"
+        }
+      }
+    ],
+    "native_test_groups": [
+      [
+        "3162",
+        "0",
+        "31"
+      ],
+      [
+        "16",
+        "0",
+        "0"
+      ],
+      [
+        "9",
+        "0",
+        "0"
+      ],
+      [
+        "3449",
+        "0",
+        "0"
+      ],
+      [
+        "91",
+        "0",
+        "0"
+      ],
+      [
+        "73",
+        "0",
+        "0"
+      ],
+      [
+        "249",
+        "0",
+        "0"
+      ],
+      [
+        "145",
+        "0",
+        "0"
+      ],
+      [
+        "67",
+        "0",
+        "0"
+      ]
+    ],
+    "windows_cli_version": "shardloom 0.7.0",
+    "windows_native_extension_or_pressure_runtime_certified": false,
+    "automated_review": {
+      "status": "summary_completed_no_posted_findings",
+      "url": "https://github.com/depsilon/shardloom/pull/1585#issuecomment-6339289780",
+      "provider_state": {
+        "commit_sha": "f1c445eb8314b361ae9d920fce47f8d63c9615eb",
+        "has_any_findings": false,
+        "has_unresolved_findings": false,
+        "status": "completed"
+      },
+      "formal_approval_claimed": false
+    }
+  },
+  "production_website": {
+    "status": "passed",
+    "source_commit": "5ef95f451ee9cf84e7cb0416e3e3fab350bdddc0",
+    "source_tree": "e7502faca49a553859d80c51cc31d4c1b4e4fc4d",
+    "website_tree": "847b5d1d556c869ac4dce033feac56c9371765b5",
+    "origin": "https://shardloom.io",
+    "started_at": "2026-10-22T13:37:10.398570+00:00",
+    "observed_at": "2026-10-22T13:37:11.797Z",
+    "html_pages_selected": 18,
+    "unique_internal_resources_observed": 36,
+    "local_fragment_references_verified_against_identical_deployed_html": 291,
+    "results": [
+      {
+        "request_path": "/",
+        "url": "https://shardloom.io/",
+        "status": 200,
+        "redirected": false,
+        "bytes": 26299,
+        "sha256": "cab153de0600e18a8c733d1608c9c4e7f27f14df443b1993ebcc0fae6c4ea9ed",
+        "content_type": "text/html",
+        "source_path": "website/index.html",
+        "source_sha256": "cab153de0600e18a8c733d1608c9c4e7f27f14df443b1993ebcc0fae6c4ea9ed"
+      },
+      {
+        "request_path": "/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.BcSo_yiZ.js",
+        "url": "https://shardloom.io/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.BcSo_yiZ.js",
+        "status": 200,
+        "redirected": false,
+        "bytes": 622,
+        "sha256": "dd7cc171c64ce739999d62aae6c7052ae2b45ce190713b35cf8919dde04abfd8",
+        "content_type": "text/javascript",
+        "source_path": "website/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.BcSo_yiZ.js",
+        "source_sha256": "dd7cc171c64ce739999d62aae6c7052ae2b45ce190713b35cf8919dde04abfd8"
+      },
+      {
+        "request_path": "/_astro/Search.astro_astro_type_script_index_0_lang.B-Vh4ymV.js",
+        "url": "https://shardloom.io/_astro/Search.astro_astro_type_script_index_0_lang.B-Vh4ymV.js",
+        "status": 200,
+        "redirected": false,
+        "bytes": 2938,
+        "sha256": "d4e3cd7bbcc9bbd0b914bc2540ff483b73934fb6e221c21ac6f514df90d995ba",
+        "content_type": "text/javascript",
+        "source_path": "website/_astro/Search.astro_astro_type_script_index_0_lang.B-Vh4ymV.js",
+        "source_sha256": "d4e3cd7bbcc9bbd0b914bc2540ff483b73934fb6e221c21ac6f514df90d995ba"
+      },
+      {
+        "request_path": "/_astro/TableOfContents.astro_astro_type_script_index_0_lang.Csloo1VZ.js",
+        "url": "https://shardloom.io/_astro/TableOfContents.astro_astro_type_script_index_0_lang.Csloo1VZ.js",
+        "status": 200,
+        "redirected": false,
+        "bytes": 36,
+        "sha256": "f1c9743eceea19c4cada60524019ee9214c22a257a35bdfd184e85f9006264c0",
+        "content_type": "text/javascript",
+        "source_path": "website/_astro/TableOfContents.astro_astro_type_script_index_0_lang.Csloo1VZ.js",
+        "source_sha256": "f1c9743eceea19c4cada60524019ee9214c22a257a35bdfd184e85f9006264c0"
+      },
+      {
+        "request_path": "/_astro/common.BUYbcTgA.css",
+        "url": "https://shardloom.io/_astro/common.BUYbcTgA.css",
+        "status": 200,
+        "redirected": false,
+        "bytes": 66308,
+        "sha256": "7a1194d3cceb6a933e43350cc661d8da7bf17a8edf844cb4d8e224c0527d29e0",
+        "content_type": "text/css",
+        "source_path": "website/_astro/common.BUYbcTgA.css",
+        "source_sha256": "7a1194d3cceb6a933e43350cc661d8da7bf17a8edf844cb4d8e224c0527d29e0"
+      },
+      {
+        "request_path": "/_astro/compute-flow.Bn1NQMYA.css",
+        "url": "https://shardloom.io/_astro/compute-flow.Bn1NQMYA.css",
+        "status": 200,
+        "redirected": false,
+        "bytes": 4882,
+        "sha256": "5d809c75f9f886b3a1bd3381a18eb63d4fce79a0e8ed4ef4dad368afb73c16d9",
+        "content_type": "text/css",
+        "source_path": "website/_astro/compute-flow.Bn1NQMYA.css",
+        "source_sha256": "5d809c75f9f886b3a1bd3381a18eb63d4fce79a0e8ed4ef4dad368afb73c16d9"
+      },
+      {
+        "request_path": "/_astro/ec.0vx5m.js",
+        "url": "https://shardloom.io/_astro/ec.0vx5m.js",
+        "status": 200,
+        "redirected": false,
+        "bytes": 2523,
+        "sha256": "182e98b9acfcfd358ea486967bd17dcaddd5930b8d092bc0653fd26ddbb11e37",
+        "content_type": "text/javascript",
+        "source_path": "website/_astro/ec.0vx5m.js",
+        "source_sha256": "182e98b9acfcfd358ea486967bd17dcaddd5930b8d092bc0653fd26ddbb11e37"
+      },
+      {
+        "request_path": "/_astro/ec.w36nc.css",
+        "url": "https://shardloom.io/_astro/ec.w36nc.css",
+        "status": 200,
+        "redirected": false,
+        "bytes": 18292,
+        "sha256": "1db272cd2e2bc5dfbc63c332f5d5f04bb4ba104065e894f951405e7bdddf5dcb",
+        "content_type": "text/css",
+        "source_path": "website/_astro/ec.w36nc.css",
+        "source_sha256": "1db272cd2e2bc5dfbc63c332f5d5f04bb4ba104065e894f951405e7bdddf5dcb"
+      },
+      {
+        "request_path": "/_astro/page.Dwipeu-R.js",
+        "url": "https://shardloom.io/_astro/page.Dwipeu-R.js",
+        "status": 200,
+        "redirected": false,
+        "bytes": 2486,
+        "sha256": "c99ac0eaf0068f03b4abe3a28b0a7bf0f28524b9dad3b23d77d54dfd453a62ae",
+        "content_type": "text/javascript",
+        "source_path": "website/_astro/page.Dwipeu-R.js",
+        "source_sha256": "c99ac0eaf0068f03b4abe3a28b0a7bf0f28524b9dad3b23d77d54dfd453a62ae"
+      },
+      {
+        "request_path": "/_astro/print.ehPL0gv-.css",
+        "url": "https://shardloom.io/_astro/print.ehPL0gv-.css",
+        "status": 200,
+        "redirected": false,
+        "bytes": 3318,
+        "sha256": "4d7d25c3d697e6d36e64afb9edef136e6d2e4c50f70a48000ca90f9b059e3622",
+        "content_type": "text/css",
+        "source_path": "website/_astro/print.ehPL0gv-.css",
+        "source_sha256": "4d7d25c3d697e6d36e64afb9edef136e6d2e4c50f70a48000ca90f9b059e3622"
+      },
+      {
+        "request_path": "/about",
+        "url": "https://shardloom.io/about",
+        "status": 200,
+        "redirected": false,
+        "bytes": 9135,
+        "sha256": "62f54dab2b0db5c83a62de7bc40ebdd88918952733435b9ee3491dbde8068c44",
+        "content_type": "text/html",
+        "source_path": "website/about/index.html",
+        "source_sha256": "62f54dab2b0db5c83a62de7bc40ebdd88918952733435b9ee3491dbde8068c44"
+      },
+      {
+        "request_path": "/assets/logo/shardloom-mark.svg",
+        "url": "https://shardloom.io/assets/logo/shardloom-mark.svg",
+        "status": 200,
+        "redirected": false,
+        "bytes": 415,
+        "sha256": "6107292413cb8e2f4d587c8425542d4724cb8b079fd23246bbcdd049c1377d54",
+        "content_type": "image/svg+xml",
+        "source_path": "website/assets/logo/shardloom-mark.svg",
+        "source_sha256": "6107292413cb8e2f4d587c8425542d4724cb8b079fd23246bbcdd049c1377d54"
+      },
+      {
+        "request_path": "/assets/parallax-home.css",
+        "url": "https://shardloom.io/assets/parallax-home.css",
+        "status": 200,
+        "redirected": false,
+        "bytes": 39622,
+        "sha256": "7d950df01a61f20868822724599f5036a1e49fbf3266b72b6b8b86b16fdd3c78",
+        "content_type": "text/css",
+        "source_path": "website/assets/parallax-home.css",
+        "source_sha256": "7d950df01a61f20868822724599f5036a1e49fbf3266b72b6b8b86b16fdd3c78"
+      },
+      {
+        "request_path": "/assets/parallax-home.js",
+        "url": "https://shardloom.io/assets/parallax-home.js",
+        "status": 200,
+        "redirected": false,
+        "bytes": 37071,
+        "sha256": "4ea871575efb720b5c1e39a3b743efe92faedd1298ee60cbb2fcc714ce81c42e",
+        "content_type": "text/javascript",
+        "source_path": "website/assets/parallax-home.js",
+        "source_sha256": "4ea871575efb720b5c1e39a3b743efe92faedd1298ee60cbb2fcc714ce81c42e"
+      },
+      {
+        "request_path": "/assets/site.css",
+        "url": "https://shardloom.io/assets/site.css",
+        "status": 200,
+        "redirected": false,
+        "bytes": 28812,
+        "sha256": "3af65a956216ff1ccac2afc49d5b6b140d207e9911222f9411a54cf6c3a7695f",
+        "content_type": "text/css",
+        "source_path": "website/assets/site.css",
+        "source_sha256": "3af65a956216ff1ccac2afc49d5b6b140d207e9911222f9411a54cf6c3a7695f"
+      },
+      {
+        "request_path": "/benchmarks",
+        "url": "https://shardloom.io/field-guide/benchmark-methodology/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 36371,
+        "sha256": "7e3fcf18ebb5f323e3f05f38ecec32daff975e870bf55ab831e6f8a175dda06f",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/benchmark-methodology/index.html",
+        "source_sha256": "7e3fcf18ebb5f323e3f05f38ecec32daff975e870bf55ab831e6f8a175dda06f"
+      },
+      {
+        "request_path": "/docs",
+        "url": "https://shardloom.io/field-guide",
+        "status": 200,
+        "redirected": true,
+        "bytes": 34079,
+        "sha256": "d8b15955158e0ae48c902629e79a498beb2c045599e1edce1f7ba58553c64762",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/index.html",
+        "source_sha256": "d8b15955158e0ae48c902629e79a498beb2c045599e1edce1f7ba58553c64762"
+      },
+      {
+        "request_path": "/field-guide",
+        "url": "https://shardloom.io/field-guide",
+        "status": 200,
+        "redirected": false,
+        "bytes": 34079,
+        "sha256": "d8b15955158e0ae48c902629e79a498beb2c045599e1edce1f7ba58553c64762",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/index.html",
+        "source_sha256": "d8b15955158e0ae48c902629e79a498beb2c045599e1edce1f7ba58553c64762"
+      },
+      {
+        "request_path": "/field-guide/benchmark-methodology",
+        "url": "https://shardloom.io/field-guide/benchmark-methodology/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 36371,
+        "sha256": "7e3fcf18ebb5f323e3f05f38ecec32daff975e870bf55ab831e6f8a175dda06f",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/benchmark-methodology/index.html",
+        "source_sha256": "7e3fcf18ebb5f323e3f05f38ecec32daff975e870bf55ab831e6f8a175dda06f"
+      },
+      {
+        "request_path": "/field-guide/cli",
+        "url": "https://shardloom.io/field-guide/cli/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 41860,
+        "sha256": "aeca9b96ae2e53f168358bfcd233af8d11691e96ad9aca63e17fef01e430d173",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/cli/index.html",
+        "source_sha256": "aeca9b96ae2e53f168358bfcd233af8d11691e96ad9aca63e17fef01e430d173"
+      },
+      {
+        "request_path": "/field-guide/compute-flow",
+        "url": "https://shardloom.io/field-guide/compute-flow/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 48760,
+        "sha256": "ee58f71e59b5ad8ee70116ba0921762a3ff9b44c93f3e9ec38fa92f89320f618",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/compute-flow/index.html",
+        "source_sha256": "ee58f71e59b5ad8ee70116ba0921762a3ff9b44c93f3e9ec38fa92f89320f618"
+      },
+      {
+        "request_path": "/field-guide/development",
+        "url": "https://shardloom.io/field-guide/development/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 47706,
+        "sha256": "73730115b44fdc903614e25685a1794a156e5c9e646ece3dace0e5a9562fd2de",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/development/index.html",
+        "source_sha256": "73730115b44fdc903614e25685a1794a156e5c9e646ece3dace0e5a9562fd2de"
+      },
+      {
+        "request_path": "/field-guide/embedding",
+        "url": "https://shardloom.io/field-guide/embedding/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 31288,
+        "sha256": "3039784058c57f22e71509e79d19013cf72385164c1119ee92ce615f7a6cd0ee",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/embedding/index.html",
+        "source_sha256": "3039784058c57f22e71509e79d19013cf72385164c1119ee92ce615f7a6cd0ee"
+      },
+      {
+        "request_path": "/field-guide/execution-model",
+        "url": "https://shardloom.io/field-guide/execution-model/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 37619,
+        "sha256": "d5bfca47370a3fde3f1ea721c31787263dbf8a94505d157c8ed8052d511ab9f1",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/execution-model/index.html",
+        "source_sha256": "d5bfca47370a3fde3f1ea721c31787263dbf8a94505d157c8ed8052d511ab9f1"
+      },
+      {
+        "request_path": "/field-guide/execution-routes",
+        "url": "https://shardloom.io/field-guide/execution-routes/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 37664,
+        "sha256": "f35f114d33dc15466ab8299257c00afda4206a1696f7832b076c1563a8416a6c",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/execution-routes/index.html",
+        "source_sha256": "f35f114d33dc15466ab8299257c00afda4206a1696f7832b076c1563a8416a6c"
+      },
+      {
+        "request_path": "/field-guide/limitations",
+        "url": "https://shardloom.io/field-guide/limitations/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 43218,
+        "sha256": "850ebe3bfc8ad6f44afc0813793a122dd2f17428440c2697585b4525dbc26bcc",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/limitations/index.html",
+        "source_sha256": "850ebe3bfc8ad6f44afc0813793a122dd2f17428440c2697585b4525dbc26bcc"
+      },
+      {
+        "request_path": "/field-guide/python-surface",
+        "url": "https://shardloom.io/field-guide/python-surface/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 44195,
+        "sha256": "dc3b3e8124607c803610abaecf9797fc1a1cbb5f523608f1119d86b4e885b376",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/python-surface/index.html",
+        "source_sha256": "dc3b3e8124607c803610abaecf9797fc1a1cbb5f523608f1119d86b4e885b376"
+      },
+      {
+        "request_path": "/field-guide/reference",
+        "url": "https://shardloom.io/field-guide/reference/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 28501,
+        "sha256": "5f999f9bb3c38940ae67ff81d93c3630ea75a713632b177d446e02bbb1f1cadb",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/reference/index.html",
+        "source_sha256": "5f999f9bb3c38940ae67ff81d93c3630ea75a713632b177d446e02bbb1f1cadb"
+      },
+      {
+        "request_path": "/field-guide/resources",
+        "url": "https://shardloom.io/field-guide/resources/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 35390,
+        "sha256": "bab38a9c392c7f1ce5f49b0dc52712e42873cb2a3e77d9ad59d312be95885fd4",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/resources/index.html",
+        "source_sha256": "bab38a9c392c7f1ce5f49b0dc52712e42873cb2a3e77d9ad59d312be95885fd4"
+      },
+      {
+        "request_path": "/field-guide/runtime-and-io",
+        "url": "https://shardloom.io/field-guide/runtime-and-io/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 41556,
+        "sha256": "960c82e685444a10b903b9f73070d488914e9d45b743ba5ab6756ef59207a3ed",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/runtime-and-io/index.html",
+        "source_sha256": "960c82e685444a10b903b9f73070d488914e9d45b743ba5ab6756ef59207a3ed"
+      },
+      {
+        "request_path": "/field-guide/sql",
+        "url": "https://shardloom.io/field-guide/sql/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 42391,
+        "sha256": "f1c1e1e15f2771c7b0767079c8f3f5d594f2fa64d4cb3a96f328bd4fdc32c590",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/sql/index.html",
+        "source_sha256": "f1c1e1e15f2771c7b0767079c8f3f5d594f2fa64d4cb3a96f328bd4fdc32c590"
+      },
+      {
+        "request_path": "/field-guide/start-local-proof",
+        "url": "https://shardloom.io/field-guide/start-local-proof/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 57698,
+        "sha256": "26f6e8a1ae6765f7e04fc7f7de37ff2cb88f74e0abd7ca590ce6f6702d924265",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/start-local-proof/index.html",
+        "source_sha256": "26f6e8a1ae6765f7e04fc7f7de37ff2cb88f74e0abd7ca590ce6f6702d924265"
+      },
+      {
+        "request_path": "/field-guide/troubleshooting",
+        "url": "https://shardloom.io/field-guide/troubleshooting/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 32219,
+        "sha256": "3a7e7bd3212cee2c532d3fd147fa2b42c7a917fb628980766ce623dcb5f68955",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/troubleshooting/index.html",
+        "source_sha256": "3a7e7bd3212cee2c532d3fd147fa2b42c7a917fb628980766ce623dcb5f68955"
+      },
+      {
+        "request_path": "/sitemap-index.xml",
+        "url": "https://shardloom.io/sitemap-index.xml",
+        "status": 200,
+        "redirected": false,
+        "bytes": 183,
+        "sha256": "10048fdd51b79b48658ffe4d9326439af50030b3525379d58a49154a3cf3bea8",
+        "content_type": "application/xml",
+        "source_path": "website/sitemap-index.xml",
+        "source_sha256": "10048fdd51b79b48658ffe4d9326439af50030b3525379d58a49154a3cf3bea8"
+      },
+      {
+        "request_path": "/start",
+        "url": "https://shardloom.io/field-guide/start-local-proof/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 57698,
+        "sha256": "26f6e8a1ae6765f7e04fc7f7de37ff2cb88f74e0abd7ca590ce6f6702d924265",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/start-local-proof/index.html",
+        "source_sha256": "26f6e8a1ae6765f7e04fc7f7de37ff2cb88f74e0abd7ca590ce6f6702d924265"
+      },
+      {
+        "request_path": "/status",
+        "url": "https://shardloom.io/field-guide/limitations/",
+        "status": 200,
+        "redirected": true,
+        "bytes": 43218,
+        "sha256": "850ebe3bfc8ad6f44afc0813793a122dd2f17428440c2697585b4525dbc26bcc",
+        "content_type": "text/html",
+        "source_path": "website/field-guide/limitations/index.html",
+        "source_sha256": "850ebe3bfc8ad6f44afc0813793a122dd2f17428440c2697585b4525dbc26bcc"
+      }
+    ],
+    "external_links_not_fetched_by_this_check": [
+      "https://benchmark.clickhouse.com/",
+      "https://files.pythonhosted.org/packages/0c/74/ba0901806b1967db1e7c4e81b7ffe71c96be9518ef17e8a17898b41d1a09/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "https://files.pythonhosted.org/packages/3f/63/55235cb72a08c4b8094d83ea846687366c0a77edda943a4f3ed08d4cd6c9/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+      "https://files.pythonhosted.org/packages/ed/bb/418e2c9424bedca482ea19bc374f0ea685c29dc84890d1ddb032246cb650/shardloom-0.7.0-cp313-cp313-win_amd64.whl",
+      "https://github.com/depsilon/shardloom",
+      "https://github.com/depsilon/shardloom/blob/main/README.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-completed-ledger.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/pulseweave-runtime-control.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-workflow-completion-2026-10-01.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding",
+      "https://github.com/depsilon/shardloom/blob/main/docs/getting-started/troubleshooting-support.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/reference/python-api-migration.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.json",
+      "https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/local-source-rehearsal.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/package-channel-readiness-matrix.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-publication-verification.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-release-notes.md",
+      "https://github.com/depsilon/shardloom/blob/main/docs/release/v1-local-source-package-release.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-nested-pivot-state-2026-10-06.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-scalar-subqueries-2026-10-05.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-typed-expressions-2026-10-03.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-unary-composition-2026-10-02.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/required-execution-resources-2026-10-10.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/sql-parser-binder-readiness.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/v1-local-output-sink-scope.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/reference/native-query-spill.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/docs/reference/resident-native-results.md",
+      "https://github.com/depsilon/shardloom/blob/v0.7.0/python/src/shardloom/native.py",
+      "https://github.com/depsilon/shardloom/issues",
+      "https://github.com/depsilon/shardloom/tree/6780e7df564c55f3e256822be1d0383cfabff0c9",
+      "https://github.com/depsilon/shardloom/tree/7ae9f0e44ddf3c8f09520fe318852cd873db3817",
+      "https://github.com/depsilon/shardloom/tree/main/docs/benchmarks",
+      "https://github.com/depsilon/shardloom/tree/main/docs/release",
+      "https://github.com/depsilon/shardloom/tree/main/docs/rfcs",
+      "https://github.com/depsilon/shardloom/tree/main/docs/status"
+    ],
+    "blockers": [],
+    "read_only": true,
+    "browser_session": "release070prod",
+    "raw_browser_log_sha256": "79d4036e5ad7d879e6653fb3a6d69bfa4a1a697925c09d16fb58638419b72d2f",
+    "observer_sha256": "c4ce29097d68553a9d7e3ccce5d713f453c6ce5eb0c5a7574ca7574215db2905",
+    "browser_program_sha256": "327e77b5e805ddba2be7c07a81cc4520144041e159527a0018b700828f8665e4"
+  },
+  "repository_link_readback": {
+    "distinct_links": 28,
+    "occurrences": 33,
+    "source_files": 18,
+    "file_and_blob_checks": "passed",
+    "two_heading_fragments": "passed",
+    "remote_http_check_claimed": false
+  },
+  "retained_history": [
+    "The first production fetch returned all HTTP 200 responses but 22 HTML byte identities differed while 14 assets matched. It was not accepted. The later unchanged observer passed every resource without normalization.",
+    "The original hosted receipt reported a shadowed local variable as the check-name list. All 44 exact checks had been validated before that reporting error. The corrected retrospective readback preserves the original receipt, rechecks exact Git objects and raw logs, and records the complete names."
+  ],
+  "production_console_observation": "Navigation blocked the optional Cloudflare analytics beacon under the existing script-src policy. No first-party runtime error was observed in those inspections; no zero-console-error production claim is made.",
+  "raw_packet": {
+    "path": "docs/release/evidence/v0.7.0-documentation-public-site-2026-10-22.json.xz",
+    "bytes": 257228,
+    "sha256": "37fde721a8731afe49c0c7ccb37aa674b34bbb6968fd7cab0593d4662487a07f",
+    "member_count": 32,
+    "all_members_reopened_and_byte_verified": true
+  },
+  "claim_boundary": "Selected-channel technical-preview documentation and website verification only. This is not production certification, performance evidence, Windows native runtime parity, or authorization for another release.",
+  "new_package_build_or_publication": false
+}
