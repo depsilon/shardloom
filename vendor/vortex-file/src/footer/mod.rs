@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit parsed segment tables and preserve
+// segment and metadata owners through footer/source aliases. See upstream-provenance.json.
 
 //! Vortex file footer metadata.
 //!
@@ -11,6 +13,7 @@
 mod field_sizes;
 mod file_layout;
 mod file_statistics;
+mod metadata;
 mod postscript;
 mod segment;
 
@@ -23,7 +26,7 @@ pub use deserializer::*;
 pub use field_sizes::CompressedFieldSizes;
 pub use file_statistics::FileStatistics;
 use flatbuffers::root;
-use itertools::Itertools;
+pub(crate) use metadata::MetadataSegments;
 pub use segment::*;
 use vortex_array::ArrayId;
 use vortex_array::dtype::DType;
@@ -39,6 +42,8 @@ use vortex_layout::layout_from_flatbuffer_with_options;
 use vortex_session::VortexSession;
 use vortex_session::registry::ReadContext;
 
+use crate::segments::SourceSegments;
+
 /// Maximum number of user-defined metadata segments. Keeps postscript bookkeeping small so the
 /// footer and required segments still fit the initial tail read.
 pub(crate) const MAX_METADATA_SEGMENTS: usize = 16;
@@ -50,16 +55,13 @@ pub(crate) const MAX_METADATA_SEGMENTS: usize = 16;
 /// file. With [`MAX_METADATA_SEGMENTS`] keys this bounds the postscript key budget at 1 KiB.
 pub(crate) const MAX_METADATA_KEY_BYTES: usize = 64;
 
-/// User-defined metadata segment locators stored as `(key, locator)` pairs.
-pub(crate) type MetadataSegments = Arc<[(String, SegmentSpec)]>;
-
 /// Captures the layout information of a Vortex file.
 #[derive(Debug, Clone)]
 pub struct Footer {
     root_layout: LayoutRef,
-    segments: Arc<[SegmentSpec]>,
+    segments: SegmentMap,
     statistics: Option<FileStatistics>,
-    metadata: Arc<[(String, SegmentSpec)]>,
+    metadata: MetadataSegments,
     // The specific arrays used within the file, in the order they were registered.
     array_read_ctx: ReadContext,
     // The approximate size of the footer in bytes, used for caching and memory management.
@@ -67,6 +69,10 @@ pub struct Footer {
 }
 
 impl Footer {
+    /// Construct a footer from caller-owned segment storage.
+    ///
+    /// Existing storage retains its original owner; this constructor does not
+    /// retroactively admit it through a session allocator.
     pub fn new(
         root_layout: LayoutRef,
         segments: Arc<[SegmentSpec]>,
@@ -75,9 +81,9 @@ impl Footer {
     ) -> Self {
         Self {
             root_layout,
-            segments,
+            segments: segments.into(),
             statistics,
-            metadata: Arc::from([]),
+            metadata: MetadataSegments::default(),
             array_read_ctx,
             approx_byte_size: None,
         }
@@ -94,7 +100,7 @@ impl Footer {
         layout_bytes: FlatBuffer,
         dtype: DType,
         statistics: Option<FileStatistics>,
-        metadata: Arc<[(String, SegmentSpec)]>,
+        metadata: MetadataSegments,
         session: &VortexSession,
     ) -> VortexResult<Self> {
         let metadata_bytes: usize = metadata
@@ -133,12 +139,14 @@ impl Footer {
             session.allows_unknown(),
         )?;
 
-        let segments: Arc<[SegmentSpec]> = fb_footer
+        let segment_specs = fb_footer
             .segment_specs()
-            .ok_or_else(|| vortex_err!("FileLayout missing segment specs"))?
-            .iter()
-            .map(SegmentSpec::try_from)
-            .try_collect()?;
+            .ok_or_else(|| vortex_err!("FileLayout missing segment specs"))?;
+        let segments = SegmentMap::try_from_fn(
+            segment_specs.len(),
+            |index| SegmentSpec::try_from(segment_specs.get(index)),
+            session,
+        )?;
 
         // Note this assertion is `<=` since we allow zero-length segments
         if !segments.is_sorted_by_key(|segment| segment.offset) {
@@ -160,8 +168,9 @@ impl Footer {
         &self.root_layout
     }
 
-    /// Returns the segment map of the file.
-    pub fn segment_map(&self) -> &Arc<[SegmentSpec]> {
+    /// Returns the segment map of the file. Cloning the handle retains its
+    /// storage and, for parsed tables, its allocator reservation.
+    pub fn segment_map(&self) -> &SegmentMap {
         &self.segments
     }
 
@@ -184,17 +193,16 @@ impl Footer {
             .find_map(|(candidate, segment)| (candidate == key).then_some(segment))
     }
 
-    pub(crate) fn with_metadata_segments(mut self, metadata: Arc<[(String, SegmentSpec)]>) -> Self {
+    pub(crate) fn with_metadata_segments(mut self, metadata: MetadataSegments) -> Self {
         self.metadata = metadata;
         self
     }
 
-    pub(crate) fn segment_specs_with_metadata(&self) -> Arc<[SegmentSpec]> {
-        self.segments
-            .iter()
-            .copied()
-            .chain(self.metadata.iter().map(|(_, segment)| *segment))
-            .collect()
+    pub(crate) fn segment_specs_with_metadata(&self) -> SourceSegments {
+        SourceSegments::new(
+            self.segments.clone(),
+            (!self.metadata.is_empty()).then(|| self.metadata.clone()),
+        )
     }
 
     /// Computes the compressed size in bytes of every field in the file, keyed by field path.

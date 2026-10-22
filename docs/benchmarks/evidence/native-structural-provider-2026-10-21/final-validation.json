@@ -1,0 +1,102 @@
+{
+  "code_commit": "89da798f949aaa83705491e1cf711e3e0d6ae9c5",
+  "compiled_or_benchmark_work_repeated": false,
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "relative_links": 2,
+      "sha256": "81bd44bf1fca50fcbad6dc16151b3ad242f6961f0187712bb6e2579435818d57"
+    },
+    {
+      "path": "docs/architecture/local-development-storage.md",
+      "relative_links": 35,
+      "sha256": "3ba065c7706f8710fac3ce9b9deb87b5d985a22c6a2031e8a0fb298d7b0503e8"
+    },
+    {
+      "path": "docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "relative_links": 30,
+      "sha256": "778047d6df4114426f7869916b022074fa4a275316aee849c372307fb9616ef1"
+    },
+    {
+      "path": "docs/architecture/native-pgo-prerequisite-decision-2026-10-20.md",
+      "relative_links": 6,
+      "sha256": "79d1230cf422712dcb7edfec7eed6883aae85c3b91746f48884d1291693a5143"
+    },
+    {
+      "path": "docs/architecture/native-prepared-sampling-decision-2026-10-21.md",
+      "relative_links": 7,
+      "sha256": "8b6ea5f1f95d0731c785743d920931e345926a9834037f7cf57193b50b939674"
+    },
+    {
+      "path": "docs/architecture/native-prepared-sampling-pr-acceptance-2026-10-21.md",
+      "relative_links": 3,
+      "sha256": "bd1b1b7da44d71b79bac3cabd830aeabd91448840cfd2df61dabb35c6ffe328c"
+    },
+    {
+      "path": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+      "relative_links": 6,
+      "sha256": "c20c4d54e01d5c47c39b843cefdf25e349bd5783f63e7ff90ca2448c5b9b09bc"
+    },
+    {
+      "path": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "relative_links": 26,
+      "sha256": "6cd972c0258e0c4bf093fca2455124a06aee7afe8bc71fb795e19b7397cf1203"
+    },
+    {
+      "path": "docs/architecture/native-structural-provider-acceptance-2026-10-21.md",
+      "relative_links": 4,
+      "sha256": "72bd3e7bfa7bbff66dc7d19ccf96641f97878b8599ae421e6fc928e87664132c"
+    },
+    {
+      "path": "docs/architecture/native-structural-provider-ownership-2026-10-21.md",
+      "relative_links": 3,
+      "sha256": "eee1c65445d3abf2b0641de0b8a5728534bc43464edaebe7c2d3e68985e4ef9f"
+    },
+    {
+      "path": "docs/architecture/phased-execution-completed-ledger.md",
+      "relative_links": 223,
+      "sha256": "690bdecfb308a00a6d23e5eef4d4232923b74c27fc06bef59f20ac70bc049524"
+    },
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "relative_links": 76,
+      "sha256": "60aebbd8e57f51fc17cee51dff7f5a85e146b51496c7f43ed50956ce76fd1b8f"
+    },
+    {
+      "path": "docs/benchmarks/evidence/native-structural-provider-2026-10-21/README.md",
+      "relative_links": 10,
+      "sha256": "04f0a068dd3fb03e3e16f1d098ab1c81ddb87eea5a9445a5c7aa826b1640f04d"
+    },
+    {
+      "path": "docs/release/known-unsupported-paths.md",
+      "relative_links": 1,
+      "sha256": "d4b55b7977f45e42036002fa6b289e4d990cafe4ce4b290da7fb670b8810c48c"
+    },
+    {
+      "path": "docs/release/v1-inclusion-scope-matrix.md",
+      "relative_links": 143,
+      "sha256": "a871d43bc26b1cf3d7aad4d477caf6f9b75b0e3188be63316748493b59e54ad6"
+    },
+    {
+      "path": "docs/skills/benchmarking.md",
+      "relative_links": 2,
+      "sha256": "09eaab8ed926a8528f464fe90a081d0546d5b4703696045aa4edd1a6f5a6b12d"
+    },
+    {
+      "path": "vendor/vortex-file/README.shardloom.md",
+      "relative_links": 0,
+      "sha256": "3a04a181483a1cf9b58746465bdf7253118693988f358eb9229b842b96619609"
+    },
+    {
+      "path": "vendor/vortex-layout/README.shardloom.md",
+      "relative_links": 0,
+      "sha256": "2c6fbc57a6517774fdd7dcb34f0d475f32a591ce11b7b3ad40d1d80ffbc1e8e6"
+    }
+  ],
+  "link_failures": [],
+  "modular_cohorts": 18,
+  "relative_links_checked": 577,
+  "semantic_corruptions_rejected": 21,
+  "source_files_unchanged": 2594,
+  "status": "passed"
+}

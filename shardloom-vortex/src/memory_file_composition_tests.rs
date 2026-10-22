@@ -525,6 +525,14 @@ fn composition_prepared_distinct_spill_retains_memory_source_and_cleans_each_cal
                 .expect("explicit fixture allocation"),
         )
         .unwrap();
+    let segment_requests = generation.evidence().memory_segment_requests;
+    crate::native_provider_memory::materialize_file_metadata_for_test(
+        generation.retained_source().file(),
+    );
+    assert_eq!(
+        generation.evidence().memory_segment_requests,
+        segment_requests
+    );
     drop(generation);
     drop(session);
     let retained = memory.snapshot().reserved_bytes;

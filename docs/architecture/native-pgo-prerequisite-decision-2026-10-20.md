@@ -8,6 +8,16 @@ by its [verification contract](native-roadmap-verification-contracts-2026-10-18.
 The substep and broader owner remain open. Portable ThinLTO remains the release
 default; this review changes no compiler profile or runtime behavior.
 
+The latest October 21 maintainer decision schedules current-source profiling
+after required competitive gaps and before the four pending investigations.
+PGO is fourth, after ordered candidates, preparation design and topology
+comparison, and still requires a material cost signal before training. Optional
+breadth is last and may never be implemented. See the
+[canonical sequence](phased-execution-plan.md#competitive-prerequisites-and-four-investigations).
+Use the resulting source identity for attribution and refresh it when an
+accepted change affects the selected paths. This adds no roadmap ID and does
+not change historical evidence or promote a compiler profile.
+
 ## What the existing records establish
 
 The [September compiler screen](compiler-profile-screen-2026-09-27.md) did run a
@@ -72,10 +82,10 @@ profiles. Require complete query/ingest and pressure controls, portable-package
 correctness and measured compilation/training/transfer break-even. Cached build
 observations from the previous screen do not establish that break-even.
 
-The required native breadth can change those paths; its later source must be
-attributed on its own identity before reopening. This is a specific missing
-prerequisite, not a compiler/tool-availability failure, a newly rejected PGO
-candidate or permission to drop the broader optimization obligation.
+Accepted changes can alter those paths; attribute the actual source identity
+before reopening. This is a specific missing prerequisite, not a compiler/tool
+availability failure or a newly rejected PGO candidate. Optional breadth need
+not be implemented before this scheduled investigation.
 
 ## Evidence
 

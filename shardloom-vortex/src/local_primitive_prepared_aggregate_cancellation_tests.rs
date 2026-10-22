@@ -134,6 +134,11 @@ fn prepared_parent_cancellation_during_memory_scan_releases_attempt_and_allows_f
         .clone()
         .with_segment_source(wrapped.clone());
     prepared.source = PreparedAggregateSource::File(session.prepare_immutable_file(file));
+    crate::native_provider_memory::materialize_file_metadata_for_test(
+        prepared.source.file().unwrap().file(),
+    );
+    assert_eq!(wrapped.requests.load(Ordering::Acquire), 0);
+    assert!(!wrapped.fired.load(Ordering::Acquire));
     let retained = memory.snapshot().reserved_bytes;
     let error = prepared
         .execute_cancellable(&parent)
@@ -187,6 +192,14 @@ fn prepared_cache_pressure_replay_does_not_cancel_the_live_parent_scope() {
         "repeated filter-only field must admit segment reuse"
     );
     let parent = CancellationToken::default();
+    let segment_requests = generation.evidence().memory_segment_requests;
+    crate::native_provider_memory::materialize_file_metadata_for_test(
+        prepared.source.file().unwrap().file(),
+    );
+    assert_eq!(
+        generation.evidence().memory_segment_requests,
+        segment_requests
+    );
     let retained = memory.snapshot().reserved_bytes;
     for (index, pressure) in [false, true, false].into_iter().enumerate() {
         SOURCE_SCAN_TEST_FAULT

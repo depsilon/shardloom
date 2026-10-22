@@ -164,10 +164,11 @@ four comparison-inventory/count cases. These checks execute no native query.
 Five release-scope inspections retain their existing blockers. No package is
 published, version bumped or release authorized. Hosted/cross-platform,
 upgrade/rollback, broader sampling and resource recovery, and CG-1 through CG-23
-remain separate obligations. With the finite investigation closed, the next
-authorized work is the 37 required breadth substeps, starting with the concrete
-PERF-03 ownership and bounded scheduling gaps in the authoritative
-[phase plan](phased-execution-plan.md).
+retain their scoped gates. This finite result does not require all later
+breadth. The subsequent October 21 scope decision supersedes the former blanket
+37-required classification: required comparative gaps and queued investigations
+precede optional breadth, which may never be implemented. Follow the
+authoritative [phase plan](phased-execution-plan.md).
 
 The subsequent [current-PR integration](native-prepared-sampling-pr-acceptance-2026-10-21.md)
 passes fresh correctness and all 118 normal installed-package tests with the

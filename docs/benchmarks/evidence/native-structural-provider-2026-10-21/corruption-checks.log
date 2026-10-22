@@ -1,0 +1,43 @@
+{"case": "source-closure-omission", "status": "checking"}
+{"name": "source-closure-omission", "status": "rejected", "diagnostic": "source closure incomplete"}
+{"case": "required-native-gate-omission", "status": "checking"}
+{"name": "required-native-gate-omission", "status": "rejected", "diagnostic": "required gate missing"}
+{"case": "notice-only-bridge-denial", "status": "checking"}
+{"name": "notice-only-bridge-denial", "status": "rejected", "diagnostic": "notice source bridge changed"}
+{"case": "cleanup-original-test-substitution", "status": "checking"}
+{"name": "cleanup-original-test-substitution", "status": "rejected", "diagnostic": "unrelated CLI test changed"}
+{"case": "missing-process-drain", "status": "checking"}
+{"name": "missing-process-drain", "status": "rejected", "diagnostic": "guard did not drain"}
+{"case": "wheel-test-omission", "status": "checking"}
+{"name": "wheel-test-omission", "status": "rejected", "diagnostic": "installed proof incomplete"}
+{"case": "public-case-omission", "status": "checking"}
+{"name": "public-case-omission", "status": "rejected", "diagnostic": "public coverage incomplete"}
+{"case": "full43-query-duplicate", "status": "checking"}
+{"name": "full43-query-duplicate", "status": "rejected", "diagnostic": "Full43 query omitted or duplicated"}
+{"case": "full43-resource-substitution", "status": "checking"}
+{"name": "full43-resource-substitution", "status": "rejected", "diagnostic": "Full43 resources changed"}
+{"case": "full43-clock-substitution", "status": "checking"}
+{"name": "full43-clock-substitution", "status": "rejected", "diagnostic": "Full43 clock changed"}
+{"case": "full43-complete-value-substitution", "status": "checking"}
+{"name": "full43-complete-value-substitution", "status": "rejected", "diagnostic": "Full43 values changed"}
+{"case": "private-package-origin-substitution", "status": "checking"}
+{"name": "private-package-origin-substitution", "status": "rejected", "diagnostic": "private package copy changed"}
+{"case": "historical-failure-omission", "status": "checking"}
+{"name": "historical-failure-omission", "status": "rejected", "diagnostic": "historical record omitted"}
+{"case": "timing-history-omission", "status": "checking"}
+{"name": "timing-history-omission", "status": "rejected", "diagnostic": "timing history omitted"}
+{"case": "targeted-group-omission", "status": "checking"}
+{"name": "targeted-group-omission", "status": "rejected", "diagnostic": "timing group omitted or reordered"}
+{"case": "targeted-full43-mislabel", "status": "checking"}
+{"name": "targeted-full43-mislabel", "status": "rejected", "diagnostic": "targeted result mislabeled Full43"}
+{"case": "isolated-clock-substitution", "status": "checking"}
+{"name": "isolated-clock-substitution", "status": "rejected", "diagnostic": "Full43 clock changed"}
+{"case": "isolated-workload-substitution", "status": "checking"}
+{"name": "isolated-workload-substitution", "status": "rejected", "diagnostic": "isolated run scope changed"}
+{"case": "isolated-cleanup-denial", "status": "checking"}
+{"name": "isolated-cleanup-denial", "status": "rejected", "diagnostic": "isolated cleanup or identity failed"}
+{"case": "diagnostic-ratio-substitution", "status": "checking"}
+{"name": "diagnostic-ratio-substitution", "status": "rejected", "diagnostic": "comparison ratio changed"}
+{"case": "new-native-regression-omission", "status": "checking"}
+{"name": "new-native-regression-omission", "status": "rejected", "diagnostic": "new native test did not pass: native_structural_metadata_layout_cache_requires_admission_before_construction"}
+{"status": "passed", "rejected": 21}

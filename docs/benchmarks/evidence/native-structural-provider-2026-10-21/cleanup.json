@@ -1,0 +1,97 @@
+{
+  "active_handles_found": false,
+  "copied_packet_replay": {
+    "bytes": 2557,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-structural-provider-2026-10-21/replay.json",
+    "sha256": "e850881b7f4fdea77444cbd356f6835a1d6f5bf36d5505830e42a3839eef4481"
+  },
+  "helper": {
+    "bytes": 6942,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/retire_structural_outputs_889.py",
+    "sha256": "d11d970fd8ce02c197b8c67e9d0b16f69322ad308946465797cd1224aa9856e7"
+  },
+  "inventory": {
+    "bytes": 1497852,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-structural-provider-2026-10-21/cleanup-inventory.json.xz",
+    "sha256": "586430ee6ee752bd41dc0280c23faa93dfb4722ca68897b117027a4049707fe3"
+  },
+  "negative_controls": {
+    "bytes": 3378,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-structural-provider-2026-10-21/corruption-checks.json",
+    "sha256": "dfa1c2ae6e92094d2c89bd14f9c5fa7d40ce87e12892427e1a86b42c4f02f3c1"
+  },
+  "original_parquet_and_current_vortex_input_untouched": true,
+  "payload_backups_created": false,
+  "retained_runtime_and_wheel": [
+    {
+      "bytes": 76347552,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/structural-pr-883-r3-r2/shardloom",
+      "sha256": "b2d254b922a11abb235470a49e5d05e3423939f2e0af1e4430abd412d912d639"
+    },
+    {
+      "bytes": 76236480,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/structural-pr-883-r3-r2/native/_native.abi3.so",
+      "sha256": "51a56ca7341fb4549afc476d287718a48132e29c31a596f82281678514d45929"
+    },
+    {
+      "bytes": 49863021,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-wheel-884/dist/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "sha256": "cb8f05fa1582c3bda86aa53f93743fedc188b57ae03f10f1531e44682cc3b6ff"
+    }
+  ],
+  "retired_entries": 39022,
+  "retired_regular_bytes": 2951216051,
+  "roots": [
+    {
+      "bytes": 1812775085,
+      "entries": 19579,
+      "packet_records": 16658,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-public-883",
+      "symlinks": 0
+    },
+    {
+      "bytes": 281760221,
+      "entries": 12715,
+      "packet_records": 11657,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-matrix-883",
+      "symlinks": 0
+    },
+    {
+      "bytes": 250258040,
+      "entries": 4620,
+      "packet_records": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-workflow-environment-883",
+      "symlinks": 0
+    },
+    {
+      "bytes": 312144606,
+      "entries": 384,
+      "packet_records": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-wheel-884/package",
+      "symlinks": 0
+    },
+    {
+      "bytes": 141749059,
+      "entries": 1722,
+      "packet_records": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-wheel-884/venv",
+      "symlinks": 3
+    },
+    {
+      "bytes": 152529040,
+      "entries": 2,
+      "packet_records": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/prepared-sampling-pr-870",
+      "symlinks": 0
+    }
+  ],
+  "runtime_or_benchmark_executed": false,
+  "schema": "shardloom.structural_retirement.v1",
+  "status": "passed",
+  "verified_packet": {
+    "bytes": 41156952,
+    "file": "acceptance.json.xz",
+    "members": 29659,
+    "sha256": "37828a873a3c4447e67a84721986f9eb9577a324e9ee32704124c02752e472e4"
+  }
+}

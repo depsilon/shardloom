@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit lazy reader-cache and per-child
+// metadata vectors before their construction.
 
 use std::ops::BitAnd;
 use std::ops::Range;
@@ -16,6 +18,7 @@ use vortex_array::expr::BoundExpression;
 use vortex_buffer::BitBufferMut;
 use vortex_error::VortexError;
 use vortex_error::VortexResult;
+use vortex_error::vortex_err;
 use vortex_mask::Mask;
 use vortex_session::VortexSession;
 
@@ -51,17 +54,22 @@ impl ZonedReader {
     where
         V: VTable<LayoutData = ZonedData>,
     {
-        let aggregate_fns = layout.aggregate_fns();
-        let dtypes = vec![layout.dtype().clone(), layout.stats_table_dtype.clone()];
-        let names = vec![Arc::clone(&name), format!("{}.zones", name).into()];
-        let lazy_children = Arc::new(LazyReaderChildren::new(
+        let lazy_children = Arc::new(LazyReaderChildren::try_new_with_metadata(
             Arc::clone(layout.children()),
-            dtypes,
-            names,
+            2,
+            |index| match index {
+                0 => Ok((layout.dtype().clone(), Arc::clone(&name))),
+                1 => Ok((
+                    layout.stats_table_dtype.clone(),
+                    format!("{}.zones", name).into(),
+                )),
+                _ => Err(vortex_err!("Invalid zoned reader child index: {index}")),
+            },
             Arc::clone(&segment_source),
             session.clone(),
             ctx,
-        ));
+        )?);
+        let aggregate_fns = layout.aggregate_fns();
         let dtype = layout.dtype().clone();
         let row_count = layout.row_count();
         let zone_len = layout.zone_len;

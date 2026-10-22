@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: propagate structural cache admission errors.
 
 use std::env;
 use std::sync::LazyLock;
@@ -89,7 +90,7 @@ pub fn layout_from_flatbuffer_with_options(
             allow_unknown,
             session.clone(),
         )
-    };
+    }?;
 
     let build_ctx = LayoutBuildContext {
         session,

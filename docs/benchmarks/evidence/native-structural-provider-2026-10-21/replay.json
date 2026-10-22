@@ -1,0 +1,100 @@
+{
+  "broader_perf03_complete": false,
+  "cli_tests": 1091,
+  "core_gates": {
+    "file-statistics-vendor-layout-clippy-880": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 0,
+      "targets": 0
+    },
+    "file-statistics-vendor-layout-tests-880": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 249,
+      "targets": 1
+    },
+    "metadata-locators-minimal-native-880": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 0,
+      "targets": 0
+    },
+    "metadata-locators-native-clippy-880": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 0,
+      "targets": 0
+    },
+    "metadata-locators-native-release-880": {
+      "failed": 0,
+      "ignored": 31,
+      "passed": 3176,
+      "targets": 13
+    },
+    "metadata-locators-vendor-clippy-880-r2": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 0,
+      "targets": 0
+    },
+    "metadata-locators-workspace-clippy-880": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 0,
+      "targets": 0
+    },
+    "metadata-locators-workspace-tests-880": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3235,
+      "targets": 107
+    }
+  },
+  "diagnostic_comparison_calls": 86,
+  "diagnostic_targeted_calls": 20,
+  "full43_complete_rows": 381,
+  "full43_engine_execution_seconds": "112.675662535",
+  "full43_queries": 43,
+  "guarded_passed_runs": 74,
+  "independent_oracle_workflows": 704,
+  "installed_tests": 118,
+  "isolated_full43_engine_seconds": "49.990920425",
+  "isolated_full43_queries": 43,
+  "members": 29659,
+  "modular_payload_calls_replayed": 1780,
+  "modular_records": 1408,
+  "native_execution_performed": false,
+  "native_ignored": 31,
+  "native_tests": 3176,
+  "native_workflows": 704,
+  "new_native_tests": 69,
+  "payload_residency_revalidated": false,
+  "performance_claim": false,
+  "preserved_failed_runs": 27,
+  "preserved_timing_observations": {
+    "comparison": {
+      "candidate-a": "58.538535004",
+      "control-a": "99.840589744"
+    },
+    "isolated": "49.990920425",
+    "targeted": {
+      "candidate-a": "6.727012876",
+      "candidate-b": "6.623288208",
+      "control-a": "10.41286483",
+      "control-b": "6.495783538"
+    }
+  },
+  "private_package_files": 4507,
+  "public_cases": 5930,
+  "public_envelopes": 8151,
+  "public_families": 39,
+  "publication_attempted": false,
+  "source_commit": "89da798f949aaa83705491e1cf711e3e0d6ae9c5",
+  "source_files": 2594,
+  "status": "passed",
+  "timing_variation_cause_established": false,
+  "vendor_file_tests": 145,
+  "vendor_layout_tests": 249,
+  "workspace_tests": 3235
+}

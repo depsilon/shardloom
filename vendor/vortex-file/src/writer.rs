@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit both native file-statistics tables
+// before lazily producing entries from the existing accumulator, and pass the
+// receiving session to metadata name/locator construction.
 
 use std::io;
 use std::io::Write;
@@ -35,6 +38,7 @@ use vortex_error::VortexError;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_io::IoBuf;
 use vortex_io::VortexWrite;
@@ -292,10 +296,29 @@ impl VortexWriteOptions {
         let statistics = if self.file_statistics.is_empty() {
             None
         } else {
-            Some(FileStatistics::new_with_dtype(
-                file_stats.stats_sets().into(),
-                &dtype,
-            ))
+            let mut stats = file_stats.stats_sets_iter();
+            let count = dtype
+                .as_struct_fields_opt()
+                .map_or(1, |fields| fields.nfields());
+            vortex_ensure_eq!(stats.len(), count);
+            Some(FileStatistics::try_from_fn(
+                count,
+                |index| {
+                    let stats = stats.next().ok_or_else(|| {
+                        vortex_err!("Missing accumulated file statistics at {index}")
+                    })?;
+                    let field_dtype = match &dtype {
+                        DType::Struct(fields, _) => {
+                            fields.field_by_index(index).ok_or_else(|| {
+                                vortex_err!("Missing file statistics field type at {index}")
+                            })?
+                        }
+                        dtype => dtype.clone(),
+                    };
+                    Ok((stats, field_dtype))
+                },
+                &self.session,
+            )?)
         };
         let mut footer = Footer::new(
             Arc::clone(&layout),
@@ -312,7 +335,7 @@ impl VortexWriteOptions {
             .with_metadata_segments(self.metadata)
             .with_offset(position)
             .with_exclude_dtype(self.exclude_dtype)
-            .serialize_with_metadata()?;
+            .serialize_with_metadata(Some(&self.session))?;
         footer = footer
             .with_metadata_segments(metadata)
             .with_approx_byte_size(approx_byte_size);

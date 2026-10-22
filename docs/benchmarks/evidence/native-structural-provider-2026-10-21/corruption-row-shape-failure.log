@@ -1,0 +1,38 @@
+{"case": "source-closure-omission", "status": "checking"}
+{"name": "source-closure-omission", "status": "rejected", "diagnostic": "source closure incomplete"}
+{"case": "required-native-gate-omission", "status": "checking"}
+{"name": "required-native-gate-omission", "status": "rejected", "diagnostic": "required gate missing"}
+{"case": "notice-only-bridge-denial", "status": "checking"}
+{"name": "notice-only-bridge-denial", "status": "rejected", "diagnostic": "notice source bridge changed"}
+{"case": "cleanup-original-test-substitution", "status": "checking"}
+{"name": "cleanup-original-test-substitution", "status": "rejected", "diagnostic": "unrelated CLI test changed"}
+{"case": "missing-process-drain", "status": "checking"}
+{"name": "missing-process-drain", "status": "rejected", "diagnostic": "guard did not drain"}
+{"case": "wheel-test-omission", "status": "checking"}
+{"name": "wheel-test-omission", "status": "rejected", "diagnostic": "installed proof incomplete"}
+{"case": "public-case-omission", "status": "checking"}
+{"name": "public-case-omission", "status": "rejected", "diagnostic": "public coverage incomplete"}
+{"case": "full43-query-duplicate", "status": "checking"}
+{"name": "full43-query-duplicate", "status": "rejected", "diagnostic": "Full43 query omitted or duplicated"}
+{"case": "full43-resource-substitution", "status": "checking"}
+{"name": "full43-resource-substitution", "status": "rejected", "diagnostic": "Full43 resources changed"}
+{"case": "full43-clock-substitution", "status": "checking"}
+{"name": "full43-clock-substitution", "status": "rejected", "diagnostic": "Full43 clock changed"}
+{"case": "full43-complete-value-substitution", "status": "checking"}
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 245, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 222, in main
+    change(candidate)
+    ~~~~~~^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 161, in <lambda>
+    cases.append((name, lambda candidate: mutate_json(candidate, path, change), expected))
+                                          ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 129, in mutate_json
+    change(value)
+    ~~~~~~^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 185, in corrupt_reference
+    row['values'][0][0] += 1
+    ~~~~~~~~~~~~~~~~^^^
+KeyError: 0

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit shared layout-child cache storage
+// before allocation and retain its reservation with the final cache owner.
 
+use std::alloc::Layout as AllocationLayout;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
@@ -9,6 +12,8 @@ use flatbuffers::Follow;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use vortex_array::dtype::DType;
+use vortex_array::memory::HostMemoryReservation;
+use vortex_array::memory::MemorySessionExt;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
@@ -131,10 +136,16 @@ pub(crate) struct ViewedLayoutChildren {
     layouts: LayoutRegistry,
     allow_unknown: bool,
     session: VortexSession,
-    cache: Arc<[OnceCell<LayoutRef>]>,
+    cache: Arc<ViewedLayoutChildCache>,
+}
+
+struct ViewedLayoutChildCache {
+    layouts: Vec<OnceCell<LayoutRef>>,
     /// Per-child answers to [`LayoutChildren::child_is_indivisible`], precomputed at
     /// construction from the flatbuffer encoding tags alone.
-    indivisible: Arc<[bool]>,
+    indivisible: Vec<bool>,
+    // Drop both backing arrays before releasing their shared payload credit.
+    _reservation: Option<HostMemoryReservation>,
 }
 
 impl ViewedLayoutChildren {
@@ -151,26 +162,46 @@ impl ViewedLayoutChildren {
         layouts: LayoutRegistry,
         allow_unknown: bool,
         session: VortexSession,
-    ) -> Self {
+    ) -> VortexResult<Self> {
         // SAFETY: guaranteed by caller
         let fb_children = unsafe { fbl::Layout::follow(flatbuffer.as_ref(), flatbuffer_loc) }
             .children()
             .unwrap_or_default();
-        let cache = vec![OnceCell::new(); fb_children.len()]
-            .into_boxed_slice()
-            .into();
+        let nchildren = fb_children.len();
+        let cache_bytes = AllocationLayout::array::<OnceCell<LayoutRef>>(nchildren)
+            .map_err(|_| vortex_err!("Layout child cache size overflow: {nchildren}"))?
+            .size();
+        let flag_bytes = AllocationLayout::array::<bool>(nchildren)
+            .map_err(|_| vortex_err!("Layout child classification size overflow: {nchildren}"))?
+            .size();
+        let bytes = cache_bytes
+            .checked_add(flag_bytes)
+            .ok_or_else(|| vortex_err!("Layout child storage size overflow: {nchildren}"))?;
+        let reservation = if bytes == 0 {
+            None
+        } else {
+            Some(session.allocator().reserve_external(bytes)?)
+        };
+        let cached_layouts = vec![OnceCell::new(); nchildren];
+        debug_assert_eq!(cached_layouts.capacity(), nchildren);
         // Unknown encodings are conservatively not indivisible so callers fall back to
         // materializing the child.
-        let indivisible = fb_children
-            .iter()
-            .map(|child| {
-                layout_read_ctx
-                    .resolve(child.encoding())
-                    .and_then(|encoding_id| layouts.get(&encoding_id))
-                    .is_some_and(|encoding| encoding.is_indivisible())
-            })
-            .collect::<Arc<[bool]>>();
-        Self {
+        // Collecting the FlatBuffers iterator can overallocate small vectors;
+        // initialize the admitted capacity directly before filling its values.
+        let mut indivisible = vec![false; nchildren];
+        for (flag, child) in indivisible.iter_mut().zip(fb_children.iter()) {
+            *flag = layout_read_ctx
+                .resolve(child.encoding())
+                .and_then(|encoding_id| layouts.get(&encoding_id))
+                .is_some_and(|encoding| encoding.is_indivisible());
+        }
+        debug_assert_eq!(indivisible.capacity(), nchildren);
+        let cache = Arc::new(ViewedLayoutChildCache {
+            layouts: cached_layouts,
+            indivisible,
+            _reservation: reservation,
+        });
+        Ok(Self {
             flatbuffer,
             flatbuffer_loc,
             array_read_ctx,
@@ -179,8 +210,7 @@ impl ViewedLayoutChildren {
             allow_unknown,
             session,
             cache,
-            indivisible,
-        }
+        })
     }
 
     /// Return the flatbuffer layout message.
@@ -237,7 +267,7 @@ impl LayoutChildren for ViewedLayoutChildren {
             vortex_bail!("Child index out of bounds: {} of {}", idx, self.nchildren());
         }
 
-        let layout_ref = self.cache[idx].get_or_try_init(|| {
+        let layout_ref = self.cache.layouts[idx].get_or_try_init(|| {
             let fb_child = self.flatbuffer().children().unwrap_or_default().get(idx);
 
             // SAFETY: same validated flatbuffer; fb_child._tab.loc() is a valid offset
@@ -252,7 +282,7 @@ impl LayoutChildren for ViewedLayoutChildren {
                     self.allow_unknown,
                     self.session.clone(),
                 )
-            };
+            }?;
 
             let encoding_id = self
                 .layout_read_ctx
@@ -302,10 +332,10 @@ impl LayoutChildren for ViewedLayoutChildren {
     }
 
     fn nchildren(&self) -> usize {
-        self.cache.len()
+        self.cache.layouts.len()
     }
 
     fn child_is_indivisible(&self, idx: usize) -> bool {
-        self.indivisible.get(idx).copied().unwrap_or(false)
+        self.cache.indivisible.get(idx).copied().unwrap_or(false)
     }
 }

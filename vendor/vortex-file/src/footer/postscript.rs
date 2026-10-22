@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit metadata names and locators once
+// and share their owner through incremental parsing and footer handoff.
 
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::Follow;
@@ -12,10 +14,10 @@ use vortex_flatbuffers::FlatBufferRoot;
 use vortex_flatbuffers::ReadFlatBuffer;
 use vortex_flatbuffers::WriteFlatBuffer;
 use vortex_flatbuffers::footer as fb;
-use vortex_utils::aliases::hash_set::HashSet;
+use vortex_session::VortexSession;
 
-use super::MAX_METADATA_KEY_BYTES;
-use super::MAX_METADATA_SEGMENTS;
+use super::MetadataSegments;
+use super::SegmentSpec;
 
 /// The postscript captures the locations and compression for the initial segments required for
 /// reading a Vortex file.
@@ -24,7 +26,7 @@ pub(crate) struct Postscript {
     pub(crate) layout: PostscriptSegment,
     pub(crate) statistics: Option<PostscriptSegment>,
     pub(crate) footer: PostscriptSegment,
-    pub(crate) metadata: Vec<PostscriptMetadata>,
+    pub(crate) metadata: MetadataSegments,
 }
 
 impl FlatBufferRoot for Postscript {}
@@ -36,7 +38,7 @@ impl WriteFlatBuffer for Postscript {
         &self,
         fbb: &mut FlatBufferBuilder<'fb>,
     ) -> VortexResult<WIPOffset<Self::Target<'fb>>> {
-        validate_metadata_entries(&self.metadata)?;
+        self.metadata.validate()?;
         self.write_flatbuffer_unchecked(fbb)
     }
 }
@@ -62,8 +64,16 @@ impl Postscript {
             None
         } else {
             let mut metadata = Vec::with_capacity(self.metadata.len());
-            for entry in &self.metadata {
-                metadata.push(entry.write_flatbuffer(fbb)?);
+            for (key, segment) in self.metadata.iter() {
+                let key = fbb.create_string(key);
+                let segment = PostscriptSegment::from(segment).write_flatbuffer(fbb)?;
+                metadata.push(fb::PostscriptMetadata::create(
+                    fbb,
+                    &fb::PostscriptMetadataArgs {
+                        key: Some(key),
+                        segment: Some(segment),
+                    },
+                ));
             }
             Some(fbb.create_vector(metadata.as_slice()))
         };
@@ -80,35 +90,22 @@ impl Postscript {
     }
 }
 
-impl ReadFlatBuffer for Postscript {
-    type Source<'a> = fb::Postscript<'a>;
-    type Error = VortexError;
-
-    fn read_flatbuffer<'buf>(
-        fb: &<Self::Source<'buf> as Follow<'buf>>::Inner,
-    ) -> Result<Self, Self::Error> {
-        let metadata = match fb.metadata() {
-            Some(metadata) => {
-                let metadata_len = metadata.len();
-                if metadata_len > MAX_METADATA_SEGMENTS {
-                    return Err(metadata_count_error(metadata_len));
-                }
-
-                let mut seen_keys = HashSet::with_capacity(metadata_len);
-                let mut entries = Vec::with_capacity(metadata_len);
-                for entry in metadata.iter() {
-                    let entry = PostscriptMetadata::read_flatbuffer(&entry)?;
-                    validate_metadata_key(&entry.key)?;
-                    if !seen_keys.insert(entry.key.clone()) {
-                        return Err(duplicate_metadata_key_error(&entry.key));
-                    }
-                    entries.push(entry);
-                }
-                entries
-            }
-            None => Vec::new(),
-        };
-
+impl Postscript {
+    /// Read through the receiving allocator before constructing metadata storage.
+    pub(crate) fn read_with_session(
+        fb: &fb::Postscript<'_>,
+        session: &VortexSession,
+    ) -> VortexResult<Self> {
+        let entries = fb.metadata().unwrap_or_default();
+        let metadata = MetadataSegments::try_from_fn(
+            entries.len(),
+            |index| entries.get(index).key(),
+            |index| {
+                PostscriptSegment::read_flatbuffer(&entries.get(index).segment())
+                    .map(|segment| SegmentSpec::from(&segment))
+            },
+            session,
+        )?;
         Ok(Self {
             dtype: fb
                 .dtype()
@@ -131,99 +128,17 @@ impl ReadFlatBuffer for Postscript {
     }
 }
 
-fn validate_metadata_entries(metadata: &[PostscriptMetadata]) -> VortexResult<()> {
-    if metadata.len() > MAX_METADATA_SEGMENTS {
-        return Err(metadata_count_error(metadata.len()));
-    }
-
-    let mut seen_keys = HashSet::with_capacity(metadata.len());
-    for entry in metadata {
-        validate_metadata_key(&entry.key)?;
-        if !seen_keys.insert(&entry.key) {
-            return Err(duplicate_metadata_key_error(&entry.key));
-        }
-    }
-
-    Ok(())
-}
-
-fn metadata_count_error(metadata_len: usize) -> VortexError {
-    vortex_err!(
-        "Postscript contains {} metadata segments, but Vortex supports at most {} metadata segments; metadata keys must be non-empty and at most {} bytes",
-        metadata_len,
-        MAX_METADATA_SEGMENTS,
-        MAX_METADATA_KEY_BYTES
-    )
-}
-
-fn duplicate_metadata_key_error(key: &str) -> VortexError {
-    vortex_err!(
-        "Postscript contains duplicate metadata key {key}; metadata keys must be unique, non-empty, and at most {} bytes, and files may contain at most {} metadata segments",
-        MAX_METADATA_KEY_BYTES,
-        MAX_METADATA_SEGMENTS
-    )
-}
-
-fn validate_metadata_key(key: &str) -> VortexResult<()> {
-    if key.is_empty() {
-        return Err(vortex_err!(
-            "Postscript metadata key must not be empty; metadata keys must be at most {} bytes and files may contain at most {} metadata segments",
-            MAX_METADATA_KEY_BYTES,
-            MAX_METADATA_SEGMENTS
-        ));
-    }
-
-    let key_bytes = key.len();
-    if key_bytes > MAX_METADATA_KEY_BYTES {
-        return Err(vortex_err!(
-            "Postscript metadata key {key:?} is {key_bytes} bytes, but metadata keys must be at most {} bytes and files may contain at most {} metadata segments",
-            MAX_METADATA_KEY_BYTES,
-            MAX_METADATA_SEGMENTS
-        ));
-    }
-
-    Ok(())
-}
-
-pub(crate) struct PostscriptMetadata {
-    pub(crate) key: String,
-    pub(crate) segment: PostscriptSegment,
-}
-
-impl FlatBufferRoot for PostscriptMetadata {}
-
-impl WriteFlatBuffer for PostscriptMetadata {
-    type Target<'a> = fb::PostscriptMetadata<'a>;
-
-    fn write_flatbuffer<'fb>(
-        &self,
-        fbb: &mut FlatBufferBuilder<'fb>,
-    ) -> VortexResult<WIPOffset<Self::Target<'fb>>> {
-        let key = fbb.create_string(&self.key);
-        let segment = self.segment.write_flatbuffer(fbb)?;
-        Ok(fb::PostscriptMetadata::create(
-            fbb,
-            &fb::PostscriptMetadataArgs {
-                key: Some(key),
-                segment: Some(segment),
-            },
-        ))
-    }
-}
-
-impl ReadFlatBuffer for PostscriptMetadata {
-    type Source<'a> = fb::PostscriptMetadata<'a>;
+// Private format fixtures use the default allocator. Native file opens must
+// supply their receiving session through read_with_session.
+#[cfg(test)]
+impl ReadFlatBuffer for Postscript {
+    type Source<'a> = fb::Postscript<'a>;
     type Error = VortexError;
 
     fn read_flatbuffer<'buf>(
         fb: &<Self::Source<'buf> as Follow<'buf>>::Inner,
     ) -> Result<Self, Self::Error> {
-        // The FlatBuffers verifier enforces that `key` and `segment` are present before this
-        // accessor can panic on a malformed required field.
-        Ok(Self {
-            key: fb.key().to_string(),
-            segment: PostscriptSegment::read_flatbuffer(&fb.segment())?,
-        })
+        Self::read_with_session(fb, &VortexSession::empty())
     }
 }
 
@@ -281,6 +196,17 @@ mod tests {
 
     use super::*;
     use crate::MAX_POSTSCRIPT_SIZE;
+    use crate::footer::MAX_METADATA_KEY_BYTES;
+    use crate::footer::MAX_METADATA_SEGMENTS;
+
+    fn metadata_entries(entries: Vec<(String, PostscriptSegment)>) -> MetadataSegments {
+        MetadataSegments::from_unchecked(
+            entries
+                .into_iter()
+                .map(|(key, segment)| (key, SegmentSpec::from(&segment)))
+                .collect(),
+        )
+    }
 
     fn segment(offset: u64) -> PostscriptSegment {
         PostscriptSegment {
@@ -325,9 +251,11 @@ mod tests {
     #[test]
     fn metadata_limit_boundaries_roundtrip() {
         let metadata = (0..MAX_METADATA_SEGMENTS)
-            .map(|idx| PostscriptMetadata {
-                key: format!("{idx:0>width$}", width = MAX_METADATA_KEY_BYTES),
-                segment: segment(2 + idx as u64),
+            .map(|idx| {
+                (
+                    format!("{idx:0>width$}", width = MAX_METADATA_KEY_BYTES),
+                    segment(2 + idx as u64),
+                )
             })
             .collect::<Vec<_>>();
 
@@ -336,7 +264,7 @@ mod tests {
             layout: segment(0),
             statistics: None,
             footer: segment(1),
-            metadata,
+            metadata: metadata_entries(metadata),
         }
         .write_flatbuffer_bytes()
         .unwrap();
@@ -344,9 +272,9 @@ mod tests {
         let postscript = Postscript::read_flatbuffer_bytes(&bytes).unwrap();
         assert_eq!(postscript.metadata.len(), MAX_METADATA_SEGMENTS);
         let mut total_key_bytes = 0;
-        for entry in &postscript.metadata {
-            assert_eq!(entry.key.len(), MAX_METADATA_KEY_BYTES);
-            total_key_bytes += entry.key.len();
+        for (key, _) in postscript.metadata.iter() {
+            assert_eq!(key.len(), MAX_METADATA_KEY_BYTES);
+            total_key_bytes += key.len();
         }
         assert_eq!(
             total_key_bytes,
@@ -362,16 +290,10 @@ mod tests {
             layout: segment(0),
             statistics: None,
             footer: segment(1),
-            metadata: vec![
-                PostscriptMetadata {
-                    key: "metadata".to_string(),
-                    segment: segment(2),
-                },
-                PostscriptMetadata {
-                    key: "metadata".to_string(),
-                    segment: segment(3),
-                },
-            ],
+            metadata: metadata_entries(vec![
+                ("metadata".to_string(), segment(2)),
+                ("metadata".to_string(), segment(3)),
+            ]),
         };
 
         let read_err = read_postscript_error(&postscript);
@@ -391,10 +313,7 @@ mod tests {
             layout: segment(0),
             statistics: None,
             footer: segment(1),
-            metadata: vec![PostscriptMetadata {
-                key: String::new(),
-                segment: segment(2),
-            }],
+            metadata: metadata_entries(vec![(String::new(), segment(2))]),
         };
 
         let read_err = read_postscript_error(&postscript);
@@ -412,10 +331,7 @@ mod tests {
             layout: segment(0),
             statistics: None,
             footer: segment(1),
-            metadata: vec![PostscriptMetadata {
-                key,
-                segment: segment(2),
-            }],
+            metadata: metadata_entries(vec![(key, segment(2))]),
         };
 
         for err in [
@@ -435,12 +351,11 @@ mod tests {
             layout: segment(0),
             statistics: None,
             footer: segment(1),
-            metadata: (0..=MAX_METADATA_SEGMENTS)
-                .map(|idx| PostscriptMetadata {
-                    key: format!("metadata-{idx}"),
-                    segment: segment(2 + idx as u64),
-                })
-                .collect(),
+            metadata: metadata_entries(
+                (0..=MAX_METADATA_SEGMENTS)
+                    .map(|idx| (format!("metadata-{idx}"), segment(2 + idx as u64)))
+                    .collect(),
+            ),
         };
 
         for err in [

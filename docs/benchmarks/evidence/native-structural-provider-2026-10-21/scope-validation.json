@@ -1,0 +1,33 @@
+{
+  "blockers": [],
+  "claim_gate_status": "not_claim_grade",
+  "classification_counts": {
+    "deferred_out_of_v1": 3,
+    "documentation_only": 2,
+    "required_for_v1": 134,
+    "v1_candidate_pending_feasibility": 10
+  },
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "known_unsupported_paths": "docs/release/known-unsupported-paths.md",
+  "matrix_doc": "docs/release/v1-inclusion-scope-matrix.md",
+  "matrix_row_count": 149,
+  "matrix_schema_version": "shardloom.v1_inclusion_scope_matrix.v1",
+  "missing_phase_classification_count": 0,
+  "open_phase_item_count": 14,
+  "package_upload_attempted": false,
+  "performance_claim_allowed": false,
+  "phase_plan": "docs/architecture/phased-execution-plan.md",
+  "production_claim_allowed": false,
+  "production_unsupported_diagnostic_covered_row_count": 10,
+  "production_unsupported_diagnostic_missing_rows": [],
+  "production_unsupported_diagnostic_required_row_count": 10,
+  "production_unsupported_diagnostic_schema_version": "shardloom.production_unsupported_diagnostics.v1",
+  "public_package_claim_allowed": false,
+  "public_release_claim_allowed": false,
+  "publication_attempted": false,
+  "schema_version": "shardloom.v1_inclusion_scope_report.v1",
+  "spark_replacement_claim_allowed": false,
+  "status": "passed",
+  "tag_created": false
+}

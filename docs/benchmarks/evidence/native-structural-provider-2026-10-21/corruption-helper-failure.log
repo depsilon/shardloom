@@ -1,0 +1,29 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 161, in main
+    checker.verify(candidate, args.repository, blobs)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 681, in verify
+    source, prior, native_source, blobs = verify_sources(packet, evidence, repository, blobs)
+                                          ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 145, in verify_sources
+    prior = evidence.linked(source['previous_source'])
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 108, in linked
+    return json.loads(self.reference(ref))
+                      ~~~~~~~~~~~~~~^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 104, in reference
+    require(len(raw) == ref['bytes'] and digest(raw) == ref['sha256'], 'reference changed: ' + ref['path'])
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 42, in require
+    raise ValueError(message)
+ValueError: reference changed: /Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-source-883-r3.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 180, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py", line 164, in main
+    assert expected in message, (name, expected, message)
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError: ('cleanup-original-test-substitution', 'unrelated CLI test changed', 'reference changed: /Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-source-883-r3.json')

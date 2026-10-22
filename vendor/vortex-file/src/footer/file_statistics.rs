@@ -1,42 +1,59 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit shared file-statistics tables before
+// construction and retain their credit through the final owner.
 
-//! This module defines the file statistics component of the Vortex file footer.
-//!
-//! File statistics provide metadata about the data in the file, such as min/max values,
-//! null counts, and other statistical information that can be used for query optimization
-//! and data exploration.
+//! File statistics used for native metadata answers and conservative pruning.
+
+use std::alloc::Layout as AllocationLayout;
 use std::sync::Arc;
 
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::WIPOffset;
-use itertools::Itertools;
 use vortex_array::dtype::DType;
+use vortex_array::memory::HostMemoryReservation;
+use vortex_array::memory::MemorySessionExt;
 use vortex_array::stats::StatsSet;
-use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure_eq;
+use vortex_error::vortex_err;
 use vortex_flatbuffers::FlatBufferRoot;
 use vortex_flatbuffers::WriteFlatBuffer;
-use vortex_flatbuffers::array::ArrayStats;
 use vortex_flatbuffers::footer as fb;
 use vortex_session::VortexSession;
 
-/// Contains statistical information about the data in a Vortex file.
+/// Statistics and aligned field types for a native file.
 ///
-/// This struct wraps an array of `StatsSet` objects, each containing statistics
-/// for a field or column in the file. These statistics can be used for query
-/// optimization and data exploration.
+/// Clones retain both tables without copying their entries. Parsed and fallibly
+/// constructed tables retain allocator admission through their final owner.
+/// Borrowed accessors do not export an unguarded shared allocation. Independently
+/// copying a slice or cloning an entry creates caller-owned data; nested schema,
+/// scalar payloads and statistics overflow storage have separate owners.
 #[derive(Clone, Debug)]
 pub struct FileStatistics {
-    /// An array of statistics sets, one for each field or column in the file.
-    stats: Arc<[StatsSet]>,
-    /// An array of `DType`s, one for each field or column in the file.
-    dtypes: Arc<[DType]>,
+    storage: FileStatisticsStorage,
+}
+
+#[derive(Clone, Debug)]
+enum FileStatisticsStorage {
+    Empty,
+    CallerOwned {
+        stats: Arc<[StatsSet]>,
+        dtypes: Arc<[DType]>,
+    },
+    Admitted(Arc<OwnedFileStatistics>),
+}
+
+#[derive(Debug)]
+struct OwnedFileStatistics {
+    stats: Vec<StatsSet>,
+    dtypes: Vec<DType>,
+    // Release both vectors before their credit, including on the final clone.
+    _reservation: HostMemoryReservation,
 }
 
 impl FileStatistics {
-    /// Creates a new [`FileStatistics`] from the given statistics and data types.
+    /// Keep existing caller-owned tables without retroactive allocator admission.
     ///
     /// # Panics
     ///
@@ -47,104 +64,139 @@ impl FileStatistics {
             dtypes.len(),
             "stats and dtypes must have the same length"
         );
-
-        Self { stats, dtypes }
+        Self {
+            storage: FileStatisticsStorage::CallerOwned { stats, dtypes },
+        }
     }
 
-    /// Creates a new [`FileStatistics`] from the given statistics and file dtype.
+    /// Construct caller-owned type references for existing caller-owned statistics.
     ///
-    /// If the [`DType`] of the file is a [`DType::Struct`], then there must be the same number of
-    /// stats as struct fields. Otherwise, there must be only 1 statistic.
+    /// Native producers with a session use [`Self::try_from_fn`] to admit table
+    /// capacity before producing entries. This compatibility constructor does
+    /// not claim admission for its type table or the supplied statistics.
     ///
     /// # Panics
     ///
-    /// Panics if the number of stats doesn't match the expected number based on the dtype.
+    /// Panics unless `stats` has one entry per struct field, or one for a
+    /// non-struct file type.
     pub fn new_with_dtype(stats: Arc<[StatsSet]>, file_dtype: &DType) -> Self {
-        if let DType::Struct(struct_fields, _) = file_dtype {
+        let dtypes = if let DType::Struct(fields, _) = file_dtype {
             assert_eq!(
                 stats.len(),
-                struct_fields.nfields(),
+                fields.nfields(),
                 "stats length must match number of struct fields"
             );
-
-            let dtypes = struct_fields.fields().collect();
-
-            Self { stats, dtypes }
+            fields.fields().collect()
         } else {
             assert_eq!(
                 stats.len(),
                 1,
                 "non-struct dtype must have exactly 1 statistic"
             );
-
-            Self {
-                stats,
-                dtypes: Arc::new([file_dtype.clone()]),
-            }
-        }
+            Arc::from([file_dtype.clone()])
+        };
+        Self::new(stats, dtypes)
     }
 
-    /// Creates [`FileStatistics`] from a flatbuffers [`fb::FileStatistics<'a>`].
+    /// Admit both table capacities, then produce entries in field-index order.
     ///
-    /// If the [`DType`] of the file is a [`DType::Struct`], then there must be the same number of
-    /// file stats in the flatbuffer. Otherwise, there must be only 1 statistic.
+    /// Count overflow and allocation denial occur before `field` is invoked.
+    /// Partial producer failure releases constructed entries and credit. Empty
+    /// tables have no payload allocation and invoke neither producer nor allocator.
+    /// The charge covers table capacity, not separately allocated entry payloads.
+    pub fn try_from_fn(
+        count: usize,
+        mut field: impl FnMut(usize) -> VortexResult<(StatsSet, DType)>,
+        session: &VortexSession,
+    ) -> VortexResult<Self> {
+        let stats_layout = AllocationLayout::array::<StatsSet>(count)
+            .map_err(|_| vortex_err!("File statistics allocation size overflow"))?;
+        let dtypes_layout = AllocationLayout::array::<DType>(count)
+            .map_err(|_| vortex_err!("File statistics allocation size overflow"))?;
+        let bytes = stats_layout
+            .size()
+            .checked_add(dtypes_layout.size())
+            .ok_or_else(|| vortex_err!("File statistics allocation size overflow"))?;
+        if count == 0 {
+            return Ok(Self {
+                storage: FileStatisticsStorage::Empty,
+            });
+        }
+        let reservation = session.allocator().reserve_external(bytes)?;
+        let mut stats = Vec::with_capacity(count);
+        let mut dtypes = Vec::with_capacity(count);
+        for index in 0..count {
+            let (set, dtype) = field(index)?;
+            stats.push(set);
+            dtypes.push(dtype);
+        }
+        debug_assert_eq!(stats.capacity(), count);
+        debug_assert_eq!(dtypes.capacity(), count);
+        Ok(Self {
+            storage: FileStatisticsStorage::Admitted(Arc::new(OwnedFileStatistics {
+                stats,
+                dtypes,
+                _reservation: reservation,
+            })),
+        })
+    }
+
+    /// Parse admitted tables directly from the native FlatBuffer field vector.
+    ///
+    /// Cardinality must match the struct fields, or one for a non-struct file.
+    /// Validate it before admission or entry parsing. The serialized input and
+    /// independently allocated scalar/schema payloads have separate ownership.
     pub fn from_flatbuffer<'a>(
         fb: &fb::FileStatistics<'a>,
         file_dtype: &DType,
         session: &VortexSession,
     ) -> VortexResult<Self> {
         let field_stats = fb.field_stats().unwrap_or_default();
-        let mut array_stats: Vec<ArrayStats> = field_stats.iter().collect();
+        let expected = file_dtype
+            .as_struct_fields_opt()
+            .map_or(1, |fields| fields.nfields());
+        vortex_ensure_eq!(field_stats.len(), expected);
+        Self::try_from_fn(
+            expected,
+            |index| {
+                let dtype = match file_dtype {
+                    DType::Struct(fields, _) => fields.field_by_index(index).ok_or_else(|| {
+                        vortex_err!("Missing file statistics field type at {index}")
+                    })?,
+                    dtype => dtype.clone(),
+                };
+                let stats = StatsSet::from_flatbuffer(&field_stats.get(index), &dtype, session)?;
+                Ok((stats, dtype))
+            },
+            session,
+        )
+    }
 
-        if let DType::Struct(struct_fields, _) = file_dtype {
-            vortex_ensure_eq!(array_stats.len(), struct_fields.nfields());
-
-            let stats_sets: Arc<[StatsSet]> = array_stats
-                .into_iter()
-                .zip(struct_fields.fields())
-                .map(|(array_stat, field_dtype)| {
-                    StatsSet::from_flatbuffer(&array_stat, &field_dtype, session)
-                })
-                .try_collect()?;
-
-            let dtypes = struct_fields.fields().collect();
-
-            Ok(Self {
-                stats: stats_sets,
-                dtypes,
-            })
-        } else {
-            vortex_ensure_eq!(array_stats.len(), 1);
-
-            let array_stat = array_stats
-                .pop()
-                .vortex_expect("we just checked that there was 1 field");
-            let stats_set = StatsSet::from_flatbuffer(&array_stat, file_dtype, session)?;
-
-            Ok(Self {
-                stats: Arc::new([stats_set]),
-                dtypes: Arc::new([file_dtype.clone()]),
-            })
+    /// Borrow the statistics table. Clone `FileStatistics` for independent retention.
+    pub fn stats_sets(&self) -> &[StatsSet] {
+        match &self.storage {
+            FileStatisticsStorage::Empty => &[],
+            FileStatisticsStorage::CallerOwned { stats, .. } => stats,
+            FileStatisticsStorage::Admitted(owner) => &owner.stats,
         }
     }
 
-    /// Returns a reference to the statistics sets.
-    pub fn stats_sets(&self) -> &Arc<[StatsSet]> {
-        &self.stats
+    /// Borrow the field-type table. Clone `FileStatistics` for independent retention.
+    pub fn dtypes(&self) -> &[DType] {
+        match &self.storage {
+            FileStatisticsStorage::Empty => &[],
+            FileStatisticsStorage::CallerOwned { dtypes, .. } => dtypes,
+            FileStatisticsStorage::Admitted(owner) => &owner.dtypes,
+        }
     }
 
-    /// Returns a reference to the data types.
-    pub fn dtypes(&self) -> &Arc<[DType]> {
-        &self.dtypes
-    }
-
-    /// Returns the statistics and data type for a specific field.
+    /// Returns aligned statistics and type references for a field.
     ///
     /// # Panics
     ///
     /// Panics if `field_idx` is out of bounds.
     pub fn get(&self, field_idx: usize) -> (&StatsSet, &DType) {
-        (&self.stats[field_idx], &self.dtypes[field_idx])
+        (&self.stats_sets()[field_idx], &self.dtypes()[field_idx])
     }
 }
 
@@ -153,7 +205,7 @@ impl<'a> IntoIterator for &'a FileStatistics {
     type IntoIter = std::iter::Zip<std::slice::Iter<'a, StatsSet>, std::slice::Iter<'a, DType>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.stats.iter().zip(self.dtypes.iter())
+        self.stats_sets().iter().zip(self.dtypes().iter())
     }
 }
 
@@ -172,7 +224,6 @@ impl WriteFlatBuffer for FileStatistics {
             .map(|s| s.write_flatbuffer(fbb))
             .collect::<VortexResult<Vec<_>>>()?;
         let field_stats = fbb.create_vector(field_stats.as_slice());
-
         Ok(fb::FileStatistics::create(
             fbb,
             &fb::FileStatisticsArgs {

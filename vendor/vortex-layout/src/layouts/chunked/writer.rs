@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: admit retained chunk offsets and check row sums.
 
 use std::sync::Arc;
 
@@ -10,6 +11,7 @@ use futures::TryStreamExt;
 use futures::stream;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
+use vortex_error::vortex_err;
 use vortex_io::session::RuntimeSessionExt;
 use vortex_session::VortexSession;
 
@@ -89,12 +91,16 @@ impl LayoutStrategy for ChunkedLayoutStrategy {
         if child_layouts.len() == 1 {
             Ok(child_layouts.pop().vortex_expect("must have one child"))
         } else {
-            let row_count = child_layouts.iter().map(|layout| layout.row_count()).sum();
-            Ok(ChunkedLayout::new(
+            let row_count = child_layouts.iter().try_fold(0_u64, |rows, layout| {
+                rows.checked_add(layout.row_count())
+                    .ok_or_else(|| vortex_err!("Chunked child row counts overflow"))
+            })?;
+            Ok(ChunkedLayout::try_new(
                 row_count,
                 dtype,
                 OwnedLayoutChildren::layout_children(child_layouts),
-            )
+                session,
+            )?
             .into_layout())
         }
     }

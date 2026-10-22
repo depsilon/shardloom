@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 225, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 122, in main
+    add(path, explicit=True)
+    ~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 95, in add
+    add(linked['path'], linked)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 95, in add
+    add(linked['path'], linked)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 94, in add
+    for linked in refs(json.loads(raw)):
+                       ~~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py", line 348, in decode
+    raise JSONDecodeError("Extra data", s, end)
+json.decoder.JSONDecodeError: Extra data: line 2 column 1 (char 102)

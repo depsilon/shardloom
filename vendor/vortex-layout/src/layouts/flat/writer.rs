@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: use fallible empty chunked construction.
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -91,11 +92,12 @@ impl LayoutStrategy for FlatLayoutStrategy {
     ) -> VortexResult<LayoutRef> {
         let Some(chunk) = stream.next().await else {
             // an empty input has no segment to write.
-            return Ok(ChunkedLayout::new(
+            return Ok(ChunkedLayout::try_new(
                 0,
                 stream.dtype().clone(),
                 OwnedLayoutChildren::layout_children(vec![]),
-            )
+                session,
+            )?
             .into_layout());
         };
         let (sequence_id, chunk) = chunk?;

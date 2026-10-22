@@ -4,6 +4,8 @@
 // and optional metadata copies through the session allocator. See upstream-provenance.json.
 // Modified on 2026-10-17: preserve allocator admission for in-memory alignment
 // and avoid unused optional-metadata and in-memory tail caches.
+// Modified by ShardLoom on 2026-10-21: pass existing segment-map owners to
+// native sources without allocating a concatenated segment table.
 
 use std::sync::Arc;
 
@@ -336,12 +338,14 @@ impl VortexOpenOptions {
         let metrics = RequestMetrics::new(metrics_registry.as_ref(), self.labels);
 
         // Create a segment source backed by the VortexRead implementation.
-        let segment_source = Arc::new(SharedSegmentSource::new(FileSegmentSource::open(
-            footer.segment_specs_with_metadata(),
-            reader,
-            self.session.handle(),
-            metrics,
-        )));
+        let segment_source = Arc::new(SharedSegmentSource::new(
+            FileSegmentSource::open_source_segments(
+                footer.segment_specs_with_metadata(),
+                reader,
+                self.session.handle(),
+                metrics,
+            ),
+        ));
 
         // Wrap up the segment source to first resolve segments from the initial read cache.
         let segment_source: Arc<dyn SegmentSource> = Arc::new(SegmentCacheSourceAdapter::new(
@@ -540,6 +544,7 @@ mod tests {
     use vortex_array::buffer::BufferHandle;
     use vortex_array::memory::DefaultHostAllocator;
     use vortex_array::memory::HostAllocator;
+    use vortex_array::memory::HostMemoryReservation;
     use vortex_array::memory::MemorySessionExt;
     use vortex_array::memory::WritableHostBuffer;
     use vortex_buffer::Alignment;
@@ -604,12 +609,18 @@ mod tests {
     #[derive(Debug)]
     struct CountingAllocator {
         allocations: Arc<AtomicUsize>,
+        external_reservations: Arc<AtomicUsize>,
     }
 
     impl HostAllocator for CountingAllocator {
         fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
             self.allocations.fetch_add(1, Ordering::Relaxed);
             DefaultHostAllocator.allocate(len, alignment)
+        }
+
+        fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
+            self.external_reservations.fetch_add(1, Ordering::Relaxed);
+            DefaultHostAllocator.reserve_external(len)
         }
     }
 
@@ -814,8 +825,10 @@ mod tests {
         std::fs::write(&file_path, ByteBuffer::from(buf).as_slice()).unwrap();
 
         let allocations = Arc::new(AtomicUsize::new(0));
+        let external_reservations = Arc::new(AtomicUsize::new(0));
         let session = session.with_allocator(Arc::new(CountingAllocator {
             allocations: Arc::clone(&allocations),
+            external_reservations: Arc::clone(&external_reservations),
         }));
 
         let _file = session.open_options().open_path(&file_path).await.unwrap();
@@ -824,6 +837,10 @@ mod tests {
         assert!(
             allocations.load(Ordering::Relaxed) > 0,
             "expected at least one host allocation from MemorySession"
+        );
+        assert!(
+            external_reservations.load(Ordering::Relaxed) > 0,
+            "expected native table admission through MemorySession"
         );
     }
 

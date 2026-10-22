@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: propagate child-construction failures
+// from depth-first traversal instead of reporting an incomplete successful tree.
 
 use std::any::Any;
 use std::fmt::Debug;
@@ -468,6 +470,9 @@ impl dyn DynLayout + '_ {
     }
 
     /// Returns a depth-first pre-order traversal.
+    ///
+    /// A child-construction error terminates this traversal. A new traversal can
+    /// retry after a temporary failure, such as allocator pressure, is resolved.
     pub fn depth_first_traversal(&self) -> impl Iterator<Item = VortexResult<LayoutRef>> {
         struct ChildrenIterator {
             stack: Vec<LayoutRef>,
@@ -478,8 +483,12 @@ impl dyn DynLayout + '_ {
 
             fn next(&mut self) -> Option<Self::Item> {
                 let next = self.stack.pop()?;
-                let Ok(children) = next.children() else {
-                    return Some(Ok(next));
+                let children = match next.children() {
+                    Ok(children) => children,
+                    Err(error) => {
+                        self.stack.clear();
+                        return Some(Err(error));
+                    }
                 };
                 self.stack.extend(children.into_iter().rev());
                 Some(Ok(next))

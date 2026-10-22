@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: retain the segment-table owner during
+// serialization. See upstream-provenance.json.
 
 //! This module defines the file layout component of the Vortex file footer.
 //!
@@ -7,7 +9,6 @@
 //! - The root layout of the file
 //! - Specifications for all segments in the file
 //! - Specifications for array and layout encodings used in the file
-use std::sync::Arc;
 
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::WIPOffset;
@@ -17,7 +18,7 @@ use vortex_flatbuffers::WriteFlatBuffer;
 use vortex_flatbuffers::footer as fb;
 use vortex_session::registry::ReadContext;
 
-use crate::footer::segment::SegmentSpec;
+use crate::footer::segment::SegmentMap;
 
 /// A writer for serializing a file layout to a FlatBuffer.
 ///
@@ -29,7 +30,7 @@ pub(crate) struct FooterFlatBufferWriter {
     /// The layout context containing the layouts used in the file.
     pub(crate) layout_ctx: ReadContext,
     /// Specifications for all segments in the file.
-    pub(crate) segment_specs: Arc<[SegmentSpec]>,
+    pub(crate) segment_specs: SegmentMap,
 }
 
 impl FlatBufferRoot for FooterFlatBufferWriter {}

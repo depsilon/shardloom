@@ -1,0 +1,147 @@
+{
+  "code_commit": "89da798f949aaa83705491e1cf711e3e0d6ae9c5",
+  "corruption_checker": {
+    "bytes": 13044,
+    "file": "check_corruptions.py",
+    "sha256": "22e0000182c3dc3761053af19a613e292218a8a7b8d148c3160fb1b1e3cc4b19"
+  },
+  "corruption_checks": {
+    "bytes": 3378,
+    "file": "corruption-checks.json",
+    "sha256": "dfa1c2ae6e92094d2c89bd14f9c5fa7d40ce87e12892427e1a86b42c4f02f3c1"
+  },
+  "final_validation": {
+    "bytes": 3803,
+    "file": "final-validation.json",
+    "sha256": "010491ba728a82a7e3490ffe2de9fdafc119cfc9dece46961c58e30fb0c89e70"
+  },
+  "helper_corrections": {
+    "bytes": 2638,
+    "file": "helper-corrections.json",
+    "sha256": "09bef5f958fbe4acd5a9704ff7a193e628ba42d952580ae0c2b054f0014cabe4"
+  },
+  "packet": {
+    "bytes": 41156952,
+    "file": "acceptance.json.xz",
+    "members": 29659,
+    "sha256": "37828a873a3c4447e67a84721986f9eb9577a324e9ee32704124c02752e472e4"
+  },
+  "post_cleanup_replay": {
+    "bytes": 2557,
+    "file": "replay-after-cleanup.json",
+    "sha256": "e850881b7f4fdea77444cbd356f6835a1d6f5bf36d5505830e42a3839eef4481"
+  },
+  "replay": {
+    "broader_perf03_complete": false,
+    "cli_tests": 1091,
+    "core_gates": {
+      "file-statistics-vendor-layout-clippy-880": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 0,
+        "targets": 0
+      },
+      "file-statistics-vendor-layout-tests-880": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 249,
+        "targets": 1
+      },
+      "metadata-locators-minimal-native-880": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 0,
+        "targets": 0
+      },
+      "metadata-locators-native-clippy-880": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 0,
+        "targets": 0
+      },
+      "metadata-locators-native-release-880": {
+        "failed": 0,
+        "ignored": 31,
+        "passed": 3176,
+        "targets": 13
+      },
+      "metadata-locators-vendor-clippy-880-r2": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 0,
+        "targets": 0
+      },
+      "metadata-locators-workspace-clippy-880": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 0,
+        "targets": 0
+      },
+      "metadata-locators-workspace-tests-880": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3235,
+        "targets": 107
+      }
+    },
+    "diagnostic_comparison_calls": 86,
+    "diagnostic_targeted_calls": 20,
+    "full43_complete_rows": 381,
+    "full43_engine_execution_seconds": "112.675662535",
+    "full43_queries": 43,
+    "guarded_passed_runs": 74,
+    "independent_oracle_workflows": 704,
+    "installed_tests": 118,
+    "isolated_full43_engine_seconds": "49.990920425",
+    "isolated_full43_queries": 43,
+    "members": 29659,
+    "modular_payload_calls_replayed": 1780,
+    "modular_records": 1408,
+    "native_execution_performed": false,
+    "native_ignored": 31,
+    "native_tests": 3176,
+    "native_workflows": 704,
+    "new_native_tests": 69,
+    "payload_residency_revalidated": false,
+    "performance_claim": false,
+    "preserved_failed_runs": 27,
+    "preserved_timing_observations": {
+      "comparison": {
+        "candidate-a": "58.538535004",
+        "control-a": "99.840589744"
+      },
+      "isolated": "49.990920425",
+      "targeted": {
+        "candidate-a": "6.727012876",
+        "candidate-b": "6.623288208",
+        "control-a": "10.41286483",
+        "control-b": "6.495783538"
+      }
+    },
+    "private_package_files": 4507,
+    "public_cases": 5930,
+    "public_envelopes": 8151,
+    "public_families": 39,
+    "publication_attempted": false,
+    "source_commit": "89da798f949aaa83705491e1cf711e3e0d6ae9c5",
+    "source_files": 2594,
+    "status": "passed",
+    "timing_variation_cause_established": false,
+    "vendor_file_tests": 145,
+    "vendor_layout_tests": 249,
+    "workspace_tests": 3235
+  },
+  "schema": "shardloom.structural_acceptance_evidence.v1",
+  "scope": "Six bounded structural ownership classes. Complete value, test, failure and source evidence; no whole-provider, RSS, performance or roadmap completion claim.",
+  "source": {
+    "bytes": 526331,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-source-884.json",
+    "sha256": "b509bc40937e97bd1ab7b750fcfdc80e98adbf6f93347d5c96b30cda2190f57c"
+  },
+  "tested_dirty_base": "059e889a40b92ef03f831aef7fc0cfdf8b394552",
+  "verifier": {
+    "bytes": 55109,
+    "file": "verify_acceptance.py",
+    "sha256": "96acca81f1c9baf4686e2e7e58b4bb3ae2c667732cffe6b8fb50c96ad4f655cd"
+  }
+}

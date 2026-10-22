@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 237, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_structural_acceptance_884.py", line 215, in main
+    replay = checker.verify(packet, ROOT)
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 734, in verify
+    value = evidence.read(name)
+  File "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_structural_acceptance_packet_884.py", line 99, in read
+    return json.loads(gzip.decompress(raw) if str(name).endswith('.gz') else raw)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py", line 348, in decode
+    raise JSONDecodeError("Extra data", s, end)
+json.decoder.JSONDecodeError: Extra data: line 2 column 1 (char 102)

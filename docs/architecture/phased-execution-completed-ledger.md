@@ -17,6 +17,28 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Six finite native structural ownership classes` — admit child caches,
+  cumulative row offsets, reader metadata vectors, segment specifications,
+  file statistics and user metadata names/locators before allocation; retain
+  credit with their actual shared storage. The
+  [acceptance report](native-structural-provider-acceptance-2026-10-21.md)
+  binds implementation `89da798f` and all 2,594 source inputs to complete local
+  evidence. All 69 new native regressions pass, alongside 3,235 workspace,
+  3,176 native, 1,091 CLI, 249 layout, 145 file and 118 installed binding
+  tests. Native tests retain 31 existing ignored tests. All 5,930 public
+  cases and 18 format cohorts pass.
+  - The final isolated Full43 passes all 43 complete results and schemas at
+    49.990920425 engine seconds, with one execution per query on the unchanged
+    executable and input. Earlier observations and failures remain in the
+    portable evidence. No causal explanation or speed gain is claimed.
+  - The October 21 scope decision supersedes the earlier blanket breadth
+    requirement: preserve all 58 child IDs and fourteen owners as fifteen
+    scoped required contracts, five scheduled rows and 38 optional rows at
+    the very bottom. Next, identify concrete comparison gaps before further
+    implementation. The shared prerequisites and four investigations retain
+    their own gates. This finite acceptance closes no entire PERF owner,
+    CG gate or release; optional breadth has no delivery commitment.
+
 - [x] `Finite prepared weighted-sampling follow-up` — retain the
   [scalar calibration owner](native-prepared-sampling-decision-2026-10-21.md)
   within one immutable prepared object. Original and public-integration

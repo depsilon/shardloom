@@ -1,0 +1,326 @@
+{
+  "scope": [
+    "AGENTS.md",
+    "docs/architecture/local-development-storage.md",
+    "docs/architecture/native-conditional-investigations-2026-10-19.md",
+    "docs/architecture/native-pgo-prerequisite-decision-2026-10-20.md",
+    "docs/architecture/native-prepared-sampling-decision-2026-10-21.md",
+    "docs/architecture/native-prepared-sampling-pr-acceptance-2026-10-21.md",
+    "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+    "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+    "docs/architecture/native-structural-provider-ownership-2026-10-21.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/release/known-unsupported-paths.md",
+    "docs/release/v1-inclusion-scope-matrix.md",
+    "docs/skills/benchmarking.md",
+    "vendor/vortex-file/README.shardloom.md",
+    "vendor/vortex-layout/README.shardloom.md"
+  ],
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "81bd44bf1fca50fcbad6dc16151b3ad242f6961f0187712bb6e2579435818d57",
+      "link_count": 2,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/local-development-storage.md",
+      "sha256": "67f877e7a014ac6d4c50da70f299acbc58ffb41c784c26655319b8e65758aa38",
+      "link_count": 36,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "sha256": "778047d6df4114426f7869916b022074fa4a275316aee849c372307fb9616ef1",
+      "link_count": 32,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-pgo-prerequisite-decision-2026-10-20.md",
+      "sha256": "79d1230cf422712dcb7edfec7eed6883aae85c3b91746f48884d1291693a5143",
+      "link_count": 6,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-prepared-sampling-decision-2026-10-21.md",
+      "sha256": "8b6ea5f1f95d0731c785743d920931e345926a9834037f7cf57193b50b939674",
+      "link_count": 7,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-prepared-sampling-pr-acceptance-2026-10-21.md",
+      "sha256": "bd1b1b7da44d71b79bac3cabd830aeabd91448840cfd2df61dabb35c6ffe328c",
+      "link_count": 3,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+      "sha256": "c20c4d54e01d5c47c39b843cefdf25e349bd5783f63e7ff90ca2448c5b9b09bc",
+      "link_count": 6,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "sha256": "6cd972c0258e0c4bf093fca2455124a06aee7afe8bc71fb795e19b7397cf1203",
+      "link_count": 26,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/native-structural-provider-ownership-2026-10-21.md",
+      "sha256": "87399b1e0ed3c6188f82c9538bea9f67f4809a7b2e8dc9b9a2cf7ac1ea69e891",
+      "link_count": 2,
+      "failures": []
+    },
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "sha256": "60aebbd8e57f51fc17cee51dff7f5a85e146b51496c7f43ed50956ce76fd1b8f",
+      "link_count": 76,
+      "failures": []
+    },
+    {
+      "path": "docs/release/known-unsupported-paths.md",
+      "sha256": "d4b55b7977f45e42036002fa6b289e4d990cafe4ce4b290da7fb670b8810c48c",
+      "link_count": 1,
+      "failures": []
+    },
+    {
+      "path": "docs/release/v1-inclusion-scope-matrix.md",
+      "sha256": "a871d43bc26b1cf3d7aad4d477caf6f9b75b0e3188be63316748493b59e54ad6",
+      "link_count": 150,
+      "failures": []
+    },
+    {
+      "path": "docs/skills/benchmarking.md",
+      "sha256": "09eaab8ed926a8528f464fe90a081d0546d5b4703696045aa4edd1a6f5a6b12d",
+      "link_count": 2,
+      "failures": []
+    },
+    {
+      "path": "vendor/vortex-file/README.shardloom.md",
+      "sha256": "3a04a181483a1cf9b58746465bdf7253118693988f358eb9229b842b96619609",
+      "link_count": 0,
+      "failures": []
+    },
+    {
+      "path": "vendor/vortex-layout/README.shardloom.md",
+      "sha256": "2c6fbc57a6517774fdd7dcb34f0d475f32a591ce11b7b3ad40d1d80ffbc1e8e6",
+      "link_count": 0,
+      "failures": []
+    }
+  ],
+  "link_coverage": {
+    "changed_markdown_docs": 15,
+    "links_scanned": 349,
+    "failures": 0
+  },
+  "planned_queue": {
+    "parent_count": 14,
+    "parents": [
+      {
+        "line": 387,
+        "id": "PERF-01"
+      },
+      {
+        "line": 401,
+        "id": "PERF-03"
+      },
+      {
+        "line": 417,
+        "id": "PERF-06"
+      },
+      {
+        "line": 432,
+        "id": "PERF-07"
+      },
+      {
+        "line": 447,
+        "id": "PERF-10"
+      },
+      {
+        "line": 463,
+        "id": "PERF-11"
+      },
+      {
+        "line": 477,
+        "id": "PERF-04"
+      },
+      {
+        "line": 492,
+        "id": "PERF-05"
+      },
+      {
+        "line": 508,
+        "id": "PERF-09"
+      },
+      {
+        "line": 524,
+        "id": "PERF-12"
+      },
+      {
+        "line": 540,
+        "id": "PERF-13"
+      },
+      {
+        "line": 669,
+        "id": "PERF-02"
+      },
+      {
+        "line": 684,
+        "id": "PERF-08"
+      },
+      {
+        "line": 697,
+        "id": "NATIVE-ENCODED-EXCHANGE"
+      }
+    ],
+    "unique_child_ids": 58,
+    "child_ids": [
+      "NATIVE-ENCODED-EXCHANGE.clients",
+      "NATIVE-ENCODED-EXCHANGE.experiment",
+      "NATIVE-ENCODED-EXCHANGE.ownership",
+      "NATIVE-ENCODED-EXCHANGE.protocol",
+      "PERF-01.attribution",
+      "PERF-01.numeric_bridge",
+      "PERF-02.builder",
+      "PERF-02.changed_source",
+      "PERF-02.families",
+      "PERF-02.physical_cache",
+      "PERF-03.codec_preparation",
+      "PERF-03.mixed_load",
+      "PERF-03.providers",
+      "PERF-03.regions",
+      "PERF-04.semantics",
+      "PERF-04.states",
+      "PERF-04.utilization",
+      "PERF-04.workers",
+      "PERF-05.identity",
+      "PERF-05.nested_identity",
+      "PERF-05.pressure",
+      "PERF-05.validation",
+      "PERF-06.membership",
+      "PERF-06.merge_cost",
+      "PERF-06.recovery",
+      "PERF-06.rematerialization",
+      "PERF-06.strategy",
+      "PERF-07.output_windows",
+      "PERF-07.publication",
+      "PERF-07.remaining_arrays",
+      "PERF-07.transfer_lifetime",
+      "PERF-08.duplication",
+      "PERF-08.stages",
+      "PERF-09.design",
+      "PERF-09.lifecycle",
+      "PERF-09.overlap",
+      "PERF-09.portfolio",
+      "PERF-09.structural_payload",
+      "PERF-10.compact_selections",
+      "PERF-10.constant_keys",
+      "PERF-10.contracts",
+      "PERF-10.costs",
+      "PERF-10.fusion_registry",
+      "PERF-10.learned_indexes",
+      "PERF-10.metadata_consumers",
+      "PERF-10.multiway_joins",
+      "PERF-10.ordered_candidates",
+      "PERF-10.predicate_exclusion",
+      "PERF-10.summaries",
+      "PERF-10.traversal",
+      "PERF-11.envelope",
+      "PERF-11.latency",
+      "PERF-12.cohort",
+      "PERF-12.comparisons",
+      "PERF-12.support",
+      "PERF-12.topology",
+      "PERF-12.workflows",
+      "PERF-13.pgo"
+    ],
+    "expected_child_ids": 58,
+    "expected_parents": 14,
+    "claimed_counts": {
+      "required_contract_rows": 15,
+      "scheduled_rows": 5,
+      "optional_rows": 38
+    },
+    "optional_backlog_heading_line": 605,
+    "cg1_23_mentions": [
+      {
+        "line": 120,
+        "text": "- CG-1 through CG-23 remain competitive gates, not replacement phase IDs."
+      },
+      {
+        "line": 297,
+        "text": "The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates."
+      },
+      {
+        "line": 367,
+        "text": "or authorize a release. Keep all CG-1 through CG-23 and the no-fallback,"
+      }
+    ]
+  },
+  "old37_current_mandatory_contradictions": [],
+  "scope_checks": {
+    "companion_and_scope_docs": [
+      {
+        "path": "docs/architecture/native-conditional-investigations-2026-10-19.md",
+        "old37_occurrences": [
+          {
+            "line": 32,
+            "text": "14 canonical owners and 58 child IDs. The former 37-required/21-conditional",
+            "historical_context": true
+          }
+        ],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/architecture/native-pgo-prerequisite-decision-2026-10-20.md",
+        "old37_occurrences": [],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/architecture/native-prepared-sampling-decision-2026-10-21.md",
+        "old37_occurrences": [
+          {
+            "line": 169,
+            "text": "37-required classification: required comparative gaps and queued investigations",
+            "historical_context": true
+          }
+        ],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/architecture/native-prepared-sampling-pr-acceptance-2026-10-21.md",
+        "old37_occurrences": [],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+        "old37_occurrences": [],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+        "old37_occurrences": [],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/architecture/native-structural-provider-ownership-2026-10-21.md",
+        "old37_occurrences": [],
+        "current_mandatory_assertion": false
+      },
+      {
+        "path": "docs/release/v1-inclusion-scope-matrix.md",
+        "old37_occurrences": [],
+        "current_mandatory_assertion": false
+      }
+    ],
+    "all_old37_mentions_historical": true,
+    "cg1_through_cg23_preserved": true,
+    "optional_backlog_at_bottom_of_planned": true,
+    "classification_counts_text_present": {
+      "15 required": true,
+      "5 scheduled": true,
+      "38 optional": true
+    },
+    "note": "Historical mentions classified with adjacent paragraph context; standalone hosted-check counts are not scope references."
+  }
+}

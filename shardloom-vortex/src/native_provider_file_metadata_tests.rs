@@ -183,7 +183,23 @@ fn native_file_metadata_schema_and_layout_clones_keep_their_buffer_credits() {
 #[test]
 fn native_file_metadata_layout_copy_has_independent_exact_admission_and_owner() {
     let array = PrimitiveArray::from_option_iter([Some(-9_i64), None, Some(17)]).into_array();
-    let (bytes, original) = write_fixture(&array);
+    // A flat root has no child-cache allocation. Its statistics, layout bytes
+    // and segment table have independent admission and retention boundaries.
+    let runtime = CurrentThreadRuntime::new();
+    let writer = VortexSession::default().with_handle(runtime.handle());
+    let mut bytes = Vec::new();
+    let written = runtime
+        .block_on(
+            writer
+                .write_options()
+                .with_strategy(Arc::new(
+                    vortex::layout::layouts::flat::writer::FlatLayoutStrategy::default(),
+                ))
+                .write(&mut bytes, array.to_array_stream()),
+        )
+        .unwrap();
+    let original = written.footer();
+    assert_eq!(original.layout().nchildren(), 0);
     let eof = bytes.len() - EOF_SIZE;
     let postscript_len = usize::from(u16::from_le_bytes(
         bytes[eof + 2..eof + 4].try_into().unwrap(),
@@ -194,31 +210,67 @@ fn native_file_metadata_layout_copy_has_independent_exact_admission_and_owner() 
     .unwrap();
     let layout_bytes = usize::try_from(postscript.layout().unwrap().length()).unwrap();
     let capacity = charge(layout_bytes, vortex::flatbuffers::FlatBuffer::alignment());
-    // External primitive DType and aligned input isolate the retained layout copy.
+    let table_capacity =
+        u64::try_from(original.segment_map().len() * size_of::<vortex::file::SegmentSpec>())
+            .unwrap();
+    let statistics = original.statistics().unwrap();
+    let statistics_capacity = u64::try_from(
+        std::mem::size_of_val(statistics.stats_sets()) + std::mem::size_of_val(statistics.dtypes()),
+    )
+    .unwrap();
+    let layout_and_segment = capacity + table_capacity;
+    let statistics_and_layout = statistics_capacity + capacity;
+    let total = statistics_and_layout + table_capacity;
+    // Preserve the four previous grants. Statistics parse before the layout
+    // copy and segment table; check each additional short/exact boundary.
+    // After dropping the file, only the retained layout copy remains charged.
     let bytes = ByteBuffer::copy_from_aligned(bytes, Alignment::new(64)).aligned(Alignment::none());
-    for budget in [capacity - 1, capacity] {
+    for budget in [
+        capacity - 1,
+        capacity,
+        layout_and_segment - 1,
+        layout_and_segment,
+        statistics_capacity - 1,
+        statistics_capacity,
+        statistics_and_layout - 1,
+        statistics_and_layout,
+        total - 1,
+        total,
+    ] {
         let memory = LiveMemoryPool::new(budget).unwrap();
         let consumer = session(&memory);
         let result = consumer
             .open_options()
             .with_dtype(original.dtype().clone())
             .open_buffer(bytes.clone());
-        if budget < capacity {
-            let error = result.err().expect("one-byte-short layout-only grant");
+        if budget < total {
+            let error = result
+                .err()
+                .expect("statistics, layout or segment-table admission must fail");
             assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
             assert_eq!(memory.snapshot().reserved_bytes, 0);
-            assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
+            assert_eq!(
+                memory.snapshot().peak_reserved_bytes,
+                if budget < statistics_capacity {
+                    0
+                } else if budget < statistics_and_layout {
+                    statistics_capacity
+                } else {
+                    statistics_and_layout
+                }
+            );
             assert_eq!(memory.snapshot().denied_reservations, 1);
             continue;
         }
         let file = result.unwrap();
         assert_eq!(file.dtype(), array.dtype());
+        assert_eq!(memory.snapshot().reserved_bytes, total);
         let layout = Arc::clone(file.footer().layout());
         drop((file, consumer));
         assert_eq!(layout.row_count(), 3);
         assert_eq!(layout.dtype(), array.dtype());
         assert_eq!(memory.snapshot().reserved_bytes, capacity);
-        assert_eq!(memory.snapshot().peak_reserved_bytes, capacity);
+        assert_eq!(memory.snapshot().peak_reserved_bytes, total);
         drop(layout);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
@@ -397,7 +449,7 @@ fn wide_fixture() -> (ArrayRef, Vec<u8>, Footer) {
 
 #[test]
 fn native_file_metadata_wide_footer_growth_requires_admission_before_copying() {
-    let (_, bytes, _) = wide_fixture();
+    let (_, bytes, footer) = wide_fixture();
     let tail_size = usize::from(MAX_POSTSCRIPT_SIZE) + EOF_SIZE;
     assert!(bytes.len() > tail_size);
     let tail = ByteBuffer::copy_from(&bytes[bytes.len() - tail_size..]);
@@ -407,16 +459,44 @@ fn native_file_metadata_wide_footer_growth_requires_admission_before_copying() {
         panic!("wide schema must extend the initial native footer read");
     };
     let capacity = charge(tail_size + len, Alignment::none());
-    let memory = LiveMemoryPool::new(capacity - 1).unwrap();
-    let error = session(&memory)
-        .open_options()
-        .open_buffer(bytes)
-        .err()
-        .expect("one-byte-short footer growth grant");
-    assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+    let metadata = u64::try_from(
+        footer
+            .metadata_segments()
+            .map(|(key, _)| size_of::<(String, vortex::file::SegmentSpec)>() + key.len())
+            .sum::<usize>(),
+    )
+    .unwrap();
+    for budget in [capacity - 1, metadata + capacity - 1] {
+        let memory = LiveMemoryPool::new(budget).unwrap();
+        let error = session(&memory)
+            .open_options()
+            .open_buffer(bytes.clone())
+            .err()
+            .expect("one-byte-short footer growth grant");
+        assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert_eq!(memory.snapshot().peak_reserved_bytes, metadata);
+        assert_eq!(memory.snapshot().denied_reservations, 1);
+    }
+
+    let memory = LiveMemoryPool::new(metadata + capacity).unwrap();
+    let consumer = session(&memory);
+    let tail = ByteBuffer::copy_from(&bytes[bytes.len() - tail_size..]);
+    let mut parser =
+        Footer::deserializer(tail, consumer.clone()).with_size(u64::try_from(bytes.len()).unwrap());
+    let DeserializeStep::NeedMoreData { offset, len } = parser.deserialize().unwrap() else {
+        panic!("wide schema must still require footer growth");
+    };
+    assert_eq!(memory.snapshot().reserved_bytes, metadata);
+    let start = usize::try_from(offset).unwrap();
+    parser
+        .try_prefix_data(ByteBuffer::copy_from(&bytes[start..start + len]))
+        .unwrap();
+    assert_eq!(parser.buffer().as_slice(), &bytes[start..]);
+    assert_eq!(memory.snapshot().reserved_bytes, metadata + capacity);
+    assert_eq!(memory.snapshot().peak_reserved_bytes, metadata + capacity);
+    drop((parser, consumer));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
-    assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
-    assert_eq!(memory.snapshot().denied_reservations, 1);
 }
 
 #[test]

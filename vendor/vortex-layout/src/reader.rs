@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-21: add fallible reader-cache admission and
+// admit native per-child metadata before construction, and retain storage credit
+// until its backing vectors are released.
 
+use std::alloc::Layout as AllocationLayout;
 use std::any::Any;
 use std::ops::Range;
 use std::sync::Arc;
@@ -15,8 +19,11 @@ use vortex_array::builtins::ArrayBuiltins;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldMask;
 use vortex_array::expr::BoundExpression;
+use vortex_array::memory::HostMemoryReservation;
+use vortex_array::memory::MemorySessionExt;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
+use vortex_error::vortex_err;
 use vortex_mask::Mask;
 use vortex_session::VortexSession;
 
@@ -301,12 +308,17 @@ pub struct LazyReaderChildren {
     ctx: LayoutReaderContext,
     // TODO(ngates): we may want a hash map of some sort here?
     cache: Vec<OnceCell<LayoutReaderRef>>,
+    // Last field: release metadata and cache vectors before their payload reservation.
+    _storage_reservation: Option<HostMemoryReservation>,
 }
 
 impl LazyReaderChildren {
     /// Create a lazy child-reader cache.
     ///
     /// `dtypes` and `names` must be aligned with the child indices exposed by `children`.
+    /// This caller-directed compatibility constructor does not admit cache memory through
+    /// the session allocator. Use [`Self::try_new`] for caller-owned metadata, or
+    /// [`Self::try_new_with_metadata`] to admit native metadata vectors before construction.
     pub fn new(
         children: Arc<dyn LayoutChildren>,
         dtypes: Vec<DType>,
@@ -325,6 +337,9 @@ impl LazyReaderChildren {
     }
 
     /// Create a lazy child-reader cache where every child shares `dtype` and `name`.
+    ///
+    /// This caller-directed compatibility constructor does not admit cache memory through
+    /// the session allocator. Native providers should use [`Self::try_new_uniform`].
     pub fn new_uniform(
         children: Arc<dyn LayoutChildren>,
         dtype: DType,
@@ -358,7 +373,145 @@ impl LazyReaderChildren {
             session,
             ctx,
             cache,
+            _storage_reservation: None,
         }
+    }
+
+    /// Validate child metadata and admit reader-cell storage before allocating it.
+    ///
+    /// The supplied names, DTypes and vectors retain their caller-owned allocation contract;
+    /// the reservation covers only the newly allocated cache cells. Native providers generating
+    /// those vectors should use [`Self::try_new_with_metadata`].
+    pub fn try_new(
+        children: Arc<dyn LayoutChildren>,
+        dtypes: Vec<DType>,
+        names: Vec<Arc<str>>,
+        segment_source: Arc<dyn SegmentSource>,
+        session: VortexSession,
+        ctx: LayoutReaderContext,
+    ) -> VortexResult<Self> {
+        Self::try_with_meta(
+            children,
+            ChildMeta::PerChild { dtypes, names },
+            segment_source,
+            session,
+            ctx,
+        )
+    }
+
+    /// Admit cache and per-child metadata vectors before invoking `metadata` or allocating them.
+    ///
+    /// `metadata_count` must equal the number of children. The callback runs once per child,
+    /// in index order. An error drops partial metadata and releases all container credit.
+    /// The reservation covers vector capacity, not independently allocated names or DTypes.
+    pub fn try_new_with_metadata(
+        children: Arc<dyn LayoutChildren>,
+        metadata_count: usize,
+        mut metadata: impl FnMut(usize) -> VortexResult<(DType, Arc<str>)>,
+        segment_source: Arc<dyn SegmentSource>,
+        session: VortexSession,
+        ctx: LayoutReaderContext,
+    ) -> VortexResult<Self> {
+        let nchildren = children.nchildren();
+        if metadata_count != nchildren {
+            vortex_bail!(
+                "Child metadata length must match {nchildren} children: {metadata_count} entries"
+            );
+        }
+        let cells = AllocationLayout::array::<OnceCell<LayoutReaderRef>>(nchildren)
+            .map_err(|_| vortex_err!("Reader child cache size overflow: {nchildren}"))?
+            .size();
+        let dtypes_bytes = AllocationLayout::array::<DType>(nchildren)
+            .map_err(|_| vortex_err!("Reader child dtype table size overflow: {nchildren}"))?
+            .size();
+        let names_bytes = AllocationLayout::array::<Arc<str>>(nchildren)
+            .map_err(|_| vortex_err!("Reader child name table size overflow: {nchildren}"))?
+            .size();
+        let bytes = cells
+            .checked_add(dtypes_bytes)
+            .and_then(|bytes| bytes.checked_add(names_bytes))
+            .ok_or_else(|| vortex_err!("Reader child storage size overflow: {nchildren}"))?;
+        let reservation = if bytes == 0 {
+            None
+        } else {
+            Some(session.allocator().reserve_external(bytes)?)
+        };
+        let mut dtypes = Vec::with_capacity(nchildren);
+        let mut names = Vec::with_capacity(nchildren);
+        for index in 0..nchildren {
+            let (dtype, name) = metadata(index)?;
+            dtypes.push(dtype);
+            names.push(name);
+        }
+        let cache = vec![OnceCell::new(); nchildren];
+        debug_assert_eq!(dtypes.capacity(), nchildren);
+        debug_assert_eq!(names.capacity(), nchildren);
+        debug_assert_eq!(cache.capacity(), nchildren);
+        Ok(Self {
+            children,
+            meta: ChildMeta::PerChild { dtypes, names },
+            segment_source,
+            session,
+            ctx,
+            cache,
+            _storage_reservation: reservation,
+        })
+    }
+
+    /// Admit reader-cell storage when every child shares one caller-owned dtype and name.
+    pub fn try_new_uniform(
+        children: Arc<dyn LayoutChildren>,
+        dtype: DType,
+        name: Arc<str>,
+        segment_source: Arc<dyn SegmentSource>,
+        session: VortexSession,
+        ctx: LayoutReaderContext,
+    ) -> VortexResult<Self> {
+        Self::try_with_meta(
+            children,
+            ChildMeta::Uniform { dtype, name },
+            segment_source,
+            session,
+            ctx,
+        )
+    }
+
+    fn try_with_meta(
+        children: Arc<dyn LayoutChildren>,
+        meta: ChildMeta,
+        segment_source: Arc<dyn SegmentSource>,
+        session: VortexSession,
+        ctx: LayoutReaderContext,
+    ) -> VortexResult<Self> {
+        let nchildren = children.nchildren();
+        if let ChildMeta::PerChild { dtypes, names } = &meta
+            && (dtypes.len() != nchildren || names.len() != nchildren)
+        {
+            vortex_bail!(
+                "Child metadata lengths must match {nchildren} children: {} dtypes, {} names",
+                dtypes.len(),
+                names.len()
+            );
+        }
+        let bytes = AllocationLayout::array::<OnceCell<LayoutReaderRef>>(nchildren)
+            .map_err(|_| vortex_err!("Reader child cache size overflow: {nchildren}"))?
+            .size();
+        let reservation = if bytes == 0 {
+            None
+        } else {
+            Some(session.allocator().reserve_external(bytes)?)
+        };
+        let cache = vec![OnceCell::new(); nchildren];
+        debug_assert_eq!(cache.capacity(), nchildren);
+        Ok(Self {
+            children,
+            meta,
+            segment_source,
+            session,
+            ctx,
+            cache,
+            _storage_reservation: reservation,
+        })
     }
 
     /// Return the child reader at `idx`, constructing it on first access.

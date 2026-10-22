@@ -1,0 +1,68 @@
+{
+  "accepted_negative_controls": {
+    "bytes": 3378,
+    "file": "corruption-checks.json",
+    "sha256": "dfa1c2ae6e92094d2c89bd14f9c5fa7d40ce87e12892427e1a86b42c4f02f3c1"
+  },
+  "additional_attempts": [
+    {
+      "bytes": 2785,
+      "file": "corruption-row-shape-failure.log",
+      "sha256": "28f7f8a318c66cd55d71af103918f8058adb517c2d3baf7fb86e65716a3eefbe"
+    },
+    {
+      "bytes": 963,
+      "file": "corruption-rewrite-stopped.json",
+      "sha256": "850fecd92c25f2fde352234f5a45e33bee14620ebfb44eddd32dc5ae48c2562c"
+    },
+    {
+      "bytes": 10573,
+      "file": "corruption-checker-before-graph.py",
+      "sha256": "0aef0b64a0ea32a660f4a9ec7cef34bd748e7a3564dfdebcb35b3696e05ae9d6"
+    },
+    {
+      "bytes": 12927,
+      "file": "corruption-checker-before-row-mutation.py",
+      "sha256": "d28bcdecb10ce24e8a4d651afd8c6ddc2934d20941c284443d6b05d89197abd0"
+    }
+  ],
+  "assembly_correction": "Read format-runner stdout as a stream of JSON values; retain exact original bytes. Do not treat process stdout as a guarded-run receipt.",
+  "corruption_correction": "Rehash each affected record once in dependency order, children before owners; preserve exact original reference matching. Mutate the actual named-field reference row rather than a nonexistent positional field.",
+  "current_corruption_checker": {
+    "bytes": 13044,
+    "file": "check_corruptions.py",
+    "sha256": "22e0000182c3dc3761053af19a613e292218a8a7b8d148c3160fb1b1e3cc4b19"
+  },
+  "old_corruption_checker": {
+    "archived_member": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/check_structural_acceptance_packet_884.py",
+    "bytes": 10248,
+    "file": "check_corruptions.py",
+    "sha256": "b3533c9b4ea763d34440253783747850fbeac8d68a20c3c9edb77de1ccd716b1"
+  },
+  "original_logs": [
+    {
+      "bytes": 1476,
+      "file": "packet-assembly-failure-1.log",
+      "sha256": "db83228a599a523c3e24a7c7b977183e325eeb25c052921231e4cd911287242e"
+    },
+    {
+      "bytes": 1886,
+      "file": "packet-assembly-failure-2.log",
+      "sha256": "bb082b75a0a7bbe21448a989b59a1441c575a104f5e994ecde47884f2294adbf"
+    },
+    {
+      "bytes": 1333,
+      "file": "packet-assembly-failure-3.log",
+      "sha256": "9d23b2f8ae935f9756875abf100a2c1b6a0d9db7be5c4b1253587e72a04e2c12"
+    },
+    {
+      "bytes": 2417,
+      "file": "corruption-helper-failure.log",
+      "sha256": "a92cbe0311f7ba1a785b5cb3e0db9fb4ade4bbbb80e180c4317c7fd3488fb29b"
+    }
+  ],
+  "runtime_or_measurements_repeated": false,
+  "schema": "shardloom.structural_evidence_helper_corrections.v1",
+  "status": "corrected",
+  "verification_gates_weakened": false
+}
