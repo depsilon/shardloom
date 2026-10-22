@@ -9864,7 +9864,24 @@
       "original_failed_attempt_preserved": true
     }
   ],
-  "required_actions": [
+  "required_actions": [],
+  "followup_review": {
+    "path": "docs/benchmarks/evidence/perf12-guarantees-2026-10-22/review.json",
+    "bytes": 583455,
+    "sha256": "0a884ed3ff39132c27929ec426c2fefae82a02f023db333b03dc9a74b2c872ec",
+    "status": "accepted_finite_followup_review_with_explicit_limits",
+    "completed_action_ids": [
+      "selected_semantics_and_lifecycle",
+      "selected_resource_ownership",
+      "independent_full43_reference",
+      "selected_installed_support"
+    ],
+    "independent_full43_reference": "missing_explicit_disposition",
+    "required_children_closed": [],
+    "optional_rows_promoted": [],
+    "competitive_gates_closed": []
+  },
+  "reviewed_action_contracts": [
     {
       "id": "selected_semantics_and_lifecycle",
       "owners": [

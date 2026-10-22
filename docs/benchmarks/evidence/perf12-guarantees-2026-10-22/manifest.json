@@ -1,0 +1,21 @@
+{
+  "schema": "shardloom.perf12.guarantee_packet.v1",
+  "member_count": 142,
+  "packet": {
+    "path": "packet.json.xz",
+    "bytes": 1072668,
+    "sha256": "5fe45bc42194bdab56b27ddf215d2cf228a92d2a91db07f0cbb4981c66a89cd2"
+  },
+  "review": {
+    "path": "review.json",
+    "bytes": 583455,
+    "sha256": "0a884ed3ff39132c27929ec426c2fefae82a02f023db333b03dc9a74b2c872ec"
+  },
+  "builder": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-guarantees-20261022/build_packet_939.py",
+    "bytes": 17753,
+    "sha256": "e80cb937342f613c570f52bb0650be4c89c09cc317f5d9e2a9962c207f8e27e5"
+  },
+  "review_is_primary_decision": true,
+  "runtime_executed": false
+}

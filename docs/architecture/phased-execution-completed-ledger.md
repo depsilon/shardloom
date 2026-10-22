@@ -17,6 +17,30 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Selected workload guarantee acceptance` — the
+  [October 22 review](../benchmarks/native-workload-guarantees-2026-10-22.md)
+  completes the four follow-up actions from the 22-task comparison using existing
+  evidence, with no new engine implementation or benchmark run.
+  - Eleven guarantee groups distinguish exact values/NULL/empty behavior,
+    floating evaluation, key identity, native grants, queue and retained owners,
+    spill failures, fresh-source recovery, writer publication and installed
+    public workflows. The portable map binds 183 Rust selectors to 192 passing
+    observations and 20 Python methods to each of three development-wheel lanes.
+    Two Rust child-process helpers and one diagnostic test receive no independent
+    recovery-guarantee credit.
+  - Eighty-two retained test/helper/harness/fixture files have exact source
+    bindings. Replay verifies 142 members, 52 evidence corruption cases and 19
+    completion-link corruption cases. The original
+    published 0.7.0 channel proofs remain separate from development-wheel proof.
+  - The current Full43 reference and six historical candidate records retain
+    their native-regression classification. Independent full-size parity remains
+    unproven; no unchanged benchmark rerun is needed to state this limit.
+    Native credits are not a process RSS ceiling, fresh restart is not partial
+    query resume, and fanout publication is not group-atomic.
+  - This completes a finite review and advances the existing shared prerequisite
+    stage. It closes no whole required owner or competitive gate, promotes no
+    optional breadth, and authorizes no additional release.
+
 - [x] `Current declared workload comparison matrix` — the
   [October 22 report](../benchmarks/native-workload-comparisons-2026-10-22.md)
   and `perf-12-acceptance.json` bind the published 0.7.0 native source
@@ -42,9 +66,10 @@ phase plan first.
   - Historical pandas 2.2.3 evidence and the original Full43 native regression
     observation remain unchanged. This closes the finite current-source
     comparison gap, not PERF-12, any of the fifteen protected required
-    contracts, CG-5/CG-6, a performance claim or another release. The phase
-    plan retains the named guarantee reviews and the independent Full43
-    reference gap before its separately gated investigations.
+    contracts, CG-5/CG-6, a performance claim or another release. The subsequent
+    selected guarantee acceptance above completes the named follow-up reviews
+    and preserves the independent Full43 reference gap before the separately
+    gated shared prerequisites and investigations.
 
 - [x] `Shared native strategy selection across formats` —
   [implementation and evidence](native-format-strategy-parity-2026-10-21.md)

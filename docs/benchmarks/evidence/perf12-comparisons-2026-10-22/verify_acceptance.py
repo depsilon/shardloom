@@ -1,12 +1,19 @@
 """Verify the declared workload gap matrix against its portable source evidence."""
 import argparse
 import copy
+import importlib.util
 import json
 import lzma
 from pathlib import Path
 import re
 
 from verify_packet_929 import Evidence, digest, replay, require, strict_json
+
+spec = importlib.util.spec_from_file_location(
+    'perf12_guarantees', Path(__file__).resolve().parent.parent
+    / 'perf12-guarantees-2026-10-22/verify_guarantees.py')
+guarantees = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(guarantees)
 
 
 def check_matrix(repository, document, accepted, protocol, payloads):
@@ -85,6 +92,8 @@ def check_matrix(repository, document, accepted, protocol, payloads):
     require(document['full43']['observed']['independent_correctness_oracle'] is False
             and document['full43']['observed']['reference_kind'] == 'retained_native_regression',
             'native regression relabelled as independent oracle')
+    return guarantees.verify_completion_link(
+        document, repository / 'docs/benchmarks/evidence/perf12-guarantees-2026-10-22')
 
 
 def main():
@@ -116,7 +125,7 @@ def main():
     accepted = evidence.read(evidence.check(manifest['acceptance']))
     protocol = evidence.read(evidence.check(manifest['protocol']))
     payloads = strict_json(artifact(document['evidence']['original_payload_contracts']).read_bytes())
-    check_matrix(repository, document, accepted, protocol, payloads)
+    followup = check_matrix(repository, document, accepted, protocol, payloads)
     negatives = []
     mutations = [
         ('missing comparison', lambda d: d['workload_gap_matrix'][0]['current_shardloom_outcome']['observations'].pop()),
@@ -124,6 +133,10 @@ def main():
         ('unearned schema parity', lambda d: d['workload_gap_matrix'][0]['current_shardloom_outcome']['original_collected_statement_contracts'].update(baseline_logical_type_equality_claimed=True)),
         ('independent Full43 claim', lambda d: d['full43']['observed'].update(independent_correctness_oracle=True)),
         ('historical baseline relabelled', lambda d: d['historical_comparison']['scope'].update(observed_baseline_version='3.0.3')),
+        ('retargeted follow-up review', lambda d: d['followup_review'].update(path='other/review.json')),
+        ('changed follow-up review status', lambda d: d['followup_review'].update(status='accepted_without_limits')),
+        ('missing completed follow-up action', lambda d: d['followup_review']['completed_action_ids'].pop()),
+        ('changed original action contract', lambda d: d['reviewed_action_contracts'][0].update(scope='unbounded')),
     ]
     for name, mutate in mutations:
         changed = copy.deepcopy(document)
@@ -137,7 +150,7 @@ def main():
     result = {'status': 'passed_declared_acceptance', 'acceptance_sha256': digest(args.acceptance.read_bytes()),
         'verifier_sha256': digest(Path(__file__).read_bytes()), 'portable_replay': replay_result,
         'tasks': 22, 'complete_result_pairs': 704, 'protected_required_contracts': 15,
-        'negative_cases': negatives, 'runtime_executed': False}
+        'negative_cases': negatives, 'followup_review': followup, 'runtime_executed': False}
     with args.output.open('x') as stream:
         json.dump(result, stream, indent=2)
         stream.write('\n')

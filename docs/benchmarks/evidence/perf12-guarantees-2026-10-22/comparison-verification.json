@@ -1,0 +1,95 @@
+{
+  "status": "passed_declared_acceptance",
+  "acceptance_sha256": "e893608f9f7eb2a16a022d01fae2e2b9c10ebc32dd7ea0e4b194629b1fa0fe1b",
+  "verifier_sha256": "d8b61b1e02121b0b4c7fbbb107fb1d315d6c588b0f0746d323b821850efa63fc",
+  "portable_replay": {
+    "status": "passed_portable_complete_value_replay",
+    "members": 11811,
+    "omitted_payload_identities": 1335,
+    "cohorts": 18,
+    "tasks": 22,
+    "complete_result_pairs": 704,
+    "failed_attempt_retained": true,
+    "complete_baseline_distributions": 10,
+    "installed_baseline_distributions": 9,
+    "source_tree_distributions": {
+      "shardloom": "0.7.0"
+    },
+    "supplemental_metadata_observation_is_original_run_evidence": false,
+    "runtime_executed": false,
+    "omitted_physical_payloads_reopened": false,
+    "performance_or_broad_parity_claim": false
+  },
+  "tasks": 22,
+  "complete_result_pairs": 704,
+  "protected_required_contracts": 15,
+  "negative_cases": [
+    {
+      "case": "missing comparison",
+      "status": "rejected",
+      "reason": "task observations differ"
+    },
+    {
+      "case": "promoted optional scope",
+      "status": "rejected",
+      "reason": "unearned closure or promotion"
+    },
+    {
+      "case": "unearned schema parity",
+      "status": "rejected",
+      "reason": "original payload scope differs"
+    },
+    {
+      "case": "independent Full43 claim",
+      "status": "rejected",
+      "reason": "native regression relabelled as independent oracle"
+    },
+    {
+      "case": "historical baseline relabelled",
+      "status": "rejected",
+      "reason": "historical reference relabelled"
+    },
+    {
+      "case": "retargeted follow-up review",
+      "status": "rejected",
+      "reason": "follow-up review binding differs"
+    },
+    {
+      "case": "changed follow-up review status",
+      "status": "rejected",
+      "reason": "follow-up review binding differs"
+    },
+    {
+      "case": "missing completed follow-up action",
+      "status": "rejected",
+      "reason": "follow-up review binding differs"
+    },
+    {
+      "case": "changed original action contract",
+      "status": "rejected",
+      "reason": "original follow-up contracts differ"
+    }
+  ],
+  "followup_review": {
+    "status": "passed_followup_completion_link",
+    "review": {
+      "path": "docs/benchmarks/evidence/perf12-guarantees-2026-10-22/review.json",
+      "bytes": 583455,
+      "sha256": "0a884ed3ff39132c27929ec426c2fefae82a02f023db333b03dc9a74b2c872ec",
+      "status": "accepted_finite_followup_review_with_explicit_limits",
+      "completed_action_ids": [
+        "selected_semantics_and_lifecycle",
+        "selected_resource_ownership",
+        "independent_full43_reference",
+        "selected_installed_support"
+      ],
+      "independent_full43_reference": "missing_explicit_disposition",
+      "required_children_closed": [],
+      "optional_rows_promoted": [],
+      "competitive_gates_closed": []
+    },
+    "completed_followup_reviews": 4,
+    "runtime_executed": false
+  },
+  "runtime_executed": false
+}

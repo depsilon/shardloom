@@ -1,0 +1,17 @@
+{
+  "status": "passed_selected_guarantee_bindings",
+  "completed_followup_reviews": 4,
+  "rust_selectors": 183,
+  "ordinary_rust_selectors": 180,
+  "rust_terminal_observations": 192,
+  "python_methods": 20,
+  "installed_lanes": 3,
+  "selected_installed_observations": 60,
+  "source_files": 82,
+  "packet_members": 142,
+  "independent_full43_reference": "missing_explicit_disposition",
+  "current_source_checked": true,
+  "runtime_executed": false,
+  "verifier_sha256": "efb6ec7ae0befc8ebc9cd9eb092380494fd89c4ce92ff13edff90e8686a02be0",
+  "manifest_sha256": "babe1bfd6f676fa35a64db6e521a1b3225de8354dd644f4174f95846a60a4869"
+}

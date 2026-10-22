@@ -1,0 +1,63 @@
+{
+  "schema": "shardloom.perf12.guarantee_integration_checks.v1",
+  "status": "passed_finite_review_integration",
+  "python_version": "Python 3.12.14",
+  "checks": [
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/verify_acceptance.py",
+        "--repository",
+        ".",
+        "--acceptance",
+        "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/perf-12-acceptance.json",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/perf12-guarantees-20261022/940-validation-comparison.json"
+      ],
+      "exit_code": 0,
+      "status": "passed_declared_acceptance",
+      "blockers": [],
+      "report_sha256": "716989391c30a07f9e70af51e36a2e3556ca6b27b67492b3b664afb598fd352c"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/check_release_architecture_tracker.py",
+        "--allow-blocked",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/perf12-guarantees-20261022/940-validation-architecture.json"
+      ],
+      "exit_code": 0,
+      "status": "blocked",
+      "blockers": [
+        "phase plan has unchecked items: 72"
+      ],
+      "report_sha256": "e07af62b8d8b829eea479b54930edab43c4f8e677c01eefe33317a6fa3e99534"
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/perf12-guarantees-20261022/940-validation-public-status.json"
+      ],
+      "exit_code": 0,
+      "status": "passed",
+      "blockers": [],
+      "report_sha256": "6424889b510b81533d78a35b55f2d9494c0d56c47460b21e92743ed11d65f271"
+    }
+  ],
+  "source_inputs": {
+    "docs/architecture/phased-execution-plan.md": "724829299dca1d2dc09a494d6a2689110e166dfa040baa5721fa223d261268ac",
+    "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/perf-12-acceptance.json": "e893608f9f7eb2a16a022d01fae2e2b9c10ebc32dd7ea0e4b194629b1fa0fe1b"
+  },
+  "architecture_unchecked_rows": 72,
+  "architecture_unchecked_rows_identical_to_parent": true,
+  "architecture_broad_completion_claimed": false,
+  "runtime_executed": false,
+  "completion_link_corruption_cases": 19,
+  "comparison_integrated_corruption_cases": 9
+}
