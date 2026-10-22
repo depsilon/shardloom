@@ -1,8 +1,11 @@
 # Python API migration: context, results and discovery
 
-This reference describes **unpublished development source after v0.6.0**.
-The package version remains held. The [published guide](https://shardloom.io/field-guide/start-local-proof/)
-continues to describe the verified v0.6.0 artifact. Exact source inputs and
+This reference describes the **v0.7.0 release candidate**. The October 21
+maintainer authorization resumes the version train after the format correction
+merged. The [published guide](https://shardloom.io/field-guide/start-local-proof/)
+continues to describe the verified v0.6.0 artifact until all four v0.7.0 channel
+proofs pass. See the [release notes](../release/v0.7.0-release-notes.md).
+Exact source inputs and
 callable signatures are recorded in the generated
 [application reference](shardloom-user-surface-index.json).
 
@@ -139,8 +142,8 @@ republishing every maintainer name into application completion.
 
 The legacy result alias and named root lookup remain for the next minor
 release cycle. Removal requires a later announced compatibility change and
-cannot occur in a patch release. No removal version is scheduled while the
-current release hold is active. The repository uses the canonical result name;
+cannot occur in a patch release. Both remain available in v0.7.0; no removal
+version is scheduled. The repository uses the canonical result name;
 compatibility tests explicitly exercise the aliases.
 
 CLI command names and JSON envelopes remain compatible. `shardloom help`
