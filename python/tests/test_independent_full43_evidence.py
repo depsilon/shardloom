@@ -50,6 +50,41 @@ class IndependentFull43EvidenceTests(unittest.TestCase):
             self.assertIn("Ran 18 tests", controls.stderr)
             self.assertIn("\nOK\n", controls.stderr)
 
+    def test_corrected_runtime_workload_matrix_and_corruption_controls(self):
+        if not (EVIDENCE / "matrix-records.json.xz").exists():
+            if (ROOT / ".git").exists():
+                self.fail("tracked corrected-runtime matrix is missing from the checkout")
+            self.skipTest("historical evidence bundles are excluded from exported source archives")
+        environment = dict(
+            os.environ,
+            SHARDLOOM_MATRIX_PACKET=str(EVIDENCE),
+            SHARDLOOM_CORRECTNESS_REPOSITORY=str(ROOT),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            replay = subprocess.run(
+                [sys.executable, "-B", str(EVIDENCE / "verify_matrix_packet_951.py"),
+                 "--manifest", str(EVIDENCE / "matrix-manifest.json"),
+                 "--repository", str(ROOT), "--output", str(Path(temporary) / "replay.json")],
+                cwd=temporary, env=environment, capture_output=True, text=True,
+                timeout=180, check=False,
+            )
+            self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
+            result = json.loads(replay.stdout)
+            self.assertEqual(result["status"], "passed_corrected_matrix_portable_replay")
+            self.assertEqual(result["complete_result_pairs"], 704)
+            self.assertEqual(result["logical_schema_statements"], 368)
+            self.assertEqual(result["terminal_order_statements"], 48)
+            self.assertTrue(result["independent_full43_runtime_binding_verified"])
+            self.assertFalse(result["runtime_executed"])
+            controls = subprocess.run(
+                [sys.executable, "-B", str(EVIDENCE / "test_matrix_packet_951.py")],
+                cwd=temporary, env=environment, capture_output=True, text=True,
+                timeout=240, check=False,
+            )
+            self.assertEqual(controls.returncode, 0, controls.stdout + controls.stderr)
+            self.assertIn("Ran 14 tests", controls.stderr)
+            self.assertIn("\nOK\n", controls.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

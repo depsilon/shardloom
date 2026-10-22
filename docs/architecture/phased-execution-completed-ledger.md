@@ -17,6 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Corrected-runtime declared workload matrix` — the
+  [refreshed October 22 evidence](../benchmarks/native-independent-full43-2026-10-22.md#corrected-runtime-workload-matrix)
+  binds the independently checked runtime `a973ad72` to 704 passing comparisons
+  for the same 22 tasks, 368 original logical-schema checks and 48 explicit
+  terminal-order checks. The original published-source matrix below is preserved.
+  - Log retention stopped after 13 complete cohorts because Spotlight held a
+    PID log open. The failed supervisor, 594 completed comparisons and exact
+    interruption remain evidence. Only the five remaining cohorts were then
+    executed, with unchanged runtime, harness, environment and limits. No
+    completed cohort was repeated.
+  - Portable replay verifies 11,557 stored members and 1,307 omitted physical
+    identities, links the independent Full43 runtime and executes no engine.
+    Fourteen matrix test methods cover positive replay and corruption subcases;
+    both evidence packets are discovered by the existing Python CI shard.
+  - This is finite local matrix acceptance. Current PR integration remains in
+    the active plan; no whole owner, competitive gate or release is completed.
+
 - [x] `Independent Full43 local correctness acceptance` — the
   [October 22 record](../benchmarks/native-independent-full43-2026-10-22.md)
   binds source `a973ad72` to all 381 independently computed result rows for the
@@ -31,8 +48,9 @@ phase plan first.
   - Formatting, strict workspace/native lint, 3,239 workspace tests, 3,174 native
     library tests with 31 existing manual ignores, 1,100 public CLI tests and
     eleven oracle tests pass. All eighteen portable verifier tests pass.
-  - This is local finite correctness acceptance. Current matrix refresh and PR
-    integration remain in the active plan; no whole owner contract, CG gate,
+  - This is local finite correctness acceptance. The corrected-runtime matrix
+    refresh is recorded above; current PR integration remains in the active plan.
+    No whole owner contract, CG gate,
     optional breadth or new release is completed by this entry.
 
 - [x] `Selected workload guarantee acceptance` — the

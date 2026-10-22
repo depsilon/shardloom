@@ -97,6 +97,68 @@ coverage, source/input identities, timings, fallback and unsupported claims.
 The packet supersedes the earlier missing-independent-Full43 disposition for
 this finite workload. It does not close CG-5/CG-6, the fifteen required owner
 contracts, broader SQL parity or release readiness. Refreshing the selected
-22-task matrix against this corrected runtime and integrating the current PR
-checks remain separate acceptance work. Required prerequisites and gated
-investigations continue; optional breadth remains deferred.
+22-task matrix is completed below. Current PR integration remains separate
+acceptance work. Required prerequisites and gated investigations continue;
+optional breadth remains deferred.
+
+## Corrected-runtime workload matrix
+
+The same corrected executable now passes **704 complete native/reference
+comparisons**, covering all 22 existing workload declarations in 18 cohorts.
+Each task has 32 cells: raw/prepared collection across eight input formats and
+raw/prepared CSV input across eight writer formats. The fixture remains 1,000
+fact rows, 20 dimension rows and eight partitions. Pandas 3.0.3 is a separate
+comparison oracle. Its complete environment inventory of 6,832 files is
+identical before and after execution; nine installed distributions and the
+source-tree ShardLoom metadata remain distinct.
+
+All 368 original collected statements pass logical-schema checks, including
+48 explicit terminal-order checks. Writer results pass their original complete
+readbacks. The matrix uses the original workload declarations, one execution
+per cell, 1-GiB native admission, parallelism 2, sampled 1.5-GiB process-tree RSS
+limit, 60-second request deadline and unchanged storage limits. None of these
+settings is inferred from the Full43 run, which has its own resource contract.
+
+The original driver stopped during log retention after **13 complete cohorts**.
+Its closed-handle check found a PID log open in macOS Spotlight; it refused to
+retire that file. The failed supervisor and all 594 completed comparisons are
+retained. A frozen continuation first reverified those results and the unchanged
+runtime, harness and environment, then executed only the five remaining cohorts
+for 110 further comparisons. No completed cohort was repeated, no native result
+failed, and no guard limit was raised. The first twelve cohorts' compacted logs
+are verified member by member; cohorts 13–18 retain their original logs. This
+is a completed matrix with an explicit interruption, not an uninterrupted run.
+
+The [matrix manifest](evidence/native-independent-full43-2026-10-22/matrix-manifest.json)
+binds 11,557 stored members in 4,071,672 compressed bytes and 1,307 omitted
+physical-payload identities. The [portable replay](evidence/native-independent-full43-2026-10-22/matrix-replay.json)
+rechecks every comparison and binds its executable to the independent Full43
+packet above. It executes trusted repository validators over recorded bytes,
+without running archived code, a native engine or a comparison engine. Large
+physical inputs, binaries and output files are represented by their original
+verified identities; replay does not claim to reopen those omitted bytes.
+
+```sh
+evidence=docs/benchmarks/evidence/native-independent-full43-2026-10-22
+python3 "$evidence/verify_matrix_packet_951.py" --repository . --manifest "$evidence/matrix-manifest.json" --output /tmp/corrected-matrix-replay.json --check-current-runtime
+python3 "$evidence/test_matrix_packet_951.py"
+```
+
+Use a new output path and Python 3.10 or later. Omit `--check-current-runtime`
+after subsequent runtime changes. The existing Python CI shard discovers both
+packet replay tests. All 14 matrix test methods pass, with semantic corruption
+subcases for provenance, environment, missing work, resource/SQL drift, complete
+values, fallback, writer readbacks and original payload type/order/completeness.
+The [validation record](evidence/native-independent-full43-2026-10-22/matrix-validation.json)
+retains the unsupported-interpreter attempt and a corrected negative-test
+diagnostic expectation, neither of which changed the runtime or verifier.
+
+This refresh supersedes the stale-runtime limitation of the
+[prior matrix](native-workload-comparisons-2026-10-22.md), whose results remain
+unchanged. Its four-decimal comparison normalization, empty-sum convention and
+small fixture scale remain explicit limits. No collected output contains NULL,
+and the reference records do not preserve logical schema metadata, so these
+checks do not certify cross-engine nullability or type equality. Precision,
+pressure, lifecycle and installed-platform guarantees retain their separate
+tests and reviews. The matrix establishes no speed, broad parity, CG-5/CG-6,
+production-readiness or package-publication claim.

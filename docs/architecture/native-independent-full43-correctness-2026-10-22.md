@@ -86,5 +86,9 @@ now establish complete independent parity for this workload. The final isolated
 43-query pass takes **49.953164785 engine seconds** and validates all 381 rows.
 Q29 takes **3.079574458 engine seconds**, with the restored dictionary strategy
 recorded in its counters. Both preceding slow passes and the initial stopped
-attempt remain evidence. Current matrix refresh and PR integration are separate
-remaining acceptance steps; no entire required owner or competitive gate closes.
+attempt remain evidence. The same corrected executable now passes the refreshed
+22-task matrix's 704 comparisons, 368 original collected-schema checks and 48
+terminal-order checks. Its post-cohort log-retention interruption and five-cohort
+continuation remain explicit; no completed cohort was repeated. Current PR
+integration remains a separate acceptance step; no entire required owner or
+competitive gate closes.

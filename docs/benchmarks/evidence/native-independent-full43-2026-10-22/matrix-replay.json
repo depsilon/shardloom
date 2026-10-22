@@ -1,0 +1,19 @@
+{
+  "status": "passed_corrected_matrix_portable_replay",
+  "complete_result_pairs": 704,
+  "cohorts": 18,
+  "tasks": 22,
+  "logical_schema_statements": 368,
+  "terminal_order_statements": 48,
+  "observed_null_values": 0,
+  "interruption_retained": true,
+  "completed_cohorts_repeated": false,
+  "uninterrupted_single_run_claimed": false,
+  "runtime_executed": false,
+  "omitted_physical_payloads_reopened": false,
+  "current_runtime_source_checked": true,
+  "independent_full43_runtime_binding_verified": true,
+  "members": 11557,
+  "omitted_payload_identities": 1307,
+  "performance_or_broad_parity_claim": false
+}
