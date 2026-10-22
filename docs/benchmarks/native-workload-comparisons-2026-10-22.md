@@ -39,6 +39,18 @@ cache is admitted. The operating-system page cache is uncontrolled, and fixture
 preparation and hashing can warm it. Native credits do not imply a whole-process
 RSS ceiling. These observations do not establish comparative engine performance.
 
+The original environment preflight records nine installed distributions. The
+frozen protocol also enumerates ShardLoom 0.7.0 metadata after adding the source
+tree to the import path. The original post-run verifier checks exact equality
+with all ten declared distributions, but its receipt stores only that outcome.
+A separately dated
+[metadata-only observation](evidence/perf12-comparisons-2026-10-22/baseline-environment-postflight.json)
+now retains the complete mapping
+and distinguishes the nine installed packages from source-tree metadata. Replay
+requires equality for both complete mappings and rejects a missing distribution.
+This supplemental observation executes neither engine and is explicitly separate
+from the original run; the original packet remains unchanged.
+
 ## Results and semantic limits
 
 All 22 declared tasks pass their 32 complete normalized result comparisons:
@@ -121,9 +133,10 @@ full-size oracle and paired performance comparison remain unproven.
 
 ## Verification and next decision
 
-The complete portable replay passes. Fifteen corruption cases reject altered
+The complete portable replay passes. Forty corruption cases reject altered
 identities, incomplete coverage, changed baseline/resources/SQL, fallback,
-missing writer readbacks, an erased interruption and unsupported claims. Five
+missing writer readbacks, an erased interruption, incomplete dependency mappings
+and unsupported claims. Five
 additional original-envelope cases reject reversed ordered rows, a changed
 logical type, a missing row field, an incomplete flag and duplicate fields.
 Five acceptance-summary checks also reject missing comparisons, optional-scope

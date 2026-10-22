@@ -6,6 +6,12 @@
   "tasks": 22,
   "complete_result_pairs": 704,
   "failed_attempt_retained": true,
+  "complete_baseline_distributions": 10,
+  "installed_baseline_distributions": 9,
+  "source_tree_distributions": {
+    "shardloom": "0.7.0"
+  },
+  "supplemental_metadata_observation_is_original_run_evidence": false,
   "runtime_executed": false,
   "omitted_physical_payloads_reopened": false,
   "performance_or_broad_parity_claim": false

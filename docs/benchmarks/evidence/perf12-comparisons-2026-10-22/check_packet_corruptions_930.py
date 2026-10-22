@@ -7,7 +7,7 @@ import lzma
 from pathlib import Path
 import sys
 
-from verify_packet_929 import replay, strict_json
+from verify_packet_929 import Evidence, check_environment, replay, strict_json
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--repository', type=Path, required=True)
@@ -119,9 +119,46 @@ for name, text, expected in [('duplicate JSON key', '{"x":1,"x":2}', 'duplicate 
         outcomes.append({'case': name, 'status': 'rejected', 'reason': str(error)})
     else:
         raise AssertionError(name + ': invalid JSON was accepted')
+
+evidence = Evidence(original_packet)
+baseline = evidence.read(original_manifest['protocol']['path'])['baseline']
+preflight = evidence.read(baseline['environment_observation']['path'])
+postflight = strict_json(Path(__file__).with_name('baseline-environment-postflight.json').read_bytes())
+check_environment(baseline, preflight, postflight)
+
+def environment_check(name, expected, mutate):
+    before, after = copy.deepcopy(preflight), copy.deepcopy(postflight)
+    mutate(before, after)
+    try:
+        check_environment(baseline, before, after)
+    except ValueError as error:
+        assert expected in str(error), (name, str(error))
+        outcomes.append({'case': name, 'status': 'rejected', 'reason': str(error)})
+    else:
+        raise AssertionError(name + ': invalid baseline evidence was accepted')
+
+for distribution in preflight['distributions']:
+    environment_check('preflight omits ' + distribution, 'installed baseline distribution mapping differs',
+        lambda before, after, name=distribution: before['distributions'].pop(name))
+for distribution in baseline['distributions']:
+    environment_check('postflight omits ' + distribution, 'complete baseline distribution mapping differs',
+        lambda before, after, name=distribution: after['distributions'].pop(name))
+environment_check('preflight distribution version changed', 'installed baseline distribution mapping differs',
+    lambda before, after: before['distributions'].update(pandas='2.2.3'))
+environment_check('postflight distribution version changed', 'complete baseline distribution mapping differs',
+    lambda before, after: after['distributions'].update(pyarrow='0.0.0'))
+environment_check('undeclared postflight distribution', 'complete baseline distribution mapping differs',
+    lambda before, after: after['distributions'].update(undeclared='1.0.0'))
+environment_check('source distribution origin erased', 'baseline distribution origin mapping differs',
+    lambda before, after: after['source_tree_distributions'].clear())
+environment_check('supplemental observation relabelled as original', 'baseline observation scope differs',
+    lambda before, after: after.update(original_run_observation=True))
+environment_check('baseline interpreter changed', 'baseline interpreter differs',
+    lambda before, after: after.update(python='3.11.0'))
 result = {'status': 'passed', 'positive_replay': positive, 'negative_cases': outcomes,
     'negative_cases_passed': len(outcomes), 'runtime_executed': False,
-    'semantic_mutations_rebind_report_and_ancestor_identities': True}
+    'report_mutations_rebind_report_and_ancestor_identities': True,
+    'environment_mutations_use_replays_environment_checker': True}
 with args.output.open('x') as stream:
     json.dump(result, stream, indent=2)
     stream.write('\n')

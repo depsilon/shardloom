@@ -8,6 +8,12 @@
     "tasks": 22,
     "complete_result_pairs": 704,
     "failed_attempt_retained": true,
+    "complete_baseline_distributions": 10,
+    "installed_baseline_distributions": 9,
+    "source_tree_distributions": {
+      "shardloom": "0.7.0"
+    },
+    "supplemental_metadata_observation_is_original_run_evidence": false,
     "runtime_executed": false,
     "omitted_physical_payloads_reopened": false,
     "performance_or_broad_parity_claim": false
@@ -87,9 +93,135 @@
       "case": "non-finite JSON number",
       "status": "rejected",
       "reason": "non-finite JSON value: NaN"
+    },
+    {
+      "case": "preflight omits fastavro",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits numpy",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits pandas",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits pip",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits psutil",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits pyarrow",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits python-dateutil",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits six",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight omits tzdata",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits fastavro",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits numpy",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits pandas",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits pip",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits psutil",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits pyarrow",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits python-dateutil",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits shardloom",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits six",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight omits tzdata",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "preflight distribution version changed",
+      "status": "rejected",
+      "reason": "installed baseline distribution mapping differs"
+    },
+    {
+      "case": "postflight distribution version changed",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "undeclared postflight distribution",
+      "status": "rejected",
+      "reason": "complete baseline distribution mapping differs"
+    },
+    {
+      "case": "source distribution origin erased",
+      "status": "rejected",
+      "reason": "baseline distribution origin mapping differs"
+    },
+    {
+      "case": "supplemental observation relabelled as original",
+      "status": "rejected",
+      "reason": "baseline observation scope differs"
+    },
+    {
+      "case": "baseline interpreter changed",
+      "status": "rejected",
+      "reason": "baseline interpreter differs"
     }
   ],
-  "negative_cases_passed": 15,
+  "negative_cases_passed": 40,
   "runtime_executed": false,
-  "semantic_mutations_rebind_report_and_ancestor_identities": true
+  "report_mutations_rebind_report_and_ancestor_identities": true,
+  "environment_mutations_use_replays_environment_checker": true
 }

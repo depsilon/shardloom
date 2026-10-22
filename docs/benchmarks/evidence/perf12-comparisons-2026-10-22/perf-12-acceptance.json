@@ -499,8 +499,8 @@
     },
     "manifest": {
       "path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/perf12-packet-929.json.xz.manifest.json",
-      "bytes": 3941,
-      "sha256": "ae320befe713ec4c27b9d5e7691c2712133f132a7fbc427fa7cb8d9bb076afd8"
+      "bytes": 4137,
+      "sha256": "596c6077462d1b623bed05d9c367d46ee284b5f73d67a526743a83f8c663020b"
     },
     "current_acceptance_member": {
       "bytes": 343675,
@@ -514,18 +514,23 @@
     },
     "replay": {
       "path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/portable-replay-4.json",
-      "bytes": 335,
-      "sha256": "b98721fdca371ad36cf58ab8ce796f1dda85ba9769df1da9dead4fbdd73a226a"
+      "bytes": 551,
+      "sha256": "0eced7b8e586c4032c337ee8354a003f6c49ead67bc49d283e543d7ed05701ca"
     },
     "corruption_checks": {
       "path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/portable-corruptions-1.json",
-      "bytes": 2988,
-      "sha256": "8459766cbd6728892cacd108c4a262c416ac562ccc01660b05b5026c88ca4328"
+      "bytes": 7017,
+      "sha256": "33a031825c28bd520dbf24479cb9e995a64d08dab84c24bcf289baf470b889b5"
     },
     "original_payload_contracts": {
       "path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/original-payload-contracts-3.json",
-      "bytes": 258207,
-      "sha256": "33e6543d9b90614819883640ad8815fdee2df9c2cc2f91e2bc63d309a755778f"
+      "bytes": 258435,
+      "sha256": "1614e83e0a648360ed99ebafc92587db3cb8ac000d7fa4c0d8bdc71986ecc939"
+    },
+    "baseline_environment_postflight": {
+      "path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/baseline-environment-postflight.json",
+      "bytes": 7500,
+      "sha256": "45b48bcfc883a2ce42e316be7736705ca4a5b533d6b458e7aae284f21d448769"
     }
   },
   "interruption": {

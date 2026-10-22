@@ -32,9 +32,13 @@ phase plan first.
     credit. Verified completed-log compaction and one complete replacement
     cohort finish the declared matrix without changing the runtime or limits.
   - Portable replay verifies 11,811 stored members, 1,335 omitted payload
-    identities and every complete comparison. Fifteen packet, five original
+    identities and every complete comparison. Forty packet/environment, five original
     envelope and five acceptance-summary corruption checks pass. Replay runs
     without engine execution or third-party Python packages.
+    A separately dated metadata-only observation binds all ten declared
+    distributions, distinguishing nine installed packages from source-tree
+    metadata; incomplete dependency mappings fail replay. Original run evidence
+    remains unchanged.
   - Historical pandas 2.2.3 evidence and the original Full43 native regression
     observation remain unchanged. This closes the finite current-source
     comparison gap, not PERF-12, any of the fifteen protected required

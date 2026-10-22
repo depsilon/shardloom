@@ -29,6 +29,35 @@ def strict_json(raw):
         raise ValueError('non-finite JSON value: ' + value)
     return json.loads(raw, object_pairs_hook=pairs, parse_constant=invalid)
 
+def check_environment(baseline, preflight, postflight):
+    require(preflight['status'] == 'passed_import_and_dependency_checks'
+        and postflight['status'] == 'passed_complete_distribution_observation'
+        and postflight['original_run_observation'] is False
+        and postflight['runtime_executed'] is False, 'baseline observation scope differs')
+    require(postflight['distributions'] == baseline['distributions'],
+        'complete baseline distribution mapping differs')
+    require(preflight['distributions'] == postflight['installed_distributions'],
+        'installed baseline distribution mapping differs')
+    installed = postflight['installed_distributions']
+    source = postflight['source_tree_distributions']
+    require(set(source) == {'shardloom'} and not (installed.keys() & source.keys())
+        and {**installed, **source} == postflight['distributions'],
+        'baseline distribution origin mapping differs')
+    metadata = postflight['metadata']
+    require(len(metadata) == len(postflight['distributions'])
+        and len({row['name'] for row in metadata}) == len(metadata)
+        and {row['name']: row['version'] for row in metadata} == postflight['distributions'],
+        'baseline metadata inventory differs')
+    for origin, values in [('installed', installed), ('source_tree', source)]:
+        require({row['name']: row['version'] for row in metadata if row['origin'] == origin} == values,
+            'baseline metadata origins differ')
+    require(postflight['python_full'] == baseline['python']
+        and postflight['python'] == preflight['python'] == baseline['python'].split()[0]
+        and postflight['interpreter'] == baseline['interpreter'], 'baseline interpreter differs')
+    observer = postflight['observer_source'].encode()
+    require(len(observer) == postflight['observer']['bytes']
+        and digest(observer) == postflight['observer']['sha256'], 'baseline observer source differs')
+
 class Evidence:
     def __init__(self, packet):
         require(type(packet['schema_version']) is int and packet['schema_version'] == 1, 'changed packet schema')
@@ -107,9 +136,20 @@ def replay(repository, manifest, packet):
         require(digest((repository / name).read_bytes()) == expected, 'runtime replay source changed: ' + name)
     evidence.check(protocol['baseline']['install_report'])
     environment = evidence.read(evidence.check(protocol['baseline']['environment_observation']))
-    require(environment['status'] == 'passed_import_and_dependency_checks'
-        and all(protocol['baseline']['distributions'][name] == value
-            for name, value in environment['distributions'].items()), 'baseline environment differs')
+    postflight_ref = manifest['baseline_environment_postflight']
+    require(postflight_ref['path'] == 'baseline-environment-postflight.json', 'unexpected baseline observation path')
+    postflight_raw = Path(__file__).with_name(postflight_ref['path']).read_bytes()
+    require(len(postflight_raw) == postflight_ref['bytes']
+        and digest(postflight_raw) == postflight_ref['sha256'], 'baseline postflight identity differs')
+    postflight = strict_json(postflight_raw)
+    require(postflight['protocol'] == manifest['protocol']
+        and postflight['preflight'] == protocol['baseline']['environment_observation']
+        and postflight['source_version']['sha256'] == protocol['runtime_source_hashes']['python/src/shardloom/_version.py'],
+        'baseline postflight source binding differs')
+    check_environment(protocol['baseline'], environment, postflight)
+    evidence.check(accepted['verifier'])
+    require(accepted['source_and_baseline_environment_unchanged'] is True,
+        'original post-run environment verification missing')
     original = evidence.read(evidence.check(accepted['original_failed_matrix']))
     failed = evidence.read(evidence.check(accepted['original_incomplete_cohort']))
     require(original['status'] == failed['status'] == 'failed', 'failed observation changed')
@@ -225,6 +265,10 @@ def replay(repository, manifest, packet):
     return {'status': 'passed_portable_complete_value_replay', 'members': len(evidence.members),
         'omitted_payload_identities': len(evidence.omitted), 'cohorts': 18, 'tasks': 22,
         'complete_result_pairs': 704, 'failed_attempt_retained': True,
+        'complete_baseline_distributions': len(postflight['distributions']),
+        'installed_baseline_distributions': len(postflight['installed_distributions']),
+        'source_tree_distributions': postflight['source_tree_distributions'],
+        'supplemental_metadata_observation_is_original_run_evidence': False,
         'runtime_executed': False, 'omitted_physical_payloads_reopened': False,
         'performance_or_broad_parity_claim': False}
 

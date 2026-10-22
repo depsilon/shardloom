@@ -84,5 +84,10 @@
     "runtime-binding-1.json",
     "verify_refresh_929.py"
   ],
-  "status": "built_and_byte_verified_not_primary_acceptance"
+  "status": "built_and_byte_verified_not_primary_acceptance",
+  "baseline_environment_postflight": {
+    "path": "baseline-environment-postflight.json",
+    "bytes": 7500,
+    "sha256": "45b48bcfc883a2ce42e316be7736705ca4a5b533d6b458e7aae284f21d448769"
+  }
 }
