@@ -114,6 +114,9 @@ Historical patch train addendum, 2026-06-16:
   source of truth; run `python3 scripts/sync_workspace_package_versions.py --check` before package
   build/publish and `python3 scripts/sync_workspace_package_versions.py` after changing the root
   version.
+- After syncing any release version, run `python3 scripts/write_public_api_reference.py` to
+  refresh the generated Python source identities, then
+  `python3 scripts/write_public_api_reference.py --check` before package build/publish.
 
 v0.1.4 publication completion addendum, 2026-06-17:
 

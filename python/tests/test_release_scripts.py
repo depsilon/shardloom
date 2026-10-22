@@ -66,11 +66,18 @@ class ReleaseScriptTests(unittest.TestCase):
             "docs/benchmarks/evidence/index.json": b'{"archive":"records.tar.xz"}\n',
             "docs/benchmarks/evidence/case/verify.py": b'print("verify")\n',
             "docs/benchmarks/evidence/partial-summary.json": b"{}\n",
+            "docs/benchmarks/compiler-profile-screen-2026-09-27.json": b"{}\n",
+            "docs/benchmarks/unrelated.json.gz": b"compressed fixture",
+            "docs/benchmarks/fixtures/input.json.gz": b"nested compressed fixture",
             "docs/release/channel-proofs/proof.json": b"{}\n",
             "vendor/vortex-file/tests/fixture.gz": b"vendored compressed fixture",
             "python/THIRD_PARTY_LICENSES/texts/notice.txt": b"upstream license\r\n",
         }
         omitted = {
+            "docs/benchmarks/compiler-profile-screen-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/json-typed-builder-screen-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/jsonl-typed-builder-screen-2026-09-27.json.gz": b"legacy proof",
+            "docs/benchmarks/portable-release-acceptance-2026-09-27.json.gz": b"legacy proof",
             "docs/benchmarks/evidence/top.json.xz": b"xz proof",
             "docs/benchmarks/evidence/top.json.gz": b"gzip proof",
             "docs/benchmarks/evidence/top.tar.part-001": b"proof chunk",

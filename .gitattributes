@@ -17,3 +17,7 @@ python/THIRD_PARTY_LICENSES/texts/*.txt -text -whitespace linguist-vendored=true
 /docs/benchmarks/evidence/**/*.xz export-ignore
 /docs/benchmarks/evidence/**/*.gz export-ignore
 /docs/benchmarks/evidence/**/*.part-* export-ignore
+/docs/benchmarks/compiler-profile-screen-2026-09-27.json.gz export-ignore
+/docs/benchmarks/json-typed-builder-screen-2026-09-27.json.gz export-ignore
+/docs/benchmarks/jsonl-typed-builder-screen-2026-09-27.json.gz export-ignore
+/docs/benchmarks/portable-release-acceptance-2026-09-27.json.gz export-ignore
