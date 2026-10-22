@@ -1,0 +1,130 @@
+{
+  "archive": {
+    "bytes": 1354416,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-format-strategy-2026-10-21/records.tar.xz",
+    "sha256": "2b75473565142b3262807d9de2f42bffb2569a8e2921ad22ac077d5f0c6ef293"
+  },
+  "binary": {
+    "bytes": 76384016,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/format-strategy-907/shardloom",
+    "sha256": "e61440e47b37d61679777b2b4d8440dca8f589b25f1b64130a60d5a502755517"
+  },
+  "build": {
+    "bytes": 4480,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-build-907.json",
+    "sha256": "f51e2bdd48909475412ccfa193741d2d31b9245731c18d3fee7cabab84ff11de"
+  },
+  "claims": {
+    "competitive_gate_closed": false,
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "first_use_preparation_speedup_proven": false,
+    "native_vortex_preserved": true,
+    "release_published": false
+  },
+  "compiled_source_input_count": 2593,
+  "full43": {
+    "engine_execution_seconds": 48.754238077,
+    "independent_correctness_oracle": false,
+    "input_sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22",
+    "interpretation": "One isolated observation with unchanged standard runner and original input/reference; no causal or speedup claim.",
+    "prior_engine_observation": 49.990920425,
+    "queries": 43,
+    "reference_kind": "retained_native_regression",
+    "repeats": 1,
+    "rows": 381
+  },
+  "helper_rejections": [
+    {
+      "attempt": "accept_format_strategy_906.py build",
+      "reason": "Expected shardloom_cli target; manifest declares shardloom_runtime.",
+      "resolution": "907 checks correct target against original fresh compiler records and unchanged source; original build is reused.",
+      "runtime_failure": false,
+      "stage": "after successful CLI compilation"
+    },
+    {
+      "attempt": "accept_format_strategy_907.py full43",
+      "queries_started": 0,
+      "reason": "Copied helper path used perf-all-20260907 instead of existing perf-all-20260906.",
+      "resolution": "Standalone 908 helper preserves 907 source/build bindings and corrects only supervisor path.",
+      "stage": "preflight before plan or queries"
+    },
+    {
+      "attempt": "independent retained-output verification",
+      "queries_started": 0,
+      "reason": "First verifier assumed explicit --queries; runner uses its checked-in default.",
+      "resolution": "Retained verifier follows the actual runner default; no query rerun.",
+      "stage": "offline after accepted pass"
+    }
+  ],
+  "implementation_commit": "dd1e190e80372b62b6974dcb6d927aef4b96130f",
+  "index": {
+    "bytes": 279359,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-format-strategy-2026-10-21/index.json",
+    "sha256": "caafa90e148e7903a2972f0d3122c508e3d0846bdcf244d8e5669d9c4a4f162c"
+  },
+  "native_library": {
+    "bytes": 76255472,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/format-strategy-907/native/_native.abi3.so",
+    "sha256": "109d93292ae2fa8458670fdbec5f38cafc0a2e0b935d19954670c65cf9e37e20"
+  },
+  "portable_replay": {
+    "archive_members": 502,
+    "full43_engine_seconds": 48.754238077,
+    "full43_queries": 43,
+    "full43_rows": 381,
+    "installed_native_tests": 121,
+    "original_readback_fixtures": 2,
+    "preserved_prior_writer_queries": 129,
+    "status": "passed",
+    "tests": {
+      "format-alias-cli-905": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 1099
+      },
+      "format-final-workspace-tests-905": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3238
+      },
+      "format-native-tests-902": {
+        "failed": 0,
+        "ignored": 31,
+        "passed": 3161
+      }
+    }
+  },
+  "prior_writer_observations": {
+    "complete_encoding_or_byte_identity_claim": false,
+    "full_ingests": [
+      0,
+      1,
+      1
+    ],
+    "full_size_writer_rerun": false,
+    "native_reopen_failures": [
+      0,
+      16,
+      1
+    ],
+    "queries_each": 43,
+    "retained_minimized_fixtures_reopened": 2,
+    "routes": 3,
+    "rows_each": 381,
+    "writer_engine_clocks_available": false
+  },
+  "schema": "shardloom.native_format_strategy_acceptance.v1",
+  "source_proof_boundary": "Broad native/workspace/CLI tests ran in the working tree later committed as the implementation; their original HEAD and dirty list remain. Clean implementation source binds the fresh optimized artifacts, installed wheel, original readback and isolated Full43. No runtime source changed during final acceptance.",
+  "source_snapshot": {
+    "bytes": 341757,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-source-907.json",
+    "sha256": "13b89fed483c6536c8faa0437b7c01238ec79ff5567e361278f6f4b7eb62d66d"
+  },
+  "status": "local_acceptance_passed_pr_integration_pending",
+  "verifier": {
+    "bytes": 8708,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-format-strategy-2026-10-21/verify.py",
+    "sha256": "d2665f4d3f0e81f8eebdf2aba112f082f9b399c956db370af61c5820b6fe7abc"
+  }
+}

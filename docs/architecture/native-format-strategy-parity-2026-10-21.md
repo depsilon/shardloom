@@ -2,7 +2,8 @@
 
 # Native strategy parity across format boundaries
 
-Status: active corrective work under PERF-10/11/07 and CG-5/20/21. The October 21
+Status: local acceptance passed; PR integration pending under PERF-10/11/07 and
+CG-5/20/21. The October 21
 maintainer explicitly requires one execution path regardless of input/output
 format, using the accepted native Full43 path as the reference. Complete this
 correction before the newly authorized release train, then resume the required
@@ -17,7 +18,7 @@ query semantics, streaming requirements and resource policy remain valid physica
 strategy inputs. A sink consumes the selected native producer with its existing
 schema, backpressure, source-generation and publication guarantees.
 
-The accepted isolated Full43 observation is 49.990920425 engine seconds for one
+The preceding accepted isolated Full43 observation is 49.990920425 engine seconds for one
 execution of each query. Its existing Vortex source enters the public native
 count, aggregate, filter/projection and ordering families. This observation
 excludes original source conversion and result-file writing; it does not measure
@@ -26,7 +27,7 @@ raw-format query parity. The subsequent 129 file-writing queries all select
 Vortex input. Those writers do not report the engine clock, so their complete
 workflow observations must not be relabeled as engine timings.
 
-Source review identifies these corrections:
+Review of the preceding source identified these deviations, now corrected:
 
 - `public_resident_sql::route` sends every raw-format SQL request to relational
   execution before the ordinary primitive selector examines the query.
@@ -170,3 +171,63 @@ native-feature and public workflow checks. Perform any justified final Full43
 acceptance once, isolated under the standard runner; do not rerun it to rename a
 clock or manufacture a comparison. A shared selector alone does not establish a
 new speedup, complete type/operator breadth, CG closure or release readiness.
+
+## Accepted local results
+
+Implementation `dd1e190e80372b62b6974dcb6d927aef4b96130f` passes the following
+checks. The [acceptance record](../benchmarks/evidence/native-format-strategy-2026-10-21/acceptance.json)
+and [portable archive index](../benchmarks/evidence/native-format-strategy-2026-10-21/index.json)
+retain commands, logs, source identities, results and earlier failed attempts.
+
+| Check | Result |
+| --- | --- |
+| Default workspace, all targets | 3,238 tests pass; no skips |
+| Vortex library with release user surfaces | 3,161 tests pass; 31 existing manual benchmark tests remain ignored |
+| CLI library and affected public/resident/preparation integrations | 1,099 tests pass; no skips |
+| Formatting and default/native-feature lint | Pass |
+| Python core shard | 703 tests run; 25 environment-dependent skips, no failures or errors |
+| Clean installed native wheel | 121 tests pass; no skips; installed CLI/module hashes match the frozen build; uninstall passes |
+| Public reference/status/governance/scope checks and golden workflows | Pass |
+| Original minimized Parquet/ORC wildcard failures | Both reopen; all 12 rows match independent PyArrow readers |
+| Isolated Full43 | 43 queries, one execution each; 381 complete rows pass retained-reference validation |
+
+Full43 engine time is **48.754238077 seconds**. The original Vortex input, query
+file and reference values are unchanged. Source and executable identities are
+verified before and after the pass; all owned processes and the UAT lock are
+released. Other task work is idle during query execution. This is one local
+observation, not a paired performance claim or a measurement of raw-Parquet
+first-use preparation. The retained Full43 reference is a regression reference;
+the independent small fixtures establish the new format semantics separately.
+
+The workspace/native/CLI tests ran in the working tree before the implementation
+commits. Their receipts preserve the then-current HEAD and dirty-file list;
+they are not mislabeled as clean-commit executions. The Vortex code did not change
+after its broad suite. Subsequent CLI alias corrections passed the final CLI and
+workspace suites. The optimized CLI, Python extension, installed-wheel proof,
+original-fixture reopen and Full43 are bound to the clean implementation commit.
+
+The archive preserves the three earlier 43-query writer observations and all
+their values, missing writer engine clocks and 17 original native reopen
+failures. The two retained minimized failure fixtures are the exact originals;
+this acceptance does not claim a rerun of the 129 writer invocations or all 17
+discarded output payloads. The new ordinary-source/writer matrix additionally
+checks all eight supported sinks and metadata-only count work avoidance.
+
+Two acceptance-helper errors are retained separately: an incorrect Rust library
+target name after a successful build, and a copied supervisor path rejected
+before any Full43 query. The build was reused only after checking its unchanged
+source and fresh compiler records. The corrected preflight produced the single
+accepted query pass. Neither failed setup is a runtime or performance sample.
+
+To verify the packet without the original host, run:
+
+```sh
+python3 -B docs/benchmarks/evidence/native-format-strategy-2026-10-21/verify.py
+```
+
+The verifier reads the archive without extraction, checks every member hash,
+replays complete Full43 values and clocks, verifies the installed-native totals
+and original fixture readback, and checks all 141 prior-audit source digests.
+Runtime reproduction requires rebuilding the recorded revision and binding the
+retained driver to resident inputs and a new output directory. The archive does
+not include large input data, executables, libraries, wheels or environments.
