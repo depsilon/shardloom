@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -20,16 +21,24 @@ class IndependentFull43EvidenceTests(unittest.TestCase):
             if (ROOT / ".git").exists():
                 self.fail("tracked independent Full43 packet is missing from the checkout")
             self.skipTest("historical evidence bundles are excluded from exported source archives")
-        environment = dict(
-            os.environ,
-            SHARDLOOM_CORRECTNESS_PACKET=str(EVIDENCE),
-            SHARDLOOM_CORRECTNESS_REPOSITORY=str(ROOT),
-        )
         with tempfile.TemporaryDirectory() as temporary:
+            # Replay from another checkout location even on the packet producer's
+            # machine. Historical member identities must not use this root.
+            repository = Path(temporary) / "relocated-repository"
+            for directory in ("scripts", "python/src"):
+                for source in (ROOT / directory).rglob("*.py"):
+                    destination = repository / source.relative_to(ROOT)
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, destination)
+            environment = dict(
+                os.environ,
+                SHARDLOOM_CORRECTNESS_PACKET=str(EVIDENCE),
+                SHARDLOOM_CORRECTNESS_REPOSITORY=str(repository),
+            )
             replay = subprocess.run(
                 [sys.executable, "-B", str(EVIDENCE / "verify_correctness_packet_950.py"),
                  "--review", str(EVIDENCE / "review.json"),
-                 "--packet", str(EVIDENCE / "records.json.xz"), "--repository", str(ROOT)],
+                 "--packet", str(EVIDENCE / "records.json.xz"), "--repository", str(repository)],
                 cwd=temporary, env=environment, capture_output=True, text=True,
                 timeout=120, check=False,
             )

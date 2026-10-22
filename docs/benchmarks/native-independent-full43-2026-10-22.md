@@ -146,7 +146,12 @@ python3 "$evidence/test_matrix_packet_951.py"
 
 Use a new output path and Python 3.10 or later. Omit `--check-current-runtime`
 after subsequent runtime changes. The existing Python CI shard discovers both
-packet replay tests. All 14 matrix test methods pass, with semantic corruption
+packet replay tests. The Full43 test also copies its Python replay dependencies
+to a temporary checkout location before replaying the packet and all 18 controls.
+This reproduces and fixes the CI failure caused by looking up a historical oracle
+member with the replay checkout's absolute path; member lookup now uses the exact
+source identity in the retained oracle protocol. Original packet paths and bytes
+remain unchanged. All 14 matrix test methods pass, with semantic corruption
 subcases for provenance, environment, missing work, resource/SQL drift, complete
 values, fallback, writer readbacks and original payload type/order/completeness.
 The [validation record](evidence/native-independent-full43-2026-10-22/matrix-validation.json)

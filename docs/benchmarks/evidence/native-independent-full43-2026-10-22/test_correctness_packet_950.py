@@ -75,11 +75,16 @@ class CorrectnessPacketTests(unittest.TestCase):
 
     def test_current_program_cannot_replace_the_old_oracle_program(self):
         packet = copy.deepcopy(self.packet)
-        path = str(REPO / 'scripts/clickbench_independent_reference.py')
+        evidence = correction.Evidence(packet)
+        protocol = evidence.read(self.review['oracles'][0]['protocol'])
+        old_hash = '1f726a0b1a01c261ea5d6e85dc22b1fe4162a59e00da4c5396a35058fd3903e7'
+        programs = [program for program in protocol['programs'] if program['sha256'] == old_hash]
+        self.assertEqual(len(programs), 1)
+        # Member paths identify the producing checkout, not the replay checkout.
+        path = programs[0]['path']
         versions = [row for row in packet['files'] if row['path'] == path]
         self.assertEqual(len(versions), 2)
-        old = next(row for row in versions if row['sha256'] ==
-                   '1f726a0b1a01c261ea5d6e85dc22b1fe4162a59e00da4c5396a35058fd3903e7')
+        old = next(row for row in versions if row['sha256'] == old_hash)
         packet['files'].remove(old)
         with self.assertRaisesRegex(ValueError, 'missing exact evidence version'):
             self.verify(packet=packet)

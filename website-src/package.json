@@ -20,7 +20,7 @@
     "@astrojs/mdx": "^7.0.8",
     "@astrojs/sitemap": "^3.7.3",
     "@astrojs/starlight": "^0.41.10",
-    "astro": "^7.2.9",
+    "astro": "^7.3.3",
     "typescript": "^5.9.3",
     "yaml": "^2.9.0"
   },
