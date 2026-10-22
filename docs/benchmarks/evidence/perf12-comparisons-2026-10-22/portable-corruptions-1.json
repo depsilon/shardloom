@@ -1,0 +1,95 @@
+{
+  "status": "passed",
+  "positive_replay": {
+    "status": "passed_portable_complete_value_replay",
+    "members": 11811,
+    "omitted_payload_identities": 1335,
+    "cohorts": 18,
+    "tasks": 22,
+    "complete_result_pairs": 704,
+    "failed_attempt_retained": true,
+    "runtime_executed": false,
+    "omitted_physical_payloads_reopened": false,
+    "performance_or_broad_parity_claim": false
+  },
+  "negative_cases": [
+    {
+      "case": "duplicate stored path",
+      "status": "rejected",
+      "reason": "duplicate stored member"
+    },
+    {
+      "case": "stored bytes changed",
+      "status": "rejected",
+      "reason": "changed member: /Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/benchmarks/traditional_analytics/baseline_catalog.py"
+    },
+    {
+      "case": "omitted executable identity changed",
+      "status": "rejected",
+      "reason": "substituted reference: /Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/github-prerelease-assets/shardloom"
+    },
+    {
+      "case": "performance claim injected",
+      "status": "rejected",
+      "reason": "unearned acceptance claim"
+    },
+    {
+      "case": "incomplete records counted",
+      "status": "rejected",
+      "reason": "failure or continuation erased"
+    },
+    {
+      "case": "interruption erased",
+      "status": "rejected",
+      "reason": "failure or continuation erased"
+    },
+    {
+      "case": "missing result record",
+      "status": "rejected",
+      "reason": "complete original validator rejected report: ['case coverage is missing, duplicated or undeclared']"
+    },
+    {
+      "case": "different baseline version",
+      "status": "rejected",
+      "reason": "reference version/order differs"
+    },
+    {
+      "case": "different declared memory",
+      "status": "rejected",
+      "reason": "scale or resource settings differ"
+    },
+    {
+      "case": "different native memory request",
+      "status": "rejected",
+      "reason": "native call resource request differs"
+    },
+    {
+      "case": "fallback admitted",
+      "status": "rejected",
+      "reason": "complete original validator rejected report: ['native case lacks shared-engine and no-fallback evidence']"
+    },
+    {
+      "case": "different native SQL",
+      "status": "rejected",
+      "reason": "complete original validator rejected report: ['native calls differ from the declared complete workload']"
+    },
+    {
+      "case": "writer readback missing",
+      "status": "rejected",
+      "reason": "complete original validator rejected report: ['native writer lacks readback evidence']"
+    },
+    {
+      "case": "duplicate JSON key",
+      "status": "rejected",
+      "reason": "duplicate JSON key: x"
+    },
+    {
+      "case": "non-finite JSON number",
+      "status": "rejected",
+      "reason": "non-finite JSON value: NaN"
+    }
+  ],
+  "negative_cases_passed": 15,
+  "runtime_executed": false,
+  "semantic_mutations_rebind_report_and_ancestor_identities": true
+}
