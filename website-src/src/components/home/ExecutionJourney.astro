@@ -1,0 +1,42 @@
+---
+import TimingBoundaries from './TimingBoundaries.astro';
+const steps = [
+  { name: 'Source', detail: 'Admit the input', title: 'Start with an admitted source.', description: 'Validate the input, schema, and requested work. A recognized file extension alone does not establish support.', link: '/field-guide/runtime-and-io#local-formats', linkLabel: 'Explore local inputs' },
+  { name: 'Prepare', detail: 'Keep a native middle', title: 'Prepare once. Reuse with proof.', description: 'Compatibility inputs prepare into Vortex. Reuse requires matching source, schema, and artifact identities; it does not cache query answers.', link: '/field-guide/execution-routes#prepare-once', linkLabel: 'Read the reuse contract' },
+  { name: 'Execute', detail: 'Do the required work', title: 'Let the data remove work.', description: 'Metadata, segment pruning, and encoded kernels avoid work where the operation and layout permit it. Native operators share resource policy.', link: '/field-guide/execution-model#avoid-work-first', linkLabel: 'Explore native execution' },
+  { name: 'Deliver', detail: 'Choose the boundary', title: 'Make the destination explicit.', description: 'Keep supported results native, write Vortex, or translate through a compatible writer. Format limits and metadata loss remain visible.', link: '/field-guide/runtime-and-io#write-results', linkLabel: 'Choose an output' },
+  { name: 'Inspect', detail: 'Keep the evidence', title: 'See what actually happened.', description: 'Inspect source, execution, output, and materialization evidence. A local certificate does not establish production readiness or performance superiority.', link: '/field-guide/execution-model#execution-evidence', linkLabel: 'Understand the evidence' },
+];
+---
+
+<section class="architecture section-anchor" id="architecture" aria-labelledby="architecture-title">
+  <div class="wrap">
+    <div class="journey-heading"><div><p class="eyebrow">09 / From end to end</p><h2 id="architecture-title">One route.<br /><span class="soft">Every boundary visible.</span></h2></div><p class="copy">From the source you admit to the result you can inspect. Follow the work through one Vortex-native pipeline.</p></div>
+    <div class="execution-journey" data-journey-stage="2">
+      <div class="journey-drawing" aria-hidden="true">
+        <svg viewBox="0 0 1200 270" focusable="false">
+          <defs><linearGradient id="journeySpine"><stop stop-color="#82a6c6" stop-opacity=".08" /><stop offset=".4" stop-color="#b7ddf6" stop-opacity=".8" /><stop offset=".6" stop-color="#a4d8d8" stop-opacity=".8" /><stop offset="1" stop-color="#82a6c6" stop-opacity=".12" /></linearGradient><radialGradient id="journeyGlow"><stop stop-color="#90c7e9" stop-opacity=".22" /><stop offset="1" stop-color="#90c7e9" stop-opacity="0" /></radialGradient></defs>
+          <path class="study-guide" d="M0 45H1200M0 240H1200" />
+          {Array.from({ length: 17 }, (_, i) => <path d={`M0 ${110 + i * 4} C120 ${54 + i * 11} 240 ${205 - i * 7} 360 ${142 + (i - 8) * 3} S480 ${95 + i * 6} 600 ${142 + (i - 8) * 3} S720 ${205 - i * 7} 840 ${142 + (i - 8) * 3} S1080 ${60 + i * 11} 1200 ${110 + i * 4}`} fill="none" stroke="url(#journeySpine)" stroke-width=".65" />)}
+          {steps.map((_, i) => <g class="journey-node" data-journey-node={i} data-active={i === 2 ? 'true' : 'false'} transform={`translate(${120 + i * 240} 142)`}>
+            <circle class="journey-node-glow" r="105" fill="url(#journeyGlow)" />
+            <path class="journey-node-axis" d="M0 65V98M-5 98H5M0-98V-65M-5-98H5" />
+            <circle class="journey-node-orbit" r="55" fill="#0a121b" />
+            {i === 0 && <g class="journey-glyph"><path d="M-25-29H9L25-13V30H-25ZM9-29V-13H25M-14-4H13M-14 6H13M-14 16H2" /></g>}
+            {i === 1 && <g class="journey-glyph">{[14, 0, -14].map(y => <path d={`M-35 ${y} 0 ${y - 17} 35 ${y} 0 ${y + 17}ZM-35 ${y}V${y + 7}L0 ${y + 24} 35 ${y + 7}V${y}`} />)}</g>}
+            {i === 2 && <g class="journey-glyph"><path d="M0-37 33-18V18L0 37-33 18V-18ZM0-37V37M-33-18 33 18M33-18-33 18" /><circle r="11" fill="#173044" /></g>}
+            {i === 3 && <g class="journey-glyph"><path d="M-30 0H-4M-4 0Q6 0 6-14V-23H25M-4 0Q6 0 6 14V23H25M19-29l6 6-6 6M19 17l6 6-6 6" /><path d="M-35-8H-19V8H-35Z" /></g>}
+            {i === 4 && <g class="journey-glyph"><path d="M-25-30H25V30H-25ZM-13-17H13M-13-7H5M-12 10l8 8L15-2" /></g>}
+          </g>)}
+        </svg>
+      </div>
+      <div class="journey-steps" role="group" aria-label="Follow the data lifecycle">
+        {steps.map((step, i) => <button type="button" class="journey-step" data-journey-choice={i} aria-label={`Inspect ${step.name.toLowerCase()} stage`} aria-pressed={i === 2 ? 'true' : 'false'} data-title={step.title} data-description={step.description} data-link={step.link} data-link-label={step.linkLabel}><span class="journey-step-number">0{i + 1}</span><strong>{step.name}</strong><span class="journey-step-detail">{step.detail}</span></button>)}
+      </div>
+      <div class="journey-detail" aria-live="polite"><h3 id="journeyTitle">{steps[2].title}</h3><div><p id="journeyDescription">{steps[2].description}</p><a class="text-link" id="journeyLink" href={steps[2].link}><span>{steps[2].linkLabel}</span><span class="arrow">↗</span></a></div></div>
+      <noscript><ol class="journey-static">{steps.map(step => <li><strong>{step.name}</strong><p>{step.description}</p><a class="text-link" href={step.link}>{step.linkLabel} ↗</a></li>)}</ol></noscript>
+    </div>
+    <details class="journey-timing"><summary><span>What does a timing include?</span><span class="mono">Inspect the measurement boundary <span aria-hidden="true">+</span></span></summary><TimingBoundaries /></details>
+    <p class="journey-disclosure">Conceptual lifecycle. Available work depends on the source, operation, types, and output.</p>
+  </div>
+</section>

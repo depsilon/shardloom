@@ -33,9 +33,19 @@ artifacts remain repository evidence and must not be mirrored into a shardloom.i
 | `/` | Parallax product experience, route/evidence posture, next action | `website-src/src/pages/index.astro`, `website-public/assets/parallax-home.*`, README contracts |
 | `/about` | Short claim-safe overview of what ShardLoom is, is not, and where current evidence lives | `website-src/src/pages/about.astro`, README, compute-flow reference |
 | `/start` | Verified package installation and a first local query | repo getting-started docs and local scripts |
-| `/field-guide` | Nine focused guides for installation, Python, execution, I/O, evidence, and limitations | generated docs content and exact source references |
+| `/field-guide` | Focused guides for installation, Python, execution, I/O, evidence, and limitations | generated docs content and exact source references |
 | `/field-guide/benchmark-methodology` | ClickBench handoff, current engineering evidence, and measurement boundaries | `website-src/src/content/docs/field-guide/benchmark-methodology.mdx` |
 | `/field-guide/compute-flow` | Interactive metadata-count, grouping, and Top-K execution illustrations | `website-src/src/components/ComputeFlow.astro` and generated guide content |
+
+The homepage's materialization, admission and lifecycle studies are authored in
+`website-src/src/components/home/`, with shared study styling in
+`website-public/assets/home-studies.css`. Native result, typed-file and Python-row
+choices show representation boundaries; unsupported work visibly stops at admission.
+Lifecycle controls explain source, preparation, execution, delivery and evidence,
+with links to the current guides. These illustrations do not run queries, show
+measured quantities, promise zero decoding, or select a different execution engine.
+Their explanations remain readable without JavaScript; motion preferences and
+keyboard controls are checked by `scripts/check_parallax_browser.js`.
 
 Removed public routes are redirected intentionally: `/architecture` and `/compute-engine-flow`
 to `/field-guide/compute-flow`, `/benchmarks` to `/field-guide/benchmark-methodology`,

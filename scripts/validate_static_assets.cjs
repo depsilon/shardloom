@@ -33,6 +33,7 @@ const requiredFiles = [
   "_redirects",
   "assets/site.css",
   "assets/parallax-home.css",
+  "assets/home-studies.css",
   "assets/parallax-home.js",
   "assets/logo/shardloom-mark.svg",
   "assets/data/compute-engine-flow-reference.md",
@@ -292,6 +293,9 @@ for (const required of [
   'data-scene="horizon"',
   'id="motionToggle"',
   'id="copyInstall"',
+  'data-materialization-choice="rows"',
+  'data-journey-choice="4"',
+  'class="journey-static"',
 ]) {
   assert(index.includes(required), `parallax home page missing ${required}`);
 }

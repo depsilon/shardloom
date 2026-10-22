@@ -1,14 +1,45 @@
+---
+const threads = Array.from({ length: 19 }, (_, i) => i);
+---
+
 <div class="contract-visual" data-route-outcome="admitted">
-  <div class="outcome-switch" role="group" aria-label="Native route outcomes">
+  <div class="study-topline"><span>Admission study</span><span>One native contract</span></div>
+  <div class="admission-drawing">
+    <svg viewBox="0 0 720 360" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="admissionGlass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a3d4f3" stop-opacity=".22" /><stop offset=".55" stop-color="#477b9e" stop-opacity=".04" /><stop offset="1" stop-color="#a3d4f3" stop-opacity=".13" /></linearGradient>
+        <linearGradient id="admissionThreads"><stop stop-color="#94bfde" stop-opacity=".05" /><stop offset=".55" stop-color="#b8dff6" stop-opacity=".8" /><stop offset="1" stop-color="#91d6d4" stop-opacity=".45" /></linearGradient>
+        <radialGradient id="admissionHalo"><stop stop-color="#80c4df" stop-opacity=".14" /><stop offset="1" stop-color="#80c4df" stop-opacity="0" /></radialGradient>
+      </defs>
+      <ellipse cx="359" cy="180" rx="208" ry="176" fill="url(#admissionHalo)" />
+      <path class="study-guide" d="M20 300H700M20 60H700" />
+      <g class="admission-input">
+        {threads.map(i => <path d={`M24 ${90 + i * 10} C136 ${90 + i * 10} 226 ${120 + i * 6} 352 ${126 + i * 6}`} fill="none" stroke="url(#admissionThreads)" stroke-width=".7" />)}
+        <path d="M79 153 101 180 79 207 57 180Z" fill="#142b3b" stroke="#94bfde" /><path d="M68 180H90M79 169V191" stroke="#b5d6ec" stroke-width=".7" />
+      </g>
+      <g class="admission-pass">
+        {threads.map(i => <path d={`M352 ${126 + i * 6} C465 ${126 + i * 6} 525 ${152 + i * 3} 654 ${152 + i * 3}`} fill="none" stroke="url(#admissionThreads)" stroke-width=".8" />)}
+        {[3, 2, 1, 0].map(i => <path d={`M583 ${143 + i * 18} 622 ${122 + i * 18} 662 ${142 + i * 18} 622 ${164 + i * 18}Z`} fill="url(#admissionGlass)" stroke="#99c5d8" stroke-width=".7" />)}
+      </g>
+      <g class="admission-gate">
+        <path d="M352 44 430 95V300L352 249Z" fill="url(#admissionGlass)" stroke="#7da7c3" stroke-width=".9" />
+        <path d="M352 44 275 95V300L352 249Z" fill="#8bbddd08" stroke="#618aa6" stroke-width=".7" />
+        <path d="M352 62V231M282 98 352 52 422 98M282 285 352 237 422 285" fill="none" stroke="#badcf0" stroke-width=".55" opacity=".5" />
+        <path d="M331 28h42M331 318h42M352 18v20M352 308v20" stroke="#7199b5" stroke-width=".7" />
+      </g>
+      <g class="admission-stop">
+        <path d="M352 112V248" stroke="#ddbd91" stroke-width="2" />
+        <circle cx="352" cy="180" r="26" fill="#171a1b" stroke="#ddbd91" />
+        <path d="M341 180h22" stroke="#ddbd91" stroke-width="2" />
+        <path d="M388 180H650" stroke="#ddbd91" stroke-opacity=".25" stroke-dasharray="2 9" />
+        <path d="M617 160 640 180 617 200M640 160 617 180 640 200" stroke="#ddbd91" stroke-opacity=".35" fill="none" />
+      </g>
+    </svg>
+    <div class="admission-labels"><div><strong>Your query</strong><span>Python / SQL / CLI</span></div><div><strong id="routeGate">Native route</strong><span>ShardLoom / Vortex</span></div><div><strong id="routeOutcome">Explicit result</strong><span id="routeOutcomeDetail">Admitted execution</span></div></div>
+  </div>
+  <div class="study-switch outcome-switch" role="group" aria-label="Native route outcomes">
     <button type="button" data-outcome="admitted" aria-label="Admitted work outcome" aria-pressed="true">Admitted work</button>
     <button type="button" data-outcome="unsupported" aria-label="Unsupported work outcome" aria-pressed="false">Unsupported work</button>
-  </div>
-  <div class="native-route">
-    <div class="route-node"><strong>Your query</strong><span>Python / SQL / CLI</span></div>
-    <span class="arrow" aria-hidden="true">→</span>
-    <div class="route-node core"><strong id="routeGate">Native route</strong><span>ShardLoom / Vortex</span></div>
-    <span class="arrow route-outcome-arrow" aria-hidden="true">→</span>
-    <div class="route-node route-outcome"><strong id="routeOutcome">Explicit result</strong><span id="routeOutcomeDetail">Admitted execution</span></div>
   </div>
   <div class="outcome-detail" aria-live="polite">
     <span class="mono" id="outcomeLabel">One admitted route</span>
