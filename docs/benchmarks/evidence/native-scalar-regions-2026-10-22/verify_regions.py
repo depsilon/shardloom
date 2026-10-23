@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import io
 import json
+import lzma
 import math
 from pathlib import Path, PurePosixPath
 import re
@@ -86,6 +88,56 @@ class LimitedArchiveStream:
         if self.remaining < 0:
             raise ValueError('archive decompressed stream exceeds limit')
         return raw
+
+
+def read_gzip_payload(path):
+    with gzip.open(path, 'rb') as stream:
+        raw = stream.read(MAX_MEMBER_BYTES + 1)
+    if len(raw) > MAX_MEMBER_BYTES:
+        raise ValueError('nested gzip payload exceeds limit')
+    return raw
+
+
+def read_nested_archive(path):
+    # Limit both decoder memory and decoded tar bytes before tarfile sees an
+    # extended header. LZMAFile does not expose a decoder memory limit.
+    with path.open('rb') as stream:
+        compressed = stream.read(MAX_MEMBER_BYTES + 1)
+    if len(compressed) > MAX_MEMBER_BYTES:
+        raise ValueError('nested xz compressed payload exceeds limit')
+    limit = MAX_ARCHIVE_BYTES + MAX_ARCHIVE_MEMBERS * 8192 + 10240
+    decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ, memlimit=128 << 20)
+    try:
+        decoded = decoder.decompress(compressed, max_length=limit + 1)
+    except lzma.LZMAError as error:
+        raise ValueError('nested xz decoding rejected') from error
+    if len(decoded) > limit or not decoder.eof:
+        raise ValueError('nested xz payload exceeds limit or is incomplete')
+    if decoder.unused_data:
+        raise ValueError('nested xz trailing data')
+    result, total = {}, 0
+    with tarfile.open(fileobj=io.BytesIO(decoded), mode='r|') as archive:
+        for member in archive:
+            name = PurePosixPath(member.name)
+            if (not member.isfile() or not name.parts or name.is_absolute()
+                    or '..' in name.parts or chr(92) in member.name
+                    or any(':' in part for part in name.parts) or len(member.name) > 4096):
+                raise ValueError('unsafe nested archive member')
+            key = name.as_posix()
+            if key in result:
+                raise ValueError('duplicate nested archive member')
+            if len(result) >= MAX_ARCHIVE_MEMBERS:
+                raise ValueError('nested archive member count exceeds limit')
+            if not 0 <= member.size <= MAX_MEMBER_BYTES:
+                raise ValueError('nested archive member size exceeds limit')
+            if total + member.size > MAX_ARCHIVE_BYTES:
+                raise ValueError('nested archive total size exceeds limit')
+            raw = archive.extractfile(member).read()
+            if len(raw) != member.size:
+                raise ValueError('nested archive member length mismatch')
+            total += member.size
+            result[key] = raw
+    return result
 
 
 def unpack(packet, root):
@@ -297,7 +349,7 @@ def verify(root):
             path = str(prefix) + suffix
             if path in mapping:
                 return mapping[path].read_bytes()
-            return gzip.decompress(mapping[path + '.gz'].read_bytes())
+            return read_gzip_payload(mapping[path + '.gz'])
         singles.append(raw_call(row, standard_log('.stdout.json'), standard_log('.timing.json'),
             reference['values'][row['query']], 'candidate', 'standard-q' + str(row['query']), 12))
     assert sum(r['rows'] for r in singles) == standard['result_rows'] == 381
@@ -348,24 +400,20 @@ def verify(root):
             assert len(summary['archives']) == 43
             for query, archive_ref in zip(ids, summary['archives']):
                 archive_path = bound(archive_ref)
-                with tarfile.open(archive_path, 'r:xz') as archive:
-                    originals = archive_ref['members']
-                    assert archive.getnames() == [m['name'] for m in originals]
-                    raw = {}
-                    for item in originals:
-                        member = archive.getmember(item['name'])
-                        assert member.isfile()
-                        data = archive.extractfile(member).read()
-                        assert len(data) == item['bytes'] and digest(data) == item['sha256']
-                        raw[item['name']] = data
-                    selected = [r for r in stage['records'] if r['case'] == query]
-                    assert len(selected) == 2
-                    for row in selected:
-                        assert row['run'] == 1 and row['returncode'] == 0 and row['guard_failures'] == []
-                        assert row['query_statement'] == reference['queries'][query - 1]
-                        prefix = f"q{query:02d}_run1_{row['role']}"
-                        raw_rows.append(raw_call(row, raw[prefix + '.stdout.json'], raw[prefix + '.timing.json'],
-                            reference['values'][query], row['role'], name + '-' + prefix, 12))
+                originals = archive_ref['members']
+                raw = read_nested_archive(archive_path)
+                assert list(raw) == [m['name'] for m in originals]
+                for item in originals:
+                    data = raw[item['name']]
+                    assert len(data) == item['bytes'] and digest(data) == item['sha256']
+                selected = [r for r in stage['records'] if r['case'] == query]
+                assert len(selected) == 2
+                for row in selected:
+                    assert row['run'] == 1 and row['returncode'] == 0 and row['guard_failures'] == []
+                    assert row['query_statement'] == reference['queries'][query - 1]
+                    prefix = f"q{query:02d}_run1_{row['role']}"
+                    raw_rows.append(raw_call(row, raw[prefix + '.stdout.json'], raw[prefix + '.timing.json'],
+                        reference['values'][query], row['role'], name + '-' + prefix, 12))
             assert sum(r['rows'] for r in raw_rows) == 762
         else:
             for row in stage['records']:

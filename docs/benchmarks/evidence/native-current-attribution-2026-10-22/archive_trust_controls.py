@@ -1,8 +1,10 @@
 """Small bounded controls for trusted replay entrypoints and archive extraction."""
 from __future__ import annotations
 import hashlib
+import gzip
 import importlib.util
 import io
+import lzma
 import os
 from pathlib import Path
 import subprocess
@@ -103,6 +105,65 @@ def check(verifier_path):
             assert not (root / 'extended-header').exists()
             records.append(dict(case='extended_header_limit', rejected=True,
                                 rejected_before_file_write=True))
+        if hasattr(verifier, 'read_gzip_payload'):
+            with mock.patch.object(verifier, 'MAX_MEMBER_BYTES', 4):
+                compressed = root / 'inner.gz'
+                compressed.write_bytes(gzip.compress(b'1234'))
+                assert verifier.read_gzip_payload(compressed) == b'1234'
+                for name, raw in [('nested_gzip_size', gzip.compress(b'12345')),
+                                  ('nested_gzip_concatenated', gzip.compress(b'1234') + gzip.compress(b'5'))]:
+                    compressed.write_bytes(raw)
+                    try:
+                        verifier.read_gzip_payload(compressed)
+                    except ValueError as error:
+                        assert str(error) == 'nested gzip payload exceeds limit'
+                    else:
+                        raise AssertionError('unbounded inner gzip accepted')
+                    records.append(dict(case=name, rejected=True))
+        if hasattr(verifier, 'read_nested_archive'):
+            def nested(entries, *, comment=None):
+                output = io.BytesIO()
+                with tarfile.open(fileobj=output, mode='w', format=tarfile.PAX_FORMAT) as archive:
+                    for name, raw in entries:
+                        member = tarfile.TarInfo(name)
+                        member.size = len(raw)
+                        if comment:
+                            member.pax_headers = {'comment': comment}
+                        archive.addfile(member, io.BytesIO(raw))
+                return lzma.compress(output.getvalue())
+
+            nested_cases = [
+                ('nested_member_limit', [('a', b'x' * 1025)], 'nested archive member size exceeds limit'),
+                ('nested_total_limit', [('a', b'123'), ('b', b'456'), ('c', b'789')], 'nested archive total size exceeds limit'),
+                ('nested_count_limit', [('a', b'1'), ('b', b'2'), ('c', b'3'), ('d', b'4')], 'nested archive member count exceeds limit'),
+                ('nested_duplicate', [('a', b'1'), ('./a', b'2')], 'duplicate nested archive member'),
+                ('nested_parent_path', [('../a', b'1')], 'unsafe nested archive member'),
+            ]
+            with mock.patch.object(verifier, 'MAX_MEMBER_BYTES', 1024), \
+                    mock.patch.object(verifier, 'MAX_ARCHIVE_BYTES', 8), \
+                    mock.patch.object(verifier, 'MAX_ARCHIVE_MEMBERS', 3), \
+                    mock.patch.object(tarfile.TarFile, 'getmembers',
+                                      side_effect=AssertionError('unbounded nested member index')):
+                compressed = root / 'inner.tar.xz'
+                compressed.write_bytes(nested([('a', b'1234'), ('b', b'5678'), ('c', b'')]))
+                assert verifier.read_nested_archive(compressed) == {'a': b'1234', 'b': b'5678', 'c': b''}
+                encoded_cases = [(name, nested(entries), diagnostic) for name, entries, diagnostic in nested_cases]
+                encoded_cases.extend([
+                    ('nested_extended_header', nested([('a', b'')], comment='x' * 65536),
+                     'nested xz payload exceeds limit or is incomplete'),
+                    ('nested_trailing_stream', nested([('a', b'')]) + lzma.compress(b'ignored'),
+                     'nested xz trailing data'),
+                    ('nested_compressed_limit', b'x' * 1025, 'nested xz compressed payload exceeds limit'),
+                ])
+                for name, raw, diagnostic in encoded_cases:
+                    compressed.write_bytes(raw)
+                    try:
+                        verifier.read_nested_archive(compressed)
+                    except ValueError as error:
+                        assert str(error) == diagnostic, (name, str(error))
+                    else:
+                        raise AssertionError('unbounded nested archive accepted: ' + name)
+                    records.append(dict(case=name, rejected=True, diagnostic=diagnostic))
     return dict(status='passed', verifier_sha256=hashlib.sha256(verifier_path.read_bytes()).hexdigest(),
                 negative_controls=records, exact_limit_positive_passed=True,
                 production_limits=dict(member_bytes=32 << 20, total_bytes=128 << 20, members=1024),

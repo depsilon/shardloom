@@ -182,3 +182,12 @@ replayers, including oversized extended headers. The
 [relocated regression suite](evidence/native-scalar-regions-2026-10-22/archive-trust-regression.log)
 passes all five tests, the nine executable-helper controls and the existing
 35 semantic corruption controls. This changes evidence replay only.
+
+Nested query logs and comparison archives now enforce those limits after
+decompression as well. Gzip readers stop after the member budget; XZ readers
+also cap decoder memory and decoded tar bytes before parsing extended headers.
+Nested archives reject duplicate or unsafe members and trailing XZ streams.
+The [expanded controls](evidence/native-scalar-regions-2026-10-22/nested-archive-trust-controls.json)
+pass 51 rejection cases, including nested size, count, header and concatenated
+stream cases. The [relocated replay suite](evidence/native-scalar-regions-2026-10-22/nested-archive-trust-regression.log)
+passes all five tests and retains the earlier helper and semantic checks.

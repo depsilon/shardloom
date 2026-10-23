@@ -64,6 +64,14 @@ class LimitedArchiveStream:
         return raw
 
 
+def read_gzip_payload(path):
+    with gzip.open(path, 'rb') as stream:
+        raw = stream.read(MAX_MEMBER_BYTES + 1)
+    if len(raw) > MAX_MEMBER_BYTES:
+        raise ValueError('nested gzip payload exceeds limit')
+    return raw
+
+
 def unpack(packet, root):
     seen, total = set(), 0
     # Stream headers so the member limit is checked before allocating an
@@ -204,7 +212,7 @@ def verify(root, region_root):
             assert row['validation'] == 'complete_values' and row['engine_timing_reported']
             assert row['query_statement'] == reference['queries'][row['query'] - 1]
             prefix = str(Path(record['summary']['path']).parent / f"q{row['query']:02d}_run1")
-            envelope = strict_json(gzip.decompress(mapping[prefix + '.stdout.json.gz'].read_bytes()).decode())
+            envelope = strict_json(read_gzip_payload(mapping[prefix + '.stdout.json.gz']).decode())
             fields = report_fields(envelope)
             assert fields['fallback_attempted'] == fields['external_engine_invoked'] == 'false'
             assert fields.get('local_primitive_aggregate_source_region_execution') not in ('true', True)

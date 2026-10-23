@@ -4,14 +4,9 @@
   "integrated_production_equivalent_commit": "3d07013fb12cf21e6040adb03f9e97e995996875",
   "files": [
     {
-      "file": "packet.tar.gz",
-      "bytes": 2929884,
-      "sha256": "8b8bd3b421d2eaa51d2fc2a72e3a7e7dcd46a0eef1958d9eba2a421e45f7b693"
-    },
-    {
-      "file": "verification.json",
-      "bytes": 283,
-      "sha256": "917ab30c93dc525903fdb877ea9250e01d24bc8693e86fa4a63eb66c8b337118"
+      "file": "archive_trust_controls.py",
+      "bytes": 9883,
+      "sha256": "da96fa883fe66d6d248c55a050162cf0464e8ab745aada5f472014a152125cc5"
     },
     {
       "file": "corruption-checks.json",
@@ -19,24 +14,9 @@
       "sha256": "8b5db25cfb29525123c19bc5c03130cb29f6a5612eb6ccdf6a21b9a3a498fa9b"
     },
     {
-      "file": "verify_attribution.py",
-      "bytes": 17474,
-      "sha256": "7ab3b96f71fd9e80add2494a6278a1ec812fb48bd22c6818a19d871b05c0f622"
-    },
-    {
-      "file": "pr1589-integration-958.json",
-      "bytes": 980,
-      "sha256": "b40def8cf1ec5b2d14928f242c00bcd4a9791bf68b3adbd08741ceea94fb1f0a"
-    },
-    {
-      "file": "pr1589-checks-958.json",
-      "bytes": 20841,
-      "sha256": "44690c3ef1817ed5c204210b5bb198d12ac744d0f720c54281d238f3c5d9fa18"
-    },
-    {
-      "file": "test_attribution.py",
-      "bytes": 7593,
-      "sha256": "56ae1b33e55150085b4814cbf1095618e0cf623619b1273a6f46fbad60cee824"
+      "file": "packet.tar.gz",
+      "bytes": 2929884,
+      "sha256": "8b8bd3b421d2eaa51d2fc2a72e3a7e7dcd46a0eef1958d9eba2a421e45f7b693"
     },
     {
       "file": "portable-corruption-checks.json",
@@ -44,9 +24,29 @@
       "sha256": "2befe3185fe1a32aa4c4bfcd9fd3373d434725357cbc223f20999cafde1bcfd8"
     },
     {
-      "file": "archive_trust_controls.py",
-      "bytes": 5934,
-      "sha256": "5de7b365db5811c040b3c9c04188196c507259dda579e333ca645aac2cd5daca"
+      "file": "pr1589-checks-958.json",
+      "bytes": 20841,
+      "sha256": "44690c3ef1817ed5c204210b5bb198d12ac744d0f720c54281d238f3c5d9fa18"
+    },
+    {
+      "file": "pr1589-integration-958.json",
+      "bytes": 980,
+      "sha256": "b40def8cf1ec5b2d14928f242c00bcd4a9791bf68b3adbd08741ceea94fb1f0a"
+    },
+    {
+      "file": "test_attribution.py",
+      "bytes": 7593,
+      "sha256": "56ae1b33e55150085b4814cbf1095618e0cf623619b1273a6f46fbad60cee824"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 283,
+      "sha256": "917ab30c93dc525903fdb877ea9250e01d24bc8693e86fa4a63eb66c8b337118"
+    },
+    {
+      "file": "verify_attribution.py",
+      "bytes": 17474,
+      "sha256": "7ab3b96f71fd9e80add2494a6278a1ec812fb48bd22c6818a19d871b05c0f622"
     }
   ],
   "native_calls": 16,
