@@ -51,6 +51,10 @@ pub(super) struct Recipe<'a> {
 
 impl<'a> Recipe<'a> {
     pub(super) fn compile(expression: &'a Expression) -> Option<Self> {
+        #[cfg(all(test, debug_assertions))]
+        super::super::native_relational_observation::record(|counts| {
+            counts.predicate_compile_attempts += 1;
+        });
         if !matches!(
             expression.kind,
             Kind::Binary(_, BinaryOp::And | BinaryOp::Or, _) | Kind::Unary(UnaryOp::Not, _)
@@ -178,6 +182,10 @@ impl<'a> Recipe<'a> {
             owners[index] = Some(owner);
         }
         let mut truth = Truth::default();
+        #[cfg(all(test, debug_assertions))]
+        super::super::native_relational_observation::record(|counts| {
+            counts.predicate_boolean_rows += input.len() as u64;
+        });
         expression.build(input.len(), context, |row| {
             if row.is_multiple_of(64) {
                 context.check_cancelled()?;

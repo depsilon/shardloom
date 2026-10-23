@@ -257,7 +257,13 @@ impl<'a> Aggregate<'a> {
                     .is_some_and(|array| native_payload::is_nested(array.dtype()));
             let (validity, values) = match &column {
                 Some(array) if count_nested => (Some(parent_validity(array, context)?), None),
-                Some(array) => (None, Some(keys(array, context)?)),
+                Some(array) => {
+                    #[cfg(all(test, debug_assertions))]
+                    super::native_relational_observation::record(|counts| {
+                        counts.aggregate_value_preparations += 1;
+                    });
+                    (None, Some(keys(array, context)?))
+                }
                 None => (None, None),
             };
             if let Some(source) = measure.decimal_source {
@@ -330,6 +336,10 @@ impl<'a> Aggregate<'a> {
                     .as_ref()
                     .map(|values| values.raw_cell(row))
                     .transpose()?;
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.aggregate_row_updates += 1;
+                });
                 update(state, measure, value, context)?;
             }
         }

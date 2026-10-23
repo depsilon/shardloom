@@ -72,6 +72,10 @@ impl<'a> Join<'a> {
             self.matched.reserve(batch.array.len())?;
         }
         let rows = self.right.push(batch)?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.join_retained_right_rows += (rows.end - rows.start) as u64;
+        });
         if keep_matches {
             self.matched.values.resize(rows.end, false);
         }

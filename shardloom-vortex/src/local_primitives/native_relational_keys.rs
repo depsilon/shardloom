@@ -98,6 +98,8 @@ impl KeyColumn {
         schema: Option<MemoryLease>,
     ) -> Result<Self> {
         cancellation.check()?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| counts.key_columns += 1);
         let column = match array.dtype() {
             DType::Null => Self::Null(array.len()),
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {
@@ -572,6 +574,12 @@ impl VariableColumn {
             .and_then(|bytes| u64::try_from(bytes).ok())
             .ok_or_else(|| failed("text hash capacity overflow"))?;
         let ownership = memory.reserve(bytes)?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.variable_domains += 1;
+            counts.variable_domain_values += domain.len() as u64;
+            counts.variable_hash_slot_bytes += bytes;
+        });
         let values = domain
             .clone()
             .execute::<VarBinViewArray>(context)
@@ -620,6 +628,11 @@ impl VariableColumn {
                 if !binary {
                     values.utf8_slice_at(index).map_err(vortex_error)?;
                 }
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.variable_hash_values += 1;
+                    counts.variable_hash_bytes += value.len() as u64;
+                });
                 compound_count_partial::string_hash(value.as_slice())
             } else {
                 0

@@ -226,6 +226,8 @@ impl Table {
     }
 
     fn locate(&self, row: usize) -> Result<(usize, usize)> {
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| counts.row_location_searches += 1);
         if row >= self.rows {
             return Err(failed("row ordinal exceeds retained native input"));
         }
