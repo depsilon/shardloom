@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 
@@ -53,6 +54,54 @@ class NativeRegionEvidenceTests(unittest.TestCase):
                     result = json.loads(self.run_replay(temporary, directory / script,
                         directory / packet, sequential_sum=True))
                     self.assertEqual(result['status'], 'passed')
+
+    def test_archived_helpers_authenticated_before_import(self):
+        variants = [
+            ('native-current-attribution-2026-10-22', 'verify_attribution.py'),
+            ('native-scalar-regions-2026-10-22', 'verify_regions.py'),
+            ('native-scalar-regions-2026-10-22', 'verify_restoration.py'),
+        ]
+        members = ['repo/scripts/clickbench_reference_packet.py',
+                   'repo/python/src/shardloom/_result_schema.py',
+                   'repo/scripts/csv.py']
+        for name, script in variants:
+            for member in members:
+                with self.subTest(script=script, member=member), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    directory = self.relocated(name, root / 'verifier')
+                    extracted = root / 'packet'
+                    with tarfile.open(directory / 'packet.tar.gz') as archive:
+                        archive.extractall(extracted, filter='data')
+                    marker = root / 'untrusted-helper-executed'
+                    target = extracted / member
+                    raw = target.read_bytes() if target.exists() else b''
+                    target.write_bytes(raw + ('\nfrom pathlib import Path as _ProofPath\n'
+                        f'_ProofPath({str(marker)!r}).write_text("executed")\n').encode())
+                    manifest_path = extracted / 'manifest.json'
+                    manifest = json.loads(manifest_path.read_text())
+                    entry = next((row for row in manifest['files'] if row['member'] == member), None)
+                    if entry is None:
+                        entry = {'member': member, 'original_path': '/untrusted/' + member}
+                        manifest['files'].append(entry)
+                    entry.update(bytes=target.stat().st_size,
+                                 sha256=hashlib.sha256(target.read_bytes()).hexdigest())
+                    manifest_path.write_text(json.dumps(manifest))
+                    arguments = [str(extracted)]
+                    if script == 'verify_restoration.py':
+                        restored = root / 'restoration'
+                        with tarfile.open(directory / 'restoration.tar.gz') as archive:
+                            archive.extractall(restored, filter='data')
+                        arguments = [str(restored), str(extracted)]
+                    result = subprocess.run([sys.executable, '-I', '-B', '-c',
+                        'import importlib.util, pathlib, sys; '
+                        'spec = importlib.util.spec_from_file_location("verifier", sys.argv[1]); '
+                        'module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); '
+                        'module.verify(*(pathlib.Path(p) for p in sys.argv[2:]))',
+                        str(directory / script), *arguments], cwd=root,
+                        capture_output=True, text=True, timeout=180, check=False)
+                    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('archived helper identity mismatch', result.stderr)
 
     def test_current_attribution_and_semantic_controls(self):
         with tempfile.TemporaryDirectory() as temporary:

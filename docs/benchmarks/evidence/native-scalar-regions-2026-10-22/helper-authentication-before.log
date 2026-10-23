@@ -1,0 +1,96 @@
+test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) ... 
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_attribution.py', member='repo/scripts/clickbench_reference_packet.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_attribution.py', member='repo/python/src/shardloom/_result_schema.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_attribution.py', member='repo/scripts/csv.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_regions.py', member='repo/scripts/clickbench_reference_packet.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_regions.py', member='repo/python/src/shardloom/_result_schema.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_regions.py', member='repo/scripts/csv.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_restoration.py', member='repo/scripts/clickbench_reference_packet.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_restoration.py', member='repo/python/src/shardloom/_result_schema.py') ... FAIL
+  test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_restoration.py', member='repo/scripts/csv.py') ... FAIL
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_attribution.py', member='repo/scripts/clickbench_reference_packet.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_attribution.py', member='repo/python/src/shardloom/_result_schema.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_attribution.py', member='repo/scripts/csv.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_regions.py', member='repo/scripts/clickbench_reference_packet.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_regions.py', member='repo/python/src/shardloom/_result_schema.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_regions.py', member='repo/scripts/csv.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_restoration.py', member='repo/scripts/clickbench_reference_packet.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_restoration.py', member='repo/python/src/shardloom/_result_schema.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+======================================================================
+FAIL: test_archived_helpers_authenticated_before_import (python.tests.test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) (script='verify_restoration.py', member='repo/scripts/csv.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 102, in test_archived_helpers_authenticated_before_import
+    self.assertFalse(marker.exists(), 'archive code executed before authentication')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : archive code executed before authentication
+
+----------------------------------------------------------------------
+Ran 1 test in 2.450s
+
+FAILED (failures=9)

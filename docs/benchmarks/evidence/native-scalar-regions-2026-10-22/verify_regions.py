@@ -26,6 +26,25 @@ def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def authenticate_helpers(root):
+    # Trust lives in this reviewed verifier, never in the packet's manifest.
+    # Bind every file in both import roots, including transitive package imports
+    # and unexpected files that could shadow a standard-library module.
+    identities = {}
+    for relative in ('repo/scripts', 'repo/python/src'):
+        base = root / relative
+        assert base.is_dir() and not base.is_symlink(), 'archived helper identity mismatch'
+        for path in base.rglob('*'):
+            assert not path.is_symlink(), 'archived helper identity mismatch'
+            if path.is_file():
+                identities[path.relative_to(root).as_posix()] = digest(path.read_bytes())
+    encoded = json.dumps(identities, sort_keys=True, separators=(',', ':')).encode()
+    assert digest(encoded) == 'd24ca1652f75b1f3585a22a5931c465eb83252aa7e472710470beb6b3a52d5c0', 'archived helper identity mismatch'
+
+    # Keep repeated in-process replay from adding unauthenticated .pyc files.
+    sys.dont_write_bytecode = True
+
+
 def exact(actual, expected):
     if type(actual) is not type(expected):
         return False
@@ -46,6 +65,7 @@ def safe_member(name):
 
 def verify(root):
     manifest = json.loads((root / 'manifest.json').read_text())
+    authenticate_helpers(root)
     assert manifest['schema'] == 'shardloom.scalar_region_experiment_archive.v1'
     mapping = {}
     members = {'manifest.json'}

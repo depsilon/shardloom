@@ -20,8 +20,8 @@
     },
     {
       "file": "verify_attribution.py",
-      "bytes": 14649,
-      "sha256": "d622d52ffde6457f5bb742f3d86cc01b1091ce2e8cb2cf11fc10d62f95594a0a"
+      "bytes": 15713,
+      "sha256": "f1ba7b0cf8f6b04d0720b4a89a931cfec089ae09795e22417db5665cf5ac41ab"
     },
     {
       "file": "pr1589-integration-958.json",

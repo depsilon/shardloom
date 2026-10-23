@@ -153,3 +153,19 @@ reproduces both original failures with sequential accumulation; the
 [fixed checks](evidence/native-scalar-regions-2026-10-22/summation-regression-after.log)
 pass all four tests and all 35 semantic corruption controls. The original
 archives, observations, thresholds and decisions are unchanged.
+
+Review also identified an archive-authentication gap in the replay helpers.
+All three replayers now authenticate the complete archived Python import trees
+against identities pinned in the reviewed verifier before importing any helper.
+The pins match the repository sources, cover transitive package imports, reject
+additional modules that could shadow Python's standard library, and prevent
+replay from adding bytecode files to those trees. Archive-supplied checksums alone
+are not treated as trust.
+
+The [original regression](evidence/native-scalar-regions-2026-10-22/helper-authentication-before.log)
+demonstrates execution of an injected marker in nine cases across the three
+replayers, including direct helpers, transitive helpers and an added shadow
+module. The [fixed regression](evidence/native-scalar-regions-2026-10-22/helper-authentication-after.log)
+rejects all nine before execution, after repairing the supplied manifest hashes.
+All five replay tests and the existing 35 semantic controls pass. The diagnostic
+archives and engine sources remain unchanged.
