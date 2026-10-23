@@ -60,12 +60,34 @@ through all six” does not authorize keeping a correctness or cost regression.
 The cost harness uses the real prepared relational execution API with complete
 results and schemas. The main fixtures have 65,536 rows, deterministic values,
 explicit NULL patterns, a 128-MiB execution grant and 64-MiB source/result bounds.
-String payloads are 128 bytes for value/reuse cases and 256 bytes for wide sort
-and join cases. Smaller 257-row controls expose fixed preparation costs. Batch
+String values are 128 bytes for value/reuse cases, sort keys are 64 bytes, and
+wide sort/join payloads are 256 bytes. The public 8-MiB JSON collection ceiling
+is unchanged. Smaller 257-row controls expose fixed preparation costs. Batch
 cases use deterministic uneven partitions with empty batches interspersed; the
 partition list and every input/schema/expected-result identity are retained.
 Dictionary-domain correctness is checked directly against plain-value results;
 a claim about dictionary performance requires an actual dictionary cost cell.
+
+The exact plans, generators and independent expected schemas are in the
+[cost harness](../../shardloom-vortex/src/local_primitive_relational_engine_cost_tests.rs)
+and its [data/reference definitions](../../shardloom-vortex/src/local_primitive_relational_engine_cost_data.rs).
+Protocol `native-engine-cost-v1` passed all seventeen small preflights and the
+seven large value/aggregate cases, then correctly failed full-sort collection
+at the existing 8-MiB ceiling. It produced no scored release comparison. Protocol
+`native-engine-cost-v2` narrows sort keys from 128 to 64 bytes to fit that public
+boundary; it preserves the failed preflight and all other fixture definitions.
+
+| Family | 65,536-row target cases | 65,536-row controls | 257-row controls |
+| --- | --- | --- | --- |
+| Value preparation and aggregate reuse | `value_text`, `aggregate_text`, `aggregate_numeric`, `aggregate_count` | `value_numeric`, `aggregate_interleaved`, `aggregate_distinct` | All seven value/aggregate cases |
+| Sort locations | `sort_many` | `sort_limit` | `sort_many`, `sort_single`, `sort_limit` |
+| Finite sort demand, if semantically admitted | `sort_limit` | `sort_many` | `sort_limit`, `sort_single` |
+| Predicate masks | `predicate_filter` | `predicate_projected`, `predicate_single` | All three predicate cases |
+| Existence joins | `join_semi_duplicate`, `join_anti_duplicate` | `join_semi_unique`, `join_anti_unique` | All four join cases |
+
+These are shared complete operations. Improvements from the value owner may
+also affect aggregate or sort targets; the report must identify that overlap
+instead of attributing an entire combined speedup to each individual change.
 
 Workload definitions, their source, and scoring are frozen before the first
 baseline execution. A harness defect invalidates the affected comparison and
@@ -83,10 +105,12 @@ no cache manipulation, artificial pacing, extra warm-up or selective retry. All
 observations, failures and omitted cells remain in the result record.
 
 Retain a time-oriented candidate only if its target geometric-mean engine-time
-ratio is at most 0.95, no target/control median ratio exceeds 1.10, and complete
-semantics/resource checks pass. Value-state and existence-state candidates may
+ratio is at most 0.95 and complete semantics/resource checks pass. A target or
+control must not increase its median engine time by more than the larger of
+10% or 100 microseconds; the absolute allowance prevents sub-millisecond control
+noise from deciding the entire change. Value-state and existence-state candidates may
 instead pass by reducing the relevant peak credited state by at least 20%, with
-the same 1.10 timing ceiling. A lower reservation or call count alone supports
+the same timing ceiling. A lower reservation or call count alone supports
 only that mechanism claim. No full-workload speedup follows from it. A result
 that misses the declared threshold is revised once for a specific diagnosed
 cause or dropped; it does not acquire a weaker threshold after measurement.

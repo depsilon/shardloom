@@ -377,7 +377,7 @@ fn native_engine_optimization_cost_screen() {
     let path = root.join(format!("{mode}-{case}-{rows}-{role}-{sample}.json"));
     assert!(!path.exists(), "preserve each observation");
     let mut record = run(&root, Spec { case, rows });
-    record["protocol"] = json!("native-engine-cost-v1");
+    record["protocol"] = json!("native-engine-cost-v2");
     record["role"] = json!(role);
     record["sample"] = json!(sample);
     fs::OpenOptions::new()

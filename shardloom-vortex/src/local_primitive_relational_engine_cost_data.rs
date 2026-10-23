@@ -102,8 +102,14 @@ impl Data {
         let labels = if spec.text() {
             (0..spec.rows)
                 .map(|row| {
-                    (!row.is_multiple_of(13))
-                        .then(|| format!("{:08}{}", row % 1024, "x".repeat(120)))
+                    (!row.is_multiple_of(13)).then(|| {
+                        let padding = if spec.case.starts_with("sort_") {
+                            56
+                        } else {
+                            120
+                        };
+                        format!("{:08}{}", row % 1024, "x".repeat(padding))
+                    })
                 })
                 .collect()
         } else {
@@ -215,7 +221,7 @@ impl Data {
             .collect::<Vec<_>>();
         json!({"rows":self.spec.rows,"schema":self.schema(),
             "complete_values_sha256":digest(&serde_json::to_vec(&rows).unwrap()),
-            "generator":"native-engine-cost-v1","right":self.right})
+            "generator":"native-engine-cost-v2","right":self.right})
     }
 
     fn truth(&self, row: usize, single: bool) -> Option<bool> {
