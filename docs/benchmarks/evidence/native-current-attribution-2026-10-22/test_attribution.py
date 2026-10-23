@@ -8,6 +8,7 @@ from pathlib import Path
 import tarfile
 import tempfile
 import traceback
+from archive_trust_controls import check as check_archive_trust
 
 ROOT = Path(__file__).parent
 parser = argparse.ArgumentParser(description=__doc__)
@@ -100,6 +101,7 @@ def reseal(blobs):
     raise AssertionError('identity reseal did not converge')
 
 
+archive_trust = check_archive_trust(args.verifier)
 records = []
 with tempfile.TemporaryDirectory(prefix='shardloom-attribution-negative-') as temporary:
     destination = Path(temporary)
@@ -133,9 +135,10 @@ receipt = dict(status='passed', archive=dict(path=str(ARCHIVE), bytes=ARCHIVE.st
                                            sha256=sha(ARCHIVE.read_bytes())),
                verifier_sha256=sha(args.verifier.read_bytes()),
                test_sha256=sha(Path(__file__).read_bytes()), positive=positive,
-               negative_controls=records, restored_positive=True,
+               negative_controls=records, archive_trust=archive_trust, restored_positive=True,
                runtime_executed=False, note='Every negative control has all outer member hashes repaired before replay.')
 if args.output:
     with args.output.open('x') as output:
         output.write(json.dumps(receipt, indent=2) + '\n')
-print(json.dumps(dict(status='passed', negative_controls=len(records), runtime_executed=False), indent=2))
+print(json.dumps(dict(status='passed', negative_controls=len(records),
+    archive_trust_negative_controls=len(archive_trust['negative_controls']), runtime_executed=False), indent=2))

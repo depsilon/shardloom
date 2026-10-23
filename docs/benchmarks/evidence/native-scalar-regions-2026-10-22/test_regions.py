@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from archive_trust_controls import check as check_archive_trust
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--packet', type=Path, default=Path(__file__).parent / 'packet.tar.gz')
@@ -170,6 +171,7 @@ def replay(path):
                           text=True, capture_output=True, timeout=120)
 
 
+archive_trust = check_archive_trust(VERIFY)
 original = replay(PACKET)
 assert original.returncode == 0, original.stderr
 cases = ['standard_query_coverage', 'complete_result', 'engine_clock', 'fallback_flag',
@@ -195,9 +197,10 @@ assert json.loads(original.stdout) == json.loads(after.stdout)
 receipt = dict(status='passed', negative_cases=len(results), all_rejected=True,
     original_passed_before_and_after=True, packet_sha256=sha(PACKET.read_bytes()),
     verifier_sha256=sha(VERIFY.read_bytes()), results=results,
-    native_queries_executed=0, source_data_required=False)
+    native_queries_executed=0, source_data_required=False, archive_trust=archive_trust)
 if args.output:
     with args.output.open('x') as output:
         json.dump(receipt, output, indent=2)
         output.write('\n')
-print(json.dumps(dict(status='passed', negative_cases=len(results), native_queries_executed=0)))
+print(json.dumps(dict(status='passed', negative_cases=len(results), native_queries_executed=0,
+    archive_trust_negative_controls=len(archive_trust['negative_controls']))))

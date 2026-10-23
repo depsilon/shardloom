@@ -20,8 +20,8 @@
     },
     {
       "file": "verify_attribution.py",
-      "bytes": 15713,
-      "sha256": "f1ba7b0cf8f6b04d0720b4a89a931cfec089ae09795e22417db5665cf5ac41ab"
+      "bytes": 17474,
+      "sha256": "7ab3b96f71fd9e80add2494a6278a1ec812fb48bd22c6818a19d871b05c0f622"
     },
     {
       "file": "pr1589-integration-958.json",
@@ -35,13 +35,18 @@
     },
     {
       "file": "test_attribution.py",
-      "bytes": 7372,
-      "sha256": "72cb869914bbc3783c010222255dd324a20abe9fcd24d403367b531ba7889049"
+      "bytes": 7593,
+      "sha256": "56ae1b33e55150085b4814cbf1095618e0cf623619b1273a6f46fbad60cee824"
     },
     {
       "file": "portable-corruption-checks.json",
       "bytes": 5130,
       "sha256": "2befe3185fe1a32aa4c4bfcd9fd3373d434725357cbc223f20999cafde1bcfd8"
+    },
+    {
+      "file": "archive_trust_controls.py",
+      "bytes": 5934,
+      "sha256": "5de7b365db5811c040b3c9c04188196c507259dda579e333ca645aac2cd5daca"
     }
   ],
   "native_calls": 16,

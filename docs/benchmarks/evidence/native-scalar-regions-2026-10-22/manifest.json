@@ -53,13 +53,13 @@
     },
     {
       "file": "test_regions.py",
-      "bytes": 8953,
-      "sha256": "e32b28ab4b5ee2f4a56cf8664d5b504a777120edfa9f5b9b10207706aef5941e"
+      "bytes": 9167,
+      "sha256": "d6a2fcc7ec1a963a0f0d9544cfa819bea282a8b0234b968fc76c4826c74ed51e"
     },
     {
       "file": "test_restoration.py",
-      "bytes": 6318,
-      "sha256": "3bf1072cc72c211bb2248cdc16d139070897021cd10ae57f550179f2bddc5af4"
+      "bytes": 6556,
+      "sha256": "6ffb9f68dbcf6061044931c78174fa168b137128a6dd422267f30e3fc38603de"
     },
     {
       "file": "verification.json",
@@ -68,13 +68,13 @@
     },
     {
       "file": "verify_regions.py",
-      "bytes": 25086,
-      "sha256": "1eeff360354521246984413ae91dc91e8744c16fa63ce57a7e71ecb47aaadca5"
+      "bytes": 26963,
+      "sha256": "b0893f69935c9bb84d81287e50d460717fe1a73793bc6113029cc583aefa4f21"
     },
     {
       "file": "verify_restoration.py",
-      "bytes": 11410,
-      "sha256": "dc5944016390c2635f25d0d4ee81e0554ddd7f999b40d8fd32bf4764e99a5c6d"
+      "bytes": 13177,
+      "sha256": "c9affa72c6cd35b5794c40115ad9fad59efe2b3440a565106afa01e4410b564c"
     },
     {
       "file": "summation-regression-before.log",
@@ -100,6 +100,21 @@
       "file": "helper-authentication-normal-python.log",
       "bytes": 81,
       "sha256": "da0e4705391d9c83c47367a4caa8cdbf5664d448ae283c69c50772266f133fb4"
+    },
+    {
+      "file": "archive_trust_controls.py",
+      "bytes": 5934,
+      "sha256": "5de7b365db5811c040b3c9c04188196c507259dda579e333ca645aac2cd5daca"
+    },
+    {
+      "file": "archive-trust-controls.json",
+      "bytes": 8251,
+      "sha256": "1b465e6b23ee57243d512585ebcd98cccda30832264683dedc7199debe37cb37"
+    },
+    {
+      "file": "archive-trust-regression.log",
+      "bytes": 864,
+      "sha256": "d8e437f0a8ddbebc397946c5314cec4f283f1bfa4badb2de7fc78261c69c2c87"
     }
   ]
 }

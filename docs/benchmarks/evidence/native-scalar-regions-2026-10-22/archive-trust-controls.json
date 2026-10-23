@@ -1,0 +1,290 @@
+{
+  "status": "passed",
+  "records": [
+    {
+      "script": "verify_attribution.py",
+      "status": "passed",
+      "verifier_sha256": "7ab3b96f71fd9e80add2494a6278a1ec812fb48bd22c6818a19d871b05c0f622",
+      "negative_controls": [
+        {
+          "case": "optimized_flag",
+          "rejected": true,
+          "returncode": 1
+        },
+        {
+          "case": "optimized_environment",
+          "rejected": true,
+          "returncode": 1
+        },
+        {
+          "case": "member_limit",
+          "rejected": true,
+          "diagnostic": "archive member size exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "total_limit",
+          "rejected": true,
+          "diagnostic": "archive total size exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "count_limit",
+          "rejected": true,
+          "diagnostic": "archive member count exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "duplicate",
+          "rejected": true,
+          "diagnostic": "duplicate archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "parent_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "absolute_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "backslash_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "drive_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "long_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "symlink",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "extended_header_limit",
+          "rejected": true,
+          "rejected_before_file_write": true
+        }
+      ],
+      "exact_limit_positive_passed": true,
+      "production_limits": {
+        "member_bytes": 33554432,
+        "total_bytes": 134217728,
+        "members": 1024
+      },
+      "exercised_limits": {
+        "member_bytes": 4,
+        "total_bytes": 8,
+        "members": 3
+      },
+      "streaming_without_member_index": true,
+      "native_queries_executed": 0
+    },
+    {
+      "script": "verify_regions.py",
+      "status": "passed",
+      "verifier_sha256": "b0893f69935c9bb84d81287e50d460717fe1a73793bc6113029cc583aefa4f21",
+      "negative_controls": [
+        {
+          "case": "optimized_flag",
+          "rejected": true,
+          "returncode": 1
+        },
+        {
+          "case": "optimized_environment",
+          "rejected": true,
+          "returncode": 1
+        },
+        {
+          "case": "member_limit",
+          "rejected": true,
+          "diagnostic": "archive member size exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "total_limit",
+          "rejected": true,
+          "diagnostic": "archive total size exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "count_limit",
+          "rejected": true,
+          "diagnostic": "archive member count exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "duplicate",
+          "rejected": true,
+          "diagnostic": "duplicate archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "parent_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "absolute_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "backslash_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "drive_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "long_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "symlink",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "extended_header_limit",
+          "rejected": true,
+          "rejected_before_file_write": true
+        }
+      ],
+      "exact_limit_positive_passed": true,
+      "production_limits": {
+        "member_bytes": 33554432,
+        "total_bytes": 134217728,
+        "members": 1024
+      },
+      "exercised_limits": {
+        "member_bytes": 4,
+        "total_bytes": 8,
+        "members": 3
+      },
+      "streaming_without_member_index": true,
+      "native_queries_executed": 0
+    },
+    {
+      "script": "verify_restoration.py",
+      "status": "passed",
+      "verifier_sha256": "c9affa72c6cd35b5794c40115ad9fad59efe2b3440a565106afa01e4410b564c",
+      "negative_controls": [
+        {
+          "case": "optimized_flag",
+          "rejected": true,
+          "returncode": 1
+        },
+        {
+          "case": "optimized_environment",
+          "rejected": true,
+          "returncode": 1
+        },
+        {
+          "case": "member_limit",
+          "rejected": true,
+          "diagnostic": "archive member size exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "total_limit",
+          "rejected": true,
+          "diagnostic": "archive total size exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "count_limit",
+          "rejected": true,
+          "diagnostic": "archive member count exceeds limit",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "duplicate",
+          "rejected": true,
+          "diagnostic": "duplicate archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "parent_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "absolute_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "backslash_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "drive_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "long_path",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "symlink",
+          "rejected": true,
+          "diagnostic": "unsafe archive member",
+          "bounded_partial_extraction": true
+        },
+        {
+          "case": "extended_header_limit",
+          "rejected": true,
+          "rejected_before_file_write": true
+        }
+      ],
+      "exact_limit_positive_passed": true,
+      "production_limits": {
+        "member_bytes": 33554432,
+        "total_bytes": 134217728,
+        "members": 1024
+      },
+      "exercised_limits": {
+        "member_bytes": 4,
+        "total_bytes": 8,
+        "members": 3
+      },
+      "streaming_without_member_index": true,
+      "native_queries_executed": 0
+    }
+  ]
+}

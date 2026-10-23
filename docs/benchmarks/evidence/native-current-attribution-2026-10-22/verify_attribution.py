@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import collections
+import gzip
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -10,6 +11,13 @@ import re
 import sys
 import tarfile
 import tempfile
+
+if not __debug__:
+    raise RuntimeError('optimized Python is unsupported: replay requires semantic assertions')
+
+MAX_MEMBER_BYTES = 32 << 20
+MAX_ARCHIVE_BYTES = 128 << 20
+MAX_ARCHIVE_MEMBERS = 1024
 
 
 def digest(raw):
@@ -23,16 +31,65 @@ def authenticate_helpers(root):
     identities = {}
     for relative in ('repo/scripts', 'repo/python/src'):
         base = root / relative
-        assert base.is_dir() and not base.is_symlink(), 'archived helper identity mismatch'
+        if not base.is_dir() or base.is_symlink():
+            raise ValueError('archived helper identity mismatch')
         for path in base.rglob('*'):
-            assert not path.is_symlink(), 'archived helper identity mismatch'
+            if path.is_symlink():
+                raise ValueError('archived helper identity mismatch')
             if path.is_file():
                 identities[path.relative_to(root).as_posix()] = digest(path.read_bytes())
     encoded = json.dumps(identities, sort_keys=True, separators=(',', ':')).encode()
-    assert digest(encoded) == 'a2e9a6a06c668ce37927f7e52950ed22d2a82f6af5300d60aa49462a707a27e9', 'archived helper identity mismatch'
+    if digest(encoded) != 'a2e9a6a06c668ce37927f7e52950ed22d2a82f6af5300d60aa49462a707a27e9':
+        raise ValueError('archived helper identity mismatch')
 
     # Keep repeated in-process replay from adding unauthenticated .pyc files.
     sys.dont_write_bytecode = True
+
+
+class LimitedArchiveStream:
+    """Bound decompression, including extended headers parsed by tarfile."""
+    def __init__(self, stream):
+        self.stream = stream
+        self.remaining = MAX_ARCHIVE_BYTES + MAX_ARCHIVE_MEMBERS * 8192 + 10240
+
+    def read(self, size=-1):
+        limit = self.remaining + 1
+        raw = self.stream.read(limit if size < 0 else min(size, limit))
+        self.remaining -= len(raw)
+        if self.remaining < 0:
+            raise ValueError('archive decompressed stream exceeds limit')
+        return raw
+
+
+def unpack(packet, root):
+    seen, total = set(), 0
+    # Stream headers so the member limit is checked before allocating an
+    # arbitrary complete index. All extraction guards remain active under -O.
+    with gzip.open(packet, 'rb') as compressed, \
+            tarfile.open(fileobj=LimitedArchiveStream(compressed), mode='r|') as archive:
+        for member in archive:
+            path = PurePosixPath(member.name)
+            if (not member.isfile() or not path.parts or path.is_absolute()
+                    or '..' in path.parts or chr(92) in member.name
+                    or any(':' in part for part in path.parts) or len(member.name) > 4096):
+                raise ValueError('unsafe archive member')
+            name = path.as_posix()
+            if name in seen:
+                raise ValueError('duplicate archive member')
+            if len(seen) >= MAX_ARCHIVE_MEMBERS:
+                raise ValueError('archive member count exceeds limit')
+            if not 0 <= member.size <= MAX_MEMBER_BYTES:
+                raise ValueError('archive member size exceeds limit')
+            if total + member.size > MAX_ARCHIVE_BYTES:
+                raise ValueError('archive total size exceeds limit')
+            seen.add(name)
+            total += member.size
+            raw = archive.extractfile(member).read()
+            if len(raw) != member.size:
+                raise ValueError('archive member length mismatch')
+            destination = root / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(raw)
 
 
 def verify(root):
@@ -252,19 +309,7 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='shardloom-attribution-replay-') as temporary:
         root = Path(temporary)
-        with tarfile.open(args.archive, 'r:gz') as archive:
-            members = archive.getmembers()
-            names = [member.name for member in members]
-            assert len(names) == len(set(names))
-            for member in members:
-                name = PurePosixPath(member.name)
-                assert member.isfile() and not name.is_absolute() and '..' not in name.parts
-                assert member.size <= 32 * 1024 * 1024
-                path = root / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                stream = archive.extractfile(member)
-                assert stream is not None
-                path.write_bytes(stream.read())
+        unpack(args.archive, root)
         print(json.dumps(verify(root), indent=2))
 
 

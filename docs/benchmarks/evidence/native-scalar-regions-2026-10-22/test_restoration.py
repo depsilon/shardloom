@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import traceback
+from archive_trust_controls import check as check_archive_trust
 
 ROOT = Path(__file__).parent
 parser = argparse.ArgumentParser(description=__doc__)
@@ -62,6 +63,7 @@ def reseal(root):
     verifier.members(root)
 
 
+archive_trust = check_archive_trust(ROOT / 'verify_restoration.py')
 cases = ('retained_candidate', 'source_hash', 'check_drain', 'query_coverage',
          'complete_values', 'engine_clock', 'input_identity')
 results = []
@@ -126,10 +128,11 @@ with tempfile.TemporaryDirectory(prefix='restoration-negative-') as temporary:
         (restored / path).write_bytes(raw)
     assert verifier.verify(restored, regions) == positive
 receipt = dict(status='passed', negative_cases=len(results), results=results,
-    original_passed_before_and_after=True, runtime_executed=False,
+    original_passed_before_and_after=True, runtime_executed=False, archive_trust=archive_trust,
     packet_sha256=verifier.digest(args.packet.read_bytes()),
     verifier_sha256=verifier.digest((ROOT / 'verify_restoration.py').read_bytes()))
 if args.output:
     with args.output.open('x') as output:
         output.write(json.dumps(receipt, indent=2) + '\n')
-print(json.dumps(dict(status='passed', negative_cases=len(results), runtime_executed=False)))
+print(json.dumps(dict(status='passed', negative_cases=len(results), runtime_executed=False,
+    archive_trust_negative_controls=len(archive_trust['negative_controls']))))

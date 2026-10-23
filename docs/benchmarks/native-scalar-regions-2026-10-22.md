@@ -169,3 +169,16 @@ module. The [fixed regression](evidence/native-scalar-regions-2026-10-22/helper-
 rejects all nine before execution, after repairing the supplied manifest hashes.
 All five replay tests and the existing 35 semantic controls pass. The diagnostic
 archives and engine sources remain unchanged.
+
+Further review hardened the replay entrypoints: optimized Python (`-O` or
+`PYTHONOPTIMIZE`) is refused before archive handling, helper authentication uses
+explicit exceptions, and extraction streams headers with limits of 32 MiB per
+member, 128 MiB of file contents and 1,024 members. Decompression also has a
+finite limit covering extended headers; duplicate names, unsafe paths and
+non-regular members are rejected before writing their contents.
+The [boundary controls](evidence/native-scalar-regions-2026-10-22/archive-trust-controls.json)
+exercise exact-limit acceptance and 39 rejection cases across the three
+replayers, including oversized extended headers. The
+[relocated regression suite](evidence/native-scalar-regions-2026-10-22/archive-trust-regression.log)
+passes all five tests, the nine executable-helper controls and the existing
+35 semantic corruption controls. This changes evidence replay only.
