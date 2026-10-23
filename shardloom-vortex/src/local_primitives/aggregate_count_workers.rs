@@ -244,10 +244,6 @@ pub(super) fn request_may_be_admitted(
     request: &VortexQueryPrimitiveRequest,
     envelope: super::VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
-    #[cfg(unix)]
-    if super::scalar_region_workers::request_may_be_admitted(request) {
-        return true;
-    }
     if super::scalar_distinct_workers::request_may_be_admitted(request) {
         return true;
     }
@@ -303,10 +299,6 @@ pub(super) fn restore_provider_drivers(
     dtype: &DType,
     envelope: super::VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
-    #[cfg(unix)]
-    if super::scalar_region_workers::request_may_be_admitted(request) {
-        return !super::scalar_region_workers::request_schema_may_be_admitted(request, dtype);
-    }
     if super::pair_partition_workers::request_may_be_admitted(request, envelope) {
         return !super::pair_partition_workers::request_schema_may_be_admitted(
             request, dtype, envelope,
