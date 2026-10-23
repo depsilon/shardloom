@@ -1,0 +1,35 @@
+{
+  "schema": "shardloom.polish_payload_retirement.v1",
+  "status": "passed",
+  "plan": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/polish-closed-layout-retirement-plan-986.json.gz",
+    "bytes": 1694,
+    "sha256": "3e630d9aae90f670786070b24410360d0db4dd514fb212010137784421a5608a"
+  },
+  "roots_completed": [
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/ingest-recovered-1/uat/vortex/prepared.vortex",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 15748946385,
+      "allocated_bytes": 15748947968,
+      "basis": "Exact completed experimental ingest output. Frozen generation command, source/build identity, failed gate, layout metadata and all diagnostic query results are retained in the verified PGO packet."
+    }
+  ],
+  "open_handles": {
+    "status": "passed",
+    "matching_open_handles": [],
+    "unrelated_paths_retained": false
+  },
+  "backup_created": false,
+  "protected_paths": [
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-q29-correction-950",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-recovery/artifacts"
+  ],
+  "files_retired": 1,
+  "symlinks_retired": 0,
+  "logical_bytes_retired": 15748946385,
+  "protected_paths_present": true
+}

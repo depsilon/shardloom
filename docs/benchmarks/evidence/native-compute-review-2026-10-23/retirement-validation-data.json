@@ -1,0 +1,586 @@
+{
+  "schema": "shardloom.polish_payload_retirement.v1",
+  "status": "passed",
+  "plan": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/polish-public-retirement-plan-986.json.gz",
+    "bytes": 5182465,
+    "sha256": "f3df076e4afd14daf329dc43e9c95e423064f6da8a8da7ef39a2c6e56cab9643"
+  },
+  "roots_completed": [
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 59,
+      "symlinks": 0,
+      "logical_bytes": 22436023,
+      "allocated_bytes": 22585344
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/frames-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 213,
+      "symlinks": 0,
+      "logical_bytes": 12302822,
+      "allocated_bytes": 12906496
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/frames/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 213,
+      "symlinks": 0,
+      "logical_bytes": 12291544,
+      "allocated_bytes": 12906496
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/memory/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 81,
+      "symlinks": 0,
+      "logical_bytes": 18129,
+      "allocated_bytes": 335872
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/nested/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 1474,
+      "symlinks": 0,
+      "logical_bytes": 27562281,
+      "allocated_bytes": 31399936
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/pivot-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 1534,
+      "symlinks": 0,
+      "logical_bytes": 35169124,
+      "allocated_bytes": 39489536
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/pivot/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 1268,
+      "symlinks": 0,
+      "logical_bytes": 26957231,
+      "allocated_bytes": 30519296
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/scalars/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 229,
+      "symlinks": 0,
+      "logical_bytes": 621321,
+      "allocated_bytes": 1376256
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/typed/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 3386,
+      "symlinks": 0,
+      "logical_bytes": 165691098,
+      "allocated_bytes": 174686208
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1/unary/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/growth-regression-public-all-1",
+      "files": 237,
+      "symlinks": 0,
+      "logical_bytes": 11315081,
+      "allocated_bytes": 12001280
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 429,
+      "symlinks": 0,
+      "logical_bytes": 152219752,
+      "allocated_bytes": 153518080
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/frames-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 2508,
+      "symlinks": 0,
+      "logical_bytes": 58693943,
+      "allocated_bytes": 65310720
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/frames/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 2508,
+      "symlinks": 0,
+      "logical_bytes": 58596373,
+      "allocated_bytes": 65200128
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/memory/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 1122,
+      "symlinks": 0,
+      "logical_bytes": 1361422,
+      "allocated_bytes": 4804608
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/nested/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 8562,
+      "symlinks": 0,
+      "logical_bytes": 154758047,
+      "allocated_bytes": 177254400
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/pivot-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 5349,
+      "symlinks": 0,
+      "logical_bytes": 98458599,
+      "allocated_bytes": 113229824
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/pivot/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 5083,
+      "symlinks": 0,
+      "logical_bytes": 90005594,
+      "allocated_bytes": 103985152
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/scalars/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 1833,
+      "symlinks": 0,
+      "logical_bytes": 2165579,
+      "allocated_bytes": 7897088
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/typed/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 18784,
+      "symlinks": 0,
+      "logical_bytes": 907001032,
+      "allocated_bytes": 955920384
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1/unary/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/pivot-regression-public-all-1",
+      "files": 2128,
+      "symlinks": 0,
+      "logical_bytes": 57682574,
+      "allocated_bytes": 64167936
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 61,
+      "symlinks": 0,
+      "logical_bytes": 22710820,
+      "allocated_bytes": 22896640
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/frames-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 221,
+      "symlinks": 0,
+      "logical_bytes": 12728529,
+      "allocated_bytes": 13414400
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/frames/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 221,
+      "symlinks": 0,
+      "logical_bytes": 12716721,
+      "allocated_bytes": 13377536
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/memory/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 89,
+      "symlinks": 0,
+      "logical_bytes": 49617,
+      "allocated_bytes": 368640
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/nested/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 1477,
+      "symlinks": 0,
+      "logical_bytes": 33960327,
+      "allocated_bytes": 38842368
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/pivot-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 1542,
+      "symlinks": 0,
+      "logical_bytes": 42007872,
+      "allocated_bytes": 47263744
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/pivot/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 1276,
+      "symlinks": 0,
+      "logical_bytes": 33787109,
+      "allocated_bytes": 38117376
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/scalars/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 236,
+      "symlinks": 0,
+      "logical_bytes": 1411431,
+      "allocated_bytes": 2248704
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/typed/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 3392,
+      "symlinks": 0,
+      "logical_bytes": 180967390,
+      "allocated_bytes": 192036864
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1/unary/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-acceptance-359/resource-regression-public-all-1",
+      "files": 240,
+      "symlinks": 0,
+      "logical_bytes": 12050948,
+      "allocated_bytes": 12808192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 61,
+      "symlinks": 0,
+      "logical_bytes": 22711088,
+      "allocated_bytes": 22896640
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/frames-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 221,
+      "symlinks": 0,
+      "logical_bytes": 12729597,
+      "allocated_bytes": 13418496
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/frames/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 221,
+      "symlinks": 0,
+      "logical_bytes": 12717751,
+      "allocated_bytes": 13381632
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/memory/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 89,
+      "symlinks": 0,
+      "logical_bytes": 50369,
+      "allocated_bytes": 368640
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/nested/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 1477,
+      "symlinks": 0,
+      "logical_bytes": 33965961,
+      "allocated_bytes": 38842368
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/pivot-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 1542,
+      "symlinks": 0,
+      "logical_bytes": 42011994,
+      "allocated_bytes": 47276032
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/pivot/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 1276,
+      "symlinks": 0,
+      "logical_bytes": 33790199,
+      "allocated_bytes": 38121472
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/scalars/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 236,
+      "symlinks": 0,
+      "logical_bytes": 1412245,
+      "allocated_bytes": 2252800
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/typed/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 3392,
+      "symlinks": 0,
+      "logical_bytes": 180979214,
+      "allocated_bytes": 192036864
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1/unary/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/persisted-acceptance-343/resource-regression-public-all-1",
+      "files": 240,
+      "symlinks": 0,
+      "logical_bytes": 12052022,
+      "allocated_bytes": 12808192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-318/resource-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-318/resource-regression-public-all-1",
+      "files": 3,
+      "symlinks": 0,
+      "logical_bytes": 4973896,
+      "allocated_bytes": 4980736
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-320/resource-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-320/resource-regression-public-all-1",
+      "files": 51,
+      "symlinks": 0,
+      "logical_bytes": 111598674,
+      "allocated_bytes": 111722496
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 429,
+      "symlinks": 0,
+      "logical_bytes": 152398584,
+      "allocated_bytes": 153722880
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/frames-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 2508,
+      "symlinks": 0,
+      "logical_bytes": 59087183,
+      "allocated_bytes": 65773568
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/frames/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 2508,
+      "symlinks": 0,
+      "logical_bytes": 58989081,
+      "allocated_bytes": 65634304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/memory/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 1122,
+      "symlinks": 0,
+      "logical_bytes": 1374494,
+      "allocated_bytes": 4804608
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/nested/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 8562,
+      "symlinks": 0,
+      "logical_bytes": 161215881,
+      "allocated_bytes": 184717312
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/pivot-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 5349,
+      "symlinks": 0,
+      "logical_bytes": 105289551,
+      "allocated_bytes": 121049088
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/pivot/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 5083,
+      "symlinks": 0,
+      "logical_bytes": 96822126,
+      "allocated_bytes": 111583232
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/scalars/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 1833,
+      "symlinks": 0,
+      "logical_bytes": 2937119,
+      "allocated_bytes": 8744960
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/typed/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 18784,
+      "symlinks": 0,
+      "logical_bytes": 922219998,
+      "allocated_bytes": 972673024
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1/unary/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-322/resource-regression-public-all-1",
+      "files": 2128,
+      "symlinks": 0,
+      "logical_bytes": 58426108,
+      "allocated_bytes": 64966656
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/base/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 61,
+      "symlinks": 0,
+      "logical_bytes": 22711088,
+      "allocated_bytes": 22896640
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/frames-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 221,
+      "symlinks": 0,
+      "logical_bytes": 12728729,
+      "allocated_bytes": 13414400
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/frames/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 221,
+      "symlinks": 0,
+      "logical_bytes": 12716883,
+      "allocated_bytes": 13377536
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/memory/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 89,
+      "symlinks": 0,
+      "logical_bytes": 49401,
+      "allocated_bytes": 368640
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/nested/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 1477,
+      "symlinks": 0,
+      "logical_bytes": 33965961,
+      "allocated_bytes": 38842368
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/pivot-pressure/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 1542,
+      "symlinks": 0,
+      "logical_bytes": 42011994,
+      "allocated_bytes": 47276032
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/pivot/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 1276,
+      "symlinks": 0,
+      "logical_bytes": 33790199,
+      "allocated_bytes": 38121472
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/scalars/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 236,
+      "symlinks": 0,
+      "logical_bytes": 1411301,
+      "allocated_bytes": 2252800
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/typed/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 3392,
+      "symlinks": 0,
+      "logical_bytes": 180979212,
+      "allocated_bytes": 192036864
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1/unary/data",
+      "basis": "Completed historical suite attempt; harness-owned fixture and output data. Exact source revision, command, expected manifest, successful/failed results and recorded working-tree state are retained. No active comparison uses it. Regeneration uses the recorded harness and explicit native fixture generators; this is not a promise to reproduce an old dirty build byte for byte.",
+      "suite": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-acceptance-324/resource-regression-public-all-1",
+      "files": 240,
+      "symlinks": 0,
+      "logical_bytes": 12052022,
+      "allocated_bytes": 12808192
+    }
+  ],
+  "open_handles": {
+    "status": "passed",
+    "matching_open_handles": [],
+    "unrelated_paths_retained": false
+  },
+  "backup_created": false,
+  "protected_paths": [
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-q29-correction-950",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-recovery/artifacts",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/ingest-recovered-1/uat/vortex/prepared.vortex"
+  ],
+  "files_retired": 131625,
+  "symlinks_retired": 0,
+  "logical_bytes_retired": 4687868258,
+  "protected_paths_present": true
+}

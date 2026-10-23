@@ -1,0 +1,916 @@
+{
+  "schema": "shardloom.polish_payload_retirement.v1",
+  "status": "passed",
+  "plan": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/polish-payload-retirement-plan-984.json.gz",
+    "bytes": 1793272,
+    "sha256": "3e5d676cf4737745af6ad925c2170f4e2cf7c49d59748f690ec6f4b982c2d25b"
+  },
+  "roots_completed": [
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/format-strategy-907/native/_native.abi3.so",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76255472,
+      "allocated_bytes": 76259328
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/format-strategy-907/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384016,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/format-strategy-review-910/native/_native.abi3.so",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76255424,
+      "allocated_bytes": 76259328
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/structural-pr-883-r3-r2/native/_native.abi3.so",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76236480,
+      "allocated_bytes": 76238848
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/structural-pr-883-r3-r2/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76347552,
+      "allocated_bytes": 76349440
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-wheel-907/dist",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 49880548,
+      "allocated_bytes": 49881088
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-wheel-907/package/build",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 27,
+      "symlinks": 0,
+      "logical_bytes": 154290000,
+      "allocated_bytes": 154349568
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-wheel-907/package/src/shardloom/_native.abi3.so",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76255472,
+      "allocated_bytes": 76259328
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-wheel-907/package/src/shardloom/bin/macos-aarch64/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384016,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/format-strategy-wheel-907/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1719,
+      "symlinks": 3,
+      "logical_bytes": 141750107,
+      "allocated_bytes": 145526784
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-accepted-portable-791/output-window-accepted-791.tar.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 67119920,
+      "allocated_bytes": 67121152
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-installed-python-789/package/build",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 25,
+      "symlinks": 0,
+      "logical_bytes": 1650512,
+      "allocated_bytes": 1703936
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/prepared-sampling-pr-wheel-870/dist",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 49834691,
+      "allocated_bytes": 49836032
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/structural-pr-wheel-884/dist",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 49863021,
+      "allocated_bytes": 49864704
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-input-growth-corrected-20261009/native-input-growth-2026-10-09-attempt-1.json.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 54856828,
+      "allocated_bytes": 54857728
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-pivot-pressure-20261008/native-pivot-pressure-2026-10-08-attempt-4.json.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 53641616,
+      "allocated_bytes": 53645312
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-correctness-947",
+      "basis": "Superseded or rejected runtime; accepted runtime 950 and exact build/source/regeneration records are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76402944,
+      "allocated_bytes": 76406784
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-scalar-regions-962",
+      "basis": "Superseded or rejected runtime; accepted runtime 950 and exact build/source/regeneration records are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76483072,
+      "allocated_bytes": 76484608
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/mixed-llvm-profile-975/fixed-profiles",
+      "basis": "Completed compiler probe; retained source and exact commands/results in the PGO packet regenerate these outputs.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 1088,
+      "allocated_bytes": 4096
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/mixed-llvm-profile-975/fixed.profdata",
+      "basis": "Completed compiler probe; retained source and exact commands/results in the PGO packet regenerate these outputs.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2112,
+      "allocated_bytes": 4096
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/mixed-llvm-profile-975/target-broken",
+      "basis": "Completed compiler probe; retained source and exact commands/results in the PGO packet regenerate these outputs.",
+      "files": 56,
+      "symlinks": 0,
+      "logical_bytes": 7310468,
+      "allocated_bytes": 7462912
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/mixed-llvm-profile-975/target-candidate",
+      "basis": "Completed compiler probe; retained source and exact commands/results in the PGO packet regenerate these outputs.",
+      "files": 56,
+      "symlinks": 0,
+      "logical_bytes": 7259780,
+      "allocated_bytes": 7413760
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/mixed-llvm-profile-975/target-control",
+      "basis": "Completed compiler probe; retained source and exact commands/results in the PGO packet regenerate these outputs.",
+      "files": 54,
+      "symlinks": 0,
+      "logical_bytes": 7256482,
+      "allocated_bytes": 7401472
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/mixed-llvm-profile-975/target-instrumented",
+      "basis": "Completed compiler probe; retained source and exact commands/results in the PGO packet regenerate these outputs.",
+      "files": 56,
+      "symlinks": 0,
+      "logical_bytes": 7305631,
+      "allocated_bytes": 7462912
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-baseline-preflight-966b/train-broad.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 5363336,
+      "allocated_bytes": 5365760
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-baseline-preflight-966b/train-heavy.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 40579088,
+      "allocated_bytes": 40583168
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-generation-966/corpus/heldout-broad.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 851440,
+      "allocated_bytes": 851968
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-generation-966/corpus/heldout-heavy.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 9053461,
+      "allocated_bytes": 9056256
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-generation-966/corpus/train-broad.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 1127936,
+      "allocated_bytes": 1130496
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-generation-966/corpus/train-heavy.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 8609015,
+      "allocated_bytes": 8609792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-heldout-preflight-967/heldout-broad.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4103814,
+      "allocated_bytes": 4104192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-heldout-preflight-967/heldout-heavy.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 42838510,
+      "allocated_bytes": 42840064
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/control/artifacts",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 2,
+      "symlinks": 0,
+      "logical_bytes": 152666112,
+      "allocated_bytes": 152670208
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/control-admission/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 356,
+      "symlinks": 0,
+      "logical_bytes": 157976467,
+      "allocated_bytes": 158879744
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/control-admission-971/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 356,
+      "symlinks": 0,
+      "logical_bytes": 157976467,
+      "allocated_bytes": 158879744
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/control-admission-972/native-python/python-training.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 184912,
+      "allocated_bytes": 188416
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/control-admission-972/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 356,
+      "symlinks": 0,
+      "logical_bytes": 157976467,
+      "allocated_bytes": 158879744
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/instrumented/artifacts",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 2,
+      "symlinks": 0,
+      "logical_bytes": 300996832,
+      "allocated_bytes": 301002752
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-970/profiles",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 0,
+      "symlinks": 0,
+      "logical_bytes": 0,
+      "allocated_bytes": 0
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/candidate/artifacts",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 2,
+      "symlinks": 0,
+      "logical_bytes": 137521856,
+      "allocated_bytes": 137527296
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-admission/native-python/python-training.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 184912,
+      "allocated_bytes": 188416
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-admission/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 356,
+      "symlinks": 0,
+      "logical_bytes": 157976467,
+      "allocated_bytes": 158879744
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/instrumented/artifacts",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 2,
+      "symlinks": 0,
+      "logical_bytes": 297318656,
+      "allocated_bytes": 297320448
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/merge/merged.profdata",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 37539264,
+      "allocated_bytes": 37539840
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-candidate/proof/dist",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 45335679,
+      "allocated_bytes": 45338624
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-candidate/proof/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 388,
+      "symlinks": 0,
+      "logical_bytes": 282063484,
+      "allocated_bytes": 283041792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-candidate/proof/venv",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1719,
+      "symlinks": 3,
+      "logical_bytes": 141757432,
+      "allocated_bytes": 145534976
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-control/proof/dist",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 49885286,
+      "allocated_bytes": 49889280
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-control/proof/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 388,
+      "symlinks": 0,
+      "logical_bytes": 312351996,
+      "allocated_bytes": 313327616
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-control/proof/venv",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1719,
+      "symlinks": 3,
+      "logical_bytes": 141756384,
+      "allocated_bytes": 145534976
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-candidate/heldout-ordering/range.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2078994,
+      "allocated_bytes": 2080768
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-candidate/heldout-ordering/range.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4306,
+      "allocated_bytes": 8192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-candidate/streaming-pressure/outputs/aggregate-pressure.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 9490512,
+      "allocated_bytes": 9494528
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-candidate/streaming-pressure/outputs/ordered-pressure.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 35274840,
+      "allocated_bytes": 35278848
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-control/heldout-ordering/range.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2078994,
+      "allocated_bytes": 2080768
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-control/heldout-ordering/range.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4304,
+      "allocated_bytes": 8192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-control/streaming-pressure/outputs/aggregate-pressure.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 9490512,
+      "allocated_bytes": 9494528
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-control/streaming-pressure/outputs/ordered-pressure.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 35274840,
+      "allocated_bytes": 35278848
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/profile-transfer",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 37539264,
+      "allocated_bytes": 37539840
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/profiles",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 2,
+      "symlinks": 0,
+      "logical_bytes": 44633512,
+      "allocated_bytes": 44638208
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/native-python/python-training.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 184912,
+      "allocated_bytes": 188416
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/package",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 356,
+      "symlinks": 0,
+      "logical_bytes": 302629011,
+      "allocated_bytes": 303529984
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/pressure/range.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2274213,
+      "allocated_bytes": 2277376
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/pressure/range.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4392,
+      "allocated_bytes": 8192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/train-broad.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 5363336,
+      "allocated_bytes": 5365760
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/train-heavy.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 40579088,
+      "allocated_bytes": 40583168
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-pressure-preflight-969b/pressure/range.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2274435,
+      "allocated_bytes": 2277376
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-pressure-preflight-969b/pressure/range.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4381,
+      "allocated_bytes": 8192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-pressure-preflight-969c/pressure/range.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2274213,
+      "allocated_bytes": 2277376
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-pressure-preflight-969c/pressure/range.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4389,
+      "allocated_bytes": 8192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-pressure-preflight-969d/pressure/range.parquet",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2274213,
+      "allocated_bytes": 2277376
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-pressure-preflight-969d/pressure/range.vortex",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 4389,
+      "allocated_bytes": 8192
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-python-966",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 2425,
+      "symlinks": 3,
+      "logical_bytes": 148416633,
+      "allocated_bytes": 153907200
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-toolcompat-965b/smoke/merged.profdata",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 2360,
+      "allocated_bytes": 4096
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-toolcompat-965b/smoke/profiles/shardloom-13332574183509934048_0.profraw",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 1440,
+      "allocated_bytes": 4096
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-wheelhouse-966",
+      "basis": "Closed PGO experiment; regenerate from frozen corpus/build/package protocol retained in the verified portable packet.",
+      "files": 5,
+      "symlinks": 0,
+      "logical_bytes": 987965,
+      "allocated_bytes": 999424
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/release-target-947",
+      "basis": "Superseded Cargo output; exact accepted CLI is retained under native-q29-correction-950 and candidate source/build records remain.",
+      "files": 2955,
+      "symlinks": 0,
+      "logical_bytes": 1511454743,
+      "allocated_bytes": 1520713728
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-readback-359/encoded-public-acceptance-2.json.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 54220808,
+      "allocated_bytes": 54222848
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/build-env",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1565,
+      "symlinks": 3,
+      "logical_bytes": 17832083,
+      "allocated_bytes": 21463040
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/bundled-registry-060-pypi-6f02kuqp/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10708679,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/bundled-registry-060-testpypi-os7d54j5/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10710291,
+      "allocated_bytes": 12709888
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/github-package-proof-v0.6.0-936313473fed/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 859,
+      "symlinks": 3,
+      "logical_bytes": 11166065,
+      "allocated_bytes": 13074432
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/homebrew-060-q4qhe73r/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 859,
+      "symlinks": 3,
+      "logical_bytes": 11158104,
+      "allocated_bytes": 13066240
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/local-package-proof-v0.6.0-936313473fed/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 859,
+      "symlinks": 3,
+      "logical_bytes": 11165646,
+      "allocated_bytes": 13074432
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/python-registry-060-pypi-1/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10705455,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/python-registry-060-testpypi-1/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10707067,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-evidence-transport-332/native-timestamp-provider-2026-10-11.json.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 54271968,
+      "allocated_bytes": 54272000
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/timestamp-readback-324/timestamp-public-acceptance-2.json.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 54271968,
+      "allocated_bytes": 54272000
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/varbin-review-packet-562/native-varbin-metadata-review-2026-10-16.historical-sources-1.tar.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 55014260,
+      "allocated_bytes": 55017472
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/varbin-review-packet-562/native-varbin-metadata-review-2026-10-16.historical-sources-2.tar.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 55021408,
+      "allocated_bytes": 55021568
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/varbin-review-packet-562/native-varbin-metadata-review-2026-10-16.historical-sources-3.tar.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 55020496,
+      "allocated_bytes": 55021568
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/varbin-review-packet-562/native-varbin-metadata-review-2026-10-16.tar.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 54067708,
+      "allocated_bytes": 54071296
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/native-typed-reductions-2026-10-04-attempt-14.json.xz",
+      "basis": "Byte-identical generated transport copy; tracked evidence copy is retained and verified.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 56350104,
+      "allocated_bytes": 56352768
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/bundled-registry-070-pypi-iewdb7a5/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10696186,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/bundled-registry-070-testpypi-mhlgwtsr/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10697798,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/github-package-proof-v0.7.0-7ae9f0e44ddf/downloads/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384064,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/github-package-proof-v0.7.0-7ae9f0e44ddf/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10698604,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/homebrew-070-70v7u7ru/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10690947,
+      "allocated_bytes": 12693504
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/homebrew-070-xu0xph57/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10690947,
+      "allocated_bytes": 12693504
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/local-package-proof-v0.7.0-7ae9f0e44ddf/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10698201,
+      "allocated_bytes": 12705792
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/published-golden-070-attempt1/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384064,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/python-registry-070-pypi-1/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10692962,
+      "allocated_bytes": 12693504
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/python-registry-070-testpypi-1/venv",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 871,
+      "symlinks": 3,
+      "logical_bytes": 10694574,
+      "allocated_bytes": 12697600
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/github-prerelease-assets/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384064,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/native-proof/dist",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 49882907,
+      "allocated_bytes": 49885184
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/native-proof/package/build",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 27,
+      "symlinks": 0,
+      "logical_bytes": 154290144,
+      "allocated_bytes": 154349568
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/native-proof/package/src/shardloom/_native.abi3.so",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76255568,
+      "allocated_bytes": 76259328
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/native-proof/package/src/shardloom/bin/macos-aarch64/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384064,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-assets-1/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384064,
+      "allocated_bytes": 76386304
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-build-1/extension/_native.abi3.so",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76255568,
+      "allocated_bytes": 76259328
+    },
+    {
+      "root": "/Users/dylan/LocalData/shardloom/release-v0.7.0/release-070-build-1/shardloom",
+      "basis": "Completed historical package/build verification; immutable published-source/channel records regenerate it. Current accepted CLI and active tested native control library are retained.",
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 76384064,
+      "allocated_bytes": 76386304
+    }
+  ],
+  "open_handles": {
+    "status": "passed",
+    "matching_open_handles": [],
+    "unrelated_paths_retained": false
+  },
+  "backup_created": false,
+  "protected_paths": [
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-q29-correction-950",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-recovery/artifacts",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/ingest-recovered-1/uat/vortex/prepared.vortex"
+  ],
+  "files_retired": 28072,
+  "symlinks_retired": 60,
+  "logical_bytes_retired": 7610567616,
+  "protected_paths_present": true
+}

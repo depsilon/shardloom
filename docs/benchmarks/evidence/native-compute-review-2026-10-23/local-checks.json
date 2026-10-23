@@ -1,0 +1,50 @@
+{
+  "schema": "shardloom.compute_review_validation.v1",
+  "status": "passed",
+  "engine_queries_executed": 0,
+  "new_runtime_implementation": false,
+  "checks": [
+    {
+      "check": "All 43 retained raw records and every extracted strategy, route and top-12 counter field",
+      "status": "passed"
+    },
+    {
+      "check": "15 source identities and 27 exact source excerpts",
+      "status": "passed"
+    },
+    {
+      "check": "Native Rust/Cargo diff against accepted restoration",
+      "status": "unchanged"
+    },
+    {
+      "check": "Three exact cleanup plans, retired-root absence and protected current paths",
+      "status": "passed"
+    },
+    {
+      "check": "PGO packet replay after final experimental input retirement",
+      "status": "passed",
+      "engine_executed": false
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "status": "passed"
+    },
+    {
+      "command": "cargo test --locked --offline -p shardloom-contract-tests --test release_readiness_metadata",
+      "status": "passed",
+      "tests": 58
+    },
+    {
+      "check": "Local Markdown links in all three changed architecture documents",
+      "status": "passed",
+      "links_checked": 348
+    }
+  ],
+  "workspace_clippy_and_tests": "Exact native source is unchanged; fresh PR CI is the integration gate. Existing restoration and PGO CI evidence remain linked.",
+  "adversarial_review": {
+    "late_validation": "Output demand does not authorize stopping source validation or skipping invalid losing values. Stable ties use composed-input ordinal.",
+    "coverage": "Full43 does not activate composed sorting or aggregation; matching composed probes are required before gain claims.",
+    "prior_rejections": "No restart of range selection, physical-array/context caching, coalescing, scalar regions or PGO unchanged.",
+    "cleanup": "Closed experimental output changes retention class explicitly. Dirty historical build state remains recorded; no byte-exact regeneration promise. No production code removed."
+  }
+}
