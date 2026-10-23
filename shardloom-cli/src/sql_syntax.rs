@@ -23,6 +23,8 @@ mod memory_inputs;
 mod relation_sources;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 use relation_sources::ParsedRelationQuery;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) use relation_sources::native_unary_request;
 use relation_sources::{ParsedRelationLeaf, ParsedRelationSource};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -118,6 +120,8 @@ struct ParsedSqlLocalSource {
     predicate: ParsedPredicate,
     having: ParsedPredicate,
     limit: usize,
+    /// Native relation range; decoded-reference parsing leaves this at zero.
+    offset: usize,
     /// Parser-only bounds for the decoded reference must not truncate native SQL.
     limit_is_synthetic: bool,
     normalized_statement: String,
@@ -1163,6 +1167,7 @@ struct ParsedSqlLocalSourceUnion {
     branches: Vec<ParsedSqlLocalSource>,
     order_by: Option<ParsedOrderBy>,
     limit: usize,
+    offset: usize,
 }
 
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
@@ -2652,6 +2657,7 @@ fn parse_sql_local_source_union_statement(
         branches,
         order_by,
         limit,
+        offset: 0,
     })
 }
 
@@ -2783,8 +2789,8 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     } else {
         (None, Vec::new())
     };
-    let group_by = parse_group_by_list(group_by_raw)?;
-    let order_by = parse_order_by(order_by_raw)?;
+    let group_by = parse_group_by_list(group_by_raw, &projection_list)?;
+    let order_by = parse_selected_order_by(order_by_raw, &projection_list)?;
     let source_clause = parse_normalized_source_clause(source_raw, memory_source)?;
     let predicate = predicate_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
     let having = having_raw
@@ -2872,6 +2878,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         predicate,
         having,
         limit,
+        offset: 0,
         limit_is_synthetic: false,
         normalized_statement: statement,
     }
@@ -3964,7 +3971,7 @@ fn parse_numeric_arithmetic_projection(
     raw: &str,
 ) -> Result<Option<ParsedNumericArithmeticProjection>, ShardLoomError> {
     let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
-        return Ok(None);
+        return Ok(parse_unaliased_additive_projection(raw));
     };
     let expression_raw = raw[..as_index].trim();
     let alias = raw[as_index + "as".len()..].trim();
@@ -3990,6 +3997,42 @@ fn parse_numeric_arithmetic_projection(
         op,
         rhs,
     }))
+}
+
+/// Preserve the established SQL names for unaliased column +/- integer keys
+/// while putting their evaluation through the ordinary typed expression IR.
+fn parse_unaliased_additive_projection(raw: &str) -> Option<ParsedNumericArithmeticProjection> {
+    let expression = scalar_expression::parse(raw, "project.additive").ok()?;
+    let ExpressionKind::Binary { left, op, right } = &expression.kind else {
+        return None;
+    };
+    let ExpressionKind::Column(column) = &left.kind else {
+        return None;
+    };
+    let ExpressionKind::Literal(ScalarValue::Int64(value)) = right.kind else {
+        return None;
+    };
+    let (op, offset) = match op {
+        BinaryOp::Add => (NumericArithmeticOp::Add, value),
+        BinaryOp::Subtract => (NumericArithmeticOp::Subtract, value.checked_neg()?),
+        _ => return None,
+    };
+    let name = column
+        .as_str()
+        .strip_prefix("f.")
+        .unwrap_or(column.as_str());
+    let alias = format!(
+        "{}_{}{}",
+        name.replace('.', "_"),
+        if offset < 0 { "minus" } else { "plus" },
+        offset.unsigned_abs()
+    );
+    Some(ParsedNumericArithmeticProjection {
+        alias,
+        column: column.as_str().to_owned(),
+        op,
+        rhs: ScalarValue::Int64(value),
+    })
 }
 
 fn parse_numeric_abs_projection(
@@ -6098,7 +6141,10 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
     }))
 }
 
-fn parse_group_by_list(raw: Option<&str>) -> Result<Vec<String>, ShardLoomError> {
+fn parse_group_by_list(
+    raw: Option<&str>,
+    projections: &ParsedProjectionList,
+) -> Result<Vec<String>, ShardLoomError> {
     let Some(raw) = raw else {
         return Ok(Vec::new());
     };
@@ -6110,7 +6156,10 @@ fn parse_group_by_list(raw: Option<&str>) -> Result<Vec<String>, ShardLoomError>
         return Err(unsupported_sql_error("GROUP BY columns must not be empty"));
     }
     let mut parsed = Vec::with_capacity(columns.len());
-    for column in columns {
+    for mut column in columns {
+        if let Some(alias) = selected_additive_alias(&column, projections) {
+            column = alias;
+        }
         validate_sql_column_ref(&column)?;
         if parsed.iter().any(|existing| existing == &column) {
             return Err(unsupported_sql_error(
@@ -6120,6 +6169,85 @@ fn parse_group_by_list(raw: Option<&str>) -> Result<Vec<String>, ShardLoomError>
         parsed.push(column);
     }
     Ok(parsed)
+}
+
+fn selected_additive_alias(raw: &str, projections: &ParsedProjectionList) -> Option<String> {
+    let expression = parse_unaliased_additive_projection(raw)?;
+    projections
+        .numeric_arithmetic_projections
+        .iter()
+        .find(|projection| {
+            projection.column == expression.column
+                && projection.op == expression.op
+                && projection.rhs == expression.rhs
+        })
+        .map(|projection| projection.alias.clone())
+        .or_else(|| {
+            projections.generic_expression_projections.iter().find_map(|projection| {
+                let ExpressionKind::Binary { left, op, right } = &projection.expression.kind else {
+                    return None;
+                };
+                (matches!(&left.kind, ExpressionKind::Column(column) if column.as_str() == expression.column)
+                    && *op == expression.op.binary_op()
+                    && matches!(&right.kind, ExpressionKind::Literal(value) if value == &expression.rhs))
+                    .then(|| projection.alias.clone())
+            })
+        })
+}
+
+/// Resolve selected arithmetic and aggregate expressions to their public names.
+/// Direction/null syntax and duplicate keys still use the ordinary order parser.
+fn parse_selected_order_by(
+    raw: Option<&str>,
+    projections: &ParsedProjectionList,
+) -> Result<Option<ParsedOrderBy>, ShardLoomError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let mut entries = Vec::new();
+    for entry in split_sql_csv(raw)? {
+        let tokens = split_whitespace_outside_quotes(&entry)?;
+        let mut end = tokens.len();
+        if end >= 2 && tokens[end - 2].eq_ignore_ascii_case("nulls") {
+            end -= 2;
+        }
+        if end > 0
+            && ["asc", "desc"]
+                .iter()
+                .any(|word| tokens[end - 1].eq_ignore_ascii_case(word))
+        {
+            end -= 1;
+        }
+        let expression = tokens[..end].join(" ");
+        let mut alias = selected_additive_alias(&expression, projections);
+        if alias.is_none()
+            && let Some(aggregate) = parse_aggregate_projection(&expression)?
+        {
+            alias = projections
+                .aggregates
+                .iter()
+                .find(|projection| {
+                    projection.function == aggregate.function
+                        && projection.distinct == aggregate.distinct
+                        && match (&projection.argument, &aggregate.argument) {
+                            (
+                                ParsedAggregateArgument::Computed {
+                                    expression: left, ..
+                                },
+                                ParsedAggregateArgument::Computed {
+                                    expression: right, ..
+                                },
+                            ) => left == right,
+                            (left, right) => left == right,
+                        }
+                })
+                .map(ParsedAggregate::output_name);
+        }
+        entries.push(alias.map_or(entry, |alias| {
+            format!("{alias} {}", tokens[end..].join(" "))
+        }));
+    }
+    parse_order_by(Some(&entries.join(",")))
 }
 
 fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomError> {

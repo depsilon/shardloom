@@ -173,15 +173,6 @@ impl PlanCore {
                     });
                 }
                 if !reused {
-                    let collection = self.workflow.is_none()
-                        && self.relation.is_none()
-                        && native::sql_has_file_collection(
-                            &self.statement,
-                            resources,
-                            session,
-                            &bindings,
-                            cancellation,
-                        )?;
                     let (operation, reusable) = if let Some(declaration) = &self.relation {
                         let (operation, reusable) = declaration.prepare(
                             resources,
@@ -211,7 +202,7 @@ impl PlanCore {
                     };
                     *prepared = Some(Prepared {
                         resources,
-                        reusable: reusable && !collection && operation.permits_reuse(),
+                        reusable: reusable && operation.permits_reuse(),
                         operation,
                     });
                 }

@@ -62,7 +62,26 @@ pub(crate) fn prepare_in_session(
     ) -> Result<(), ShardLoomError>,
     cancellation: &CancellationToken,
 ) -> Result<PreparedVortexRelational, ShardLoomError> {
+    prepare_in_session_with_reuse(statement, request, session, inputs, cancellation)
+        .map(|(operation, _)| operation)
+}
+
+/// Resolve reuse from the source admission that prepared the operation. A second
+/// frontend parse must not decide which already-admitted provider can execute.
+pub(crate) fn prepare_in_session_with_reuse(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(
+        &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<
+            '_,
+        >,
+    ) -> Result<(), ShardLoomError>,
+    cancellation: &CancellationToken,
+) -> Result<(PreparedVortexRelational, bool), ShardLoomError> {
     cancellation.check()?;
+    let statement = super::super::resident_sql::typed_statement(statement, request);
+    let statement = statement.as_ref();
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;
     let mut sources = Sources {
@@ -86,7 +105,7 @@ pub(crate) fn prepare_in_session(
     } else {
         operation
     };
-    Ok(operation)
+    Ok((operation, !sources.has_collections))
 }
 
 /// General commands reuse the same owner as embedded plans and retained results.
@@ -104,6 +123,8 @@ pub(super) fn prepare_with_source_in_session(
     cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     cancellation.check()?;
+    let statement = super::super::resident_sql::typed_statement(statement, request);
+    let statement = statement.as_ref();
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;
     let mut sources = Sources {

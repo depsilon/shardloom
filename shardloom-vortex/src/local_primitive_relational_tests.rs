@@ -51,6 +51,8 @@ mod pivot_spill_tests;
 mod prepared_sample_cost_tests;
 #[path = "local_primitive_relational_prepared_sample_tests.rs"]
 mod prepared_sample_tests;
+#[path = "local_primitive_relational_provider_tests.rs"]
+mod provider_tests;
 #[path = "local_primitive_relational_scalar_tests.rs"]
 mod scalar_tests;
 #[path = "local_primitive_relational_selection_cost_tests.rs"]

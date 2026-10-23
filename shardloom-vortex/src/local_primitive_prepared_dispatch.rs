@@ -438,7 +438,7 @@ fn execute_sort_with_consumer(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
-    mut consumer: Option<&mut SortConsumer<'_>>,
+    consumer: Option<&mut SortConsumer<'_>>,
     parent_cancellation: &CancellationToken,
 ) -> Result<(super::VortexLocalPrimitiveExecutionReport, usize)> {
     parent_cancellation.check()?;
@@ -446,14 +446,7 @@ fn execute_sort_with_consumer(
         return Err(failed("requires a sort request"));
     }
     let session = source_session(source, request, Some(policy))?;
-    let (policy, physical) = policy.with_physical_policy_for_request(request);
     let sort = super::required_sort_rows(request)?;
-    let uri = request
-        .source_uri
-        .as_ref()
-        .ok_or_else(|| failed("sort source is absent"))?;
-    let path = super::local_vortex_path(uri, request.kind)?
-        .ok_or_else(|| failed("sort source is not local"))?;
     let cancellation = sort.spill.as_ref().map_or_else(
         || parent_cancellation.clone(),
         |spill| {
@@ -465,75 +458,98 @@ fn execute_sort_with_consumer(
     );
     cancellation.check()?;
     let execution = session.with_native_execution_context(&cancellation, |context| {
-        // The sort owns no separate compute pool. Drive provider tasks within
-        // this grant; existing persistent drivers are counted, not duplicated.
-        let (mut scan, drivers) = source.with_admitted_native_execution_temporary_drivers(
-            context,
-            |file, native_session, runtime| {
-                let collect = consumer.is_some();
-                let columns =
-                    super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
-                let fields = columns
-                    .iter()
-                    .map(|name| {
-                        Ok((
-                            name.clone(),
-                            super::completed_result::source_field(source.dtype(), name)?,
-                        ))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                let mut consume = |array| {
-                    consumer
-                        .as_mut()
-                        .ok_or_else(|| failed("sort sink is absent"))?(array, context)
-                };
-                let mut output = if collect {
-                    Some(super::completed_result::CompletedRows::streaming_native(
-                        fields,
-                        context.memory(),
-                        2048,
-                        context.cancellation().clone(),
-                        &mut consume,
-                    )?)
-                } else {
-                    None
-                };
-                let generation = sort
-                    .spill
-                    .as_ref()
-                    .map(|_| {
-                        super::sort_spill::SortSourceGeneration::capture(&path).map(std::sync::Arc::new)
-                    })
-                    .transpose()?;
-                super::read_opened_local_vortex_sort_rows_scan_with_output(
-                    uri,
-                    request,
-                    policy,
-                    output.as_mut(),
-                    file,
-                    native_session,
-                    runtime,
-                    generation.as_ref(),
-                    Some(context),
-                )
-            },
-        )?;
-        let mut summary: serde_json::Value = serde_json::from_str(&scan.result_summary)
-            .map_err(|error| failed(&error.to_string()))?;
-        let work = summary
-            .as_object_mut()
-            .ok_or_else(|| failed("sort work report is not an object"))?;
-        work.insert("sort_provider_background_workers".into(), drivers.into());
-        work.insert(
-            "sort_provider_cpu_scope".into(),
-            "same_prepared_source;admitted_grant;temporary_drivers_joined_before_return;no_concurrent_sort_worker_pool;not_measured_utilization_or_io_threads".into(),
-        );
-        scan.result_summary = summary.to_string();
-        super::sort_rows_report(request, &scan)
-            .map(|report| (report.with_physical_policy(physical), drivers))
+        execute_sort_in_context(request, policy, source, consumer, context)
     })?;
     cancellation.check()?;
     Ok(execution)
+}
+
+pub(crate) fn execute_sort_in_context(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    mut consumer: Option<&mut SortConsumer<'_>>,
+    context: &crate::resident_session::NativeExecutionContext<'_>,
+) -> Result<(super::VortexLocalPrimitiveExecutionReport, usize)> {
+    // Request/source identity is admitted before this borrowed call. Do not
+    // reacquire metadata admission while the enclosing execution holds it.
+    let session = source.retained_session();
+    session.validate_execution_context(context)?;
+    super::prepared_relational::validate_session_policy(policy, &session)?;
+    let (policy, physical) = policy.with_physical_policy_for_request(request);
+    let sort = super::required_sort_rows(request)?;
+    let uri = request
+        .source_uri
+        .as_ref()
+        .ok_or_else(|| failed("sort source is absent"))?;
+    let path = super::local_vortex_path(uri, request.kind)?
+        .ok_or_else(|| failed("sort source is not local"))?;
+    // The sort owns no separate compute pool. Drive provider tasks within
+    // this grant; existing persistent drivers are counted, not duplicated.
+    let (mut scan, drivers) = source.with_admitted_native_execution_temporary_drivers(
+        context,
+        |file, native_session, runtime| {
+            let collect = consumer.is_some();
+            let columns =
+                super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
+            let fields = columns
+                .iter()
+                .map(|name| {
+                    Ok((
+                        name.clone(),
+                        super::completed_result::source_field(source.dtype(), name)?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let mut consume = |array| {
+                consumer
+                    .as_mut()
+                    .ok_or_else(|| failed("sort sink is absent"))?(array, context)
+            };
+            let mut output = if collect {
+                Some(super::completed_result::CompletedRows::streaming_native(
+                    fields,
+                    context.memory(),
+                    2048,
+                    context.cancellation().clone(),
+                    &mut consume,
+                )?)
+            } else {
+                None
+            };
+            let generation = sort
+                .spill
+                .as_ref()
+                .map(|_| {
+                    super::sort_spill::SortSourceGeneration::capture(&path).map(std::sync::Arc::new)
+                })
+                .transpose()?;
+            super::read_opened_local_vortex_sort_rows_scan_with_output(
+                uri,
+                request,
+                policy,
+                output.as_mut(),
+                file,
+                native_session,
+                runtime,
+                generation.as_ref(),
+                Some(context),
+            )
+        },
+    )?;
+    let mut summary: serde_json::Value =
+        serde_json::from_str(&scan.result_summary).map_err(|error| failed(&error.to_string()))?;
+    let work = summary
+        .as_object_mut()
+        .ok_or_else(|| failed("sort work report is not an object"))?;
+    work.insert("sort_provider_background_workers".into(), drivers.into());
+    work.insert(
+            "sort_provider_cpu_scope".into(),
+            "same_prepared_source;admitted_grant;temporary_drivers_joined_before_return;no_concurrent_sort_worker_pool;not_measured_utilization_or_io_threads".into(),
+        );
+    scan.result_summary = summary.to_string();
+    super::sort_rows_report(request, &scan)
+        .map(|report| (report.with_physical_policy(physical), drivers))
 }
 
 fn failed(message: &str) -> ShardLoomError {

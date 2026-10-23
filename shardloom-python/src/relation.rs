@@ -204,6 +204,21 @@ impl NativeRelation {
         })))
     }
 
+    /// Declare `distinct_rows`, `drop_duplicates`, duplicated, tail, sample,
+    /// rewrite, melt, rolling, explode or pivot at this position in the plan.
+    /// Options are a column list, positive tail count or the shared JSON
+    /// operation object. Only duplicate operations accept keep.
+    #[pyo3(signature = (operation, options="*", *, keep=None))]
+    fn unary(&self, operation: &str, options: &str, keep: Option<&str>) -> PyResult<Self> {
+        Ok(Self {
+            declaration: Arc::new(
+                self.declaration
+                    .unary(operation, options, keep)
+                    .map_err(native_error)?,
+            ),
+        })
+    }
+
     /// Computed keys/arguments are expressed by a preceding projection.
     fn aggregate(
         &self,

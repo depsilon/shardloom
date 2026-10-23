@@ -124,13 +124,8 @@ fn prepare_with_owner(
     cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> NativeResult<PreparedVortexRelational> {
     cancellation.check()?;
-    let (parsed, offset) = parsed_native_query(raw)?;
+    let parsed = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
-        if offset != 0 {
-            return Err(unsupported_sql_error(
-                "dynamic native SQL does not admit a trailing OFFSET",
-            ));
-        }
         return dynamic::prepare(
             parsed,
             policy,
@@ -151,7 +146,7 @@ fn prepare_with_owner(
             declaration: None,
             outer: None,
         };
-        let mut query = lowerer.query(&parsed)?.offset(offset)?;
+        let mut query = lowerer.query(&parsed)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
     };
@@ -165,7 +160,7 @@ fn prepare_with_owner(
 
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.
 pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
-    let (parsed, _) = parsed_native_query(raw)?;
+    let parsed = parsed_native_query(raw)?;
     let ParsedRelationQuery::Select(parsed) = parsed else {
         return Ok(true);
     };
@@ -187,7 +182,7 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
 
 /// Ordinary local SELECT discovery is inert, including on absent source paths.
 pub(crate) fn is_plain_select(raw: &str) -> NativeResult<bool> {
-    let (parsed, _) = parsed_native_query(raw)?;
+    let parsed = parsed_native_query(raw)?;
     Ok(matches!(parsed,
         ParsedRelationQuery::Select(parsed) if matches!(parsed.source, ParsedRelationSource::Local(_))))
 }
@@ -202,7 +197,7 @@ pub(crate) fn source_count(raw: &str) -> NativeResult<usize> {
 }
 
 pub(crate) fn source_leaves(raw: &str) -> NativeResult<BTreeSet<ParsedRelationLeaf>> {
-    let (parsed, _) = parsed_native_query(raw)?;
+    let parsed = parsed_native_query(raw)?;
     let mut paths = BTreeSet::new();
     declared_query_sources(&parsed, &mut paths);
     Ok(paths)
@@ -291,29 +286,9 @@ fn admitted_statement(raw: &str) -> NativeResult<(String, bool)> {
     Ok((statement, synthetic_limit))
 }
 
-fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> {
+fn parsed_native_query(raw: &str) -> NativeResult<ParsedRelationQuery> {
     let (statement, synthetic_limit) = admitted_statement(raw)?;
-    let limit = top_level_keyword_indexes(&statement, "limit")?
-        .last()
-        .copied()
-        .ok_or_else(|| unsupported_sql_error("native SQL limit is absent"))?;
-    let offsets = top_level_keyword_indexes(&statement, "offset")?
-        .into_iter()
-        .filter(|index| *index > limit)
-        .collect::<Vec<_>>();
-    let (mut query, offset) = match offsets.as_slice() {
-        [] => Ok((ParsedRelationQuery::parse(&statement)?, 0)),
-        [index] => {
-            let offset = parse_limit(statement[index + "offset".len()..].trim())?;
-            Ok((
-                ParsedRelationQuery::parse(statement[..*index].trim())?,
-                offset,
-            ))
-        }
-        _ => Err(unsupported_sql_error(
-            "native SQL admits one trailing OFFSET",
-        )),
-    }?;
+    let mut query = ParsedRelationQuery::parse(&statement)?;
     // The legacy parser requires a limit token. Preserve its origin so a
     // completion-aware source is not mistaken for a prefix-limited query.
     // An explicitly written LIMIT (even usize::MAX) keeps its own semantics.
@@ -321,7 +296,7 @@ fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> 
         select.limit_is_synthetic = true;
     }
     scalar::validate_query(&query)?;
-    Ok((query, offset))
+    Ok(query)
 }
 
 struct Lowered {
@@ -447,7 +422,10 @@ impl Lowerer<'_, '_> {
                 kind,
             }));
         }
-        Ok(result.order(parsed.order_by.as_ref())?.limit(parsed.limit))
+        result
+            .order(parsed.order_by.as_ref())?
+            .limit(parsed.limit)
+            .offset(parsed.offset)
     }
 
     fn scan(&mut self, leaf: &ParsedRelationLeaf) -> NativeResult<Lowered> {
@@ -714,7 +692,7 @@ impl Lowerer<'_, '_> {
         input = self.windows(input, &parsed.window_projections)?;
         input = self.projection(input, parsed, &visible)?;
         if apply_limit {
-            input = input.limit(parsed.limit);
+            input = input.limit(parsed.limit).offset(parsed.offset)?;
         }
         Ok(input)
     }

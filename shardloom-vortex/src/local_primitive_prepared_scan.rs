@@ -74,10 +74,33 @@ pub(super) fn read_prepared_controlled(
     source_uri: &DatasetUri,
     source: &PreparedVortexSource,
     primitive_kind: VortexQueryPrimitiveKind,
-    mut policy: VortexLocalPrimitiveExecutionPolicy,
+    policy: VortexLocalPrimitiveExecutionPolicy,
     cancellation: &CancellationToken,
     configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
 ) -> Result<(LocalVortexScan, usize)> {
+    cancellation.check()?;
+    source.with_native_execution_controlled(cancellation, |_, context| {
+        read_prepared_in_context(
+            source_uri,
+            source,
+            primitive_kind,
+            policy,
+            context,
+            configure,
+        )
+    })
+}
+
+/// Reuse the complete operation's grant for the same scan, pruning and evidence.
+pub(super) fn read_prepared_in_context(
+    source_uri: &DatasetUri,
+    source: &PreparedVortexSource,
+    primitive_kind: VortexQueryPrimitiveKind,
+    mut policy: VortexLocalPrimitiveExecutionPolicy,
+    context: &crate::resident_session::NativeExecutionContext<'_>,
+    configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
+) -> Result<(LocalVortexScan, usize)> {
+    let cancellation = context.cancellation();
     cancellation.check()?;
     let preparation_started = Instant::now();
     let (memory_bytes, parallelism) = source.resource_limits();
@@ -99,7 +122,7 @@ pub(super) fn read_prepared_controlled(
     let plan = configure(source.dtype())?;
     let preparation_micros = preparation_started.elapsed().as_micros();
     cancellation.check()?;
-    source.with_native_execution_controlled(cancellation, |file, context| {
+    source.with_admitted_native_execution(context, |file, context| {
         let started = Instant::now();
         let metadata_pruned = consult_metadata_pruning(file, &plan, cancellation)?;
         let preparation_micros = preparation_micros.saturating_add(started.elapsed().as_micros());

@@ -1,0 +1,586 @@
+use super::*;
+use crate::{
+    query_primitive::VortexSimpleAggregateMeasure as Measure,
+    relational_query::{
+        VortexRelationalAggregate, VortexRelationalFilter, VortexRelationalLimit,
+        VortexRelationalOrderKey, VortexRelationalProject, VortexRelationalSort,
+    },
+};
+use shardloom_core::{ComparisonOp, ExprId, Expression, ExpressionKind, ScalarValue};
+
+fn column(name: &str) -> Expression {
+    Expression::column(ExprId::new(name).unwrap(), ColumnRef::new(name).unwrap())
+}
+fn measure(function: &str, name: Option<&str>, alias: &str) -> Measure {
+    Measure::new(
+        function,
+        name.map(|name| ColumnRef::new(name).unwrap()),
+        alias.into(),
+    )
+}
+fn aggregate(
+    input: VortexRelationalPlan,
+    groups: &[&str],
+    measures: Vec<Measure>,
+) -> VortexRelationalPlan {
+    VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+        input,
+        group_by: groups
+            .iter()
+            .map(|name| ColumnRef::new(*name).unwrap())
+            .collect(),
+        measures,
+    }))
+}
+fn filter(
+    input: VortexRelationalPlan,
+    name: &str,
+    op: ComparisonOp,
+    literal: ScalarValue,
+) -> VortexRelationalPlan {
+    VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+        input,
+        predicate: Expression::new(
+            ExprId::new("predicate").unwrap(),
+            ExpressionKind::Compare {
+                left: Box::new(column(name)),
+                op,
+                right: Box::new(Expression::literal(
+                    ExprId::new("literal").unwrap(),
+                    literal,
+                )),
+            },
+        ),
+    }))
+}
+fn sort(input: VortexRelationalPlan, name: &str) -> VortexRelationalPlan {
+    VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
+        input,
+        keys: vec![VortexRelationalOrderKey {
+            column: ColumnRef::new(name).unwrap(),
+            descending: false,
+            nulls: Some(crate::relational_query::VortexRelationalNullOrder::First),
+        }],
+    }))
+}
+fn range(input: VortexRelationalPlan, count: usize, offset: usize) -> VortexRelationalPlan {
+    VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+        input,
+        offset,
+        count,
+    }))
+}
+fn fixture() -> Fixture {
+    Fixture::new(
+        keyed(&[Some(2), None, Some(1), Some(2), None], &[7, 8, 9, 10, 11]),
+        2,
+    )
+}
+
+fn literal(value: ScalarValue) -> Expression {
+    Expression::literal(ExprId::new("literal").unwrap(), value)
+}
+
+fn call(name: &str, args: Vec<Expression>) -> Expression {
+    Expression::new(
+        ExprId::new(name).unwrap(),
+        ExpressionKind::FunctionCall {
+            name: name.into(),
+            args,
+        },
+    )
+}
+
+fn project(
+    input: VortexRelationalPlan,
+    expressions: Vec<(&str, Expression)>,
+) -> VortexRelationalPlan {
+    VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+        input,
+        expressions: expressions
+            .into_iter()
+            .map(|(name, value)| (name.into(), value))
+            .collect(),
+    }))
+}
+
+fn subtract(name: &str, offset: i64) -> Expression {
+    Expression::new(
+        ExprId::new("shift").unwrap(),
+        ExpressionKind::Binary {
+            left: Box::new(column(name)),
+            op: shardloom_core::BinaryOp::Subtract,
+            right: Box::new(literal(ScalarValue::Int64(offset))),
+        },
+    )
+}
+
+fn assert_provider_matches_general(plan: &VortexRelationalPlan, kind: VortexQueryPrimitiveKind) {
+    let optimized = prepare_relational(plan, policy()).unwrap();
+    assert!(optimized.provider.is_some(), "expected {kind:?}");
+    let mut general = prepare_relational(plan, policy()).unwrap();
+    general.provider = None;
+    let expected = general
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let baseline = optimized.snapshot().memory.reserved_bytes;
+    for completed in 1..=2 {
+        let result = optimized
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(json_rows(&result), json_rows(&expected));
+        assert_eq!(
+            result.result_schema_json.value(),
+            expected.result_schema_json.value()
+        );
+        let report = result.execution.primitive_execution.as_ref().unwrap();
+        assert_eq!(report.primitive_kind, kind);
+        assert!(!report.fallback_execution_allowed);
+        assert_eq!(result.execution.runtime.prepared_source_opens, 1);
+        assert_eq!(result.execution.runtime.completed_executions, completed);
+        drop(result);
+        assert_eq!(optimized.snapshot().memory.reserved_bytes, baseline);
+    }
+}
+
+#[test]
+fn shared_provider_float_groups_merge_signed_zero_and_preserve_selected_bits() {
+    let fixture = Fixture::new(
+        single(
+            "zero",
+            PrimitiveArray::from_iter([-0.0_f64, 0.0, -0.0]).into_array(),
+        ),
+        1,
+    );
+    let plan = aggregate(
+        fixture.scan(),
+        &["zero"],
+        vec![
+            measure("count", None, "rows"),
+            measure("count_distinct", Some("zero"), "distinct"),
+            measure("min", Some("zero"), "first"),
+        ],
+    );
+    assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        json_rows(&result),
+        vec![serde_json::json!({"zero":-0.0,"rows":3,"distinct":1,"first":-0.0})]
+    );
+    prepared
+        .for_each_batch(&CancellationToken::default(), |array, context| {
+            for name in ["zero", "first"] {
+                let value = crate::local_primitives::logical_field_from_native_array(&array, name)?;
+                let scalar = crate::local_primitives::result_batch::scalar_value(
+                    &value,
+                    0,
+                    &mut context.native_session().create_execution_ctx(),
+                )?;
+                let crate::local_primitives::result_batch::Value::Float(value) = scalar else {
+                    panic!("floating output type changed")
+                };
+                assert_eq!(value.to_bits(), (-0.0_f64).to_bits());
+            }
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
+fn shared_provider_count_aggregate_sort_alias_and_offset_match_complete_typed_semantics() {
+    let fixture = fixture();
+    let count = aggregate(fixture.scan(), &[], vec![measure("count", None, "total")]);
+    assert_provider_matches_general(&count, VortexQueryPrimitiveKind::CountAll);
+    let filtered = filter(
+        fixture.scan(),
+        "entity",
+        ComparisonOp::Eq,
+        ScalarValue::UInt64(2),
+    );
+    assert_provider_matches_general(
+        &aggregate(
+            filtered.clone(),
+            &[],
+            vec![measure("count", None, "present")],
+        ),
+        VortexQueryPrimitiveKind::CountWhere,
+    );
+    assert_provider_matches_general(
+        &range(sort(filtered, "amount"), 1, 1),
+        VortexQueryPrimitiveKind::SortRows,
+    );
+    let grouped = aggregate(
+        fixture.scan(),
+        &["entity"],
+        vec![
+            measure("count", None, "rows"),
+            measure("sum", Some("amount"), "sum"),
+            measure("min", Some("amount"), "min"),
+            measure("count_distinct", Some("amount"), "distinct"),
+        ],
+    );
+    let grouped = range(
+        sort(
+            filter(grouped, "rows", ComparisonOp::Gt, ScalarValue::UInt64(1)),
+            "entity",
+        ),
+        2,
+        0,
+    );
+    let grouped = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+        input: grouped,
+        expressions: vec![
+            ("total".into(), column("sum")),
+            ("key".into(), column("entity")),
+            ("minimum".into(), column("min")),
+            ("distinct".into(), column("distinct")),
+        ],
+    }));
+    assert_provider_matches_general(&grouped, VortexQueryPrimitiveKind::SimpleAggregate);
+}
+
+#[test]
+fn shared_provider_preserves_operator_order_and_does_not_hide_invalid_projection() {
+    let fixture = fixture();
+    let limited_then_filtered = range(
+        sort(
+            filter(
+                range(fixture.scan(), 2, 1),
+                "entity",
+                ComparisonOp::Eq,
+                ScalarValue::UInt64(1),
+            ),
+            "amount",
+        ),
+        1,
+        0,
+    );
+    assert!(
+        prepare_relational(&limited_then_filtered, policy())
+            .unwrap()
+            .provider
+            .is_none()
+    );
+    let projected = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+        input: fixture.scan(),
+        expressions: vec![
+            ("bad".into(), column("absent")),
+            ("entity".into(), column("entity")),
+        ],
+    }));
+    assert!(
+        prepare_relational(
+            &aggregate(projected, &["entity"], vec![measure("count", None, "rows")]),
+            policy()
+        )
+        .is_err()
+    );
+    let zero = range(sort(fixture.scan(), "amount"), 0, 2);
+    let prepared = prepare_relational(&zero, policy()).unwrap();
+    assert!(prepared.provider.is_none());
+    assert_eq!(prepared.execute_owned().unwrap().execution.output_rows, 0);
+}
+
+#[test]
+fn shared_provider_final_consumer_cancellation_and_generation_failure_are_terminal() {
+    for count in [true, false] {
+        let fixture = fixture();
+        let plan = if count {
+            aggregate(fixture.scan(), &[], vec![measure("count", None, "rows")])
+        } else {
+            range(sort(fixture.scan(), "amount"), 2, 0)
+        };
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        assert!(prepared.provider.is_some());
+        let token = CancellationToken::default();
+        assert!(
+            prepared
+                .for_each_batch(&token, |_, _| {
+                    token.cancel();
+                    Ok(())
+                })
+                .is_err()
+        );
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+        assert!(
+            prepared
+                .for_each_batch(&CancellationToken::default(), |_, _| {
+                    fixture.replace();
+                    Ok(())
+                })
+                .is_err()
+        );
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+    }
+}
+
+#[test]
+fn shared_provider_derived_unsigned_signed_groups_and_measures_keep_exact_domains() {
+    let fixture = Fixture::new(
+        single(
+            "value",
+            PrimitiveArray::from_iter([0_u32, 1, u32::MAX, 1]).into_array(),
+        ),
+        2,
+    );
+    let projection = project(
+        fixture.scan(),
+        vec![
+            ("original", column("value")),
+            ("shifted", subtract("value", 3)),
+            ("constant", literal(ScalarValue::Int64(7))),
+        ],
+    );
+    assert_provider_matches_general(
+        &aggregate(
+            projection,
+            &["constant", "original", "shifted"],
+            vec![measure("count", None, "n")],
+        ),
+        VortexQueryPrimitiveKind::SimpleAggregate,
+    );
+    let projection = project(fixture.scan(), vec![("shifted", subtract("value", 3))]);
+    assert_provider_matches_general(
+        &aggregate(
+            projection,
+            &[],
+            vec![
+                measure("sum", Some("shifted"), "sum"),
+                measure("avg", Some("shifted"), "mean"),
+            ],
+        ),
+        VortexQueryPrimitiveKind::SimpleAggregate,
+    );
+
+    let wide = Fixture::new(
+        single("value", PrimitiveArray::from_iter([i64::MIN]).into_array()),
+        1,
+    );
+    let plan = aggregate(
+        project(wide.scan(), vec![("shifted", subtract("value", 1))]),
+        &[],
+        vec![measure("sum", Some("shifted"), "sum")],
+    );
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    assert!(prepared.provider.is_none());
+    assert!(prepared.execute_owned().is_err());
+}
+
+#[test]
+fn shared_provider_temporal_and_domain_functions_match_general_in_compositions() {
+    use vortex::array::arrays::VarBinViewArray;
+    let time = Fixture::new(
+        single(
+            "seconds",
+            PrimitiveArray::from_option_iter([Some(-61_i64), Some(-1), Some(0), Some(60), None])
+                .into_array(),
+        ),
+        2,
+    );
+    for function in ["extract_minute", "date_trunc_minute"] {
+        let plan = aggregate(
+            project(
+                time.scan(),
+                vec![("key", call(function, vec![column("seconds")]))],
+            ),
+            &["key"],
+            vec![measure("count", None, "n")],
+        );
+        assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    }
+    let domain = Fixture::new(
+        single(
+            "address",
+            VarBinViewArray::from_iter_nullable_str([
+                Some("https://www.example.com:80/path"),
+                Some("http://no-path"),
+                Some("http://é.test/a"),
+                Some("https://www.example.com:80/other"),
+                Some("http://a/x\ny"),
+                None,
+            ])
+            .into_array(),
+        ),
+        2,
+    );
+    for function in ["url_domain", "regex_domain"] {
+        let plan = aggregate(
+            project(
+                domain.scan(),
+                vec![("key", call(function, vec![column("address")]))],
+            ),
+            &["key"],
+            vec![measure("count", None, "n")],
+        );
+        assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    }
+    let replacement = call(
+        "regexp_replace",
+        vec![
+            column("address"),
+            literal(ScalarValue::Utf8(r"^https?://(?:www\.)?([^/]+)/.*$".into())),
+            literal(ScalarValue::Utf8(r"\1".into())),
+        ],
+    );
+    assert_provider_matches_general(
+        &aggregate(
+            project(domain.scan(), vec![("key", replacement)]),
+            &["key"],
+            vec![measure("count", None, "n")],
+        ),
+        VortexQueryPrimitiveKind::SimpleAggregate,
+    );
+    let unsupported = project(
+        domain.scan(),
+        vec![(
+            "key",
+            call(
+                "regexp_replace",
+                vec![
+                    column("address"),
+                    literal(ScalarValue::Utf8(".*".into())),
+                    literal(ScalarValue::Utf8("x".into())),
+                ],
+            ),
+        )],
+    );
+    assert!(prepare_relational(&unsupported, policy()).is_err());
+
+    let overflow = Fixture::new(
+        single(
+            "seconds",
+            PrimitiveArray::from_iter([i64::MIN]).into_array(),
+        ),
+        1,
+    );
+    let plan = aggregate(
+        project(
+            overflow.scan(),
+            vec![("key", call("date_trunc_minute", vec![column("seconds")]))],
+        ),
+        &["key"],
+        vec![measure("count", None, "n")],
+    );
+    let optimized = prepare_relational(&plan, policy()).unwrap();
+    let mut general = prepare_relational(&plan, policy()).unwrap();
+    general.provider = None;
+    assert!(optimized.execute_owned().is_err());
+    assert!(general.execute_owned().is_err());
+}
+
+#[test]
+fn shared_provider_does_not_confuse_character_and_byte_length() {
+    use vortex::array::arrays::VarBinViewArray;
+    let text = Fixture::new(
+        single(
+            "text",
+            VarBinViewArray::from_iter_nullable_str([Some("é"), Some("a"), None]).into_array(),
+        ),
+        2,
+    );
+    let bytes = aggregate(
+        project(
+            text.scan(),
+            vec![("size", call("octet_length", vec![column("text")]))],
+        ),
+        &[],
+        vec![measure("avg", Some("size"), "mean")],
+    );
+    assert_provider_matches_general(&bytes, VortexQueryPrimitiveKind::SimpleAggregate);
+    let chars = aggregate(
+        project(
+            text.scan(),
+            vec![("size", call("length", vec![column("text")]))],
+        ),
+        &[],
+        vec![measure("avg", Some("size"), "mean")],
+    );
+    let prepared = prepare_relational(&chars, policy()).unwrap();
+    assert!(prepared.provider.is_none());
+    assert_eq!(
+        json_rows(
+            &prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap()
+        ),
+        vec![serde_json::json!({"mean":1.0})]
+    );
+}
+
+#[test]
+fn shared_provider_conditional_groups_use_expression_roles_and_preserve_nullable_ordering() {
+    use vortex::array::arrays::VarBinViewArray;
+    let fixture = Fixture::new(
+        StructArray::try_new(
+            FieldNames::from(["a", "b", "text"]),
+            vec![
+                PrimitiveArray::from_iter([0_u8, 1, 0, 0]).into_array(),
+                PrimitiveArray::from_iter([0_i16, 0, 0, 2]).into_array(),
+                VarBinViewArray::from_iter_str(["chosen", "unused", "chosen", "unused"])
+                    .into_array(),
+            ],
+            4,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array(),
+        2,
+    );
+    let zero = |name: &str| {
+        Expression::new(
+            ExprId::new("zero").unwrap(),
+            ExpressionKind::Compare {
+                left: Box::new(column(name)),
+                op: ComparisonOp::Eq,
+                right: Box::new(literal(ScalarValue::Int64(0))),
+            },
+        )
+    };
+    let condition = Expression::new(
+        ExprId::new("and").unwrap(),
+        ExpressionKind::Binary {
+            left: Box::new(zero("a")),
+            op: shardloom_core::BinaryOp::And,
+            right: Box::new(zero("b")),
+        },
+    );
+    let plan = aggregate(
+        project(
+            fixture.scan(),
+            vec![(
+                "key",
+                call(
+                    "case_when",
+                    vec![
+                        condition,
+                        column("text"),
+                        literal(ScalarValue::Utf8(String::new())),
+                    ],
+                ),
+            )],
+        ),
+        &["key"],
+        vec![measure("count", None, "n")],
+    );
+    assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+
+    let fixture = super::provider_tests::fixture();
+    let mut sorted = sort(
+        aggregate(
+            fixture.scan(),
+            &["entity"],
+            vec![measure("count", None, "n")],
+        ),
+        "entity",
+    );
+    let VortexRelationalPlan::Sort(sort) = &mut sorted else {
+        unreachable!()
+    };
+    sort.keys[0].nulls = None;
+    let prepared = prepare_relational(&sorted, policy()).unwrap();
+    assert!(prepared.provider.is_none());
+    assert!(prepared.execute_owned().is_err());
+}

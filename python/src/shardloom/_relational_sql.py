@@ -157,7 +157,12 @@ def _render_stages(
             direction, keys, nulls = q._parse_sort_operation_values(values)
             statement = f"SELECT * FROM {source}" + q._format_order_by_clause(keys, direction, nulls)
         elif kind == "limit":
-            statement = f"SELECT * FROM {source} LIMIT {values[0]}"
+            limit_parts = q._limit_operation_parts(values)
+            if limit_parts is None:
+                return None
+            count, offset = limit_parts
+            offset_clause = f" OFFSET {offset}" if offset != "0" else ""
+            statement = f"SELECT * FROM {source} LIMIT {count}{offset_clause}"
         elif kind == "distinct":
             statement = f"SELECT * FROM DISTINCT_ROWS(({statement}), '*') AS _sl_stage_{index}"
         elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window", "explode", "pivot"}:

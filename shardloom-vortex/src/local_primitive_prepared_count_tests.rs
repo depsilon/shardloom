@@ -58,6 +58,14 @@ fn filtered_count_source_handoff_reuses_one_generation() {
         assert_eq!(result.runtime.completed_executions, execution);
         assert!(result.native_io_certificate.is_certified());
         assert!(!result.native_io_certificate.fallback_attempted);
+        assert!(
+            result
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis
+                .split(';')
+                .any(|item| item == format!("resident_completed_executions={execution}"))
+        );
     }
     let replacement = fixture.0.join("replacement.vortex");
     std::fs::copy(fixture.path(), &replacement).unwrap();

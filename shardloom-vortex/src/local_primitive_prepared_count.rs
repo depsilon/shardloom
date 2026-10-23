@@ -383,6 +383,34 @@ impl PreparedVortexCountWhere {
         cancellation: &CancellationToken,
     ) -> Result<ExecutedVortexCountWhere> {
         cancellation.check()?;
+        let mut execution = self
+            .source
+            .with_native_execution_controlled(cancellation, |_, context| {
+                self.execute_in_context(context)
+            })?;
+        let provider_workers = execution.runtime.provider_background_workers;
+        execution.runtime = self.session.snapshot();
+        execution.runtime.provider_background_workers = provider_workers;
+        let _ = write!(
+            execution
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis,
+            ";resident_source_generation_validation=before_and_after_native_scan_including_metadata_pruned_result;resident_source_opens={};resident_completed_executions={};provider_background_workers={};provider_cpu_scope=current_grant_temporary_drivers_joined_before_return_not_measured_utilization;no_query_answer_cache=true;independent_oracle_not_run",
+            execution.runtime.prepared_source_opens,
+            execution.runtime.completed_executions,
+            provider_workers,
+        );
+        cancellation.check()?;
+        Ok(execution)
+    }
+
+    pub(crate) fn execute_in_context(
+        &self,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<ExecutedVortexCountWhere> {
+        self.session.validate_execution_context(context)?;
+        let cancellation = context.cancellation();
         let uri = self
             .request
             .source_uri
@@ -393,12 +421,12 @@ impl PreparedVortexCountWhere {
             .predicate
             .as_ref()
             .ok_or_else(|| failed("prepared predicate is missing"))?;
-        let (scan, provider_workers) = prepared_scan::read_prepared_controlled(
+        let (scan, provider_workers) = prepared_scan::read_prepared_in_context(
             uri,
             &self.source,
             self.request.kind,
             self.policy,
-            cancellation,
+            context,
             |_| Ok(self.plan.clone()),
         )?;
         cancellation.check()?;
@@ -410,14 +438,7 @@ impl PreparedVortexCountWhere {
             .ok_or_else(|| failed("completed count is missing"))?;
         let mut runtime = self.session.snapshot();
         runtime.provider_background_workers = provider_workers;
-        let mut native_io_certificate =
-            local_primitive_native_io_certificate(&self.request, &report)?;
-        cancellation.check()?;
-        let _ = write!(
-            native_io_certificate.source_pushdown_report.proof_basis,
-            ";resident_source_generation_validation=before_and_after_native_scan_including_metadata_pruned_result;resident_source_opens={};resident_completed_executions={};provider_background_workers={};provider_cpu_scope=current_grant_temporary_drivers_joined_before_return_not_measured_utilization;no_query_answer_cache=true;independent_oracle_not_run",
-            runtime.prepared_source_opens, runtime.completed_executions, provider_workers,
-        );
+        let native_io_certificate = local_primitive_native_io_certificate(&self.request, &report)?;
         let execution = ExecutedVortexCountWhere {
             count,
             report,

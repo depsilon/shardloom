@@ -335,8 +335,16 @@ pub fn prepare_sql_operation(
             return declaration.prepare(resources, session, cancellation);
         }
     }
-    prepare_sql_with_spill(statement, resources, session, bindings, spill, cancellation)
-        .map(|operation| PreparedNativeOperation::relational(operation, resources))
+    let request = sql_request(statement, resources, bindings, spill)?;
+    let (operation, reusable) = resident_relational::prepare_in_session_with_reuse(
+        statement,
+        &request,
+        session,
+        |schemas| register_sources(schemas, bindings, cancellation),
+        cancellation,
+    )?;
+    cancellation.check()?;
+    Ok(PreparedNativeOperation::relational(operation, resources).with_reuse(reusable))
 }
 
 fn register_sources(

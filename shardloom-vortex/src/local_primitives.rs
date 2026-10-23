@@ -17051,13 +17051,22 @@ fn count_all_metadata_report(
         let rows = file.row_count();
         (file, rows)
     };
+    Ok(count_all_held_metadata_report(&file, rows, policy))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn count_all_held_metadata_report(
+    file: &vortex::file::VortexFile,
+    rows: u64,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> VortexLocalPrimitiveExecutionReport {
     let embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
-        &file,
+        file,
         VortexQueryPrimitiveKind::CountAll,
         false,
         false,
     );
-    Ok(VortexLocalPrimitiveExecutionReport {
+    VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::MetadataPreservingCount,
         primitive_kind: VortexQueryPrimitiveKind::CountAll,
@@ -17100,7 +17109,7 @@ fn count_all_metadata_report(
         fallback_execution_allowed: false,
         materialization_boundary_reported: false,
         diagnostics: Vec::new(),
-    })
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -28921,6 +28930,7 @@ impl TransformedDictionaryCompactMeasurePlan {
                         }
                         AggregateValueTransform::ConstantInt(_)
                         | AggregateValueTransform::AddOffset(_)
+                        | AggregateValueTransform::SignedAddOffset(_)
                         | AggregateValueTransform::ExtractMinute
                         | AggregateValueTransform::DateTruncMinute
                         | AggregateValueTransform::UrlDomain
@@ -29010,6 +29020,7 @@ impl TransformedDictionaryDenseGeneralPlan {
                         }
                         AggregateValueTransform::ConstantInt(_)
                         | AggregateValueTransform::AddOffset(_)
+                        | AggregateValueTransform::SignedAddOffset(_)
                         | AggregateValueTransform::ExtractMinute
                         | AggregateValueTransform::DateTruncMinute
                         | AggregateValueTransform::UrlDomain
@@ -29034,6 +29045,7 @@ impl TransformedDictionaryDenseGeneralPlan {
                         }
                         AggregateValueTransform::ConstantInt(_)
                         | AggregateValueTransform::AddOffset(_)
+                        | AggregateValueTransform::SignedAddOffset(_)
                         | AggregateValueTransform::ExtractMinute
                         | AggregateValueTransform::DateTruncMinute
                         | AggregateValueTransform::UrlDomain
@@ -29407,6 +29419,7 @@ fn compact_aggregate_direct_measure_value(
         AggregateValueTransform::Length => aggregate_direct_utf8_length_value(accessor, row_index),
         AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
+        | AggregateValueTransform::SignedAddOffset(_)
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::UrlDomain
@@ -29491,6 +29504,7 @@ fn compact_aggregate_materialized_measure_value(
         },
         AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
+        | AggregateValueTransform::SignedAddOffset(_)
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::UrlDomain
@@ -29511,6 +29525,7 @@ enum AggregateValueTransform {
     Length,
     ConstantInt(i64),
     AddOffset(i64),
+    SignedAddOffset(i64),
     ExtractMinute,
     DateTruncMinute,
     UrlDomain,
@@ -29529,6 +29544,7 @@ impl AggregateValueTransform {
             "add_offset" | "offset" | "additive_offset" => {
                 Ok(Self::AddOffset(argument_offset.unwrap_or(0)))
             }
+            "add_signed_offset" => Ok(Self::SignedAddOffset(argument_offset.unwrap_or(0))),
             "constant_int" | "literal_int" => Ok(Self::ConstantInt(argument_offset.unwrap_or(0))),
             "length" | "byte_length" => Ok(Self::Length),
             "extract_minute" | "minute" => Ok(Self::ExtractMinute),
@@ -29562,6 +29578,7 @@ impl AggregateValueTransform {
         match self {
             Self::Identity => Ok(value.clone()),
             Self::Length => match value {
+                StatValue::Null => Ok(StatValue::Null),
                 StatValue::Utf8(value) => Ok(StatValue::UInt64(usize_to_u64(value.len())?)),
                 other => Err(ShardLoomError::InvalidOperation(format!(
                     "local Vortex aggregate length transform requires UTF-8 input, got {}; no fallback execution was attempted",
@@ -29570,6 +29587,7 @@ impl AggregateValueTransform {
             },
             Self::ConstantInt(value) => Ok(StatValue::Int64(*value)),
             Self::AddOffset(offset) => aggregate_add_offset(value, *offset),
+            Self::SignedAddOffset(offset) => aggregate_add_signed_offset(value, *offset),
             Self::ExtractMinute => aggregate_extract_minute(value),
             Self::DateTruncMinute => aggregate_date_trunc_minute(value),
             Self::UrlDomain => aggregate_url_domain(value),
@@ -29611,7 +29629,7 @@ fn aggregate_group_key_indices(columns: &[AggregateGroupRuntimeColumn]) -> Vec<u
     for (index, column) in columns.iter().enumerate() {
         match column.transform {
             AggregateValueTransform::ConstantInt(_) if columns.len() > 1 => {}
-            AggregateValueTransform::AddOffset(_)
+            AggregateValueTransform::AddOffset(_) | AggregateValueTransform::SignedAddOffset(_)
                 if identity_sources.contains(&column.column_index) => {}
             AggregateValueTransform::Identity => {
                 key_indices.push(index);
@@ -29619,6 +29637,7 @@ fn aggregate_group_key_indices(columns: &[AggregateGroupRuntimeColumn]) -> Vec<u
             }
             AggregateValueTransform::Length
             | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::SignedAddOffset(_)
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
@@ -31593,6 +31612,7 @@ impl<'a> GroupedAggregateStates<'a> {
             AggregateValueTransform::Identity
             | AggregateValueTransform::ConstantInt(_)
             | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::SignedAddOffset(_)
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => unreachable!(
@@ -38940,6 +38960,7 @@ impl<'a> GroupedAggregateStates<'a> {
                             matches!(
                                 group_column.transform,
                                 AggregateValueTransform::AddOffset(_)
+                                    | AggregateValueTransform::SignedAddOffset(_)
                             ) && self.key_position_for_group_index(source_index).is_some()
                         })
             })
@@ -38969,7 +38990,7 @@ impl<'a> GroupedAggregateStates<'a> {
         })?;
         match group_column.transform {
             AggregateValueTransform::ConstantInt(value) => Ok(StatValue::Int64(value)),
-            AggregateValueTransform::AddOffset(offset) => {
+            AggregateValueTransform::AddOffset(_) | AggregateValueTransform::SignedAddOffset(_) => {
                 let source_index = self
                     .identity_source_group_index_for(group_column.column_index)
                     .ok_or_else(|| {
@@ -38979,7 +39000,7 @@ impl<'a> GroupedAggregateStates<'a> {
                         )
                     })?;
                 let source_value = self.reconstruct_group_value_from_key(key, source_index)?;
-                aggregate_add_offset(&source_value, offset)
+                group_column.transform.apply(&source_value)
             }
             AggregateValueTransform::Identity
             | AggregateValueTransform::Length
@@ -41583,6 +41604,7 @@ fn single_group_fast_key(
         },
         AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
+        | AggregateValueTransform::SignedAddOffset(_)
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => Ok(None),
@@ -41617,6 +41639,7 @@ fn single_group_fast_value(
         },
         AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
+        | AggregateValueTransform::SignedAddOffset(_)
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
@@ -41829,6 +41852,7 @@ fn aggregate_materialized_string_partial_key(
         },
         AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
+        | AggregateValueTransform::SignedAddOffset(_)
         | AggregateValueTransform::ExtractMinute
         | AggregateValueTransform::DateTruncMinute
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
@@ -42824,7 +42848,7 @@ fn aggregate_direct_count_distinct_update_f64_report(
         row_nulls,
         row_indices,
         distinct_values,
-        |value| AggregateDistinctValue::Float64Bits(value.to_bits()),
+        AggregateDistinctValue::float,
     )?;
     Ok(AggregateDirectCountDistinctUpdate {
         non_null_rows: aggregate_direct_count_distinct_non_null_rows(
@@ -44310,6 +44334,9 @@ fn aggregate_direct_transformed_group_key(
         AggregateValueTransform::AddOffset(offset) => Ok(Some(aggregate_direct_add_offset_key(
             accessor, row_index, offset,
         )?)),
+        AggregateValueTransform::SignedAddOffset(offset) => Ok(Some(
+            aggregate_direct_signed_add_offset_key(accessor, row_index, offset)?,
+        )),
         AggregateValueTransform::ExtractMinute => Ok(Some(aggregate_direct_extract_minute_key(
             accessor, row_index,
         )?)),
@@ -44354,6 +44381,9 @@ fn aggregate_direct_transformed_group_key_existing(
         AggregateValueTransform::AddOffset(offset) => Ok(Some(aggregate_direct_add_offset_key(
             accessor, row_index, offset,
         )?)),
+        AggregateValueTransform::SignedAddOffset(offset) => Ok(Some(
+            aggregate_direct_signed_add_offset_key(accessor, row_index, offset)?,
+        )),
         AggregateValueTransform::ExtractMinute => Ok(Some(aggregate_direct_extract_minute_key(
             accessor, row_index,
         )?)),
@@ -44926,7 +44956,9 @@ fn aggregate_direct_date_trunc_minute_key(
         return values
             .get(row_index)
             .copied()
-            .map(|value| AggregateDistinctValue::Int64(value.div_euclid(60) * 60))
+            .map(|value| aggregate_date_trunc_minute(&StatValue::Int64(value))
+                .map(|value| AggregateDistinctValue::from(&value)))
+            .transpose()?
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex aggregate direct int64 date-trunc-minute key row index was out of bounds; no fallback execution was attempted"
@@ -44935,6 +44967,9 @@ fn aggregate_direct_date_trunc_minute_key(
             });
     }
     match accessor {
+        AggregateDirectColumnAccessor::NullableFloat64 { .. } => Err(
+            aggregate_temporal_type_error("date-trunc-minute", "float64"),
+        ),
         AggregateDirectColumnAccessor::NullableUInt64 { values, row_nulls } => {
             Ok(aggregate_nullable_primitive_value(
                 values,
@@ -44947,15 +44982,16 @@ fn aggregate_direct_date_trunc_minute_key(
             }))
         }
         AggregateDirectColumnAccessor::NullableInt64 { values, row_nulls } => {
-            Ok(aggregate_nullable_primitive_value(
+            aggregate_nullable_primitive_value(
                 values,
                 row_nulls,
                 row_index,
                 "int64 date-trunc-minute key",
             )?
-            .map_or(AggregateDistinctValue::Null, |value| {
-                AggregateDistinctValue::Int64(value.div_euclid(60) * 60)
-            }))
+            .map_or(Ok(AggregateDistinctValue::Null), |value| {
+                aggregate_date_trunc_minute(&StatValue::Int64(value))
+                    .map(|value| AggregateDistinctValue::from(&value))
+            })
         }
         AggregateDirectColumnAccessor::UInt64(_) | AggregateDirectColumnAccessor::Int64(_) => {
             unreachable!(
@@ -45928,7 +45964,7 @@ fn aggregate_direct_distinct_value(
         return values
             .get(row_index)
             .copied()
-            .map(|value| AggregateDistinctValue::Float64Bits(value.to_bits()))
+            .map(AggregateDistinctValue::float)
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex aggregate direct float64 key row index was out of bounds; no fallback execution was attempted"
@@ -45952,9 +45988,7 @@ fn aggregate_direct_distinct_value(
         AggregateDirectColumnAccessor::NullableFloat64 { values, row_nulls } => {
             aggregate_nullable_primitive_value(values, row_nulls, row_index, "float64 distinct")
                 .map(|value| {
-                    value.map_or(AggregateDistinctValue::Null, |value| {
-                        AggregateDistinctValue::Float64Bits(value.to_bits())
-                    })
+                    value.map_or(AggregateDistinctValue::Null, AggregateDistinctValue::float)
                 })
         }
         AggregateDirectColumnAccessor::Utf8Dictionary {
@@ -46133,6 +46167,7 @@ fn aggregate_direct_distinct_value_for_group_key_existing(
 #[allow(clippy::cast_precision_loss)]
 fn aggregate_add_offset(value: &StatValue, offset: i64) -> Result<StatValue> {
     match value {
+        StatValue::Null => Ok(StatValue::Null),
         StatValue::Int64(value) => value
             .checked_add(offset)
             .map(StatValue::Int64)
@@ -46181,6 +46216,7 @@ fn aggregate_add_offset(value: &StatValue, offset: i64) -> Result<StatValue> {
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_extract_minute(value: &StatValue) -> Result<StatValue> {
     match value {
+        StatValue::Null => Ok(StatValue::Null),
         StatValue::Int64(value) => Ok(StatValue::Int64(value.rem_euclid(3600) / 60)),
         StatValue::UInt64(value) => Ok(StatValue::UInt64((value % 3600) / 60)),
         StatValue::Utf8(value) => parse_timestamp_minute(value)
@@ -46199,9 +46235,48 @@ fn aggregate_extract_minute(value: &StatValue) -> Result<StatValue> {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn aggregate_add_signed_offset(value: &StatValue, offset: i64) -> Result<StatValue> {
+    let value = match value {
+        StatValue::Null => return Ok(StatValue::Null),
+        StatValue::Int64(value) => i128::from(*value),
+        StatValue::UInt64(value) => i128::from(*value),
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(
+                "signed offset requires integer input; no fallback execution was attempted".into(),
+            ));
+        }
+    };
+    i64::try_from(value + i128::from(offset))
+        .map(StatValue::Int64)
+        .map_err(vortex_error)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_signed_add_offset_key(
+    accessor: &AggregateDirectColumnAccessor,
+    row_index: usize,
+    offset: i64,
+) -> Result<AggregateDistinctValue> {
+    let key = aggregate_direct_distinct_value(accessor, row_index)?;
+    let scalar = match key {
+        AggregateDistinctValue::Null => StatValue::Null,
+        AggregateDistinctValue::Int64(value) => StatValue::Int64(value),
+        AggregateDistinctValue::UInt64(value) => StatValue::UInt64(value),
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(
+                "signed offset requires integer input; no fallback execution was attempted".into(),
+            ));
+        }
+    };
+    aggregate_add_signed_offset(&scalar, offset).map(|value| AggregateDistinctValue::from(&value))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn aggregate_date_trunc_minute(value: &StatValue) -> Result<StatValue> {
     match value {
-        StatValue::Int64(value) => Ok(StatValue::Int64(value.div_euclid(60) * 60)),
+        StatValue::Null => Ok(StatValue::Null),
+        StatValue::Int64(value) => value.div_euclid(60).checked_mul(60).map(StatValue::Int64)
+            .ok_or_else(|| ShardLoomError::InvalidOperation("minute truncation overflowed int64; no fallback execution was attempted".into())),
         StatValue::UInt64(value) => Ok(StatValue::UInt64((value / 60) * 60)),
         StatValue::Utf8(value) => truncate_timestamp_string_to_minute(value)
             .map(StatValue::Utf8)
@@ -46211,11 +46286,15 @@ fn aggregate_date_trunc_minute(value: &StatValue) -> Result<StatValue> {
                         .to_string(),
                 )
             }),
-        other => Err(ShardLoomError::InvalidOperation(format!(
-            "local Vortex aggregate date-trunc-minute expression requires timestamp-compatible input, got {}; no fallback execution was attempted",
-            other.dtype().as_str()
-        ))),
+        other => Err(aggregate_temporal_type_error("date-trunc-minute", other.dtype().as_str())),
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_temporal_type_error(operation: &str, dtype: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local Vortex aggregate {operation} expression requires timestamp-compatible input, got {dtype}; no fallback execution was attempted"
+    ))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -46238,6 +46317,9 @@ fn truncate_timestamp_string_to_minute(value: &str) -> Option<String> {
 
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_url_domain(value: &StatValue) -> Result<StatValue> {
+    if matches!(value, StatValue::Null) {
+        return Ok(StatValue::Null);
+    }
     let StatValue::Utf8(value) = value else {
         return Err(ShardLoomError::InvalidOperation(
             "local Vortex aggregate URL-domain expression requires UTF-8 input; no fallback execution was attempted"
@@ -46332,7 +46414,7 @@ struct SimpleAggregateState {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq)]
 enum AggregateDistinctValue {
     Null,
     Boolean(bool),
@@ -46341,6 +46423,39 @@ enum AggregateDistinctValue {
     Float64Bits(u64),
     Utf8(std::sync::Arc<str>),
     Utf8Interned(u64),
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl PartialEq for AggregateDistinctValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Null, Self::Null) => true,
+            (Self::Boolean(left), Self::Boolean(right)) => left == right,
+            (Self::Int64(left), Self::Int64(right)) => left == right,
+            (Self::UInt64(left), Self::UInt64(right))
+            | (Self::Utf8Interned(left), Self::Utf8Interned(right)) => left == right,
+            (Self::Float64Bits(left), Self::Float64Bits(right)) => {
+                Self::float_key(*left) == Self::float_key(*right)
+            }
+            (Self::Utf8(left), Self::Utf8(right)) => left == right,
+            _ => false,
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl std::hash::Hash for AggregateDistinctValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Self::Null => {}
+            Self::Boolean(value) => value.hash(state),
+            Self::Int64(value) => value.hash(state),
+            Self::UInt64(value) | Self::Utf8Interned(value) => value.hash(state),
+            Self::Float64Bits(bits) => Self::float_key(*bits).hash(state),
+            Self::Utf8(value) => value.hash(state),
+        }
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -46354,7 +46469,7 @@ impl From<&StatValue> for AggregateDistinctValue {
             StatValue::Boolean(value) => Self::Boolean(*value),
             StatValue::Int64(value) => Self::Int64(*value),
             StatValue::UInt64(value) => Self::UInt64(*value),
-            StatValue::Float64(value) => Self::Float64Bits(value.to_bits()),
+            StatValue::Float64(value) => Self::float(*value),
             StatValue::Utf8(value) => Self::Utf8(std::sync::Arc::<str>::from(value.as_str())),
         }
     }
@@ -46362,6 +46477,14 @@ impl From<&StatValue> for AggregateDistinctValue {
 
 #[cfg(feature = "vortex-local-primitives")]
 impl AggregateDistinctValue {
+    // Preserve original bits for selected output and exact unary identities.
+    // Aggregate equality/hash merge signed zeros without rewriting their value.
+    fn float(value: f64) -> Self {
+        Self::Float64Bits(value.to_bits())
+    }
+    fn float_key(bits: u64) -> u64 {
+        if bits << 1 == 0 { 0 } else { bits }
+    }
     fn estimated_storage_bytes(&self) -> usize {
         match self {
             Self::Null => 1,
@@ -46749,6 +46872,7 @@ impl SimpleAggregateState {
                     AggregateValueTransform::Identity
                     | AggregateValueTransform::ConstantInt(_)
                     | AggregateValueTransform::AddOffset(_)
+                    | AggregateValueTransform::SignedAddOffset(_)
                     | AggregateValueTransform::ExtractMinute
                     | AggregateValueTransform::DateTruncMinute
                     | AggregateValueTransform::UrlDomain
@@ -46839,6 +46963,7 @@ impl SimpleAggregateState {
             AggregateValueTransform::Length => Ok(StatValue::UInt64(usize_to_u64(value.len())?)),
             AggregateValueTransform::ConstantInt(_)
             | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::SignedAddOffset(_)
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
@@ -46908,6 +47033,7 @@ impl SimpleAggregateState {
                     AggregateValueTransform::Length => length_value,
                     AggregateValueTransform::ConstantInt(_)
                     | AggregateValueTransform::AddOffset(_)
+                    | AggregateValueTransform::SignedAddOffset(_)
                     | AggregateValueTransform::ExtractMinute
                     | AggregateValueTransform::DateTruncMinute
                     | AggregateValueTransform::UrlDomain
@@ -46933,6 +47059,7 @@ impl SimpleAggregateState {
                     AggregateValueTransform::Length => length_value,
                     AggregateValueTransform::ConstantInt(_)
                     | AggregateValueTransform::AddOffset(_)
+                    | AggregateValueTransform::SignedAddOffset(_)
                     | AggregateValueTransform::ExtractMinute
                     | AggregateValueTransform::DateTruncMinute
                     | AggregateValueTransform::UrlDomain
@@ -47036,6 +47163,7 @@ impl SimpleAggregateState {
             }
             AggregateValueTransform::ConstantInt(_)
             | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::SignedAddOffset(_)
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
@@ -47070,6 +47198,7 @@ impl SimpleAggregateState {
             }
             AggregateValueTransform::ConstantInt(_)
             | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::SignedAddOffset(_)
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
@@ -47159,6 +47288,7 @@ impl SimpleAggregateState {
             AggregateValueTransform::Length => aggregate_direct_utf8_length_value(accessor, row_index),
             AggregateValueTransform::ConstantInt(_)
             | AggregateValueTransform::AddOffset(_)
+            | AggregateValueTransform::SignedAddOffset(_)
             | AggregateValueTransform::ExtractMinute
             | AggregateValueTransform::DateTruncMinute
             | AggregateValueTransform::UrlDomain
@@ -47802,6 +47932,7 @@ fn embedded_derived_column_for_transform(
         | AggregateValueTransform::RegexDomain
         | AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
+        | AggregateValueTransform::SignedAddOffset(_)
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => None,
     }
 }

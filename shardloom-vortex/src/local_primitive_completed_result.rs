@@ -60,6 +60,9 @@ fn transformed_dtype(dtype: DType, transform: AggregateValueTransform) -> Result
         AggregateValueTransform::ConstantInt(_) => {
             Ok(DType::Primitive(PType::I64, Nullability::NonNullable))
         }
+        AggregateValueTransform::SignedAddOffset(_) => {
+            Ok(DType::Primitive(PType::I64, nullability))
+        }
         AggregateValueTransform::UrlDomain
         | AggregateValueTransform::RegexDomain
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
