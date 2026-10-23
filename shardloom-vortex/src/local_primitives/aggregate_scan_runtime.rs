@@ -13,11 +13,21 @@ pub(super) trait AggregateScanRuntime: BlockingRuntime {
     /// caller/worker pair). A runtime already driven by a resident
     /// provider pool must never receive `worker_memory` at the scan entrypoint.
     fn provider_drivers(&self, requested: usize) -> Result<(Self::ProviderDrivers, usize)>;
+
+    #[cfg(unix)]
+    fn current_thread_runtime(&self) -> Option<vortex::io::runtime::current::CurrentThreadRuntime> {
+        None
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl AggregateScanRuntime for vortex::io::runtime::current::CurrentThreadRuntime {
     type ProviderDrivers = crate::resident_worker_group::ResidentWorkerGroup;
+
+    #[cfg(unix)]
+    fn current_thread_runtime(&self) -> Option<vortex::io::runtime::current::CurrentThreadRuntime> {
+        Some(self.clone())
+    }
 
     fn provider_drivers(&self, requested: usize) -> Result<(Self::ProviderDrivers, usize)> {
         let count = bounded_local_vortex_worker_count(requested);

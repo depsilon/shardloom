@@ -1,0 +1,629 @@
+{
+  "headRevision": "18c06f7a7abfa839facf7915a90819c347e7601e",
+  "checks": [
+    {
+      "id": 120170506416,
+      "name": "Release readiness reports",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120170506416",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 2
+      }
+    },
+    {
+      "id": 120163379056,
+      "name": "Release package and governance evidence",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120163379056",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120163378971,
+      "name": "Release user-surface evidence",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120163378971",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120161477800,
+      "name": "Python tests",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120161477800",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120160060208,
+      "name": "Workers Builds: shardloom",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/4bfcc62d-9627-4726-93d7-9b9e50a8c392",
+      "output": {
+        "title": "Workers Builds: shardloom",
+        "summary": "\nBuild ID: [4bfcc62d-9627-4726-93d7-9b9e50a8c392](https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/4bfcc62d-9627-4726-93d7-9b9e50a8c392)\nScript: [shardloom](https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production)\nVersion ID: a6f9bec5-1e3f-485d-8dab-98cd89448707\nPreview URL: https://a6f9bec5-shardloom.djheinrich.workers.dev\nPreview Alias URL: https://codex-native-runtime-prerequisites-shardloom.djheinrich.workers.dev\n",
+        "text": null,
+        "annotations_count": 0
+      }
+    },
+    {
+      "id": 120159955964,
+      "name": "CodeQL",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/runs/120159955964",
+      "output": {
+        "title": "No new alerts in code changed by this pull request",
+        "summary": "[View all branch alerts](/depsilon/shardloom/security/code-scanning?query=pr%3A1589+tool%3ACodeQL+is%3Aopen).",
+        "text": null,
+        "annotations_count": 0
+      }
+    },
+    {
+      "id": 120159508175,
+      "name": "Rust feature matrix (vortex_encoded_read_spike)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508175",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508164,
+      "name": "Rust feature matrix (release_user_surfaces)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508164",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508134,
+      "name": "Python and package smoke",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508134",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508130,
+      "name": "Rust feature matrix (all_features)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508130",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508128,
+      "name": "Dependency and security gates",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508128",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508127,
+      "name": "Rust feature matrix (vortex_local_primitives)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508127",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508108,
+      "name": "Python compatibility (ubuntu-latest, 3.13)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508108",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508093,
+      "name": "Rust baseline (fmt)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508093",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508092,
+      "name": "Rust feature matrix (native_public_surface_tests)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508092",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508089,
+      "name": "Python test shard (front_door_benchmark_publication)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508089",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508074,
+      "name": "Rust feature matrix (vortex_file_io)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508074",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508071,
+      "name": "Python compatibility (ubuntu-latest, 3.11)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508071",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508066,
+      "name": "CI work shaping plan",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508066",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508046,
+      "name": "Rust feature matrix (no_default_features)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508046",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508041,
+      "name": "Rust feature matrix (packaging_deployment)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508041",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508037,
+      "name": "Python compatibility (macos-latest, 3.11)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508037",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508031,
+      "name": "Rust feature matrix (native_release_clippy)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508031",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508016,
+      "name": "Rust feature matrix (synthetic_spill_resources)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508016",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508013,
+      "name": "Python compatibility (ubuntu-latest, 3.10)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508013",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508012,
+      "name": "Website and docs validation",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508012",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159508006,
+      "name": "Python test shard (core)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159508006",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507976,
+      "name": "Rust feature matrix (native_vortex_tests)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507976",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507962,
+      "name": "Rust MSRV validation",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507962",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507956,
+      "name": "Python compatibility (ubuntu-latest, 3.12)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507956",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507951,
+      "name": "Rust feature matrix (upstream_vortex)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507951",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507948,
+      "name": "Rust feature matrix (preparation_resource_profile)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507948",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507920,
+      "name": "Native Python wheel (py313_macos)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507920",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507918,
+      "name": "Rust baseline (clippy)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507918",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507907,
+      "name": "Rust feature matrix (default_features)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507907",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507835,
+      "name": "Native Python wheel (py313_ubuntu)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507835",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 0
+      }
+    },
+    {
+      "id": 120159507822,
+      "name": "Python compatibility (windows-latest, 3.11)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507822",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 0
+      }
+    },
+    {
+      "id": 120159507799,
+      "name": "Native Python wheel (py310_ubuntu)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507799",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 0
+      }
+    },
+    {
+      "id": 120159507776,
+      "name": "Release runtime core evidence",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507776",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507765,
+      "name": "CI gate matrix contract",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507765",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507758,
+      "name": "Python test shard (release_scripts)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507758",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120159507757,
+      "name": "Rust baseline (test)",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193570/job/120159507757",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 1
+      }
+    },
+    {
+      "id": 120158979650,
+      "name": "CodeQL rust",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193579/job/120158979650",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 2
+      }
+    },
+    {
+      "id": 120158979348,
+      "name": "CodeQL python",
+      "head_sha": "18c06f7a7abfa839facf7915a90819c347e7601e",
+      "status": "completed",
+      "conclusion": "success",
+      "details_url": "https://github.com/depsilon/shardloom/actions/runs/39875193579/job/120158979348",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 2
+      }
+    }
+  ],
+  "statuses": [],
+  "annotations": [],
+  "hasMore": false,
+  "job": null,
+  "jobs": [],
+  "log": null,
+  "logTruncated": false,
+  "providerGuidance": "GitHub guidance for this response only: use checkRunId for output and annotations, runId from a GitHub Actions /runs/<id> link to list jobs, or jobId from a /jobs/<id> link for logs. page paginates checks, jobs or annotations. Keep the supplied account and returned headRevision on follow-up reads. Third-party CI exposes only the output reported to GitHub."
+}

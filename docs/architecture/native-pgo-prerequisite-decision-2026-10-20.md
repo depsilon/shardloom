@@ -2,11 +2,17 @@
 
 # PGO prerequisite decision — October 20, 2026
 
-Status: **missing current cost attribution; new training is not admitted**.
+Historical October 20 status: **missing current cost attribution; new training is not admitted**.
 This is row 20's evidenced prerequisite decision under `PERF-13.pgo`, as allowed
 by its [verification contract](native-roadmap-verification-contracts-2026-10-18.md#perf-13).
 The substep and broader owner remain open. Portable ThinLTO remains the release
 default; this review changes no compiler profile or runtime behavior.
+
+The [October 22 current-baseline diagnostic](../benchmarks/native-current-attribution-2026-10-22.md)
+now supplies source-bound numeric and text preparation observations, complete
+raw records and semantic replay controls. It does not admit training: region
+decisions must settle and affected paths must be bound to the resulting source
+before the separate training, held-out, package and break-even protocol.
 
 The latest October 21 maintainer decision schedules current-source profiling
 after required competitive gaps and before the four pending investigations.

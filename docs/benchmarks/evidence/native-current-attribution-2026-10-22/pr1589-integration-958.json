@@ -1,0 +1,20 @@
+{
+  "schema": "shardloom.pr_integration.v1",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1589",
+  "reviewed_head": "18c06f7a7abfa839facf7915a90819c347e7601e",
+  "merge_commit": "3d07013fb12cf21e6040adb03f9e97e995996875",
+  "merged_at": "2026-10-23T01:49:01Z",
+  "state": "MERGED",
+  "required_checks": 44,
+  "successful_checks": 44,
+  "check_record": "pr1589-checks-958.json",
+  "head_matches_merge_tree": true,
+  "review_findings": "One portable-oracle path finding on the preceding head; fixed in reviewed head and covered by passing relocated replay tests and CI.",
+  "current_full43_engine_seconds": 49.953164785,
+  "current_full43_calls": 43,
+  "current_full43_rows": 381,
+  "refreshed_workload_result_pairs": 704,
+  "benchmark_rerun_for_integration": false,
+  "new_work_branch": "codex/native-region-consumers",
+  "next_stage": "Shared native-region and exact local-reduction prerequisites, then gated investigations; optional breadth remains deferred."
+}

@@ -63,7 +63,9 @@ fn ordinary_aggregate_caps_source_scan_grant_without_changing_scalar_values() {
         measure("min", Some("metric"), "min_alias"),
         measure("max", Some("metric"), "max_alias"),
     ]));
-    assert!(!aggregate_count_workers::request_may_be_admitted(
+    // The scalar source-region family now selects caller-only ownership from
+    // shape; this five-row source still declines actual region execution.
+    assert!(aggregate_count_workers::request_may_be_admitted(
         &request,
         crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
             .expect("explicit fixture allocation")

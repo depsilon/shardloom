@@ -17,6 +17,21 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Current baseline native cost attribution` — the
+  [October 22 diagnostic](../benchmarks/native-current-attribution-2026-10-22.md)
+  binds sixteen complete calls on the corrected baseline to original counters,
+  seven raw sample files, exact source excerpts and reconstructed stack trees.
+  Portable replay verifies 15,209 frames and 147 threads; fifteen corruption
+  controls repair outer hashes before testing semantic rejection. Numeric
+  consumer dispatch and serial text preparation support separate prospective
+  investigations. No speed gain, function instruction count, region retention,
+  PGO training or compiler-profile promotion is inferred.
+  - PR #1589 integrated the preceding finite correctness/matrix/guarantee work
+    as `3d07013fb12cf21e6040adb03f9e97e995996875`, with all 44 checks passing and
+    an identical reviewed-head/merge tree. Its
+    [integration evidence](../benchmarks/evidence/native-current-attribution-2026-10-22/pr1589-integration-958.json)
+    requires no additional Full43 execution. Broader owners and CG gates remain open.
+
 - [x] `Corrected-runtime declared workload matrix` — the
   [refreshed October 22 evidence](../benchmarks/native-independent-full43-2026-10-22.md#corrected-runtime-workload-matrix)
   binds the independently checked runtime `a973ad72` to 704 passing comparisons
@@ -31,8 +46,8 @@ phase plan first.
     identities, links the independent Full43 runtime and executes no engine.
     Fourteen matrix test methods cover positive replay and corruption subcases;
     both evidence packets are discovered by the existing Python CI shard.
-  - This is finite local matrix acceptance. Current PR integration remains in
-    the active plan; no whole owner, competitive gate or release is completed.
+  - This is finite matrix acceptance, integrated in PR #1589 as recorded above;
+    no whole owner, competitive gate or release is completed.
 
 - [x] `Independent Full43 local correctness acceptance` — the
   [October 22 record](../benchmarks/native-independent-full43-2026-10-22.md)
@@ -49,7 +64,7 @@ phase plan first.
     library tests with 31 existing manual ignores, 1,100 public CLI tests and
     eleven oracle tests pass. All eighteen portable verifier tests pass.
   - This is local finite correctness acceptance. The corrected-runtime matrix
-    refresh is recorded above; current PR integration remains in the active plan.
+    refresh and PR #1589 integration are recorded above.
     No whole owner contract, CG gate,
     optional breadth or new release is completed by this entry.
 

@@ -128,6 +128,9 @@ mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_payload.rs"]
 pub(crate) mod native_payload;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/scalar_region_workers.rs"]
+mod scalar_region_workers;
 #[cfg(all(test, feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_sort_memory_tests.rs"]
 mod sort_memory_tests;
@@ -250,6 +253,16 @@ pub mod prepared_unary;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_query_timing.rs"]
 pub mod query_timing;
+#[cfg(all(
+    test,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    unix
+))]
+#[path = "local_primitive_region_fixture_harness.rs"]
+// Preserve the exact offline fixture generator frozen before runtime changes.
+#[allow(clippy::too_many_lines, clippy::manual_is_multiple_of)]
+mod region_fixture_harness;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/rolling_observation.rs"]
 mod rolling_observation;
@@ -21328,6 +21341,41 @@ fn read_lowered_vortex_simple_aggregate_scan(
         )?
         .map(aggregate_count_workers::CountWorkers::DictionaryPrepare);
     }
+    #[cfg(unix)]
+    let mut source_regions = if worker_admission_selected
+        && scalar_workers.is_none()
+        && count_workers.is_none()
+        && let (
+            aggregate_scan_source::AggregateScanSource::File(native_file),
+            Some(states),
+            Some(memory),
+            Some(region_runtime),
+        ) = (
+            file,
+            scalar_states.as_ref(),
+            worker_memory,
+            runtime.current_thread_runtime(),
+        ) {
+        scalar_region_workers::Regions::admit(
+            native_file,
+            source_uri,
+            request,
+            lowering,
+            states,
+            &declared_columns,
+            policy,
+            session,
+            region_runtime,
+            memory,
+            cancellation,
+        )?
+    } else {
+        None
+    };
+    #[cfg(unix)]
+    let source_regions_selected = source_regions.is_some();
+    #[cfg(not(unix))]
+    let source_regions_selected = false;
     // The earlier shape/schema check chooses CPU ownership, but actual worker
     // admission can still decline under memory pressure. Restore progress on
     // this SAME runtime before scanning; no input has been processed or replayed.
@@ -21344,6 +21392,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         } else if worker_memory.is_some()
             && count_workers.is_none()
             && scalar_workers.is_none()
+            && !source_regions_selected
             && input_scan_required
         {
             let (drivers, count) =
@@ -21420,7 +21469,23 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
     }
     let mut text_scan_stats = None;
-    if input_scan_required {
+    #[cfg(unix)]
+    let source_region_report = if let Some(regions) = source_regions.take() {
+        let report = regions.run(
+            scalar_states
+                .as_mut()
+                .expect("scalar region admission requires scalar states"),
+            &mut scalar_numeric_accessor_work,
+            &mut reader_splits,
+            &mut max_chunk_rows,
+        )?;
+        pre_limit_result_row_count = report.selected_rows;
+        arrays_read_count = report.arrays;
+        Some(report)
+    } else {
+        None
+    };
+    if input_scan_required && !source_regions_selected {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = if winner_filter.is_none() && residual_predicate.is_none() {
@@ -22280,6 +22345,10 @@ fn read_lowered_vortex_simple_aggregate_scan(
     }
     if let Some(workers) = scalar_workers.as_ref() {
         workers.annotate_summary(&mut result_summary)?;
+    }
+    #[cfg(unix)]
+    if let Some(report) = source_region_report {
+        report.annotate(&mut result_summary)?;
     }
     if provider_drivers.is_some() {
         let mut summary: serde_json::Value = serde_json::from_str(&result_summary)
