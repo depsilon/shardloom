@@ -144,6 +144,51 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                                                      {"key": 2, "mean": 3.0, "rows": 2}])
                 self.assertEqual(table.schema, tables[0].schema)
 
+    def test_mixed_numeric_having_is_exact_on_every_surface(self):
+        import operator
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        cases = [
+            ("sum", pa.float64(), [9007199254740992.0, 9007199254740994.0], 9007199254740993),
+            ("avg", pa.float64(), [9007199254740992.0, 9007199254740994.0], 9007199254740993),
+            ("min", pa.uint64(), [9223372036854775808, 9223372036854775809], 9223372036854775808.0),
+            ("max", pa.int64(), [-9007199254740993, -9007199254740992], -9007199254740992.0),
+        ]
+        for case, (function, dtype, values, threshold) in enumerate(cases):
+            schema = pa.schema([pa.field("key", pa.uint32(), nullable=False),
+                                pa.field("value", dtype, nullable=False)])
+            rows = [{"key": key, "value": value} for key, value in enumerate(values)]
+            with tempfile.TemporaryDirectory(prefix="shardloom-numeric-having-") as directory:
+                path = Path(directory) / "input.vortex"
+                source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+                session.plan(native.Relation.scan("memory://input"),
+                             sources=[("memory://input", source)]).write(path, "write_vortex")
+                for op, spelling in [(operator.eq, "="), (operator.ne, "!="),
+                                     (operator.lt, "<"), (operator.le, "<="),
+                                     (operator.gt, ">"), (operator.ge, ">=")]:
+                    with self.subTest(case=case, function=function, comparison=spelling):
+                        frame = (sl.read_vortex(path, client=client).group_by("key")
+                                 .agg(reduced=f"{function.upper()}(value)")
+                                 .filter(op(sl.col("reduced"), threshold)).sort("key"))
+                        relation = (native.Relation.scan(str(path))
+                                    .aggregate(["key"], [(function, "value", "reduced")])
+                                    .filter(op(expr.column("reduced"), expr.literal(threshold)))
+                                    .sort([("key", False, None)]))
+                        statement = (f"SELECT key,{function.upper()}(value) AS reduced FROM '{path}' "
+                                     f"GROUP BY key HAVING reduced {spelling} {threshold!r} ORDER BY key")
+                        tables = self.all_surfaces(frame, relation, statement)
+                        # Python's int/float comparison also retains the exact integer.
+                        expected_rows = [{"key": key, "reduced": value}
+                                         for key, value in enumerate(values) if op(value, threshold)]
+                        for surface, table in zip(
+                                ("dataframe", "typed", "python_sql", "workflow", "cli_sql"), tables):
+                            with self.subTest(surface=surface):
+                                self.assertEqual(table.to_pylist(), expected_rows)
+                                self.assertEqual(table.schema, tables[0].schema)
+
     def test_nullable_having_comparisons_preserve_unknown_on_every_surface(self):
         import operator
         import shardloom as sl

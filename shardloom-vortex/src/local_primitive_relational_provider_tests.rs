@@ -704,6 +704,171 @@ fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json:
     }
 }
 
+fn numeric_having_fixture(values: ArrayRef) -> Fixture {
+    let len = values.len();
+    Fixture::new(
+        StructArray::try_new(
+            FieldNames::from(["group", "value"]),
+            vec![
+                PrimitiveArray::from_iter(0..u64::try_from(len).unwrap()).into_array(),
+                values,
+            ],
+            len,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array(),
+        2,
+    )
+}
+
+fn assert_exact_numeric_having(
+    fixture: &Fixture,
+    function: &str,
+    threshold: &ScalarValue,
+    expected_order: &[std::cmp::Ordering],
+) {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+    for op in [
+        ComparisonOp::Eq,
+        ComparisonOp::NotEq,
+        ComparisonOp::Lt,
+        ComparisonOp::LtEq,
+        ComparisonOp::Gt,
+        ComparisonOp::GtEq,
+    ] {
+        let plan = project(
+            sort(
+                filter(
+                    aggregate(
+                        fixture.scan(),
+                        &["group"],
+                        vec![measure(function, Some("value"), "reduced")],
+                    ),
+                    "reduced",
+                    op,
+                    threshold.clone(),
+                ),
+                "group",
+            ),
+            vec![("group", column("group"))],
+        );
+        let expected = expected_order
+            .iter()
+            .enumerate()
+            .filter(|(_, order)| match op {
+                ComparisonOp::Eq => **order == Equal,
+                ComparisonOp::NotEq => **order != Equal,
+                ComparisonOp::Lt => **order == Less,
+                ComparisonOp::LtEq => **order != Greater,
+                ComparisonOp::Gt => **order == Greater,
+                ComparisonOp::GtEq => **order != Less,
+            })
+            .map(|(group, _)| serde_json::json!({"group":group}))
+            .collect::<Vec<_>>();
+        assert_typed_having_rows(&plan, &expected);
+    }
+}
+
+#[test]
+fn shared_provider_having_float_reductions_keep_exact_large_integer_comparisons() {
+    use std::cmp::Ordering::{Greater, Less};
+    let fixture = numeric_having_fixture(
+        PrimitiveArray::from_iter([
+            -9_007_199_254_740_994.0_f64,
+            -9_007_199_254_740_992.0,
+            0.0,
+            9_007_199_254_740_992.0,
+            9_007_199_254_740_994.0,
+            9_223_372_036_854_775_808.0,
+            18_446_744_073_709_551_616.0,
+        ])
+        .into_array(),
+    );
+    for function in ["sum", "avg", "min", "max"] {
+        for (threshold, expected) in [
+            (
+                ScalarValue::Int64(9_007_199_254_740_993),
+                [Less, Less, Less, Less, Greater, Greater, Greater],
+            ),
+            (
+                ScalarValue::Int64(-9_007_199_254_740_993),
+                [Less, Greater, Greater, Greater, Greater, Greater, Greater],
+            ),
+            (
+                ScalarValue::Int64(i64::MAX),
+                [Less, Less, Less, Less, Less, Greater, Greater],
+            ),
+            (
+                ScalarValue::UInt64(u64::MAX),
+                [Less, Less, Less, Less, Less, Less, Greater],
+            ),
+        ] {
+            assert_exact_numeric_having(&fixture, function, &threshold, &expected);
+        }
+    }
+}
+
+#[test]
+fn shared_provider_having_integer_reductions_preserve_floating_literal_identity() {
+    use std::cmp::Ordering::{Equal, Greater, Less};
+    let unsigned = numeric_having_fixture(
+        PrimitiveArray::from_iter([
+            9_007_199_254_740_991_u64,
+            9_007_199_254_740_992,
+            9_007_199_254_740_993,
+            9_223_372_036_854_775_808,
+            9_223_372_036_854_775_809,
+            u64::MAX,
+        ])
+        .into_array(),
+    );
+    let signed = numeric_having_fixture(
+        PrimitiveArray::from_iter([
+            i64::MIN,
+            -9_007_199_254_740_993,
+            -9_007_199_254_740_992,
+            -9_007_199_254_740_991,
+            0,
+            i64::MAX,
+        ])
+        .into_array(),
+    );
+    for function in ["min", "max"] {
+        for (fixture, threshold, expected) in [
+            (
+                &unsigned,
+                9_223_372_036_854_775_808.0,
+                [Less, Less, Less, Equal, Greater, Greater],
+            ),
+            (
+                &unsigned,
+                9_007_199_254_740_992.0,
+                [Less, Equal, Greater, Greater, Greater, Greater],
+            ),
+            (&unsigned, 18_446_744_073_709_551_616.0, [Less; 6]),
+            (
+                &signed,
+                -9_007_199_254_740_992.0,
+                [Less, Less, Equal, Greater, Greater, Greater],
+            ),
+            (
+                &signed,
+                -9_223_372_036_854_775_808.0,
+                [Equal, Greater, Greater, Greater, Greater, Greater],
+            ),
+            (&signed, 9_223_372_036_854_775_808.0, [Less; 6]),
+        ] {
+            assert_exact_numeric_having(
+                fixture,
+                function,
+                &ScalarValue::Float64(threshold),
+                &expected,
+            );
+        }
+    }
+}
+
 #[test]
 fn shared_provider_having_nullable_measures_preserve_unknown_and_hidden_fields() {
     let fixture = having_fixture();
@@ -844,6 +1009,44 @@ fn shared_provider_having_proven_nonnull_reductions_and_counts_keep_provider() {
             ScalarValue::UInt64(1),
         );
         assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    }
+}
+
+#[test]
+fn shared_provider_having_exact_mixed_numeric_ranges_keep_provider() {
+    for values in [
+        PrimitiveArray::from_iter([-0.0_f64, 0.0, 9_007_199_254_740_992.0]).into_array(),
+        PrimitiveArray::from_iter([0_u64, 1, 9_007_199_254_740_993, u64::MAX]).into_array(),
+        PrimitiveArray::from_iter([i64::MIN, -9_007_199_254_740_993, 0, 1, i64::MAX]).into_array(),
+    ] {
+        let fixture = numeric_having_fixture(values);
+        for function in ["min", "max", "sum", "avg"] {
+            for threshold in [
+                ScalarValue::Int64(-9_007_199_254_740_992),
+                ScalarValue::UInt64(9_007_199_254_740_992),
+                ScalarValue::Float64(-9_007_199_254_740_991.0),
+                ScalarValue::Float64(9_007_199_254_740_991.0),
+                ScalarValue::Float64(-1.5),
+                ScalarValue::Float64(-0.0),
+                ScalarValue::Float64(0.0),
+                ScalarValue::Float64(1.5),
+            ] {
+                let plan = sort(
+                    filter(
+                        aggregate(
+                            fixture.scan(),
+                            &["group"],
+                            vec![measure(function, Some("value"), "reduced")],
+                        ),
+                        "reduced",
+                        ComparisonOp::LtEq,
+                        threshold,
+                    ),
+                    "group",
+                );
+                assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+            }
+        }
     }
 }
 

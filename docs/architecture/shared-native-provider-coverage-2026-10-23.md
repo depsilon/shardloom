@@ -94,6 +94,14 @@ operands removed by the final projection and reductions on empty scalar input.
 COUNT and grouped reductions whose arguments are provably non-null remain
 eligible for the existing aggregate provider.
 
+Mixed numeric HAVING comparisons also retain typed evaluation when converting
+an integer to f64 could change the answer. Floating operands with integer
+literals outside the exact consecutive-integer range, and integer operands with
+floating thresholds at or beyond that range, keep exact typed comparison.
+Lowered floating literals preserve their numeric category and value. Small
+mixed numeric thresholds remain eligible; admission uses output dtype and
+literal metadata without scanning source values.
+
 ## Surface declarations
 
 These additions belong to this source change, not to the already published

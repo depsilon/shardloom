@@ -756,7 +756,9 @@ fn having_predicates(expr: &Expression) -> Option<Vec<VortexAggregateHavingExpr>
             let literal = match stat_literal(right)? {
                 StatValue::Int64(value) => value.to_string(),
                 StatValue::UInt64(value) => value.to_string(),
-                StatValue::Float64(value) => value.to_string(),
+                // Keep floating syntax even for integral values. Display can
+                // turn a rounded float into a different exact integer literal.
+                StatValue::Float64(value) => serde_json::Number::from_f64(value)?.to_string(),
                 _ => return None,
             };
             Some(vec![VortexAggregateHavingExpr::new(

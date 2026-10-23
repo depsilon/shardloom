@@ -151,12 +151,40 @@ fn having_requires_typed_filter(
             .ok_or_else(|| failed("HAVING field is absent"))?;
         // Primitive HAVING uses total value ordering. The typed filter instead
         // rejects unknown comparisons, including fields hidden by projection.
-        if dtype.is_nullable() && !grouped_measure_is_nonnull(request, source, &expression.column)?
+        if (dtype.is_nullable()
+            && !grouped_measure_is_nonnull(request, source, &expression.column)?)
+            || having_has_lossy_numeric_comparison(dtype, &expression.value)
         {
             return Ok(true);
         }
     }
     Ok(false)
+}
+
+fn having_has_lossy_numeric_comparison(dtype: &DType, literal: &str) -> bool {
+    let serde_json::Value::Number(value) = native::aggregate_having_value_json(literal) else {
+        return false;
+    };
+    match dtype {
+        DType::Primitive(PType::F16 | PType::F32 | PType::F64, _) => {
+            // Every integer through +/-2^53 is exactly representable as f64.
+            // Outside that consecutive range retain the typed exact comparator.
+            value.as_i64().is_some_and(|value| {
+                !(-9_007_199_254_740_992..=9_007_199_254_740_992).contains(&value)
+            }) || value
+                .as_u64()
+                .is_some_and(|value| value > 9_007_199_254_740_992)
+        }
+        DType::Primitive(ptype, _) if ptype.is_int() => {
+            // At +/-2^53 itself, an adjacent integer can round onto the
+            // floating threshold. Strictly interior thresholds are safe.
+            value.is_f64()
+                && value
+                    .as_f64()
+                    .is_some_and(|value| value.abs() >= 9_007_199_254_740_992.0)
+        }
+        _ => false,
+    }
 }
 
 fn ordering_requires_typed_execution(

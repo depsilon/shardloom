@@ -188,6 +188,13 @@ keys, all-null and mixed groups, empty scalar reductions, all six comparisons,
 conjunctions, hidden filter operands and repeated execution. The public test
 checks complete results and schemas through all five entry points.
 
+The numeric follow-up preserves exact mixed integer/floating HAVING comparisons
+around 2^53 and the signed/unsigned 64-bit boundaries. Potentially lossy
+comparisons retain typed evaluation, and floating literals preserve their type
+when lowered. Regression checks cover all six comparisons in both directions,
+positive and negative thresholds, hidden operands, repeated execution, and
+complete results and schemas through the five public entry points.
+
 The PR follow-up changes the workspace Tokio pin from 1.52.1 to 1.53.3, a patched
 version listed in [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386.html).
 Dependency features are unchanged. Source review found no affected `AsyncFd`
