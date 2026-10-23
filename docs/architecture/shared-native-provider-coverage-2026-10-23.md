@@ -4,8 +4,9 @@
 
 The October 23 maintainer authorization corrects reachability of existing native
 execution capabilities across CLI SQL, embedded workflow, Python SQL, DataFrame
-and typed relation declarations. The active checklist is in the
-[phase plan](phased-execution-plan.md). RFC 0021, RFC 0022 and RFC 0044 govern
+and typed relation declarations. Local acceptance is recorded in the
+[surface report](../benchmarks/native-shared-surfaces-2026-10-23.md) and
+[completed ledger](phased-execution-completed-ledger.md). RFC 0021, RFC 0022 and RFC 0044 govern
 expression semantics, typed plans and resource ownership.
 
 Equivalent declarations must receive the same eligible native providers after
@@ -106,8 +107,8 @@ v0.7.0 artifacts.
   spelling and unit contract.
 - `.url_domain()` and `.regex_domain()` expose the existing distinct domain
   transformations. The latter implements the admitted fixed URL replacement;
-  it does not admit arbitrary regular expressions. `octet_length()` counts
-  bytes, while `length()` retains character semantics.
+  it does not admit arbitrary regular expressions. SQL `octet_length()` and
+  Python `.byte_length()` count bytes; `length()` retains character semantics.
 - `shardloom.native.Relation.unary(operation, options="*", keep=None)` declares
   an existing unary node without SQL serialization. Operation names are
   `distinct_rows`, `drop_duplicates`, `duplicated`, `tail`, `sample`, `rewrite`,
@@ -158,13 +159,16 @@ temporal units, ordering ties, invalid resources and changing sources. A surface
 may remain not applicable where its contract deliberately excludes an operation;
 that boundary must be explicit and tested.
 
-After focused and required broad checks, build CLI and native Python from the
-same source and feature set. Execute one guarded isolated Full43 per surface,
-sequentially, with all other task work idle during queries. Validate complete
-values against the independent reference and retain every failure and partial
-run. Report only engine time and only call a complete valid pass Full43.
+Local acceptance at `7c65f339` passes the focused and required workspace checks,
+121 Python construction tests, 132 native-binding tests and 215 independent
+small-fixture comparisons. Matched CLI/native Python release artifacts then pass
+one guarded isolated Full43 per surface, sequentially, with all other task work
+idle during queries. All 215 complete results and 43 cross-surface schemas match;
+the aggregate-provider and typed scan-pushdown assertions also pass. The report
+retains exact identities, engine-only timing, failures and partial runs.
 
 The preceding baseline remains immutable: CLI and embedded workflow completed
 43 queries; Python SQL completed 35 admitted queries; DataFrame stopped at query
 19; typed native stopped at query 17. These observations motivate the correction
-but do not establish its success or a performance improvement.
+and remain historical evidence alongside the accepted correction. Single-pass
+timing does not establish a repeatable performance improvement.

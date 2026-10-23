@@ -17,6 +17,37 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Shared native provider selection and public-surface coverage` — local
+  acceptance at runtime `7c65f339` follows the initial `c70f03af` correction.
+  The [October 23 report](../benchmarks/native-shared-surfaces-2026-10-23.md)
+  binds the source, matched release artifacts, complete results and residual
+  coverage boundaries under RFC 0021/0022/0044.
+  - [x] Equivalent typed/SQL declarations reach existing native count,
+    aggregate, bounded-sort and scan providers after semantic and policy
+    admission. Grouped NULL ordering, numeric/NULL predicate boundaries,
+    scan pushdown and literal fidelity retain their shared typed contracts.
+  - [x] Source-collection reuse follows the admitted provider; offsets,
+    temporal/domain spellings and typed unary declarations expose existing
+    capabilities while preserving source generations and result ownership.
+  - [x] Applicable front doors have current-family positive, negative,
+    null/type, ordering and composed cases beyond Full43. The linked inventory
+    distinguishes executable cases, declaration-only checks and intentional
+    surface/type boundaries; it makes no universal cross-product claim.
+  - [x] Both workspace feature configurations, formatting, Clippy, 121 Python
+    construction tests, 132 native-binding tests and 215 independent fixture
+    comparisons pass. Each of five sequential isolated Full43 passes validates
+    all 43 queries and 381 rows, with matching schemas and no external execution.
+    Q28/Q29 shared-provider and typed Q20 scan-delivery checks pass explicitly.
+  - [x] Generated surface references, the 2,716-member portable evidence packet,
+    replay and nine corruption controls are accepted. Baseline partial runs,
+    the first complete cohort and subsequent failures remain evidence.
+    Fourteen superseded runtimes are retired after identity/closed-handle
+    checks; current inputs and the latest accepted runtime remain.
+  - The prerequisite for returning to targeted optimizations is satisfied.
+    New candidates still require a finite correctness/resource/benefit gate.
+    No whole PERF owner, CG gate, optional backlog, hosted integration or
+    release is closed by this local correction.
+
 - [x] `Maintainer-directed cleanup and structural compute review` — the
   [October 23 review](native-compute-structure-review-2026-10-23.md) examines
   prepared planning, operator selection, expression preparation, ownership,
