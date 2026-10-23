@@ -3725,6 +3725,23 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_timing_scope",
         "aggregate_provider_background_workers",
         "aggregate_provider_cpu_scope",
+        "aggregate_source_region_execution",
+        "aggregate_source_region_coverage_complete",
+        "aggregate_source_region_source_rows",
+        "aggregate_source_region_submitted",
+        "aggregate_source_region_completed",
+        "aggregate_source_region_metadata_pruned",
+        "aggregate_source_region_outstanding",
+        "aggregate_source_region_peak_outstanding",
+        "aggregate_source_region_parallelism",
+        "aggregate_source_region_peak_active_workers",
+        "aggregate_source_region_directory_peak_bytes",
+        "aggregate_source_region_directory_retained_bytes",
+        "aggregate_source_region_recipe_bytes",
+        "aggregate_source_region_partial_initial_bytes",
+        "aggregate_source_region_consumer_nanos",
+        "aggregate_source_region_merge_nanos",
+        "aggregate_source_region_scope",
         "aggregate_worker_selection",
         "aggregate_worker_selection_source_rows",
         "aggregate_worker_selection_max_rows",
@@ -13161,6 +13178,51 @@ mod tests {
                 .iter()
                 .any(|(key, _)| key == "local_primitive_aggregate_workers_rows")
         );
+    }
+
+    #[test]
+    fn source_region_observations_survive_public_summary_without_invented_counters() {
+        let payload = serde_json::json!({
+            "aggregate_source_region_execution": true,
+            "aggregate_source_region_coverage_complete": true,
+            "aggregate_provider_background_workers": 0,
+            "aggregate_source_region_source_rows": 131_072,
+            "aggregate_source_region_submitted": 2,
+            "aggregate_source_region_completed": 2,
+            "aggregate_source_region_metadata_pruned": 1,
+            "aggregate_source_region_outstanding": 0,
+            "aggregate_source_region_peak_outstanding": 2,
+            "aggregate_source_region_parallelism": 4,
+            "aggregate_source_region_peak_active_workers": 2,
+            "aggregate_source_region_directory_peak_bytes": 5120,
+            "aggregate_source_region_directory_retained_bytes": 88,
+            "aggregate_source_region_recipe_bytes": 4096,
+            "aggregate_source_region_partial_initial_bytes": 2048,
+            "aggregate_source_region_consumer_nanos": "18446744073709551616",
+            "aggregate_source_region_merge_nanos": "71",
+            "aggregate_source_region_scope": "original natural ranges; shared grant; overlapping elapsed work"
+        });
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(
+            &mut fields,
+            Some(&payload.to_string()),
+        );
+        assert_eq!(fields.len(), payload.as_object().unwrap().len());
+        for (key, value) in payload.as_object().unwrap() {
+            assert!(
+                fields.contains(&(
+                    format!("local_primitive_{key}"),
+                    value
+                        .as_str()
+                        .map_or_else(|| value.to_string(), str::to_owned)
+                ))
+            );
+        }
+        for summary in [None, Some("{}"), Some(r#"{"values":{"n":1}}"#)] {
+            let mut fields = Vec::new();
+            super::append_local_primitive_result_summary_evidence_fields(&mut fields, summary);
+            assert_eq!(fields, []);
+        }
     }
 
     #[test]
