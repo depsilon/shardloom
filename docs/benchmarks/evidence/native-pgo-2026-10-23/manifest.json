@@ -1,0 +1,57 @@
+{
+  "schema": "shardloom.pgo_evidence_index.v1",
+  "decision": "drop",
+  "native_execution_during_replay": false,
+  "files": [
+    {
+      "file": "archive_trust_controls.py",
+      "bytes": 9883,
+      "sha256": "b8b8f94d2972ab27bbe35cd973596cb0fae342751ef66449f1eda0aca7cc6e5e"
+    },
+    {
+      "file": "closeout.json",
+      "bytes": 13482,
+      "sha256": "7e2e96b8f53600ab347c965b8273a93f434940aa553d728fbf1e4bc923c23635"
+    },
+    {
+      "file": "controls.json",
+      "bytes": 36423,
+      "sha256": "8b82483cf5356c748bd91458f93378fc442ed2fff5f8b66961910c9ee71621e9"
+    },
+    {
+      "file": "local-checks.json",
+      "bytes": 1908,
+      "sha256": "1fbb0e85631eddb8f497408e83747551f0b1b6705d17d8862b7e658925ee81b7"
+    },
+    {
+      "file": "local-document-contracts.log.gz",
+      "bytes": 2091,
+      "sha256": "feec00e7a9e9616926cf1802cd00047fc1165b8f27db59b4a2a9c328d3acfbb3"
+    },
+    {
+      "file": "local-python-tests.log",
+      "bytes": 557,
+      "sha256": "8736f791b0ee2d339ad708ff63e63aa258fca020fcf3d58326459c1d4b32fc0a"
+    },
+    {
+      "file": "packet.tar.gz",
+      "bytes": 21350421,
+      "sha256": "76762a527aabceb972a2d1c9760f1748ed420f78ed610d6ee4bdc74f24f9cdbc"
+    },
+    {
+      "file": "replay.json",
+      "bytes": 7253,
+      "sha256": "54bdaba7514d7d0cc6a0dc5c9b4d31638dd163cb0fab7a5ef47d948a4187a7a8"
+    },
+    {
+      "file": "test_pgo.py",
+      "bytes": 15180,
+      "sha256": "d6ae2261e1de1a838df1100e3e26b6d7c355211a231bbb989ba5d70242ee58fd"
+    },
+    {
+      "file": "verify_pgo.py",
+      "bytes": 61635,
+      "sha256": "3489b8ebff827d6b86af37e834fac99f2b338028471abae76cd636e500f1a99f"
+    }
+  ]
+}

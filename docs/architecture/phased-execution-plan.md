@@ -290,8 +290,19 @@ writer result remain unchanged; no broader performance claim follows.
 1. **Complete:** documentation integration and deployed-website verification for the authorized v0.7.0 train, following the GitHub, TestPyPI, PyPI and Homebrew proofs. The [publication record](../release/v0.7.0-publication-verification.md) binds PR #1585's 44 passing checks and the byte-exact production observation. The maintainer's subsequent README/field-guide audit and homepage materialization, admission and lifecycle polish precede resuming the queue below; they do not add engine scope or a package release. Subsequent trains require their own authorization. Do not convert the format correction into a broader performance claim, a first-use adapter rewrite or optional breadth work.
 2. **Complete for the selected review scope and integrated:** the [workload gap matrix](../benchmarks/native-workload-comparisons-2026-10-22.md), [selected guarantee acceptance](../benchmarks/native-workload-guarantees-2026-10-22.md) and [independent Full43 correction](../benchmarks/native-independent-full43-2026-10-22.md) are merged in PR #1589 as `3d07013fb12cf21e6040adb03f9e97e995996875`, after all 44 required checks passed. The [integration record](../benchmarks/evidence/native-current-attribution-2026-10-22/pr1589-integration-958.json) preserves the reviewed head and identical merge tree; no benchmark was rerun for integration. Finite acceptance covers the 22-task matrix, named guarantee reviews, independently checked Full43 values, integer/regex corrections and Q29 dictionary admission. It does not close all fifteen required owner contracts or CG-5/CG-6. Extra types, operators, platforms and implementation techniques do not become mandatory because they are feasible.
 3. **Finite prerequisite review decided:** [current attribution](../benchmarks/native-current-attribution-2026-10-22.md) is verified, and the [bounded scalar-region candidate](../benchmarks/native-scalar-regions-2026-10-22.md) is dropped under its original benefit and metadata-control gates. Exact local reduction is not retained. All 1,922 Rust/Cargo source hashes are restored to the accepted baseline; its isolated standard Full43 passes at **48.479745297 engine seconds**. The incomplete held-out experiment remains explicit, with 226 of 267 planned candidate-experiment calls executed and 41 unrun. This finite outcome does not establish the missing region/preparation cost basis or promote an entire worker/state family into a requirement.
-4. **Three dependency outcomes recorded; PGO investigation next:** `PERF-10.ordered_candidates`, `PERF-09.design` and `PERF-12.topology` remain blocked after the region rejection; they are not completed experiments. `PERF-13.pgo` has independent current-source attribution on the exactly restored baseline and proceeds to a separate frozen training, held-out, package and break-even protocol. Freeze comparisons before candidate results; retain a verified benefit or record the drop under the original gates. Failed prerequisites do not authorize replacement benefits or optional breadth.
-5. Keep additional breadth and extensions of completed conditional investigations in the [optional backlog](#optional-breadth-backlog), after all required work and the queued investigations. Do not automatically start it when the earlier stages finish. There is no delivery commitment, and optional work does not block required-area acceptance or a separately authorized release.
+4. **Finite PGO investigation closed; broader queue paused:** the [October 23 PGO decision](../benchmarks/native-pgo-2026-10-23.md) records a drop with the frozen ingest gate failed and complete-workflow benefit unavailable. Query, held-out, pressure and package evidence remains; no release default changes. `PERF-10.ordered_candidates`, `PERF-09.design` and `PERF-12.topology` remain blocked after region rejection, not completed experiments. The maintainer pauses the remaining required and conditional queue to focus on polish; this does not close all fifteen owner contracts or any CG gate.
+5. **Current work — cleanup and compute review:** retire verified unused generated artifacts, remove code only when its unused status is proved, and review shared execution components for material gains. Freeze a finite decision and correctness/benefit controls before implementing a justified candidate. Use one isolated standard Full43 after each cohesive implementation. This review is not authorization to resume deferred breadth or repeat rejected mechanisms unchanged.
+6. Keep additional breadth and extensions of completed conditional investigations in the [optional backlog](#optional-breadth-backlog). Do not automatically start it when the earlier stages finish. There is no delivery commitment, and optional work does not block required-area acceptance or a separately authorized release.
+
+- [ ] Maintainer-directed cleanup and compute optimization review.
+  - Source: October 23 maintainer request following the finite PGO investigation; existing PERF-01/03/08/09/10/12 boundaries remain applicable.
+  - Scope: existing native execution, verified unused code and generated artifacts; broader capability work is paused. Preserve current inputs, latest accepted output/runtime, active comparison inputs and compact results.
+  - ShardLoom technique review: review metadata-first avoidance, encoded computation, late materialization, existing admission/work shaping and PulseWeave/capillary ownership before proposing new mechanisms. Keep engine timing and evidence tiers explicit; do not add a second execution path.
+  - Execution checklist:
+    - [ ] Record exact cleanup identities, closed-handle checks and retained replacement or regeneration evidence; retire only proved-unused generated paths.
+    - [ ] Review current shared compute paths and measured costs; distinguish safe code removals, material candidate opportunities and unsupported hypotheses.
+    - [ ] Record retain/drop decisions for justified candidates, with focused correctness tests and one isolated Full43 per cohesive implementation; otherwise record why no implementation is justified.
+    - [ ] Complete adversarial review, required validation, integration and a concise limitations report.
 
 Preserve the seventeen finite conditional decisions, both accepted follow-ups,
 original failed samples, rejected mechanisms and unchanged prospective gates.
@@ -320,7 +331,8 @@ single isolated pass records **49.953164785 engine seconds**. Preserve the
 stopped and slower observations. The corrected-runtime 22-task refresh now passes
 all 704 comparisons, with its post-cohort interruption and five-cohort continuation
 retained. PR #1589 integration and the subsequent finite region prerequisite
-decision are recorded above; the remaining PGO investigation follows its own gates.
+decision are recorded above; the finite PGO drop and subsequent polish direction
+are recorded above and in the completed ledger.
 
 The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) and
 [CPU intake](native-cpu-investigations-2026-10-18.md) retain their historical
@@ -376,7 +388,8 @@ The [October 22 baseline attribution](../benchmarks/native-current-attribution-2
 supplies the current-source diagnostic. The [scalar-region decision](../benchmarks/native-scalar-regions-2026-10-22.md)
 rejects the finite mechanism and restores that exact baseline, preserving the
 attribution's source binding. The region-dependent investigations below remain
-blocked; the separate PGO protocol is pending. Refresh selected-path attribution
+blocked; the [separate PGO investigation](../benchmarks/native-pgo-2026-10-23.md)
+is closed with a drop. Refresh selected-path attribution
 when an accepted change affects it. The finite evidence is recorded in the ledger.
 
 The four investigation contracts and current dependency outcomes are:
@@ -389,9 +402,12 @@ The four investigation contracts and current dependency outcomes are:
 3. `PERF-12.topology` — blocked after region rejection: compare the newly admitted mechanism across safe
    current/coarse/small/medium/large modes on the same immutable 100M-row input,
    preserving the original 129-call coverage and independent held-out controls.
-4. `PERF-13.pgo` — next, using the restored-source attribution: freeze representative training and held-out evaluation, fresh
-   control/instrumented/profile-use builds, complete query/ingest/pressure and
-   portable-package checks, and compilation/training/transfer break-even.
+4. `PERF-13.pgo` — finite drop recorded October 23: fresh matched builds,
+   representative training, complete query and held-out evaluation, pressure and
+   installed-package checks pass. The control ingest fails the unchanged byte
+   gate against a reference prepared at different parallelism; three ingests are
+   unrun, and complete-workflow benefit and break-even are unavailable. ThinLTO
+   remains the default. The completed ledger records this finite decision.
 
 The [region prerequisite review](native-region-dependent-prerequisites-2026-10-20.md)
 and [PGO prerequisite review](native-pgo-prerequisite-decision-2026-10-20.md)
@@ -574,17 +590,10 @@ Optional extensions do not expand those requirements.
   - Next outcome: Resolve or verify a concrete gap within the required contract above; preserve the separate gates for any scheduled investigation. Optional extensions do not block acceptance.
   - Acceptance/verification: the common contract and [PERF-12 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-12); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
-- [ ] `PERF-13` evaluate profile-guided compilation only when justified.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - Source: RFC 0044 and the current native performance/control reports.
-  - Current state: No PGO promotion is established. The finite scalar-region decision is settled, and current attribution remains valid on the exactly restored baseline. A new training/evaluation protocol is the next gate. Earlier optimized-build screens retain their recorded decisions.
-  - Dependencies: After measured PERF-10 instruction/dispatch costs; not an automatic sweep or another runtime route.
-  - Implementation scope: Build configuration, representative training/held-out workloads and portable-package checks.
-  - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.
-  - Execution checklist:
-    - [ ] `PERF-13.pgo` **Conditional.** After the region decisions, use the [October 22 current-baseline attribution](../benchmarks/native-current-attribution-2026-10-22.md), refreshing affected paths on the resulting source, to freeze representative training, independent held-out evaluation, fresh matched builds, compilation/training/transfer break-even and portable-package correctness. Retain PGO only on measured complete-workflow benefit; otherwise record the drop. The [October 20 prerequisite decision](native-pgo-prerequisite-decision-2026-10-20.md) remains historical evidence, and required orchestration regressions pass. No new training or PGO acceptance is claimed. Preserve the prior tested-configuration rejection and portable ThinLTO default.
-  - Next outcome: Resolve or verify a concrete gap within the required contract above; preserve the separate gates for any scheduled investigation. Optional extensions do not block acceptance.
-  - Acceptance/verification: the common contract and [PERF-13 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-13); preserve the family/protocol controls above and original experiment gates in the reconciliation.
+The finite `PERF-13.pgo` investigation is closed with a drop and moved to the
+[completed ledger](phased-execution-completed-ledger.md). Its historical owner
+contract and [verification requirements](native-roadmap-verification-contracts-2026-10-18.md#perf-13)
+remain references, not an automatic new experiment or PGO promotion.
 
 ### Scope and later roadmap references
 

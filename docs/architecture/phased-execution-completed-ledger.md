@@ -17,6 +17,27 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite profile-guided compilation investigation — PERF-13.pgo` — the
+  [October 23 decision](../benchmarks/native-pgo-2026-10-23.md) records a drop
+  without changing portable ThinLTO or any native source. Both complete paired
+  Full43 orders have lower aggregate candidate engine time (0.409% and 0.359%);
+  Q4's repeated increase remains an unresolved localized compiler tradeoff.
+  All 204 held-out calls, both pressure suites and 121 installed binding tests
+  per role pass. Training excludes Full43 and held-out inputs.
+  - The recovered control ingest completes but fails the frozen byte-identity
+    gate. Metadata-only replay reproduces 3,120 historical versus 423 current
+    batches from differing parallelism. A separate diagnostic Full43 verifies
+    all 381 rows at **43.268958791 engine seconds**, without admitting a layout
+    performance claim or replacing the failed gate. Three planned ingests are
+    unrun; complete-workflow benefit and break-even remain unavailable.
+  - Portable replay retains 2,335 members, compiler/setup failures and every
+    observation. Twenty-one semantic and one frozen-protocol mutation, four
+    helper/symlink checks and 23 archive controls protect the evidence. Replay
+    needs no native engine, original dataset, compiler or network.
+  - The maintainer pauses the broader queue for cleanup and compute review.
+    Three region-dependent investigations remain blocked; 38 optional rows
+    remain deferred. No whole required owner, CG gate or release is closed.
+
 - [x] `Finite scalar-region prerequisite rejection and exact restoration` — the
   [October 22 decision](../benchmarks/native-scalar-regions-2026-10-22.md) drops the
   bounded natural-region scalar candidate after both Full43 cohorts fail their

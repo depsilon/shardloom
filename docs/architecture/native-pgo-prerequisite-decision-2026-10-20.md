@@ -8,6 +8,12 @@ by its [verification contract](native-roadmap-verification-contracts-2026-10-18.
 The substep and broader owner remain open. Portable ThinLTO remains the release
 default; this review changes no compiler profile or runtime behavior.
 
+Subsequent outcome: the [October 23 investigation](../benchmarks/native-pgo-2026-10-23.md)
+closes the finite `PERF-13.pgo` experiment with a drop. Its query, held-out,
+pressure and package checks pass; the frozen ingest comparator fails and
+complete-workflow benefit remains unavailable. The historical prerequisite
+assessment below is preserved. Broader queue work is now paused for polish.
+
 The [October 22 current-baseline diagnostic](../benchmarks/native-current-attribution-2026-10-22.md)
 now supplies source-bound numeric and text preparation observations, complete
 raw records and semantic replay controls. The subsequent
