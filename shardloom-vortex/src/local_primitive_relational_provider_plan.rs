@@ -374,7 +374,7 @@ fn input(plan: &Plan, source: &DType) -> Option<Input> {
             if !input.evaluated.is_empty() {
                 return None;
             }
-            let predicate = predicate(&filter.predicate, &input.columns)?;
+            let predicate = checked_predicate(&filter.predicate, &input.columns, source)?;
             input.predicate = Some(match input.predicate {
                 Some(prior) => PredicateExpr::And(vec![prior, predicate]),
                 None => predicate,
@@ -568,6 +568,83 @@ fn column(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<Column
         return None;
     };
     ColumnRef::new(columns.get(name.as_str())?.column()?).ok()
+}
+
+/// Reuse the provider's predicate lowering for a fully bound alias-only scan.
+/// The binder owns declaration allocation and retains all operator barriers.
+pub(in crate::local_primitives) fn scan_predicate(
+    expr: &Expression,
+    aliases: &BTreeMap<String, String>,
+    source: &DType,
+) -> Option<PredicateExpr> {
+    let columns = aliases
+        .iter()
+        .map(|(name, source)| (name.clone(), Value::Column(source.clone())))
+        .collect();
+    checked_predicate(expr, &columns, source)
+}
+
+fn checked_predicate(
+    expr: &Expression,
+    columns: &BTreeMap<String, Value>,
+    source: &DType,
+) -> Option<PredicateExpr> {
+    let predicate = predicate(expr, columns)?;
+    predicate_preserves_typed_semantics(&predicate, source).then_some(predicate)
+}
+
+fn predicate_preserves_typed_semantics(predicate: &PredicateExpr, source: &DType) -> bool {
+    // Typed numeric comparison is exact across integer domains and rejects
+    // nonfinite floats. Native scan literals instead use the physical field's
+    // dtype. Admit only lossless literals and infallible scalar domains.
+    let field = |column: &ColumnRef| {
+        let dtype = source.as_struct_fields_opt()?.field(column.as_str())?;
+        (!source.is_nullable()
+            && (matches!(dtype, DType::Bool(_) | DType::Utf8(_))
+                || matches!(dtype, DType::Primitive(ptype, _) if ptype.is_signed_int() || ptype.is_unsigned_int())))
+        .then_some(dtype)
+    };
+    let literal = |column: &ColumnRef, value: &StatValue| {
+        let Some(dtype) = field(column) else {
+            return false;
+        };
+        if !matches!(
+            (&dtype, value),
+            (DType::Bool(_), StatValue::Boolean(_))
+                | (DType::Utf8(_), StatValue::Utf8(_))
+                | (
+                    DType::Primitive(_, _),
+                    StatValue::Int64(_) | StatValue::UInt64(_)
+                )
+        ) {
+            return false;
+        }
+        crate::local_primitives::stat_value_to_vortex_literal(
+            value,
+            &dtype,
+            Some(column.as_str()),
+            Kind::FilterAndProject,
+        )
+        .is_ok()
+    };
+    match predicate {
+        PredicateExpr::AlwaysTrue | PredicateExpr::AlwaysFalse => true,
+        PredicateExpr::And(children) => children
+            .iter()
+            .all(|child| predicate_preserves_typed_semantics(child, source)),
+        PredicateExpr::Compare { column, value, .. } => literal(column, value),
+        // Native IN with a NULL literal admits NULL rows. Typed (x = a OR
+        // x = NULL) yields unknown for them, so it must retain its evaluator.
+        PredicateExpr::InList { column, values, .. } => {
+            values.iter().all(|value| literal(column, value))
+        }
+        PredicateExpr::IsNull { column } | PredicateExpr::IsNotNull { column } => {
+            field(column).is_some()
+        }
+        PredicateExpr::StringContains { column, .. } => {
+            matches!(field(column), Some(DType::Utf8(_)))
+        }
+    }
 }
 
 fn predicate(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<PredicateExpr> {

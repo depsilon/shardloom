@@ -66,6 +66,25 @@ semantics and terminal errors. Existing unaliased aggregate names are preserved
 when SQL moves to this binder. Explicit primitive declarations keep their own
 declared contract.
 
+Column-only file projections and infallible typed predicates also normalize into
+the existing native scan after ordinary binding. Alias views preserve output
+names and order. Computed projections, ranges, residual evaluation and non-file
+sources remain barriers. Typed comparisons with NULL literals, nonfinite-capable
+float domains or literals outside the physical integer field's range retain the
+typed evaluator; their semantics must not be replaced by native IN-list NULL
+membership or narrowed scan literals.
+
+SQL's compact primitive predicate spelling must also preserve literal value and
+type. Whitespace-sensitive text, quoted integers, delimiter-bearing strings and
+empty IN-list members remain on the shared typed binder when the compact grammar
+cannot represent them exactly. Python comparison, pattern and substring builders
+preserve whitespace and quoting before admission.
+
+Grouped SUM/AVG/MIN/MAX ordering can use the aggregate provider without explicit
+NULL placement when each group's argument is provably non-null. The public
+nullable result schema remains unchanged. Scalar reductions on empty inputs and
+groups with nullable arguments keep the ordinary NULL-ordering requirement.
+
 ## Surface declarations
 
 These additions belong to this source change, not to the already published
@@ -76,6 +95,10 @@ v0.7.0 artifacts.
   result. SQL `LIMIT ... OFFSET ...` has the same behavior inside derived
   relations and set operations. Counts and offsets must be nonnegative integers;
   their sum must fit the native range. A zero count still validates its input.
+- Column comparisons preserve string literal content, including empty strings,
+  surrounding whitespace, Unicode and escaped quotes. Pattern and substring
+  helpers preserve their literal whitespace; their existing nonempty and
+  wildcard-validation rules remain explicit.
 - `ColumnExpression.extract_minute()` and `.date_trunc_minute()` expose the
   existing integer epoch-second and timestamp-text operations. Nulls propagate;
   integer truncation uses the preceding minute, including negative epochs, and

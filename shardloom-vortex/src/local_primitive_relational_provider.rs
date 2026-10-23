@@ -21,6 +21,7 @@ use vortex::array::{
 
 #[path = "local_primitive_relational_provider_plan.rs"]
 mod plan;
+pub(super) use plan::scan_predicate;
 
 pub(super) struct Prepared {
     strategy: Strategy,
@@ -106,7 +107,10 @@ pub(super) fn prepare(
                 .map(|(_, dtype)| dtype.clone())
                 .ok_or_else(|| failed("ordering field is absent"))?
         };
-        if key.nulls.is_none() && dtype.is_nullable() {
+        if key.nulls.is_none()
+            && dtype.is_nullable()
+            && !grouped_measure_is_nonnull(&request, source.dtype(), &key.column)?
+        {
             return Ok(None); // Retain the relational runtime's explicit NULL ordering check.
         }
     }
@@ -156,6 +160,40 @@ pub(super) fn prepare(
         output: lowered.output.into_iter().zip(names).collect(),
         _metadata: metadata,
     }))
+}
+
+fn grouped_measure_is_nonnull(request: &Request, source: &DType, name: &str) -> Result<bool> {
+    let Some(aggregate) = request.simple_aggregate.as_ref() else {
+        return Ok(false);
+    };
+    // Every emitted group has at least one input row. A scalar reduction can
+    // instead emit NULL on empty input. Keep the public nullable output schema;
+    // this proof only admits an ordering that cannot encounter a NULL value.
+    if aggregate.group_by.is_empty() && aggregate.group_expressions.is_empty() {
+        return Ok(false);
+    }
+    let Some(measure) = aggregate
+        .measures
+        .iter()
+        .find(|measure| measure.alias == name)
+    else {
+        return Ok(false);
+    };
+    if !matches!(
+        measure.function.to_ascii_lowercase().as_str(),
+        "sum" | "avg" | "min" | "max"
+    ) || !matches!(
+        measure.value_transform.as_deref(),
+        None | Some(
+            "length" | "extract_minute" | "date_trunc_minute" | "url_domain" | "regex_domain"
+        )
+    ) {
+        return Ok(false);
+    }
+    let Some(column) = &measure.column else {
+        return Ok(false);
+    };
+    Ok(!native::completed_result::source_field(source, column.as_str())?.is_nullable())
 }
 
 fn provider_fields(request: &Request, source: &DType) -> Result<Vec<(String, DType)>> {

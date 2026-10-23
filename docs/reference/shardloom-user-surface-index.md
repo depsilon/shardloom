@@ -39,7 +39,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `cf60fd560155aca3a1c8edafcbd0335755558678390df77b8840b3027db11eab` (SHA-256 of the listed source inputs).
+Source identity: `f45e839d4309bab7ff49a124095f3f28f5b466cd62e4b5253b03d9c429ddf13b` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports

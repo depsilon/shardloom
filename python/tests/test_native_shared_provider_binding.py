@@ -69,15 +69,28 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         self.assertEqual(result.report["external_engine_invoked"], "false")
         return self.pa.RecordBatchReader.from_stream(result).read_all()
 
-    def all_surfaces(self, frame, relation, statement):
+    def all_surfaces(self, frame, relation, statement, report_checks=None):
         """Execute complete declarations through five real public entry points."""
         import shardloom as sl
-        tables = [frame.collect(check=True).to_arrow(),
-                  self.table(self.session.plan(relation).collect()),
-                  self.table(self.session.sql(statement).collect())]
+
+        def check(get_field):
+            for name, expected_value in (report_checks or {}).items():
+                self.assertEqual(get_field(name), expected_value, name)
+
+        result = frame.collect(check=True)
+        self.assertFalse(result.envelope.fallback.attempted)
+        self.assertEqual(result.envelope.field("external_engine_invoked"), "false")
+        check(result.envelope.field)
+        tables = [result.to_arrow()]
+        for plan in (self.session.plan(relation), self.session.sql(statement)):
+            result = plan.collect()
+            check(result.report.get)
+            tables.append(self.table(result))
         arguments = ["sql", "--sql", statement, "--request", "collect", "--bounded", "true",
                      "--memory-bytes", str(128 << 20), "--max-parallelism", "2"]
-        tables.append(self.table(self.session.workflow(arguments).collect()))
+        result = self.session.workflow(arguments).collect()
+        check(result.report.get)
+        tables.append(self.table(result))
         # Native front doors above must not launch a process. The fifth entry
         # point explicitly exercises the CLI bundled in the installed wheel,
         # or an exact local test binary selected by the caller.
@@ -89,10 +102,96 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 result = sl.sql(statement, client=cli).collect(check=True)
                 self.assertFalse(result.envelope.fallback.attempted)
                 self.assertEqual(result.envelope.field("external_engine_invoked"), "false")
+                check(result.envelope.field)
                 tables.append(result.to_arrow())
             finally:
                 cli.close()
         return tables
+
+    def test_grouped_nonnull_mean_ordering_selects_shared_provider_on_every_surface(self):
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        schema = pa.schema([pa.field("key", pa.uint32(), nullable=False),
+                            pa.field("text", pa.string(), nullable=False)])
+        rows = [{"key": 2, "text": "é"}, {"key": 1, "text": "a"},
+                {"key": 2, "text": "long"}, {"key": 1, "text": "longer"}]
+        with tempfile.TemporaryDirectory(prefix="shardloom-shared-grouped-") as directory:
+            path = Path(directory) / "input.vortex"
+            source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+            session.plan(native.Relation.scan("memory://input"),
+                         sources=[("memory://input", source)]).write(path, "write_vortex")
+            frame = (sl.read_vortex(path, client=client)
+                     .with_column("bytes", sl.col("text").byte_length())
+                     .group_by("key").agg(mean="AVG(bytes)", rows="COUNT(*)")
+                     .filter(sl.col("rows") > 1).sort("mean", descending=True).limit(2))
+            relation = (native.Relation.scan(str(path)).project([
+                ("key", expr.column("key")),
+                ("bytes", expr.call("octet_length", [expr.column("text")]))])
+                .aggregate(["key"], [("avg", "bytes", "mean"), ("count", None, "rows")])
+                .filter(expr.column("rows") > expr.literal(1))
+                .sort([("mean", True, None)]).limit(2))
+            sql = (f"SELECT key,AVG(octet_length(text)) AS mean,COUNT(*) AS rows FROM '{path}' "
+                   "GROUP BY key HAVING rows > 1 ORDER BY mean DESC LIMIT 2")
+            tables = self.all_surfaces(frame, relation, sql, {
+                "local_primitive_report_present": "true",
+                "local_primitive_native_io_certificate_path_id": "native_vortex_source_to_scalar_aggregate_result",
+            })
+            for table in tables:
+                self.assertEqual(table.to_pylist(), [{"key": 1, "mean": 3.5, "rows": 2},
+                                                     {"key": 2, "mean": 3.0, "rows": 2}])
+                self.assertEqual(table.schema, tables[0].schema)
+
+    def test_string_comparisons_preserve_literal_content_on_every_surface(self):
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        needles = ("", " ", "  text  ", "é", " O'Reilly ", "123", "a,b", "a;b", "a|b")
+        values = [None, "text", *needles]
+        with tempfile.TemporaryDirectory(prefix="shardloom-shared-literals-") as directory:
+            path = Path(directory) / "input.vortex"
+            source = session.from_arrow(pa.table({"text": pa.array(values, type=pa.string())}))
+            session.plan(native.Relation.scan("memory://input"),
+                         sources=[("memory://input", source)]).write(path, "write_vortex")
+            for needle in needles:
+                for equal in (True, False):
+                    with self.subTest(needle=needle, equal=equal):
+                        predicate = sl.col("text") == needle if equal else sl.col("text") != needle
+                        frame = sl.read_vortex(path, client=client).filter(predicate).select("text")
+                        left, right = expr.column("text"), expr.literal(needle)
+                        relation = native.Relation.scan(str(path)).filter(left == right if equal else left != right)
+                        literal = "'" + needle.replace("'", "''") + "'"
+                        sql = f"SELECT text FROM '{path}' WHERE text {'=' if equal else '!='} {literal}"
+                        tables = self.all_surfaces(frame, relation, sql)
+                        wanted = [{"text": value} for value in values
+                                  if value is not None and (value == needle) == equal]
+                        for surface, table in zip(
+                            ("dataframe", "typed", "python_sql", "workflow", "cli_sql"), tables
+                        ):
+                            with self.subTest(surface=surface):
+                                self.assertEqual(table.to_pylist(), wanted)
+                                self.assertEqual(table.schema, tables[0].schema)
+            for needle in (" ", "123", "a,b", "a;b", "a|b"):
+                with self.subTest(contains=needle):
+                    frame = sl.read_vortex(path, client=client).filter(sl.col("text").contains(needle))
+                    relation = native.Relation.scan(str(path)).filter(
+                        expr.call("contains", [expr.column("text"), expr.literal(needle)]))
+                    sql = f"SELECT * FROM '{path}' WHERE text LIKE '%{needle}%'"
+                    wanted = [{"text": value} for value in values if value is not None and needle in value]
+                    for table in self.all_surfaces(frame, relation, sql):
+                        self.assertEqual(table.to_pylist(), wanted)
+            frame = sl.read_vortex(path, client=client).filter(sl.col("text").isin("", "123", "a,b"))
+            column = expr.column("text")
+            predicate = (column == expr.literal("")) | (column == expr.literal("123")) | (column == expr.literal("a,b"))
+            relation = native.Relation.scan(str(path)).filter(predicate)
+            sql = f"SELECT * FROM '{path}' WHERE text IN ('', '123', 'a,b')"
+            wanted = [{"text": value} for value in values if value in ("", "123", "a,b")]
+            for table in self.all_surfaces(frame, relation, sql):
+                self.assertEqual(table.to_pylist(), wanted)
 
     def test_typed_unary_families_preserve_nulls_schema_order_and_reuse(self):
         native, session = self.native, self.session

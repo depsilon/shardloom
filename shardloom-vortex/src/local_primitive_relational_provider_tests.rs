@@ -63,6 +63,15 @@ fn sort(input: VortexRelationalPlan, name: &str) -> VortexRelationalPlan {
         }],
     }))
 }
+
+fn sort_without_null_order(input: VortexRelationalPlan, name: &str) -> VortexRelationalPlan {
+    let mut plan = sort(input, name);
+    let VortexRelationalPlan::Sort(sort) = &mut plan else {
+        unreachable!()
+    };
+    sort.keys[0].nulls = None;
+    plan
+}
 fn range(input: VortexRelationalPlan, count: usize, offset: usize) -> VortexRelationalPlan {
     VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
         input,
@@ -581,6 +590,230 @@ fn shared_provider_conditional_groups_use_expression_roles_and_preserve_nullable
     };
     sort.keys[0].nulls = None;
     let prepared = prepare_relational(&sorted, policy()).unwrap();
+    assert!(prepared.provider.is_none());
+    assert!(prepared.execute_owned().is_err());
+}
+
+#[test]
+fn shared_provider_grouped_nonnull_measures_do_not_require_null_ordering() {
+    let fixture = fixture();
+    for function in ["sum", "avg", "min", "max"] {
+        let plan = range(
+            sort_without_null_order(
+                aggregate(
+                    fixture.scan(),
+                    &["entity"],
+                    vec![measure(function, Some("amount"), "value")],
+                ),
+                "value",
+            ),
+            3,
+            0,
+        );
+        assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    }
+
+    let text = Fixture::new(
+        single(
+            "text",
+            vortex::array::arrays::VarBinViewArray::from_iter_str(["a", "é", "a"]).into_array(),
+        ),
+        1,
+    );
+    let grouped = aggregate(
+        project(
+            text.scan(),
+            vec![
+                ("key", column("text")),
+                ("bytes", call("octet_length", vec![column("text")])),
+            ],
+        ),
+        &["key"],
+        vec![
+            measure("avg", Some("bytes"), "mean"),
+            measure("count", None, "rows"),
+        ],
+    );
+    assert_provider_matches_general(
+        &range(
+            sort_without_null_order(
+                filter(grouped, "rows", ComparisonOp::Gt, ScalarValue::UInt64(0)),
+                "mean",
+            ),
+            2,
+            0,
+        ),
+        VortexQueryPrimitiveKind::SimpleAggregate,
+    );
+}
+
+#[test]
+fn shared_provider_does_not_assume_nullable_or_empty_measures_have_values() {
+    let fixture = fixture();
+    let nullable = sort_without_null_order(
+        aggregate(
+            fixture.scan(),
+            &["amount"],
+            vec![measure("avg", Some("entity"), "mean")],
+        ),
+        "mean",
+    );
+    let empty_scalar = sort_without_null_order(
+        aggregate(
+            filter(
+                fixture.scan(),
+                "amount",
+                ComparisonOp::Lt,
+                ScalarValue::Int64(0),
+            ),
+            &[],
+            vec![measure("avg", Some("amount"), "mean")],
+        ),
+        "mean",
+    );
+    for plan in [nullable, empty_scalar] {
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        assert!(prepared.provider.is_none());
+        assert!(prepared.execute_owned().is_err());
+    }
+}
+
+#[test]
+fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
+    let fixture = fixture();
+    let plan = filter(
+        project(fixture.scan(), vec![("key", column("entity"))]),
+        "key",
+        ComparisonOp::Eq,
+        ScalarValue::UInt64(2),
+    );
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    for completed in 1..=2 {
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(json_rows(&result), vec![serde_json::json!({"key":2}); 2]);
+        assert_eq!(result.execution.scan_rows_delivered, 2);
+        assert_eq!(result.execution.runtime.completed_executions, completed);
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    }
+    let PreparedRoot::Bound(root) = &prepared.root else {
+        unreachable!()
+    };
+    let NodeKind::Project { input, .. } = &root.kind else {
+        panic!("alias must remain an encoded projection")
+    };
+    let NodeKind::Scan { plan, columns, .. } = &input.kind else {
+        panic!("filter should use the existing native scan")
+    };
+    assert!(plan.filter.is_some());
+    assert_eq!(columns, &["entity"]);
+    assert_eq!(input.fields.len(), 1);
+
+    let ranged = filter(
+        range(fixture.scan(), 1, 1),
+        "entity",
+        ComparisonOp::Eq,
+        ScalarValue::UInt64(2),
+    );
+    let prepared = prepare_relational(&ranged, policy()).unwrap();
+    let PreparedRoot::Bound(root) = &prepared.root else {
+        unreachable!()
+    };
+    assert!(matches!(root.kind, NodeKind::Filter { .. }));
+    assert_eq!(
+        json_rows(
+            &prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap()
+        ),
+        Vec::<serde_json::Value>::new()
+    );
+}
+
+#[test]
+fn shared_provider_predicates_preserve_typed_null_literal_and_numeric_domains() {
+    let fixture = fixture();
+    let eq = |value| {
+        let VortexRelationalPlan::Filter(filter) =
+            filter(fixture.scan(), "entity", ComparisonOp::Eq, value)
+        else {
+            unreachable!()
+        };
+        filter.predicate
+    };
+    let plan = aggregate(
+        VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+            input: fixture.scan(),
+            predicate: Expression::new(
+                ExprId::new("or").unwrap(),
+                ExpressionKind::Binary {
+                    left: Box::new(eq(ScalarValue::UInt64(1))),
+                    op: shardloom_core::BinaryOp::Or,
+                    right: Box::new(eq(ScalarValue::Null)),
+                },
+            ),
+        })),
+        &[],
+        vec![measure("count", None, "rows")],
+    );
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    assert!(prepared.provider.is_none());
+    assert_eq!(
+        json_rows(
+            &prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap()
+        ),
+        vec![serde_json::json!({"rows":1})]
+    );
+
+    let narrow = Fixture::new(
+        single("n", PrimitiveArray::from_iter([0_u8, 255]).into_array()),
+        1,
+    );
+    for (op, value, count) in [
+        (ComparisonOp::Lt, ScalarValue::UInt64(256), 2),
+        (ComparisonOp::Gt, ScalarValue::Int64(-1), 2),
+        (ComparisonOp::Lt, ScalarValue::Float64(0.5), 1),
+    ] {
+        let plan = aggregate(
+            filter(narrow.scan(), "n", op, value),
+            &[],
+            vec![measure("count", None, "rows")],
+        );
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        assert!(prepared.provider.is_none());
+        assert_eq!(
+            json_rows(
+                &prepared
+                    .collect_jsonl(&CancellationToken::default())
+                    .unwrap()
+            ),
+            vec![serde_json::json!({"rows":count})]
+        );
+    }
+
+    let nonfinite = Fixture::new(
+        single(
+            "n",
+            PrimitiveArray::from_iter([1.0_f64, f64::NAN]).into_array(),
+        ),
+        1,
+    );
+    let plan = aggregate(
+        filter(
+            nonfinite.scan(),
+            "n",
+            ComparisonOp::Eq,
+            ScalarValue::Float64(1.0),
+        ),
+        &[],
+        vec![measure("count", None, "rows")],
+    );
+    let prepared = prepare_relational(&plan, policy()).unwrap();
     assert!(prepared.provider.is_none());
     assert!(prepared.execute_owned().is_err());
 }

@@ -297,11 +297,11 @@ writer result remain unchanged; no broader performance claim follows.
 
 - [ ] **Shared native provider selection and surface coverage correction**
   - Source: October 23 maintainer authorization; RFC 0021/0022/0044; the existing shared-surface contract above; [implementation contract](shared-native-provider-coverage-2026-10-23.md).
-  - Current state: equivalent file-backed typed and SQL declarations now select the existing native count, aggregate and bounded sorting providers. Source-collection reuse and missing offset, scalar and unary spellings are corrected. Family conformance and required workspace gates pass; final-artifact conformance and the five sequential Full43 passes remain pending.
+  - Current state: equivalent file-backed typed and SQL declarations select the existing native count, aggregate and bounded sorting providers. Source-collection reuse and missing offset, scalar and unary spellings are corrected. The first five-surface Full43 cohort passed all 215 complete-result comparisons, but its certificates exposed grouped null-order admission and typed scan-pushdown gaps. Those shared admission corrections and numeric/null predicate boundaries are under regression validation; final acceptance remains open.
   - V1 scope classification: `required_for_v1` correctness and provider reachability for already admitted capabilities. Optional types, operators and platforms remain deferred.
   - ShardLoom technique review: expose existing metadata-first, encoded aggregate, capillary, PulseWeave and dynamic resource strategies through common provider admission. Preserve engine timing and evidence vocabulary. This correction adds no independently tuned query strategy.
   - Execution checklist:
-    - [x] Normalize equivalent typed declarations to existing native provider requests, preserving schema, source generations, resource/spill policy, output ownership and explicit rejection.
+    - [ ] Normalize equivalent typed declarations to existing native provider requests, preserving schema, source generations, resource/spill policy, output ownership and explicit rejection; close the remaining grouped-order and scan-pushdown gaps exposed by the first complete cohort.
     - [x] Move source-collection reuse decisions behind the admitted SQL provider and add appropriate DataFrame/expression spellings for current native capabilities.
     - [x] Verify applicable front doors against the current capability families with positive, negative, null/type, ordering and composed cases; distinguish intentional boundaries from missing lowering.
     - [ ] Run focused checks, required workspace gates, and one isolated Full43 pass for each updated entry point in sequence; retain all baseline failures and incomplete coverage.

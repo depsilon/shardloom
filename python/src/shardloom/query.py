@@ -11402,8 +11402,7 @@ def _sql_temporal_difference_arg(value: object, dtype: str) -> str:
 
 
 def _sql_string_literal(value: object) -> str:
-    text = _require_non_empty("string literal", value)
-    return "'" + text.replace("'", "''") + "'"
+    return _sql_string_function_literal("string literal", value, allow_empty=False)
 
 
 def _sql_string_function_literal(
@@ -11435,7 +11434,7 @@ def _sql_literal(value: object) -> str:
     if isinstance(value, (bytes, bytearray)):
         return f"X'{bytes(value).hex()}'"
     if isinstance(value, str):
-        return _sql_string_literal(value)
+        return _sql_string_function_literal("predicate string literal", value, allow_empty=True)
     raise TypeError(
         "SQL predicate literals must be bool, int, float, Decimal, str, bytes, date, datetime, or None"
     )
@@ -12593,7 +12592,9 @@ def _contains_sql_token_outside_quotes(statement: str, token: str) -> bool:
 
 
 def _like_needle(name: str, value: object) -> str:
-    text = _require_non_empty(name, value)
+    text = str(value)
+    if not text:
+        raise ValueError(f"{name} must not be empty")
     if "%" in text or "_" in text:
         raise ValueError(f"{name} must not contain SQL LIKE wildcard characters")
     return text
@@ -12602,7 +12603,7 @@ def _like_needle(name: str, value: object) -> str:
 def _like_escape_clause(escape: object | None) -> str:
     if escape is None:
         return ""
-    text = _require_non_empty("LIKE escape character", escape)
+    text = str(escape)
     if len(text) != 1:
         raise ValueError("LIKE escape character must be exactly one character")
     return f" ESCAPE {_sql_string_literal(text)}"
