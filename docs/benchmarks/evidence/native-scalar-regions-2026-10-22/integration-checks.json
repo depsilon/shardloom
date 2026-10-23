@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "changed_files": 28,
+  "local_markdown_targets": 355,
+  "runtime_changes_against_baseline": [],
+  "architecture_tracker_status": "blocked",
+  "runtime_gap_status": "passed",
+  "region_ci_tests": 3,
+  "semantic_controls": 35,
+  "shard_discovery_tests": 5
+}

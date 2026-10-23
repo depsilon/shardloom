@@ -1,0 +1,69 @@
+test_timing_replay_with_sequential_float_sum (regression.NativeRegionEvidenceTests.test_timing_replay_with_sequential_float_sum) ... 
+  test_timing_replay_with_sequential_float_sum (regression.NativeRegionEvidenceTests.test_timing_replay_with_sequential_float_sum) (script='verify_regions.py') ... FAIL
+  test_timing_replay_with_sequential_float_sum (regression.NativeRegionEvidenceTests.test_timing_replay_with_sequential_float_sum) (script='verify_restoration.py') ... FAIL
+
+======================================================================
+FAIL: test_timing_replay_with_sequential_float_sum (regression.NativeRegionEvidenceTests.test_timing_replay_with_sequential_float_sum) (script='verify_regions.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 53, in test_timing_replay_with_sequential_float_sum
+    result = json.loads(self.run_replay(temporary, directory / script,
+                        ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory / packet, sequential_sum=True))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 44, in run_replay
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import builtins, functools, operator, runpy, sys; builtins.sum = lambda values, start=0: functools.reduce(operator.add, values, start); sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name="__main__")
+                                                                                                                                                                     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpueg1ccdw/regions/verify_regions.py", line 399, in <module>
+    main()
+    ~~~~^^
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpueg1ccdw/regions/verify_regions.py", line 394, in main
+    result = verify(root)
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpueg1ccdw/regions/verify_regions.py", line 229, in verify
+    assert standard_engine == standard['engine_execution_seconds'] == single['timing_totals']['totals']['engine_execution_seconds']
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+
+======================================================================
+FAIL: test_timing_replay_with_sequential_float_sum (regression.NativeRegionEvidenceTests.test_timing_replay_with_sequential_float_sum) (script='verify_restoration.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 53, in test_timing_replay_with_sequential_float_sum
+    result = json.loads(self.run_replay(temporary, directory / script,
+                        ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        directory / packet, sequential_sum=True))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_region_evidence.py", line 44, in run_replay
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import builtins, functools, operator, runpy, sys; builtins.sum = lambda values, start=0: functools.reduce(operator.add, values, start); sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name="__main__")
+                                                                                                                                                                     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpueg1ccdw/regions/verify_restoration.py", line 193, in <module>
+    main()
+    ~~~~^^
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpueg1ccdw/regions/verify_restoration.py", line 188, in main
+    result = verify(restored, root / 'regions')
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpueg1ccdw/regions/verify_restoration.py", line 164, in verify
+    assert total == record['engine_execution_seconds'] == summary['timing_totals']['totals']['engine_execution_seconds']
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.477s
+
+FAILED (failures=2)
+EXPECTED_PRE_FIX_FAILURES_VERIFIED

@@ -1,0 +1,10 @@
+test_archived_helpers_authenticated_before_import (test_native_region_evidence.NativeRegionEvidenceTests.test_archived_helpers_authenticated_before_import) ... ok
+test_current_attribution_and_semantic_controls (test_native_region_evidence.NativeRegionEvidenceTests.test_current_attribution_and_semantic_controls) ... ok
+test_region_rejection_and_semantic_controls (test_native_region_evidence.NativeRegionEvidenceTests.test_region_rejection_and_semantic_controls) ... ok
+test_restoration_and_semantic_controls (test_native_region_evidence.NativeRegionEvidenceTests.test_restoration_and_semantic_controls) ... ok
+test_timing_replay_with_sequential_float_sum (test_native_region_evidence.NativeRegionEvidenceTests.test_timing_replay_with_sequential_float_sum) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 16.375s
+
+OK

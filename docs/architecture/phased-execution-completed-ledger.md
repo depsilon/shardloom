@@ -17,6 +17,38 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite scalar-region prerequisite rejection and exact restoration` — the
+  [October 22 decision](../benchmarks/native-scalar-regions-2026-10-22.md) drops the
+  bounded natural-region scalar candidate after both Full43 cohorts fail their
+  frozen benefit gate and the held-out metadata control starts forbidden work.
+  All 226 executed calls have complete values; the held-out cohort is incomplete,
+  with 41 planned calls unrun and no admitted held-out performance score.
+  - Portable replay preserves 414 experiment members, candidate source and all
+    failed observations; thirteen corruption controls verify semantic rejection.
+    A separate 369-member restoration packet and seven controls bind all 1,922
+    Rust/Cargo files back to the accepted baseline and fresh required checks.
+    The isolated restored Full43 passes all 381 rows at **48.479745297 engine
+    seconds**, using the unchanged accepted executable.
+  - Ordered candidates, joint preparation and topology comparison remain blocked
+    by rejection of their shared prerequisite; they are not completed experiments.
+    Current baseline attribution remains source-valid for the separate PGO
+    investigation. Optional items stay deferred; no broad owner or CG gate closes.
+
+- [x] `Current baseline native cost attribution` — the
+  [October 22 diagnostic](../benchmarks/native-current-attribution-2026-10-22.md)
+  binds sixteen complete calls on the corrected baseline to original counters,
+  seven raw sample files, exact source excerpts and reconstructed stack trees.
+  Portable replay verifies 15,209 frames and 147 threads; fifteen corruption
+  controls repair outer hashes before testing semantic rejection. Numeric
+  consumer dispatch and serial text preparation support separate prospective
+  investigations. No speed gain, function instruction count, region retention,
+  PGO training or compiler-profile promotion is inferred.
+  - PR #1589 integrated the preceding finite correctness/matrix/guarantee work
+    as `3d07013fb12cf21e6040adb03f9e97e995996875`, with all 44 checks passing and
+    an identical reviewed-head/merge tree. Its
+    [integration evidence](../benchmarks/evidence/native-current-attribution-2026-10-22/pr1589-integration-958.json)
+    requires no additional Full43 execution. Broader owners and CG gates remain open.
+
 - [x] `Corrected-runtime declared workload matrix` — the
   [refreshed October 22 evidence](../benchmarks/native-independent-full43-2026-10-22.md#corrected-runtime-workload-matrix)
   binds the independently checked runtime `a973ad72` to 704 passing comparisons
@@ -31,8 +63,8 @@ phase plan first.
     identities, links the independent Full43 runtime and executes no engine.
     Fourteen matrix test methods cover positive replay and corruption subcases;
     both evidence packets are discovered by the existing Python CI shard.
-  - This is finite local matrix acceptance. Current PR integration remains in
-    the active plan; no whole owner, competitive gate or release is completed.
+  - This is finite matrix acceptance, integrated in PR #1589 as recorded above;
+    no whole owner, competitive gate or release is completed.
 
 - [x] `Independent Full43 local correctness acceptance` — the
   [October 22 record](../benchmarks/native-independent-full43-2026-10-22.md)
@@ -49,7 +81,7 @@ phase plan first.
     library tests with 31 existing manual ignores, 1,100 public CLI tests and
     eleven oracle tests pass. All eighteen portable verifier tests pass.
   - This is local finite correctness acceptance. The corrected-runtime matrix
-    refresh is recorded above; current PR integration remains in the active plan.
+    refresh and PR #1589 integration are recorded above.
     No whole owner contract, CG gate,
     optional breadth or new release is completed by this entry.
 

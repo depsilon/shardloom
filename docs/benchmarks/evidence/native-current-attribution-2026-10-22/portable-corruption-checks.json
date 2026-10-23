@@ -1,0 +1,146 @@
+{
+  "status": "passed",
+  "archive": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-current-attribution-2026-10-22/packet.tar.gz",
+    "bytes": 2929884,
+    "sha256": "8b8bd3b421d2eaa51d2fc2a72e3a7e7dcd46a0eef1958d9eba2a421e45f7b693"
+  },
+  "verifier_sha256": "d622d52ffde6457f5bb742f3d86cc01b1091ce2e8cb2cf11fc10d62f95594a0a",
+  "test_sha256": "72cb869914bbc3783c010222255dd324a20abe9fcd24d403367b531ba7889049",
+  "positive": {
+    "status": "passed",
+    "native_calls": 16,
+    "complete_value_checks": 16,
+    "raw_sample_files": 7,
+    "frames": 15209,
+    "threads": 147,
+    "exclusive_observations": 244781,
+    "source_excerpts": 8,
+    "scope": "Saved records replayed; no engine, source data or compiler executed."
+  },
+  "negative_controls": [
+    {
+      "name": "incomplete_value_claim",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 89,
+      "statement": "assert record['status'] == 'passed' and record['complete_values_match'] is True"
+    },
+    {
+      "name": "missing_native_call",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 73,
+      "statement": "assert protocol['total_native_calls'] == len(result['records']) == len(review['calls']) == 16"
+    },
+    {
+      "name": "query_identity_changed",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 93,
+      "statement": "assert record['statement'] == reference['queries'][record['query'] - 1]"
+    },
+    {
+      "name": "external_execution_claim",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 81,
+      "statement": "assert data['fallback_attempted'] is False and data['external_engine_invoked'] is False"
+    },
+    {
+      "name": "counter_mismatch",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 111,
+      "statement": "assert timing['darwin_rusage_v4'][native] == summarized[label]"
+    },
+    {
+      "name": "engine_time_mismatch",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 108,
+      "statement": "assert phase['engine_execution_seconds'] == summarized['engine_execution_seconds']"
+    },
+    {
+      "name": "source_excerpt_changed",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 119,
+      "statement": "assert text == binding['excerpt']"
+    },
+    {
+      "name": "stack_exclusive_changed",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 173,
+      "statement": "assert node['exclusive'] >= 0 and prior['exclusive_count'] == node['exclusive']"
+    },
+    {
+      "name": "raw_symbol_changed",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 167,
+      "statement": "assert prior['full_frame_text'] == raw_frame and prior['function_symbol'] == raw_symbol"
+    },
+    {
+      "name": "demangled_symbol_changed",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 168,
+      "statement": "assert prior['demangled_function_symbol'] == symbol_map[raw_symbol]"
+    },
+    {
+      "name": "demangle_mapping_changed",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 168,
+      "statement": "assert prior['demangled_function_symbol'] == symbol_map[raw_symbol]"
+    },
+    {
+      "name": "insufficient_main_observations",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 184,
+      "statement": "assert thread['count'] == recorded['observation_count'] == reviewed['observations']"
+    },
+    {
+      "name": "raw_counter_zero",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 110,
+      "statement": "assert timing['darwin_rusage_v4'][native] > 0"
+    },
+    {
+      "name": "undrained_call",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 90,
+      "statement": "assert record['process_group_drained'] and record['direct_child_reaped']"
+    },
+    {
+      "name": "source_check_denied",
+      "status": "rejected",
+      "outer_hashes_repaired": true,
+      "error_type": "AssertionError",
+      "verifier_line": 78,
+      "statement": "assert result['source_and_binary_unchanged'] and result['input_hash_before_after']"
+    }
+  ],
+  "restored_positive": true,
+  "runtime_executed": false,
+  "note": "Every negative control has all outer member hashes repaired before replay."
+}

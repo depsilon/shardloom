@@ -1,0 +1,130 @@
+{
+  "schema": "shardloom.scalar_region_decision_index.v1",
+  "decision": "drop",
+  "experiment_complete": false,
+  "performance_comparison_admitted": false,
+  "executed_candidate_experiment_calls": 226,
+  "planned_candidate_experiment_calls": 267,
+  "unexecuted_calls": 41,
+  "restored_standard_full43_engine_seconds": 48.479745297,
+  "restored_native_and_cargo_source_files": 1922,
+  "experiment_negative_controls": 13,
+  "restoration_negative_controls": 7,
+  "files": [
+    {
+      "file": "archive-trust-controls.json",
+      "bytes": 8251,
+      "sha256": "1b465e6b23ee57243d512585ebcd98cccda30832264683dedc7199debe37cb37"
+    },
+    {
+      "file": "archive-trust-regression.log",
+      "bytes": 864,
+      "sha256": "d8e437f0a8ddbebc397946c5314cec4f283f1bfa4badb2de7fc78261c69c2c87"
+    },
+    {
+      "file": "archive_trust_controls.py",
+      "bytes": 9883,
+      "sha256": "da96fa883fe66d6d248c55a050162cf0464e8ab745aada5f472014a152125cc5"
+    },
+    {
+      "file": "ci-replay-tests.log",
+      "bytes": 548,
+      "sha256": "19f955d7e42ce1668999716cc00d7874b72aa00293de455a36dcc61ae933b995"
+    },
+    {
+      "file": "corruption-checks.json",
+      "bytes": 15922,
+      "sha256": "9f2b9f947e42e589ad6164e8ecd8951c5e4212ea1738c33144b3a75d8494d813"
+    },
+    {
+      "file": "helper-authentication-after.log",
+      "bytes": 929,
+      "sha256": "200d24ef0f15bb7ff54347409bfcd93f0043a1f86bf182c52f97e88418f47488"
+    },
+    {
+      "file": "helper-authentication-before.log",
+      "bytes": 10389,
+      "sha256": "c60bc49fea8a4f3f9aa355b70f2ee3d7a8405be506f532315b316e9f42003e9e"
+    },
+    {
+      "file": "helper-authentication-normal-python.log",
+      "bytes": 81,
+      "sha256": "da0e4705391d9c83c47367a4caa8cdbf5664d448ae283c69c50772266f133fb4"
+    },
+    {
+      "file": "integration-checks.json",
+      "bytes": 282,
+      "sha256": "970c8e1f41c89759edf1f7f714cc3bfd99957d2d66731ee95bdff81753635546"
+    },
+    {
+      "file": "nested-archive-trust-controls.json",
+      "bytes": 10625,
+      "sha256": "560265fa845cf045fb4d705df0942d03c11bf0b4ae117ba79f80088adb082bd2"
+    },
+    {
+      "file": "nested-archive-trust-regression.log",
+      "bytes": 864,
+      "sha256": "503a6bcddaa945abe2e4023fc0f09d88c4de1e07c3483e2707961ac1fef44078"
+    },
+    {
+      "file": "packet.tar.gz",
+      "bytes": 5398118,
+      "sha256": "d79e24b01ee9d04efa0167895fce6d41f072c4053c14f2a8674bf9db21c81c9d"
+    },
+    {
+      "file": "portable-corruption-checks.json",
+      "bytes": 18260,
+      "sha256": "a7cedd25af388f4fc44f4922c83be2d7b3fc04b032248ce3b4c3b89b040a1459"
+    },
+    {
+      "file": "restoration-corruption-checks.json",
+      "bytes": 1883,
+      "sha256": "71dad3e47d32a77046ae83af91561ca4c42416ce09aea7fcb228943befa2ca2f"
+    },
+    {
+      "file": "restoration-verification.json",
+      "bytes": 3566,
+      "sha256": "4bc0cddef09fb769c49027306323ed87945286752f7709db1d1e50e9ac3d4aa6"
+    },
+    {
+      "file": "restoration.tar.gz",
+      "bytes": 2619447,
+      "sha256": "b148481bdb72f250e3a4d9894ad264818da982ba4237372cd1d2c13dca676cf8"
+    },
+    {
+      "file": "summation-regression-after.log",
+      "bytes": 753,
+      "sha256": "439865e79a831f9bf92ad2fb097334a09386e49f6f22cdd5da3b1bf23cf4aeef"
+    },
+    {
+      "file": "summation-regression-before.log",
+      "bytes": 5455,
+      "sha256": "1b8bbe8cd44bfe39d2c43f5b079ab25613e9ea9d9b90eebc190f21b7673e4210"
+    },
+    {
+      "file": "test_regions.py",
+      "bytes": 9167,
+      "sha256": "d6a2fcc7ec1a963a0f0d9544cfa819bea282a8b0234b968fc76c4826c74ed51e"
+    },
+    {
+      "file": "test_restoration.py",
+      "bytes": 6556,
+      "sha256": "6ffb9f68dbcf6061044931c78174fa168b137128a6dd422267f30e3fc38603de"
+    },
+    {
+      "file": "verification.json",
+      "bytes": 25489,
+      "sha256": "f21af647c44d0acaf5bbc0a2665e080e59f56942a1c59caa09e620c680996983"
+    },
+    {
+      "file": "verify_regions.py",
+      "bytes": 29102,
+      "sha256": "8883b2caeb144dd981b9911207c3a470b80a1165a0017fe4cde818da65914bc5"
+    },
+    {
+      "file": "verify_restoration.py",
+      "bytes": 13400,
+      "sha256": "92807de19ae3713e8f99c691fbff600bd151bfbec20f1dc1476a7d33685f0003"
+    }
+  ]
+}

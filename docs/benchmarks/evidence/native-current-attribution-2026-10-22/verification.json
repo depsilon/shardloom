@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "native_calls": 16,
+  "complete_value_checks": 16,
+  "raw_sample_files": 7,
+  "frames": 15209,
+  "threads": 147,
+  "exclusive_observations": 244781,
+  "source_excerpts": 8,
+  "scope": "Saved records replayed; no engine, source data or compiler executed."
+}
