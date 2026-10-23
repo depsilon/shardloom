@@ -51,7 +51,7 @@ fn assert_equal(actual: &CompactAggregateMeasures, expected: &CompactAggregateMe
     assert_eq!(actual.values().len(), expected.values().len());
     for (actual, expected) in actual.values().iter().zip(expected.values()) {
         assert_eq!(actual.count, expected.count);
-        assert_eq!(actual.sum.to_bits(), expected.sum.to_bits());
+        assert_eq!(actual.sum.total().to_bits(), expected.sum.total().to_bits());
     }
 }
 
@@ -139,7 +139,10 @@ fn compact_binding_rebinds_owners_and_preserves_empty_and_all_null_measures() {
     }
     assert_eq!(actual.values()[0].count, 9);
     assert_eq!(actual.values()[1].count, 5);
-    assert_eq!(actual.values()[2].sum.to_bits(), 23.75_f64.to_bits());
+    assert_eq!(
+        actual.values()[2].sum.total().to_bits(),
+        23.75_f64.to_bits()
+    );
 }
 
 #[test]
@@ -159,7 +162,7 @@ fn compact_binding_preserves_failure_row_measure_order_and_partial_state() {
         let mut actual = CompactAggregateMeasures::new(&specs);
         let mut expected = CompactAggregateMeasures::new(&specs);
         for state in [&mut actual, &mut expected] {
-            state.values_mut()[2].sum = seed_sum;
+            state.values_mut()[2].sum = super::super::NumericAggregateSum::Ordered(seed_sum);
             if let Some(index) = overflow_index {
                 state.values_mut()[index].count = u64::MAX;
             }

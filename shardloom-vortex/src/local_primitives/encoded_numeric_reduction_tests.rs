@@ -32,7 +32,10 @@ fn assert_equal(actual: &SimpleAggregateStates, reference: &SimpleAggregateState
             reference.result_json().unwrap()
         );
         assert_eq!(actual.count, reference.count);
-        assert_eq!(actual.sum.to_bits(), reference.sum.to_bits());
+        assert_eq!(
+            actual.sum.total().to_bits(),
+            reference.sum.total().to_bits()
+        );
     }
 }
 
@@ -54,7 +57,7 @@ fn check(encoded: &ArrayRef, selection: Option<&[usize]>, functions: &[&str], of
             state.argument_offset = offset;
             // Nonzero carried state proves that a weighted multiply or new
             // chunk boundary cannot silently alter accumulation across calls.
-            state.sum = 7.0;
+            state.sum = super::super::NumericAggregateSum::Ordered(7.0);
             state.count = 2;
         }
     }
@@ -183,7 +186,7 @@ fn encoded_numeric_reduction_wide_fusion_preserves_offsets_and_mixed_measures() 
                 SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
             ) {
                 state.argument_offset = Some(i64::try_from(index).unwrap() - 45);
-                state.sum = 7.0;
+                state.sum = super::super::NumericAggregateSum::Ordered(7.0);
                 state.count = 2;
             }
         }

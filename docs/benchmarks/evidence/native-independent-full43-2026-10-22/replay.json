@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "oracle_cohorts": 2,
+  "complete_native_passes": 3,
+  "stopped_native_passes": 1,
+  "queries_per_complete_pass": 43,
+  "rows_per_complete_pass": 381,
+  "current_engine_execution_seconds": 49.953164785
+}

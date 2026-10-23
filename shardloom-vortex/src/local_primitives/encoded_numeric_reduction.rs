@@ -18,8 +18,8 @@ use vortex::encodings::runend::{RunEnd, RunEndArrayExt as _, RunEndArraySlotsExt
 
 use super::{
     AggregateDistinctValue, AggregateValueTransform, NativeNumericAccessorWork, NativeNumericOwner,
-    SimpleAggregateFunction, SimpleAggregateState, SimpleAggregateStates, StatValue,
-    int64_stat_to_float64, logical_field_from_native_array, simple_aggregate_max_value,
+    NumericAggregateSum, SimpleAggregateFunction, SimpleAggregateState, SimpleAggregateStates,
+    StatValue, int64_stat_to_float64, logical_field_from_native_array, simple_aggregate_max_value,
     simple_aggregate_min_value, stat_value_to_f64, uint64_stat_to_float64, usize_to_u64,
     vortex_error, vortex_scalar_to_stat_value,
 };
@@ -408,7 +408,7 @@ pub(super) fn update(
             })
             .count()
             >= 2;
-        let mut base_sum = 0.0;
+        let mut base_sum = NumericAggregateSum::default();
         let mut count = 0;
         // Select once per source column. Wide fused projections can contain
         // dozens of SUM/AVG states, none of which needs per-run dispatch.
@@ -433,7 +433,12 @@ pub(super) fn update(
             if fused {
                 let numeric = finite_numeric(value, None)?;
                 add(&mut count, weight)?;
-                ordered_add(&mut base_sum, numeric, weight)?;
+                add_repeated(
+                    &mut base_sum,
+                    numeric,
+                    weight,
+                    matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)),
+                )?;
             }
             for state in &mut weighted_states {
                 update_weighted(state, value, weight)?;
@@ -483,7 +488,7 @@ fn prefer_native_fused_additive(states: &SimpleAggregateStates, arrays: &[ArrayR
 fn finish_fused_column(
     states: &mut SimpleAggregateStates,
     column: usize,
-    base_sum: f64,
+    base_sum: NumericAggregateSum,
     count: u64,
 ) -> Result<()> {
     for state in &mut states.states {
@@ -494,12 +499,16 @@ fn finish_fused_column(
             )
         {
             let offset = state.argument_offset.unwrap_or(0);
-            let adjusted = base_sum + int64_stat_to_float64(offset) * uint64_stat_to_float64(count);
+            let adjusted =
+                base_sum.with_offset(int64_stat_to_float64(offset) * uint64_stat_to_float64(count));
             if !adjusted.is_finite() {
                 return Err(failed("fused argument offset became non-finite"));
             }
             add(&mut state.count, count)?;
-            ordered_add(&mut state.sum, adjusted, 1)?;
+            state.sum.merge(adjusted);
+            if !state.sum.is_finite() {
+                return Err(failed("numeric sum became non-finite"));
+            }
         }
     }
     states.fused_numeric_additive_updates = true;
@@ -526,7 +535,12 @@ fn update_weighted(state: &mut SimpleAggregateState, value: &StatValue, weight: 
         SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
             let numeric = finite_numeric(value, state.argument_offset)?;
             add(&mut state.count, weight)?;
-            ordered_add(&mut state.sum, numeric, weight)
+            add_repeated(
+                &mut state.sum,
+                numeric,
+                weight,
+                matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)),
+            )
         }
     }
 }
@@ -542,9 +556,14 @@ fn finite_numeric(value: &StatValue, offset: Option<i64>) -> Result<f64> {
     Ok(numeric)
 }
 
-fn ordered_add(sum: &mut f64, value: f64, count: u64) -> Result<()> {
+fn add_repeated(
+    sum: &mut NumericAggregateSum,
+    value: f64,
+    count: u64,
+    integer_input: bool,
+) -> Result<()> {
     for _ in 0..count {
-        *sum += value;
+        sum.add(value, integer_input);
         if !sum.is_finite() {
             return Err(failed("numeric sum became non-finite"));
         }

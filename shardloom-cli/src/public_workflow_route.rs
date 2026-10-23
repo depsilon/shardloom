@@ -8804,8 +8804,7 @@ fn parse_sql_regex_domain_expression(expression: &str) -> Option<&str> {
     let pattern = parse_sql_single_quoted_literal(parts[1])?;
     let replacement = parse_sql_single_quoted_literal(parts[2])?;
     (is_summary_identifier(column)
-        && pattern.contains("https?")
-        && pattern.contains("([^/]+)")
+        && pattern == r"^https?://(?:www\.)?([^/]+)/.*$"
         && replacement == "\\1")
         .then_some(column)
 }
@@ -17897,6 +17896,29 @@ mod tests {
         assert!(aggregate.contains(r#""op":"gt""#));
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn regex_domain_specialization_requires_the_complete_pattern_and_replacement() {
+        let expression = r"REGEXP_REPLACE(Referer, '^https?://(?:www\.)?([^/]+)/.*$', '\1')";
+        assert_eq!(
+            parse_sql_regex_domain_expression(expression),
+            Some("Referer")
+        );
+        for changed in [
+            expression.replace("^https?", "https?"),
+            expression.replace("/.*$", "/.*"),
+            expression.replace("/.*$", ".*$"),
+            expression.replace("(?:www\\.)?", "(?:WWW\\.)?"),
+            expression.replace("^https?", "(?i)^https?"),
+            expression.replace("'\\1'", "'prefix\\1'"),
+        ] {
+            assert_eq!(
+                parse_sql_regex_domain_expression(&changed),
+                None,
+                "{changed}"
+            );
+        }
     }
 
     #[test]

@@ -121,7 +121,13 @@ and no new installation or package publication was performed for this review.
 
 ## Full43 reference disposition
 
-The exact reference consumed by the current accepted Full43 explicitly declares
+This section records the original finite review. The subsequent
+[independent Full43 acceptance](native-independent-full43-2026-10-22.md)
+closes its missing-reference gap for the pinned 43 queries after integer/regex
+corrections. The original packet and conclusions about its own evidence remain
+unchanged.
+
+The exact reference consumed by that review's accepted Full43 explicitly declares
 `retained_native_regression` and `independent_correctness_oracle: false`.
 Its original run, summary, reference values and verification record are retained
 with their archive-member identities. The original 43-query, single-execution,

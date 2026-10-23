@@ -39,6 +39,7 @@ thread_local! {
 
 struct Recipe {
     columns: Vec<String>,
+    transform: AggregateValueTransform,
     dense_plan: Option<TransformedDictionaryDenseGeneralPlan>,
 }
 
@@ -76,7 +77,9 @@ impl Recipe {
         let partials = self
             .dense_plan
             .map(|plan| {
-                dictionary_group_partials::prepare(&accessor, plan, &|| worker.check_cancelled())
+                dictionary_group_partials::prepare(&accessor, self.transform, plan, &|| {
+                    worker.check_cancelled()
+                })
             })
             .transpose()?
             .flatten();
@@ -129,7 +132,7 @@ fn shape(states: &GroupedAggregateStates<'_>, columns: &[String]) -> bool {
         && states.group_columns[0].extra_column_indices.is_empty()
         && matches!(
             states.group_columns[0].transform,
-            AggregateValueTransform::UrlDomain
+            AggregateValueTransform::UrlDomain | AggregateValueTransform::RegexDomain
         )
         && !states.request.order_by.is_empty()
         && states.request.spill.is_none()
@@ -213,6 +216,7 @@ impl DictionaryPrepareWorkers {
                 }),
             )?,
             recipe: Arc::new(Recipe {
+                transform: states.group_columns[0].transform,
                 columns: columns.to_vec(),
                 dense_plan,
             }),

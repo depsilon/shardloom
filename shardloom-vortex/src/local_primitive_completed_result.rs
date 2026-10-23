@@ -61,6 +61,7 @@ fn transformed_dtype(dtype: DType, transform: AggregateValueTransform) -> Result
             Ok(DType::Primitive(PType::I64, Nullability::NonNullable))
         }
         AggregateValueTransform::UrlDomain
+        | AggregateValueTransform::RegexDomain
         | AggregateValueTransform::CaseSearchAdvZeroRefererElseEmpty => {
             Ok(DType::Utf8(nullability))
         }

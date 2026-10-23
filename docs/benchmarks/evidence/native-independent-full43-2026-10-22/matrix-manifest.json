@@ -1,0 +1,76 @@
+{
+  "status": "built_and_byte_verified_not_primary_acceptance",
+  "archive": {
+    "path": "matrix-records.json.xz",
+    "bytes": 4071672,
+    "sha256": "b91533b41e046dcfb4e7c4f50bd79f922161b8a81b58bbece4e9eb0ac5e965b4"
+  },
+  "uncompressed_bytes": 302400083,
+  "member_count": 11557,
+  "omitted_payload_count": 1307,
+  "readback_payload_count": 92,
+  "protocol": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/perf-12-protocol-951.json",
+    "bytes": 156011,
+    "sha256": "9f7439223d4329372102e8c5fa727a552980ff37d6ceccbd443707967cf5dae8"
+  },
+  "acceptance": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/current-matrix-verification-951.json",
+    "bytes": 348615,
+    "sha256": "4358c8d793819b55b533bd4e7c4fcda98d3d1d77d217303e3946601a0b9286f2"
+  },
+  "builder": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/build_matrix_packet_951.py",
+    "bytes": 8824,
+    "sha256": "de26e2d8ed77f016ade399db25b730866a1cc20e0d3faea93d4a217aded31b34"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/perf12-comparisons-20261022/verify_matrix_packet_951.py",
+    "bytes": 21587,
+    "sha256": "006a3282565ebffc903a26ea7eb25bfe5b21b6897596ba924d90758ab1777de6"
+  },
+  "original_repository": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "independent_full43": {
+    "review": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-independent-full43-2026-10-22/review.json",
+      "bytes": 132540,
+      "sha256": "17f7e025df3cc7760808394cfe1ff4f0389bfdd1fb8bb9c18034a45068abd2d8"
+    },
+    "packet": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-independent-full43-2026-10-22/records.json.xz",
+      "bytes": 3075208,
+      "sha256": "506e5555e20f77567dcc394e9b5f357e75a7d00a06a69a635e0c33563a33592a"
+    }
+  },
+  "trusted_replay_sources": [
+    {
+      "repository_path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/verify_packet_929.py",
+      "bytes": 19045,
+      "sha256": "88956f4f0b7188b9ee811f32d5d991b859a470421532df4859c763317894b69b"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/perf12-comparisons-2026-10-22/verify_collected_payloads.py",
+      "bytes": 10208,
+      "sha256": "cfc7f445f70d106b8218813028afc0f15f1d97369913ce317b4906c1ce052182"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/verify_correctness_packet_950.py",
+      "bytes": 24578,
+      "sha256": "7cf72df49bf2e27a779004164fbf844698ceb82f177752ce756ba10b9ae683a1"
+    },
+    {
+      "repository_path": "scripts/check_benchmark_artifact_completeness.py",
+      "bytes": 28662,
+      "sha256": "6aeecae7890154a924a18e6053815e33518c383ed0384103712205576948e0cd"
+    }
+  ],
+  "retained_reports": 18,
+  "storage_before": {
+    "workspace_bytes": 758755430,
+    "log_bytes": 45056,
+    "max_log_bytes": 201326592,
+    "free_bytes": 127163650048,
+    "reserved_candidate_bytes": 536870912,
+    "reserved_log_bytes": 0
+  }
+}

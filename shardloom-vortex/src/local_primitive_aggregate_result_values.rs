@@ -22,9 +22,9 @@ impl SimpleAggregateState {
             SimpleAggregateFunction::CountDistinct => {
                 Value::UInt(usize_to_u64(self.distinct_values.len())?)
             }
-            SimpleAggregateFunction::Sum if self.count > 0 => Value::Float(self.sum),
+            SimpleAggregateFunction::Sum if self.count > 0 => Value::Float(self.sum.total()),
             SimpleAggregateFunction::Avg if self.count > 0 => {
-                Value::Float(simple_average_value(self.sum, self.count))
+                Value::Float(simple_average_value(self.sum.total(), self.count))
             }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => Value::Null,
             SimpleAggregateFunction::Min => self.min.as_ref().map_or(Value::Null, Value::from),
@@ -56,9 +56,9 @@ impl CompactAggregateMeasureValue {
     ) -> Result<Value<'static>> {
         Ok(match function {
             SimpleAggregateFunction::Count => Value::UInt(self.count),
-            SimpleAggregateFunction::Sum if self.count > 0 => Value::Float(self.sum),
+            SimpleAggregateFunction::Sum if self.count > 0 => Value::Float(self.sum.total()),
             SimpleAggregateFunction::Avg if self.count > 0 => {
-                Value::Float(simple_average_value(self.sum, self.count))
+                Value::Float(simple_average_value(self.sum.total(), self.count))
             }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => Value::Null,
             _ => return Err(failed("compact measures admit COUNT/SUM/AVG only")),

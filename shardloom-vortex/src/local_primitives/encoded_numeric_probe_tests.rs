@@ -214,7 +214,7 @@ fn assert_probe_miss(array: &ArrayRef, calls: &Arc<AtomicUsize>, ctx: &mut Execu
         "total".into(),
     )]);
     let mut states = SimpleAggregateStates::new(&request, &columns).unwrap();
-    states.states[0].sum = 13.0;
+    states.states[0].sum = super::super::NumericAggregateSum::Ordered(13.0);
     states.states[0].count = 2;
     let before = states.states[0].result_json().unwrap();
     let mut work = NativeNumericAccessorWork::default();
@@ -222,7 +222,7 @@ fn assert_probe_miss(array: &ArrayRef, calls: &Arc<AtomicUsize>, ctx: &mut Execu
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(states.states[0].result_json().unwrap(), before);
     assert_eq!(states.states[0].count, 2);
-    assert_eq!(states.states[0].sum.to_bits(), 13_f64.to_bits());
+    assert_eq!(states.states[0].sum.total().to_bits(), 13_f64.to_bits());
     assert_eq!(work.encoded_reduction.calls, 0);
     assert_eq!(work.encoded_reduction.child_primitive_executions, 0);
     assert_eq!(work.encoded_reduction.structural_resolutions, 0);

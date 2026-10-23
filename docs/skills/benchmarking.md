@@ -86,6 +86,16 @@ preserve all earlier results, and do not rerun a suite merely to improve its
 presentation. An isolated observation returning near an earlier value does not
 by itself establish the cause of prior variation.
 
+Standing maintainer decision, October 22, 2026: investigate a material unexplained
+deviation before advancing the implementation queue. Attribute the engine-time
+difference to individual queries and check the recorded source, executable,
+input, reference, resources and supervision. Determine whether the cause is an
+isolated query path or shared engine behavior, then correct the demonstrated
+regression and validate it. Preserve the original observation and distinguish
+required correctness changes from avoidable execution overhead. Keep the isolated
+procedure and existing rules for additional diagnostic comparisons; do not
+silently repeat runs or substitute another clock.
+
 ## Local end-to-end observations
 
 - Freeze the source revision, build command/features, executable hash, workload,

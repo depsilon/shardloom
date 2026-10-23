@@ -54,7 +54,7 @@ fn assert_states_equal(left: &SimpleAggregateStates, right: &SimpleAggregateStat
         assert!(left.function == right.function);
         assert_eq!(left.column_index, right.column_index);
         assert_eq!(left.count, right.count);
-        assert_eq!(left.sum.to_bits(), right.sum.to_bits());
+        assert_eq!(left.sum.total().to_bits(), right.sum.total().to_bits());
         assert_eq!(left.min, right.min);
         assert_eq!(left.max, right.max);
         assert_eq!(left.distinct_values, right.distinct_values);
@@ -219,7 +219,7 @@ fn bound_numeric_updates_preserve_errors_and_partial_state_at_the_failing_row() 
                     (SimpleAggregateFunction::Sum, Some(0)),
                     (SimpleAggregateFunction::CountDistinct, Some(0)),
                 ]);
-                value.states[0].sum = f64::MAX;
+                value.states[0].sum = super::super::NumericAggregateSum::Ordered(f64::MAX);
                 value
             },
             numeric_accessor(vec![f64::MAX]),
@@ -309,7 +309,7 @@ fn bound_numeric_updates_keeps_the_existing_row_bounds_diagnostic_and_does_not_p
         .expect("valid prefix can be bound without reading future rows");
     let mut actual = template.clone();
     recipe.update(&mut actual, 0).unwrap();
-    assert_eq!(actual.states[0].sum.to_bits(), 1.0_f64.to_bits());
+    assert_eq!(actual.states[0].sum.total().to_bits(), 1.0_f64.to_bits());
     assert!(recipe.update(&mut actual, 1).is_err());
 
     let accessor = numeric_accessor(vec![1_i64]);
@@ -348,7 +348,7 @@ fn bound_numeric_updates_empty_and_all_null_keep_exact_counts() {
         }
         assert_eq!(actual.states[0].count, count as u64);
         assert_eq!(actual.states[1].count, 0);
-        assert_eq!(actual.states[1].sum.to_bits(), 0.0_f64.to_bits());
+        assert_eq!(actual.states[1].sum.total().to_bits(), 0.0_f64.to_bits());
         assert_eq!(actual.states[2].count, 0);
     }
 }
@@ -386,10 +386,13 @@ fn bound_numeric_updates_preserve_measure_order_with_distinct_between_updates() 
         template.states[1].distinct_values
     );
     assert_eq!(actual.states[2].count, 1);
-    assert_eq!(actual.states[2].sum.to_bits(), 2.0_f64.to_bits());
+    assert_eq!(actual.states[2].sum.total().to_bits(), 2.0_f64.to_bits());
     for index in [3, 4] {
         assert_eq!(actual.states[index].count, 0);
-        assert_eq!(actual.states[index].sum.to_bits(), 0.0_f64.to_bits());
+        assert_eq!(
+            actual.states[index].sum.total().to_bits(),
+            0.0_f64.to_bits()
+        );
     }
 }
 

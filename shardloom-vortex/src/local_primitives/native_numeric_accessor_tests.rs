@@ -307,7 +307,9 @@ fn native_numeric_owner_all_widths_keep_payload_identity_and_sliced_validity() {
             assert_eq!(owner.null_rows(true), vec![1]);
             assert_eq!(owner.non_null_count(Some(&[3, 1, 0, 3])).unwrap(), 3);
             assert_eq!(
-                aggregate_direct_numeric_sum_count(&accessor, None).unwrap(),
+                aggregate_direct_numeric_sum_count(&accessor, None)
+                    .map(|(count, sum)| (count, sum.total()))
+                    .unwrap(),
                 (3, 13.0)
             );
             assert_eq!(
@@ -391,11 +393,15 @@ fn native_numeric_owner_float_sum_preserves_widening_order_and_selection_duplica
         };
         let (accessor, _) = aggregate_column_accessor_with_work("ordered_measure", &input).unwrap();
         assert_eq!(
-            aggregate_direct_numeric_sum_count(&accessor, None).unwrap(),
+            aggregate_direct_numeric_sum_count(&accessor, None)
+                .map(|(count, sum)| (count, sum.total()))
+                .unwrap(),
             (3, expected)
         );
         assert_eq!(
-            aggregate_direct_numeric_sum_count(&accessor, Some(&[0, 3, 1, 1])).unwrap(),
+            aggregate_direct_numeric_sum_count(&accessor, Some(&[0, 3, 1, 1]))
+                .map(|(count, sum)| (count, sum.total()))
+                .unwrap(),
             (4, 2.0)
         );
     }
@@ -403,7 +409,9 @@ fn native_numeric_owner_float_sum_preserves_widening_order_and_selection_duplica
     let (accessor, _) = aggregate_column_accessor_with_work("nonfinite", &input).unwrap();
     assert!(aggregate_direct_numeric_sum_count(&accessor, None).is_err());
     assert_eq!(
-        aggregate_direct_numeric_sum_count(&accessor, Some(&[1])).unwrap(),
+        aggregate_direct_numeric_sum_count(&accessor, Some(&[1]))
+            .map(|(count, sum)| (count, sum.total()))
+            .unwrap(),
         (0, 0.0)
     );
 }

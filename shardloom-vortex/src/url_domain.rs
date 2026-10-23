@@ -17,6 +17,35 @@ pub(crate) fn shardloom_url_domain(value: &str) -> &str {
     &value[start..host_end]
 }
 
+/// Borrowed specialization of `REGEXP_REPLACE(value,
+/// '^https?://(?:www\.)?([^/]+)/.*$', '\1')` with default regex flags.
+/// This is deliberately separate from URL parsing: unmatched input is unchanged,
+/// and the capture includes ports, user information, query and fragment bytes.
+#[cfg(any(test, feature = "vortex-local-primitives"))]
+pub(crate) fn shardloom_regex_domain(value: &str) -> &str {
+    let Some(authority_and_path) = value
+        .strip_prefix("http://")
+        .or_else(|| value.strip_prefix("https://"))
+    else {
+        return value;
+    };
+    let Some(slash) = memchr::memchr(b'/', authority_and_path.as_bytes()) else {
+        return value;
+    };
+    // [^/]+ requires a nonempty capture; dot does not match a newline. A newline
+    // within the capture itself is allowed because it is not a slash.
+    if slash == 0 || authority_and_path.as_bytes()[slash + 1..].contains(&b'\n') {
+        return value;
+    }
+    let authority = &authority_and_path[..slash];
+    // For "www." alone the optional prefix must backtrack so that [^/]+ can
+    // match. Removing the prefix unconditionally would produce an empty capture.
+    authority
+        .strip_prefix("www.")
+        .filter(|capture| !capture.is_empty())
+        .unwrap_or(authority)
+}
+
 fn host_end_without_port(bytes: &[u8], start: usize, authority_end: usize) -> usize {
     if bytes.get(start) == Some(&b'[') {
         return memchr::memchr(b']', &bytes[start..authority_end])
@@ -54,7 +83,53 @@ fn ascii_starts_with_ignore_case(value: &[u8], prefix: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::shardloom_url_domain;
+    use super::{shardloom_regex_domain, shardloom_url_domain};
+
+    #[test]
+    fn regex_domain_matches_the_declared_pattern_and_borrows_its_input() {
+        let regex = regex::Regex::new(r"^https?://(?:www\.)?([^/]+)/.*$").unwrap();
+        for prefix in [
+            "",
+            "//",
+            "http://",
+            "https://",
+            "HTTP://",
+            "ftp://",
+            "\nhttp://",
+        ] {
+            for authority in [
+                "",
+                "www.",
+                "www.example",
+                "www.www.example",
+                "WWW.example",
+                "user:password@www.example:443",
+                "example?query#fragment",
+                "[::1]:80",
+                "東京🙂.example",
+                "example\nother",
+                "\0example",
+            ] {
+                for suffix in ["", "/", "/a/b?c#d", "/\n", "/a\nb", "/\r", "/🙂"] {
+                    let input = format!("{prefix}{authority}{suffix}");
+                    let expected = regex
+                        .captures(&input)
+                        .map_or(input.as_str(), |capture| capture.get(1).unwrap().as_str());
+                    let actual = shardloom_regex_domain(&input);
+                    assert_eq!(actual, expected, "{input:?}");
+                    let source = input.as_ptr().addr()..=input.as_ptr().addr() + input.len();
+                    assert!(source.contains(&actual.as_ptr().addr()));
+                    assert!(source.contains(&(actual.as_ptr().addr() + actual.len())));
+                }
+            }
+        }
+        assert_eq!(
+            shardloom_regex_domain("http://svpressa.ru"),
+            "http://svpressa.ru"
+        );
+        assert_eq!(shardloom_regex_domain("http://svpressa.ru/"), "svpressa.ru");
+        assert_eq!(shardloom_url_domain("http://svpressa.ru"), "svpressa.ru");
+    }
 
     fn check_borrowed_domain(input: &str, expected: &str) {
         let actual = shardloom_url_domain(input);

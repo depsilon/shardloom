@@ -175,7 +175,7 @@ mod tests {
                 expected.result_json().unwrap()
             );
             assert_eq!(actual.count, expected.count);
-            assert_eq!(actual.sum.to_bits(), expected.sum.to_bits());
+            assert_eq!(actual.sum.total().to_bits(), expected.sum.total().to_bits());
         }
     }
 
@@ -194,7 +194,8 @@ mod tests {
         for selection in [None, Some(selection.as_slice()), Some(&[])] {
             for additive in ["sum", "avg"] {
                 let mut actual = states(&["count", "count_distinct", "min", "max", additive]);
-                actual.states.last_mut().unwrap().sum = 7.0;
+                actual.states.last_mut().unwrap().sum =
+                    super::super::NumericAggregateSum::Ordered(7.0);
                 actual.states.last_mut().unwrap().count = 2;
                 let mut expected = actual.clone();
                 let work = consume(&mut actual, &array, &columns, selection, 1024, &mut ctx)
@@ -216,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn bounded_numeric_mixed_sign_rounding_keeps_one_ordered_accumulator() {
+    fn bounded_numeric_mixed_sign_integer_additions_preserve_compensation_across_windows() {
         const BIG: i64 = 1_i64 << 60;
         let session = vortex::session::VortexSession::default();
         let mut ctx = session.create_execution_ctx();
@@ -258,12 +259,18 @@ mod tests {
             for selection in [None, Some(selected.as_slice()), Some(&[])] {
                 let expected_rows = selection
                     .map_or_else(|| (0..values.len()).collect::<Vec<_>>(), <[usize]>::to_vec);
-                let expected_sum = expected_rows
-                    .iter()
-                    .fold(7.0, |sum, &row| sum + int64_stat_to_float64(values[row]));
+                // Every fixture integer is exactly representable before addition.
+                // An independent integer total therefore detects lost residues,
+                // including the seven carried in from the previous batch.
+                let exact_sum = 7_i128
+                    + expected_rows
+                        .iter()
+                        .map(|&row| i128::from(values[row]))
+                        .sum::<i128>();
+                let expected_sum = int64_stat_to_float64(i64::try_from(exact_sum).unwrap());
                 for additive in ["sum", "avg"] {
                     let mut actual = states(&[additive]);
-                    actual.states[0].sum = 7.0;
+                    actual.states[0].sum = super::super::NumericAggregateSum::Ordered(7.0);
                     actual.states[0].count = 2;
                     let work = consume(
                         &mut actual,
@@ -275,7 +282,10 @@ mod tests {
                     )
                     .unwrap()
                     .unwrap();
-                    assert_eq!(actual.states[0].sum.to_bits(), expected_sum.to_bits());
+                    assert_eq!(
+                        actual.states[0].sum.total().to_bits(),
+                        expected_sum.to_bits()
+                    );
                     assert_eq!(
                         actual.states[0].count,
                         2 + u64::try_from(expected_rows.len()).unwrap()
