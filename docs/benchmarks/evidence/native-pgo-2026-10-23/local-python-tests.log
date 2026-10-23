@@ -1,0 +1,8 @@
+test_closed_drop_replays_without_engine_or_dataset (python.tests.test_native_pgo_evidence.NativePgoEvidenceTests.test_closed_drop_replays_without_engine_or_dataset) ... ok
+test_replay_with_sequential_float_sum (python.tests.test_native_pgo_evidence.NativePgoEvidenceTests.test_replay_with_sequential_float_sum) ... ok
+test_semantic_and_archive_controls (python.tests.test_native_pgo_evidence.NativePgoEvidenceTests.test_semantic_and_archive_controls) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 68.520s
+
+OK

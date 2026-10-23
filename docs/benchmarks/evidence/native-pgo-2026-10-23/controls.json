@@ -1,0 +1,351 @@
+{
+  "status": "passed",
+  "negative_cases": 22,
+  "all_rejected": true,
+  "original_passed_before_and_after": true,
+  "packet_sha256": "76762a527aabceb972a2d1c9760f1748ed420f78ed610d6ee4bdc74f24f9cdbc",
+  "verifier_sha256": "3489b8ebff827d6b86af37e834fac99f2b338028471abae76cd636e500f1a99f",
+  "results": [
+    {
+      "case": "standard_query_coverage",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "for r in summary['records']] == expected",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 981, in verify\n    results['full43'] = [replay.full43(name) for name in ('standard-full43', 'paired-a', 'paired-b')]\n                         ~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 542, in full43\n    assert [(r['query'], r.get('role', 'candidate')) for r in summary['records']] == expected\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "complete_result",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "self.equivalent(actual, reference",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 981, in verify\n    results['full43'] = [replay.full43(name) for name in ('standard-full43', 'paired-a', 'paired-b')]\n                         ~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 569, in full43\n    assert self.equivalent(actual, reference['values'][q])\n           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "engine_clock",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "row[key] == value",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 981, in verify\n    results['full43'] = [replay.full43(name) for name in ('standard-full43', 'paired-a', 'paired-b')]\n                         ~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 573, in full43\n    assert row[key] == value\n           ^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "fallback_flag",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "v is False or (type(v) is str and v == 'false')",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 981, in verify\n    results['full43'] = [replay.full43(name) for name in ('standard-full43', 'paired-a', 'paired-b')]\n                         ~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 567, in full43\n    fields = self.no_fallback(self.strict_json(raw.decode()))\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 277, in no_fallback\n    assert all(v is False or (type(v) is str and v == 'false') for k, v in fields.items()\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n               if k.endswith(('fallback_attempted', 'external_engine_invoked')))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "pair_order",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "for r in summary['records']] == expected",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 981, in verify\n    results['full43'] = [replay.full43(name) for name in ('standard-full43', 'paired-a', 'paired-b')]\n                         ~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 542, in full43\n    assert [(r['query'], r.get('role', 'candidate')) for r in summary['records']] == expected\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "training_coverage",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "len(data['records']) == 53",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 464, in training\n    assert len(data['records']) == 53\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "profile_freshness",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "data['profile_directory_empty_before']",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 460, in training\n    assert data['role'] == 'train' and data['profile_directory_empty_before']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "process_drain",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "row['process_group_drained']",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 492, in training\n    raw = self.command(row)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 251, in command\n    assert row['process_group_drained'] and row['direct_child_reaped']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "python_values",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "complete result mismatch",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 496, in training\n    native = self.python_training(data['native_python'], corpus,\n                                 self.builds['instrumented']['artifacts']['library'], True)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 326, in python_training\n    ordered_values(row['values'], case['expected'], case['ordered'])\n    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 162, in ordered_values\n    assert exact(actual, expected), 'complete result mismatch'\n           ~~~~~^^^^^^^^^^^^^^^^^^\nAssertionError: complete result mismatch\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "python_strategy",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "row['strategy'] == fields.get",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 496, in training\n    native = self.python_training(data['native_python'], corpus,\n                                 self.builds['instrumented']['artifacts']['library'], True)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 328, in python_training\n    assert row['strategy'] == fields.get('local_primitive_aggregate_update_strategy')\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "python_row_count",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "int(fields['output_row_count'])",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 496, in training\n    native = self.python_training(data['native_python'], corpus,\n                                 self.builds['instrumented']['artifacts']['library'], True)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 327, in python_training\n    assert int(fields['output_row_count']) == len(row['values'])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "typed_fallback",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "v is False or (type(v) is str and v == 'false')",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 980, in verify\n    results['training'] = replay.training()\n                          ~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 496, in training\n    native = self.python_training(data['native_python'], corpus,\n                                 self.builds['instrumented']['artifacts']['library'], True)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 324, in python_training\n    fields = self.no_fallback(row['envelope'], typed=True)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 277, in no_fallback\n    assert all(v is False or (type(v) is str and v == 'false') for k, v in fields.items()\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n               if k.endswith(('fallback_attempted', 'external_engine_invoked')))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "heldout_exact_float",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "complete result mismatch",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 982, in verify\n    results['heldout'] = {order: replay.heldout(order) for order in ('a', 'b')}\n                                 ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 622, in heldout\n    self.query(row, case, row['workers'], data['artifacts'][row['role']]['cli']['path'],\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n               sources[case['dataset']]['path'])\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 290, in query\n    ordered_values(actual, case['expected'], case['ordered'])\n    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 162, in ordered_values\n    assert exact(actual, expected), 'complete result mismatch'\n           ~~~~~^^^^^^^^^^^^^^^^^^\nAssertionError: complete result mismatch\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "pressure_grant",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "case['peak_reserved_bytes'] <= 1 << 30",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 983, in verify\n    results['pressure'] = {role: replay.pressure_role(role) for role in ('control', 'candidate')}\n                                 ~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 722, in pressure_role\n    'public': self.public_pressure(data['streaming'])}\n              ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 702, in public_pressure\n    assert 0 < case['peak_reserved_bytes'] <= 1 << 30\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "pressure_coverage",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "for c in data['cases']] == expected_names",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 983, in verify\n    results['pressure'] = {role: replay.pressure_role(role) for role in ('control', 'candidate')}\n                                 ~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 722, in pressure_role\n    'public': self.public_pressure(data['streaming'])}\n              ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 648, in public_pressure\n    assert [c['name'] for c in data['cases']] == expected_names\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "package_test_coverage",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "proof['integration'] == data['native_tests']",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 984, in verify\n    results['package'] = {role: replay.package(role) for role in ('control', 'candidate')}\n                                ~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 733, in package\n    assert proof['integration'] == data['native_tests'] == {\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        'tests': 121, 'failures': 0, 'errors': 0, 'skipped': 0, 'status': 'passed'}\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "candidate_sources",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "data['source_before'] == self.protocol['sources']",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 979, in verify\n    results['builds'][role] = replay.build(role)\n                              ~~~~~~~~~~~~^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 387, in build\n    data = self.stage(role, status='failed' if role == 'control' else 'passed')\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 237, in stage\n    assert data['source_before'] == self.protocol['sources']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "compiler_failure_preserved",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "PROTOCOL_SHA256",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 976, in verify\n    replay = Replay(root)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 214, in __init__\n    assert digest(self.bound(self.manifest['protocol']).read_bytes()) == PROTOCOL_SHA256\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "layout_admission",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "sum(t['batches'] for t in tasks) == saved['source_batches']",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 986, in verify\n    results['admission'] = replay.admission()\n                           ~~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 916, in admission\n    assert sum(t['batches'] for t in tasks) == saved['source_batches']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "retention_decision",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "data['decision'] == 'drop'",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 987, in verify\n    results['closeout'] = replay.closeout(results)\n                          ~~~~~~~~~~~~~~~^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 939, in closeout\n    assert data['status'] == 'closed' and data['decision'] == 'drop'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "unrun_ingests",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "data['candidate_ingest_count'] == 0",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 987, in verify\n    results['closeout'] = replay.closeout(results)\n                          ~~~~~~~~~~~~~~~^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 943, in closeout\n    assert data['native_control_ingest_count'] == 1 and data['candidate_ingest_count'] == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "missing_closeout",
+      "rejected": true,
+      "returncode": 1,
+      "semantic_diagnostic": "closed investigation requires its closeout record",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 1012, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 999, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 987, in verify\n    results['closeout'] = replay.closeout(results)\n                          ~~~~~~~~~~~~~~~^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-pgo-2026-10-23/verify_pgo.py\", line 936, in closeout\n    assert self.manifest['closeout'] is not None, 'closed investigation requires its closeout record'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: closed investigation requires its closeout record\n",
+      "outer_identities_repaired": true
+    }
+  ],
+  "native_queries_executed": 0,
+  "source_data_required": false,
+  "archive_trust": {
+    "status": "passed",
+    "verifier_sha256": "3489b8ebff827d6b86af37e834fac99f2b338028471abae76cd636e500f1a99f",
+    "negative_controls": [
+      {
+        "case": "optimized_flag",
+        "rejected": true,
+        "returncode": 1
+      },
+      {
+        "case": "optimized_environment",
+        "rejected": true,
+        "returncode": 1
+      },
+      {
+        "case": "member_limit",
+        "rejected": true,
+        "diagnostic": "archive member size exceeds limit",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "total_limit",
+        "rejected": true,
+        "diagnostic": "archive total size exceeds limit",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "count_limit",
+        "rejected": true,
+        "diagnostic": "archive member count exceeds limit",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "duplicate",
+        "rejected": true,
+        "diagnostic": "duplicate archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "parent_path",
+        "rejected": true,
+        "diagnostic": "unsafe archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "absolute_path",
+        "rejected": true,
+        "diagnostic": "unsafe archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "backslash_path",
+        "rejected": true,
+        "diagnostic": "unsafe archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "drive_path",
+        "rejected": true,
+        "diagnostic": "unsafe archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "long_path",
+        "rejected": true,
+        "diagnostic": "unsafe archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "symlink",
+        "rejected": true,
+        "diagnostic": "unsafe archive member",
+        "bounded_partial_extraction": true
+      },
+      {
+        "case": "extended_header_limit",
+        "rejected": true,
+        "rejected_before_file_write": true
+      },
+      {
+        "case": "nested_gzip_size",
+        "rejected": true
+      },
+      {
+        "case": "nested_gzip_concatenated",
+        "rejected": true
+      },
+      {
+        "case": "nested_member_limit",
+        "rejected": true,
+        "diagnostic": "nested archive member size exceeds limit"
+      },
+      {
+        "case": "nested_total_limit",
+        "rejected": true,
+        "diagnostic": "nested archive total size exceeds limit"
+      },
+      {
+        "case": "nested_count_limit",
+        "rejected": true,
+        "diagnostic": "nested archive member count exceeds limit"
+      },
+      {
+        "case": "nested_duplicate",
+        "rejected": true,
+        "diagnostic": "duplicate nested archive member"
+      },
+      {
+        "case": "nested_parent_path",
+        "rejected": true,
+        "diagnostic": "unsafe nested archive member"
+      },
+      {
+        "case": "nested_extended_header",
+        "rejected": true,
+        "diagnostic": "nested xz payload exceeds limit or is incomplete"
+      },
+      {
+        "case": "nested_trailing_stream",
+        "rejected": true,
+        "diagnostic": "nested xz trailing data"
+      },
+      {
+        "case": "nested_compressed_limit",
+        "rejected": true,
+        "diagnostic": "nested xz compressed payload exceeds limit"
+      }
+    ],
+    "exact_limit_positive_passed": true,
+    "production_limits": {
+      "member_bytes": 33554432,
+      "total_bytes": 134217728,
+      "members": 4096
+    },
+    "exercised_limits": {
+      "member_bytes": 4,
+      "total_bytes": 8,
+      "members": 3
+    },
+    "streaming_without_member_index": true,
+    "native_queries_executed": 0
+  },
+  "helper_authentication": [
+    {
+      "member": "repo/scripts/clickbench_reference_packet.py",
+      "rejected_before_execution": true,
+      "manifest_identity_repaired": true
+    },
+    {
+      "member": "repo/python/src/shardloom/_result_schema.py",
+      "rejected_before_execution": true,
+      "manifest_identity_repaired": true
+    },
+    {
+      "member": "repo/scripts/csv.py",
+      "rejected_before_execution": true,
+      "manifest_identity_repaired": true
+    },
+    {
+      "member": "untrusted-link",
+      "rejected_before_execution": true
+    }
+  ]
+}

@@ -1,0 +1,340 @@
+{
+  "schema": "shardloom.current_source_pgo_closeout.v1",
+  "status": "closed",
+  "decision": "drop",
+  "protocol": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-protocol-976.json",
+    "bytes": 557096,
+    "sha256": "a4a4794979bd3b2f487b9b23c595dc286a6daf0f2f1207e29b1334b03b791b44"
+  },
+  "reason": "The historical byte-identity comparator was prepared at different parallelism. The unmodified control fails that frozen ingest gate; required matched complete-workflow savings and break-even are unavailable.",
+  "failure_attribution": "Existing metadata and memory admission reproduces both layouts exactly: historical requested/admitted parallelism 12/10 gives 32768-row batches and 3120 batches; experiment 2/2 gives 262144-row batches and 423 batches. No source-policy change is needed to explain the difference.",
+  "gate_changed": false,
+  "failed_observation_replaced": false,
+  "historical_gate_requires_same_byte_identity": true,
+  "native_control_ingest_completed": true,
+  "native_control_ingest_count": 1,
+  "candidate_ingest_count": 0,
+  "planned_native_ingests": 4,
+  "unrun_ingest_roles": [
+    "candidate",
+    "candidate",
+    "control"
+  ],
+  "complete_workflow_savings": null,
+  "break_even_reuses": null,
+  "setup_diagnostics": {
+    "clock_scope": "diagnostic complete stage/process clocks; never engine execution",
+    "corpus_generation_seconds": 26.652019541012123,
+    "stage_seconds": {
+      "control": 503.2550099589862,
+      "instrumented": 616.1968685830943,
+      "training": 12.0132123749936,
+      "merge": 1.1574267919640988,
+      "candidate": 425.0465886250604
+    },
+    "additional_setup_seconds": 577.8111059571384,
+    "reuse_count_evidenced": null
+  },
+  "standard_full43_engine_seconds": 53.109073585,
+  "paired_full43": [
+    {
+      "order": "a",
+      "engine_totals": {
+        "control": 50.401856537,
+        "candidate": 50.195823624
+      },
+      "engine_gain_fraction": 0.00408780404445519,
+      "engine_gate_passed": true,
+      "deviation_queries": [
+        2,
+        4,
+        16,
+        18,
+        24,
+        38
+      ]
+    },
+    {
+      "order": "b",
+      "engine_totals": {
+        "control": 50.835039255,
+        "candidate": 50.652708911
+      },
+      "engine_gain_fraction": 0.003586706072663537,
+      "engine_gate_passed": true,
+      "deviation_queries": [
+        3,
+        4,
+        21,
+        37,
+        41
+      ]
+    }
+  ],
+  "per_query_deviation_adjudication": {
+    "repeated_in_both_orders": [
+      4
+    ],
+    "q4": [
+      {
+        "query": 4,
+        "control_engine_seconds": 0.495365249,
+        "candidate_engine_seconds": 0.730426334,
+        "delta_seconds": 0.235061085,
+        "deviation_triggered": true
+      },
+      {
+        "query": 4,
+        "control_engine_seconds": 0.492065791,
+        "candidate_engine_seconds": 0.730968917,
+        "delta_seconds": 0.23890312600000002,
+        "deviation_triggered": true
+      }
+    ],
+    "q4_conclusion": "Repeated AVG(UserID) slowdown in engine time and native child CPU with unchanged physical strategy/source/settings is consistent with a localized PGO compiler tradeoff; exact generated-code cause is not isolated.",
+    "other_deviations": "Threshold crossings and host observations are retained; their per-query causes are not isolated. They do not prove independent regressions or justify discarding samples.",
+    "threshold_is_investigation_trigger_not_automatic_rejection": true,
+    "all_physical_strategies_unchanged": true
+  },
+  "heldout": [
+    {
+      "order": "a",
+      "calls": 102,
+      "engine_totals": {
+        "control": 0.33668523899999997,
+        "candidate": 0.239982176
+      },
+      "gate_passed": true,
+      "deviations": []
+    },
+    {
+      "order": "b",
+      "calls": 102,
+      "engine_totals": {
+        "candidate": 0.271239005,
+        "control": 0.325355005
+      },
+      "gate_passed": true,
+      "deviations": []
+    }
+  ],
+  "control_layout_diagnostic": {
+    "queries": 43,
+    "complete_result_rows": 381,
+    "engine_seconds": 43.268958791,
+    "performance_comparison": false,
+    "complete_query_values_match_independent_reference": true,
+    "all_column_value_equivalence_claim": false
+  },
+  "training": {
+    "cli_queries": 48,
+    "native_preparations": 2,
+    "native_python_operations": 20,
+    "native_python_complete_value_checks": 19,
+    "strategy_families": 9,
+    "workers": [
+      1,
+      4,
+      12
+    ],
+    "pressure_calls": 5,
+    "full43_or_heldout_used": false
+  },
+  "pressure": {
+    "roles": [
+      "control",
+      "candidate"
+    ],
+    "custom_calls_each": 5,
+    "public_cases_each": 16,
+    "actual_spill_quota_and_cleanup_checked": true,
+    "larger_than_public_memory_grant_claim": false
+  },
+  "package": {
+    "native_binding_tests_each": 121,
+    "roles": [
+      "control",
+      "candidate"
+    ],
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "scope": "current macOS arm64 host, cp310 abi3 wheel on Python 3.12 only"
+  },
+  "compiler": {
+    "profile_scope": "Rust only; C and C++ profiling disabled equally for all roles",
+    "native_objects_checked_each": 39,
+    "fresh_raw_profiles": 2,
+    "candidate_missing_function_profile_warnings": 3922,
+    "profile_hash_mismatch_warnings": 0,
+    "stale_profile_reuse": false
+  },
+  "sources": {
+    "all_source_files": 2243,
+    "native_source_files": 1922,
+    "exactly_unchanged": true
+  },
+  "portable_release_default": "unchanged portable ThinLTO, no PGO profile",
+  "release_default_changed": false,
+  "publication_attempted": false,
+  "competitive_gate_completion_claim": false,
+  "queue_direction": "Maintainer pauses broader required/conditional/breadth queue after this finite investigation. Next authorized work is unused-artifact/code cleanup and a source-grounded material compute-optimization review; isolated Full43 is the acceptance check for any selected implementation.",
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-protocol-976.json",
+      "bytes": 557096,
+      "sha256": "a4a4794979bd3b2f487b9b23c595dc286a6daf0f2f1207e29b1334b03b791b44"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-readback-amendment-977.json",
+      "bytes": 2327,
+      "sha256": "bcd7b0896413ce0733fc39ea5df4ef11b91ee10b20b5764e3d44c5ff3f5a9027"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-evaluation-binding-977.json",
+      "bytes": 1566,
+      "sha256": "c361fb4bde9c7a49c72c763ca55755da781799955dccddc6ca1761650d56c030"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-ingest-amendment-980.json",
+      "bytes": 5353,
+      "sha256": "3141b0b5b501ce652b8ef82d7c7d2054baa2c50cfafbe753a35ceb68dc1830b0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-control-ingest-mismatch-980.json",
+      "bytes": 1006,
+      "sha256": "de17a736f2194c39f774095bb1f19f6173b21fde64a050afae616b91f219962b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-ingest-layout-provenance-981b.json",
+      "bytes": 27079,
+      "sha256": "5e9fcab169e43bd2047241a6248a195e0e3f1c58675c6d9ba3936d107e62e733"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-ingest-admission-replay-981.json",
+      "bytes": 57779,
+      "sha256": "8d548bcfa7814a546944d4f6ce40aabdd8b3579ee5980311a8749a6a7f77e679"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-standard-deviation-review-979.json",
+      "bytes": 171198,
+      "sha256": "0e4adb45104d9c89d318d73c6dffdc4c2ed42ae239de9f0f9f18c9848896da66"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-paired-a-deviation-review-979.json",
+      "bytes": 157538,
+      "sha256": "24837386b1234e6162f7821e26dac12d8bbffc68c57c488ead8c0d7188473768"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-paired-b-deviation-review-979.json",
+      "bytes": 157807,
+      "sha256": "8b97c0358470e85e733a8f921d0558527571ea90e37f2e861ced6ada54791aaa"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-generation-966/generation.json",
+      "bytes": 1506,
+      "sha256": "ecca02163db9bd5fec1ceeb9f6bb1aa0fdd1646211522b90bcdc4285a564412d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/candidate/summary.json",
+      "bytes": 600857,
+      "sha256": "ce007cec154606fdab03abb5150898e1bb288ee25b357306b87a2a035d92af39"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control/summary.json",
+      "bytes": 290382,
+      "sha256": "e6072a9b6a6227af563ee1cf527110d8ec28b429e3df49e46148eb4d381a60d4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-admission/summary.json",
+      "bytes": 575735,
+      "sha256": "a0cadbcc8b39f21c45e26b24f7dbd614643be54474aa703879f6cf33830478b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-ingest-correctness/summary.json",
+      "bytes": 610576,
+      "sha256": "c6564778bf3d917933d5ab5cc4a2ebcc71779e895785213219fb8c01b18dac9a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-recovery/summary.json",
+      "bytes": 597345,
+      "sha256": "e9b4adc54740e3b82b92809f3714444dcbfbbae414c95b5a635f130f7394345c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/heldout-a/summary.json",
+      "bytes": 4932575,
+      "sha256": "f1b674051c4a7798199eabd8deefb89f23bd6ae3aef88f6a49e549b8224bacd2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/heldout-b/summary.json",
+      "bytes": 4932425,
+      "sha256": "11e42e2f2a7ea1f108dd588a7f7c36741f23999855693d153d0eb62aebf5cf8e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/ingest-1/summary.json",
+      "bytes": 287532,
+      "sha256": "dd19e6668c68a1bf33bebf50228192f47cf9705be406c830ead01b942bc53bca"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/ingest-interpreter-preflight/summary.json",
+      "bytes": 573038,
+      "sha256": "4519b706fb70940fcb1b3ab0588759acccb0254e54afc92c83f1cf8ab9087bd1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/ingest-recovered-1/summary.json",
+      "bytes": 288597,
+      "sha256": "bae8058e9a8543d87e6b01940bdb631ba12e468114fdfff8136e7b913c7d99f6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/instrumented/summary.json",
+      "bytes": 601068,
+      "sha256": "ed933711eb2a18875723fef197af56c32ad808c5320accd64728bfbf07d99eb6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/merge/summary.json",
+      "bytes": 575779,
+      "sha256": "ac23f020c938c0dd47f8c6c15b83e1c7a932a4dde382c35275e2577bd80a3b62"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-candidate/summary.json",
+      "bytes": 574264,
+      "sha256": "48242e04b4cb9c3b0d4c94c9a9326161e3fdd85056605e87e04e4abea0d40d6f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/package-control/summary.json",
+      "bytes": 574281,
+      "sha256": "b2c51c37aab6e7dedd116fde0a24478b6446cb910b94da55b46443d0dbd65c35"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/paired-a/summary.json",
+      "bytes": 706181,
+      "sha256": "6c636cfae186e2e96ccd61c2fada8de61c6f422a9a0acd5f71bac0080b23a794"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/paired-b/summary.json",
+      "bytes": 710753,
+      "sha256": "582b94538c252a7b2b9f8f6e810f571deddc3f8f52f7c99808e47b5533b4163f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-candidate/summary.json",
+      "bytes": 576164,
+      "sha256": "daba3126ecebdbed1173878c865f4237f885c6b87058eddb25dd8860a8717d12"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/pressure-control/summary.json",
+      "bytes": 576172,
+      "sha256": "ad444a797c8822f3c57b640190190635943bad2dfd14c2c85da49531ea3eec4d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/standard-full43/summary.json",
+      "bytes": 680363,
+      "sha256": "6e66aaa2d51a59114f560f48554d6e1c1c52e10869c8b7bdf0e7dffc208ba802"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/training/summary.json",
+      "bytes": 2618215,
+      "sha256": "77b96a3b3505b259678e16d7e56b7c2f5458e1c5315ecc963e93f737d99842cd"
+    }
+  ]
+}

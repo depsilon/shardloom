@@ -1,0 +1,46 @@
+{
+  "schema": "shardloom.pgo_closeout_validation.v1",
+  "status": "passed",
+  "native_source_files_unchanged": 1922,
+  "checks": [
+    {
+      "command": "cargo fmt --all -- --check",
+      "status": "passed"
+    },
+    {
+      "command": "cargo test --locked --offline -p shardloom-contract-tests --test release_readiness_metadata",
+      "status": "passed",
+      "tests": 58,
+      "failures": 0
+    },
+    {
+      "command": "python3 -B -m unittest python.tests.test_native_pgo_evidence -v",
+      "status": "passed",
+      "tests": 3,
+      "semantic_and_protocol_controls": 22,
+      "archive_controls": 23,
+      "helper_and_symlink_controls": 4,
+      "sequential_float_accumulation_replay": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "changed-document local link and native source identity audit",
+      "status": "passed"
+    }
+  ],
+  "native_queries_executed": 0,
+  "workspace_clippy_and_tests": "Fresh PR CI required; not repeated locally for evidence/document-only changes on 1922 unchanged Rust/Cargo files. Previous exact-source restoration checks are retained in the scalar-region restoration packet.",
+  "adversarial_review": {
+    "failure_masking": "Failed compiler/wrapper/ingest records retained; missing closeout rejected; no replacement observation or relaxed retention gate.",
+    "replay_trust": "Pinned full helper trees authenticated before import; bounded archive and direct-directory reads; symlinks and optimized Python rejected.",
+    "claim_limits": "No complete ingest workflow score, no all-column equivalence, no matched layout performance claim, no multi-platform package acceptance or release promotion."
+  },
+  "document_contract_log": {
+    "file": "local-document-contracts.log.gz",
+    "raw_bytes": 6240,
+    "raw_sha256": "df67d7215667afaf3bf0be7b670eb1f16400844df658597c1a953cc9a827b16a"
+  }
+}
