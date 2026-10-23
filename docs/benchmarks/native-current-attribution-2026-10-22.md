@@ -6,8 +6,11 @@ Status: **baseline attribution verified; no region or PGO benefit established**.
 This completes the finite current-baseline diagnostic prerequisite under
 `PERF-01.attribution` and supplies source-level evidence for later
 `PERF-13.pgo` intake. It does not complete either owner or admit training.
-The [canonical sequence](../architecture/phased-execution-plan.md#competitive-prerequisites-and-four-investigations)
-still requires region decisions before the four conditional investigations.
+The [scalar-region decision](native-scalar-regions-2026-10-22.md) subsequently
+rejects the candidate and restores all 1,922 Rust/Cargo source hashes to this
+baseline. This attribution remains source-valid for the separate PGO protocol.
+The three region-dependent investigations remain blocked under the
+[canonical sequence](../architecture/phased-execution-plan.md#competitive-prerequisites-and-four-investigations).
 
 ## Bound workload and interpretation
 
@@ -48,8 +51,8 @@ exact in F64; large-integer compensated and floating evaluation policies remain
 their existing contracts. Current source supports a prospective opportunity,
 not a measured complete-workload gain.
 
-PGO remains a separate investigation. Once earlier region decisions settle,
-bind the resulting source and freeze representative training, independent
+PGO remains a separate investigation. The finite region decision is now settled;
+on the exactly restored source, freeze representative training, independent
 held-out evaluation, fresh control/instrumented/profile-use builds, portable
 package correctness, complete query/ingest/pressure controls and compilation,
 training and transfer break-even. Refresh attribution if an accepted change
@@ -85,6 +88,9 @@ alter result coverage, query identity, counters, clocks, source excerpts,
 raw/demangled symbols, stack counts, observation admission and cleanup. They
 repair outer hashes before replay, so rejection exercises semantic checks.
 Original unsuccessful and successful diagnostic evidence remains preserved.
+The runnable [corruption checks](evidence/native-current-attribution-2026-10-22/test_attribution.py)
+and positive replay are also discovered through `test_native_region_evidence.py`
+in the existing Python CI shard, using a relocated evidence directory.
 
 No compiler profile, dependency, native output format, public capability or
 release is promoted by this report. `fallback_attempted=false` and

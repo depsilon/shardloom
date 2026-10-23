@@ -7,6 +7,15 @@ finite projection-request candidate was rejected and removed. No new ordered
 candidate, preparation policy or topology comparison is admitted. These records
 do not complete the three conditional substeps or their broader owners.
 
+October 22 follow-up: the materially different
+[bounded scalar-region candidate](../benchmarks/native-scalar-regions-2026-10-22.md)
+also fails its frozen retention and metadata-control gates and is removed.
+Its exact local reduction is not retained; the accepted engine source is
+restored exactly. All three dependencies below therefore remain missing.
+No ordered-candidate, joint-preparation or topology comparison is credited as
+completed. The separate PGO attribution remains bound to the restored baseline.
+The historical source review below retains its original October 20 scope.
+
 The latest October 21 maintainer decision schedules these prerequisites
 **after required competitive gaps and before the four pending investigations**.
 Additional breadth is optional, comes after those investigations, and may never

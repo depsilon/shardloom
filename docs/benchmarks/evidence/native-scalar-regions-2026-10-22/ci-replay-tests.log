@@ -1,0 +1,8 @@
+test_current_attribution_and_semantic_controls (test_native_region_evidence.NativeRegionEvidenceTests.test_current_attribution_and_semantic_controls) ... ok
+test_region_rejection_and_semantic_controls (test_native_region_evidence.NativeRegionEvidenceTests.test_region_rejection_and_semantic_controls) ... ok
+test_restoration_and_semantic_controls (test_native_region_evidence.NativeRegionEvidenceTests.test_restoration_and_semantic_controls) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 13.737s
+
+OK

@@ -1,0 +1,116 @@
+{
+  "status": "passed",
+  "negative_cases": 13,
+  "all_rejected": true,
+  "original_passed_before_and_after": true,
+  "packet_sha256": "d79e24b01ee9d04efa0167895fce6d41f072c4053c14f2a8674bf9db21c81c9d",
+  "verifier_sha256": "1f92c42f12d83f5f2e3e5f0e2b4b6791dff50629d80bc266213d5e84bdc94c4d",
+  "results": [
+    {
+      "case": "standard_query_coverage",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 215, in verify\n    assert [(r['query'], r['run']) for r in single['records']] == [(q, 1) for q in range(1, 44)]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "complete_result",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError: standard-q3",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 225, in verify\n    singles.append(raw_call(row, standard_log('.stdout.json'), standard_log('.timing.json'),\n                   ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        reference['values'][row['query']], 'candidate', 'standard-q' + str(row['query']), 12))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 190, in raw_call\n    assert (exact(actual, expected) if case else equivalent(actual, expected)), label\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: standard-q3\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "engine_clock",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError: ('standard-q3', 'engine_execution_seconds')",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 225, in verify\n    singles.append(raw_call(row, standard_log('.stdout.json'), standard_log('.timing.json'),\n                   ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        reference['values'][row['query']], 'candidate', 'standard-q' + str(row['query']), 12))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 196, in raw_call\n    assert row[key] == value, (label, key)\n           ^^^^^^^^^^^^^^^^^\nAssertionError: ('standard-q3', 'engine_execution_seconds')\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "fallback_flag",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "ValueError: unsafe execution evidence: fallback_attempted",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 225, in verify\n    singles.append(raw_call(row, standard_log('.stdout.json'), standard_log('.timing.json'),\n                   ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        reference['values'][row['query']], 'candidate', 'standard-q' + str(row['query']), 12))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 187, in raw_call\n    fields = report_fields(envelope)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/region-negative-25q105ue/repo/scripts/native_workflow_protocol.py\", line 89, in report_fields\n    raise ValueError(f\"unsafe execution evidence: {key}\")\nValueError: unsafe execution evidence: fallback_attempted\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "pair_order",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 262, in verify\n    assert [(r['case'], r['role']) for r in stage['records']] == expected_order\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "target_activation",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError: heldout-A-t_signed-candidate",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 331, in verify\n    raw_rows.append(raw_call(row, stdout, timing, expected['values'], row['role'],\n                    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        name + '-' + row['case'] + '-' + row['role'], policy['requested_parallelism'], case))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 201, in raw_call\n    activation(fields, role, label, requested_parallelism, case)\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 162, in activation\n    assert active, label\n           ^^^^^^\nAssertionError: heldout-A-t_signed-candidate\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "outstanding_regions",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 331, in verify\n    raw_rows.append(raw_call(row, stdout, timing, expected['values'], row['role'],\n                    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        name + '-' + row['case'] + '-' + row['role'], policy['requested_parallelism'], case))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 201, in raw_call\n    activation(fields, role, label, requested_parallelism, case)\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 173, in activation\n    assert count('outstanding') == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "cpu_grant",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 331, in verify\n    raw_rows.append(raw_call(row, stdout, timing, expected['values'], row['role'],\n                    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        name + '-' + row['case'] + '-' + row['role'], policy['requested_parallelism'], case))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 201, in raw_call\n    activation(fields, role, label, requested_parallelism, case)\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 177, in activation\n    assert count('peak_active_workers') <= max(0, parallelism - 1)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "heldout_exact_float",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError: heldout-A-t_signed-candidate",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 331, in verify\n    raw_rows.append(raw_call(row, stdout, timing, expected['values'], row['role'],\n                    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        name + '-' + row['case'] + '-' + row['role'], policy['requested_parallelism'], case))\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 190, in raw_call\n    assert (exact(actual, expected) if case else equivalent(actual, expected)), label\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: heldout-A-t_signed-candidate\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "stage_score",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 356, in verify\n    assert stage['score'] == expected_score and stage['retention_gate_passed'] == passed\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "candidate_source",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 143, in verify\n    assert digest(path.read_bytes()) == build['source_after'][item['relative_path']]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "public_regression_log",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 151, in verify\n    assert 'source_region_observations_survive_public_summary_without_invented_counters ... ok' in public_log\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "outer_identities_repaired": true
+    },
+    {
+      "case": "process_drain",
+      "rejected": true,
+      "returncode": 1,
+      "diagnostic": "AssertionError: all_launched_process_groups_drained",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 399, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 380, in main\n    result = verify(args.packet)\n  File \"/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_region_comparison_962.py\", line 241, in verify\n    assert closeout[key] is True, key\n           ^^^^^^^^^^^^^^^^^^^^^\nAssertionError: all_launched_process_groups_drained\n",
+      "outer_identities_repaired": true
+    }
+  ],
+  "native_queries_executed": 0,
+  "source_data_required": false
+}

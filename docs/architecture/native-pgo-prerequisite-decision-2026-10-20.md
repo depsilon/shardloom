@@ -10,9 +10,12 @@ default; this review changes no compiler profile or runtime behavior.
 
 The [October 22 current-baseline diagnostic](../benchmarks/native-current-attribution-2026-10-22.md)
 now supplies source-bound numeric and text preparation observations, complete
-raw records and semantic replay controls. It does not admit training: region
-decisions must settle and affected paths must be bound to the resulting source
-before the separate training, held-out, package and break-even protocol.
+raw records and semantic replay controls. The subsequent
+[scalar-region rejection](../benchmarks/native-scalar-regions-2026-10-22.md)
+settles that finite decision and restores every Rust/Cargo source identity to
+the attributed baseline. The attribution therefore remains source-valid for
+PGO intake. A separate frozen training, held-out, package and break-even protocol
+is still required before training; no new PGO result is claimed here.
 
 The latest October 21 maintainer decision schedules current-source profiling
 after required competitive gaps and before the four pending investigations.

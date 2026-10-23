@@ -32,6 +32,16 @@
       "file": "pr1589-checks-958.json",
       "bytes": 20841,
       "sha256": "44690c3ef1817ed5c204210b5bb198d12ac744d0f720c54281d238f3c5d9fa18"
+    },
+    {
+      "file": "test_attribution.py",
+      "bytes": 7372,
+      "sha256": "72cb869914bbc3783c010222255dd324a20abe9fcd24d403367b531ba7889049"
+    },
+    {
+      "file": "portable-corruption-checks.json",
+      "bytes": 5130,
+      "sha256": "2befe3185fe1a32aa4c4bfcd9fd3373d434725357cbc223f20999cafde1bcfd8"
     }
   ],
   "native_calls": 16,

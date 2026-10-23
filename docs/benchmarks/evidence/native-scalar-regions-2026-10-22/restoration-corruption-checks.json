@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "negative_cases": 7,
+  "results": [
+    {
+      "case": "retained_candidate",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 85,
+      "statement": "assert restoration['no_candidate_retained'] and restoration['git_clean']"
+    },
+    {
+      "case": "source_hash",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 99,
+      "statement": "assert check['source_before'] == check['source_after'] == baseline"
+    },
+    {
+      "case": "check_drain",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 98,
+      "statement": "assert check['process_group_drained'] and check['direct_child_reaped']"
+    },
+    {
+      "case": "query_coverage",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 139,
+      "statement": "assert [(row['query'], row['run']) for row in summary['records']] == [(q, 1) for q in range(1, 44)]"
+    },
+    {
+      "case": "complete_values",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 152,
+      "statement": "assert equivalent(actual, reference['values'][row['query']])"
+    },
+    {
+      "case": "engine_clock",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 158,
+      "statement": "assert row[key] == value, (row['query'], key)"
+    },
+    {
+      "case": "input_identity",
+      "rejected": true,
+      "outer_identities_repaired": true,
+      "verifier_line": 112,
+      "statement": "assert plan['input'] == restored['input']"
+    }
+  ],
+  "original_passed_before_and_after": true,
+  "runtime_executed": false,
+  "packet_sha256": "b148481bdb72f250e3a4d9894ad264818da982ba4237372cd1d2c13dca676cf8",
+  "verifier_sha256": "4fce465a3caa0b7d9178db125e7eeec57f950afe143097f41527cb0b1ee93183"
+}

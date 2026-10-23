@@ -17,6 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite scalar-region prerequisite rejection and exact restoration` — the
+  [October 22 decision](../benchmarks/native-scalar-regions-2026-10-22.md) drops the
+  bounded natural-region scalar candidate after both Full43 cohorts fail their
+  frozen benefit gate and the held-out metadata control starts forbidden work.
+  All 226 executed calls have complete values; the held-out cohort is incomplete,
+  with 41 planned calls unrun and no admitted held-out performance score.
+  - Portable replay preserves 414 experiment members, candidate source and all
+    failed observations; thirteen corruption controls verify semantic rejection.
+    A separate 369-member restoration packet and seven controls bind all 1,922
+    Rust/Cargo files back to the accepted baseline and fresh required checks.
+    The isolated restored Full43 passes all 381 rows at **48.479745297 engine
+    seconds**, using the unchanged accepted executable.
+  - Ordered candidates, joint preparation and topology comparison remain blocked
+    by rejection of their shared prerequisite; they are not completed experiments.
+    Current baseline attribution remains source-valid for the separate PGO
+    investigation. Optional items stay deferred; no broad owner or CG gate closes.
+
 - [x] `Current baseline native cost attribution` — the
   [October 22 diagnostic](../benchmarks/native-current-attribution-2026-10-22.md)
   binds sixteen complete calls on the corrected baseline to original counters,
