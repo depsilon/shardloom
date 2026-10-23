@@ -1,0 +1,67 @@
+{
+  "schema": "shardloom.compute_review_artifacts.v1",
+  "files": [
+    {
+      "file": "cleanup.json",
+      "bytes": 3159,
+      "sha256": "e9eb55bf78bde54a72be7063888d584e6ae88e01bfc7e21379bbbc0f00b51d08"
+    },
+    {
+      "file": "cost-source-map.json.gz",
+      "bytes": 36356,
+      "sha256": "f4004a0c0f57b33024b807317897d6ab6be9de10d48cee7bcc3fc35d3204f84c"
+    },
+    {
+      "file": "local-checks.json",
+      "bytes": 2028,
+      "sha256": "3d11473d6641f3963195d69d87101ca4e2b9bf7cea9b36e314a99bd81099603b"
+    },
+    {
+      "file": "local-document-contracts.log.gz",
+      "bytes": 1634,
+      "sha256": "4f68f675c5ee3c070b46a542917354a42f7ea9a9cf138cc6200f76b9e0c089bc"
+    },
+    {
+      "file": "pgo-after-cleanup-replay.json",
+      "bytes": 7253,
+      "sha256": "54bdaba7514d7d0cc6a0dc5c9b4d31638dd163cb0fab7a5ef47d948a4187a7a8"
+    },
+    {
+      "file": "retirement-closed-ingest-plan.json.gz",
+      "bytes": 1694,
+      "sha256": "3e630d9aae90f670786070b24410360d0db4dd514fb212010137784421a5608a"
+    },
+    {
+      "file": "retirement-closed-ingest.json",
+      "bytes": 1535,
+      "sha256": "b7a3921962c19208294c757cd0b80506fdc71fc40ed65526be4c4bfe46f6cd15"
+    },
+    {
+      "file": "retirement-compiled-and-packages-plan.json.gz",
+      "bytes": 1793272,
+      "sha256": "3e5d676cf4737745af6ad925c2170f4e2cf7c49d59748f690ec6f4b982c2d25b"
+    },
+    {
+      "file": "retirement-compiled-and-packages.json",
+      "bytes": 46040,
+      "sha256": "9501e79de8f6f61e453292f49a1d71dbde28aff691dade692202fb5d14e8ee8b"
+    },
+    {
+      "file": "retirement-validation-data-plan.json.gz",
+      "bytes": 5182465,
+      "sha256": "f3df076e4afd14daf329dc43e9c95e423064f6da8a8da7ef39a2c6e56cab9643"
+    },
+    {
+      "file": "retirement-validation-data.json",
+      "bytes": 50264,
+      "sha256": "be664b44ca7926a4e6567b39aad0c081833b54d163ed685fae0051ee9a063ba0"
+    },
+    {
+      "file": "review.json",
+      "bytes": 48873,
+      "sha256": "4fcaffd6d7817c39697423d0d2f8a1737dbbbd87634067909016d2fb6fc1d0e5"
+    }
+  ],
+  "payload_backup_created": false,
+  "claim_boundary": "Source review and exact cleanup evidence; no measured optimization or portable engine replay claim."
+}

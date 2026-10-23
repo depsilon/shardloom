@@ -1,0 +1,76 @@
+{
+  "schema": "shardloom.compute_review_cleanup.v1",
+  "status": "passed",
+  "steps": [
+    {
+      "receipt": {
+        "file": "retirement-compiled-and-packages.json",
+        "bytes": 46040,
+        "sha256": "9501e79de8f6f61e453292f49a1d71dbde28aff691dade692202fb5d14e8ee8b"
+      },
+      "identity_plan": {
+        "file": "retirement-compiled-and-packages-plan.json.gz",
+        "bytes": 1793272,
+        "sha256": "3e5d676cf4737745af6ad925c2170f4e2cf7c49d59748f690ec6f4b982c2d25b"
+      },
+      "roots": 111,
+      "files": 28072,
+      "symlinks": 60,
+      "logical_bytes": 7610567616
+    },
+    {
+      "receipt": {
+        "file": "retirement-validation-data.json",
+        "bytes": 50264,
+        "sha256": "be664b44ca7926a4e6567b39aad0c081833b54d163ed685fae0051ee9a063ba0"
+      },
+      "identity_plan": {
+        "file": "retirement-validation-data-plan.json.gz",
+        "bytes": 5182465,
+        "sha256": "f3df076e4afd14daf329dc43e9c95e423064f6da8a8da7ef39a2c6e56cab9643"
+      },
+      "roots": 62,
+      "files": 131625,
+      "symlinks": 0,
+      "logical_bytes": 4687868258
+    },
+    {
+      "receipt": {
+        "file": "retirement-closed-ingest.json",
+        "bytes": 1535,
+        "sha256": "b7a3921962c19208294c757cd0b80506fdc71fc40ed65526be4c4bfe46f6cd15"
+      },
+      "identity_plan": {
+        "file": "retirement-closed-ingest-plan.json.gz",
+        "bytes": 1694,
+        "sha256": "3e630d9aae90f670786070b24410360d0db4dd514fb212010137784421a5608a"
+      },
+      "roots": 1,
+      "files": 1,
+      "symlinks": 0,
+      "logical_bytes": 15748946385
+    }
+  ],
+  "roots_retired": 174,
+  "regular_files_retired": 159698,
+  "symlinks_retired": 60,
+  "logical_bytes_retired": 28047382259,
+  "byte_scope": "Sum of logical retired file sizes; not a physical free-disk claim.",
+  "protected_paths_at_final_completion": [
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-q29-correction-950",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/pgo-investigation-976/control-recovery/artifacts"
+  ],
+  "closed_pgo_layout_transition": "The PGO trial is closed with decision drop. The structure review retains the layout observation as a hypothesis and does not admit a new layout trial. The alternate generated file is no longer an active comparison input or accepted output. Original source, accepted Vortex and latest tested runtime remain protected.",
+  "unknown_provenance_artifacts_retained": true,
+  "production_code_removed": false,
+  "payload_backup_created": false,
+  "all_compact_results_and_failures_retained": true,
+  "pgo_packet_replay_after_all_retirements": {
+    "file": "pgo-after-cleanup-replay.json",
+    "bytes": 7253,
+    "sha256": "54bdaba7514d7d0cc6a0dc5c9b4d31638dd163cb0fab7a5ef47d948a4187a7a8"
+  },
+  "historical_dirty_build_limit": "Historical suite receipts retain their working-tree status; regeneration basis is not a promise of byte-exact replay of an old dirty build."
+}

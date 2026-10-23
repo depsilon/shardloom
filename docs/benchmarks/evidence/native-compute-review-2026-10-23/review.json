@@ -1,0 +1,857 @@
+{
+  "schema": "shardloom.compute_structure_review.v1",
+  "status": "passed",
+  "source_commit": "7f460d0c9d71ea079397e92469a6b7dc222bcacf",
+  "native_source_matches_accepted_restoration": true,
+  "cost_map": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/compute-cost-source-map-984.json",
+    "bytes": 461241,
+    "sha256": "d0b32fcd37ac2708d2f83ce6663f81befe7cb4e8f7e48d1bff136ab8af58e8a2"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/verify_compute_review_986.py",
+    "bytes": 4820,
+    "sha256": "cc3a19f290a8e85b143435099ad9c9bd54c7ef21fba5e556b0d4f138545a3617"
+  },
+  "baseline_identity": {
+    "run_manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-restored-run-964.json",
+      "bytes": 31444,
+      "sha256": "65e588b82905fd9d452fb22443a047cf0477529afe527520d5ad3fd5edfe743e"
+    },
+    "summary": {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-restored-964/logs/full43_20261023T040157417956Z/summary.json",
+      "bytes": 123647,
+      "sha256": "1ce161bfd9e978634daea5329fbafaf252d7a11524a6225175c34c4753cc0a2e",
+      "matches_manifest_reference": true
+    },
+    "source_commit": "a973ad72af847010594311d852da854203d01768",
+    "restored_source_commit": "da8225510a5612d5a0cddf5df2723c93b25e5c60",
+    "current_W_head_for_source_lookup": "30f04ca489943774d2c27acc4bafd27e1035ae30",
+    "binary": {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-q29-correction-950/shardloom",
+      "bytes": 76402944,
+      "sha256": "d692fa57c957aab63fdcafc86755a17ef36666e257cb6b9374335af61bdce870"
+    },
+    "input_vortex": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+      "bytes": 15713610513,
+      "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22"
+    },
+    "source_references": [
+      {
+        "role": "summary",
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-restored-964/logs/full43_20261023T040157417956Z/summary.json",
+        "bytes": 123647,
+        "sha256": "1ce161bfd9e978634daea5329fbafaf252d7a11524a6225175c34c4753cc0a2e",
+        "computed_sha256": "1ce161bfd9e978634daea5329fbafaf252d7a11524a6225175c34c4753cc0a2e",
+        "computed_bytes": 123647,
+        "integrity_matches_recorded": true
+      },
+      {
+        "role": "plan",
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-restored-plan-964.json",
+        "bytes": 6820,
+        "sha256": "afb857ae8d60b51793f0c605c13cd9f82e64a76e5204132c60946761f28e495f",
+        "computed_sha256": "afb857ae8d60b51793f0c605c13cd9f82e64a76e5204132c60946761f28e495f",
+        "computed_bytes": 6820,
+        "integrity_matches_recorded": true
+      },
+      {
+        "role": "reference",
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+        "bytes": 454630,
+        "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b",
+        "computed_sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b",
+        "computed_bytes": 454630,
+        "integrity_matches_recorded": true
+      },
+      {
+        "role": "restoration",
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/region-source-restoration-963.json",
+        "bytes": 604,
+        "sha256": "f502ec1f2e31fba60403ecc50496408b71a943a797f331aa42d11f882ae73c09",
+        "computed_sha256": "f502ec1f2e31fba60403ecc50496408b71a943a797f331aa42d11f882ae73c09",
+        "computed_bytes": 604,
+        "integrity_matches_recorded": true
+      },
+      {
+        "role": "log",
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/full43-restored-run-964.log",
+        "bytes": 92191,
+        "sha256": "629ebfbed3a9144561a114163141d2e49cead90bf78449bf595daa0a2b47c708",
+        "computed_sha256": "629ebfbed3a9144561a114163141d2e49cead90bf78449bf595daa0a2b47c708",
+        "computed_bytes": 92191,
+        "integrity_matches_recorded": true
+      },
+      {
+        "role": "binary",
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/artifacts/native-q29-correction-950/shardloom",
+        "bytes": 76402944,
+        "sha256": "d692fa57c957aab63fdcafc86755a17ef36666e257cb6b9374335af61bdce870",
+        "content_rehashed": false
+      },
+      {
+        "role": "input",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+        "bytes": 15713610513,
+        "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22",
+        "content_rehashed": false
+      }
+    ],
+    "full43_gate": {
+      "manifest_status": "passed",
+      "returncode": 0,
+      "timed_out": false,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pre_input_hash_verified": true,
+      "post_input_hash_verified": true,
+      "source_unchanged": true,
+      "uat_lock_released": true,
+      "summary_complete": true,
+      "summary_full_result_validation": true,
+      "queries_passed": 43,
+      "record_count": 43,
+      "timing_available": true,
+      "timing_metric": "engine_execution_seconds",
+      "query_total_timing_boundary": "sum_of_best_prepared_native_execution_times_excluding_result_serialization"
+    }
+  },
+  "engine_queries_executed_by_review": 0,
+  "all_43_raw_records_authenticated": true,
+  "all_extracted_route_strategy_and_top12_counter_fields_verified": true,
+  "all_33_literal_strategy_maps_verified": true,
+  "engine_execution_seconds": 48.479745297,
+  "top_12_engine_seconds": 27.240830835,
+  "primitive_routes": {
+    "aggregate": 35,
+    "count": 1,
+    "count_where": 2,
+    "filter_project": 1,
+    "sort_rows": 4
+  },
+  "queries": [
+    {
+      "query_id": 1,
+      "engine_execution_seconds": 1.075e-05,
+      "primitive_route": "count",
+      "raw_stdout_sha256": "02a673b4192616469515e8048f605f326b54843740af98ced3bea4b5575185fb"
+    },
+    {
+      "query_id": 2,
+      "engine_execution_seconds": 0.181470916,
+      "primitive_route": "count_where",
+      "raw_stdout_sha256": "1ecb59c60be83ea2599466eb26c9dae0cd32cde6ae820fb729ec27007657c736"
+    },
+    {
+      "query_id": 3,
+      "engine_execution_seconds": 1.184497875,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "e6815678bea26eb535be65355c3150a7bdb1919df0b62a563d569d62611089e9"
+    },
+    {
+      "query_id": 4,
+      "engine_execution_seconds": 0.493837665,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "04c343dee9053a72a7ae24aefcf029fa4167997e2e64e4ed254e0d5fafea63cf"
+    },
+    {
+      "query_id": 5,
+      "engine_execution_seconds": 1.345380206,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "3c383a8fe768bcdc93d7010a8b0b1f9d91d888765bdd5eaa23a6d6763b11af51"
+    },
+    {
+      "query_id": 6,
+      "engine_execution_seconds": 1.07665425,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "2200d268e68307b7f58b69eb21daf4fa0d012b40469cc5797215080cf7c77b5a"
+    },
+    {
+      "query_id": 7,
+      "engine_execution_seconds": 0.000441626,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "3768f6c094e20b20a05881990125e568174126b62c335c12dd967154d88750e0"
+    },
+    {
+      "query_id": 8,
+      "engine_execution_seconds": 0.147778916,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "d01755cb6a7bbf92b84dc7e10ee83408e5f1829af5504b28d7f33fd713fc0b54"
+    },
+    {
+      "query_id": 9,
+      "engine_execution_seconds": 1.327141084,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "07dfc5872d82018363dddbfdaf7c0dd1cbf158f7c3cd5d9f60482bb60d8d0a22"
+    },
+    {
+      "query_id": 10,
+      "engine_execution_seconds": 1.758238917,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "41c0d38e39d7245bf41cab6d5d2e0bf39775ef500f2bb708c32a26088f0fcb69"
+    },
+    {
+      "query_id": 11,
+      "engine_execution_seconds": 0.750154542,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "676e701be0dc2224971bbc12b89452526e9b517f948ac4a5be98fa03b51061f4"
+    },
+    {
+      "query_id": 12,
+      "engine_execution_seconds": 1.361630084,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "52143e5e0365f385dbb15ad1d9f6832018f447a3c1aba8e8e0879dd7ab20a974"
+    },
+    {
+      "query_id": 13,
+      "engine_execution_seconds": 0.557795958,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "c6d8fddbf1e4a7663cef2a8e76482a72b558edef0aa7720f6054ace9cdcbd7e4"
+    },
+    {
+      "query_id": 14,
+      "engine_execution_seconds": 1.560332125,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "930993ebd2686f6909db8f52bcac07f58bef291d89d09982dec83fa953f6f9e2"
+    },
+    {
+      "query_id": 15,
+      "engine_execution_seconds": 1.602875834,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "74326cf0bb2d42082fd047df726ec6bd3d16c8cd5ad3daa22506afff4e741c62"
+    },
+    {
+      "query_id": 16,
+      "engine_execution_seconds": 1.579294499,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "9ed068f1ffefcabcf7b44489addeb2a91ac439542417f711ebc53d3e67bfaf75"
+    },
+    {
+      "query_id": 17,
+      "engine_execution_seconds": 2.481229042,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "cb9bbef3ab4a8539e4bfcec5ea83a26aa8e458955e03019b109c0b8cb1df1aad"
+    },
+    {
+      "query_id": 18,
+      "engine_execution_seconds": 0.311089002,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "9849c8a2336c2f6cec05f4de4671935db2a003d81cf2197456011fb8344ddf1c"
+    },
+    {
+      "query_id": 19,
+      "engine_execution_seconds": 4.436800999,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "c66708a45ef95077867146925b12bb02d4220c6bda8e840f251f8ee059a8da89"
+    },
+    {
+      "query_id": 20,
+      "engine_execution_seconds": 0.213449667,
+      "primitive_route": "filter_project",
+      "raw_stdout_sha256": "263ce942de9b8ac6a064b489311fd45dd71a81cb81da4bbef0c6483bb6cc1a6d"
+    },
+    {
+      "query_id": 21,
+      "engine_execution_seconds": 1.005452959,
+      "primitive_route": "count_where",
+      "raw_stdout_sha256": "ccc33c0b32b813b808d912d61f81655dae3dc7d6f49304dfa14f8f5d5141fb10"
+    },
+    {
+      "query_id": 22,
+      "engine_execution_seconds": 1.132067166,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "474f8ecc6513fc91bb55618b64a21f7230a30b2c25ed87284ffaea519d1ce1cf"
+    },
+    {
+      "query_id": 23,
+      "engine_execution_seconds": 2.979771043,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "13095686656efe95fd20a1ba45d7a28b06a807eab0d8f326ff7ac211335ac457"
+    },
+    {
+      "query_id": 24,
+      "engine_execution_seconds": 1.078838918,
+      "primitive_route": "sort_rows",
+      "raw_stdout_sha256": "539483e7a5f93b9c0c2457c00e3e703b9547be8be4f5f2a97bcbcfef5e5ed047"
+    },
+    {
+      "query_id": 25,
+      "engine_execution_seconds": 0.29606325,
+      "primitive_route": "sort_rows",
+      "raw_stdout_sha256": "f8ae8d32ab07b64b6a6d795be255fe282e02f31d85784b8e7ded5613c227152c"
+    },
+    {
+      "query_id": 26,
+      "engine_execution_seconds": 1.19881825,
+      "primitive_route": "sort_rows",
+      "raw_stdout_sha256": "28cf02677fcc944cca529e1c0b393e365988f546ab3474fabbdf74c35fe92ff4"
+    },
+    {
+      "query_id": 27,
+      "engine_execution_seconds": 1.285498501,
+      "primitive_route": "sort_rows",
+      "raw_stdout_sha256": "44e5bfa1f8d8edca0780662bf25fc1227347f3c04b041cbd997ecbbdf41bb8ae"
+    },
+    {
+      "query_id": 28,
+      "engine_execution_seconds": 2.09969725,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "dd52b997bed06293c66162ecc03e7bc331093ba09e0915d5081d573319f56adc"
+    },
+    {
+      "query_id": 29,
+      "engine_execution_seconds": 2.909419876,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "54e3b0f440a7c57682785020081f263f3fe46136f2bca4658369e369ac84206f"
+    },
+    {
+      "query_id": 30,
+      "engine_execution_seconds": 0.754812126,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "a5ee1ef086730105cdbd1ce660249234b3422517d66238f3f136305027cf005f"
+    },
+    {
+      "query_id": 31,
+      "engine_execution_seconds": 1.093092168,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "0e1aca9f8a3591d1036557f849a48e7e641651006903f5829fced650148a4a81"
+    },
+    {
+      "query_id": 32,
+      "engine_execution_seconds": 1.291601876,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "b6fc25f24cf26f39ee2fc796bb741ea477253db23985dfddd8da6c968d6002e5"
+    },
+    {
+      "query_id": 33,
+      "engine_execution_seconds": 1.744634792,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "b0892d1558b412fec2f4f20c9ea2a53fa0bc2b769270d6ff17db8d60227b2cdd"
+    },
+    {
+      "query_id": 34,
+      "engine_execution_seconds": 2.1195955,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "14f96f1db6e01270830ed78155cdb90846e27e9d800030a57b93908433f432e0"
+    },
+    {
+      "query_id": 35,
+      "engine_execution_seconds": 1.968940958,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "a0e960c0ca8d0959e543b10edee60d68f9cfad0c9ac5d9ee6f0c6f8e10c47751"
+    },
+    {
+      "query_id": 36,
+      "engine_execution_seconds": 0.345727542,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "7ddd8887f9debf9866052519d6252ff6cbbf975b703a354a58b357abfa7773e1"
+    },
+    {
+      "query_id": 37,
+      "engine_execution_seconds": 0.402912417,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "439f06877a2979d8aab5698a5e7ef9afed4b036568e269b72a14c3e1ae02596b"
+    },
+    {
+      "query_id": 38,
+      "engine_execution_seconds": 0.438576959,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "1091d2032f09218c095175e8a80c40d4b768061cbd8ee3e633172bac6d6c4342"
+    },
+    {
+      "query_id": 39,
+      "engine_execution_seconds": 0.208468206,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "2ca3c7278e96f3142f4967621e77e775f493bca027d31a17f7eecc2012e544f3"
+    },
+    {
+      "query_id": 40,
+      "engine_execution_seconds": 0.828903084,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "397ce87e6d4e1a97693388cea1571061f39cfdbcaccd20fa9948fbc747fd7111"
+    },
+    {
+      "query_id": 41,
+      "engine_execution_seconds": 0.551359708,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "bb583353ee0893d02d011b63935eb31ed072b875ada280f9c286727293eb2145"
+    },
+    {
+      "query_id": 42,
+      "engine_execution_seconds": 0.192361499,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "0ba186a6d31a6676f896c9b5f95ba9dc467e1ae079978d67bdbe73760e34e4ae"
+    },
+    {
+      "query_id": 43,
+      "engine_execution_seconds": 0.183027292,
+      "primitive_route": "aggregate",
+      "raw_stdout_sha256": "bb825b2d842d2cc5b88e5af735b5762b6422afa8ec41976b2eeec904eeca8e2d"
+    }
+  ],
+  "counter_interpretation": "Overlapping phase, worker and lock counters are not additive elapsed time.",
+  "strategy_source_identities": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives.rs",
+      "bytes": 2886448,
+      "sha256": "ed86256f2317f03b18e05b6f8ccbf54b38dd9b3bf0ed789af6c7dddd79c15f2c"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/exact_distinct_workers.rs",
+      "bytes": 39286,
+      "sha256": "9495dc9eb6953079b5a1784718e776636f816e9892f56f3c92346441f09ebabb"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/compound_count_workers.rs",
+      "bytes": 38267,
+      "sha256": "c79c0b54843800169db8b86698330a3e9c6da489dd725fb486a80ba71faaee87"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/aggregate_count_workers.rs",
+      "bytes": 69598,
+      "sha256": "6430a75a7e3259e2771b4b56460eeaa772950cafd1175852cceb41d9942d310e"
+    }
+  ],
+  "source_anchors": [
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitive_relational_transform_bind.rs",
+      "sha256": "c6515443d2dca3d564da70a9d883bc720657072bd9bcac16c1c1c5625c2d3864",
+      "byte_count": 6220,
+      "anchors": [
+        {
+          "name": "Limit binder and cap_rolling_prefix",
+          "start_line": 112,
+          "end_line": 123,
+          "excerpt": "112:     pub(super) fn limit(&mut self, limit: &VortexRelationalLimit, depth: usize) -> Result<Node> {\n113:         let prefix = limit\n114:             .offset\n115:             .checked_add(limit.count)\n116:             .ok_or_else(|| failed(\"output range overflow\"))?;\n117:         let mut input = Box::new(self.bind(&limit.input, depth + 1)?);\n118:         if limit.count != 0 {\n119:             cap_rolling_prefix(&mut input, prefix)?;\n120:         }\n121:         self.charge_fields(input.fields.len())?;\n122:         Ok(Node {\n123:             fields: input.fields.clone(),"
+        },
+        {
+          "name": "cap_rolling_prefix",
+          "start_line": 133,
+          "end_line": 141,
+          "excerpt": "133: fn cap_rolling_prefix(node: &mut Node, rows: usize) -> Result<()> {\n134:     // Binding has already validated every expression and range. Projections\n135:     // preserve order and cardinality; ranges contribute their skipped prefix.\n136:     // Stop at every other operator, especially filters and sorting, whose\n137:     // output prefix need not be a prefix of their input.\n138:     match &mut node.kind {\n139:         NodeKind::Project { input, .. } => cap_rolling_prefix(input, rows)?,\n140:         NodeKind::Limit {\n141:             input,"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "sha256": "a64a0e921b6ca6c7e0cfe541e4eed8d80de3b2781877e78687c956a3210abf9c",
+      "byte_count": 5593,
+      "anchors": [
+        {
+          "name": "Limit execution branch",
+          "start_line": 73,
+          "end_line": 94,
+          "excerpt": "73:             NodeKind::Limit {\n74:                 input,\n75:                 offset,\n76:                 count,\n77:             } => {\n78:                 // A finite streaming source still owes complete validation,\n79:                 // including late errors, even when no rows are requested.\n80:                 if *count == 0 && metrics.input.is_none() {\n81:                     return Ok(());\n82:                 }\n83:                 let mut skip = *offset;\n84:                 let mut remaining = *count;\n85:                 self.run(\n86:                     input,\n87:                     context,\n88:                     metrics,\n89:                     batch_rows,\n90:                     parameter,\n91:                     &mut |array| {\n92:                         let start = skip.min(array.len());\n93:                         skip -= start;\n94:                         let count = remaining.min(array.len() - start);"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitives/native_relational_sort.rs",
+      "sha256": "0be423e78302e5052d1d139fb4beb50f9e96ad57cf5b80927d4a753facc81a49",
+      "byte_count": 6810,
+      "anchors": [
+        {
+          "name": "Sort::build",
+          "start_line": 67,
+          "end_line": 78,
+          "excerpt": "67:     pub(super) fn build(\n68:         &mut self,\n69:         array: ArrayRef,\n70:         context: &NativeExecutionContext<'_>,\n71:     ) -> Result<()> {\n72:         let batch = Batch::new(array, &self.spec.names, context)?;\n73:         for row in 0..batch.array.len() {\n74:             if row.is_multiple_of(1024) {\n75:                 context.check_cancelled()?;\n76:             }\n77:             batch.hash(row, true)?;\n78:             for (index, key) in self.spec.keys.iter().enumerate() {"
+        },
+        {
+          "name": "Sort::ordered_rows",
+          "start_line": 90,
+          "end_line": 117,
+          "excerpt": "90:     pub(super) fn ordered_rows(\n91:         &self,\n92:         context: &NativeExecutionContext<'_>,\n93:     ) -> Result<ReservedVec<usize>> {\n94:         let mut ordinals = ReservedVec::new(context.memory())?;\n95:         ordinals.reserve(self.table.rows())?;\n96:         for row in 0..self.table.rows() {\n97:             if row.is_multiple_of(1024) {\n98:                 context.check_cancelled()?;\n99:             }\n100:             ordinals.values.push(row);\n101:         }\n102:         native_relational_order::sort(\n103:             &mut ordinals.values,\n104:             context.cancellation(),\n105:             |left, right| {\n106:                 for (index, key) in self.spec.keys.iter().enumerate() {\n107:                     let order = compare_key(\n108:                         key,\n109:                         self.table.key_is_null(left, index)?,\n110:                         self.table.key_is_null(right, index)?,\n111:                         || self.table.compare_key(left, right, index),\n112:                     )?;\n113:                     if order != Ordering::Equal {\n114:                         return Ok(order);\n115:                     }\n116:                 }\n117:                 Ok(left.cmp(&right))"
+        },
+        {
+          "name": "Sort::finish",
+          "start_line": 141,
+          "end_line": 165,
+          "excerpt": "141:     pub(super) fn finish(\n142:         &self,\n143:         context: &NativeExecutionContext<'_>,\n144:         batch_rows: usize,\n145:         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,\n146:     ) -> Result<()> {\n147:         let ordinals = self.ordered_rows(context)?;\n148:         let mut rows = ReservedVec::new(context.memory())?;\n149:         rows.reserve(batch_rows.min(self.table.rows()))?;\n150:         for part in ordinals.values.chunks(batch_rows) {\n151:             context.check_cancelled()?;\n152:             rows.values.clear();\n153:             rows.values.extend(part.iter().map(|row| Some(*row)));\n154:             consume(gather(\n155:                 &self.table,\n156:                 &rows.values,\n157:                 &self.spec.fields,\n158:                 self.spec.copy_policy,\n159:                 context,\n160:             )?)?;\n161:             context.check_cancelled()?;\n162:         }\n163:         Ok(())\n164:     }\n165: }"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitives/native_sort_block.rs",
+      "sha256": "82129d5d4a84f4cf535909be0ea619f5ae65c7e755338bfcde761a47eca7fe56",
+      "byte_count": 13491,
+      "anchors": [
+        {
+          "name": "Prepared typed sort block",
+          "start_line": 26,
+          "end_line": 30,
+          "excerpt": "26: pub(super) struct Prepared {\n27:     columns: Vec<Column>,\n28:     rows: usize,\n29: }\n30: "
+        },
+        {
+          "name": "prepare admission",
+          "start_line": 31,
+          "end_line": 42,
+          "excerpt": "31: pub(super) fn prepare(\n32:     chunk: &ArrayRef,\n33:     declared_columns: &[String],\n34:     tie_policy: VortexSortTiePolicy,\n35:     retained_cap: usize,\n36:     ctx: &mut ExecutionCtx,\n37: ) -> Result<Option<Prepared>> {\n38:     if tie_policy == VortexSortTiePolicy::All || retained_cap == 0 || retained_cap > 16_384 {\n39:         return Ok(None);\n40:     }\n41:     Ok(\n42:         decode_columns(chunk, declared_columns, ctx)?.map(|columns| Prepared {"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-cli/src/public_workflow_route.rs",
+      "sha256": "dbf4d40aa35a65a4902629c95478a60f923223d8494eff6701c8e2129f5f3372",
+      "byte_count": 693774,
+      "anchors": [
+        {
+          "name": "native_vortex_route",
+          "start_line": 6733,
+          "end_line": 6744,
+          "excerpt": "6733: fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {\n6734:     let mut effective_request = request.clone();\n6735:     if let Some(payload) = infer_native_vortex_route_payload(&effective_request) {\n6736:         payload.apply(&mut effective_request);\n6737:     }\n6738:     if effective_request.input_uri.is_none() {\n6739:         return input_not_declared_route();\n6740:     }\n6741:     let Ok(requested_family) = normalized_native_vortex_operation_family(&effective_request) else {\n6742:         return native_vortex_payload_blocked_route(\n6743:             \"public_workflow_route.native_vortex_operation_family\",\n6744:             \"unsupported native Vortex operation family\","
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "sha256": "c39cc6999888446a4664d50d2c54eadd0063b5b5b278a47626245d2febd60553",
+      "byte_count": 80826,
+      "anchors": [
+        {
+          "name": "NodeKind::Aggregate execution branch",
+          "start_line": 1463,
+          "end_line": 1483,
+          "excerpt": "1463:             NodeKind::Aggregate { input, spec } => {\n1464:                 #[cfg(feature = \"vortex-write\")]\n1465:                 if let Some(spill) = &metrics.spill {\n1466:                     let report = super::native_relational_aggregate_spill::run(\n1467:                         spec,\n1468:                         &input.fields,\n1469:                         spill,\n1470:                         context,\n1471:                         batch_rows,\n1472:                         |accept| self.run(input, context, metrics, batch_rows, parameter, accept),\n1473:                         consume,\n1474:                     )?;\n1475:                     add(&metrics.ordered_aggregate_stages, 1)?;\n1476:                     add(&metrics.ordered_aggregate_input_rows, report.input_rows)?;\n1477:                     add(\n1478:                         &metrics.ordered_aggregate_distinct_rows,\n1479:                         report.distinct_rows,\n1480:                     )?;\n1481:                     return Ok(());\n1482:                 }\n1483:                 let mut aggregate ="
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+      "sha256": "77545216ce2085339107259f4638526642a01680fdfadc4f5052d49cbd9207ab",
+      "byte_count": 30454,
+      "anchors": [
+        {
+          "name": "Aggregate state type",
+          "start_line": 58,
+          "end_line": 69,
+          "excerpt": "58: pub(super) struct Aggregate<'a> {\n59:     spec: &'a Spec,\n60:     groups: Option<RowSet<'a>>,\n61:     states: ReservedVec<State>,\n62:     distinct: ReservedVec<Option<RowSet<'a>>>,\n63:     nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,\n64:     decimal_totals: Option<ReservedVec<native_decimal_reduce::Total>>,\n65:     decimal_width: usize,\n66: }\n67: \n68: impl<'a> Aggregate<'a> {\n69:     pub(super) fn new(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {"
+        },
+        {
+          "name": "Aggregate::consume",
+          "start_line": 182,
+          "end_line": 193,
+          "excerpt": "182:     pub(super) fn consume(\n183:         &mut self,\n184:         array: &ArrayRef,\n185:         context: &NativeExecutionContext<'_>,\n186:         batch_rows: usize,\n187:     ) -> Result<()> {\n188:         self.consume_inner(array, context, batch_rows, true)\n189:     }\n190: \n191:     #[cfg(feature = \"vortex-write\")]\n192:     pub(super) fn consume_ordered_base(\n193:         &mut self,"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitives.rs",
+      "sha256": "ed86256f2317f03b18e05b6f8ccbf54b38dd9b3bf0ed789af6c7dddd79c15f2c",
+      "byte_count": 2886448,
+      "anchors": [
+        {
+          "name": "GroupedAggregateStates",
+          "start_line": 26857,
+          "end_line": 26865,
+          "excerpt": "26857: struct GroupedAggregateStates<'a> {\n26858:     native_execution_ctx: Option<vortex::array::ExecutionCtx>,\n26859:     request: &'a VortexSimpleAggregateRequest,\n26860:     result_limit: Option<usize>,\n26861:     resource_envelope: VortexLocalPrimitiveResourceEnvelope,\n26862:     group_columns: Vec<AggregateGroupRuntimeColumn>,\n26863:     group_key_indices: Vec<usize>,\n26864:     state_template: SimpleAggregateStates,\n26865:     compact_measure_specs: Option<Vec<CompactAggregateMeasureSpec>>,"
+        },
+        {
+          "name": "GroupedAggregateStates::update_row",
+          "start_line": 26422,
+          "end_line": 26431,
+          "excerpt": "26422:     fn update_row(&mut self, columns: &[Vec<StatValue>], row_index: usize) -> Result<()> {\n26423:         for state in &mut self.states {\n26424:             state.update_row(columns, row_index)?;\n26425:         }\n26426:         Ok(())\n26427:     }\n26428: \n26429:     fn update_direct_row_from_accessors(\n26430:         &mut self,\n26431:         accessors: &[AggregateDirectColumnAccessor],"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitives/native_relational_expression.rs",
+      "sha256": "66a7fa9c864a100f2ca6ce8bbb67b12fc3f6ea87b3913d035efba698d802c2b7",
+      "byte_count": 25675,
+      "anchors": [
+        {
+          "name": "Expression type",
+          "start_line": 27,
+          "end_line": 32,
+          "excerpt": "27: pub(super) struct Expression {\n28:     pub(super) dtype: DType,\n29:     pub(super) kind: Kind,\n30: }\n31: \n32: pub(super) enum Kind {"
+        },
+        {
+          "name": "Expression::evaluate",
+          "start_line": 81,
+          "end_line": 92,
+          "excerpt": "81:     pub(super) fn evaluate(\n82:         &self,\n83:         input: &ArrayRef,\n84:         context: &NativeExecutionContext<'_>,\n85:     ) -> Result<ArrayRef> {\n86:         context.check_cancelled()?;\n87:         if let Some(recipe) = predicate_block::Recipe::compile(self) {\n88:             let result = recipe.evaluate(self, input, context)?;\n89:             return self.checked_result(result, input.len(), context);\n90:         }\n91:         let result = match &self.kind {\n92:             Kind::Column(name) => super::logical_field_from_native_array(input, name)?,"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitives/native_relational_predicate_block.rs",
+      "sha256": "57d0fde4bf7515ccceba569e60d79dc6e962dba0b740a309a73087c32fddb718",
+      "byte_count": 10044,
+      "anchors": [
+        {
+          "name": "predicate recipe type",
+          "start_line": 42,
+          "end_line": 48,
+          "excerpt": "42: pub(super) struct Recipe<'a> {\n43:     columns: [Option<&'a Expression>; MAX_COLUMNS],\n44:     column_count: usize,\n45:     instructions: [Instruction; MAX_INSTRUCTIONS],\n46:     instruction_count: usize,\n47:     visits: usize,\n48:     comparisons: usize,"
+        },
+        {
+          "name": "Recipe::compile",
+          "start_line": 53,
+          "end_line": 64,
+          "excerpt": "53:     pub(super) fn compile(expression: &'a Expression) -> Option<Self> {\n54:         if !matches!(\n55:             expression.kind,\n56:             Kind::Binary(_, BinaryOp::And | BinaryOp::Or, _) | Kind::Unary(UnaryOp::Not, _)\n57:         ) {\n58:             return None;\n59:         }\n60:         let mut recipe = Self {\n61:             columns: [None; MAX_COLUMNS],\n62:             column_count: 0,\n63:             instructions: [Instruction::Empty; MAX_INSTRUCTIONS],\n64:             instruction_count: 0,"
+        },
+        {
+          "name": "Recipe::evaluate",
+          "start_line": 156,
+          "end_line": 167,
+          "excerpt": "156:     pub(super) fn evaluate(\n157:         &self,\n158:         expression: &Expression,\n159:         input: &ArrayRef,\n160:         context: &NativeExecutionContext<'_>,\n161:     ) -> Result<ArrayRef> {\n162:         let mut owners: [Option<NativeNumericOwner>; MAX_COLUMNS] = std::array::from_fn(|_| None);\n163:         for (index, column) in self.columns[..self.column_count].iter().enumerate() {\n164:             context.check_cancelled()?;\n165:             let column = column.expect(\"compiled column binding\");\n166:             let Kind::Column(name) = &column.kind else {\n167:                 unreachable!(\"compiled column binding\");"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "vendor/vortex-array/src/executor.rs",
+      "sha256": "44aa8062e966c3c9bb6838343e62d38ac89c1b44d93fb4af9916dce09817a0aa",
+      "byte_count": 37928,
+      "anchors": [
+        {
+          "name": "ExecutionCtx::new shared kernel snapshot",
+          "start_line": 366,
+          "end_line": 377,
+          "excerpt": "366:     pub fn new(session: VortexSession) -> Self {\n367:         let execute_parent_kernels = session.kernels().execute_parent_snapshot();\n368:         Self {\n369:             session,\n370:             execute_parent_kernels,\n371:             #[cfg(debug_assertions)]\n372:             id: {\n373:                 static EXEC_CTX_ID: AtomicUsize = AtomicUsize::new(0);\n374:                 EXEC_CTX_ID.fetch_add(1, Ordering::Relaxed)\n375:             },\n376:             #[cfg(debug_assertions)]\n377:             ops: Vec::new(),"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-cli/src/sql_native_relational_pruning.rs",
+      "sha256": "fbf45a443e0489f83fe2a3d195978a5364e5178db5236b835cf08c9f518c6c0e",
+      "byte_count": 11018,
+      "anchors": [
+        {
+          "name": "Lowerer::prune",
+          "start_line": 13,
+          "end_line": 26,
+          "excerpt": "13:     pub(super) fn prune(\n14:         &mut self,\n15:         plan: &mut Plan,\n16:         required: Option<Columns>,\n17:         outer: &mut Columns,\n18:     ) -> NativeResult<()> {\n19:         self.prune_at(plan, required, outer, 0)\n20:     }\n21: \n22:     fn prune_at(\n23:         &mut self,\n24:         plan: &mut Plan,\n25:         mut required: Option<Columns>,\n26:         outer: &mut Columns,"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitive_relational_bind.rs",
+      "sha256": "e536eecbd29424877c0e89cd8074b0a5b458079da579fccd90b0507df97c84a8",
+      "byte_count": 33283,
+      "anchors": [
+        {
+          "name": "Binder::bind",
+          "start_line": 279,
+          "end_line": 290,
+          "excerpt": "279:     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {\n280:         self.cancellation.check()?;\n281:         if depth == 0 && self.execution.is_some() {\n282:             self.validate_subquery_source_scope(input, 0)?;\n283:             // Dynamic lowering can resolve separate subtrees before returning\n284:             // the final plan. Validate each before its discovery reads rows;\n285:             // the execution provider then requires every source's explicit end.\n286:             for index in 0..self.batch_sources.values.len() {\n287:                 let usage = super::batch_input::classify_dynamic(\n288:                     input,\n289:                     &self.batch_sources.values[index].uri,\n290:                     self.outer_fields.is_some(),"
+        },
+        {
+          "name": "Binder::scan",
+          "start_line": 467,
+          "end_line": 480,
+          "excerpt": "467:     fn scan(&mut self, scan: &VortexRelationalScan) -> Result<Node> {\n468:         if let Some(predicate) = &scan.predicate {\n469:             self.charge(predicate_bytes(predicate, 0)?)?;\n470:         }\n471:         if let shardloom_plan::ProjectionRequest::Columns(columns) = &scan.projection {\n472:             validate_width(columns.len())?;\n473:             for column in columns {\n474:                 validate_name(column.as_str())?;\n475:             }\n476:             self.charge_fields(columns.len())?;\n477:         }\n478:         let source = self.input(&scan.source_uri)?;\n479:         let dtype = self.source_dtype(source);\n480:         let source_fields = dtype"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/universal_format_io.rs",
+      "sha256": "c0d5db49889321f2f3ab689cd9c0816154dd6cc911b97bb6a12abe1848b26227",
+      "byte_count": 359139,
+      "anchors": [
+        {
+          "name": "product_columnar_stream_record_batch_rows",
+          "start_line": 119,
+          "end_line": 130,
+          "excerpt": "119: fn product_columnar_stream_record_batch_rows(max_rows: usize) -> usize {\n120:     if max_rows == 0 {\n121:         1\n122:     } else if max_rows < PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS {\n123:         max_rows\n124:     } else if max_rows >= PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD {\n125:         PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS\n126:     } else {\n127:         PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS\n128:     }\n129: }\n130: "
+        },
+        {
+          "name": "Parquet batch reader construction",
+          "start_line": 1264,
+          "end_line": 1271,
+          "excerpt": "1264:         .with_batch_size(batch_size.max(1))\n1265:         .with_row_groups(row_groups)\n1266:         .build()\n1267:         .map_err(|error| ArrowError::ParquetError(error.to_string()))?;\n1268:     for batch in reader {\n1269:         let failed = batch.is_err();\n1270:         if sender\n1271:             .send(ParquetRowGroupReadResult::Batch(batch))"
+        },
+        {
+          "name": "Parquet row-group task model",
+          "start_line": 545,
+          "end_line": 551,
+          "excerpt": "545: struct ParquetRowGroupReadTask {\n546:     task_index: usize,\n547:     row_groups: Vec<usize>,\n548: }\n549: \n550: #[cfg(any(test, not(feature = \"vortex-write\")))]\n551: enum ParquetRowGroupReadResult {"
+        }
+      ]
+    },
+    {
+      "repository_relative_path": "shardloom-vortex/src/local_primitive_relational_scan.rs",
+      "sha256": "8139ba66995bdb237e4cd9b9149d9f743fe90bc943992eabe946ec4dfd143275",
+      "byte_count": 6585,
+      "anchors": [
+        {
+          "name": "ordered bounded scan runner",
+          "start_line": 12,
+          "end_line": 35,
+          "excerpt": "12: pub(super) fn run(\n13:     source: &ScanSource,\n14:     files: &[PreparedVortexSource],\n15:     plan: &LocalVortexScanPlan,\n16:     columns: &[String],\n17:     residual: Option<&MaterializedPredicateEvaluator>,\n18:     fields: &[(String, DType)],\n19:     context: &NativeExecutionContext<'_>,\n20:     metrics: &Metrics<'_>,\n21:     batch_rows: usize,\n22:     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,\n23: ) -> Result<()> {\n24:     let mut accept = |array: ArrayRef| {\n25:         if array.len() > SCAN_ROWS {\n26:             return Err(failed(\"scan exceeded its admitted batch size\"));\n27:         }\n28:         add(&metrics.scan_rows, array.len() as u64)?;\n29:         add(&metrics.scan_batches, 1)?;\n30:         let mut selection = LocalSelection::new(array.len(), context)?;\n31:         let mut values = residual\n32:             .map(|_| {\n33:                 add(&metrics.residual_batches, 1)?;\n34:                 super::super::prepared_unary::values::NativeBatch::new(&array, columns, context)\n35:             })"
+        }
+      ]
+    }
+  ],
+  "source_structure_counts": {
+    "repository_relative_path": "shardloom-vortex/src/local_primitives.rs",
+    "sha256": "ed86256f2317f03b18e05b6f8ccbf54b38dd9b3bf0ed789af6c7dddd79c15f2c",
+    "byte_count": 2886448,
+    "total_line_count": 70020,
+    "inline_test_module_start_line": 48673,
+    "grouped_aggregate_states": {
+      "start_line": 26857,
+      "closing_line": 27013,
+      "field_count": 145,
+      "counting_method": "Counted top-level field declaration lines inside the struct body matching four-space indentation plus identifier followed by colon; continuation lines and comments excluded.",
+      "excerpt": "26858:     native_execution_ctx: Option<vortex::array::ExecutionCtx>,\n26859:     request: &'a VortexSimpleAggregateRequest,\n26860:     result_limit: Option<usize>,\n27010:     aggregate_primitive_accessor_columns: std::collections::BTreeSet<String>,\n27011:     aggregate_materialized_accessor_columns: std::collections::BTreeSet<String>,\n27012:     aggregate_accessor_blockers: std::collections::BTreeSet<String>,",
+      "counted_field_names": [
+        "native_execution_ctx",
+        "request",
+        "result_limit",
+        "resource_envelope",
+        "group_columns",
+        "group_key_indices",
+        "state_template",
+        "compact_measure_specs",
+        "groups",
+        "finalized_distinct_counts",
+        "single_numeric_count_groups",
+        "numeric_pair_compact_groups",
+        "numeric_pair_late_measure_enabled",
+        "numeric_pair_late_measure_count_groups",
+        "numeric_pair_late_measure_near_unique_directory",
+        "numeric_pair_late_measure_retained_keys",
+        "numeric_pair_late_measure_retained_candidates",
+        "numeric_pair_partition_selection",
+        "numeric_pair_partition_selection_lease",
+        "numeric_pair_late_measure_candidate_group_count",
+        "numeric_pair_late_measure_near_unique_directory_updates",
+        "numeric_pair_late_measure_near_unique_rows",
+        "numeric_pair_late_measure_near_unique_seen_keys",
+        "numeric_pair_late_measure_near_unique_duplicate_keys",
+        "string_count_topk_heavy_hitter_enabled",
+        "string_count_topk_heavy_hitter_sketch",
+        "string_count_topk_candidate_ids",
+        "string_count_topk_candidate_signatures",
+        "string_count_topk_candidate_id_prefilter",
+        "string_count_topk_candidate_code_prefilter",
+        "string_count_topk_exact_counts",
+        "string_count_topk_total_weight",
+        "string_count_topk_string_group_index",
+        "string_count_topk_first_pass_exact_counts",
+        "string_count_topk_exact_counts_source",
+        "string_count_topk_dictionary_code_reuse",
+        "string_count_topk_late_measure_direct_updates",
+        "string_count_topk_first_pass_late_measures",
+        "string_count_topk_first_pass_late_measure_rows",
+        "string_count_topk_first_pass_late_measure_disabled",
+        "string_count_topk_first_pass_exact_histogram_counts",
+        "string_count_topk_first_pass_exact_histogram_enabled",
+        "string_count_topk_first_pass_exact_histogram_disabled",
+        "string_count_topk_first_pass_exact_histogram_entry_budget",
+        "string_count_topk_first_pass_exact_histogram_input_rows",
+        "string_count_topk_first_pass_exact_histogram_input_values",
+        "string_count_topk_dictionary_histogram_recount",
+        "string_count_topk_candidate_free_chunks_skipped",
+        "string_count_topk_candidate_free_rows_skipped",
+        "string_count_distinct_topk_heavy_hitter_enabled",
+        "string_count_distinct_topk_heavy_hitter_sketch",
+        "string_count_distinct_topk_candidate_ids",
+        "string_count_distinct_topk_candidate_signatures",
+        "string_count_distinct_topk_candidate_id_prefilter",
+        "string_count_distinct_topk_candidate_code_prefilter",
+        "string_count_distinct_topk_candidate_free_chunks_skipped",
+        "string_count_distinct_topk_candidate_free_rows_skipped",
+        "string_count_distinct_topk_exact_sets",
+        "string_count_distinct_topk_exact_sets_source",
+        "string_count_distinct_topk_first_pass_exact_sets",
+        "string_count_distinct_topk_first_pass_exact_sets_disabled",
+        "string_count_distinct_topk_first_pass_exact_set_entries",
+        "string_count_distinct_topk_total_weight",
+        "string_count_distinct_topk_string_group_index",
+        "string_count_distinct_topk_distinct_column_index",
+        "string_count_distinct_topk_dictionary_code_reuse",
+        "numeric_minute_string_count_groups",
+        "numeric_minute_string_group_roles",
+        "numeric_utf8_topk_heavy_hitter_enabled",
+        "numeric_utf8_topk_heavy_hitter_sketch",
+        "numeric_utf8_topk_candidate_keys",
+        "numeric_utf8_topk_candidate_parts_by_utf8_id",
+        "numeric_utf8_topk_exact_counts",
+        "numeric_utf8_topk_first_pass_exact_counts",
+        "numeric_utf8_topk_exact_counts_source",
+        "numeric_utf8_topk_group_roles",
+        "numeric_utf8_topk_total_weight",
+        "numeric_utf8_topk_dictionary_code_reuse",
+        "numeric_utf8_topk_candidate_code_prefilter",
+        "numeric_utf8_topk_candidate_utf8_id_partition_reuse",
+        "numeric_utf8_topk_candidate_free_chunks_skipped",
+        "numeric_utf8_topk_candidate_free_rows_skipped",
+        "numeric_utf8_topk_chunk_compacted_updates",
+        "group_order",
+        "string_interner",
+        "complete_key_partition_group_count",
+        "complete_key_selected_lease",
+        "transformed_dictionary_dense_general_groups",
+        "transformed_dictionary_dense_general_plan",
+        "count_star_direct_updates",
+        "single_numeric_count_direct_updates",
+        "compact_measure_direct_updates",
+        "numeric_pair_compact_direct_updates",
+        "numeric_pair_late_measure_direct_updates",
+        "numeric_pair_direct_key_slice_updates",
+        "numeric_pair_chunk_compacted_updates",
+        "numeric_pair_chunk_compacted_input_rows",
+        "numeric_pair_chunk_compacted_unique_keys",
+        "general_direct_updates",
+        "general_direct_count_distinct_updates",
+        "grouped_count_distinct_pair_preunion_updates",
+        "grouped_count_distinct_pair_preunion_input_rows",
+        "grouped_count_distinct_pair_preunion_unique_pairs",
+        "grouped_count_distinct_pair_preunion_chunk_group_partials",
+        "grouped_count_distinct_pair_preunion_chunk_groups",
+        "bound_numeric_recipe_chunks",
+        "compact_numeric_block_chunks",
+        "compact_numeric_block_input_rows",
+        "string_count_topk_heavy_hitter_direct_updates",
+        "string_count_distinct_topk_heavy_hitter_direct_updates",
+        "chunk_dictionary_direct_updates",
+        "transformed_dictionary_direct_updates",
+        "transformed_dictionary_compact_direct_updates",
+        "transformed_dictionary_compact_code_pair_partials",
+        "transformed_dictionary_key_cache",
+        "transformed_dictionary_key_cache_hits",
+        "transformed_dictionary_key_cache_misses",
+        "transformed_dictionary_key_cache_saturated",
+        "dictionary_group_compact_measure_direct_updates",
+        "transformed_dictionary_dense_general_direct_updates",
+        "transformed_dictionary_dense_general_chunk_partials",
+        "transformed_dictionary_dense_general_chunk_partial_input_values",
+        "transformed_dictionary_dense_general_chunk_partial_groups",
+        "transformed_dictionary_dense_general_transform_fusion",
+        "transformed_dictionary_general_direct_updates",
+        "transformed_dictionary_general_transform_fusion",
+        "transformed_dictionary_lazy_utf8_minmax_updates",
+        "chunk_materialized_partial_updates",
+        "transformed_materialized_partial_updates",
+        "numeric_minute_string_count_direct_updates",
+        "numeric_minute_string_dictionary_code_reuse",
+        "numeric_minute_string_direct_slice_updates",
+        "numeric_minute_string_direct_slice_update_rows",
+        "source_order_numeric_utf8_dictionary_direct_updates",
+        "source_order_candidate_filter",
+        "source_order_limited_group_admission",
+        "materialized_owned_group_keys",
+        "general_direct_group_state_pre_reserved",
+        "native_numeric_accessor_work",
+        "aggregate_accessor_summary",
+        "aggregate_vortex_dictionary_accessor_columns",
+        "aggregate_chunk_dictionary_accessor_columns",
+        "aggregate_primitive_accessor_columns",
+        "aggregate_materialized_accessor_columns",
+        "aggregate_accessor_blockers"
+      ]
+    }
+  },
+  "source_inventory_sha256": "bf6f11a4bcd6b7f3c4ff4ba348ea45941c74c927af7f145a6f3e119f28c61c27",
+  "performance_improvement_claim": false,
+  "review_scope": "Prepared planning, native operators, expression preparation, ownership, scheduling and layout; cost inventory is supporting evidence.",
+  "implementation_started": false,
+  "recommended_first_candidate": "Finite output demand at composed ordering, preserving full source validation.",
+  "cost_source_map_artifact": {
+    "file": "cost-source-map.json.gz",
+    "bytes": 36356,
+    "sha256": "f4004a0c0f57b33024b807317897d6ab6be9de10d48cee7bcc3fc35d3204f84c"
+  }
+}
