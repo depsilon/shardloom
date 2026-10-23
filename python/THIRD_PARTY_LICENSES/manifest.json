@@ -6904,11 +6904,11 @@
     },
     {
       "name": "tokio",
-      "version": "1.52.1",
+      "version": "1.53.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
       "repository": "https://github.com/tokio-rs/tokio",
-      "crate_checksum_sha256": "b67dee974fe86fd92cc45b7a95fdd2f99a36a6d7b0d431a231178d3d670bbcc6",
+      "crate_checksum_sha256": "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e",
       "files": [
         {
           "text": "texts/253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552.txt",

@@ -193,6 +193,8 @@ version listed in [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-202
 Dependency features are unchanged. Source review found no affected `AsyncFd`
 constructor calls in ShardLoom or its resolved direct Tokio consumers; the update
 clears the dependency-policy failure without claiming an application exploit.
+The packaged notice manifest records the new crate identity; its MIT license
+text is byte-identical to the existing bundled text.
 
 The [historical matrix replay](native-independent-full43-2026-10-22.md#corrected-runtime-workload-matrix)
 also now checks archived frontend identities independently of later frontend
