@@ -159,7 +159,9 @@ def verify(root, region_root):
             assert math.isfinite(row['engine_execution_seconds']) and row['engine_execution_seconds'] >= 0
             timings.append(row['engine_execution_seconds'])
             rows += len(actual)
-        total = sum(timings)
+        # Preserve the recorded compensated total across Python's pre/post-3.12
+        # built-in float sum implementations without weakening exact equality.
+        total = math.fsum(timings)
         assert rows == record['result_rows'] == 381
         assert total == record['engine_execution_seconds'] == summary['timing_totals']['totals']['engine_execution_seconds']
         cohorts.append(dict(queries=43, rows=rows, engine_execution_seconds=total, query_engine_seconds=timings))

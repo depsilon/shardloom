@@ -68,13 +68,23 @@
     },
     {
       "file": "verify_regions.py",
-      "bytes": 23859,
-      "sha256": "1f92c42f12d83f5f2e3e5f0e2b4b6791dff50629d80bc266213d5e84bdc94c4d"
+      "bytes": 24022,
+      "sha256": "455db976a58a4e08cf8d591cd09852d316529aaef58182f79be4f22fa258e0d1"
     },
     {
       "file": "verify_restoration.py",
-      "bytes": 10174,
-      "sha256": "4fce465a3caa0b7d9178db125e7eeec57f950afe143097f41527cb0b1ee93183"
+      "bytes": 10339,
+      "sha256": "bae62ca2e87f5b89104061dac6826e4042c7eab172672f6baedc8646eafa36b0"
+    },
+    {
+      "file": "summation-regression-before.log",
+      "bytes": 5455,
+      "sha256": "1b8bbe8cd44bfe39d2c43f5b079ab25613e9ea9d9b90eebc190f21b7673e4210"
+    },
+    {
+      "file": "summation-regression-after.log",
+      "bytes": 753,
+      "sha256": "439865e79a831f9bf92ad2fb097334a09386e49f6f22cdd5da3b1bf23cf4aeef"
     }
   ]
 }

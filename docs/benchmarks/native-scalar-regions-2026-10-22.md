@@ -143,3 +143,13 @@ semantic rejection. CI also replays the separate
 fifteen semantic controls from a relocated directory. Replay executes no native
 engine, requires no dataset/compiler/network, and does not replace physical
 reruns. ThinLTO, Vortex-native persistence and no-fallback boundaries stay intact.
+
+CI found a replay portability defect: Python 3.11's sequential floating-point
+sum differed by rounding from the compensated totals collected with newer
+Python. [Python 3.12 changed this built-in accumulation](https://docs.python.org/3/whatsnew/3.12.html#other-language-changes).
+Both replayers now use `math.fsum` and retain exact equality checks. The
+[regression](evidence/native-scalar-regions-2026-10-22/summation-regression-before.log)
+reproduces both original failures with sequential accumulation; the
+[fixed checks](evidence/native-scalar-regions-2026-10-22/summation-regression-after.log)
+pass all four tests and all 35 semantic corruption controls. The original
+archives, observations, thresholds and decisions are unchanged.

@@ -225,7 +225,9 @@ def verify(root):
         singles.append(raw_call(row, standard_log('.stdout.json'), standard_log('.timing.json'),
             reference['values'][row['query']], 'candidate', 'standard-q' + str(row['query']), 12))
     assert sum(r['rows'] for r in singles) == standard['result_rows'] == 381
-    standard_engine = sum(r['engine_execution_seconds'] for r in singles)
+    # Built-in float sum changed in Python 3.12. Reconstruct the recorded
+    # compensated totals identically on supported older replay interpreters.
+    standard_engine = math.fsum(r['engine_execution_seconds'] for r in singles)
     assert standard_engine == standard['engine_execution_seconds'] == single['timing_totals']['totals']['engine_execution_seconds']
 
     stage_results = []
@@ -340,7 +342,7 @@ def verify(root):
             continue
         lookup = {(r['case'], r['role']): r for r in raw_rows}
         targets = ids if kind == 'full43' else [c['id'] for c in cases if c['role'] == 'target']
-        totals = {role: sum(lookup[(key, role)]['engine_execution_seconds'] for key in targets) for role in ('control', 'candidate')}
+        totals = {role: math.fsum(lookup[(key, role)]['engine_execution_seconds'] for key in targets) for role in ('control', 'candidate')}
         aggregate_passed = totals['candidate'] <= totals['control'] * (0.98 if kind == 'full43' else 0.80)
         pairs = []
         for key in ids:
