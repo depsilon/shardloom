@@ -678,6 +678,175 @@ fn shared_provider_does_not_assume_nullable_or_empty_measures_have_values() {
     }
 }
 
+fn having_fixture() -> Fixture {
+    Fixture::new(
+        keyed(
+            &[None, None, Some(0), None, Some(2), Some(1), None],
+            &[1, 1, 2, 2, 2, 3, 4],
+        ),
+        2,
+    )
+}
+
+fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json::Value]) {
+    let prepared = prepare_relational(plan, policy()).unwrap();
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    for completed in 1..=2 {
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(json_rows(&result), expected);
+        assert!(prepared.provider.is_none());
+        assert!(result.execution.primitive_execution.is_none());
+        assert_eq!(result.execution.runtime.completed_executions, completed);
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    }
+}
+
+#[test]
+fn shared_provider_having_nullable_measures_preserve_unknown_and_hidden_fields() {
+    let fixture = having_fixture();
+    for function in ["min", "max", "sum", "avg"] {
+        for (op, retains_nonnull) in [
+            (ComparisonOp::Lt, true),
+            (ComparisonOp::LtEq, true),
+            (ComparisonOp::NotEq, true),
+            (ComparisonOp::Eq, false),
+            (ComparisonOp::Gt, false),
+            (ComparisonOp::GtEq, false),
+        ] {
+            let grouped = aggregate(
+                fixture.scan(),
+                &["amount"],
+                vec![
+                    measure(function, Some("entity"), "reduced"),
+                    measure("count", None, "rows"),
+                ],
+            );
+            let mut filtered = filter(grouped.clone(), "reduced", op, ScalarValue::UInt64(10));
+            // Also cover conjunctions containing a non-null COUNT comparison.
+            if matches!(function, "sum" | "avg") {
+                let VortexRelationalPlan::Filter(count) =
+                    filter(grouped, "rows", ComparisonOp::Gt, ScalarValue::UInt64(0))
+                else {
+                    unreachable!()
+                };
+                let VortexRelationalPlan::Filter(value) = &mut filtered else {
+                    unreachable!()
+                };
+                value.predicate = Expression::new(
+                    ExprId::new("having_and").unwrap(),
+                    ExpressionKind::Binary {
+                        left: Box::new(value.predicate.clone()),
+                        op: shardloom_core::BinaryOp::And,
+                        right: Box::new(count.predicate),
+                    },
+                );
+            }
+            // The nullable HAVING operand is absent from the final schema.
+            let plan = project(sort(filtered, "amount"), vec![("group", column("amount"))]);
+            let expected = if retains_nonnull {
+                vec![
+                    serde_json::json!({"group":2}),
+                    serde_json::json!({"group":3}),
+                ]
+            } else {
+                vec![]
+            };
+            assert_typed_having_rows(&plan, &expected);
+        }
+    }
+}
+
+#[test]
+fn shared_provider_having_nullable_keys_and_empty_scalar_reductions_keep_typed_filter() {
+    let fixture = having_fixture();
+    let cases = [
+        (ComparisonOp::Lt, &[0_u64][..]),
+        (ComparisonOp::LtEq, &[0, 1][..]),
+        (ComparisonOp::NotEq, &[0, 2][..]),
+        (ComparisonOp::Eq, &[1][..]),
+        (ComparisonOp::Gt, &[2][..]),
+        (ComparisonOp::GtEq, &[1, 2][..]),
+    ];
+    for (op, keys) in cases {
+        let plan = project(
+            sort(
+                filter(
+                    aggregate(
+                        fixture.scan(),
+                        &["entity"],
+                        vec![measure("count", None, "rows")],
+                    ),
+                    "entity",
+                    op,
+                    ScalarValue::UInt64(1),
+                ),
+                "entity",
+            ),
+            vec![("key", column("entity")), ("rows", column("rows"))],
+        );
+        let expected = keys
+            .iter()
+            .map(|key| serde_json::json!({"key":key,"rows":1}))
+            .collect::<Vec<_>>();
+        assert_typed_having_rows(&plan, &expected);
+
+        for function in ["min", "max", "sum", "avg"] {
+            let empty = filter(
+                fixture.scan(),
+                "amount",
+                ComparisonOp::Lt,
+                ScalarValue::UInt64(0),
+            );
+            let plan = filter(
+                aggregate(empty, &[], vec![measure(function, Some("amount"), "value")]),
+                "value",
+                op,
+                ScalarValue::UInt64(1),
+            );
+            assert_typed_having_rows(&plan, &[]);
+        }
+    }
+}
+
+#[test]
+fn shared_provider_having_proven_nonnull_reductions_and_counts_keep_provider() {
+    let fixture = having_fixture();
+    for function in ["min", "max", "sum", "avg"] {
+        let plan = sort(
+            filter(
+                aggregate(
+                    fixture.scan(),
+                    &["entity"],
+                    vec![measure(function, Some("amount"), "value")],
+                ),
+                "value",
+                ComparisonOp::Gt,
+                ScalarValue::UInt64(0),
+            ),
+            "entity",
+        );
+        assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    }
+    for function in ["count", "count_distinct"] {
+        let empty = filter(
+            fixture.scan(),
+            "amount",
+            ComparisonOp::Lt,
+            ScalarValue::UInt64(0),
+        );
+        let plan = filter(
+            aggregate(empty, &[], vec![measure(function, Some("entity"), "value")]),
+            "value",
+            ComparisonOp::Lt,
+            ScalarValue::UInt64(1),
+        );
+        assert_provider_matches_general(&plan, VortexQueryPrimitiveKind::SimpleAggregate);
+    }
+}
+
 #[test]
 fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
     let fixture = fixture();

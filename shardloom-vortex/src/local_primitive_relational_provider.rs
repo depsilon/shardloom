@@ -82,37 +82,10 @@ pub(super) fn prepare(
         return Ok(None);
     }
     let fields = provider_fields(&request, source.dtype())?;
-    let ordering = match request.kind {
-        Kind::SimpleAggregate => request
-            .simple_aggregate
-            .as_ref()
-            .expect("lowered aggregate")
-            .order_by
-            .as_slice(),
-        Kind::SortRows => request
-            .sort_rows
-            .as_ref()
-            .expect("lowered sort")
-            .order_by
-            .as_slice(),
-        _ => &[],
-    };
-    for key in ordering {
-        let dtype = if request.kind == Kind::SortRows {
-            native::completed_result::source_field(source.dtype(), &key.column)?
-        } else {
-            fields
-                .iter()
-                .find(|(name, _)| name == &key.column)
-                .map(|(_, dtype)| dtype.clone())
-                .ok_or_else(|| failed("ordering field is absent"))?
-        };
-        if key.nulls.is_none()
-            && dtype.is_nullable()
-            && !grouped_measure_is_nonnull(&request, source.dtype(), &key.column)?
-        {
-            return Ok(None); // Retain the relational runtime's explicit NULL ordering check.
-        }
+    if having_requires_typed_filter(&request, source.dtype(), &fields)?
+        || ordering_requires_typed_execution(&request, source.dtype(), &fields)?
+    {
+        return Ok(None);
     }
     if lowered.output.len() != root.fields.len()
         || lowered
@@ -162,13 +135,77 @@ pub(super) fn prepare(
     }))
 }
 
+fn having_requires_typed_filter(
+    request: &Request,
+    source: &DType,
+    fields: &[(String, DType)],
+) -> Result<bool> {
+    let Some(aggregate) = &request.simple_aggregate else {
+        return Ok(false);
+    };
+    for expression in &aggregate.having {
+        let dtype = fields
+            .iter()
+            .find(|(name, _)| name == &expression.column)
+            .map(|(_, dtype)| dtype)
+            .ok_or_else(|| failed("HAVING field is absent"))?;
+        // Primitive HAVING uses total value ordering. The typed filter instead
+        // rejects unknown comparisons, including fields hidden by projection.
+        if dtype.is_nullable() && !grouped_measure_is_nonnull(request, source, &expression.column)?
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn ordering_requires_typed_execution(
+    request: &Request,
+    source: &DType,
+    fields: &[(String, DType)],
+) -> Result<bool> {
+    let ordering = match request.kind {
+        Kind::SimpleAggregate => request
+            .simple_aggregate
+            .as_ref()
+            .expect("lowered aggregate")
+            .order_by
+            .as_slice(),
+        Kind::SortRows => request
+            .sort_rows
+            .as_ref()
+            .expect("lowered sort")
+            .order_by
+            .as_slice(),
+        _ => &[],
+    };
+    for key in ordering {
+        let dtype = if request.kind == Kind::SortRows {
+            native::completed_result::source_field(source, &key.column)?
+        } else {
+            fields
+                .iter()
+                .find(|(name, _)| name == &key.column)
+                .map(|(_, dtype)| dtype.clone())
+                .ok_or_else(|| failed("ordering field is absent"))?
+        };
+        if key.nulls.is_none()
+            && dtype.is_nullable()
+            && !grouped_measure_is_nonnull(request, source, &key.column)?
+        {
+            return Ok(true); // Retain the relational runtime's explicit NULL ordering check.
+        }
+    }
+    Ok(false)
+}
+
 fn grouped_measure_is_nonnull(request: &Request, source: &DType, name: &str) -> Result<bool> {
     let Some(aggregate) = request.simple_aggregate.as_ref() else {
         return Ok(false);
     };
     // Every emitted group has at least one input row. A scalar reduction can
     // instead emit NULL on empty input. Keep the public nullable output schema;
-    // this proof only admits an ordering that cannot encounter a NULL value.
+    // this proof only admits consumers that cannot encounter a NULL value.
     if aggregate.group_by.is_empty() && aggregate.group_expressions.is_empty() {
         return Ok(false);
     }

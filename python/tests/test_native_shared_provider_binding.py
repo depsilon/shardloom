@@ -144,6 +144,97 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                                                      {"key": 2, "mean": 3.0, "rows": 2}])
                 self.assertEqual(table.schema, tables[0].schema)
 
+    def test_nullable_having_comparisons_preserve_unknown_on_every_surface(self):
+        import operator
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{"key": 1, "value": None}, {"key": 1, "value": None},
+                {"key": 2, "value": 0}, {"key": 2, "value": None},
+                {"key": 2, "value": 2}, {"key": 3, "value": 1},
+                {"key": None, "value": 1}]
+        schema = pa.schema([pa.field("key", pa.uint32()), pa.field("value", pa.int64())])
+        with tempfile.TemporaryDirectory(prefix="shardloom-nullable-having-") as directory:
+            path = Path(directory) / "input.vortex"
+            source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+            session.plan(native.Relation.scan("memory://input"),
+                         sources=[("memory://input", source)]).write(path, "write_vortex")
+            groups = {1: {"key": 1, "minimum": None, "rows": 2},
+                      2: {"key": 2, "minimum": 0, "rows": 3},
+                      3: {"key": 3, "minimum": 1, "rows": 1}}
+            for column, op, spelling, threshold, keys in [
+                ("minimum", operator.lt, "<", 1, [2]),
+                ("minimum", operator.ne, "!=", 1, [2]),
+                ("key", operator.lt, "<", 2, [1]),
+                ("key", operator.ne, "!=", 2, [1, 3]),
+            ]:
+                with self.subTest(column=column, comparison=spelling):
+                    frame = (sl.read_vortex(path, client=client).group_by("key")
+                             .agg(minimum="MIN(value)", rows="COUNT(*)")
+                             .filter(op(sl.col(column), threshold)).sort("key", nulls="first"))
+                    relation = (native.Relation.scan(str(path))
+                                .aggregate(["key"], [("min", "value", "minimum"),
+                                                     ("count", None, "rows")])
+                                .filter(op(expr.column(column), expr.literal(threshold)))
+                                .sort([("key", False, "first")]))
+                    statement = (f"SELECT key,MIN(value) AS minimum,COUNT(*) AS rows FROM '{path}' "
+                                 f"GROUP BY key HAVING {column} {spelling} {threshold} "
+                                 "ORDER BY key NULLS FIRST")
+                    tables = self.all_surfaces(frame, relation, statement)
+                    for surface, table in zip(
+                            ("dataframe", "typed", "python_sql", "workflow", "cli_sql"), tables):
+                        with self.subTest(surface=surface):
+                            self.assertEqual(table.to_pylist(), [groups[key] for key in keys])
+                            self.assertEqual(table.schema, tables[0].schema)
+
+            # Moving SQL through typed admission must retain the existing names
+            # assigned by the primitive frontend to unaliased aggregate outputs.
+            for predicate in ("MIN(value) < 1", "min_value_1 < 1"):
+                with self.subTest(unaliased_having=predicate):
+                    frame = (sl.read_vortex(path, client=client).group_by("key")
+                             .agg(min_value_1="MIN(value)", count_all_2="COUNT(*)")
+                             .filter(sl.col("min_value_1") < 1).sort("key", nulls="first"))
+                    relation = (native.Relation.scan(str(path))
+                                .aggregate(["key"], [("min", "value", "min_value_1"),
+                                                     ("count", None, "count_all_2")])
+                                .filter(expr.column("min_value_1") < expr.literal(1))
+                                .sort([("key", False, "first")]))
+                    statement = (f"SELECT key,MIN(value),COUNT(*) FROM '{path}' "
+                                 f"GROUP BY key HAVING {predicate} ORDER BY key NULLS FIRST")
+                    tables = self.all_surfaces(frame, relation, statement)
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(),
+                                         [{"key": 2, "min_value_1": 0, "count_all_2": 3}])
+                        self.assertEqual(table.schema, tables[0].schema)
+
+    def test_extended_having_keeps_existing_implicit_output_names(self):
+        from decimal import Decimal
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        with tempfile.TemporaryDirectory(prefix="shardloom-extended-having-") as directory:
+            path = Path(directory) / "input.vortex"
+            source = session.from_arrow(pa.table({
+                "value": pa.array([Decimal("1.00"), None, Decimal("2.00")], pa.decimal128(10, 2)),
+            }))
+            session.plan(native.Relation.scan("memory://input"),
+                         sources=[("memory://input", source)]).write(path, "write_vortex")
+            frame = (sl.read_vortex(path, client=client)
+                     .agg(min_value="MIN(value)", count_all="COUNT(*)")
+                     .filter(sl.col("count_all") > 0))
+            relation = (native.Relation.scan(str(path))
+                        .aggregate([], [("min", "value", "min_value"), ("count", None, "count_all")])
+                        .filter(expr.column("count_all") > expr.literal(0)))
+            statement = f"SELECT MIN(value),COUNT(*) FROM '{path}' HAVING COUNT(*) > 0"
+            tables = self.all_surfaces(frame, relation, statement)
+            for table in tables:
+                self.assertEqual(table.to_pylist(), [{"min_value": Decimal("1.00"), "count_all": 3}])
+                self.assertEqual(table.schema, tables[0].schema)
+
     def test_string_comparisons_preserve_literal_content_on_every_surface(self):
         import shardloom as sl
         native, session, pa = self.native, self.session, self.pa

@@ -18,30 +18,34 @@ use shardloom_vortex::local_primitives::prepared_dispatch;
 /// primitive offset contract instead retains the input signedness. Rebind the
 /// complete SQL before choosing an equivalent file provider, including for
 /// floats, nullable fields and values too wide for the optimized transform.
+/// HAVING also needs typed admission: primitive total ordering must not replace
+/// SQL unknown comparisons for nullable grouping keys or aggregate results.
 pub(super) fn request_requires_relational(
     source: &shardloom_vortex::resident_session::PreparedVortexSource,
     request: &shardloom_vortex::VortexQueryPrimitiveRequest,
 ) -> Result<bool, ShardLoomError> {
     let extended = prepared_dispatch::request_requires_relational(source, request)?;
-    let arithmetic = request.simple_aggregate.as_ref().is_some_and(|aggregate| {
-        aggregate
-            .group_expressions
-            .iter()
-            .any(|expression| expression.function.eq_ignore_ascii_case("add_offset"))
+    let typed_semantics = request.simple_aggregate.as_ref().is_some_and(|aggregate| {
+        !aggregate.having.is_empty()
+            || aggregate
+                .group_expressions
+                .iter()
+                .any(|expression| expression.function.eq_ignore_ascii_case("add_offset"))
             || aggregate
                 .measures
                 .iter()
                 .any(|measure| measure.argument_offset.is_some_and(|offset| offset != 0))
     });
-    Ok(extended || arithmetic)
+    Ok(extended || typed_semantics)
 }
 
 /// Retain names already assigned by the primitive SQL declaration when its
-/// arithmetic moves to the typed binder. Only aliases are made explicit;
+/// arithmetic or HAVING moves to the typed binder. Only aliases are made explicit;
 /// the complete expressions, clauses and source spelling are preserved.
 pub(super) fn typed_statement<'a>(
     statement: &'a str,
     request: &PublicWorkflowRouteRequest,
+    preserve_having_names: bool,
 ) -> std::borrow::Cow<'a, str> {
     use std::borrow::Cow;
     if request.vortex_aggregate.is_none() {
@@ -50,25 +54,25 @@ pub(super) fn typed_statement<'a>(
     let Some(shape) = super::parse_native_vortex_sql_single_source_shape(statement) else {
         return Cow::Borrowed(statement);
     };
-    let mut arithmetic = false;
+    let mut typed_semantics = preserve_having_names && shape.having.is_some();
     let mut changed = false;
     let projections = super::split_sql_projection_list(&shape.projection)
         .into_iter()
         .enumerate()
         .map(|(index, item)| {
             if let Some(measure) = super::scalar_aggregate_measure_from_sql(index, item) {
-                arithmetic |= measure.payload.get("argument_offset").is_some();
+                typed_semantics |= measure.payload.get("argument_offset").is_some();
                 if super::sql_explicit_alias(item).is_none() {
                     changed = true;
                     return format!("{item} AS {}", measure.alias);
                 }
             } else if let Some(expression) = super::parse_sql_group_expression(item) {
-                arithmetic |= expression.payload["function"] == "add_offset";
+                typed_semantics |= expression.payload["function"] == "add_offset";
             }
             item.to_owned()
         })
         .collect::<Vec<_>>();
-    if !arithmetic || !changed {
+    if !typed_semantics || !changed {
         return Cow::Borrowed(statement);
     }
     let body = statement.trim()["SELECT".len()..].trim_start();
@@ -77,6 +81,36 @@ pub(super) fn typed_statement<'a>(
         projections.join(", "),
         &body[shape.projection.len()..]
     ))
+}
+
+/// Only newly redirected primitive HAVING statements inherit primitive aliases.
+/// Extended fields and file collections already used the typed binder's names.
+pub(super) fn typed_statement_for_source<'a>(
+    statement: &'a str,
+    request: &PublicWorkflowRouteRequest,
+    source: Option<&shardloom_vortex::resident_session::PreparedVortexSource>,
+) -> Result<std::borrow::Cow<'a, str>, ShardLoomError> {
+    let preserve_having_names = if let Some(source) = source
+        && request.vortex_aggregate.is_some()
+        && super::parse_native_vortex_sql_single_source_shape(statement)
+            .is_some_and(|shape| shape.having.is_some())
+    {
+        let argument = super::native_vortex_primitive_arg_for_request(
+            request,
+            PublicVortexPrimitive::Aggregate,
+        )?;
+        let uri = request.input_uri.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("native SQL source URI is absent".into())
+        })?;
+        let primitive = super::vortex_primitive_execution::parse_vortex_primitive_request(
+            shardloom_core::DatasetUri::new(uri)?,
+            &argument,
+        )?;
+        !prepared_dispatch::request_requires_relational(source, &primitive)?
+    } else {
+        false
+    };
+    Ok(typed_statement(statement, request, preserve_having_names))
 }
 
 pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkflowRoutePlan> {

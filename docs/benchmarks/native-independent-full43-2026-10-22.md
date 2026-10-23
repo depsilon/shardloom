@@ -151,12 +151,22 @@ to a temporary checkout location before replaying the packet and all 18 controls
 This reproduces and fixes the CI failure caused by looking up a historical oracle
 member with the replay checkout's absolute path; member lookup now uses the exact
 source identity in the retained oracle protocol. Original packet paths and bytes
-remain unchanged. All 14 matrix test methods pass, with semantic corruption
+remain unchanged. The original 14 matrix test methods pass, with semantic corruption
 subcases for provenance, environment, missing work, resource/SQL drift, complete
 values, fallback, writer readbacks and original payload type/order/completeness.
 The [validation record](evidence/native-independent-full43-2026-10-22/matrix-validation.json)
 retains the unsupported-interpreter attempt and a corrected negative-test
 diagnostic expectation, neither of which changed the runtime or verifier.
+
+The October 23 replay repair adds five controls, bringing the matrix suite to
+19 tests. Historical replay validates the recorded Python frontend and source
+inventory; current frontend equality is required only with
+`--check-current-runtime`. Trusted replay helpers must still match their pinned
+sources. The manifest separately identifies the maintained replay program and
+the unchanged original verifier in the packet. Controls reject altered recorded
+source identities, missing inventory entries, changed replay helpers and a
+mismatched replay program, while allowing later frontend changes in historical
+mode. The original packet, observations and runtime identities remain unchanged.
 
 This refresh supersedes the stale-runtime limitation of the
 [prior matrix](native-workload-comparisons-2026-10-22.md), whose results remain

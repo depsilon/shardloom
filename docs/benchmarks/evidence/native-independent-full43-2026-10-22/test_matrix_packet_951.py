@@ -38,9 +38,10 @@ class MatrixPacketTests(unittest.TestCase):
         cls.native_index = next(i for i, row in enumerate(cls.report['records'])
                                 if row['engine'] == 'shardloom')
 
-    def verify(self, packet=None):
+    def verify(self, packet=None, *, check_current_runtime=False):
         with patch.object(matrix, 'helpers', return_value=self.helpers):
-            return matrix.replay(REPO, self.manifest, self.packet if packet is None else packet)
+            return matrix.replay(REPO, self.manifest, self.packet if packet is None else packet,
+                                 check_current_runtime=check_current_runtime)
 
     def reject_decoded_changes(self, changes, pattern):
         # Decode mutations happen after byte validation, so each case exercises
@@ -71,6 +72,50 @@ class MatrixPacketTests(unittest.TestCase):
         self.assertEqual(result['logical_schema_statements'], 368)
         self.assertEqual(result['terminal_order_statements'], 48)
         self.assertFalse(result['runtime_executed'])
+
+    def test_current_frontend_drift_preserves_historical_replay(self):
+        frontend = REPO / 'python/src/shardloom/query.py'
+        read_bytes = Path.read_bytes
+
+        def changed(path):
+            raw = read_bytes(path)
+            return raw + b'\n# changed current frontend\n' if path == frontend else raw
+
+        with patch.object(Path, 'read_bytes', changed):
+            result = self.verify()
+            self.assertEqual(result['complete_result_pairs'], 704)
+            self.assertFalse(result['current_runtime_source_checked'])
+            with self.assertRaisesRegex(ValueError, 'current runtime source changed'):
+                self.verify(check_current_runtime=True)
+
+    def test_recorded_frontend_identity_is_still_required(self):
+        self.reject_decoded_changes({self.manifest['protocol']['path']:
+            lambda d: d['harness_source_hashes'].__setitem__('python/src/shardloom/query.py', '0' * 64)},
+            'recorded harness source changed')
+
+    def test_current_replay_harness_drift_is_rejected(self):
+        workload = REPO / 'benchmarks/traditional_analytics/workloads.py'
+        read_bytes = Path.read_bytes
+
+        def changed(path):
+            raw = read_bytes(path)
+            return raw + b'\n# changed workload semantics\n' if path == workload else raw
+
+        with patch.object(Path, 'read_bytes', changed):
+            with self.assertRaisesRegex(ValueError, 'replay harness source changed'):
+                self.verify()
+
+    def test_maintained_verifier_identity_is_required(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest['replay_verifier']['sha256'] = '0' * 64
+        with patch.object(self, 'manifest', manifest):
+            with self.assertRaisesRegex(ValueError, 'matrix replay verifier source differs'):
+                self.verify()
+
+    def test_recorded_harness_inventory_must_be_complete(self):
+        self.reject_decoded_changes({self.first_report:
+            lambda d: d['harness_sources'].pop('python/src/shardloom/query.py')},
+            'harness source inventory is incomplete or changed')
 
     def test_altered_member_bytes_are_rejected(self):
         packet = dict(self.packet, members=list(self.packet['members']))

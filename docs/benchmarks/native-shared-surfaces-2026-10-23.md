@@ -175,3 +175,30 @@ optimizations. The next candidate still needs its own finite correctness,
 resource and benefit decision; prior rejected mechanisms and optional breadth
 remain unchanged. Hosted integration, installed-package acceptance and release
 publication are outside this local acceptance.
+
+## PR correctness, dependency and replay follow-up
+
+Review found that lowering nullable HAVING comparisons could retain NULL groups
+that the typed filter rejects. SQL HAVING now reaches the shared typed binder,
+and provider admission retains the typed filter whenever its operand can be
+NULL. Existing non-null COUNT and grouped-reduction providers remain eligible;
+unaliased SQL result names are preserved, including the existing names on
+decimal and other extended-type paths. Regression coverage includes nullable
+keys, all-null and mixed groups, empty scalar reductions, all six comparisons,
+conjunctions, hidden filter operands and repeated execution. The public test
+checks complete results and schemas through all five entry points.
+
+The PR follow-up changes the workspace Tokio pin from 1.52.1 to 1.53.3, a patched
+version listed in [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386.html).
+Dependency features are unchanged. Source review found no affected `AsyncFd`
+constructor calls in ShardLoom or its resolved direct Tokio consumers; the update
+clears the dependency-policy failure without claiming an application exploit.
+
+The [historical matrix replay](native-independent-full43-2026-10-22.md#corrected-runtime-workload-matrix)
+also now checks archived frontend identities independently of later frontend
+changes. It preserves current-source checking as an explicit mode and retains
+the trusted-helper, complete-inventory and corruption checks.
+
+The Full43 observations above remain bound to `7c65f339`; they were not rerun
+for these repairs and do not measure the updated runtime.
+Use historical replay mode when auditing that packet from the updated checkout.

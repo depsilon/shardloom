@@ -241,8 +241,16 @@ impl NativeWorkflowDeclaration {
                 workflow::resident_sql::request_requires_relational(source, &primitive_request)
                     .map(|required| extended || required)
             })? {
+            // Extended-field SQL already used typed output names. Preserve the
+            // primitive names only for the HAVING path newly admitted here.
+            let preserve_having_names = sources.iter().try_fold(true, |preserve, source| {
+                prepared_dispatch::request_requires_relational(source, &primitive_request)
+                    .map(|extended| preserve && !extended)
+            })?;
+            let statement =
+                workflow::resident_sql::typed_statement(statement, &request, preserve_having_names);
             let operation = workflow::resident_relational::prepare_in_session(
-                statement,
+                &statement,
                 &request,
                 session,
                 |schemas| {

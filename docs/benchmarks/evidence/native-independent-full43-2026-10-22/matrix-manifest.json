@@ -29,6 +29,11 @@
     "bytes": 21587,
     "sha256": "006a3282565ebffc903a26ea7eb25bfe5b21b6897596ba924d90758ab1777de6"
   },
+  "replay_verifier": {
+    "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/verify_matrix_packet_951.py",
+    "bytes": 23245,
+    "sha256": "4f0e748b7035b29192331a238c113c7943e1fcb1059a2d2fe4e28d8f01cc709c"
+  },
   "original_repository": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
   "independent_full43": {
     "review": {

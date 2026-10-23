@@ -80,7 +80,7 @@ pub(crate) fn prepare_in_session_with_reuse(
     cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, bool), ShardLoomError> {
     cancellation.check()?;
-    let statement = super::super::resident_sql::typed_statement(statement, request);
+    let statement = super::super::resident_sql::typed_statement(statement, request, false);
     let statement = statement.as_ref();
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;
@@ -123,7 +123,11 @@ pub(super) fn prepare_with_source_in_session(
     cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     cancellation.check()?;
-    let statement = super::super::resident_sql::typed_statement(statement, request);
+    let statement = super::super::resident_sql::typed_statement_for_source(
+        statement,
+        request,
+        source.as_ref(),
+    )?;
     let statement = statement.as_ref();
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;

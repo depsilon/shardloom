@@ -32,7 +32,7 @@ its query IDs and text must not participate in runtime selection.
 | DataFrame operations and native expressions | Some already implemented operations lack a surface spelling | Add bounded output offsets and shared scalar spellings with explicit types, null behavior and error tests |
 | Capability and semantic catalogs | Report rows do not establish execution across front doors | Bind current families to executable conformance cases and explicit unsupported/not-applicable boundaries |
 
-No Vortex version, dependency or query-engine integration changes are needed.
+No Vortex version or query-engine integration changes are needed.
 Existing pinned Vortex arrays, scan and source owners remain the provider
 boundary. ShardLoom retains normalization, policy, resource and certificate
 ownership. Native Vortex output remains highest fidelity; compatibility output
@@ -85,6 +85,14 @@ Grouped SUM/AVG/MIN/MAX ordering can use the aggregate provider without explicit
 NULL placement when each group's argument is provably non-null. The public
 nullable result schema remains unchanged. Scalar reductions on empty inputs and
 groups with nullable arguments keep the ordinary NULL-ordering requirement.
+
+SQL HAVING also passes through complete typed binding before provider selection,
+preserving the existing names of unaliased aggregate outputs. A comparison on a
+nullable grouping key or reduction retains the typed filter because primitive
+HAVING uses total ordering instead of SQL unknown propagation. This check covers
+operands removed by the final projection and reductions on empty scalar input.
+COUNT and grouped reductions whose arguments are provably non-null remain
+eligible for the existing aggregate provider.
 
 ## Surface declarations
 
