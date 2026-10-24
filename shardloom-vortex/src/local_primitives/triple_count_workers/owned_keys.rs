@@ -8,7 +8,8 @@ use super::{
 
 pub(super) struct OwnedKeys {
     numeric: AggregateDirectColumnAccessor,
-    minute: AggregateDirectColumnAccessor,
+    // None means both grouping roles borrow the same transferred numeric owner.
+    minute: Option<AggregateDirectColumnAccessor>,
     row_ids: Vec<u32>,
     ids: Vec<u64>,
     prepared: bool,
@@ -36,9 +37,12 @@ impl OwnedKeys {
                 row_ids = Some(codes);
             }
         }
+        if roles.minute_column != roles.numeric_column && minute.is_none() {
+            return Err(failed("transferred minute owner is missing"));
+        }
         Ok(Self {
             numeric: numeric.ok_or_else(|| failed("transferred numeric owner is missing"))?,
-            minute: minute.ok_or_else(|| failed("transferred minute owner is missing"))?,
+            minute,
             row_ids: row_ids.ok_or_else(|| failed("transferred dictionary codes are missing"))?,
             ids,
             prepared: roles.minute_column_prepared,
@@ -58,20 +62,28 @@ impl OwnedKeys {
             .and_then(|bytes| bytes.checked_add(size_of::<Self>()))
             .and_then(|bytes| u64::try_from(bytes).ok())
             .ok_or_else(|| failed("transferred input capacity overflow"))?;
-        [numeric_bytes(&self.numeric)?, numeric_bytes(&self.minute)?]
-            .into_iter()
-            .try_fold(adapter, |total, bytes| {
-                total
-                    .checked_add(bytes)
-                    .ok_or_else(|| failed("transferred native input size overflow"))
-            })
+        [
+            numeric_bytes(&self.numeric)?,
+            self.minute
+                .as_ref()
+                .map(numeric_bytes)
+                .transpose()?
+                .unwrap_or(0),
+        ]
+        .into_iter()
+        .try_fold(adapter, |total, bytes| {
+            total
+                .checked_add(bytes)
+                .ok_or_else(|| failed("transferred native input size overflow"))
+        })
     }
 
     pub(super) fn route(&self, check: impl FnMut() -> Result<()>) -> Result<RoutedKeys> {
         let numeric = aggregate_direct_integer_key_slice(&self.numeric)
             .ok_or_else(|| failed("transferred numeric owner lost its typed slice"))?;
-        let minute = aggregate_direct_integer_key_slice(&self.minute)
-            .ok_or_else(|| failed("transferred minute owner lost its typed slice"))?;
+        let minute =
+            aggregate_direct_integer_key_slice(self.minute.as_ref().unwrap_or(&self.numeric))
+                .ok_or_else(|| failed("transferred minute owner lost its typed slice"))?;
         DirectKeys {
             numeric,
             minute,

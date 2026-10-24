@@ -15,10 +15,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / 'docs/benchmarks/evidence/native-grouped-preparation-2026-10-24'
 VERIFIER = EVIDENCE / 'verify_packet.py'
-SPEC = importlib.util.spec_from_file_location('native_grouped_verify_packet', VERIFIER)
-VERIFY = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = VERIFY
-SPEC.loader.exec_module(VERIFY)
 
 
 class OverlayPacket:
@@ -42,11 +38,19 @@ class OverlayPacket:
 
 
 class NativeGroupedPreparationEvidenceTests(unittest.TestCase):
-    def relocated(self, destination):
-        if not EVIDENCE.is_dir():
+    @classmethod
+    def setUpClass(cls):
+        if not (EVIDENCE / 'evidence.tar.xz').is_file():
             if (ROOT / '.git').exists():
-                self.fail('tracked native grouped preparation evidence is missing')
-            self.skipTest('evidence packet is excluded from exported source archives')
+                raise AssertionError('tracked native grouped preparation evidence is missing')
+            raise unittest.SkipTest('evidence packet is excluded from exported source archives')
+        global VERIFY
+        spec = importlib.util.spec_from_file_location('native_grouped_verify_packet', VERIFIER)
+        VERIFY = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = VERIFY
+        spec.loader.exec_module(VERIFY)
+
+    def relocated(self, destination):
         shutil.copytree(EVIDENCE, destination)
         return destination
 

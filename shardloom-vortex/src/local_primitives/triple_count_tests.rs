@@ -411,6 +411,84 @@ fn triple_workers_keep_transferred_inputs_alive_until_delayed_routing_and_releas
 }
 
 #[test]
+fn triple_workers_share_one_native_owner_between_integer_and_minute_roles() {
+    let columns = vec!["event_seconds".to_owned(), "phrase_label".to_owned()];
+    let request = VortexSimpleAggregateRequest::grouped(
+        columns
+            .iter()
+            .map(|name| ColumnRef::new(name).unwrap())
+            .collect(),
+        vec![VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "frequency".into(),
+        )],
+    )
+    .with_group_expressions(vec![VortexAggregateExpression::new(
+        "minute_slot".into(),
+        ColumnRef::new("event_seconds").unwrap(),
+        "extract_minute",
+    )])
+    .with_order_by(vec![VortexAggregateOrderExpr::new("frequency", true)]);
+    for kind in 0..3 {
+        for parallelism in [1, 3] {
+            let numeric = match kind {
+                0 => PrimitiveArray::new(vec![-1_i16, -1, 61, 61], Validity::NonNullable)
+                    .into_array(),
+                1 => integers(&[i64::MIN, i64::MIN, i64::MAX, i64::MAX]),
+                _ => PrimitiveArray::new(vec![0_u64, 0, u64::MAX, u64::MAX], Validity::NonNullable)
+                    .into_array(),
+            };
+            let source = StructArray::try_new(
+                columns.clone().into_iter().collect::<FieldNames>(),
+                vec![
+                    numeric,
+                    dictionary(&[0, 0, 1, 1], &["東京", "other\0phrase"]),
+                ],
+                4,
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array();
+            let mut reference =
+                GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+            assert!(
+                reference
+                    .update_compact_direct_from_chunk(&source, &columns, None)
+                    .unwrap()
+            );
+            let expected = values(&reference, 2);
+            drop(reference);
+            let memory = LiveMemoryPool::new(4 << 20).unwrap();
+            let session = VortexSession::default();
+            let mut states =
+                GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+            let mut workers = CountWorkers::admit(
+                &states,
+                source.dtype(),
+                &columns,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
+                &session,
+                &memory,
+            )
+            .unwrap()
+            .expect("same-source triple roles remain admitted");
+            assert!(matches!(&workers, CountWorkers::Triple(_)));
+            assert!(workers.submit(&source, &mut states).unwrap());
+            drop(source);
+            workers.finish(&mut states).unwrap();
+            assert_eq!(values(&states, 2), expected);
+            let (_, mut summary) = states.result_row_count_and_summary(Some(2)).unwrap();
+            workers.annotate_summary(&mut summary).unwrap();
+            let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+            assert_eq!(summary["aggregate_workers_triple_worker_routed_chunks"], 1);
+            drop((workers, states, session));
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn triple_workers_keep_exact_general_keys_without_typed_slices() {
     use vortex::array::arrays::ConstantArray;
 

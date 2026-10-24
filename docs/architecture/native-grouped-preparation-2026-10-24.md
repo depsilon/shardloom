@@ -154,6 +154,15 @@ replays 52 comparisons and Full43 without a binary or dataset. It does not
 execute archived helper code. Historical gates and failed observations remain
 unchanged.
 
+The subsequent adversarial review finds one ownership edge outside Q19's
+distinct-column shape: the integer grouping key and minute expression may
+reference the same source column. Preserve a single transferred owner and let
+both roles borrow it, charging its native estimate once. A regression test
+covers narrow/signed-extreme/unsigned-extreme inputs at one and three lanes,
+exact results after dropping the source and complete lease release. The
+following G2 control cohort and final broad validation cover the corrected
+retained runtime; the original G1 observations remain immutable.
+
 ## G2: one average with repeated count measures
 
 Source finding: `sql_syntax.rs::rewrite_having_aggregate_predicate` appends a
