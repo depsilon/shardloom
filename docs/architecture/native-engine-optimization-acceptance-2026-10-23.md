@@ -49,11 +49,34 @@ serialization and cleanup are recorded separately in diagnostic evidence.
 | Predicate masks | Compile the existing finite pure recipe once per filter execution and consume a native mask | One recipe compilation per execution, no Boolean-value expansion for the admitted filter | Repeated batches with nullable compound I64 comparisons | Projected three-valued Booleans and unadmitted/lazy expressions |
 | Existence joins | Retain unique right keys for keyed left semi/anti joins without a residual condition | Less retained right state; no duplicate links or unused payload; exact collision equality | Duplicate-heavy, wide right inputs | Unique right keys, NULLs, residual conditions, other joins and explicit spill |
 
-Value preparation and aggregate reuse share one ownership boundary and are
-evaluated together first. The sort locator can follow that boundary without
-changing output demand. Predicate and existence strategies remain separately
-admitted. Each candidate has a recorded retain, revise or drop decision; “work
-through all six” does not authorize keeping a correctness or cost regression.
+Value preparation and aggregate reuse share one ownership boundary but receive
+separate implementation checkpoints. The sort locator follows without changing
+output demand. Predicate and existence strategies remain separately admitted.
+Each candidate has a recorded retain, revise or drop decision; “work through all
+six” does not authorize keeping a correctness or cost regression.
+
+The maintainer's October 23 follow-up requires one isolated Full43 after each
+optimization. Freeze the repaired PR runtime as the fresh baseline, then add
+value preparation, aggregate reuse, sort locations, predicate masks and existence
+joins in sequence. Validate each changed boundary and freeze its runtime before
+the next isolated pass. Record each engine total and its difference from the
+preceding checkpoint. A candidate rejected before runtime implementation has no
+additional pass. The final checkpoint's pass supplies the final Full43 evidence;
+do not add a duplicate end-of-batch pass. These single observations complement
+the frozen cost screen below and do not independently isolate repeatable speedups.
+
+## Finite sort-output feasibility decision
+
+Drop the immediate-Limit output-copy candidate. Existing native sort gathering
+validates payloads in sorted output order while copying each output batch. The
+regression in `native_relational_sort_tests.rs` emits the first valid row and
+then rejects a nonfinite non-key payload in the next row, even when a consumer
+already has enough rows. Skipping that second gather hides a required failure.
+Keys are independently validated before sorting, including later keys that an
+earlier distinct key would prevent the comparator from observing. Existing
+streamed-ordering tests also retain late input failure and zero-limit behavior.
+There is no admitted validation-only gather with identical failure order and
+resource behavior, so a second validator is outside this bounded candidate.
 
 ## Workloads and scoring
 
@@ -127,8 +150,9 @@ NULL children. Existing spill paths remain separately tested.
 
 After the coherent implementation, run formatter, default/native workspace lint
 and tests, all-features compilation and affected public-surface conformance.
-Run one isolated standard Full43: exactly one execution per query, all other
-task-owned work idle, unchanged storage/deadline/concurrency/result checks, full
-hashes and inventories outside query execution. It is a regression observation,
-not comprehensive measurement of these composed workloads. Review the final diff
+Run the baseline and per-optimization isolated standard Full43 passes described
+above: exactly one execution per query in each pass, all other task-owned work
+idle, unchanged storage/deadline/concurrency/result checks, full hashes and
+inventories outside query execution. These are regression observations, not
+comprehensive measurement of the composed workloads. Review the final diff
 adversarially and preserve every candidate decision and remaining proof gap.
