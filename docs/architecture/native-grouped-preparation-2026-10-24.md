@@ -2,7 +2,7 @@
 
 # Native grouped preparation campaign
 
-Status: G1 and G2 retained; G3 finite candidate contract, without performance acceptance.
+Status: G1 and G2 retained; G3 dropped; final coherent acceptance pending.
 
 The October 24 maintainer feedback selects compound grouping first, text
 preparation and grouped measures second, and exact URL grouping third. This is
@@ -225,6 +225,7 @@ The frozen 52-call cohort at `5aa56f14` passes every gate. Q28/12's median
 engine execution changes from **2.315951250** to **2.092562459 seconds**,
 a **9.646%** reduction. Complete values, schemas, the single-lane case,
 all six companion queries and the original resource gates pass. G2 is retained.
+All five target pairs improve; the median paired saving is 0.202990584 seconds.
 The final coherent acceptance below must cover both this extension and the
 shared-owner correction; the earlier G1 Full43 remains an immutable observation.
 
@@ -303,3 +304,47 @@ storage, process, deadline and cleanup guards. After this finite decision,
 finish required broad validation and one isolated standard Full43 on the final
 retained runtime. No Q29 or Q34/Q35 change is justified solely by their timing;
 record their source review and controls without inventing a further mechanism.
+
+### G3 decision and remaining source review
+
+The frozen 58-call cohort at `4c91469d` passes complete values/schemas,
+no-fallback, positive target activation and its original CPU/RSS gates.
+Q23/12 improves in all five pairs, from **3.013590958** to **1.688483750
+seconds** median engine execution, a **43.971%** reduction. However, Q19's
+median rises **10.327%** and Q28's rises **5.137%**; both exceed their unchanged
+control allowances. **G3 is dropped.** No failed pair is excluded, no gate is
+relaxed and no unchanged rerun is performed. The Q23 gain is evidence for this
+rejected candidate only, not a retained-runtime or Full43 claim.
+
+| Case | G2 median engine seconds | G3 median engine seconds |
+| --- | ---: | ---: |
+| Q23, 12 lanes | 3.013590958 | 1.688483750 |
+| Q23, 1 lane | 7.721962374 | 6.420631209 |
+| Q17, 12 lanes | 2.522326000 | 2.489197291 |
+| Q19, 12 lanes | 3.720383791 | 4.104597292 |
+| Q22, 12 lanes | 1.114787209 | 0.925009542 |
+| Q28, 12 lanes | 2.220709958 | 2.334778250 |
+| Q29, 12 lanes | 3.028104292 | 3.052282125 |
+| Q34, 12 lanes | 2.002180791 | 1.990317500 |
+| Q35, 12 lanes | 2.018465791 | 2.003240041 |
+
+All G3 production and test changes are restored to the retained G2 source.
+Its source patch, build, 16 passing focused tests, initial test/lint repairs,
+complete observations and decision remain recorded. The failures do not prove
+one cause for both control regressions. Further work would need a materially
+different, source-backed contract; it is not part of this finite campaign.
+
+The Q29 review confirms existing embedded byte-length/regex lowering into the
+shared prepared aggregate, with mixed text/numeric measures. The G2 compact
+recipe intentionally declines that semantically different measure set. Its
+relational report still omits detailed aggregate preparation counters; that
+reporting gap belongs to the queued user-surface parity work. No additional
+Q29 mechanism is selected without a demonstrated avoidable cost.
+
+Q34 and Q35 both use the existing complete-key partition workers over
+99,997,497 rows and 3,120 chunks. Their retained observation records the same
+18,342,019 new global string entries and 9,038,838,007 UTF-8 bytes hashed.
+The extra constant projection changes neither exact key identity nor that
+worker input. Review finds no bounded correction justified by these counters;
+their passing controls close this investigation without an invented rewrite.
+These observations do not establish an optimal string-grouping implementation.

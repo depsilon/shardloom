@@ -1,4 +1,4 @@
-//! Query-local ownership of one projected text conjunct's decoded scan range.
+//! Query-local ownership of one text predicate's decoded scan range.
 //!
 //! The projection future owns each entry. The registry retains only weak handles,
 //! so pruning, cancellation and errors retire entries without a later scan visit.
@@ -33,7 +33,7 @@ use vortex::{
     expr::{BoundExpression, root, select},
     file::VortexFile,
     layout::{ArrayFuture, LayoutReader, RowSplits, SplitRange, scan::scan_builder::ScanBuilder},
-    mask::{AllOr, Mask},
+    mask::Mask,
     session::VortexSession,
 };
 
@@ -69,43 +69,13 @@ impl Stats {
         ] {
             value[name] = count.load(Ordering::Relaxed).into();
         }
-        value["aggregate_text_scan_scope"] = "query_owned_projected_text_conjunct;native_pruning_and_filter_order_unchanged;all_true_input_only;zstd_decode_shared_with_projection;final_mask_applied_after_conjunction;other_columns_read_after_filter;encoded_dictionary_paths_preserved;active_range_lifetime;no_cross_query_cache".into();
+        value["aggregate_text_scan_scope"] = "query_owned_single_text_comparison;native_pruning_unchanged;zstd_decode_shared_with_projection;other_columns_read_after_filter;encoded_dictionary_paths_preserved;active_range_lifetime;no_cross_query_cache".into();
         *summary = value.to_string();
         Ok(())
     }
 }
 
 type ReusedScan = (ScanBuilder<ArrayRef>, Arc<Stats>);
-
-fn projected_text_predicate<'a>(
-    predicate: &'a PredicateExpr,
-    plan: &LocalVortexScanPlan,
-    dtype: &DType,
-) -> Option<&'a PredicateExpr> {
-    let column = match predicate {
-        PredicateExpr::And(children) => {
-            return children
-                .iter()
-                .find_map(|child| projected_text_predicate(child, plan, dtype));
-        }
-        PredicateExpr::Compare {
-            column,
-            value: StatValue::Utf8(_),
-            ..
-        }
-        | PredicateExpr::StringContains { column, .. } => column,
-        _ => return None,
-    };
-    (plan
-        .projected_columns
-        .iter()
-        .any(|name| name == column.as_str())
-        && dtype
-            .as_struct_fields_opt()
-            .and_then(|fields| fields.field(column.as_str()))
-            .is_some_and(|dtype| matches!(dtype, DType::Utf8(_))))
-    .then_some(predicate)
-}
 
 pub(super) fn admit(
     file: &VortexFile,
@@ -114,28 +84,31 @@ pub(super) fn admit(
     memory: Option<&LiveMemoryPool>,
     cancellation: Option<&CancellationToken>,
 ) -> VortexResult<Option<ReusedScan>> {
-    let Some(predicate) =
-        predicate.and_then(|predicate| projected_text_predicate(predicate, plan, file.dtype()))
+    let Some(PredicateExpr::Compare {
+        column,
+        value: StatValue::Utf8(_),
+        ..
+    }) = predicate
     else {
         return Ok(None);
     };
-    let (Some(memory), Some(_), Some(projection)) = (memory, &plan.filter, &plan.projection) else {
+    let (Some(memory), Some(filter), Some(projection)) = (memory, &plan.filter, &plan.projection)
+    else {
         return Ok(None);
     };
-    if file.dtype().nullability() != Nullability::NonNullable {
+    if !plan
+        .projected_columns
+        .iter()
+        .any(|name| name == column.as_str())
+        || file.dtype().nullability() != Nullability::NonNullable
+        || !file
+            .dtype()
+            .as_struct_fields_opt()
+            .and_then(|fields| fields.field(column.as_str()))
+            .is_some_and(|dtype| matches!(dtype, DType::Utf8(_)))
+    {
         return Ok(None);
     }
-    let column = predicate
-        .column()
-        .ok_or_else(|| vortex_err!("text scan predicate lost its column"))?;
-    // The native scan still splits, prunes and orders the complete filter. Only
-    // this exact leaf may share its decoded source with the later projection.
-    let filter = super::predicate_to_vortex_expr(
-        predicate,
-        file.dtype(),
-        crate::VortexQueryPrimitiveKind::SimpleAggregate,
-    )
-    .map_err(|error| vortex_err!(External: error))?;
     let projection = projection
         .optimize_recursive(file.dtype())?
         .bind(file.dtype())?;
@@ -268,28 +241,6 @@ fn zstd_text(array: &ArrayRef) -> bool {
     array.is::<Zstd>()
 }
 
-fn mask_is_subset(selected: &Mask, previous: &Mask) -> bool {
-    if selected.len() != previous.len() {
-        return false;
-    }
-    if selected.all_false() || previous.all_true() {
-        return true;
-    }
-    let (AllOr::Some(selected), AllOr::Some(previous)) =
-        (selected.bit_buffer(), previous.bit_buffer())
-    else {
-        return false;
-    };
-    // Validate in the original row domain without allocating another mask or
-    // a row-index vector. BitChunks handles sliced buffers and the final tail.
-    let (selected, previous) = (selected.chunks(), previous.chunks());
-    selected
-        .iter()
-        .zip(previous.iter())
-        .all(|(selected, previous)| selected & !previous == 0)
-        && selected.remainder_bits() & !previous.remainder_bits() == 0
-}
-
 impl LayoutReader for Reader {
     fn name(&self) -> &Arc<str> {
         self.inner.name()
@@ -381,15 +332,17 @@ impl LayoutReader for Reader {
                 .null_as_false()
                 .execute(&mut ctx)?;
             let output_mask = mask.intersect_by_rank(&selected);
+            let output = if selected.all_true() {
+                prepared
+            } else {
+                prepared.filter(selected)?
+            };
             check_cancelled(cancellation.as_ref())?;
             *entry
                 .ready
                 .lock()
                 .map_err(|_| vortex_err!("text scan entry poisoned"))? = Some(Ready {
-                // Keep the original row domain. Later conjuncts can narrow
-                // the mask without decoding this column again or remapping
-                // source row ordinals through an intermediate selection.
-                array: prepared,
+                array: output,
                 mask: output_mask.clone(),
             });
             Ok(output_mask)
@@ -427,14 +380,9 @@ impl LayoutReader for Reader {
                     .await;
             };
             vortex_ensure!(
-                ready.array.len() == mask.len() && mask_is_subset(&mask, &ready.mask),
-                "text scan projection mask widened or changed length"
+                ready.mask.len() == mask.len() && ready.mask.bit_buffer() == mask.bit_buffer(),
+                "text scan projection mask changed"
             );
-            let text = if mask.all_true() {
-                ready.array
-            } else {
-                ready.array.filter(mask.clone())?
-            };
             let array = if let Some(other_projection) = other_projection {
                 let other = inner
                     .projection_evaluation(
@@ -446,7 +394,7 @@ impl LayoutReader for Reader {
                 check_cancelled(cancellation.as_ref())?;
                 let mut ctx = session.create_execution_ctx();
                 let other = other.execute::<StructArray>(&mut ctx)?;
-                let text = text.execute::<StructArray>(&mut ctx)?;
+                let text = ready.array.execute::<StructArray>(&mut ctx)?;
                 let names = expr
                     .dtype()
                     .as_struct_fields_opt()
@@ -465,7 +413,7 @@ impl LayoutReader for Reader {
                 StructArray::try_new(names, fields, mask.true_count(), Validity::NonNullable)?
                     .into_array()
             } else {
-                text
+                ready.array
             };
             vortex_ensure!(
                 array.len() == mask.true_count() && array.dtype() == expr.dtype(),

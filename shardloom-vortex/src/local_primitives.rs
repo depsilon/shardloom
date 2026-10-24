@@ -20863,7 +20863,6 @@ fn read_local_vortex_simple_aggregate_scan_in_context(
             context.native_session(),
             context.runtime(),
             None,
-            Some(context.memory()),
             None,
             &lowering,
             started,
@@ -21019,7 +21018,6 @@ fn read_local_vortex_simple_aggregate_scan(
                         session,
                         runtime,
                         worker_memory,
-                        Some(resident.memory()),
                         Some(&mut retry),
                     )
                 },
@@ -21031,15 +21029,7 @@ fn read_local_vortex_simple_aggregate_scan(
             let (mut result, drivers) =
                 prepared.with_native_execution_temporary_drivers(|file, session, runtime| {
                     read_prepared_vortex_simple_aggregate_scan(
-                        source_uri,
-                        request,
-                        policy,
-                        file,
-                        session,
-                        runtime,
-                        None,
-                        Some(resident.memory()),
-                        None,
+                        source_uri, request, policy, file, session, runtime, None, None,
                     )
                 })?;
             let mut summary: serde_json::Value = serde_json::from_str(&result.result_summary)
@@ -21060,7 +21050,6 @@ fn read_local_vortex_simple_aggregate_scan(
                 session,
                 runtime,
                 worker_memory,
-                Some(resident.memory()),
                 None,
             )
         })
@@ -21071,7 +21060,7 @@ fn read_local_vortex_simple_aggregate_scan(
         use vortex::io::runtime::BlockingRuntime as _;
 
         let runtime = local_vortex_runtime(policy);
-        let (session, control_memory) = local_vortex_session(policy, &runtime)?;
+        let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
         let file = runtime
             .block_on(
                 session
@@ -21086,15 +21075,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 ))
             })?;
         read_prepared_vortex_simple_aggregate_scan(
-            source_uri,
-            request,
-            policy,
-            &file,
-            &session,
-            &runtime,
-            None,
-            Some(control_memory.pool()),
-            None,
+            source_uri, request, policy, &file, &session, &runtime, None, None,
         )
     }
 }
@@ -21109,7 +21090,6 @@ fn read_prepared_vortex_simple_aggregate_scan(
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
-    scan_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
 ) -> Result<LocalVortexAggregateScan> {
     let attempt_started = Instant::now();
@@ -21126,7 +21106,6 @@ fn read_prepared_vortex_simple_aggregate_scan(
         session,
         runtime,
         worker_memory,
-        scan_memory,
         uncached_retry,
         &lowering,
         attempt_started,
@@ -21145,7 +21124,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
-    scan_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
     lowering: &aggregate_lowering::AggregateLowering,
     attempt_started: Instant,
@@ -21458,11 +21436,8 @@ fn read_lowered_vortex_simple_aggregate_scan(
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = if winner_filter.is_none() && residual_predicate.is_none() {
-            // Provider-driven execution has the same scan owner even when no
-            // aggregate worker is admitted. Never use worker eligibility as
-            // permission to retain a provider buffer or allocate a new pool.
             let (scan, stats) = file
-                .scan_reusing_text(session, lowering, scan_memory, cancellation)
+                .scan_reusing_text(session, lowering, worker_memory, cancellation)
                 .map_err(vortex_error)?;
             text_scan_stats = stats;
             scan
@@ -21541,7 +21516,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         file,
                         session,
                         runtime,
-                        None,
                         None,
                         None,
                         lowering,

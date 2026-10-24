@@ -651,7 +651,3 @@ fn prepared_aggregate_rejects_extra_payload_spill_and_wider_resource_grants() {
 #[cfg(feature = "vortex-write")]
 #[path = "local_primitive_prepared_aggregate_native_tests.rs"]
 mod native;
-
-#[cfg(feature = "vortex-write")]
-#[path = "local_primitive_prepared_text_scan_tests.rs"]
-mod text_scan;
