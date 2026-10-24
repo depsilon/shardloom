@@ -2,7 +2,7 @@
 
 # Native grouped preparation campaign
 
-Status: G1 retained; G2 finite candidate contract, without performance acceptance.
+Status: G1 and G2 retained; G3 finite candidate contract, without performance acceptance.
 
 The October 24 maintainer feedback selects compound grouping first, text
 preparation and grouped measures second, and exact URL grouping third. This is
@@ -218,3 +218,88 @@ measurement rules apply. Required broad validation and one isolated Full43
 follow only if retained. This candidate does not change provider selection,
 frontends or timing boundaries. The later user-surface parity pass retains
 those separate requirements.
+
+### G2 decision
+
+The frozen 52-call cohort at `5aa56f14` passes every gate. Q28/12's median
+engine execution changes from **2.315951250** to **2.092562459 seconds**,
+a **9.646%** reduction. Complete values, schemas, the single-lane case,
+all six companion queries and the original resource gates pass. G2 is retained.
+The final coherent acceptance below must cover both this extension and the
+shared-owner correction; the earlier G1 Full43 remains an immutable observation.
+
+| Case | G1 median engine seconds | G2 median engine seconds |
+| --- | ---: | ---: |
+| Q28, 12 lanes | 2.315951250 | 2.092562459 |
+| Q28, 1 lane | 2.412124249 | 2.170767209 |
+| Q17, 12 lanes | 2.543097292 | 2.486484459 |
+| Q19, 12 lanes | 3.836744375 | 3.720823625 |
+| Q23, 12 lanes | 3.038858917 | 3.038313751 |
+| Q29, 12 lanes | 3.055285459 | 3.075104626 |
+| Q34, 12 lanes | 2.081066042 | 2.073994126 |
+| Q35, 12 lanes | 2.328007373 | 2.016760458 |
+
+Companion movements are controls, not attributed speedups. Direct-consumer
+tests prove the wider block's activation and ordered error/partial-state
+equivalence; the public relational report still omits that specific counter.
+
+## G3: give projected-text reuse the existing scan memory owner
+
+The current public Q23 path spends about 2.524 seconds constructing aggregate
+accessors over 7,128 selected rows in 1,313 chunks. It uses provider drivers,
+so `PreparedVortexAggregate::read_with_output_in_context` passes no
+`worker_memory` to the shared aggregate reader. That same option is incorrectly
+the sole grant available to `scan_reusing_text`; admission therefore declines
+before any query-local reuse. The ordinary aggregate reader has the same
+coupling. This is a source-confirmed barrier, not a measured saving.
+
+Provider decision: reuse the existing Vortex 0.85 `LayoutReader`, `ScanBuilder`,
+bound expressions and masks, with the existing ShardLoom query-owned text reuse
+wrapper. Separate scan ownership from aggregate-worker eligibility in the
+shared reader arguments. Supply the already admitted resident/context memory
+pool for scan metadata whether provider drivers or aggregate workers execute.
+Do not change worker selection, CPU grants, concurrency, source opens, cache
+policy or decode scheduling. Nonresident paths without a transferable pool and
+the existing pressure replay may continue to decline optional reuse.
+
+The earlier H1 conjunct extension can now be tested with the missing ownership
+connection repaired. This is a distinct candidate, not an unchanged H1 rerun;
+H1's no-activation rejection and H2's CPU rejection remain recorded. Preserve
+H1's conservative semantics: choose one projected UTF-8 comparison/contains
+leaf through AND only; reuse only when Vortex reaches that exact bound leaf
+with an all-true incoming mask. Native pruning, predicate order, sparse masks,
+dictionary paths and lazy reads of other columns remain authoritative. Retain
+the original row-domain owner until final projection and validate that the
+final mask only narrows the leaf's mask. No cross-query cache or new pool.
+
+Existing registry/entry metadata leases and native allocator leases remain on
+the same admitted owner. Cancellation, errors, an empty final selection and
+unpolled projection futures release all leases. Allocation denial stays
+deterministic; never enlarge the budget or use uncharged buffers to keep this
+optimization active. PulseWeave/capillary grants are unchanged; the opportunity
+is avoiding repeated decode, with existing counters as the evidence tier.
+
+Before measurement, run the original allocation-counting and semantic H1 tests
+plus public prepared-aggregate regressions that prove positive reuse when
+`worker_pool=false`, both with a normal provider session and temporary provider
+drivers. Verify exact full results, repeated fresh executions, one source open,
+unchanged CPU ceiling, source invalidation, error/cancellation and lease release.
+The expert comparator is a columnar-engine maintainer reviewing lifetime,
+mask-domain identity, lazy error order and shared grant ownership.
+
+Freeze the retained G2 binary and its complete source/build receipt. Use the
+unchanged input, independent reference, canonical SQL adapter, 24-GiB admission
+and standard public runner. Run five alternating Q23/12 pairs, three Q23/1
+pairs, and three pairs each of Q17/Q19/Q22/Q28/Q29/Q34/Q35 at 12 lanes:
+**58 calls**. Require positive decoded-chunk and projected-reuse counters on
+every Q23/12 candidate call. Complete results/schemas/no-fallback must agree.
+The target median and paired median saving must improve, with at least four
+of five positive pairs. Controls permit max(5%, 5 ms); target CPU permits 5%;
+each median RSS permits max(25%, 256 MiB). Drop on any failed gate without an
+unchanged rerun, sample exclusion or threshold adjustment.
+
+Keep task work idle during queries and use the existing pre/post hashing,
+storage, process, deadline and cleanup guards. After this finite decision,
+finish required broad validation and one isolated standard Full43 on the final
+retained runtime. No Q29 or Q34/Q35 change is justified solely by their timing;
+record their source review and controls without inventing a further mechanism.
