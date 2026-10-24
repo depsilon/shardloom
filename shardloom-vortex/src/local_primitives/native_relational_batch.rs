@@ -3,6 +3,7 @@
 use super::{
     logical_field_from_native_array,
     native_capacity::ReservedVec,
+    native_numeric_owner::NativeNumericOwner,
     native_payload,
     native_relational_keys::{Cell, KeyColumn, Preparation},
     result_batch, vortex_error,
@@ -13,7 +14,7 @@ use shardloom_exec::live_memory::LiveMemoryPool;
 use std::hash::Hasher as _;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray as _, VortexSessionExecute as _,
-    arrays::{ChunkedArray, StructArray},
+    arrays::{ChunkedArray, PrimitiveArray, StructArray},
     builtins::ArrayBuiltins as _,
     dtype::{DType, FieldNames, Nullability, PType},
     memory::MemorySessionExt as _,
@@ -629,6 +630,19 @@ fn take_column_with_policy(
     // Compact final selected values into allocator-owned native buffers. This
     // explicit copy prevents small string views retaining whole source domains;
     // buffer credits then survive output clones, slices and the producer.
+    // As at the native payload-copy boundary, prepare selected numeric storage
+    // and validity once. Selection, casts and finite-value validation retain
+    // their existing boundaries; unsupported leaves keep scalar diagnostics.
+    let numeric = if matches!(dtype, DType::Primitive(ptype, _) if *ptype != PType::F16)
+        || crate::native_payload_schema::temporal_storage(dtype).is_some()
+    {
+        let primitive = result_batch::scalar_storage(&selected, &mut execution)?
+            .execute::<PrimitiveArray>(&mut execution)
+            .map_err(vortex_error)?;
+        Some(NativeNumericOwner::new(primitive, &mut execution)?)
+    } else {
+        None
+    };
     let output = result_batch::build_column(
         dtype,
         indices.len(),
@@ -637,7 +651,11 @@ fn take_column_with_policy(
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            result_batch::scalar_value(&selected, row, &mut execution)
+            if let Some(numeric) = &numeric {
+                numeric.stat_value(row).map(result_batch::Value::from)
+            } else {
+                result_batch::scalar_value(&selected, row, &mut execution)
+            }
         },
     )?;
     context.check_cancelled()?;

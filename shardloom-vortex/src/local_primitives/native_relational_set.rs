@@ -141,23 +141,20 @@ impl<'a> RowSet<'a> {
                     batch.equal(*selected_row, &batch, row, self.nulls_equal)
                 }
             };
-            let group = if let Some(group) = self.index.find(hash, context.cancellation(), equal)? {
-                group
-            } else {
-                let ordinal = prior_rows
-                    .checked_add(selected.values.len())
-                    .ok_or_else(|| failed("set cardinality overflow"))?;
-                let group = self
-                    .index
-                    .insert(hash, ordinal, context.cancellation(), equal)?;
+            let ordinal = prior_rows
+                .checked_add(selected.values.len())
+                .ok_or_else(|| failed("set cardinality overflow"))?;
+            let (group, inserted) =
+                self.index
+                    .insert_unique(hash, ordinal, context.cancellation(), equal)?;
+            if inserted {
                 if group != ordinal {
                     return Err(failed(
                         "interned group ordinal differs from insertion order",
                     ));
                 }
                 selected.values.push(row);
-                group
-            };
+            }
             if let Some(mapping) = &mut mapping {
                 mapping.values.push(group);
             }

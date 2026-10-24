@@ -531,6 +531,21 @@ coverage, then run the same 48-call schedule against the same accepted baseline
 in a new result directory. Thresholds, fixture sizes and supervision remain
 unchanged. If this revision fails, drop the existence-join candidate.
 
+The revision adds a unique-insertion mode to the existing index publication
+routine; ordinary joins still append their full duplicate chains. `RowSet`
+uses the returned insertion decision instead of searching twice. The shared
+selected-column copier binds the existing numeric owner after take/cast and
+keeps the same final result builder, finite-value checks and owned buffers.
+Decimal, nested and preserve-unobserved float copies retain their prior routes.
+
+The revised focused run passes 156 tests, with one new test incorrectly
+expecting a cancelled session to complete successfully. Its corrected assertion
+checks both the copy's cancellation and the existing session cancellation
+diagnostic; all four new tests then pass. Together the 157 distinct tests cover
+the revision and the existing join/set/aggregate/payload controls. The first lint
+attempt finds only a missing test semicolon; no lint exemption is added.
+Feature-enabled Vortex Clippy, workspace formatting and diff checks pass.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
