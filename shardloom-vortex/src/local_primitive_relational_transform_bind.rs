@@ -27,15 +27,17 @@ impl Binder<'_> {
             // validity reductions keep every NULL row without requiring a new
             // persistence type. Bind the entire expression before this coercion.
             if expression.dtype == DType::Null {
-                use crate::local_primitives::native_relational_expression::{Expression, Kind};
-                self.charge(4096)?;
-                expression = Expression {
-                    dtype: DType::Bool(super::Nullability::Nullable),
-                    kind: Kind::Cast {
+                use crate::local_primitives::native_relational_expression::{
+                    Expression, Kind, PREPARATION_BYTES,
+                };
+                self.charge(PREPARATION_BYTES)?;
+                expression = Expression::new(
+                    DType::Bool(super::Nullability::Nullable),
+                    Kind::Cast {
                         input: Box::new(expression),
                         tolerant: false,
                     },
-                };
+                );
             }
             validate_payload(&expression.dtype)?;
             self.charge(
@@ -66,6 +68,9 @@ impl Binder<'_> {
             return Ok(*input);
         }
         self.narrow_file_projection(&mut input, &expressions)?;
+        crate::local_primitives::native_relational_expression::Expression::bind_projection_reuse(
+            &mut expressions,
+        );
         Ok(Node {
             fields,
             kind: NodeKind::Project { input, expressions },

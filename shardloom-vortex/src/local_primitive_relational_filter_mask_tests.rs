@@ -16,7 +16,7 @@ fn comparison(op: ComparisonOp, literal: i64) -> Expression {
 }
 
 #[test]
-fn predicate_filter_mask_compiles_once_per_execution_across_nullable_and_empty_batches() {
+fn predicate_filter_mask_prepared_once_across_executions_nullable_and_empty_batches() {
     let plan = VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
         input: scan(),
         predicate: Expression::new(
@@ -67,7 +67,7 @@ fn predicate_filter_mask_compiles_once_per_execution_across_nullable_and_empty_b
         #[cfg(debug_assertions)]
         {
             let counts = observation.finish();
-            assert_eq!(counts.predicate_compile_attempts, 1);
+            assert_eq!(counts.predicate_compile_attempts, 0);
             assert_eq!(counts.predicate_boolean_rows, 0);
         }
         assert!(ended);

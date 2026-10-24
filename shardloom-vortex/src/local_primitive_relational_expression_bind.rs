@@ -5,7 +5,7 @@ use super::{
     validate_flat_operand, validate_key, validate_key_pair, validate_name,
 };
 use crate::local_primitives::native_relational_expression::scalar::{Function, decimal_operand};
-use crate::local_primitives::native_relational_expression::{Expression, Kind};
+use crate::local_primitives::native_relational_expression::{Expression, Kind, PREPARATION_BYTES};
 use shardloom_core::{
     BinaryOp, Expression as Input, ExpressionKind, LogicalDType, ScalarValue, UnaryOp,
 };
@@ -77,7 +77,7 @@ impl Binder<'_> {
         }
         // Each expression is admitted before allocation, including independent
         // projected fields in a wide schema. Do not cap their cumulative count.
-        self.charge(4096)?;
+        self.charge(PREPARATION_BYTES)?;
         let (dtype, kind) = match &input.kind {
             ExpressionKind::Column(column) => {
                 validate_name(column.as_str())?;
@@ -149,7 +149,7 @@ impl Binder<'_> {
                 ));
             }
         };
-        Ok(Expression { dtype, kind })
+        Ok(Expression::new(dtype, kind))
     }
 
     fn unary_expression(
@@ -187,10 +187,7 @@ impl Binder<'_> {
                 }
             }
         };
-        Ok(Expression {
-            dtype,
-            kind: Kind::Unary(op, child),
-        })
+        Ok(Expression::new(dtype, Kind::Unary(op, child)))
     }
 
     fn list_expression(
@@ -215,10 +212,10 @@ impl Binder<'_> {
         if element == DType::Null {
             element = DType::Bool(Nullability::Nullable);
         }
-        Ok(Expression {
-            dtype: DType::List(element.into(), Nullability::NonNullable),
-            kind: Kind::List(values),
-        })
+        Ok(Expression::new(
+            DType::List(element.into(), Nullability::NonNullable),
+            Kind::List(values),
+        ))
     }
 
     fn struct_expression(
@@ -246,13 +243,13 @@ impl Binder<'_> {
             output_fields.push((name.clone(), value.dtype.clone()));
             values.push(value);
         }
-        Ok(Expression {
-            dtype: DType::Struct(
+        Ok(Expression::new(
+            DType::Struct(
                 StructFields::from_iter(output_fields),
                 Nullability::NonNullable,
             ),
-            kind: Kind::Struct(values),
-        })
+            Kind::Struct(values),
+        ))
     }
 
     fn function(
@@ -306,7 +303,7 @@ impl Binder<'_> {
             }
             _ => return self.scalar_function(name, args),
         };
-        Ok(Expression { dtype, kind })
+        Ok(Expression::new(dtype, kind))
     }
 
     fn scalar_function(&mut self, name: &str, args: Vec<Expression>) -> Result<Expression> {
@@ -406,10 +403,7 @@ impl Binder<'_> {
                 _ => DType::Utf8(nullable),
             }
         };
-        Ok(Expression {
-            dtype,
-            kind: Kind::Function { function, args },
-        })
+        Ok(Expression::new(dtype, Kind::Function { function, args }))
     }
 
     fn literal_expression(&mut self, value: &ScalarValue) -> Result<Expression> {
@@ -427,10 +421,7 @@ impl Binder<'_> {
         }
         let dtype = literal_dtype(value)?;
         let scalar = literal(value)?;
-        Ok(Expression {
-            dtype,
-            kind: Kind::Literal(scalar),
-        })
+        Ok(Expression::new(dtype, Kind::Literal(scalar)))
     }
 }
 
@@ -827,13 +818,13 @@ fn bound_cast(expression: Expression, dtype: DType) -> Expression {
     if expression.dtype == dtype {
         return expression;
     }
-    Expression {
+    Expression::new(
         dtype,
-        kind: Kind::Cast {
+        Kind::Cast {
             input: Box::new(expression),
             tolerant: false,
         },
-    }
+    )
 }
 
 fn calendar_arguments(function: &Function, args: Vec<Expression>) -> Vec<Expression> {

@@ -18,6 +18,7 @@ pub(crate) struct Counts {
     pub(crate) sort_payload_rows_validated: u64,
     pub(crate) predicate_compile_attempts: u64,
     pub(crate) predicate_boolean_rows: u64,
+    pub(crate) expression_output_reuses: u64,
     pub(crate) join_retained_right_rows: u64,
 }
 

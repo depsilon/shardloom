@@ -350,6 +350,18 @@ recipe compilation during repeated executions and actual reuse of completed
 outputs. Run one isolated Full43 after the retained checkpoint; broad validation
 remains at the end of the cohesive feedback batch.
 
+The implementation checkpoint retains owned predicate programs at expression
+construction and binds completed-output ordinals once per projection. Compile-time
+size checks tie retained recipe/name storage to the existing metadata allowance.
+All 55 selected expression, predicate, typed-reference, lazy-branch, ownership
+and resource checks pass, including zero compilation during repeated execution,
+actual array-owner reuse, name/search limits, signed-zero distinctions, late
+overflow, consumer failure, cancellation and denied preparation/execution credit.
+Focused Clippy passes with warnings denied. The first cancellation test mistakenly
+expected the enclosing cancelled session to succeed; correcting that expectation
+required no runtime change. The immutable same-harness baseline is `4e6db3a9`;
+the release benefit decision is pending and no speedup is claimed yet.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)

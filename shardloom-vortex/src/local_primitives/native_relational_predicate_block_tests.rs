@@ -16,8 +16,8 @@ use vortex::{
 };
 
 fn col(name: &str, nullable: bool) -> Expression {
-    Expression {
-        dtype: DType::Primitive(
+    Expression::new(
+        DType::Primitive(
             PType::I64,
             if nullable {
                 Nullability::Nullable
@@ -25,27 +25,24 @@ fn col(name: &str, nullable: bool) -> Expression {
                 Nullability::NonNullable
             },
         ),
-        kind: Kind::Column(name.into()),
-    }
+        Kind::Column(name.into()),
+    )
 }
 
 fn lit(value: i64) -> Expression {
     let scalar = Scalar::from(value);
-    Expression {
-        dtype: scalar.dtype().clone(),
-        kind: Kind::Literal(scalar),
-    }
+    Expression::new(scalar.dtype().clone(), Kind::Literal(scalar))
 }
 
 fn comparison(left: Expression, op: ComparisonOp, right: Expression) -> Expression {
-    Expression {
-        dtype: DType::Bool(if left.dtype.is_nullable() || right.dtype.is_nullable() {
+    Expression::new(
+        DType::Bool(if left.dtype.is_nullable() || right.dtype.is_nullable() {
             Nullability::Nullable
         } else {
             Nullability::NonNullable
         }),
-        kind: Kind::Compare(Box::new(left), op, Box::new(right)),
-    }
+        Kind::Compare(Box::new(left), op, Box::new(right)),
+    )
 }
 
 fn cmp(name: &str, op: ComparisonOp, value: i64, nullable: bool, reversed: bool) -> Expression {
@@ -57,21 +54,21 @@ fn cmp(name: &str, op: ComparisonOp, value: i64, nullable: bool, reversed: bool)
 }
 
 fn binary(left: Expression, op: BinaryOp, right: Expression) -> Expression {
-    Expression {
-        dtype: DType::Bool(if left.dtype.is_nullable() || right.dtype.is_nullable() {
+    Expression::new(
+        DType::Bool(if left.dtype.is_nullable() || right.dtype.is_nullable() {
             Nullability::Nullable
         } else {
             Nullability::NonNullable
         }),
-        kind: Kind::Binary(Box::new(left), op, Box::new(right)),
-    }
+        Kind::Binary(Box::new(left), op, Box::new(right)),
+    )
 }
 
 fn not(child: Expression) -> Expression {
-    Expression {
-        dtype: child.dtype.clone(),
-        kind: Kind::Unary(UnaryOp::Not, Box::new(child)),
-    }
+    Expression::new(
+        child.dtype.clone(),
+        Kind::Unary(UnaryOp::Not, Box::new(child)),
+    )
 }
 
 fn batch(columns: &[(&str, ArrayRef)]) -> ArrayRef {
@@ -370,12 +367,51 @@ fn pure_predicate_blocks_bound_recipe_work_and_reuse_only_identical_nodes() {
     assert_eq!(Recipe::compile(&ordered).unwrap().instruction_count, 5);
 }
 
+#[test]
+fn pure_predicate_prepared_recipe_owns_bounded_names_without_expression_borrows() {
+    let name = "x".repeat(MAX_COLUMN_NAME_BYTES);
+    let expression = binary(
+        cmp(&name, ComparisonOp::Gt, 0, true, false),
+        BinaryOp::And,
+        cmp(&name, ComparisonOp::Lt, 4, true, false),
+    );
+    let recipe = Recipe::compile(&expression).unwrap();
+    assert_eq!(recipe.column_count, 1);
+    drop(expression);
+    let input = batch(&[(
+        &name,
+        PrimitiveArray::from_option_iter([Some(-1_i64), Some(1), None, Some(4)]).into_array(),
+    )]);
+    drop(name);
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            assert_eq!(
+                recipe
+                    .evaluate_mask(&input, context)?
+                    .iter()
+                    .collect::<Vec<_>>(),
+                vec![false, true, false, false]
+            );
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+    let too_long = "x".repeat(MAX_COLUMN_NAME_BYTES + 1);
+    let rejected = binary(
+        cmp(&too_long, ComparisonOp::Gt, 0, true, false),
+        BinaryOp::And,
+        cmp(&too_long, ComparisonOp::Lt, 4, true, false),
+    );
+    assert!(rejected.filter_recipe().is_none());
+}
+
 fn divided_compare() -> Expression {
     comparison(
-        Expression {
-            dtype: col("a", true).dtype,
-            kind: Kind::Binary(Box::new(col("a", true)), BinaryOp::Divide, Box::new(lit(0))),
-        },
+        Expression::new(
+            col("a", true).dtype,
+            Kind::Binary(Box::new(col("a", true)), BinaryOp::Divide, Box::new(lit(0))),
+        ),
         ComparisonOp::Gt,
         lit(0),
     )
@@ -384,29 +420,29 @@ fn divided_compare() -> Expression {
 #[test]
 fn pure_predicate_blocks_reject_outside_typed_column_literal_contract() {
     let nullable_i64 = DType::Primitive(PType::I64, Nullability::Nullable);
-    let null_literal = Expression {
-        dtype: nullable_i64.clone(),
-        kind: Kind::Literal(Scalar::null(nullable_i64)),
-    };
+    let null_literal = Expression::new(
+        nullable_i64.clone(),
+        Kind::Literal(Scalar::null(nullable_i64)),
+    );
     let null_comparison = comparison(col("a", true), ComparisonOp::Eq, null_literal);
     let column_comparison = comparison(col("a", true), ComparisonOp::Eq, col("b", true));
-    let i32_column = Expression {
-        dtype: DType::Primitive(PType::I32, Nullability::NonNullable),
-        kind: Kind::Column("c".into()),
-    };
-    let i32_literal = Expression {
-        dtype: DType::Primitive(PType::I32, Nullability::NonNullable),
-        kind: Kind::Literal(Scalar::from(1_i32)),
-    };
+    let i32_column = Expression::new(
+        DType::Primitive(PType::I32, Nullability::NonNullable),
+        Kind::Column("c".into()),
+    );
+    let i32_literal = Expression::new(
+        DType::Primitive(PType::I32, Nullability::NonNullable),
+        Kind::Literal(Scalar::from(1_i32)),
+    );
     let i32_comparison = comparison(i32_column, ComparisonOp::Eq, i32_literal);
-    let bool_column = Expression {
-        dtype: DType::Bool(Nullability::Nullable),
-        kind: Kind::Column("flag".into()),
-    };
-    let mismatched_literal = Expression {
-        dtype: DType::Primitive(PType::I64, Nullability::NonNullable),
-        kind: Kind::Literal(Scalar::primitive(1_i64, Nullability::Nullable)),
-    };
+    let bool_column = Expression::new(
+        DType::Bool(Nullability::Nullable),
+        Kind::Column("flag".into()),
+    );
+    let mismatched_literal = Expression::new(
+        DType::Primitive(PType::I64, Nullability::NonNullable),
+        Kind::Literal(Scalar::primitive(1_i64, Nullability::Nullable)),
+    );
     let mismatched_comparison = comparison(col("a", true), ComparisonOp::Eq, mismatched_literal);
     for other in [
         null_comparison,
@@ -445,18 +481,18 @@ fn pure_predicate_blocks_leave_fallible_and_lazy_branches_in_existing_evaluation
         BinaryOp::Or,
         cmp("a", ComparisonOp::Gt, 0, true, false),
     );
-    let condition = Expression {
-        dtype: DType::Bool(Nullability::NonNullable),
-        kind: Kind::Literal(Scalar::from(true)),
-    };
-    let selected = Expression {
-        dtype: safe.dtype.clone(),
-        kind: Kind::Conditional(
+    let condition = Expression::new(
+        DType::Bool(Nullability::NonNullable),
+        Kind::Literal(Scalar::from(true)),
+    );
+    let selected = Expression::new(
+        safe.dtype.clone(),
+        Kind::Conditional(
             Box::new(condition),
             Box::new(safe),
             Box::new(divided_compare()),
         ),
-    };
+    );
     assert!(Recipe::compile(&selected).is_none());
     let output = session
         .with_native_execution_context(&CancellationToken::default(), |context| {

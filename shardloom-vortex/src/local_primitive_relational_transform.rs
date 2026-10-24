@@ -28,7 +28,9 @@ impl PreparedVortexRelational {
                     let mut columns = ReservedVec::new(context.memory())?;
                     columns.reserve(expressions.len())?;
                     for expression in expressions {
-                        columns.values.push(expression.evaluate(&array, context)?);
+                        let result =
+                            expression.evaluate_reusing(&array, context, &columns.values)?;
+                        columns.values.push(result);
                     }
                     let (columns, _ownership) = columns.into_parts();
                     let output = StructArray::try_new(
@@ -45,7 +47,7 @@ impl PreparedVortexRelational {
                 },
             ),
             NodeKind::Filter { input, predicate } => {
-                let recipe = native_relational_expression::FilterRecipe::compile(predicate);
+                let recipe = predicate.filter_recipe();
                 self.run(
                     input,
                     context,
@@ -53,7 +55,7 @@ impl PreparedVortexRelational {
                     batch_rows,
                     parameter,
                     &mut |array| {
-                        let rows = filter_rows(predicate, recipe.as_ref(), &array, context)?;
+                        let rows = filter_rows(predicate, recipe, &array, context)?;
                         rows.for_each_batch(
                             &array,
                             &node.fields,
@@ -154,7 +156,7 @@ impl PreparedVortexRelational {
 
 fn filter_rows(
     predicate: &native_relational_expression::Expression,
-    recipe: Option<&native_relational_expression::FilterRecipe<'_>>,
+    recipe: Option<&native_relational_expression::FilterRecipe>,
     array: &ArrayRef,
     context: &NativeExecutionContext<'_>,
 ) -> Result<LocalSelection> {
