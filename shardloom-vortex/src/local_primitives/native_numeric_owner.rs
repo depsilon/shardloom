@@ -235,7 +235,7 @@ impl NativeNumericOwner {
         states: &mut super::GroupedAggregateStates<'_>,
         accessors: &[super::AggregateDirectColumnAccessor],
         rows: Option<&[usize]>,
-        count_first: bool,
+        average_index: usize,
     ) -> Result<()> {
         numeric_dispatch!(
             self,
@@ -243,7 +243,7 @@ impl NativeNumericOwner {
             states,
             accessors,
             rows,
-            count_first
+            average_index
         )
     }
 
@@ -252,13 +252,66 @@ impl NativeNumericOwner {
         states: &mut super::GroupedAggregateStates<'_>,
         accessors: &[super::AggregateDirectColumnAccessor],
         rows: Option<&[usize]>,
-        count_first: bool,
+        average_index: usize,
     ) -> Result<()> {
-        if count_first {
+        if states
+            .compact_measure_specs
+            .as_ref()
+            .is_some_and(|specs| specs.len() > 2)
+        {
+            self.compact_avg_repeated_counts_rows::<T, ALL_VALID>(
+                states,
+                accessors,
+                rows,
+                average_index,
+            )
+        } else if average_index == 1 {
             self.compact_avg_count_rows::<T, ALL_VALID, true>(states, accessors, rows)
         } else {
             self.compact_avg_count_rows::<T, ALL_VALID, false>(states, accessors, rows)
         }
+    }
+
+    fn compact_avg_repeated_counts_rows<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        states: &mut super::GroupedAggregateStates<'_>,
+        accessors: &[super::AggregateDirectColumnAccessor],
+        rows: Option<&[usize]>,
+        average_index: usize,
+    ) -> Result<()> {
+        let values = self.primitive.as_slice::<T>();
+        let valid = &self.valid;
+        let mut update_row = |row| {
+            states.update_compact_measure_direct_row_with(accessors, row, |group, _specs| {
+                let measures = group.compact_measures_mut()?.values_mut();
+                // Do not deduplicate counts or move AVG across them: an earlier
+                // overflow must preserve the ordinary updater's partial state.
+                for count in &mut measures[..average_index] {
+                    count.increment_count()?;
+                }
+                let value = values
+                    .get(row)
+                    .ok_or_else(|| failed("native typed row index was out of bounds"))?;
+                if ALL_VALID || valid.value(row) {
+                    measures[average_index]
+                        .add_numeric(value.widen().numeric(), T::Wide::INTEGER)?;
+                }
+                for count in &mut measures[average_index + 1..] {
+                    count.increment_count()?;
+                }
+                Ok(())
+            })
+        };
+        if let Some(rows) = rows {
+            for &row in rows {
+                update_row(row)?;
+            }
+        } else {
+            for row in 0..values.len() {
+                update_row(row)?;
+            }
+        }
+        Ok(())
     }
 
     fn compact_avg_count_rows<T: Numeric, const ALL_VALID: bool, const COUNT_FIRST: bool>(

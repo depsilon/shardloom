@@ -27,6 +27,21 @@ fn request(count_first: bool) -> VortexSimpleAggregateRequest {
     VortexSimpleAggregateRequest::grouped(vec![ColumnRef::new("category").unwrap()], measures)
 }
 
+fn repeated_count_request(average_index: usize, counts: usize) -> VortexSimpleAggregateRequest {
+    let mut measures = (0..counts)
+        .map(|index| VortexSimpleAggregateMeasure::new("count", None, format!("rows_{index}")))
+        .collect::<Vec<_>>();
+    measures.insert(
+        average_index,
+        VortexSimpleAggregateMeasure::new(
+            "avg",
+            Some(ColumnRef::new("amount").unwrap()),
+            "mean".into(),
+        ),
+    );
+    VortexSimpleAggregateRequest::grouped(vec![ColumnRef::new("category").unwrap()], measures)
+}
+
 fn accessor<T: NativePType>(values: Vec<T>) -> AggregateDirectColumnAccessor {
     aggregate_direct_column_accessor(
         "amount",
@@ -63,6 +78,7 @@ fn assert_state_equal(actual: &GroupedAggregateStates<'_>, expected: &GroupedAgg
         else {
             panic!("expected compact reference");
         };
+        assert_eq!(actual.values().len(), expected.values().len());
         for (actual, expected) in actual.values().iter().zip(expected.values()) {
             assert_eq!(actual.count, expected.count);
             assert_eq!(actual.sum.total().to_bits(), expected.sum.total().to_bits());
@@ -143,9 +159,10 @@ fn compact_numeric_block_matches_all_widths_nullable_slices_and_selected_order()
             .unwrap(),
             array,
         ];
-        for count_first in [false, true] {
+        for request in [1, 2, 4].into_iter().flat_map(|counts| {
+            (0..=counts).map(move |average_index| repeated_count_request(average_index, counts))
+        }) {
             for selected in [None, Some(&[3, 0, 1, 3, 2][..]), Some(&[][..])] {
-                let request = request(count_first);
                 let mut actual =
                     GroupedAggregateStates::new(&request, None, &columns, false, false).unwrap();
                 let mut expected =
@@ -230,18 +247,21 @@ fn compact_numeric_block_rebinds_widths_and_preserves_limits_having_and_empty_ch
 }
 
 #[test]
-fn compact_numeric_block_preserves_error_and_partial_state_in_both_measure_orders() {
+fn compact_numeric_block_preserves_error_and_partial_state_in_every_measure_order() {
     let columns = vec!["category".to_owned(), "amount".to_owned()];
-    for count_first in [false, true] {
-        for (number, overflow_index, seed_sum, row) in [
-            (1.0, Some(0), 0.0, 0),
-            (1.0, Some(1), 0.0, 0),
-            (f64::INFINITY, None, 0.0, 0),
-            (f64::NAN, None, 0.0, 0),
-            (f64::MAX, None, f64::MAX, 0),
-            (1.0, None, 0.0, 1),
-        ] {
-            let request = request(count_first);
+    for (counts, average_index) in [1, 2, 4]
+        .into_iter()
+        .flat_map(|counts| (0..=counts).map(move |average_index| (counts, average_index)))
+    {
+        for (number, overflow_index, seed_sum, row) in
+            (0..=counts).map(|index| (1.0, Some(index), 0.0, 0)).chain([
+                (f64::INFINITY, None, 0.0, 0),
+                (f64::NAN, None, 0.0, 0),
+                (f64::MAX, None, f64::MAX, 0),
+                (1.0, None, 0.0, 1),
+            ])
+        {
+            let request = repeated_count_request(average_index, counts);
             let mut actual =
                 GroupedAggregateStates::new(&request, None, &columns, false, false).unwrap();
             let mut expected =
@@ -257,8 +277,7 @@ fn compact_numeric_block_preserves_error_and_partial_state_in_both_measure_order
                     .compact_measures_mut()
                     .unwrap()
                     .values_mut();
-                values[usize::from(count_first)].sum =
-                    super::super::NumericAggregateSum::Ordered(seed_sum);
+                values[average_index].sum = super::super::NumericAggregateSum::Ordered(seed_sum);
                 if let Some(index) = overflow_index {
                     values[index].count = u64::MAX;
                 }
@@ -271,6 +290,87 @@ fn compact_numeric_block_preserves_error_and_partial_state_in_both_measure_order
             assert_eq!(actual.compact_numeric_block_chunks, 0);
         }
     }
+}
+
+#[test]
+fn compact_numeric_block_repeated_counts_keep_having_limits_and_chunk_rebinding() {
+    let columns = vec!["category".to_owned(), "amount".to_owned()];
+    for average_index in 0..=3 {
+        for ordered in [false, true] {
+            let mut request = repeated_count_request(average_index, 3).with_having(vec![
+                VortexAggregateHavingExpr::new("rows_2", ComparisonOp::GtEq, "3"),
+            ]);
+            if ordered {
+                request = request.with_order_by(vec![VortexAggregateOrderExpr::new("mean", true)]);
+            }
+            let mut actual =
+                GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
+            let mut expected =
+                GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
+            for (keys, amounts, rows) in [
+                (accessor(Vec::<u8>::new()), accessor(Vec::<i16>::new()), 0),
+                (
+                    accessor(vec![2_u8, 1, 2, 3]),
+                    accessor(vec![10_i16, -20, 30, 40]),
+                    4,
+                ),
+                (
+                    accessor(vec![2_i64, 1, 2, 3]),
+                    accessor(vec![1.25_f64, 2.5, 3.75, 4.0]),
+                    4,
+                ),
+            ] {
+                let accessors = [keys, amounts];
+                assert!(
+                    actual
+                        .update_compact_direct_from_accessors(&accessors, &columns, None, rows)
+                        .unwrap()
+                );
+                original_rows(&mut expected, &accessors, &(0..rows).collect::<Vec<_>>()).unwrap();
+                assert_state_equal(&actual, &expected);
+            }
+            let (_, actual) = actual.result_row_count_and_payload(Some(1)).unwrap();
+            let (_, expected) = expected.result_row_count_and_payload(Some(1)).unwrap();
+            assert_eq!(actual["values"], expected["values"]);
+            assert_eq!(actual["aggregate_compact_numeric_block_chunks"], 3);
+            assert_eq!(actual["aggregate_compact_numeric_block_input_rows"], 8);
+            assert_eq!(actual["values"][0]["rows_0"], actual["values"][0]["rows_2"]);
+        }
+    }
+}
+
+#[test]
+fn compact_numeric_block_repeated_counts_decline_unsupported_measure_recipes() {
+    let columns = vec!["category".to_owned(), "amount".to_owned()];
+    let accessors = [accessor(vec![2_i32]), accessor(vec![7_i32])];
+    let request = repeated_count_request(1, 3);
+    for index in [0, 2, 3] {
+        for function in [
+            SimpleAggregateFunction::Avg,
+            SimpleAggregateFunction::Sum,
+            SimpleAggregateFunction::Min,
+            SimpleAggregateFunction::Count,
+        ] {
+            let mut state =
+                GroupedAggregateStates::new(&request, None, &columns, false, false).unwrap();
+            let spec = &mut state.compact_measure_specs.as_mut().unwrap()[index];
+            spec.function = function;
+            spec.column_index = Some(1);
+            assert!(!update(&mut state, &accessors, None, 1).unwrap());
+            assert!(state.groups.is_empty());
+        }
+        let mut state =
+            GroupedAggregateStates::new(&request, None, &columns, false, false).unwrap();
+        state.compact_measure_specs.as_mut().unwrap()[index].value_transform =
+            AggregateValueTransform::AddOffset(1);
+        assert!(!update(&mut state, &accessors, None, 1).unwrap());
+        assert!(state.groups.is_empty());
+    }
+    let mut state = GroupedAggregateStates::new(&request, None, &columns, false, false).unwrap();
+    state.compact_measure_specs.as_mut().unwrap()[1].function = SimpleAggregateFunction::Count;
+    state.compact_measure_specs.as_mut().unwrap()[1].column_index = None;
+    assert!(!update(&mut state, &accessors, None, 1).unwrap());
+    assert!(state.groups.is_empty());
 }
 
 #[test]
