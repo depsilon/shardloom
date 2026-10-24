@@ -190,3 +190,37 @@ fixtures or gates after observing their results. Changes to active supervision
 are separately recorded: the first composed comparison uses only current-call
 file sizes and bounded witness-file sizes while executing, with full recursive
 inventories before or after queries. Both roles use the same supervisor.
+
+### Preserved combined candidate: finite benefit decision
+
+At `5c702829`, all 198 calls pass the original v2 screen: 33 workload/scale cells,
+three alternating baseline/candidate pairs per cell. Complete values, schemas,
+input identities, partitions and producer consumption agree. Every call releases
+its credited state, stays within the unchanged grant and has no denied
+reservation. Every cell meets its original engine-time ceiling.
+
+| Large workload | Baseline median engine seconds | Candidate median engine seconds |
+| --- | ---: | ---: |
+| Text expression | 0.003177414 | 0.003000045 |
+| Repeated text aggregates | 0.015104459 | 0.010340999 |
+| Repeated numeric aggregates | 0.007793417 | 0.007895374 |
+| Scalar COUNT(*) | 0.000582167 | 0.000372958 |
+| Many-batch multikey sort | 0.236651626 | 0.195323916 |
+| Compound predicate filter | 0.005273674 | 0.004644287 |
+
+The declared target-family geometric means satisfy the 0.95 retention bound
+for value preparation, aggregate reuse, sort locations and predicate masks.
+Retain the combined implementation subject to final broad validation and its
+isolated Full43 checkpoint. Numeric aggregate execution itself does not improve
+in this comparison; its median remains inside the control ceiling. Shared value
+preparation also affects aggregate and sort costs, so this combined checkpoint
+does not isolate each edit's unique contribution. No 20% whole-workload peak-state
+claim is made. Finite sort demand and existence-join state are not implemented
+by this checkpoint.
+
+The local `native-engine-optimization-20261023/composed-comparison-1015` packet
+preserves the fixed schedule, each measured call, complete result/schema
+witnesses, source/build identities and `decision.json`. The immutable baseline
+and candidate use the same v2 harness, toolchain, features and release profile.
+The following feedback extensions must compare against this retained operator
+checkpoint rather than crediting its existing improvements again.
