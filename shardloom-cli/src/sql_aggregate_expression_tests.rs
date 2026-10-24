@@ -103,6 +103,7 @@ fn native_typed_reductions_parse_having_and_all_dependency_consumers() {
     );
     let (rewritten, having) = rewrite_having_aggregate_predicate(
         "SUM(value + 1) > 0",
+        &[],
         BTreeSet::from([reserved.clone()]),
     )
     .unwrap();
@@ -130,4 +131,74 @@ fn native_typed_reductions_reject_ambiguous_or_unimplemented_aggregate_forms() {
         parse_sql_local_source_statement("SELECT SUM(value+1),SUM(value+1) FROM 'input.csv'")
             .is_err()
     );
+}
+
+#[test]
+fn native_having_reuses_selected_aggregate_values_without_hidden_updates() {
+    for (selected, predicate, output) in [
+        ("COUNT(*) AS rows", "count(*) > 1", "rows"),
+        ("COUNT(*)", "COUNT(*) > 1", "count_all"),
+        ("SUM(value + 1) AS total", "sum(value+1) > 1", "total"),
+        (
+            "COUNT(DISTINCT value) AS distinct_values",
+            "count(DISTINCT value) > 1",
+            "distinct_values",
+        ),
+    ] {
+        let parsed = parse_sql_local_source_statement(&format!(
+            "SELECT key,{selected} FROM 'missing.vortex' GROUP BY key HAVING {predicate} LIMIT 10"
+        ))
+        .unwrap();
+        assert!(parsed.having_aggregates.is_empty(), "{selected}");
+        assert_eq!(parsed.having.columns(), [output], "{selected}");
+    }
+}
+
+#[test]
+fn native_having_reuses_hidden_values_without_merging_distinct_arguments() {
+    let parsed = parse_sql_local_source_statement(
+        "SELECT key,COUNT(value) AS n,COUNT(DISTINCT value) AS distinct_values FROM 'missing.vortex' GROUP BY key HAVING COUNT(*) > 1 AND COUNT(value) > 0 AND COUNT(DISTINCT value) > 0 AND COUNT(*) < 10 LIMIT 10",
+    ).unwrap();
+    assert_eq!(parsed.having_aggregates.len(), 1);
+    assert_eq!(
+        parsed.having_aggregates[0].argument,
+        ParsedAggregateArgument::All
+    );
+    assert_eq!(
+        parsed.having_aggregates[0].output_name(),
+        "__having_count_all_1"
+    );
+    assert!(parsed.having.columns().contains(&"n"));
+    assert!(parsed.having.columns().contains(&"distinct_values"));
+
+    for predicate in [
+        "SUM(value + 2) > 1",
+        "SUM(value + 1.0) > 1",
+        "AVG(value + 1) > 1",
+    ] {
+        let parsed = parse_sql_local_source_statement(&format!(
+            "SELECT key,SUM(value + 1) AS total FROM 'missing.vortex' GROUP BY key HAVING {predicate} LIMIT 10"
+        )).unwrap();
+        assert_eq!(parsed.having_aggregates.len(), 1, "{predicate}");
+        assert_ne!(parsed.having_aggregates[0].output_name(), "total");
+    }
+}
+
+#[test]
+fn native_having_reuse_keeps_subquery_aggregates_in_their_own_scope() {
+    let parsed = parse_sql_local_source_statement(
+        "SELECT key,COUNT(*) AS rows FROM 'missing.vortex' GROUP BY key HAVING COUNT(*) > ALL (SELECT COUNT(*) FROM 'other.vortex' LIMIT 1) LIMIT 10",
+    ).unwrap();
+    assert_eq!(parsed.having_aggregates, Vec::<ParsedAggregate>::new());
+    let ParsedPredicate::QuantifiedSubquery {
+        column, subquery, ..
+    } = parsed.having
+    else {
+        panic!("expected quantified HAVING subquery");
+    };
+    assert_eq!(column, "rows");
+    let inner = subquery.projected_plan.expect("inner aggregate plan");
+    assert_eq!(inner.aggregates.len(), 1);
+    assert_eq!(inner.aggregates[0].output_name(), "count_all");
+    assert_eq!(inner.having_aggregates, Vec::<ParsedAggregate>::new());
 }

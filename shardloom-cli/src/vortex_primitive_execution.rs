@@ -7992,6 +7992,15 @@ fn append_primitive_report_with_cache_evidence(
     append_vortex_run_local_primitive_status_fields(fields, local);
     append_vortex_run_local_primitive_row_fields(fields, local);
     append_vortex_run_local_primitive_execution_fields(fields, local);
+    // Typed relational plans and ordinary SQL providers expose the same
+    // measured strategy, worker and decode evidence. Unknown fields stay absent.
+    if let Some(local) = local {
+        crate::public_workflow_route::append_native_scan_column_fields(fields, local);
+        crate::public_workflow_route::append_local_primitive_result_summary_evidence_fields(
+            fields,
+            local.result_summary.as_deref(),
+        );
+    }
     push_bool_field(
         fields,
         "local_primitive_no_query_answer_cache",
@@ -9395,6 +9404,54 @@ mod tests {
                 .map(|(_, value)| value.as_str())
                 .collect::<Vec<_>>(),
             ["false"]
+        );
+    }
+
+    #[test]
+    fn shared_report_preserves_strategy_and_measured_worker_fields() {
+        let mut report = shardloom_vortex::VortexLocalPrimitiveExecutionReport::feature_disabled(
+            shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate,
+            shardloom_vortex::VortexLocalPrimitiveResourceEnvelope::new(4, 1).unwrap(),
+        );
+        report.result_summary = Some(format!(
+            "simple_aggregate values={}",
+            serde_json::json!({
+                "aggregate_worker_selection": "small_numeric_count_direct",
+                "aggregate_workers_peak_active_workers": 2,
+                "aggregate_workers_outstanding_chunks": 0,
+                "aggregate_result_serialized_json_round_trip": false,
+                "group_output_strategy": "native_fixture",
+            })
+        ));
+        report.scan_columns = Some(
+            shardloom_vortex::local_primitives::VortexLocalPrimitiveScanColumns {
+                projection_columns: vec!["source_value".into()],
+                predicate_columns: vec!["source_filter".into()],
+                metadata_completed: false,
+            },
+        );
+        let mut actual = Vec::new();
+        append_vortex_local_primitive_execution_report_fields(&mut actual, Some(&report));
+        let mut expected = Vec::new();
+        crate::public_workflow_route::append_native_scan_column_fields(&mut expected, &report);
+        crate::public_workflow_route::append_local_primitive_result_summary_evidence_fields(
+            &mut expected,
+            report.result_summary.as_deref(),
+        );
+        assert_eq!(expected.len(), 9);
+        for field in expected {
+            assert_eq!(
+                actual
+                    .iter()
+                    .filter(|candidate| candidate.0 == field.0)
+                    .collect::<Vec<_>>(),
+                [&field]
+            );
+        }
+        assert!(
+            !actual
+                .iter()
+                .any(|(key, _)| key == "local_primitive_aggregate_workers_submitted_chunks")
         );
     }
 

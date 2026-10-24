@@ -306,6 +306,7 @@ pub(super) fn execute_with_output(
     });
     Ok((
         LocalVortexAggregateScan {
+            scan_columns: None,
             metadata_completed: false,
             scan,
             result_summary: summary,

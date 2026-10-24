@@ -7,7 +7,7 @@ use crate::local_primitives::{
     native_relational_expression::{Expression as BoundExpression, Kind},
     prepared_relational::{ScanSource, provider},
 };
-use shardloom_core::{ColumnRef, Expression};
+use shardloom_core::{ColumnRef, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -22,6 +22,7 @@ impl Binder<'_> {
             plan,
             columns,
             residual,
+            ..
         } = &mut input.kind
         else {
             return Ok(());
@@ -74,7 +75,7 @@ impl Binder<'_> {
     pub(super) fn push_file_filter(
         &mut self,
         input: &mut Node,
-        predicate: &Expression,
+        predicate: &BoundExpression,
         predicate_metadata: u64,
     ) -> Result<bool> {
         let Some(width) = alias_file_scan_width(input) else {
@@ -131,6 +132,7 @@ impl Binder<'_> {
                 }
                 NodeKind::Scan {
                     source: ScanSource::File(index),
+                    predicate: prior_predicate,
                     plan,
                     residual,
                     ..
@@ -148,6 +150,10 @@ impl Binder<'_> {
                     plan.filter = Some(match plan.filter.take() {
                         Some(prior) => vortex::array::expr::and(prior, filter),
                         None => filter,
+                    });
+                    *prior_predicate = Some(match prior_predicate.take() {
+                        Some(prior) => PredicateExpr::And(vec![prior, predicate]),
+                        None => predicate,
                     });
                     return Ok(true);
                 }

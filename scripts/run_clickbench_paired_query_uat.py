@@ -31,7 +31,7 @@ from native_workflow_protocol import public_workflow_command, report_fields
 from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 from clickbench_reference_packet import load_reference_packet, query_statements
 from clickbench_native_sql import native_query_statements
-from run_clickbench_query_uat import correctness_boundary, equivalent, extract_reference_result, extract_result, file_sha256, read_json_log, run_profiled_command, score
+from run_clickbench_query_uat import correctness_boundary, equivalent, execution_report, extract_reference_result, extract_result, file_sha256, read_json_log, run_profiled_command, score
 
 
 def role_order(query, run, reverse=False):
@@ -328,7 +328,9 @@ def main():
                         if record["returncode"] or record["guard_failures"]:
                             raise ValueError("native command or watchdog failed")
                         envelope = read_json_log(prefix.with_suffix(".stdout.json"))
-                        record.update(query_phase_timings(report_fields(envelope), record["seconds"],
+                        fields = report_fields(envelope)
+                        record["execution_report"] = execution_report(fields)
+                        record.update(query_phase_timings(fields, record["seconds"],
                                                           allow_missing=args.allow_missing_engine_timing))
                         actual = extract_result(envelope)
                         if not equivalent(actual, references[query]):

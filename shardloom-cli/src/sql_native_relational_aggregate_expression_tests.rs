@@ -139,6 +139,29 @@ fn native_typed_reductions_sql_qualified_derived_grouped_having_and_private_alia
 }
 
 #[test]
+fn native_typed_reductions_sql_having_aggregate_reuse_keeps_subquery_scope() {
+    let source = fixture();
+    verify(
+        &format!(
+            "SELECT COUNT(*) AS rows FROM '{source}' HAVING COUNT(*) > ALL(SELECT COUNT(*) FROM '{source}' WHERE value > 3)"
+        ),
+        &json!([{"rows":5}]),
+    );
+    verify(
+        &format!(
+            "SELECT COUNT(*) AS rows FROM '{source}' HAVING COUNT(*) > ALL(SELECT COUNT(*) FROM '{source}')"
+        ),
+        &json!([]),
+    );
+    verify(
+        &format!(
+            "SELECT COUNT(*) AS rows FROM '{source}' HAVING COUNT(*) = ANY(SELECT COUNT(*) FROM '{source}' WHERE value <= 5) AND COUNT(*) > 0"
+        ),
+        &json!([{"rows":5}]),
+    );
+}
+
+#[test]
 fn native_typed_reductions_sql_grouped_projection_preserves_aliases_order_and_hidden_keys() {
     let source = fixture();
     for order in ["q.renamed", "id"] {

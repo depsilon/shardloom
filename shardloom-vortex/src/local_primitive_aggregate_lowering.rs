@@ -18,6 +18,25 @@ pub(super) struct AggregateLowering {
 }
 
 impl AggregateLowering {
+    pub(super) fn annotate_scan(&self, scan: &mut super::LocalVortexAggregateScan) {
+        // Report the exact rewritten field contract supplied to this provider,
+        // separately from output aliases and observed payload/read counters.
+        // Pruning can avoid some/all physical I/O; a field list is not a byte
+        // observation or evidence that every listed column was decoded.
+        let mut predicate_columns = Vec::new();
+        if let Some(predicate) = &self.rewrite.predicate {
+            append_predicate_columns(predicate, &mut predicate_columns);
+        }
+        scan.scan_columns = Some(super::VortexLocalPrimitiveScanColumns {
+            projection_columns: self.plan.projected_columns.clone(),
+            predicate_columns: predicate_columns
+                .iter()
+                .map(|column| column.as_str().to_owned())
+                .collect(),
+            metadata_completed: scan.metadata_completed,
+        });
+    }
+
     pub(super) fn new(
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,

@@ -1,14 +1,15 @@
 //! Native file strategies shared by typed and SQL relational declarations.
 //! Selection is metadata-only, after the ordinary complete-tree type binder.
 
-use super::{NativeExecutionContext, Node, Result, VortexLocalPrimitiveExecutionPolicy, failed};
+use super::{
+    Metrics, NativeExecutionContext, Node, Result, VortexLocalPrimitiveExecutionPolicy, add, failed,
+};
 use crate::{
     local_primitives::{
         self as native, VortexLocalPrimitiveExecutionReport as Report,
         VortexQueryPrimitiveKind as Kind, VortexQueryPrimitiveRequest as Request,
     },
-    relational_query::VortexRelationalPlan,
-    resident_session::PreparedVortexSource,
+    resident_session::{PreparedVortexProjection, PreparedVortexSource},
 };
 use shardloom_core::NativeIoCertificate;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
@@ -19,6 +20,8 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "local_primitive_relational_provider_memory.rs"]
+mod memory;
 #[path = "local_primitive_relational_provider_plan.rs"]
 mod plan;
 pub(super) use plan::scan_predicate;
@@ -28,6 +31,20 @@ pub(super) struct Prepared {
     // Provider field -> public result name. This is an encoded-column view.
     output: Vec<(String, String)>,
     _metadata: MemoryLease,
+}
+
+pub(super) struct Selection {
+    pub(super) provider: Option<Prepared>,
+    pub(super) reason: &'static str,
+}
+
+impl Selection {
+    pub(super) const fn declined(reason: &'static str) -> Self {
+        Self {
+            provider: None,
+            reason,
+        }
+    }
 }
 
 enum Strategy {
@@ -43,49 +60,84 @@ enum Strategy {
         source: PreparedVortexSource,
         policy: VortexLocalPrimitiveExecutionPolicy,
     },
+    Projection {
+        source: PreparedVortexSource,
+        operation: Box<PreparedVortexProjection>,
+    },
 }
 
 pub(super) struct Executed {
-    pub(super) report: Report,
-    pub(super) certificate: NativeIoCertificate,
+    pub(super) report: Option<Report>,
+    pub(super) certificate: Option<NativeIoCertificate>,
 }
 
 pub(super) fn prepare(
-    plan: &VortexRelationalPlan,
     root: &Node,
     source: &PreparedVortexSource,
     policy: VortexLocalPrimitiveExecutionPolicy,
     memory: &LiveMemoryPool,
-    bound_metadata_bytes: u64,
-) -> Result<Option<Prepared>> {
-    // Binder accounting covers nodes, expressions, names and schemas. Reserve
-    // a conservative second representation before cloning any lowered request.
-    let bytes = bound_metadata_bytes
-        .checked_mul(4)
-        .ok_or_else(|| failed("provider declaration capacity overflow"))?;
+) -> Result<Selection> {
+    let Some(bytes) = memory::scratch(root)? else {
+        return Ok(Selection::declined(
+            "bound_operation_requires_relational_execution",
+        ));
+    };
     let capacity = memory.snapshot();
-    if bytes > capacity.limit_bytes.saturating_sub(capacity.reserved_bytes) / 2 {
-        return Ok(None); // Choose the already-admitted general provider before execution.
+    if bytes > capacity.limit_bytes.saturating_sub(capacity.reserved_bytes) {
+        return Ok(Selection::declined(
+            "provider_scratch_exceeds_available_credit",
+        ));
     }
-    let metadata = memory.reserve(bytes)?;
+    let mut metadata = memory.reserve(bytes)?;
     let names = root
         .fields
         .iter()
         .map(|(name, _)| name.clone())
         .collect::<Vec<_>>();
-    let Some(lowered) = plan::lower(plan, source.dtype(), &names) else {
-        return Ok(None);
+    let Some(lowered) = plan::lower(root, source.dtype(), &names) else {
+        return Ok(Selection::declined(
+            "bound_semantics_have_no_equivalent_file_provider",
+        ));
     };
+    let bytes = memory::retained(&lowered.request, &lowered.output, &names)?;
+    let capacity = memory.snapshot();
+    if bytes
+        > capacity
+            .limit_bytes
+            .saturating_sub(capacity.reserved_bytes)
+            .saturating_add(metadata.bytes())
+    {
+        return Ok(Selection::declined(
+            "provider_retained_metadata_exceeds_available_credit",
+        ));
+    }
+    metadata.resize(bytes)?;
     let request = lowered.request;
     native::prepared_dispatch::source_session(source, &request, Some(policy))?;
     if native::prepared_dispatch::request_requires_relational(source, &request)? {
-        return Ok(None);
+        return Ok(Selection::declined(
+            "source_types_require_relational_execution",
+        ));
+    }
+    if matches!(request.kind, Kind::ProjectColumns | Kind::FilterAndProject)
+        && native::row_export_scan_plan(&request, source.dtype())?
+            .residual_predicate
+            .is_some()
+    {
+        return Ok(Selection::declined(
+            "projection_residual_requires_relational_execution",
+        ));
     }
     let fields = provider_fields(&request, source.dtype())?;
-    if having_requires_typed_filter(&request, source.dtype(), &fields)?
-        || ordering_requires_typed_execution(&request, source.dtype(), &fields)?
-    {
-        return Ok(None);
+    if having_requires_typed_filter(&request, source.dtype(), &fields)? {
+        return Ok(Selection::declined(
+            "having_requires_typed_null_or_exact_numeric_semantics",
+        ));
+    }
+    if ordering_requires_typed_execution(&request, source.dtype(), &fields)? {
+        return Ok(Selection::declined(
+            "ordering_requires_explicit_typed_null_semantics",
+        ));
     }
     if lowered.output.len() != root.fields.len()
         || lowered
@@ -99,9 +151,27 @@ pub(super) fn prepare(
                     .is_none_or(|(_, candidate)| candidate != dtype)
             })
     {
-        return Ok(None);
+        return Ok(Selection::declined(
+            "provider_result_schema_is_not_equivalent",
+        ));
     }
-    let strategy = match request.kind {
+    let strategy = prepare_strategy(request, source, policy)?;
+    Ok(Selection {
+        provider: Some(Prepared {
+            strategy,
+            output: lowered.output.into_iter().zip(names).collect(),
+            _metadata: metadata,
+        }),
+        reason: "equivalent_bound_native_file_provider_selected",
+    })
+}
+
+fn prepare_strategy(
+    request: Request,
+    source: &PreparedVortexSource,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<Strategy> {
+    Ok(match request.kind {
         Kind::CountAll => Strategy::Count {
             request,
             source: source.clone(),
@@ -126,13 +196,32 @@ pub(super) fn prepare(
             source: source.clone(),
             policy,
         },
+        Kind::ProjectColumns | Kind::FilterAndProject => {
+            let plan = native::row_export_scan_plan(&request, source.dtype())?;
+            let filter = plan
+                .filter
+                .as_ref()
+                .map(|filter| native::bind_vortex_scan_expr(source.file(), filter))
+                .transpose()?;
+            let columns = plan
+                .projected_columns
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            let max_rows = request.source_order_limit.map_or_else(
+                || source.file().row_count().max(1),
+                |count| u64::try_from(count).unwrap_or(u64::MAX),
+            );
+            let operation = source
+                .prepare_projection(&columns, max_rows, u64::MAX)?
+                .with_filter(filter);
+            Strategy::Projection {
+                source: source.clone(),
+                operation: Box::new(operation),
+            }
+        }
         _ => return Err(failed("unrecognized admitted provider")),
-    };
-    Ok(Some(Prepared {
-        strategy,
-        output: lowered.output.into_iter().zip(names).collect(),
-        _metadata: metadata,
-    }))
+    })
 }
 
 fn having_requires_typed_filter(
@@ -268,7 +357,7 @@ fn provider_fields(request: &Request, source: &DType) -> Result<Vec<(String, DTy
             DType::Primitive(PType::U64, Nullability::NonNullable),
         )]),
         Kind::SimpleAggregate => native::completed_result::aggregate_stream_fields(request, source),
-        Kind::SortRows => {
+        Kind::SortRows | Kind::ProjectColumns | Kind::FilterAndProject => {
             native::projected_column_names(source, &request.projection, request.kind)?
                 .into_iter()
                 .map(|name| {
@@ -284,6 +373,7 @@ impl Prepared {
     pub(super) fn consume(
         &self,
         context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<Executed> {
@@ -320,20 +410,30 @@ impl Prepared {
             }
             Ok(())
         };
+        if let Strategy::Projection { source, operation } = &self.strategy {
+            add(&metrics.scans_started, 1)?;
+            if source.file().row_count() > 0 {
+                add(&metrics.data_scans, 1)?;
+            }
+            operation.consume_in_context(context, &mut |array| {
+                add(&metrics.scan_rows, array.len() as u64)?;
+                add(&metrics.scan_batches, 1)?;
+                emit(array)
+            })?;
+            // The ordinary relational certificate describes the actual native
+            // batches and sink. Do not fabricate aggregate/decode measurements
+            // or label this native producer as a JSON collection.
+            return Ok(Executed {
+                report: None,
+                certificate: None,
+            });
+        }
         let (report, mut certificate) = match &self.strategy {
             Strategy::Count {
                 request,
                 source,
                 policy,
-            } => source.with_admitted_native_execution(context, |file, context| {
-                let count = file.row_count();
-                emit_count(count, context, &mut emit)?;
-                let (policy, physical) = policy.with_physical_policy_for_request(request);
-                let report = native::count_all_held_metadata_report(file, count, policy)
-                    .with_physical_policy(physical);
-                let certificate = native::local_primitive_native_io_certificate(request, &report)?;
-                Ok((report, certificate))
-            })?,
+            } => consume_count(request, source, *policy, context, &mut emit)?,
             Strategy::CountWhere(operation) => {
                 let execution = operation.execute_in_context(context)?;
                 emit_count(execution.count, context, &mut emit)?;
@@ -359,15 +459,42 @@ impl Prepared {
                 let certificate = native::local_primitive_native_io_certificate(request, &report)?;
                 (report, certificate)
             }
+            Strategy::Projection { .. } => unreachable!("projection consumed above"),
         };
         certificate.source_pushdown_report.proof_basis.push_str(
             ";complete_typed_plan_validated_before_provider_selection;shared_native_provider;encoded_output_alias_view;single_operation_resource_owner;source_generation_validated_after_final_consumer",
         );
         Ok(Executed {
-            report,
-            certificate,
+            report: Some(report),
+            certificate: Some(certificate),
         })
     }
+}
+
+fn consume_count(
+    request: &Request,
+    source: &PreparedVortexSource,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    context: &NativeExecutionContext<'_>,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<(Report, NativeIoCertificate)> {
+    // Footer metadata is already held by this generation. It needs the caller's
+    // ownership and generation checks, but no scoped payload reader or I/O.
+    source
+        .retained_session()
+        .validate_execution_context(context)?;
+    context.check_cancelled()?;
+    source.validate_generation()?;
+    let file = source.file();
+    let count = file.row_count();
+    emit_count(count, context, consume)?;
+    source.validate_generation()?;
+    context.check_cancelled()?;
+    let (policy, physical) = policy.with_physical_policy_for_request(request);
+    let report =
+        native::count_all_held_metadata_report(file, count, policy).with_physical_policy(physical);
+    let certificate = native::local_primitive_native_io_certificate(request, &report)?;
+    Ok((report, certificate))
 }
 
 fn emit_count(

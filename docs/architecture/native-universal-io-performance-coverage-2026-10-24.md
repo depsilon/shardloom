@@ -4,13 +4,23 @@
 
 Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
-and the subsequently requested [warm source reuse](native-warm-source-reuse-2026-10-24.md),
+and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
+then [warm source reuse](native-warm-source-reuse-2026-10-24.md),
 then [public naming](shardloom-public-naming-2026-10-24.md),
-then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md).
+then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md)
+and [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
 The current grouped optimization campaign, its Full43 and optimization PR come
 first. The handoff reviews main `06653efb` and #1594 `e1af0d68`; it is a source
 review and proposal, not new benchmark evidence or completed implementation.
 Recheck current source and pinned providers when this work begins.
+The refresh evaluates per-consumer Arrow compaction and the optional
+object-store registry, Hugging Face and OpenDAL provider primitives. Reuse its
+accepted boundaries here; feature availability does not certify a complete
+connector, allocation lifetime or transport policy. Export compaction is
+separate from import ownership and must account for retained backing buffers.
+The later [AI-data package](native-ai-data-workflows-2026-10-24.md) reuses this
+source/publication contract for model batches and search-index generations;
+consumer adapters must not reopen original inputs to bypass ShardLoom plans.
 
 ## Contract and intake
 
@@ -141,6 +151,18 @@ file in a table directory is not table correctness. Verify current specification
 and pinned implementation support before adding a provider. Keep S3, ADLS, GCS
 and HTTP as transport boundaries with authentication, range access, retries and
 publication semantics, reusing file adapters and the native engine.
+
+The subsequent [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
+request keeps remote/database/table integration in this package. Complete one
+selected authenticate → schema discovery → selective read → native computation
+→ safe publication workflow, including credentials, range access, retries,
+source generations and independent readback. A connector name or manually
+staged file is not that acceptance. Safe replacement/refresh of an existing
+dataset comes before append/upsert against an explicit table contract, then
+broader transactional operations under the table/commit RFCs. Specify destination
+generation conflicts, reader visibility, staging, failure recovery and cleanup;
+per-file atomic publication does not imply a multi-file transaction. These later
+groups retain their place after the immediately actionable local writer fixes.
 
 ## Measurement and completion
 

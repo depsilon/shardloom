@@ -136,6 +136,7 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         source_paths,
         root: PreparedRoot::Dynamic(Box::new(lower)),
         provider: None,
+        provider_selection_reason: "deferred_schema_requires_relational_execution",
         policy,
         _metadata: metadata,
         #[cfg(feature = "vortex-write")]

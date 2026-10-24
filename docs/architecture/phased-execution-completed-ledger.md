@@ -17,6 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Native user-surface correction and correctness acceptance` — the
+  [October 24 acceptance](../benchmarks/native-surface-parity-2026-10-24.md)
+  binds the final source patch above `16ff752d` to matched CLI/library builds.
+  Normalized binding, actual provider scratch ownership, metadata counts,
+  shared projections, grouped read/key order and scoped HAVING reuse remove
+  demonstrated native-work differences while preserving no-fallback boundaries.
+  All 1,080 paired results and accepted-CLI controls pass. Five final isolated
+  Full43s validate all 215 results, 1,905 rows and 43 equal cross-surface schemas.
+  The final strict frontend timing screen remains failed for Q34 (35/36 cells
+  pass); reversed direction and identical principal work reports do not prove
+  timing equivalence or a stable frontend penalty. The sealed finite decision
+  preserves that limitation and every failure rather than continuing until a
+  preferred interface wins. Full43 does not override the screen. Required
+  default/native checks, matched public fixtures and portable replay are recorded
+  with exact source scope. This closes the correction/correctness work unit,
+  not timing parity, independent CG gates, optional breadth or publication.
+
 - [x] `Shared native operator optimization feedback` — locally accepted at
   runtime `4af8fc72`, following PR #1593's merge at `06653efb`. The
   [acceptance record](native-engine-optimization-acceptance-2026-10-23.md#final-coherent-acceptance)

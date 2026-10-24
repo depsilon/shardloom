@@ -4,9 +4,11 @@
 
 Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
-and the subsequently requested [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
+and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
+then the [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
 then [public naming and terminology](shardloom-public-naming-2026-10-24.md),
-and before [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
+and immediately before [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
+then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
 This records scope and source review, not an implemented optimization or new
 ingestion measurement. The grouped-preparation campaign is complete in #1595.
 The existing RFC 0044 resource contract and PERF-02/03/06/09 owners apply;
@@ -63,8 +65,14 @@ full-ingest work.
   avoids an extra blanket statistics pass, and compresses numeric output after
   final canonicalizing repartition. Preserve these completed corrections.
 
-Vortex-first direction: use the existing Vortex 0.85 session allocator, native
-buffer owners, Arrow conversion, compression and layout providers. Any
+Vortex-first direction: the inventory above describes the current 0.85 path.
+The provider refresh now precedes this package; recheck allocator propagation
+and referenced-byte compression/coalescing estimates against the admitted
+replacement before choosing a new ownership mechanism. Logical referenced
+bytes guide compression/layout decisions; retained allocations still require
+their full memory charge. Trace both through the real Parquet import path.
+Use the admitted session allocator, native buffer owners, Arrow conversion,
+compression and layout providers. Any
 provenance wrapper must express ownership of those existing providers, not
 invent another engine or claim that passing an allocator automatically routes
 all upstream allocations through it. Recheck pinned decoder/buffer APIs before

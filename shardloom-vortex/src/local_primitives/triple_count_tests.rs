@@ -337,6 +337,13 @@ fn triple_workers_keep_transferred_inputs_alive_until_delayed_routing_and_releas
     use super::triple_count_workers::ROUTING_START_TEST_HOOK;
     use std::{sync::mpsc, time::Duration};
 
+    // This handshake specifically exercises deferred worker ownership. On one
+    // CPU submit executes inline, so the caller cannot release its own wait.
+    // The adjacent correctness tests exercise that inline path explicitly.
+    if shardloom_exec::compute_pool::bounded_cpu_parallelism(3) < 2 {
+        return;
+    }
+
     for cancel in [false, true] {
         let columns = columns(false);
         let request = request(false);

@@ -4,17 +4,20 @@
 //! only complete equivalent pipelines; unknown expressions keep that bound tree.
 
 use crate::{
+    local_primitives::{
+        native_relational_aggregate,
+        native_relational_expression::{Expression, Kind as E, scalar::Function},
+        prepared_relational::{Node, NodeKind, ScanSource},
+    },
     query_primitive::{
         VortexAggregateExpression, VortexAggregateHavingExpr, VortexAggregateOrderExpr,
         VortexQueryPrimitiveKind as Kind, VortexQueryPrimitiveRequest as Request,
         VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest, VortexSortRowsRequest,
         VortexSortTiePolicy,
     },
-    relational_query::{VortexRelationalAggregate, VortexRelationalPlan as Plan},
 };
 use shardloom_core::{
-    BinaryOp, ColumnRef, ComparisonOp, DatasetUri, Expression, ExpressionKind as E, PredicateExpr,
-    ScalarValue, StatValue, UnaryOp,
+    BinaryOp, ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue, UnaryOp,
 };
 use shardloom_plan::ProjectionRequest;
 use std::collections::BTreeMap;
@@ -39,6 +42,13 @@ enum Value {
 }
 
 impl Value {
+    fn source_column(&self) -> Option<&str> {
+        match self {
+            Self::Column(column) | Self::Transform { column, .. } => Some(column),
+            Self::Constant(_) => None,
+        }
+    }
+
     fn column(&self) -> Option<&str> {
         match self {
             Self::Column(name) => Some(name),
@@ -115,57 +125,73 @@ struct Input {
 
 /// The caller reserves declaration scratch before this metadata-only pass and
 /// verifies every output dtype against the already-bound relational schema.
-pub(super) fn lower(plan: &Plan, source: &DType, names: &[String]) -> Option<Lowered> {
+pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Lowered> {
     let mut plan = plan;
     let mut output = names.to_vec();
     let mut limit = None;
     let mut order: Option<Vec<VortexAggregateOrderExpr>> = None;
-    let mut having = Vec::new();
+    let mut having: Vec<VortexAggregateHavingExpr> = Vec::new();
     // Projections may select/rename output fields without moving data work.
     // Ranges and ordering have one position each; arbitrary compositions remain
     // on the native relational provider rather than being silently reordered.
     loop {
-        match plan {
-            Plan::Project(project)
-                if project
-                    .expressions
+        match &plan.kind {
+            NodeKind::Project { input, expressions }
+                if expressions
                     .iter()
-                    .all(|(_, expr)| matches!(expr.kind, E::Column(_))) =>
+                    .all(|expr| matches!(expr.kind, E::Column(_))) =>
             {
                 for column in &mut output {
-                    let (_, expr) = project
-                        .expressions
+                    let (_, expr) = plan
+                        .fields
                         .iter()
-                        .find(|(name, _)| name == column)?;
+                        .zip(expressions)
+                        .find(|((name, _), _)| name == column)?;
                     let E::Column(source) = &expr.kind else {
                         return None;
                     };
-                    *column = source.as_str().to_owned();
+                    column.clone_from(source);
                 }
                 if let Some(keys) = &mut order {
                     for key in keys {
-                        let (_, expr) = project
-                            .expressions
+                        let (_, expr) = plan
+                            .fields
                             .iter()
-                            .find(|(name, _)| name == &key.column)?;
+                            .zip(expressions)
+                            .find(|((name, _), _)| name == &key.column)?;
                         let E::Column(source) = &expr.kind else {
                             return None;
                         };
-                        key.column = source.as_str().to_owned();
+                        key.column.clone_from(source);
                     }
                 }
-                plan = &project.input;
+                for predicate in &mut having {
+                    let (_, expr) = plan
+                        .fields
+                        .iter()
+                        .zip(expressions)
+                        .find(|((name, _), _)| name == &predicate.column)?;
+                    let E::Column(source) = &expr.kind else {
+                        return None;
+                    };
+                    predicate.column.clone_from(source);
+                }
+                plan = input;
             }
-            Plan::Limit(range) if limit.is_none() && order.is_none() && having.is_empty() => {
-                if range.count == 0 || range.offset.checked_add(range.count).is_none() {
+            NodeKind::Limit {
+                input,
+                offset,
+                count,
+            } if limit.is_none() && order.is_none() && having.is_empty() => {
+                if *count == 0 || offset.checked_add(*count).is_none() {
                     return None;
                 }
-                limit = Some((range.count, range.offset));
-                plan = &range.input;
+                limit = Some((*count, *offset));
+                plan = input;
             }
-            Plan::Sort(sort) if order.is_none() && having.is_empty() => {
+            NodeKind::Sort { input, spec, .. } if order.is_none() && having.is_empty() => {
                 order = Some(
-                    sort.keys
+                    spec.keys
                         .iter()
                         .map(|key| VortexAggregateOrderExpr {
                             column: key.column.as_str().to_owned(),
@@ -174,14 +200,12 @@ pub(super) fn lower(plan: &Plan, source: &DType, names: &[String]) -> Option<Low
                         })
                         .collect::<Vec<_>>(),
                 );
-                plan = &sort.input;
+                plan = input;
             }
-            Plan::Filter(filter)
-                if having.is_empty() && matches!(&filter.input, Plan::Aggregate(_)) =>
-            {
-                if let Some(predicates) = having_predicates(&filter.predicate) {
-                    having = predicates;
-                    plan = &filter.input;
+            NodeKind::Filter { input, predicate } if alias_aggregate(input) => {
+                if let Some(predicates) = having_predicates(predicate) {
+                    having.extend(predicates);
+                    plan = input;
                 } else {
                     break;
                 }
@@ -189,17 +213,95 @@ pub(super) fn lower(plan: &Plan, source: &DType, names: &[String]) -> Option<Low
             _ => break,
         }
     }
-    if let Plan::Aggregate(aggregate) = plan {
-        return lower_aggregate(aggregate, source, output, limit, order, having);
+    if let NodeKind::Aggregate { input, spec } = &plan.kind {
+        return lower_aggregate(input, spec, source, output, limit, order, having);
     }
     if !having.is_empty() {
         return None;
     }
-    lower_sort(plan, source, output, order?, limit?)
+    match order {
+        Some(order) => lower_sort(plan, source, output, order, limit?),
+        None => lower_projection(plan, source, output, limit),
+    }
+}
+
+fn lower_projection(
+    plan: &Node,
+    source: &DType,
+    mut output: Vec<String>,
+    limit: Option<(usize, usize)>,
+) -> Option<Lowered> {
+    if limit.is_some_and(|(_, offset)| offset != 0) {
+        return None;
+    }
+    let input = input(plan, source)?;
+    if !input.evaluated.is_empty() {
+        return None;
+    }
+    let mut columns = Vec::new();
+    for column in &mut output {
+        *column = input.columns.get(column)?.column()?.to_owned();
+        let column = ColumnRef::new(column.as_str()).ok()?;
+        if !columns.contains(&column) {
+            columns.push(column);
+        }
+    }
+    let projection = ProjectionRequest::Columns(columns);
+    let mut request = match input.predicate {
+        Some(predicate) => Request::filter_and_project(input.uri, predicate, projection),
+        None => Request::project(input.uri, projection),
+    };
+    request.source_order_limit = limit.map(|(count, _)| count);
+    Some(Lowered { request, output })
+}
+
+fn alias_aggregate(node: &Node) -> bool {
+    match &node.kind {
+        NodeKind::Aggregate { .. } => true,
+        NodeKind::Project { input, expressions }
+            if expressions
+                .iter()
+                .all(|expr| matches!(expr.kind, E::Column(_))) =>
+        {
+            alias_aggregate(input)
+        }
+        NodeKind::Filter { input, .. } => alias_aggregate(input),
+        _ => false,
+    }
+}
+
+fn constant_group_anchor<'a>(
+    input: &'a Input,
+    aggregate: &native_relational_aggregate::Spec,
+    source: &'a DType,
+) -> Option<&'a str> {
+    // A constant needs row cardinality, not a new payload column. Reuse a
+    // source field already required by a real key/measure where possible.
+    aggregate
+        .groups
+        .iter()
+        .map(|(name, _)| name)
+        .chain(
+            aggregate
+                .measures
+                .iter()
+                .filter_map(|measure| measure.column.as_ref()),
+        )
+        .filter_map(|name| input.columns.get(name))
+        .find_map(Value::source_column)
+        .or_else(|| {
+            source
+                .as_struct_fields_opt()?
+                .names()
+                .iter()
+                .next()
+                .map(AsRef::as_ref)
+        })
 }
 
 fn lower_aggregate(
-    aggregate: &VortexRelationalAggregate,
+    input_node: &Node,
+    aggregate: &native_relational_aggregate::Spec,
     source: &DType,
     mut output: Vec<String>,
     limit: Option<(usize, usize)>,
@@ -208,40 +310,66 @@ fn lower_aggregate(
 ) -> Option<Lowered> {
     if aggregate.measures.is_empty()
         || aggregate.measures.len() > 1024
-        || aggregate.group_by.len() > 1024
+        || aggregate.groups.len() > 1024
     {
         return None;
     }
-    let input = input(&aggregate.input, source)?;
-    let anchor = source
-        .as_struct_fields_opt()?
-        .names()
-        .iter()
-        .next()?
-        .to_string();
+    let input = input(input_node, source)?;
+    let anchor = constant_group_anchor(&input, aggregate, source)?;
     let mut used = Vec::new();
     let mut groups = Vec::new();
     let mut expressions = Vec::new();
-    for key in &aggregate.group_by {
-        let value = input.columns.get(key.as_str())?;
+    for (key, _) in &aggregate.groups {
+        let value = input.columns.get(key)?;
         used.push(value);
         if value.column() == Some(key.as_str()) {
-            groups.push(key.clone());
+            groups.push(ColumnRef::new(key).ok()?);
         } else {
-            expressions.push(value.group(key.as_str(), &anchor)?);
+            expressions.push(value.group(key.as_str(), anchor)?);
         }
     }
+    // Mixed raw/computed keys must preserve the bound declaration's ordering.
+    // The primitive SQL route uses these same identity expressions; silently
+    // moving all raw keys first changes physical strategy selection.
+    if !groups
+        .iter()
+        .map(ColumnRef::as_str)
+        .chain(
+            expressions
+                .iter()
+                .map(|expression| expression.alias.as_str()),
+        )
+        .eq(aggregate.groups.iter().map(|(name, _)| name.as_str()))
+    {
+        expressions = aggregate
+            .groups
+            .iter()
+            .map(|(name, _)| input.columns.get(name)?.group(name, anchor))
+            .collect::<Option<Vec<_>>>()?;
+        groups.clear();
+    }
     let mut measures = Vec::new();
-    for measure in &aggregate.measures {
-        if measure.argument_offset.is_some() || measure.value_transform.is_some() {
-            return None; // The generic binder owns explicit argument projections.
-        }
+    for (index, measure) in aggregate.measures.iter().enumerate() {
+        let declaration = VortexSimpleAggregateMeasure::new(
+            measure.function.as_str(),
+            measure
+                .column
+                .as_ref()
+                .map(ColumnRef::new)
+                .transpose()
+                .ok()?,
+            aggregate
+                .fields
+                .get(aggregate.groups.len() + index)?
+                .0
+                .clone(),
+        );
         if let Some(column) = &measure.column {
-            let value = input.columns.get(column.as_str())?;
+            let value = input.columns.get(column)?;
             used.push(value);
-            measures.push(value.measure(measure)?);
+            measures.push(value.measure(&declaration)?);
         } else {
-            measures.push(measure.clone());
+            measures.push(declaration);
         }
     }
     if input.evaluated.iter().any(|value| !used.contains(&value)) {
@@ -287,7 +415,7 @@ fn lower_aggregate(
 }
 
 fn lower_sort(
-    plan: &Plan,
+    plan: &Node,
     source: &DType,
     mut output: Vec<String>,
     order: Vec<VortexAggregateOrderExpr>,
@@ -328,35 +456,31 @@ fn lower_sort(
     Some(Lowered { request, output })
 }
 
-fn input(plan: &Plan, source: &DType) -> Option<Input> {
-    match plan {
-        Plan::Scan(scan) => {
-            let names = match &scan.projection {
-                ProjectionRequest::All => source
-                    .as_struct_fields_opt()?
-                    .names()
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>(),
-                ProjectionRequest::Columns(columns) => columns
-                    .iter()
-                    .map(|column| column.as_str().to_owned())
-                    .collect(),
-            };
-            Some(Input {
-                uri: scan.source_uri.clone(),
-                columns: names
-                    .into_iter()
-                    .map(|name| (name.clone(), Value::Column(name)))
-                    .collect(),
-                predicate: scan.predicate.clone(),
-                evaluated: vec![],
-            })
-        }
-        Plan::Project(project) => {
-            let mut input = input(&project.input, source)?;
+fn input(plan: &Node, source: &DType) -> Option<Input> {
+    match &plan.kind {
+        NodeKind::Scan {
+            source: ScanSource::File(0),
+            source_uri,
+            predicate,
+            plan: scan,
+            ..
+        } if scan.source_order_limit.is_none() => Some(Input {
+            uri: source_uri.clone(),
+            columns: plan
+                .fields
+                .iter()
+                .map(|(name, _)| (name.clone(), Value::Column(name.clone())))
+                .collect(),
+            predicate: predicate.clone(),
+            evaluated: vec![],
+        }),
+        NodeKind::Project {
+            input: child,
+            expressions,
+        } => {
+            let mut input = input(child, source)?;
             let mut columns = BTreeMap::new();
-            for (name, expression) in &project.expressions {
+            for ((name, _), expression) in plan.fields.iter().zip(expressions) {
                 let value = value(expression, &input.columns, source)?;
                 if matches!(value, Value::Transform { .. }) && !input.evaluated.contains(&value) {
                     input.evaluated.push(value.clone());
@@ -368,13 +492,16 @@ fn input(plan: &Plan, source: &DType) -> Option<Input> {
             input.columns = columns;
             Some(input)
         }
-        Plan::Filter(filter) => {
-            let mut input = input(&filter.input, source)?;
+        NodeKind::Filter {
+            input: child,
+            predicate,
+        } => {
+            let mut input = input(child, source)?;
             // A projection may fail even for a row that a later filter rejects.
             if !input.evaluated.is_empty() {
                 return None;
             }
-            let predicate = checked_predicate(&filter.predicate, &input.columns, source)?;
+            let predicate = checked_predicate(predicate, &input.columns, source)?;
             input.predicate = Some(match input.predicate {
                 Some(prior) => PredicateExpr::And(vec![prior, predicate]),
                 None => predicate,
@@ -387,25 +514,19 @@ fn input(plan: &Plan, source: &DType) -> Option<Input> {
 
 fn value(expr: &Expression, columns: &BTreeMap<String, Value>, source: &DType) -> Option<Value> {
     match &expr.kind {
-        E::Column(column) => columns.get(column.as_str()).cloned(),
-        E::Alias { expr, .. } => value(expr, columns, source),
-        E::Literal(ScalarValue::Int64(value)) => Some(Value::Constant(*value)),
-        E::Literal(ScalarValue::UInt64(value)) => {
-            Some(Value::Constant(i64::try_from(*value).ok()?))
+        E::Column(column) => columns.get(column).cloned(),
+        E::Literal(_) => Some(Value::Constant(integer_literal(expr)?)),
+        E::Binary(left, op @ (BinaryOp::Add | BinaryOp::Subtract), right) => {
+            offset_value(left, *op, right, columns, source)
         }
-        E::Binary {
-            left,
-            op: op @ (BinaryOp::Add | BinaryOp::Subtract),
-            right,
-        } => offset_value(left, *op, right, columns, source),
-        E::FunctionCall { name, args } if args.len() == 1 => {
+        E::Function { function, args } => {
             let column = value(&args[0], columns, source)?.column()?.to_owned();
-            let function = match name.to_ascii_lowercase().as_str() {
-                "octet_length" | "byte_length" | "binary_byte_length" => "length",
-                "extract_minute" | "minute" => "extract_minute",
-                "date_trunc_minute" | "truncate_minute" => "date_trunc_minute",
-                "regex_domain" | "regex_replace_domain" => "regex_domain",
-                "url_domain" => "url_domain",
+            let function = match function {
+                Function::ByteLength => "length",
+                Function::EpochMinute { truncate: false } => "extract_minute",
+                Function::EpochMinute { truncate: true } => "date_trunc_minute",
+                Function::Domain { regex: true } => "regex_domain",
+                Function::Domain { regex: false } => "url_domain",
                 _ => return None,
             };
             Some(Value::Transform {
@@ -415,39 +536,14 @@ fn value(expr: &Expression, columns: &BTreeMap<String, Value>, source: &DType) -
                 extra: vec![],
             })
         }
-        E::FunctionCall { name, args }
-            if matches!(
-                name.to_ascii_lowercase().as_str(),
-                "regexp_replace" | "regex_replace"
-            ) && args.len() == 3 =>
-        {
-            if !matches!(&args[1].kind, E::Literal(ScalarValue::Utf8(pattern)) if pattern == r"^https?://(?:www\.)?([^/]+)/.*$")
-                || !matches!(&args[2].kind, E::Literal(ScalarValue::Utf8(replacement)) if replacement == r"\1")
-            {
-                return None;
-            }
-            Some(Value::Transform {
-                column: value(&args[0], columns, source)?.column()?.to_owned(),
-                function: "regex_domain",
-                offset: None,
-                extra: vec![],
-            })
-        }
-        E::FunctionCall { name, args }
-            if name.eq_ignore_ascii_case("case_when") && args.len() == 3 =>
-        {
+        E::Conditional(condition, yes, no) => {
             // Reuse the admitted two-integer-zero conditional provider by
             // structure; operand names are arbitrary. Nullable inputs keep the
             // ordinary CASE evaluator because its branch/null rules differ.
-            if !matches!(&args[2].kind, E::Literal(ScalarValue::Utf8(text)) if text.is_empty()) {
+            if !matches!(stat_literal(no), Some(StatValue::Utf8(text)) if text.is_empty()) {
                 return None;
             }
-            let E::Binary {
-                left,
-                op: BinaryOp::And,
-                right,
-            } = &args[0].kind
-            else {
+            let E::Binary(left, BinaryOp::And, right) = &condition.kind else {
                 return None;
             };
             let nonnull = |name: &str| {
@@ -455,12 +551,7 @@ fn value(expr: &Expression, columns: &BTreeMap<String, Value>, source: &DType) -
                 (!source.is_nullable() && !dtype.is_nullable()).then_some(dtype)
             };
             let zero_column = |expr: &Expression| {
-                let E::Compare {
-                    left,
-                    op: ComparisonOp::Eq,
-                    right,
-                } = &expr.kind
-                else {
+                let E::Compare(left, ComparisonOp::Eq, right) = &expr.kind else {
                     return None;
                 };
                 if integer_literal(right)? != 0 {
@@ -476,7 +567,7 @@ fn value(expr: &Expression, columns: &BTreeMap<String, Value>, source: &DType) -
                     _ => None,
                 }
             };
-            let column = value(&args[1], columns, source)?.column()?.to_owned();
+            let column = value(yes, columns, source)?.column()?.to_owned();
             if !matches!(nonnull(&column)?, DType::Utf8(_)) {
                 return None;
             }
@@ -526,7 +617,7 @@ fn offset_value(
     }
     // An unsigned literal promotes unsigned input to U64; a signed literal
     // promotes these narrower inputs to I64.
-    let unsigned = matches!(right.kind, E::Literal(ScalarValue::UInt64(_)))
+    let unsigned = matches!(stat_literal(right), Some(StatValue::UInt64(_)))
         && matches!(dtype, DType::Primitive(ptype, _) if ptype.is_unsigned_int());
     if unsigned && min.checked_add(offset)? < 0 {
         return None;
@@ -544,23 +635,25 @@ fn offset_value(
 }
 
 fn integer_literal(expr: &Expression) -> Option<i64> {
-    match expr.kind {
-        E::Literal(ScalarValue::Int64(value)) => Some(value),
-        E::Literal(ScalarValue::UInt64(value)) => i64::try_from(value).ok(),
+    match stat_literal(expr)? {
+        StatValue::Int64(value) => Some(value),
+        StatValue::UInt64(value) => i64::try_from(value).ok(),
         _ => None,
     }
 }
 
 fn stat_literal(expr: &Expression) -> Option<StatValue> {
-    Some(match &expr.kind {
-        E::Literal(ScalarValue::Null) => StatValue::Null,
-        E::Literal(ScalarValue::Boolean(value)) => StatValue::Boolean(*value),
-        E::Literal(ScalarValue::Int64(value)) => StatValue::Int64(*value),
-        E::Literal(ScalarValue::UInt64(value)) => StatValue::UInt64(*value),
-        E::Literal(ScalarValue::Float64(value)) if value.is_finite() => StatValue::Float64(*value),
-        E::Literal(ScalarValue::Utf8(value)) => StatValue::Utf8(value.clone()),
-        _ => return None,
-    })
+    let E::Literal(scalar) = &expr.kind else {
+        return None;
+    };
+    if scalar.is_null() {
+        return Some(StatValue::Null);
+    }
+    let value = crate::local_primitives::vortex_scalar_to_stat_value(scalar)?;
+    if matches!(value, StatValue::Float64(value) if !value.is_finite()) {
+        return None;
+    }
+    Some(value)
 }
 
 fn column(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<ColumnRef> {
@@ -649,16 +742,10 @@ fn predicate_preserves_typed_semantics(predicate: &PredicateExpr, source: &DType
 
 fn predicate(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<PredicateExpr> {
     Some(match &expr.kind {
-        E::Binary {
-            left,
-            op: BinaryOp::And,
-            right,
-        } => PredicateExpr::And(vec![predicate(left, columns)?, predicate(right, columns)?]),
-        E::Binary {
-            left,
-            op: BinaryOp::Or,
-            right,
-        } => {
+        E::Binary(left, BinaryOp::And, right) => {
+            PredicateExpr::And(vec![predicate(left, columns)?, predicate(right, columns)?])
+        }
+        E::Binary(left, BinaryOp::Or, right) => {
             let PredicateExpr::Compare {
                 column: left_column,
                 op: ComparisonOp::Eq,
@@ -684,27 +771,18 @@ fn predicate(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<Pre
                 negated: false,
             }
         }
-        E::Compare { left, op, right } => PredicateExpr::Compare {
+        E::Compare(left, op, right) => PredicateExpr::Compare {
             column: column(left, columns)?,
             op: *op,
             value: stat_literal(right)?,
         },
-        E::Unary {
-            op: UnaryOp::IsNull,
-            expr,
-        } => PredicateExpr::IsNull {
+        E::Unary(UnaryOp::IsNull, expr) => PredicateExpr::IsNull {
             column: column(expr, columns)?,
         },
-        E::Unary {
-            op: UnaryOp::IsNotNull,
-            expr,
-        } => PredicateExpr::IsNotNull {
+        E::Unary(UnaryOp::IsNotNull, expr) => PredicateExpr::IsNotNull {
             column: column(expr, columns)?,
         },
-        E::Unary {
-            op: UnaryOp::Not,
-            expr,
-        } => {
+        E::Unary(UnaryOp::Not, expr) => {
             let PredicateExpr::StringContains {
                 column,
                 needle,
@@ -719,18 +797,16 @@ fn predicate(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<Pre
                 negated: !negated,
             }
         }
-        E::FunctionCall { name, args }
-            if matches!(
-                name.to_ascii_lowercase().as_str(),
-                "contains" | "utf8_contains"
-            ) && args.len() == 2 =>
-        {
-            let E::Literal(ScalarValue::Utf8(needle)) = &args[1].kind else {
+        E::Function {
+            function: Function::Contains,
+            args,
+        } => {
+            let StatValue::Utf8(needle) = stat_literal(&args[1])? else {
                 return None;
             };
             PredicateExpr::StringContains {
                 column: column(&args[0], columns)?,
-                needle: needle.clone(),
+                needle,
                 negated: false,
             }
         }
@@ -740,16 +816,12 @@ fn predicate(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<Pre
 
 fn having_predicates(expr: &Expression) -> Option<Vec<VortexAggregateHavingExpr>> {
     match &expr.kind {
-        E::Binary {
-            left,
-            op: BinaryOp::And,
-            right,
-        } => {
+        E::Binary(left, BinaryOp::And, right) => {
             let mut result = having_predicates(left)?;
             result.extend(having_predicates(right)?);
             Some(result)
         }
-        E::Compare { left, op, right } => {
+        E::Compare(left, op, right) => {
             let E::Column(column) = &left.kind else {
                 return None;
             };

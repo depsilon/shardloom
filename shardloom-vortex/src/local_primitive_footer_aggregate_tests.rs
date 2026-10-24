@@ -278,6 +278,112 @@ fn footer_aggregate_count_uses_nonnullable_schema_but_never_inexact_nullable_nul
 }
 
 #[test]
+fn footer_aggregate_completes_aliased_count_star_from_row_count_without_statistics() {
+    let field = DType::Primitive(PType::U64, Nullability::NonNullable);
+    let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("footer-count-star.vortex").unwrap(),
+        VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "arbitrary_total".into(),
+        )]),
+    );
+    for (rows, expected) in [(0_u64, 0_u64), (23, 23)] {
+        let mut states = states(&request);
+        let completion = complete_from_stats(
+            &dtype(field.clone(), Nullability::NonNullable),
+            rows,
+            None,
+            &request,
+            &mut states,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(completion.exact_statistics, 0);
+        let mut summary = states.result_summary(&[]).unwrap();
+        completion.annotate(&mut summary).unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        assert_eq!(
+            payload["values"],
+            serde_json::json!({"arbitrary_total": expected})
+        );
+        assert_eq!(
+            payload["values"]["arbitrary_total"].as_u64(),
+            Some(expected)
+        );
+        assert_eq!(payload["metadata_aggregate"]["source_rows_covered"], rows);
+        assert_eq!(payload["metadata_aggregate"]["source_rows_visited"], 0);
+        assert_eq!(
+            payload["metadata_aggregate"]["source_payload_arrays_read"],
+            0
+        );
+        assert_eq!(payload["metadata_aggregate"]["measures_proven"], 1);
+        assert_eq!(
+            payload["metadata_aggregate"]["all_measures_completed"],
+            true
+        );
+    }
+
+    request.simple_aggregate.as_mut().unwrap().measures = vec![
+        VortexSimpleAggregateMeasure::new("count", None, "records".into()),
+        VortexSimpleAggregateMeasure::new("count", None, "row_total".into()),
+    ];
+    let mut states = states(&request);
+    let completion = complete_from_stats(
+        &dtype(field, Nullability::NonNullable),
+        23,
+        None,
+        &request,
+        &mut states,
+    )
+    .unwrap()
+    .unwrap();
+    let mut summary = states.result_summary(&[]).unwrap();
+    completion.annotate(&mut summary).unwrap();
+    let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        payload["values"],
+        serde_json::json!({"records":23,"row_total":23})
+    );
+    assert_eq!(payload["values"]["records"].as_u64(), Some(23));
+    assert_eq!(payload["values"]["row_total"].as_u64(), Some(23));
+    assert_eq!(payload["metadata_aggregate"]["source_rows_visited"], 0);
+    assert_eq!(
+        payload["metadata_aggregate"]["source_payload_arrays_read"],
+        0
+    );
+    assert_eq!(payload["metadata_aggregate"]["measures_proven"], 2);
+}
+
+#[test]
+fn footer_aggregate_filtered_count_star_declines_without_mutating_fresh_state() {
+    let field = DType::Primitive(PType::U64, Nullability::NonNullable);
+    let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("footer-filtered-count-star.vortex").unwrap(),
+        VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "filtered_total".into(),
+        )]),
+    );
+    request.predicate = Some(PredicateExpr::AlwaysTrue);
+    let mut states = states(&request);
+    let before = states.result_summary(&[]).unwrap();
+    assert!(
+        complete_from_stats(
+            &dtype(field, Nullability::NonNullable),
+            23,
+            None,
+            &request,
+            &mut states,
+        )
+        .unwrap()
+        .is_none()
+    );
+    assert_eq!(states.result_summary(&[]).unwrap(), before);
+}
+
+#[test]
 fn footer_aggregate_inexact_or_mismatched_metadata_cannot_partially_install_counts() {
     let field = DType::Primitive(PType::U64, Nullability::NonNullable);
     let request = request();
@@ -396,7 +502,7 @@ fn footer_aggregate_rejects_contradictory_null_count_and_parent_validity() {
 }
 
 #[test]
-fn footer_aggregate_declines_mixed_arithmetic_predicates_groups_and_count_star_only() {
+fn footer_aggregate_declines_mixed_arithmetic_predicates_and_groups() {
     let field = DType::Primitive(PType::I64, Nullability::NonNullable);
     let stats = statistics(
         field.clone(),
@@ -404,7 +510,7 @@ fn footer_aggregate_declines_mixed_arithmetic_predicates_groups_and_count_star_o
         Some(Precision::Exact(19_i64.into())),
         Some(0),
     );
-    for case in 0..8 {
+    for case in 0..7 {
         let mut request = request();
         let mut states = states(&request);
         let aggregate = request.simple_aggregate.as_mut().unwrap();
@@ -415,8 +521,7 @@ fn footer_aggregate_declines_mixed_arithmetic_predicates_groups_and_count_star_o
             3 => aggregate.measures[1].argument_offset = Some(1),
             4 => aggregate.measures[1].value_transform = Some("length".into()),
             5 => request.predicate = Some(PredicateExpr::AlwaysTrue),
-            6 => aggregate.group_by = vec![ColumnRef::new("value").unwrap()],
-            _ => aggregate.measures.truncate(1),
+            _ => aggregate.group_by = vec![ColumnRef::new("value").unwrap()],
         }
         let before = states.result_summary(&[]).unwrap();
         assert!(

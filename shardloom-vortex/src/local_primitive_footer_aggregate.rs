@@ -60,8 +60,9 @@ fn admitted_shape(request: &VortexQueryPrimitiveRequest) -> bool {
                 && aggregate.group_by.is_empty()
                 && aggregate.group_expressions.is_empty()
                 && aggregate.spill.is_none()
-                // COUNT(*) alone already has its own metadata primitive.
-                && aggregate.measures.iter().any(|measure| measure.column.is_some())
+                // Aliases and multiple COUNT(*) measures still depend only on
+                // this held generation's exact row count. The front door may
+                // express them as an aggregate rather than CountAll.
                 && aggregate.measures.iter().all(|measure| {
                     measure.argument_offset.is_none()
                         && measure.value_transform.is_none()

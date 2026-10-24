@@ -1418,6 +1418,62 @@ impl PreparedVortexProjection {
             ResidentWorkerGroup::new(&runtime.runtime, additional).map_err(native_error)?;
         source.validate()?;
         let file = context.file_view(&source.file, source.identity.as_ref())?;
+        let mut arrays = Vec::new();
+        let mut lease = runtime.memory.reserve(0)?;
+        let (rows, logical_bytes) = self.consume_scan(&file, &context, &mut |array| {
+            if arrays.len() == arrays.capacity() {
+                let capacity = arrays.capacity().saturating_mul(2).max(4);
+                let bytes = capacity
+                    .checked_mul(std::mem::size_of::<ArrayRef>())
+                    .and_then(|bytes| u64::try_from(bytes).ok())
+                    .ok_or_else(|| resident_error("result ownership capacity overflow"))?;
+                lease.resize(bytes)?;
+                arrays
+                    .try_reserve_exact(capacity - arrays.len())
+                    .map_err(native_error)?;
+            }
+            arrays.push(array);
+            Ok(())
+        })?;
+        drop(file);
+        drop(workers);
+        context.drain_io();
+        context.check_cancelled()?;
+        source.validate()?;
+        runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok((
+            OwnedVortexResultBatch {
+                dtype: self.projection.dtype().clone(),
+                arrays: Budgeted::new(arrays, lease),
+                runtime: Arc::clone(runtime),
+                rows,
+                logical_buffer_bytes: logical_bytes,
+            },
+            context.timing(),
+        ))
+    }
+
+    /// Borrow the caller's single operation grant and deliver the same native
+    /// ordered scan used by resident collection. The consumer determines result
+    /// retention; source/reader owners cannot escape this execution boundary.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn consume_in_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<(u64, u64)> {
+        self.source
+            .with_admitted_native_execution(context, |file, context| {
+                self.consume_scan(file, context, consume)
+            })
+    }
+
+    fn consume_scan(
+        &self,
+        file: &VortexFile,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<(u64, u64)> {
         let scan = file
             .scan()
             .map_err(native_error)?
@@ -1438,10 +1494,8 @@ impl PreparedVortexProjection {
             scan
         };
         let mut scan = scan
-            .into_array_iter(&runtime.runtime)
+            .into_array_iter(context.runtime())
             .map_err(native_error)?;
-        let mut arrays = Vec::new();
-        let mut lease = runtime.memory.reserve(0)?;
         let mut rows = 0_u64;
         let mut logical_bytes = 0_u64;
         for array in &mut scan {
@@ -1462,39 +1516,14 @@ impl PreparedVortexProjection {
             if rows > self.max_rows || logical_bytes > self.max_output_bytes {
                 return Err(resident_error("projection exceeds completed output bounds"));
             }
-            if arrays.len() == arrays.capacity() {
-                let capacity = arrays.capacity().saturating_mul(2).max(4);
-                let bytes = capacity
-                    .checked_mul(std::mem::size_of::<ArrayRef>())
-                    .and_then(|bytes| u64::try_from(bytes).ok())
-                    .ok_or_else(|| resident_error("result ownership capacity overflow"))?;
-                lease.resize(bytes)?;
-                arrays
-                    .try_reserve_exact(capacity - arrays.len())
-                    .map_err(native_error)?;
-            }
-            arrays.push(array);
+            consume(array)?;
             if rows == self.max_rows {
                 break;
             }
         }
         drop(scan);
-        drop(file);
-        drop(workers);
-        context.drain_io();
         context.check_cancelled()?;
-        source.validate()?;
-        runtime.executions.fetch_add(1, Ordering::Relaxed);
-        Ok((
-            OwnedVortexResultBatch {
-                dtype: self.projection.dtype().clone(),
-                arrays: Budgeted::new(arrays, lease),
-                runtime: Arc::clone(runtime),
-                rows,
-                logical_buffer_bytes: logical_bytes,
-            },
-            context.timing(),
-        ))
+        Ok((rows, logical_bytes))
     }
 }
 

@@ -4,8 +4,10 @@
 
 Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
-and before [full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md),
-then [universal I/O](native-universal-io-performance-coverage-2026-10-24.md).
+and the subsequent [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
+before [full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md),
+then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md)
+and [universal I/O](native-universal-io-performance-coverage-2026-10-24.md).
 The subsequent [public-naming pass](shardloom-public-naming-2026-10-24.md)
 also precedes ingestion and uses this package's settled lifecycle terminology.
 This is source review and a finite implementation/measurement scope, not an
@@ -16,6 +18,13 @@ ownership and PERF-09 evidence contracts apply. CG-1 through CG-23 remain
 independent gates; this does not create another engine mode or phase ID.
 
 ## Size and ordering decision
+
+The later provider-refresh instruction takes precedence over the original
+immediate-after-parity placement. Recheck the source-owner design against the
+admitted 0.90 scan provider before adding infrastructure. Existing V1 reader
+cache reuse is real; retained V2 scan state is an additional integration seam,
+not proof that current sources lack dictionary reuse. The refresh owns version
+compatibility; this package owns cross-plan source lifetime and fresh execution.
 
 | Work | Relative scope | Queue decision |
 | --- | --- | --- |

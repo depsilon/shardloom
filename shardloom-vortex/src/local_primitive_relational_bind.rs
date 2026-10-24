@@ -549,6 +549,8 @@ impl<'a> Binder<'a> {
             fields,
             kind: NodeKind::Scan {
                 source,
+                source_uri: scan.source_uri.clone(),
+                predicate: scan.predicate.clone(),
                 plan,
                 columns,
                 residual,

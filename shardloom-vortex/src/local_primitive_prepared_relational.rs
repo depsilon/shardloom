@@ -103,9 +103,13 @@ const BATCH_ROWS: usize = 2048;
 
 /// The report and certificate describe the same execution as delivered batches.
 pub struct ExecutedVortexRelational {
-    /// Actual optimized file provider, selected after complete typed validation.
-    /// Absent for the general relational, memory and streaming providers.
+    /// Actual primitive report, selected after complete typed validation.
+    /// Projection-only file scans, general relational, memory and streaming
+    /// providers use the relational certificate without a primitive report.
     pub primitive_execution: Option<super::VortexLocalPrimitiveExecutionReport>,
+    /// Deterministic native selection outcome from the bound plan. This is an
+    /// admission/semantics reason, not a measured explanation of elapsed time.
+    pub provider_selection_reason: &'static str,
     pub resources: shardloom_core::ExecutionResources,
     pub output_rows: u64,
     pub output_batches: u64,
@@ -246,6 +250,7 @@ pub struct PreparedVortexRelational {
     source_paths: Vec<PathBuf>,
     root: PreparedRoot,
     provider: Option<provider::Prepared>,
+    provider_selection_reason: &'static str,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     policy: VortexLocalPrimitiveExecutionPolicy,
     _metadata: MemoryLease,
@@ -396,6 +401,10 @@ enum NodeKind {
     },
     Scan {
         source: ScanSource,
+        source_uri: shardloom_core::DatasetUri,
+        // Validated predicate semantics survive scan pushdown for native
+        // provider selection; the executable Vortex filter stays in `plan`.
+        predicate: Option<shardloom_core::PredicateExpr>,
         plan: LocalVortexScanPlan,
         columns: Vec<String>,
         residual: Option<MaterializedPredicateEvaluator>,
@@ -635,16 +644,9 @@ fn prepare_relational_with_owner(
         root.admit_sampling_preparation(session.memory())?;
     }
     let provider = if sources.len() == 1 && memory_sources.is_empty() && batch_sources.is_empty() {
-        provider::prepare(
-            &plan,
-            &root,
-            &sources[0],
-            policy,
-            session.memory(),
-            metadata.bytes(),
-        )?
+        provider::prepare(&root, &sources[0], policy, session.memory())?
     } else {
-        None
+        provider::Selection::declined("multiple_or_nonfile_sources_require_relational_execution")
     };
     Ok(PreparedVortexRelational {
         session,
@@ -653,7 +655,8 @@ fn prepare_relational_with_owner(
         batch_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
-        provider,
+        provider: provider.provider,
+        provider_selection_reason: provider.reason,
         policy,
         _metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -689,16 +692,9 @@ pub fn prepare_relational_in_session(
         root.admit_sampling_preparation(session.memory())?;
     }
     let provider = if sources.len() == 1 && memory_sources.is_empty() && batch_sources.is_empty() {
-        provider::prepare(
-            plan,
-            &root,
-            &sources[0],
-            policy,
-            session.memory(),
-            metadata.bytes(),
-        )?
+        provider::prepare(&root, &sources[0], policy, session.memory())?
     } else {
-        None
+        provider::Selection::declined("multiple_or_nonfile_sources_require_relational_execution")
     };
     Ok(PreparedVortexRelational {
         session: session.clone(),
@@ -707,7 +703,8 @@ pub fn prepare_relational_in_session(
         batch_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
-        provider,
+        provider: provider.provider,
+        provider_selection_reason: provider.reason,
         policy,
         _metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -971,6 +968,7 @@ impl PreparedVortexRelational {
         // Explicit relational spill keeps its established operator strategy.
         // Never select a non-spill provider then retry after resource failure.
         self.provider = None;
+        self.provider_selection_reason = "explicit_relational_spill_policy";
         self.disable_sampling_preparation();
         Ok(self)
     }
@@ -1273,7 +1271,7 @@ impl PreparedVortexRelational {
             context.check_cancelled()
         };
         let provider = if let Some(provider) = &self.provider {
-            Some(provider.consume(context, batch_rows, &mut emit)?)
+            Some(provider.consume(context, metrics, batch_rows, &mut emit)?)
         } else {
             self.run(root, context, metrics, batch_rows, None, &mut emit)?;
             None
@@ -1310,25 +1308,25 @@ impl PreparedVortexRelational {
             .transpose()?;
         #[cfg(not(feature = "vortex-write"))]
         let spill: Option<crate::relational_query::VortexRelationalSpillReport> = None;
-        let (primitive_execution, certificate) = if let Some(provider) = provider {
-            (Some(provider.report), provider.certificate)
-        } else {
-            (
-                None,
-                report::certificate(
-                    metrics,
-                    rows,
-                    batch_rows,
-                    self.sources.len(),
-                    self.memory_sources.len(),
-                    input.as_ref(),
-                    spill.as_ref(),
-                )?,
-            )
+        let (primitive_execution, certificate) = provider.map_or((None, None), |provider| {
+            (provider.report, provider.certificate)
+        });
+        let certificate = match certificate {
+            Some(certificate) => certificate,
+            None => report::certificate(
+                metrics,
+                rows,
+                batch_rows,
+                self.sources.len(),
+                self.memory_sources.len(),
+                input.as_ref(),
+                spill.as_ref(),
+            )?,
         };
         Ok((
             ExecutedVortexRelational {
                 primitive_execution,
+                provider_selection_reason: self.provider_selection_reason,
                 resources: self.policy.resource_envelope.declared_resources,
                 output_rows: rows,
                 output_batches: batches,
@@ -1552,6 +1550,7 @@ impl PreparedVortexRelational {
                 plan,
                 columns,
                 residual,
+                ..
             } => scan::run(
                 source,
                 &self.sources,

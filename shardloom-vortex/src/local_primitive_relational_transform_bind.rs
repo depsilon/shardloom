@@ -86,7 +86,7 @@ impl Binder<'_> {
             return Err(failed("filter predicate must produce a nullable boolean"));
         }
         self.charge_fields(input.fields.len())?;
-        if self.push_file_filter(&mut input, &filter.predicate, predicate_metadata)? {
+        if self.push_file_filter(&mut input, &predicate, predicate_metadata)? {
             return Ok(*input);
         }
         Ok(Node {
