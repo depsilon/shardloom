@@ -88,6 +88,11 @@ impl NativeNumericOwner {
     pub(super) fn ptype(&self) -> PType {
         self.primitive.ptype()
     }
+    /// Logical native buffer estimate for a transferred owner, not unique
+    /// allocation/RSS accounting. Provider buffers may already own credits.
+    pub(super) fn nbytes_estimate(&self) -> u64 {
+        self.primitive.nbytes()
+    }
     #[cfg(test)]
     pub(super) fn primitive(&self) -> &PrimitiveArray {
         &self.primitive
