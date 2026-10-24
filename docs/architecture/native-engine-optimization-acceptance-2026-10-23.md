@@ -162,3 +162,31 @@ idle, unchanged storage/deadline/concurrency/result checks, full hashes and
 inventories outside query execution. These are regression observations, not
 comprehensive measurement of the composed workloads. Review the final diff
 adversarially and preserve every candidate decision and remaining proof gap.
+
+## Subsequent shared-operator feedback intake
+
+The maintainer requested a current Full43 when useful, followed by the attached
+review of main at `06653efb`. The scan-preparation candidate received that pass;
+its complete observation and subsequent drop are in the
+[hotspot decision](native-query-hotspots-2026-10-23.md). That work did not replace
+the six candidates above. Source work resumes from the preserved combined
+candidate at `ef57dfda`; no earlier implementation is silently treated as accepted.
+
+| Feedback | Current disposition and remaining proof |
+| --- | --- |
+| Purpose-specific value/hash preparation and compatible measure views | Already implemented in the preserved candidate, with full-domain validation, hash-consumer controls and adjacent compatible reuse. Apply the frozen composed cost screen before accepting it. |
+| Resolve retained rows once; replace discarded sort hashes with validation | Already implemented with the value owner and comparator. Preserve stable global ordinals and all-key validation; apply the existing many-batch sort target and controls. |
+| Finite-demand composed sorting | Revisit the dropped first attempt only with a different, explicit validation-preserving design. The prior failure remains. Existing streaming ordering input detachment already validates every payload; do not repeat that work or infer equivalent validation for ordinary resident input. Reuse existing ordering, gather and value validation machinery. |
+| Prepare expressions once and share pure batch-local work | The current filter recipe is compiled once per execution, while ordinary expression evaluation still recompiles. Extend preparation to retained positive and negative admission decisions; confine reuse to exact expression/input/type/selection identity and preserve lazy branches. |
+| Reusable optimized aggregate consumer | The composed consumer already owns binding, grouping, state and finalization. Reuse a narrow native numeric reduction algorithm inside that boundary; do not move the entire scan-specific grouped-state object or change floating addition order. |
+| Cross-surface timing spread | Inspect the historical reports' actual provider, worker, input and work evidence. Missing typed strategy fields are a proof gap; the observations do not establish Python overhead or current-runtime cost. |
+| Repeated rejected mechanisms and completed routing fixes | Already addressed or rejected. Do not restart format dispatch, provider selection, physical caches, compression, region scheduling or PGO under this feedback. |
+
+The expert comparator remains an encoded-columnar engine maintainer reviewing
+ordered errors, cancellation, native ownership, exact ties, source validation
+and complete-operation cost. New extensions need their own prospective baseline,
+targets/controls and retain/drop decision. Do not change the original cost
+fixtures or gates after observing their results. Changes to active supervision
+are separately recorded: the first composed comparison uses only current-call
+file sizes and bounded witness-file sizes while executing, with full recursive
+inventories before or after queries. Both roles use the same supervisor.
