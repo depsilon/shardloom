@@ -449,6 +449,48 @@ completes the remaining control groups. Test-only lint repairs are followed by
 a passing eight-test rerun and feature-enabled Vortex Clippy with warnings denied.
 Final whole-batch validation is still pending.
 
+The isolated Full43 at `e955081d` passes all 43 queries and 381 expected rows
+in **50.456658502 engine seconds**, with one execution per query and other task
+work idle. Input/source/reference identity, process cleanup and lock-release
+checks pass. An earlier driver startup selected Python 3.9 and failed during
+imports before preparation or any query; that failure is retained separately.
+The unchanged driver then runs with the existing supported Python 3.13 runtime.
+This is a regression observation, not evidence that Full43 activates the new
+composed numeric consumer.
+
+### Existence-join implementation contract
+
+Reuse `RowSet`'s first-occurrence native key retention and `RowIndex`'s exact
+collision equality for keyed left semi/anti joins without a residual condition.
+Add an explicit non-null-equal membership mode; existing set and aggregate
+callers retain their current null-equal behavior. Bind the unique right key
+field list under preparation credits, retain only those fields, and gather in
+the existing admitted output-batch size. Repeated right keys must not add
+duplicate links or retain unused payload. Existing per-input validation and
+producer detachment remain in place before this retention boundary.
+
+Keep complete right-input consumption, source ordering, left-row multiplicity,
+output schemas, cancellation, credits and error behavior. In particular,
+preserve the first-NULL short circuit for compound keys, including a later
+nonfinite key that the current hash never observes. A non-null nested key with
+null children must still participate in exact equality. Residual conditions,
+other join kinds, explicit spill and the existing cyclic-spill strategy retain
+their current consumers. Test these boundaries with forced-collision index
+controls, invalid inputs, multiple batches/executions, producer release,
+retained output, denied state and failure cleanup.
+
+Use the unchanged v3 harness and the accepted `90251f28` numeric-consumer binary
+as baseline. Run exactly three alternating pairs for `join_semi_duplicate`,
+`join_anti_duplicate`, `join_semi_unique` and `join_anti_unique` at 65,536 and
+257 rows: eight cells and 48 calls. The two large duplicate cases are targets;
+the other cells are controls. Retain if the target geometric-mean engine ratio
+is <= 0.95, or each large target reduces peak credited bytes by at least 20%,
+while every cell meets the existing 10% or 100-microsecond timing ceiling and
+all semantic/resource checks pass. Record the timing and state decisions
+separately. Debug observations must establish unique retained-row counts;
+they are absent from release measurements. One isolated Full43 follows a
+retained implementation, then final coherent validation.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
