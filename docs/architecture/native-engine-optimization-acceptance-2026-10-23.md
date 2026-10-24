@@ -491,6 +491,24 @@ separately. Debug observations must establish unique retained-row counts;
 they are absent from release measurements. One isolated Full43 follows a
 retained implementation, then final coherent validation.
 
+The implementation extends the existing membership owner with an explicit
+NULL policy. Only eligible keyed semi/anti joins select the new mode; their
+ordinary duplicate-preserving table remains empty. The binder credits and
+deduplicates retained field metadata while preserving repeated comparison-key
+positions. All input detachment and validation still precede retention.
+
+Nine new tests cover exact values against the original consumer, multiple and
+empty batches, dictionary domains/codes/slices, float zero, nested child NULLs,
+compound-key short circuits, malformed input, unused invalid build payload,
+fresh execution state, producer release, retained output, cancellation and
+denied credits. The focused suite passes 138 tests, including forced-collision
+index controls, residual/outer joins, grouped/decimal aggregates, set membership,
+native writers and spill pressure/recovery. Feature-enabled Vortex Clippy also
+passes. An initial test expected the wrong text for the existing finite-value
+diagnostic; the corrected assertion preserves its exact original message.
+The initial function-length lint is resolved by sharing the existing semi/anti
+output branch. The measured retain/drop decision remains pending.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)

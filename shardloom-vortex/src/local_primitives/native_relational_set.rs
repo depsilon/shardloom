@@ -1,4 +1,4 @@
-//! Null-equal row membership retaining only first-occurrence native payloads.
+//! Exact row membership retaining only first-occurrence native payloads.
 
 use super::{
     native_capacity::ReservedVec,
@@ -13,6 +13,7 @@ use vortex::array::{ArrayRef, dtype::DType};
 pub(super) struct RowSet<'a> {
     fields: &'a [(String, DType)],
     names: &'a [String],
+    nulls_equal: bool,
     table: Table,
     index: RowIndex,
 }
@@ -23,9 +24,19 @@ impl<'a> RowSet<'a> {
         names: &'a [String],
         memory: &LiveMemoryPool,
     ) -> Result<Self> {
+        Self::with_nulls_equal(fields, names, true, memory)
+    }
+
+    pub(super) fn with_nulls_equal(
+        fields: &'a [(String, DType)],
+        names: &'a [String],
+        nulls_equal: bool,
+        memory: &LiveMemoryPool,
+    ) -> Result<Self> {
         Ok(Self {
             fields,
             names,
+            nulls_equal,
             table: Table::new(memory)?,
             index: RowIndex::new(memory)?,
         })
@@ -37,13 +48,13 @@ impl<'a> RowSet<'a> {
         row: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<bool> {
-        let hash = batch
-            .hash(row, true)?
-            .ok_or_else(|| failed("null-equal row hash is absent"))?;
+        let Some(hash) = batch.hash(row, self.nulls_equal)? else {
+            return Ok(false);
+        };
         Ok(self
             .index
             .find(hash, context.cancellation(), |old| {
-                self.table.equal_batch(old, batch, row, true)
+                self.table.equal_batch(old, batch, row, self.nulls_equal)
             })?
             .is_some())
     }
@@ -70,6 +81,9 @@ impl<'a> RowSet<'a> {
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
     ) -> Result<ReservedVec<usize>> {
+        if !self.nulls_equal {
+            return Err(failed("group ordinals require null-equal membership"));
+        }
         let mut mapping = ReservedVec::new(context.memory())?;
         mapping.reserve(array.len())?;
         self.ingest(array, None, context, batch_rows, None, Some(&mut mapping))?;
@@ -113,18 +127,18 @@ impl<'a> RowSet<'a> {
             {
                 continue;
             }
-            let hash = batch
-                .hash(row, true)?
-                .ok_or_else(|| failed("null-equal row hash is absent"))?;
+            let Some(hash) = batch.hash(row, self.nulls_equal)? else {
+                continue;
+            };
             let equal = |old| {
                 if old < prior_rows {
-                    self.table.equal_batch(old, &batch, row, true)
+                    self.table.equal_batch(old, &batch, row, self.nulls_equal)
                 } else {
                     let selected_row = selected
                         .values
                         .get(old - prior_rows)
                         .ok_or_else(|| failed("pending set ordinal is absent"))?;
-                    batch.equal(*selected_row, &batch, row, true)
+                    batch.equal(*selected_row, &batch, row, self.nulls_equal)
                 }
             };
             let group = if let Some(group) = self.index.find(hash, context.cancellation(), equal)? {

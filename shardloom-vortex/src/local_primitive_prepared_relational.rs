@@ -1658,7 +1658,13 @@ impl PreparedVortexRelational {
                     metrics,
                     batch_rows,
                     parameter,
-                    &mut |array| join.build(metrics.detach_join_build(array, context)?, context),
+                    &mut |array| {
+                        join.build(
+                            metrics.detach_join_build(array, context)?,
+                            context,
+                            batch_rows,
+                        )
+                    },
                 )?;
                 self.run(
                     left,
