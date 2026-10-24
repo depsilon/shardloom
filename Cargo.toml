@@ -47,7 +47,7 @@ hashbrown = { version = "0.17.1", default-features = false, features = ["inline-
 memchr = "2.8.3"
 parquet = "58.3.0"
 pyo3 = "=0.29.3"
-pyo3-build-config = "=0.29.3"
+pyo3-build-config = "=0.30.1"
 prost = "=0.14.3"
 regex = "1.13.1"
 rustc-hash = "2.1.3"
