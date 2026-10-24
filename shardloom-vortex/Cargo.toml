@@ -69,7 +69,7 @@ arrow-schema = { workspace = true, optional = true }
 futures = { workspace = true }
 flatbuffers = { workspace = true, optional = true }
 hashbrown = { workspace = true, optional = true }
-orc-rust = { version = "0.8.0", default-features = false, optional = true }
+orc-rust = { version = "0.9.0", default-features = false, optional = true }
 parquet = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
 regex = { workspace = true }
