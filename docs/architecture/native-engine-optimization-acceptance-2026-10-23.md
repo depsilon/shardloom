@@ -5,8 +5,8 @@
 Status: prospective protocol, October 23, 2026. No candidate is accepted by this
 document. The baseline is PR #1593's repaired runtime, `407c1e80`. The maintainer
 requested all six candidates from the [source review](native-engine-optimization-review-2026-10-23.md),
-with PR #1593 integrated first. Candidate work uses a separate local branch while
-that PR completes hosted validation; it will not be integrated ahead of the repair.
+with PR #1593 integrated first. The repaired PR passed all 43 hosted checks and
+merged as `06653efb`. Candidate work remains on a separate local branch.
 
 This is engine work under the maintainer's explicit review direction. It does not
 resume the paused optional breadth queue, close a competitive gate, or change a
@@ -55,15 +55,21 @@ output demand. Predicate and existence strategies remain separately admitted.
 Each candidate has a recorded retain, revise or drop decision; “work through all
 six” does not authorize keeping a correctness or cost regression.
 
-The maintainer's October 23 follow-up requires one isolated Full43 after each
-optimization. Freeze the repaired PR runtime as the fresh baseline, then add
-value preparation, aggregate reuse, sort locations, predicate masks and existence
-joins in sequence. Validate each changed boundary and freeze its runtime before
-the next isolated pass. Record each engine total and its difference from the
-preceding checkpoint. A candidate rejected before runtime implementation has no
-additional pass. The final checkpoint's pass supplies the final Full43 evidence;
-do not add a duplicate end-of-batch pass. These single observations complement
-the frozen cost screen below and do not independently isolate repeatable speedups.
+The maintainer's October 23 follow-up requests one isolated Full43 after each
+optimization. A subsequent instruction requested the current combined state
+instead of reconstructing earlier checkpoints. That pass at `cafa1b0f` stopped
+at Q28 because the SQL spelling selected Unicode character length while the
+unchanged independent benchmark reference requires UTF-8 byte length. Q1–Q27
+passed; Q29–Q43 did not execute, and the failed pass has no Full43 total.
+
+The latest instruction requests a Full43 after merging PR #1593. Run the merged
+runtime at `06653efb` first, with the explicitly recorded benchmark dialect
+correction described in the [benchmarking skill](../skills/benchmarking.md).
+Preserve the combined candidate and its failed observation. Future implemented
+checkpoints receive an isolated pass after focused validation; candidates dropped
+before runtime implementation do not. Do not add duplicate end-of-batch passes.
+These single observations complement the frozen cost screen below and do not
+independently isolate repeatable speedups.
 
 ## Finite sort-output feasibility decision
 

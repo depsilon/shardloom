@@ -62,6 +62,22 @@ measurements and correctness checks remain required.
 
 The normal summary form is: `Full43 engine time: <seconds> s (43 queries, one execution each).`
 
+## Explicit ClickBench SQL dialect
+
+The immutable ClickBench fixture uses ClickHouse `length`, which counts bytes
+([upstream definition](https://github.com/ClickHouse/ClickHouse/blob/v25.3.4.190-lts/docs/en/sql-reference/functions/string-functions.md#length)).
+ShardLoom's typed SQL `LENGTH` counts Unicode characters; `OCTET_LENGTH` counts
+UTF-8 bytes. The independent reference already declares the byte interpretation.
+Both standard runners use `clickbench_native_sql.py` to submit `OCTET_LENGTH`
+for Q28 and Q29 only when the complete source-file hash and original statements
+match the pinned fixture. Q29 also declares its existing result-field alias.
+All other SQL and custom query files remain as supplied. Preserve the original
+workload hash, exact submitted SQL, adapter hash and translation receipt, and
+validate against the unchanged independent reference. This is an explicit
+benchmark dialect correction, not an engine optimization or permission to
+rewrite a failed query's expected values. Earlier failed observations remain
+intact and cannot receive a complete Full43 total.
+
 ## Isolated Full43 procedure
 
 Standing maintainer decision, October 21, 2026: use the isolated single-pass
