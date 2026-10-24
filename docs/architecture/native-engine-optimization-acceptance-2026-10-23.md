@@ -224,3 +224,55 @@ witnesses, source/build identities and `decision.json`. The immutable baseline
 and candidate use the same v2 harness, toolchain, features and release profile.
 The following feedback extensions must compare against this retained operator
 checkpoint rather than crediting its existing improvements again.
+
+The isolated Full43 at `f896294f` passes all 43 queries and 381 expected rows,
+with 49.682630379 seconds of engine execution. Full input/source identities and
+cleanup pass. This is regression evidence for the retained combined checkpoint;
+the composed screen above supplies its workload-specific benefit evidence.
+
+### Revised finite-demand sort contract
+
+The later feedback explicitly asks for a validation-preserving extension of
+finite demand. The earlier immediate-copy omission remains dropped. This new
+candidate uses the existing result builder's validation and the existing
+ordering input's validation contract rather than deleting late checks.
+
+An immediate bound Limit may provide `offset + count` to its child Sort.
+Do not push that demand through a projection, filter or other operator that
+may observe discarded rows. Preserve the existing ordinary zero-limit behavior
+and complete finite streaming-source consumption. An explicit spill policy
+continues through the existing full ordering path.
+
+For ordinary resident input, retain full ordering. Extend the shared scalar
+result builder to construct only a requested prefix while visiting every value
+in the original sorted batch/column order, using the same type, null, finite,
+range and variable-payload checks. Admit this reduced copying only for the
+flat payload family it can validate; other payloads keep their full gather.
+No independent validator or decoded row representation is introduced.
+
+Streaming ordering already detaches and validates every input payload before
+retention. Only with that established validation and the normal ValidateValues
+policy may the sort omit subsequent copies and select a bounded ordinal prefix.
+Reuse the existing fallible/cancellable heap ordering kernel and its comparator,
+including stable source ordinals; do not add another value-comparison system.
+The primitive sort block's owned StatValue candidates and infallible selection
+cannot replace the composed nested/decimal comparator. Extend its existing
+ordinal-ordering owner instead. Retain all input; this is not bounded total
+query memory. Use bounded selection only for K <= 16,384 and K <= N/4;
+larger requests use full ordinal sorting and reduced output copying where
+admitted. Grouped results are ordered only after groups finish.
+
+Before release measurement, prove exact multikey/null/tie/offset results,
+ordinary versus streaming zero-limit behavior, omitted invalid payloads,
+late source/consumer errors, cancellation, denied grants and credit cleanup.
+Keep nested/decimal and explicit spill controls. Debug evidence must distinguish
+validated rows, constructed output rows and retained ordinals.
+
+Compare against the immutable `candidate-runtime-1015.json` binary using the
+unchanged v2 fixtures and three alternating pairs. `sort_limit` at 65,536 rows
+is the benefit target; full many-batch sorting and all small sort cells are
+controls. The target engine ratio must be <= 0.95; every target/control retains
+the existing 10% or 100-microsecond median ceiling and complete correctness,
+grant and cleanup checks. Preserve every observation; no cache manipulation or
+concurrent task work. A failed candidate is revised once only for a diagnosed
+cause, or dropped. Run one isolated Full43 at the retained checkpoint.
