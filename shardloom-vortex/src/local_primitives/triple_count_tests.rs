@@ -333,6 +333,162 @@ fn triple_workers_route_large_raw_and_prepared_chunks_with_one_key_buffer() {
 }
 
 #[test]
+fn triple_workers_keep_transferred_inputs_alive_until_delayed_routing_and_release_on_cancel() {
+    use super::triple_count_workers::ROUTING_START_TEST_HOOK;
+    use std::{sync::mpsc, time::Duration};
+
+    for cancel in [false, true] {
+        let columns = columns(false);
+        let request = request(false);
+        let source = chunk(
+            false,
+            PrimitiveArray::new(vec![-7_i16, -7, 11, 11], Validity::NonNullable).into_array(),
+            VarBinViewArray::from_iter_str([
+                "long-native-東京\0phrase",
+                "long-native-東京\0phrase",
+                "other-native-λ-phrase",
+                "other-native-λ-phrase",
+            ])
+            .into_array(),
+            integers(&[-1, -1, 61, 61]),
+        );
+        let expected = serial_values(&request, std::slice::from_ref(&source), false, 2);
+        let memory = LiveMemoryPool::new(4 << 20).unwrap();
+        let session = VortexSession::default();
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+        let mut workers = CountWorkers::admit(
+            &states,
+            source.dtype(),
+            &columns,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
+            &session,
+            &memory,
+        )
+        .unwrap()
+        .unwrap();
+        let before = memory.snapshot().reserved_bytes;
+        let (started, wait_started) = mpsc::channel();
+        let (release, wait_release) = mpsc::channel();
+        ROUTING_START_TEST_HOOK.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move |_| {
+                started.send(()).unwrap();
+                wait_release.recv_timeout(Duration::from_secs(10)).unwrap();
+            }));
+        });
+        assert!(workers.submit(&source, &mut states).unwrap());
+        wait_started.recv_timeout(Duration::from_secs(10)).unwrap();
+        let CountWorkers::Triple(triple) = &workers else {
+            panic!("triple workers required");
+        };
+        assert!(!triple.has_committed_groups());
+        assert!(memory.snapshot().reserved_bytes > before);
+        drop(source);
+        if cancel {
+            triple.cancel_for_test();
+        }
+        release.send(()).unwrap();
+        if cancel {
+            assert!(workers.finish(&mut states).is_err());
+            assert!(states.numeric_minute_string_count_groups.is_none());
+        } else {
+            workers.finish(&mut states).unwrap();
+            assert_eq!(values(&states, 2), expected);
+            let (_, mut summary) = states.result_row_count_and_summary(Some(2)).unwrap();
+            workers.annotate_summary(&mut summary).unwrap();
+            let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+            assert_eq!(summary["aggregate_workers_triple_worker_routed_chunks"], 1);
+            assert!(
+                summary["aggregate_workers_triple_retained_input_peak_bytes"]
+                    .as_u64()
+                    .unwrap()
+                    > 0
+            );
+        }
+        drop((workers, states, session));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn triple_workers_share_one_native_owner_between_integer_and_minute_roles() {
+    let columns = vec!["event_seconds".to_owned(), "phrase_label".to_owned()];
+    let request = VortexSimpleAggregateRequest::grouped(
+        columns
+            .iter()
+            .map(|name| ColumnRef::new(name).unwrap())
+            .collect(),
+        vec![VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "frequency".into(),
+        )],
+    )
+    .with_group_expressions(vec![VortexAggregateExpression::new(
+        "minute_slot".into(),
+        ColumnRef::new("event_seconds").unwrap(),
+        "extract_minute",
+    )])
+    .with_order_by(vec![VortexAggregateOrderExpr::new("frequency", true)]);
+    for kind in 0..3 {
+        for parallelism in [1, 3] {
+            let numeric = match kind {
+                0 => PrimitiveArray::new(vec![-1_i16, -1, 61, 61], Validity::NonNullable)
+                    .into_array(),
+                1 => integers(&[i64::MIN, i64::MIN, i64::MAX, i64::MAX]),
+                _ => PrimitiveArray::new(vec![0_u64, 0, u64::MAX, u64::MAX], Validity::NonNullable)
+                    .into_array(),
+            };
+            let source = StructArray::try_new(
+                columns.clone().into_iter().collect::<FieldNames>(),
+                vec![
+                    numeric,
+                    dictionary(&[0, 0, 1, 1], &["東京", "other\0phrase"]),
+                ],
+                4,
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array();
+            let mut reference =
+                GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+            assert!(
+                reference
+                    .update_compact_direct_from_chunk(&source, &columns, None)
+                    .unwrap()
+            );
+            let expected = values(&reference, 2);
+            drop(reference);
+            let memory = LiveMemoryPool::new(4 << 20).unwrap();
+            let session = VortexSession::default();
+            let mut states =
+                GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+            let mut workers = CountWorkers::admit(
+                &states,
+                source.dtype(),
+                &columns,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
+                &session,
+                &memory,
+            )
+            .unwrap()
+            .expect("same-source triple roles remain admitted");
+            assert!(matches!(&workers, CountWorkers::Triple(_)));
+            assert!(workers.submit(&source, &mut states).unwrap());
+            drop(source);
+            workers.finish(&mut states).unwrap();
+            assert_eq!(values(&states, 2), expected);
+            let (_, mut summary) = states.result_row_count_and_summary(Some(2)).unwrap();
+            workers.annotate_summary(&mut summary).unwrap();
+            let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+            assert_eq!(summary["aggregate_workers_triple_worker_routed_chunks"], 1);
+            drop((workers, states, session));
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn triple_workers_keep_exact_general_keys_without_typed_slices() {
     use vortex::array::arrays::ConstantArray;
 
@@ -642,32 +798,38 @@ fn triple_workers_reject_invalid_prepared_minutes_in_a_losing_group() {
             integers(&[60]),
         ),
     ];
-    let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let session = VortexSession::default();
-    let mut states =
-        GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
-    let mut workers = CountWorkers::admit(
-        &states,
-        chunks[0].dtype(),
-        &columns,
-        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
-        &session,
-        &memory,
-    )
-    .unwrap()
-    .expect("prepared triple admitted");
-    assert!(matches!(&workers, CountWorkers::Triple(_)));
-    assert!(workers.submit(&chunks[0], &mut states).unwrap());
-    let error = workers
-        .submit(&chunks[1], &mut states)
-        .expect_err("invalid prepared minute must fail");
-    assert!(error.to_string().contains("minute"), "{error}");
-    assert!(
-        states.numeric_minute_string_count_groups.is_none(),
-        "failed workers must not install a partial result"
-    );
-    drop((workers, states, session));
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    for parallelism in [1, 3] {
+        let memory = LiveMemoryPool::new(4 << 20).unwrap();
+        let session = VortexSession::default();
+        let mut states =
+            GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
+        let mut workers = CountWorkers::admit(
+            &states,
+            chunks[0].dtype(),
+            &columns,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
+            &session,
+            &memory,
+        )
+        .unwrap()
+        .expect("prepared triple admitted");
+        assert!(matches!(&workers, CountWorkers::Triple(_)));
+        assert!(workers.submit(&chunks[0], &mut states).unwrap());
+        let error = match workers.submit(&chunks[1], &mut states) {
+            Err(error) => error,
+            Ok(true) => workers
+                .finish(&mut states)
+                .expect_err("invalid prepared minute must fail before final selection"),
+            Ok(false) => panic!("admitted triple keys must not request serial replay"),
+        };
+        assert!(error.to_string().contains("minute"), "{error}");
+        assert!(
+            states.numeric_minute_string_count_groups.is_none(),
+            "failed workers must not install a partial result"
+        );
+        drop((workers, states, session));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]

@@ -1,0 +1,2886 @@
+{
+  "schema": "shardloom.grouped_preparation.followup.packet.v1",
+  "source_commit": "911923c17e3cb6d304c7f05e2c65a1ac98faa714",
+  "source_tree": "6a27cfd29c34600c783008f7f18322ce16b027ac",
+  "archive": "evidence.tar.xz",
+  "archive_sha256": "4f71a4363b3b8d5b7f6f97dc0e53bbde0020133cf9b465dd9587592efeda9cf4",
+  "archive_bytes": 2206504,
+  "complete_byte_readback": true,
+  "verifier_sha256": "ddfcbab91c0a4244b842954e8f3ed2d484d94a68b4d209466146eea222c45514",
+  "shared_verifier": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/verify_packet.py",
+    "bytes": 17966,
+    "sha256": "be66345e43aeae13e91df89287f926acc8b9263f3274914e51eec0c8a07d68c6"
+  },
+  "files": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/benchmarks/clickbench/queries.sql",
+      "sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+      "bytes": 8551,
+      "member": "files/0000-queries.sql",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-grouped-preparation-2026-10-24.md",
+      "sha256": "11cada28c73c0a328c8ec681e51039470d8b0df961c3ea7526962e427615c072",
+      "bytes": 13671,
+      "member": "files/0001-native-grouped-preparation-2026-10-24.md",
+      "origin": {
+        "git_commit": "5aa56f1412440100d82a2053c78185cef9c0913d",
+        "path": "docs/architecture/native-grouped-preparation-2026-10-24.md"
+      }
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-grouped-preparation-2026-10-24.md",
+      "sha256": "19ce5ebf0578b262bf17ce5f4a571a51737b2193fa6da91346b393f521408ad6",
+      "bytes": 18867,
+      "member": "files/0002-native-grouped-preparation-2026-10-24.md",
+      "origin": {
+        "git_commit": "4c91469ddae2c776b1ddae703e53f2f8dfa843cb",
+        "path": "docs/architecture/native-grouped-preparation-2026-10-24.md"
+      }
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/verify_packet.py",
+      "sha256": "be66345e43aeae13e91df89287f926acc8b9263f3274914e51eec0c8a07d68c6",
+      "bytes": 17966,
+      "member": "files/0003-verify_packet.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/__init__.py",
+      "sha256": "7a24b83dee50c90d311df97b2962ad68c7a3e66e2ff9df0959e22cfc54cef2d2",
+      "bytes": 2810,
+      "member": "files/0004-__init__.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_batches.py",
+      "sha256": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
+      "bytes": 20227,
+      "member": "files/0005-_batches.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_compat.py",
+      "sha256": "e45cc0674b26eaae5b9992affc180092e2957d1d9e6e064940d8a4bc98cdce0f",
+      "bytes": 802,
+      "member": "files/0006-_compat.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_exports.py",
+      "sha256": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
+      "bytes": 15680,
+      "member": "files/0007-_exports.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_input_schema.py",
+      "sha256": "502f76827c524f8ae837ea8db8d1b90a307711a038876d7643104f1a0ec4b495",
+      "bytes": 13216,
+      "member": "files/0008-_input_schema.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_native_backend.py",
+      "sha256": "3f0345d86074e2187450a1e17b3c64a6b320662b0aa6389fca54875dd61f3df4",
+      "bytes": 25618,
+      "member": "files/0009-_native_backend.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_relational_sql.py",
+      "sha256": "012e87be5e0df1a905a2304c444d073f6c0cbcaec543bc4b8f134e98b6172d23",
+      "bytes": 11069,
+      "member": "files/0010-_relational_sql.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_result_schema.py",
+      "sha256": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
+      "bytes": 10263,
+      "member": "files/0011-_result_schema.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_version.py",
+      "sha256": "15c2301be8f0c46290c326511c9c44251d91252f7cdc8b573b2d66e23826a328",
+      "bytes": 169,
+      "member": "files/0012-_version.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/client.py",
+      "sha256": "3415b4ec8e0e4ab5a5022ae9bc773ba0e4868c37cd9309440bbabe1949bbed9a",
+      "bytes": 356182,
+      "member": "files/0013-client.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/context.py",
+      "sha256": "0393f7df9559928b818c9e68b102623ce62969babdb618a687039884a3b99dbf",
+      "bytes": 478458,
+      "member": "files/0014-context.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/diagnostics.py",
+      "sha256": "b8f9a81b1723bd8c08dc025e5028a0e232496b428b5e6a085fc5f2f01ab312c1",
+      "bytes": 590,
+      "member": "files/0015-diagnostics.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/errors.py",
+      "sha256": "8409187140941c8552541c428b25b5a27c7a75d6c0fd15bbce92c0ef2413cbf5",
+      "bytes": 7794,
+      "member": "files/0016-errors.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/execution_resources.py",
+      "sha256": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
+      "bytes": 11808,
+      "member": "files/0017-execution_resources.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/models.py",
+      "sha256": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
+      "bytes": 64175,
+      "member": "files/0018-models.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/native.py",
+      "sha256": "c9fca7e207421c05cceeed231bd83a824351c57095b7c49fa7049fbebd768110",
+      "bytes": 1744,
+      "member": "files/0019-native.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/query.py",
+      "sha256": "e5ca4d11a43faacccbd8fda13fc31d7fdd246929c66bfed200f0639135ea689d",
+      "bytes": 539284,
+      "member": "files/0020-query.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/quickstart.py",
+      "sha256": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
+      "bytes": 5605,
+      "member": "files/0021-quickstart.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/runtime_defaults.py",
+      "sha256": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
+      "bytes": 401,
+      "member": "files/0022-runtime_defaults.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/session.py",
+      "sha256": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",
+      "bytes": 63618,
+      "member": "files/0023-session.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/testing.py",
+      "sha256": "ee05e4b62eb245f763d7aea6c6098a29be74f186473aaed2415ff8cd5f5b4f90",
+      "bytes": 589,
+      "member": "files/0024-testing.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/clickbench_native_sql.py",
+      "sha256": "6ac0d1042aca1089bc9d9e3c7ea21bcacda8f341d90532178ccfe782acd328cd",
+      "bytes": 3061,
+      "member": "files/0025-clickbench_native_sql.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/clickbench_reference_packet.py",
+      "sha256": "8d20759e0b2d41dcdba4b9d4033abfa7961f888d62cdf3e3e2545d8482ba5102",
+      "bytes": 4863,
+      "member": "files/0026-clickbench_reference_packet.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py",
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "bytes": 8451,
+      "member": "files/0027-local_uat_storage.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/native_workflow_protocol.py",
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855",
+      "bytes": 7464,
+      "member": "files/0028-native_workflow_protocol.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/query_timing_report.py",
+      "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1",
+      "bytes": 4235,
+      "member": "files/0029-query_timing_report.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_paired_query_uat.py",
+      "sha256": "a5b0d3936ab4243f0e781eb3e227aaa4fee011326b559c869df9d96c0b4add5c",
+      "bytes": 20756,
+      "member": "files/0030-run_clickbench_paired_query_uat.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_query_uat.py",
+      "sha256": "5a688d68a0147c1166f07c775858a33b2eb5e36a9afde766596b2425a1a34157",
+      "bytes": 27636,
+      "member": "files/0031-run_clickbench_query_uat.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/timed_native_command.py",
+      "sha256": "a174e86eb6e0d525ceb5d6427c7f152642f57842fbd74c69551fc20deafb40e4",
+      "bytes": 3632,
+      "member": "files/0032-timed_native_command.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py",
+      "sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+      "bytes": 1789,
+      "member": "files/0033-native_workload_guard_816.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.stdout.json.gz",
+      "sha256": "e4f176a712334a620d3dd910ea39b42468ad30c248547f83543c1fd3a700618a",
+      "bytes": 5337,
+      "member": "files/0034-q01_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.stdout.json.gz",
+      "sha256": "298400558c1047be6509425b289ab1d254e803fb315eb80ae60ffbd49c4e578b",
+      "bytes": 11924,
+      "member": "files/0035-q02_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.stdout.json.gz",
+      "sha256": "6bdb464d4eabf8836368389635346833d8a194f51953678db5ef5d878cefa7e7",
+      "bytes": 18751,
+      "member": "files/0036-q03_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.stdout.json.gz",
+      "sha256": "451978acaed2830e7a213edac2b4b75699afbd9311e65b396aa64db9d4842838",
+      "bytes": 18520,
+      "member": "files/0037-q04_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.stdout.json.gz",
+      "sha256": "72c7a73c2767d715d74176b3c2742f039a378bbc8ab997308024863bd2c35c53",
+      "bytes": 18986,
+      "member": "files/0038-q05_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.stdout.json.gz",
+      "sha256": "47afaf849f479662c851dad80a9bcbfe80b079a3022b1e1ca3c6793b3aaf87e5",
+      "bytes": 18072,
+      "member": "files/0039-q06_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.stdout.json.gz",
+      "sha256": "1aee2ff8469a5744bca2dffd8de8bc0f03270b01219a2f7ad860574d43340b7f",
+      "bytes": 17466,
+      "member": "files/0040-q07_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.stdout.json.gz",
+      "sha256": "e4d22d7ddc19feceb1bdcc86af08e845785fbe7e56df852fb89e27145ff3c3b6",
+      "bytes": 19244,
+      "member": "files/0041-q08_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.stdout.json.gz",
+      "sha256": "57aff0acc949d9e211fc702838816a470b85c17239b8ed3fb732a50cb80303e8",
+      "bytes": 21157,
+      "member": "files/0042-q09_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.stdout.json.gz",
+      "sha256": "030faed8de69c8a8e80134d79148980fe57efe194cec2b5d9772a2ade992c4b4",
+      "bytes": 21656,
+      "member": "files/0043-q10_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.stdout.json.gz",
+      "sha256": "c72d43ce32a176fe8db29bd295a399559740f0de8096a389b68ed5b22c4a3912",
+      "bytes": 21750,
+      "member": "files/0044-q11_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.stdout.json.gz",
+      "sha256": "211d5612867091ff10f45ea5e896544020fff57dc115736c6c8233de0f777c50",
+      "bytes": 20088,
+      "member": "files/0045-q12_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.stdout.json.gz",
+      "sha256": "cacb5b2f9c15bec886e2abd9d2911de2280a42cd532ad516b9eb7d0d4bd1a7a2",
+      "bytes": 23175,
+      "member": "files/0046-q13_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.stdout.json.gz",
+      "sha256": "913a5344cf665e018c43c02ac4f59431e195a7b1cec351abca450eecdd54b6e0",
+      "bytes": 22416,
+      "member": "files/0047-q14_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.stdout.json.gz",
+      "sha256": "26d175ebfebfbf5a389f0cd41918bf5d57c7cb9fcb337886b8e7aa082927f7ce",
+      "bytes": 22726,
+      "member": "files/0048-q15_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.stdout.json.gz",
+      "sha256": "5fbcf675078b62fa8469fcbe55a8f37c1a68991a4b2bc87fe02a050c006c1d0f",
+      "bytes": 21421,
+      "member": "files/0049-q16_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.stdout.json.gz",
+      "sha256": "f55f3a72fbac3d9d20bdd5cc84a6ca830e6aeb57bfb6b753dcfdae76d6174f69",
+      "bytes": 22583,
+      "member": "files/0050-q17_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.stdout.json.gz",
+      "sha256": "167bf41f635289955bc4cdd9a8c78aac537d02e27427f3280f26d3e4c71dc78f",
+      "bytes": 20221,
+      "member": "files/0051-q18_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.stdout.json.gz",
+      "sha256": "6affc4c4a91d10dc7a8b4e3e66245f0d5128d26120716bf9236560363a72bdb7",
+      "bytes": 21249,
+      "member": "files/0052-q19_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.stdout.json.gz",
+      "sha256": "be07997258666472bcf84cbbc201e95ac4d0b8359657d9ae2cd095182f034cea",
+      "bytes": 3954,
+      "member": "files/0053-q20_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.stdout.json.gz",
+      "sha256": "c5c4bfcfcd5f195e54a24a95e2e353af7164717b78f6857485a7e8ab38440437",
+      "bytes": 11950,
+      "member": "files/0054-q21_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.stdout.json.gz",
+      "sha256": "cfc5a41d05a5ff5b20a9b4f776e39752d09f931331b395e85432ac081f4f42dc",
+      "bytes": 22239,
+      "member": "files/0055-q22_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.stdout.json.gz",
+      "sha256": "d02b54c2accdd21fec7c44f11b3be2e53c940a8e17567bdc0e3dd52eeefb02b4",
+      "bytes": 24470,
+      "member": "files/0056-q23_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.stdout.json.gz",
+      "sha256": "738a507da17e5c8511095c5cb5c1b9311cb05d3c54a65cddc87ed8c2c9791d57",
+      "bytes": 22980,
+      "member": "files/0057-q24_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.stdout.json.gz",
+      "sha256": "3a0d36d3466d76c4ed6a4fb7c8881dc6f39512a9c7621c955fa7d8f2bddc6f02",
+      "bytes": 14580,
+      "member": "files/0058-q25_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.stdout.json.gz",
+      "sha256": "174c001497a4ec8d136fd22c71f659e0b95994b0a4083779ad0e9f6490f99c6e",
+      "bytes": 14292,
+      "member": "files/0059-q26_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.stdout.json.gz",
+      "sha256": "47ce33d0b9b78dd98aad7ffe13031e57dd2b98eba26c7ddc9016c862cd165538",
+      "bytes": 14443,
+      "member": "files/0060-q27_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.stdout.json.gz",
+      "sha256": "92fe9037594eb7230d66d436786c7dbf360bd5b01eadeeb9bef97ace3d59f31c",
+      "bytes": 11870,
+      "member": "files/0061-q28_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.stdout.json.gz",
+      "sha256": "d2d22c4e6bfe385b20239df603e92392a686ab649607984e4d87ebba8918ac45",
+      "bytes": 15322,
+      "member": "files/0062-q29_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.stdout.json.gz",
+      "sha256": "ece577cfdedd7ca3de8d42a9c2c4f2195fb6909b1aa5da1eab28c3beb21f47a2",
+      "bytes": 13622,
+      "member": "files/0063-q30_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.stdout.json.gz",
+      "sha256": "f25f3d9af72bce95fd78b258e2bf1b9d5c1d2ba4f4faeff1b31bbb19300bcf19",
+      "bytes": 21096,
+      "member": "files/0064-q31_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.stdout.json.gz",
+      "sha256": "cba7007de1a304d2cbe7ad4cedf299d15d87452b6af3cc5ed4aa9d19bd0e2191",
+      "bytes": 20989,
+      "member": "files/0065-q32_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.stdout.json.gz",
+      "sha256": "cb20b24f27e65d3bca0eb65ba2f9452250e779b70b715e3d54afafd44379bd4d",
+      "bytes": 21951,
+      "member": "files/0066-q33_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.stdout.json.gz",
+      "sha256": "b5d73c19e715370c35a9cf3778d16e81cc8d0c07d196a068f053c48530a92e03",
+      "bytes": 23148,
+      "member": "files/0067-q34_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.stdout.json.gz",
+      "sha256": "0f6511d2d1401c21972978efa075d2cf3a9bde7c8583993adce6d85b5e47a885",
+      "bytes": 22425,
+      "member": "files/0068-q35_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.stdout.json.gz",
+      "sha256": "b687795e944b58141e6fdf4f844e3a95b2df8787e2b9a3f283b65c47c3d3541d",
+      "bytes": 11432,
+      "member": "files/0069-q36_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.stdout.json.gz",
+      "sha256": "e47ae8771a8f05eb7b5760a5d3f3746f6715473f1a5566ea9efed18ec2551522",
+      "bytes": 21078,
+      "member": "files/0070-q37_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.stdout.json.gz",
+      "sha256": "b42da8ab23d2c089415fc3addc4b10e60f9bfe950e5744b84fe43015c973b7b6",
+      "bytes": 21437,
+      "member": "files/0071-q38_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.stdout.json.gz",
+      "sha256": "7fa66b8f93aab7701f1b665ddc1b3c876c615a93e0dfc9fcc26a56491b29b783",
+      "bytes": 20936,
+      "member": "files/0072-q39_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.stdout.json.gz",
+      "sha256": "ef7ec2ff1539d9b67eb9b0fe8486d6fe6293d4e9bfb4669d3d04df98d5fcc823",
+      "bytes": 21236,
+      "member": "files/0073-q40_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.stdout.json.gz",
+      "sha256": "1730ef32ed3745b1bd9a6648b03b37490abacc420f57c48e82bbdb7ddae01a34",
+      "bytes": 19661,
+      "member": "files/0074-q41_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.stdout.json.gz",
+      "sha256": "1f3f24206749d4a3c057e9bf6bebe993a3c8afd2ed5b4821bee0cf41be98ee6c",
+      "bytes": 19395,
+      "member": "files/0075-q42_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.stdout.json.gz",
+      "sha256": "85cb24bba2ed0a6164dc7b04d419b85b4600cd4cc0474ffcac50eeac03f2a690",
+      "bytes": 19350,
+      "member": "files/0076-q43_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/summary.json",
+      "sha256": "5b7511af5be33794c07c1dff3aa6ca0d6dc4d34eb9c50c7f3f5127b21575d4d7",
+      "bytes": 134683,
+      "member": "files/0077-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/campaign_common.py",
+      "sha256": "4eecc5b20bd7a56659b255d00e41e259d02e634fb0e3802334a090c3f9d1cc67",
+      "bytes": 4348,
+      "member": "files/0078-campaign_common.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/candidate.patch",
+      "sha256": "b4f0647ed646bd539b999fe763833c9f9da8b032b61ccf90fea86d10731d6ccf",
+      "bytes": 34599,
+      "member": "files/0079-candidate.patch",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/check_followup_comparisons.py",
+      "sha256": "6b3a1303962d099bc8db7f965c703a6ebf97266fbf761d48d2d8595374da5c50",
+      "bytes": 1710,
+      "member": "files/0080-check_followup_comparisons.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-default-clippy-1024.json",
+      "sha256": "f25662a5b3e7da6e9b96d11b4a7c83d0128042e2258eac11c60a53df737c53f1",
+      "bytes": 502147,
+      "member": "files/0081-final-default-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-default-clippy-1024.log",
+      "sha256": "3b824006ece5e47f5ab16bfc93fd354d9e60b84d3fb8f021aba5c2432d744c0b",
+      "bytes": 439,
+      "member": "files/0082-final-default-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-default-tests-1024.json",
+      "sha256": "7d0c0c4088eadee5117b332bb859f8239ff7fdeab84313a6d1947615ee09660d",
+      "bytes": 502111,
+      "member": "files/0083-final-default-tests-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-default-tests-1024.log",
+      "sha256": "59af732590213423d007f91c8452c63681252de71ea76a7badccd7f26ac12d4d",
+      "bytes": 463608,
+      "member": "files/0084-final-default-tests-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-final-format-1024.json",
+      "sha256": "8d5730abff4cfddd0b3e590e4397bc9331c3745249aafd880d37444c06f8c39e",
+      "bytes": 502104,
+      "member": "files/0085-final-final-format-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-final-format-1024.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0086-final-final-format-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43-plan.json",
+      "sha256": "9fd6ff1fd53f1cf001415c2283a46aaa1e3a8a27a276b3296a10453f94566d89",
+      "bytes": 88565,
+      "member": "files/0087-final-full43-plan.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43-receipt.json",
+      "sha256": "11bf30b12f82f6d6b47f7c1d232ffdc092669ffe3b5b161e5fbfb166623b8b91",
+      "bytes": 41102,
+      "member": "files/0088-final-full43-receipt.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43.log",
+      "sha256": "a9ce1544a655e1e484cb9a956f33d1fc0fc8009b899403c46ad4d00e152bff15",
+      "bytes": 100595,
+      "member": "files/0089-final-full43.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q01_run1.pid",
+      "sha256": "159f7df16d07d04cf606b648d068572dbd16e1813a841df3d0214263146bd43a",
+      "bytes": 5,
+      "member": "files/0090-q01_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q01_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0091-q01_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q01_run1.stdout.json.gz",
+      "sha256": "640c95692fff3fe1cd6d27edae2a9cd770a48fade4fa2d7166d4ef071579dd32",
+      "bytes": 5338,
+      "member": "files/0092-q01_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q01_run1.timing.json",
+      "sha256": "04b17cded8b6b12f7e588aa8659e38546a55f95da54b2cf9c32ee9228c3a13bb",
+      "bytes": 624,
+      "member": "files/0093-q01_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q02_run1.pid",
+      "sha256": "0bdd56fceec5e548df8e51ea88877e76b697d30163114da0300a7f78d8eaf79a",
+      "bytes": 5,
+      "member": "files/0094-q02_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q02_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0095-q02_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q02_run1.stdout.json.gz",
+      "sha256": "694aa1f116ea890e099565db7b4d41a710b2da8694d4cb877eed310434f26e25",
+      "bytes": 11920,
+      "member": "files/0096-q02_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q02_run1.timing.json",
+      "sha256": "67915c696e530355e6b183e1bf962f3d1692b10642242aea3e36200bce5d33ca",
+      "bytes": 612,
+      "member": "files/0097-q02_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q03_run1.pid",
+      "sha256": "6381b9a4f2064d0088d4c31386af729a97c2596b66b41480abb3f6f2e447f23c",
+      "bytes": 5,
+      "member": "files/0098-q03_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q03_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0099-q03_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q03_run1.stdout.json.gz",
+      "sha256": "b9c90d6c60cefff999bc19dd674d41f9d5409fbc077d8403c9d2be2d04558492",
+      "bytes": 18754,
+      "member": "files/0100-q03_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q03_run1.timing.json",
+      "sha256": "18fad661eebc7d4f2588314b0d8bb0057526cc101b6aa4b6e485d51ed1e7bc78",
+      "bytes": 622,
+      "member": "files/0101-q03_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q04_run1.pid",
+      "sha256": "1d021788053ecf3f83c3db154b80bff30bb588965bc1d5841eaa28a03e78274d",
+      "bytes": 5,
+      "member": "files/0102-q04_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q04_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0103-q04_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q04_run1.stdout.json.gz",
+      "sha256": "b10ae17c19a2c00cc7e7fff74232074855c840546b2892c1a3ae979ec3e3cfd0",
+      "bytes": 18532,
+      "member": "files/0104-q04_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q04_run1.timing.json",
+      "sha256": "6d37bb330626e4653f02e3c3be8aafa328f33a24cf5175032cd7c091d868a3a7",
+      "bytes": 610,
+      "member": "files/0105-q04_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q05_run1.pid",
+      "sha256": "6bd756dcedb2c1d0cf9ddca8b8ee880059188bf2ee57b7b54a039fe068d606a7",
+      "bytes": 5,
+      "member": "files/0106-q05_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q05_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0107-q05_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q05_run1.stdout.json.gz",
+      "sha256": "96776910dc779b7a03ffa03e0b578d3b5455f6b3e71de8772fd515cb010cb91a",
+      "bytes": 18984,
+      "member": "files/0108-q05_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q05_run1.timing.json",
+      "sha256": "c90fbc220611a3ebb530040811867ea5bf0bbdf02948ce29b7ad5c5bcbff676f",
+      "bytes": 614,
+      "member": "files/0109-q05_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q06_run1.pid",
+      "sha256": "01cbccb33132f6d6fa1d57ce133d3a6706c5ac107c0aee14a88f3940bb751ad5",
+      "bytes": 5,
+      "member": "files/0110-q06_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q06_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0111-q06_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q06_run1.stdout.json.gz",
+      "sha256": "128df98c30ecaa6212bca09245453c9b945dd2ceb439f7ed91bb22dc015621d1",
+      "bytes": 18076,
+      "member": "files/0112-q06_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q06_run1.timing.json",
+      "sha256": "2b74879bec7a59c1239c0102a1321abb8415f5f224acc5775e7dd0a9f7a36443",
+      "bytes": 613,
+      "member": "files/0113-q06_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q07_run1.pid",
+      "sha256": "e4c4a5c900c9eb65908e7be79f1b8416a62ebd82e33fbac59c380bcfd7a92966",
+      "bytes": 5,
+      "member": "files/0114-q07_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q07_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0115-q07_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q07_run1.stdout.json.gz",
+      "sha256": "7c910db848e27756a0d9c033dc056c6ef1960debbbe4ea7cd98cb42ac8d9996e",
+      "bytes": 17467,
+      "member": "files/0116-q07_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q07_run1.timing.json",
+      "sha256": "49fc41ca0c45353fb909665470a321c1cff55c1a980ee518199d34c8f767a412",
+      "bytes": 636,
+      "member": "files/0117-q07_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q08_run1.pid",
+      "sha256": "15d8f73136d482e8ff979b3ac11b7e3a09b2cea66fa9275bdc86187ee53d1d28",
+      "bytes": 5,
+      "member": "files/0118-q08_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q08_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0119-q08_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q08_run1.stdout.json.gz",
+      "sha256": "282f59ecdb669614d1d1af29117ba206701c568991735ff184bd47c83401bb0c",
+      "bytes": 19254,
+      "member": "files/0120-q08_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q08_run1.timing.json",
+      "sha256": "0d95e6baed2a0edaa7755fd00d1af142e1de266f8df8ee25721b020dd07bdaef",
+      "bytes": 612,
+      "member": "files/0121-q08_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q09_run1.pid",
+      "sha256": "04ac19718fffb480b1723ae9a623982ae939eca8b4ea564d1edfd649bc8a88ad",
+      "bytes": 5,
+      "member": "files/0122-q09_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q09_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0123-q09_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q09_run1.stdout.json.gz",
+      "sha256": "2bc4d4d72f90b93c14c06737dd9afe432a8ec35f3b08fb9ac5a88903347b933e",
+      "bytes": 21160,
+      "member": "files/0124-q09_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q09_run1.timing.json",
+      "sha256": "949d0280efb88f452e4ce21f36bf17cdcaa8e4805b083a38ffa7803ae380e985",
+      "bytes": 614,
+      "member": "files/0125-q09_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q10_run1.pid",
+      "sha256": "2fe72f0e483f28b8fbd076defa488c67423a08632e081b14b0566350acd6241e",
+      "bytes": 5,
+      "member": "files/0126-q10_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q10_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0127-q10_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q10_run1.stdout.json.gz",
+      "sha256": "d34a2151eae9318e2495f93d016dbcc5ed34994174146b5bca449c6f67075566",
+      "bytes": 21659,
+      "member": "files/0128-q10_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q10_run1.timing.json",
+      "sha256": "09c4d0ee31440364b23d5b782543a5be9c02aa0b78f4aed8e74d9839d10b3f6e",
+      "bytes": 614,
+      "member": "files/0129-q10_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q11_run1.pid",
+      "sha256": "8569f51f3f416220a2729803a50c740fcf118decb8452f221fd128ab96e30ccf",
+      "bytes": 5,
+      "member": "files/0130-q11_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q11_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0131-q11_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q11_run1.stdout.json.gz",
+      "sha256": "774458dd7c317783d57f88e1fa3bd846fff9e8a015bf4a6494d0db0b7b59db44",
+      "bytes": 21750,
+      "member": "files/0132-q11_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q11_run1.timing.json",
+      "sha256": "31d5a8e66edbb830ace5175d7311a90b58606a4f709b7d83e8b30579b949f7cf",
+      "bytes": 612,
+      "member": "files/0133-q11_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q12_run1.pid",
+      "sha256": "58518bee2f4df6620bbc57e360da2d981a50f93316fc45e194df2b3a37d6fe11",
+      "bytes": 5,
+      "member": "files/0134-q12_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q12_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0135-q12_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q12_run1.stdout.json.gz",
+      "sha256": "d091ed621a6181a2b27f68ee6537871e3ec1d71d4b40b244603802334f78f357",
+      "bytes": 20090,
+      "member": "files/0136-q12_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q12_run1.timing.json",
+      "sha256": "764ac663e3aea611129b251d19f35cd43f92f077b78d4607ffdfbfc6c81ad225",
+      "bytes": 611,
+      "member": "files/0137-q12_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q13_run1.pid",
+      "sha256": "6dea35f59f68381c87537b7a27c49282ba46dff7cef89be694d02b77280f1b7b",
+      "bytes": 5,
+      "member": "files/0138-q13_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q13_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0139-q13_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q13_run1.stdout.json.gz",
+      "sha256": "e2f28d6ef0b50b0ddf27ff4d27ae647a440c05e29d7f21c9055f52914457a298",
+      "bytes": 23157,
+      "member": "files/0140-q13_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q13_run1.timing.json",
+      "sha256": "8ddf0aa37beef9ec59858042ac2547c4f9d73a061ec7af82c8374612b2415aef",
+      "bytes": 613,
+      "member": "files/0141-q13_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q14_run1.pid",
+      "sha256": "4318b9adb63cf3d56835fa908fb13a71185d35c41eb317657258f82f3c3de2fc",
+      "bytes": 5,
+      "member": "files/0142-q14_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q14_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0143-q14_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q14_run1.stdout.json.gz",
+      "sha256": "080b22e7249c91181a1afa70698d8b27be133a764c99e45034858ce857b1f741",
+      "bytes": 22401,
+      "member": "files/0144-q14_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q14_run1.timing.json",
+      "sha256": "aae1accf79a6e8fc2559500355ac37cf8cfa2193c3b416d23dbaa9f232137691",
+      "bytes": 615,
+      "member": "files/0145-q14_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q15_run1.pid",
+      "sha256": "5e203f7f8a8ccc704269c49d69c17a4a26f48fa5ed8896a089df2e35187f168e",
+      "bytes": 5,
+      "member": "files/0146-q15_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q15_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0147-q15_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q15_run1.stdout.json.gz",
+      "sha256": "ee886c6ca922719d400695391ee58f4a4eeb0449ce4069e078e3d81650dc4c51",
+      "bytes": 22733,
+      "member": "files/0148-q15_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q15_run1.timing.json",
+      "sha256": "61a2599496ff5330b5f587ae950a95b2d3ac1cd1fa495276d4c428df509224ae",
+      "bytes": 625,
+      "member": "files/0149-q15_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q16_run1.pid",
+      "sha256": "67fe90809f0edc0f8960e737c5a0065fde5e5bba225170d072a63185714f5074",
+      "bytes": 5,
+      "member": "files/0150-q16_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q16_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0151-q16_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q16_run1.stdout.json.gz",
+      "sha256": "71a098858cd25e1605aa007ec7687239ccf0a4356659753c803824d3d512a72a",
+      "bytes": 21414,
+      "member": "files/0152-q16_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q16_run1.timing.json",
+      "sha256": "fe4e1ade79ca3b95608e1f133f9a50945e6ef6f5c0c2be9ecdf42a1f98023423",
+      "bytes": 613,
+      "member": "files/0153-q16_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q17_run1.pid",
+      "sha256": "108946d54dc1fe83dc9bc2f6473638fcb5a67b56fad11f59e69b92eddc318d20",
+      "bytes": 5,
+      "member": "files/0154-q17_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q17_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0155-q17_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q17_run1.stdout.json.gz",
+      "sha256": "dd8b8a54f735cdc3a5dc67cb935ec9e02a238bbe2717bed48aff7de3c6710a47",
+      "bytes": 22587,
+      "member": "files/0156-q17_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q17_run1.timing.json",
+      "sha256": "c615e0116a7285f446ac53c9bce9b1be42bf96b2f561b5f26875c75c0541738b",
+      "bytes": 615,
+      "member": "files/0157-q17_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q18_run1.pid",
+      "sha256": "4446d192a1a07d9fb5763842be575752d703ec3f4e52ac6b2e5e2897904a71a6",
+      "bytes": 5,
+      "member": "files/0158-q18_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q18_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0159-q18_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q18_run1.stdout.json.gz",
+      "sha256": "43f190d2b4a26f1d4b41ae24fce23bcaac711ac050c9adba3f611eb35008a8a0",
+      "bytes": 20213,
+      "member": "files/0160-q18_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q18_run1.timing.json",
+      "sha256": "cbab0bb7a2529a859bb3c2abe8a27af8cdfcb35d496dfe5fe98ee9159b712c8d",
+      "bytes": 622,
+      "member": "files/0161-q18_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q19_run1.pid",
+      "sha256": "d85a2dcb43e57fbefdf3d5d5d16db31e4a9a05492a1c63bc9ae04198485d8d21",
+      "bytes": 5,
+      "member": "files/0162-q19_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q19_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0163-q19_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q19_run1.stdout.json.gz",
+      "sha256": "5d983920366e18106ac40e93c854ce5a1513f8a43899a848312c5af05b256d3c",
+      "bytes": 21366,
+      "member": "files/0164-q19_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q19_run1.timing.json",
+      "sha256": "107e9dfab77dc287a49043e457ee29ad8577e1853f9f43aea6daf6b84a2613c7",
+      "bytes": 614,
+      "member": "files/0165-q19_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q20_run1.pid",
+      "sha256": "abb26da6b9213bde37d0ac5721a9b4307f81509d10a833995e140ddba6a83e59",
+      "bytes": 5,
+      "member": "files/0166-q20_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q20_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0167-q20_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q20_run1.stdout.json.gz",
+      "sha256": "30c610b6d7fc8da5a7df40afe48a2565a4091e1fe82f6a94e70e402c960fa319",
+      "bytes": 3953,
+      "member": "files/0168-q20_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q20_run1.timing.json",
+      "sha256": "3db7dc715e43c78b67a6e554f817505352e8e16a8f3a4c0277c74cf9d76431a5",
+      "bytes": 626,
+      "member": "files/0169-q20_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q21_run1.pid",
+      "sha256": "5d3e1ca9f0f361355ba867186e83603dbfa98061cacde7b4f2b716a2a0da301d",
+      "bytes": 5,
+      "member": "files/0170-q21_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q21_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0171-q21_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q21_run1.stdout.json.gz",
+      "sha256": "352fe38c831e2ec3a2b07a748bb67de9a524745ccb25657d972ed21df95e1db1",
+      "bytes": 11947,
+      "member": "files/0172-q21_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q21_run1.timing.json",
+      "sha256": "5ab81bfcb071d6572610585408c68e714786055b569e98e68f5467c1d1f5195d",
+      "bytes": 613,
+      "member": "files/0173-q21_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q22_run1.pid",
+      "sha256": "902352687e8a1efe11509d7fc0dc7bb242e567d487c40f6ac728128fe833c7a6",
+      "bytes": 5,
+      "member": "files/0174-q22_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q22_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0175-q22_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q22_run1.stdout.json.gz",
+      "sha256": "db4774f6178ce3620c9d2af8a14717907c8e35960621873b8cca89b3e299f684",
+      "bytes": 22236,
+      "member": "files/0176-q22_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q22_run1.timing.json",
+      "sha256": "6ad084538909bde244608f647ca9dabd3cc8dadb5669cfda89378cc0c054eaca",
+      "bytes": 614,
+      "member": "files/0177-q22_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q23_run1.pid",
+      "sha256": "b68db4cf881ab5d3df809abe057021f1ca89ec3b0219c5ff23c61d62584ee7b9",
+      "bytes": 5,
+      "member": "files/0178-q23_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q23_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0179-q23_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q23_run1.stdout.json.gz",
+      "sha256": "a69309fe639302c8e8652ef09438b29f21a013b479892fa7469334e984bec2de",
+      "bytes": 24480,
+      "member": "files/0180-q23_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q23_run1.timing.json",
+      "sha256": "ad174a76c40f81d13211f08252b2a059ffd21f58ef4f8dfec90e21fbe197bad8",
+      "bytes": 613,
+      "member": "files/0181-q23_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q24_run1.pid",
+      "sha256": "b9ffd57832b4d4f809bddb2345d0076a292a07168a6eaef38bc78b59ee02e1bd",
+      "bytes": 5,
+      "member": "files/0182-q24_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q24_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0183-q24_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q24_run1.stdout.json.gz",
+      "sha256": "edc3faa8fb535686ea768c36b2abc8fc1612948e7ea3ac6b9a4c00ac81ba891d",
+      "bytes": 22977,
+      "member": "files/0184-q24_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q24_run1.timing.json",
+      "sha256": "d94089c0812d6a9d2c5fbc6a2006e3742b1e6ac5a2fb5d9ae517ac534e150b0c",
+      "bytes": 615,
+      "member": "files/0185-q24_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q25_run1.pid",
+      "sha256": "a2d09b09212cc604e58949961ef74fb045727a9fd1fadfed0e9e1a9d62a0d032",
+      "bytes": 5,
+      "member": "files/0186-q25_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q25_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0187-q25_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q25_run1.stdout.json.gz",
+      "sha256": "03f32942aaaf04a2e59585a3c37d954caa1ed1d9f8135bae7e1841e2f4eee415",
+      "bytes": 14579,
+      "member": "files/0188-q25_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q25_run1.timing.json",
+      "sha256": "c46880d1144a21c634905893fc1216ddb7bbb3dc4317ba138e0cad059e5b00d1",
+      "bytes": 613,
+      "member": "files/0189-q25_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q26_run1.pid",
+      "sha256": "21089a4b2ecf35c05839f9edb8ecbef5f0cd5def3b39ab62c64d77d73531d18c",
+      "bytes": 5,
+      "member": "files/0190-q26_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q26_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0191-q26_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q26_run1.stdout.json.gz",
+      "sha256": "bab0ad960b2249ba49ee3801071c403bab4aeff96ced94c26747a64558ccae0f",
+      "bytes": 14291,
+      "member": "files/0192-q26_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q26_run1.timing.json",
+      "sha256": "7d66a7f5fd86f19d31a8f09f990b517b92d1fa5f5400437ae4b1299bdaf088b8",
+      "bytes": 623,
+      "member": "files/0193-q26_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q27_run1.pid",
+      "sha256": "1ed9823b14dbbae67e5053d4a950964a9a7cc901e64d72d57841af5f00b28463",
+      "bytes": 5,
+      "member": "files/0194-q27_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q27_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0195-q27_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q27_run1.stdout.json.gz",
+      "sha256": "232d171d618bd2dbeb83465a3864d1ceac8d94642629609938fd9291c6e6fb42",
+      "bytes": 14442,
+      "member": "files/0196-q27_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q27_run1.timing.json",
+      "sha256": "3119d85c75497736ad3f3576ea1e303c0f58cf6a9f184d0a8b318e12db02f473",
+      "bytes": 613,
+      "member": "files/0197-q27_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q28_run1.pid",
+      "sha256": "befb3c2190d3ec77051488f69ad8dbb51dfb2fee3f006951ff91576d178e08fd",
+      "bytes": 5,
+      "member": "files/0198-q28_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q28_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0199-q28_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q28_run1.stdout.json.gz",
+      "sha256": "df86c1622ff996264cd9d99724d53320fb867fc0c37c1fc49ac7ed90ccc34045",
+      "bytes": 11875,
+      "member": "files/0200-q28_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q28_run1.timing.json",
+      "sha256": "dead3eaf467b37d2e3ce32415beb3ef26bc93ee6cd397d736c86519c4152aa1c",
+      "bytes": 615,
+      "member": "files/0201-q28_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q29_run1.pid",
+      "sha256": "ce26b1cacf871bf01277b17e2a349b994463edf0e02400c02c96c31a4585a4da",
+      "bytes": 5,
+      "member": "files/0202-q29_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q29_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0203-q29_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q29_run1.stdout.json.gz",
+      "sha256": "b109ab4883739c1c4bd638be0834733b3b1971ba60b8f06a68d0431ec8a984e3",
+      "bytes": 15312,
+      "member": "files/0204-q29_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q29_run1.timing.json",
+      "sha256": "8d1df5cab65ba2881ac1295854f822fb5ba1254fba9eb4ff544978fd35f263b4",
+      "bytes": 625,
+      "member": "files/0205-q29_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q30_run1.pid",
+      "sha256": "78b20395c3a5ff8777fb523373d519e5fede4917f1b1753768cf632aa581b22e",
+      "bytes": 5,
+      "member": "files/0206-q30_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q30_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0207-q30_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q30_run1.stdout.json.gz",
+      "sha256": "77d1b141b5bdc4c724abb0889ffd50fd204d4219ae5de2352ba689bb2a8a918d",
+      "bytes": 13622,
+      "member": "files/0208-q30_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q30_run1.timing.json",
+      "sha256": "b1cba95ca9d52c47c34884bc04555e2f96f02c3bdb17224fc6973df535b1e229",
+      "bytes": 623,
+      "member": "files/0209-q30_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q31_run1.pid",
+      "sha256": "e38f994e434a29fea06cb74aa53a94491bbbc462cd35e9477c41bffafbf07ab0",
+      "bytes": 5,
+      "member": "files/0210-q31_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q31_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0211-q31_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q31_run1.stdout.json.gz",
+      "sha256": "b833ef0defb5641ca88ac27025de716f14047cf2fd5ce6b02b8a216b908d697e",
+      "bytes": 21096,
+      "member": "files/0212-q31_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q31_run1.timing.json",
+      "sha256": "f115027c5c1e6019379a8152da7634d823a54d3b2391cb25552630a39ead9da1",
+      "bytes": 614,
+      "member": "files/0213-q31_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q32_run1.pid",
+      "sha256": "f4669b5848b66564f2317866860f9334ac63f29de3ed457d52b11e179561f2f1",
+      "bytes": 5,
+      "member": "files/0214-q32_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q32_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0215-q32_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q32_run1.stdout.json.gz",
+      "sha256": "67c9354159433484f8c6f38703045f3e2e191233867e0c7b8b4ae1c3e7187b8f",
+      "bytes": 20983,
+      "member": "files/0216-q32_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q32_run1.timing.json",
+      "sha256": "299906f8169df3988ae435bae29105877617fc21b1cdfa849b9b77e0f7f1dd57",
+      "bytes": 614,
+      "member": "files/0217-q32_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q33_run1.pid",
+      "sha256": "42bc92acb748b5081f8ff959990daa1b21d071f8aa0300f1a88629e8bc16d000",
+      "bytes": 5,
+      "member": "files/0218-q33_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q33_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0219-q33_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q33_run1.stdout.json.gz",
+      "sha256": "649a1e1ea28a901e5a46558df819d1f1830cf93e0cb240a263bc6be8c0d20d73",
+      "bytes": 21952,
+      "member": "files/0220-q33_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q33_run1.timing.json",
+      "sha256": "becc308e2f659e92ef6361a619f9ef7f82b56b56a8ced897367e11a9a7d9cb8b",
+      "bytes": 612,
+      "member": "files/0221-q33_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q34_run1.pid",
+      "sha256": "68cc6f99f3ae345ac1f61ef35535cc593f6cb2d51e43e82b9dd961bbf7ea1fd6",
+      "bytes": 5,
+      "member": "files/0222-q34_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q34_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0223-q34_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q34_run1.stdout.json.gz",
+      "sha256": "e5a38125d370168afe6207bda34538f166ca64efdab4abd253d1f015e1550c66",
+      "bytes": 23139,
+      "member": "files/0224-q34_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q34_run1.timing.json",
+      "sha256": "4344686674bf4d4605f6bb56e84c5ae75d89052835214da6e69b90c9a73343d5",
+      "bytes": 614,
+      "member": "files/0225-q34_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q35_run1.pid",
+      "sha256": "7afd6e514955f8dfb1f8540762c06dd1af7e59f7772d0479079aa375ad8686c6",
+      "bytes": 5,
+      "member": "files/0226-q35_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q35_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0227-q35_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q35_run1.stdout.json.gz",
+      "sha256": "e138e84a554087b79b621cc2b87b6c42db753d223b00a20720c6c8ff9e4328c5",
+      "bytes": 22430,
+      "member": "files/0228-q35_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q35_run1.timing.json",
+      "sha256": "66722a0d03af314485ccd6842d5650a66f94cc39359b442c64c2c9d9833e79e4",
+      "bytes": 614,
+      "member": "files/0229-q35_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q36_run1.pid",
+      "sha256": "cdbf127e1c20e78144048cef67ea2bf5fc02439d4f1db34b60a43a268d10f364",
+      "bytes": 5,
+      "member": "files/0230-q36_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q36_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0231-q36_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q36_run1.stdout.json.gz",
+      "sha256": "614e7d2523e762a94a0fca9e91f3f6b2936a91073b4d7d8d27d050253621a5e4",
+      "bytes": 11434,
+      "member": "files/0232-q36_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q36_run1.timing.json",
+      "sha256": "ec6f34a0240c4d1012418d83f921fa95bae9757b2171a08389a1adc68f97373b",
+      "bytes": 610,
+      "member": "files/0233-q36_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q37_run1.pid",
+      "sha256": "ba87c6ef16663f8b2c85c096a89e9b1dc79be64176a76207cb06c7681fb3a26c",
+      "bytes": 5,
+      "member": "files/0234-q37_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q37_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0235-q37_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q37_run1.stdout.json.gz",
+      "sha256": "d4499f7cf7cd3859d74a38ff62b76e2c8a043d9c238cc57f3417b3ce1d4789a1",
+      "bytes": 21080,
+      "member": "files/0236-q37_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q37_run1.timing.json",
+      "sha256": "78d8df36dbb88e51df2e56ec9f66f2a953261a04b9e88a77e626dd5d4e3c9da6",
+      "bytes": 625,
+      "member": "files/0237-q37_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q38_run1.pid",
+      "sha256": "ff9ed79ef130f3e9e6981514328e57f58755b5ae5457735ca1d5076ae884a6f5",
+      "bytes": 5,
+      "member": "files/0238-q38_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q38_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0239-q38_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q38_run1.stdout.json.gz",
+      "sha256": "c8d12fe6654b934b1b4f015cb03e7b5cf643767c33a6f981c89299b5b735b2d6",
+      "bytes": 21438,
+      "member": "files/0240-q38_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q38_run1.timing.json",
+      "sha256": "b2d659b6f5ed8ea1a8b66313f28c73287e883678e60015c2dc6fb5dd82ccd7de",
+      "bytes": 625,
+      "member": "files/0241-q38_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q39_run1.pid",
+      "sha256": "eb1d3d46da28f32f5010b2a104daf121756823531432a2d86ec36381616c1f7d",
+      "bytes": 5,
+      "member": "files/0242-q39_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q39_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0243-q39_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q39_run1.stdout.json.gz",
+      "sha256": "168a4667615401de9490312ce9be5316b2c55fddad3404b1f576f8bf3e0c9347",
+      "bytes": 20939,
+      "member": "files/0244-q39_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q39_run1.timing.json",
+      "sha256": "e8aeac865fa3d819715d59c52cc96b8e72a947d9a8257c7b6afa9416934219bc",
+      "bytes": 636,
+      "member": "files/0245-q39_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q40_run1.pid",
+      "sha256": "02fec877e61887d52c89655be4b39b948dc8cfe984297155d740c0f12a59dbf2",
+      "bytes": 5,
+      "member": "files/0246-q40_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q40_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0247-q40_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q40_run1.stdout.json.gz",
+      "sha256": "c299a9b4a53cac94593b1d2e5e7952f1f36f4f6f79ba1f63c984cd4e778cc8e9",
+      "bytes": 21238,
+      "member": "files/0248-q40_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q40_run1.timing.json",
+      "sha256": "2feaa90cc679e9ae55457464f8e086665f6034bd62cc2f80485ba96f525eee81",
+      "bytes": 623,
+      "member": "files/0249-q40_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q41_run1.pid",
+      "sha256": "2a1ff30ab693f59dea389a4b12b3de2a14bcbd09aa65e3397fb1c1fbd98e75c0",
+      "bytes": 5,
+      "member": "files/0250-q41_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q41_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0251-q41_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q41_run1.stdout.json.gz",
+      "sha256": "168193c17b54e5c54f59643613bb9ca0054ec6acd2ddb793e33c2b4644d7ff12",
+      "bytes": 19659,
+      "member": "files/0252-q41_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q41_run1.timing.json",
+      "sha256": "e55c8be10faf79592b086db2c5e6b50bfb8363d524120b19f7809075d2f414f0",
+      "bytes": 614,
+      "member": "files/0253-q41_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q42_run1.pid",
+      "sha256": "f45a74b7c7f4dbba23e5c6ecd45c4b9f1969c4c36fef5ed65b2e32669d7ce1f9",
+      "bytes": 5,
+      "member": "files/0254-q42_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q42_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0255-q42_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q42_run1.stdout.json.gz",
+      "sha256": "6a03a53d1c73fbe21e59015676985b9a9f1bf5daf91b8b98f5c95e960d9e276b",
+      "bytes": 19384,
+      "member": "files/0256-q42_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q42_run1.timing.json",
+      "sha256": "d7d3f3794f57aba95ca1e3c67d080c1a1a12d4a5368824fb0b940c4e53a8314f",
+      "bytes": 624,
+      "member": "files/0257-q42_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q43_run1.pid",
+      "sha256": "108780cd4cffbf7c68d9bf271044ce423495486d176e140385975e3cbafbae01",
+      "bytes": 5,
+      "member": "files/0258-q43_run1.pid",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q43_run1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0259-q43_run1.stderr.txt",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q43_run1.stdout.json.gz",
+      "sha256": "e9a6c096142586b0dcece78885a48f8dad2db53c94066898378464442d222361",
+      "bytes": 19358,
+      "member": "files/0260-q43_run1.stdout.json.gz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/q43_run1.timing.json",
+      "sha256": "f238a190b6e8c2db84420af018dc25c71a9b264bd1b9f09b3989b655b2b839e5",
+      "bytes": 624,
+      "member": "files/0261-q43_run1.timing.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/query-timings.csv",
+      "sha256": "b875652828fae77102a556fa191c5529445e181b61eceda0ab3f5fd378f18588",
+      "bytes": 16638,
+      "member": "files/0262-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43/logs/full43_20261024T111956527518Z/summary.json",
+      "sha256": "76f2a1e3ae74253b287557a1597ded80c63205152f312941231e7be50f2ca795",
+      "bytes": 132867,
+      "member": "files/0263-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-native-tests-1024.json",
+      "sha256": "ed6d730c89514f7cb6fcaa6711f4a4f68dd3497a4f60b517f3ed3383b435af51",
+      "bytes": 502213,
+      "member": "files/0264-final-native-tests-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-native-tests-1024.log",
+      "sha256": "f242c456af0cac407e3ad35d1eb69502b885cfb18dff28f9cea45e2d80df1c52",
+      "bytes": 1087442,
+      "member": "files/0265-final-native-tests-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-required-validation.json",
+      "sha256": "c8f7a17d3b845cc7db9db24b51b73fefb95256c9f202cb328998dca0f4b44b05",
+      "bytes": 1524,
+      "member": "files/0266-final-required-validation.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/followup-comparison-replay.json",
+      "sha256": "4eab219ac014ecd65a6f93b8c7e097d83e4197c79bef65f00ed8411fb313d320",
+      "bytes": 1130,
+      "member": "files/0267-followup-comparison-replay.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/freeze_g2.py",
+      "sha256": "0c95f2f17529a2ccd3d0176a1693d6521caa9ec598c55ccd8db360f314a94afb",
+      "bytes": 1350,
+      "member": "files/0268-freeze_g2.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/freeze_g3.py",
+      "sha256": "66e1a3a8674c8b702ae5aace2ece03748d3f05c0b622cc38e1a784e994cdaaaf",
+      "bytes": 1320,
+      "member": "files/0269-freeze_g3.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/full43-launch-environment.json",
+      "sha256": "84610ebc58e8f944944ff5b5276342af04c151732699966b113df3ebca486798",
+      "bytes": 412,
+      "member": "files/0270-full43-launch-environment.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-binary-1024.json",
+      "sha256": "df162d21df7ff40c17bda430bb8cf15d4154828be3a0b8ea0c33d9817274fc91",
+      "bytes": 660,
+      "member": "files/0271-g1-binary-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-cli-build-1024.json",
+      "sha256": "2642bbbd0a09a9f2757728227b8922a736a74ad24b7a7f9bd1bc2338369486b8",
+      "bytes": 502192,
+      "member": "files/0272-g1-cli-build-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-cli-build-1024.log",
+      "sha256": "2394d4947767c38c9c40a876bb3a0eda6ddb613fbf6cf290c1277f8555fd0abf",
+      "bytes": 11701,
+      "member": "files/0273-g1-cli-build-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-default-clippy-1024.json",
+      "sha256": "250b34258fd8356e2dbbe935892d6e851077e0034459839074b8643b3567c2cf",
+      "bytes": 502148,
+      "member": "files/0274-g1-default-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-default-clippy-1024.log",
+      "sha256": "03fd0bfd5c27c5984dfe8a7612e6b0db7ef02d1cb6fcdb5226d6d9ee76ad4c61",
+      "bytes": 3266,
+      "member": "files/0275-g1-default-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-default-tests-1024.json",
+      "sha256": "503bcfa8bbc2edd7219b1e184a90b00153db047fe903fb12898432f3eddc3ec2",
+      "bytes": 502111,
+      "member": "files/0276-g1-default-tests-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-default-tests-1024.log",
+      "sha256": "f46ad79cc2ae5b07eb1a6451dfd83ccf415b691a05d92f6b381e14b2ad7c3b86",
+      "bytes": 467033,
+      "member": "files/0277-g1-default-tests-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-final-format-1024.json",
+      "sha256": "1a3439bfac0443ed95bb51c49eaeae5c0806e3319f5cb84bf47ce37eee1aa936",
+      "bytes": 502102,
+      "member": "files/0278-g1-final-format-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-final-format-1024.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "member": "files/0279-g1-final-format-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-full43-plan.json",
+      "sha256": "4d79dcb299484f9883ef69b6f8aeb2cd94ad0e9fd3970ec81daa6700ebc4efa8",
+      "bytes": 87993,
+      "member": "files/0280-g1-full43-plan.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-full43-receipt.json",
+      "sha256": "a189b7951eccc8d343b78925bd8740c1f8ac3fc116163859320cd8d64a8b2fe9",
+      "bytes": 37360,
+      "member": "files/0281-g1-full43-receipt.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-full43.log",
+      "sha256": "ce2c03862a7a90a3870e002f65b9673ba38e7ff89c88dc057a27096d3e0bb996",
+      "bytes": 100530,
+      "member": "files/0282-g1-full43.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-native-clippy-1024.json",
+      "sha256": "61d7a1d83551e5dda6bdf782a8e69dd438d8e95efc6229de9a85d50e2b3d56f4",
+      "bytes": 502208,
+      "member": "files/0283-g1-native-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-native-clippy-1024.log",
+      "sha256": "039a9306c58404b96c76072586e651c045993d02e50c38de5f5582f1f1b22a89",
+      "bytes": 12022,
+      "member": "files/0284-g1-native-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-native-tests-1024.json",
+      "sha256": "fcb3071ea821c31ba5d91fac128613ddb6d5e5149c43ec531f55bc83a579af22",
+      "bytes": 502211,
+      "member": "files/0285-g1-native-tests-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-native-tests-1024.log",
+      "sha256": "664ea2487976a2b8c0501e36074f93346efae5053f6870577e46430121f49aef",
+      "bytes": 1089764,
+      "member": "files/0286-g1-native-tests-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-release-native-clippy-1024.json",
+      "sha256": "d7532b5d2835f81dec6d88f4c2911b2afe2f0c0979112ff9c683fedfb98f1488",
+      "bytes": 502248,
+      "member": "files/0287-g1-release-native-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-release-native-clippy-1024.log",
+      "sha256": "ca30676f6ffc848cceaa6ecbdc663d56a62882e263f0c4500c6501f84318ef7f",
+      "bytes": 4830,
+      "member": "files/0288-g1-release-native-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-required-validation.json",
+      "sha256": "15faa0093a209749606d16a80d7ea144b0073fa727b026b0d282ebd48aad8d15",
+      "bytes": 1500,
+      "member": "files/0289-g1-required-validation.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-triple-focused-1024.json",
+      "sha256": "5f309b525bf123afefc9aac8f23d0658a3b8f8ecfb34d6d16addb077a5466813",
+      "bytes": 502203,
+      "member": "files/0290-g1-triple-focused-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g1-triple-focused-1024.log",
+      "sha256": "71ba55d195a99bd9e2f7a1506808c8f8873a22dd0aa07a3ff9a5398a9b8f78b5",
+      "bytes": 14769,
+      "member": "files/0291-g1-triple-focused-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-binary-1024.json",
+      "sha256": "f4721d718c8d30c816474a5b3450bd6c2a833ae927c69cb7b5795f43105f468f",
+      "bytes": 931,
+      "member": "files/0292-g2-binary-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-cli-build-1024.json",
+      "sha256": "c33a361df7bfaf0620d892dc59020b1082d8d39ce933da9c1fa667167567bdb0",
+      "bytes": 502193,
+      "member": "files/0293-g2-cli-build-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-cli-build-1024.log",
+      "sha256": "ea09c47ce2a383a3171b0a255bccfe855802b906b9d062bfb1f74bf765eb9311",
+      "bytes": 303,
+      "member": "files/0294-g2-cli-build-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-cli-final-build-1024.json",
+      "sha256": "24bd2ba42bfa9e4f32164706055b92c9f945a8948a62f628c241521b464033c3",
+      "bytes": 502195,
+      "member": "files/0295-g2-cli-final-build-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-cli-final-build-1024.log",
+      "sha256": "632e3b56ae837d220fe9545db03001269d75569d530174d6c0ccbec06c451264",
+      "bytes": 303,
+      "member": "files/0296-g2-cli-final-build-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-compact-final-1024.json",
+      "sha256": "898d45e9805d8b6657e1c77c01a9671e59c092a95230c193461b9f405e022cd1",
+      "bytes": 502221,
+      "member": "files/0297-g2-compact-final-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-compact-final-1024.log",
+      "sha256": "fa427e06cf777b7353c615fe9989f4baa28a3c2991965961bf2d5fa4a80bb9d1",
+      "bytes": 1529,
+      "member": "files/0298-g2-compact-final-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-compact-focused-1024.json",
+      "sha256": "7dd887ce2960806f02b972073a152c7e0a49251550123b20309b6a6520618468",
+      "bytes": 502222,
+      "member": "files/0299-g2-compact-focused-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-compact-focused-1024.log",
+      "sha256": "c99806aaa20c902497ee50692581949928bddb27e8e2a756c6ee06f574a32110",
+      "bytes": 1529,
+      "member": "files/0300-g2-compact-focused-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls.log",
+      "sha256": "9c0d96d06210f0f4de616e8f7da7498c8212924e2827ac2051f7a0b17a1e69f7",
+      "bytes": 7139,
+      "member": "files/0301-controls.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/q17_completed.tar.xz",
+      "sha256": "c280a6312a6848d7c1f8177130168fad71f80d13dd2d1dcbcdc90eb443fc1524",
+      "bytes": 13408,
+      "member": "files/0302-q17_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/q19_completed.tar.xz",
+      "sha256": "f4b87eef95cc500a6ae58e1c21bd7d55517ede90d53b046c5634da416487f124",
+      "bytes": 12880,
+      "member": "files/0303-q19_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/q23_completed.tar.xz",
+      "sha256": "7be9e4c80799231ea5cecd3450fb36eb870d155849a1016f546bf7d4810a714e",
+      "bytes": 14064,
+      "member": "files/0304-q23_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/q29_completed.tar.xz",
+      "sha256": "4d88f48ffb9ee9a9c56cc7fe59711e3a2c2d668fead8db029c5ddfc46a3cdb79",
+      "bytes": 9280,
+      "member": "files/0305-q29_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/q34_completed.tar.xz",
+      "sha256": "607f2eed1a374b625f0550b0afbf1778a2b96b89950cc677dd36ba325034ca39",
+      "bytes": 13756,
+      "member": "files/0306-q34_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/q35_completed.tar.xz",
+      "sha256": "49bee31e372cbef9edb2f21a40984fd1e0b6073ccc760822a032d0a3ec5bf434",
+      "bytes": 13412,
+      "member": "files/0307-q35_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/query-timings.csv",
+      "sha256": "5ba51738f771f85bd440c466e20f85b19bbb8f6fcad06da4f6dcdfddf57a9ac7",
+      "bytes": 12508,
+      "member": "files/0308-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/controls/logs/paired43_20261024T104104802642Z/summary.json",
+      "sha256": "b4376bfe4269dd3c40ccad7c098aa829044d513a6cc3c660b03985ad211e669e",
+      "bytes": 132673,
+      "member": "files/0309-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/decision.json",
+      "sha256": "eff483b8891c8e98f97fd28d036ce8c2f8860cfb60211b57c9957cdc34371a42",
+      "bytes": 40962,
+      "member": "files/0310-decision.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/outcome.json",
+      "sha256": "3664094379aa5b442a69bb76247f86f5dd7734ff189aab2b96b095755bd1be72",
+      "bytes": 90572,
+      "member": "files/0311-outcome.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/plan.json",
+      "sha256": "df3bbd5b620f93170dc57806442ed241beeb5ce95283a5396c7b13f25947879a",
+      "bytes": 21973,
+      "member": "files/0312-plan.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/single.log",
+      "sha256": "922d339cdaa5f2fda8f1cd529eab5a6ceb6428541e0934d9f34e1a940c2b5889",
+      "bytes": 1306,
+      "member": "files/0313-single.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/single/logs/paired43_20261024T104050034479Z/q28_completed.tar.xz",
+      "sha256": "092916f0ffdcaf0a431aaebe60f5ca9fc464578faf1276a30b4593ec21805684",
+      "bytes": 7668,
+      "member": "files/0314-q28_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/single/logs/paired43_20261024T104050034479Z/query-timings.csv",
+      "sha256": "ae109020e5169568afe1e16ec412454e899336eae3c0ea1dd17373caa44eff2c",
+      "bytes": 2425,
+      "member": "files/0315-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/single/logs/paired43_20261024T104050034479Z/summary.json",
+      "sha256": "e0f6bbb563c450419d2d5e434eb76c4f2ff344a7df24befb5e336a511d3f825e",
+      "bytes": 32511,
+      "member": "files/0316-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/target.log",
+      "sha256": "e8146ebb1071ba878ce3b891eaa32d7dca9ba0a0cb006822e3b70e7034831716",
+      "bytes": 2082,
+      "member": "files/0317-target.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/target/logs/paired43_20261024T104025991513Z/q28_completed.tar.xz",
+      "sha256": "e070c2b5c5896a69e1087ad13cfd706e1da8d112e62776c064f68da094ad8256",
+      "bytes": 8116,
+      "member": "files/0318-q28_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/target/logs/paired43_20261024T104025991513Z/query-timings.csv",
+      "sha256": "c78ba6c826da70cb5923af0bd74b21aebf75561326a6e9fe7f93d39003763c40",
+      "bytes": 3818,
+      "member": "files/0319-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/target/logs/paired43_20261024T104025991513Z/summary.json",
+      "sha256": "978fb6c7a4d4a7e5a5edda2f73f68f6656b45ba15778be36a9a314c54c66d680",
+      "bytes": 45456,
+      "member": "files/0320-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-native-clippy-1024.json",
+      "sha256": "577bf5949a038b3ff57c3e83a9fada8cc0762d08a952ea1e1b4375cdb7b777f1",
+      "bytes": 502247,
+      "member": "files/0321-g2-native-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-native-clippy-1024.log",
+      "sha256": "b065378c3a9e1cefc9d7ed9600bfb78406b8ab3a70e5678b1ad78625f6ed127b",
+      "bytes": 563,
+      "member": "files/0322-g2-native-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-native-final-clippy-1024.json",
+      "sha256": "9ed0a72ee03957da35cd843d696cb9c2be743b112187bf54b3811cf3865248b6",
+      "bytes": 502246,
+      "member": "files/0323-g2-native-final-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-native-final-clippy-1024.log",
+      "sha256": "2c41a828417365f9653d2d035e25833cd50ee59d85bf020f3fd462c572602fd5",
+      "bytes": 563,
+      "member": "files/0324-g2-native-final-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-pre-review-build-disposition.json",
+      "sha256": "80d7dc25b9cff1dd98a66100acac5ab05ed156e18caec774635772c5137c7f07",
+      "bytes": 489,
+      "member": "files/0325-g2-pre-review-build-disposition.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-runtime-source.patch",
+      "sha256": "416c1b6ae99f1280b8725921e277b5395b78babbfac280e077df53687c5c4d96",
+      "bytes": 22738,
+      "member": "files/0326-g2-runtime-source.patch",
+      "origin": {
+        "base": "9ca3cbda5f8527c4f948b0aafed6626f3b6fb2fd",
+        "head": "5aa56f1412440100d82a2053c78185cef9c0913d"
+      }
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-triple-final-1024.json",
+      "sha256": "1cae74bccd5f0512057f81a7584baa71e7558f1c7936dfb037f9396c8ad2d5d8",
+      "bytes": 502208,
+      "member": "files/0327-g2-triple-final-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-triple-final-1024.log",
+      "sha256": "39f45344e478a39ea7cdeabf6f72666f038cc0f117e52a8ad293f14cd16accc9",
+      "bytes": 3310,
+      "member": "files/0328-g2-triple-final-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-triple-owner-focused-1024.json",
+      "sha256": "91acb5be61fa7b35dae4715843c5a27a9091d4a9565cc3f0779d6e8952c3a116",
+      "bytes": 502208,
+      "member": "files/0329-g2-triple-owner-focused-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-triple-owner-focused-1024.log",
+      "sha256": "56cb6aebe532478fae96e844f38b937bd9b9f94ba1917f4f035b9eb6bcf48d4b",
+      "bytes": 3434,
+      "member": "files/0330-g2-triple-owner-focused-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-binary-1024.json",
+      "sha256": "7d419fc42670623e3ddba68fd20f84b99da913447c9d89013dead9374e132483",
+      "bytes": 925,
+      "member": "files/0331-g3-binary-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-candidate.patch",
+      "sha256": "09a1652bcc859753ec906c546ef1f2f357acb8b2adedd70fe0fab6ebf12577bd",
+      "bytes": 45402,
+      "member": "files/0332-g3-candidate.patch",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-cli-build-1024.json",
+      "sha256": "e28abe617b9b2f7903b80b07e1ca6c588a8ba95c53a3d5d72387a5c48f9d72c1",
+      "bytes": 502475,
+      "member": "files/0333-g3-cli-build-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-cli-build-1024.log",
+      "sha256": "d9ba8c309d957b9d936178ca1fafbf0112ce5d008ca77c345ce4fb3939d29b42",
+      "bytes": 303,
+      "member": "files/0334-g3-cli-build-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls.log",
+      "sha256": "dc3cd57c7a16419f3ac0b84b1c371fae188d313a80fb10e93856047b88a9fd71",
+      "bytes": 8329,
+      "member": "files/0335-controls.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q17_completed.tar.xz",
+      "sha256": "e98d6d68c40ff193ff8add4b2bc99e989d2b6171931431d8aa7d79fa3adfa3e3",
+      "bytes": 13272,
+      "member": "files/0336-q17_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q19_completed.tar.xz",
+      "sha256": "0348063febc1e8b69771b946c4629a95b9c9da60a858e83090890276d187ea1e",
+      "bytes": 12860,
+      "member": "files/0337-q19_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q22_completed.tar.xz",
+      "sha256": "32bb7d8a71e66f30837ce3f8bba70f1f65d35ed7ea51b7333b1ec4472c736fe8",
+      "bytes": 13184,
+      "member": "files/0338-q22_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q28_completed.tar.xz",
+      "sha256": "3c2e188793dab3b0ef38eac3de89cb83247cb7dba257045a8de3a96b16dca0a7",
+      "bytes": 7708,
+      "member": "files/0339-q28_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q29_completed.tar.xz",
+      "sha256": "7db5d18afe3f5d26f812e036b947cfac982cfaa33a8755121e05269cc2af557c",
+      "bytes": 9296,
+      "member": "files/0340-q29_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q34_completed.tar.xz",
+      "sha256": "8febe6f72299bb712075998ceab99c1c2c94bd1dec9781c62a21ebcc53d2649c",
+      "bytes": 13680,
+      "member": "files/0341-q34_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/q35_completed.tar.xz",
+      "sha256": "3f5c41f787729c98f9e72f8123170f9222061c4fa76bfba0c7e0e4994265a844",
+      "bytes": 13176,
+      "member": "files/0342-q35_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/query-timings.csv",
+      "sha256": "12f3a9fc35df219684500ff14cbc7c567b32c9802911e0df62098101706740a6",
+      "bytes": 14097,
+      "member": "files/0343-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/controls/logs/paired43_20261024T110010945104Z/summary.json",
+      "sha256": "ac226cbf74db49b02192cac7b64f27e3045519af569097aca9b09ebc6bf5ceaa",
+      "bytes": 151550,
+      "member": "files/0344-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/decision.json",
+      "sha256": "f4b83425b1d03963cc8d74f2a2995f15716dcaa6b35dd059ed2987f2d32c8ebb",
+      "bytes": 50130,
+      "member": "files/0345-decision.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/outcome.json",
+      "sha256": "51ead8742d51c2c9afc5621e2270607b61fdd8b2c09edb6c7d2df947f3311048",
+      "bytes": 110198,
+      "member": "files/0346-outcome.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/plan.json",
+      "sha256": "8b7155d2e36ce437c1e1e61d22a72ff5b4e50bc67e62600f2c6d986cb60b4469",
+      "bytes": 22049,
+      "member": "files/0347-plan.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/single.log",
+      "sha256": "a6ada2dcfec71664cdc1dcb73a18877ef94fe372b519f9b4a0a9857df9ad7432",
+      "bytes": 1305,
+      "member": "files/0348-single.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/single/logs/paired43_20261024T105927815217Z/q23_completed.tar.xz",
+      "sha256": "543439fd36a53f4ddbf0c85ac4ad4918a3f1695ead345f010a7d5bf975ce39d1",
+      "bytes": 14016,
+      "member": "files/0349-q23_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/single/logs/paired43_20261024T105927815217Z/query-timings.csv",
+      "sha256": "624b7a6257130b82d19261f6311b5b0d2252edd198e75e70ff54ec3e53ae3250",
+      "bytes": 2840,
+      "member": "files/0350-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/single/logs/paired43_20261024T105927815217Z/summary.json",
+      "sha256": "a1b2b021f0e8a9cae9ec422b180eb2012be0e383e0f0af77ff8cf5532f669fee",
+      "bytes": 33765,
+      "member": "files/0351-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/target.log",
+      "sha256": "cd81c94b848f2bf5a7f3cbabc8a1cc52f288b7002c56991e47be645ad29bbc14",
+      "bytes": 2092,
+      "member": "files/0352-target.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/target/logs/paired43_20261024T105902187715Z/q23_completed.tar.xz",
+      "sha256": "e94954f8151501fbdbb61e27ec254d45caa29c2ca3db9556818e08b18139aa4c",
+      "bytes": 15708,
+      "member": "files/0353-q23_completed.tar.xz",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/target/logs/paired43_20261024T105902187715Z/query-timings.csv",
+      "sha256": "07f3b16ecca76ca8f3035ca9b032a912db1fa522ef0989723072d78132ebd486",
+      "bytes": 4515,
+      "member": "files/0354-query-timings.csv",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/target/logs/paired43_20261024T105902187715Z/summary.json",
+      "sha256": "0716e9f7bbdc4d1c6d87a00e858e5497ce27f70dcb8ee1cb2f9756db5cf95187",
+      "bytes": 47414,
+      "member": "files/0355-summary.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-native-clippy-1024.json",
+      "sha256": "b84162e76f4797d9ad2635c268a95ff198b67df7c33c3f9b4cc529e93db0dd34",
+      "bytes": 502529,
+      "member": "files/0356-g3-native-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-native-clippy-1024.log",
+      "sha256": "a2823a248785578700ad31616260657eb90a7207dcfc9ad9b377448eec9c20dd",
+      "bytes": 1566,
+      "member": "files/0357-g3-native-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-native-final-clippy-1024.json",
+      "sha256": "759df2a27249a0ab3d089f61119511eb0ef6f2db2b683679adbba4a0230e3e73",
+      "bytes": 502525,
+      "member": "files/0358-g3-native-final-clippy-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-native-final-clippy-1024.log",
+      "sha256": "73f73bb2cfdca9ef111fc05ecc56f099f2020f399982b6bf3e245bc881e01804",
+      "bytes": 307,
+      "member": "files/0359-g3-native-final-clippy-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-restoration.json",
+      "sha256": "50dd72ab61dad9938ec0a3bffaaeba3f77ddba7b02429c1f10732294bc126138",
+      "bytes": 1177,
+      "member": "files/0360-g3-restoration.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-runtime-source.patch",
+      "sha256": "09a1652bcc859753ec906c546ef1f2f357acb8b2adedd70fe0fab6ebf12577bd",
+      "bytes": 45402,
+      "member": "files/0361-g3-runtime-source.patch",
+      "origin": {
+        "base": "5aa56f1412440100d82a2053c78185cef9c0913d",
+        "head": "4c91469ddae2c776b1ddae703e53f2f8dfa843cb"
+      }
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-final-1024.json",
+      "sha256": "dc0b3c9fb73949b75cb9dab8781273124946f31c407d1a6627308a870858b7dc",
+      "bytes": 502488,
+      "member": "files/0362-g3-text-final-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-final-1024.log",
+      "sha256": "008dfc6d3263ee3c3fed13816ecc28390315acdc9b368c69e018ea0c95d0cf42",
+      "bytes": 2795,
+      "member": "files/0363-g3-text-final-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-first-1024.json",
+      "sha256": "e669bf454a6491502489fe6642be28da880670fee75589cdf1a90e03e2f93371",
+      "bytes": 502492,
+      "member": "files/0364-g3-text-first-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-first-1024.log",
+      "sha256": "6e493536ed44b5232a2c09f19f197e16772510b36924bb1ea82023d0a4d1d931",
+      "bytes": 1229,
+      "member": "files/0365-g3-text-first-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-fixed-1024.json",
+      "sha256": "3e0b455a1bbb6df47a1739635a0b730aa9a0aff4d3d3b2c28e592fc733a179a4",
+      "bytes": 502491,
+      "member": "files/0366-g3-text-fixed-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-fixed-1024.log",
+      "sha256": "87f85ddd1fe591b126608947f9d5200746bd3d09f4a8e2aafa5ae266500bccc4",
+      "bytes": 3400,
+      "member": "files/0367-g3-text-fixed-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-reviewed-1024.json",
+      "sha256": "fde1272f112b9c2c8c018231ae15e373d41d191684bbe51ee37a108b1b4f913c",
+      "bytes": 502490,
+      "member": "files/0368-g3-text-reviewed-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-text-reviewed-1024.log",
+      "sha256": "90644b2d7941b2a517aa4748b62f5c335c464b5dabff9cba1236107b811fae2b",
+      "bytes": 2795,
+      "member": "files/0369-g3-text-reviewed-1024.log",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/helper-verification-final.json",
+      "sha256": "20d369a3a96772e979de63df0909aa9f87ea75108ba7ebce1e524c319145fce2",
+      "bytes": 977,
+      "member": "files/0370-helper-verification-final.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/helper-verification.json",
+      "sha256": "15d5dbbc3ff9ac3ce25406a808487cc3d1d66fb8e13414263c2bfb97fc065242",
+      "bytes": 1084,
+      "member": "files/0371-helper-verification.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/package_followup.py",
+      "sha256": "c4d77c44b0560ae40ee43fdd3de5694bf71a0dd221c382bbd932c0b08c1107ac",
+      "bytes": 6176,
+      "member": "files/0372-package_followup.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/package_packet.py",
+      "sha256": "be5db1d0397c460c3023c27520cfc7cf85a33c95905ff221a61ab7e4b3a06205",
+      "bytes": 4523,
+      "member": "files/0373-package_packet.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/packet-packaging.json",
+      "sha256": "ba47db09ae3c0152bce36030d66200bbdca1dca464badf1fdfc5340d2b0bfd80",
+      "bytes": 950,
+      "member": "files/0374-packet-packaging.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_final_full43.py",
+      "sha256": "1d0dd259d73a9f000f5975719402746e267031ba480911283050dcfca84c1f54",
+      "bytes": 10964,
+      "member": "files/0375-run_final_full43.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_final_validation.py",
+      "sha256": "74f73281abb67f86628367106d69683a937d6627ad59467dd349f2d1998629b6",
+      "bytes": 1829,
+      "member": "files/0376-run_final_validation.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_g1_comparison.py",
+      "sha256": "daadbc53e0e0d926c9a61f8888b4a094a65d93e837024713ff9817acc55bd37a",
+      "bytes": 9989,
+      "member": "files/0377-run_g1_comparison.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_g1_full43.py",
+      "sha256": "0c7caf587c4abf8727bd5f0f0e9031b6fb2a465b727fbdd64a88abc4230e030c",
+      "bytes": 10130,
+      "member": "files/0378-run_g1_full43.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_g2_comparison.py",
+      "sha256": "fe755786bb0497ec91bc32b4d93f3624f4a2dc4bcd7302600d5c161783f00456",
+      "bytes": 10276,
+      "member": "files/0379-run_g2_comparison.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_g2_final_build.py",
+      "sha256": "6a55934842fc91c42dacc4f7b8f6a05ffbd15bfe44c7b3a3492d6575f49c36ba",
+      "bytes": 1070,
+      "member": "files/0380-run_g2_final_build.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_g3_build.py",
+      "sha256": "99412b99953e6978c1fc8beb846548c478b64583b1749c739ae503c21c6e1df7",
+      "bytes": 889,
+      "member": "files/0381-run_g3_build.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_g3_comparison.py",
+      "sha256": "96c0a2fdaeefbf9a4684f4e58395ce9954afbdcb2ec18aabd437f61481651029",
+      "bytes": 10480,
+      "member": "files/0382-run_g3_comparison.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_required_validation.py",
+      "sha256": "50faaa29fde0c849e9f6e6734f226b238f9e15ae161db4c8ed1a58776ecd2943",
+      "bytes": 1811,
+      "member": "files/0383-run_required_validation.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/run_validation.py",
+      "sha256": "7cba4975d772da0d9c7f28d72d81922e3f5df5650148135a77a92cf89e5f68e5",
+      "bytes": 3932,
+      "member": "files/0384-run_validation.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/score_g1.py",
+      "sha256": "890ffbca2036f58b84f3777ea246b05c8b1cfc8fb5871b853a0e696fc5d71deb",
+      "bytes": 10936,
+      "member": "files/0385-score_g1.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/score_g2.py",
+      "sha256": "4187ac13b4f873fd0f8f575b055d57b4c5921ac7f0d9456e56a2ad0535101d8a",
+      "bytes": 11708,
+      "member": "files/0386-score_g2.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/score_g3.py",
+      "sha256": "7a7c3813412e932c5363231cd31a5b732a9cd3a97fc51ee9655224d92fcc0edf",
+      "bytes": 12187,
+      "member": "files/0387-score_g3.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/source-identity-preflight-1024.json",
+      "sha256": "4d993ef95ecf4fc2d61c823f2ef0beccbaecd13bd835057f1a7670edee8fa3ce",
+      "bytes": 803,
+      "member": "files/0388-source-identity-preflight-1024.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/test_native_grouped_preparation_followup_evidence.py",
+      "sha256": "c9b58065ffd0db8e95082808f910ad279b318bc5dbf131ea6fbd0dc590969bbf",
+      "bytes": 8184,
+      "member": "files/0389-test_native_grouped_preparation_followup_evidence.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/verify_followup.py",
+      "sha256": "ddfcbab91c0a4244b842954e8f3ed2d484d94a68b4d209466146eea222c45514",
+      "bytes": 19525,
+      "member": "files/0390-verify_followup.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/verify_packet.py",
+      "sha256": "cac879577bb31c6ac66b6f100a1016182baac29beebd4e2a83c9989b4facb365",
+      "bytes": 15890,
+      "member": "files/0391-verify_packet.py",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/acceptance.json",
+      "sha256": "215257830383f093501c1365805f26bd4fa0b7c6cf5670e58abfffd7fd9364a1",
+      "bytes": 454102,
+      "member": "files/0392-acceptance.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+      "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b",
+      "bytes": 454630,
+      "member": "files/0393-reference.json",
+      "origin": "recorded_local_file"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "bytes": 8431,
+      "member": "files/0394-bounded_build_process_resume_20260912.py",
+      "origin": "recorded_local_file"
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "g2",
+      "plan": {
+        "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/plan.json",
+        "bytes": 21973,
+        "sha256": "df3bbd5b620f93170dc57806442ed241beeb5ce95283a5396c7b13f25947879a"
+      },
+      "outcome": {
+        "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/outcome.json",
+        "bytes": 90572,
+        "sha256": "3664094379aa5b442a69bb76247f86f5dd7734ff189aab2b96b095755bd1be72"
+      },
+      "decision": {
+        "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-comparison/decision.json",
+        "bytes": 40962,
+        "sha256": "eff483b8891c8e98f97fd28d036ce8c2f8860cfb60211b57c9957cdc34371a42"
+      }
+    },
+    {
+      "id": "g3",
+      "plan": {
+        "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/plan.json",
+        "bytes": 22049,
+        "sha256": "8b7155d2e36ce437c1e1e61d22a72ff5b4e50bc67e62600f2c6d986cb60b4469"
+      },
+      "outcome": {
+        "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/outcome.json",
+        "bytes": 110198,
+        "sha256": "51ead8742d51c2c9afc5621e2270607b61fdd8b2c09edb6c7d2df947f3311048"
+      },
+      "decision": {
+        "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-comparison/decision.json",
+        "bytes": 50130,
+        "sha256": "f4b83425b1d03963cc8d74f2a2995f15716dcaa6b35dd059ed2987f2d32c8ebb"
+      }
+    }
+  ],
+  "restoration": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g3-restoration.json",
+    "bytes": 1177,
+    "sha256": "50dd72ab61dad9938ec0a3bffaaeba3f77ddba7b02429c1f10732294bc126138"
+  },
+  "full43_plan": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43-plan.json",
+    "bytes": 88565,
+    "sha256": "9fd6ff1fd53f1cf001415c2283a46aaa1e3a8a27a276b3296a10453f94566d89"
+  },
+  "full43_receipt": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-full43-receipt.json",
+    "bytes": 41102,
+    "sha256": "11bf30b12f82f6d6b47f7c1d232ffdc092669ffe3b5b161e5fbfb166623b8b91"
+  },
+  "validation": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-required-validation.json",
+    "bytes": 1524,
+    "sha256": "c8f7a17d3b845cc7db9db24b51b73fefb95256c9f202cb328998dca0f4b44b05"
+  },
+  "omitted_regenerable_payloads": {
+    "input": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+      "bytes": 15713610513,
+      "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22"
+    },
+    "binaries": {
+      "g2": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/shardloom-g1",
+          "bytes": 76646688,
+          "sha256": "ac4934e89fcbbcd9d803cd5c7fe0f8d8c25ccf59c868f9b8a7242a4533c56bea"
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/shardloom-g2",
+          "bytes": 76720096,
+          "sha256": "c403e17a8cabdceefe0e98627a2c4816dcf5d02b70652b813afa43f69ee43371"
+        }
+      },
+      "g3": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/shardloom-g2",
+          "bytes": 76720096,
+          "sha256": "c403e17a8cabdceefe0e98627a2c4816dcf5d02b70652b813afa43f69ee43371"
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/shardloom-g3",
+          "bytes": 76721056,
+          "sha256": "18822f8b754d3f6c38e0d442b8213e498b3816a54392a4cd43234e116091209c"
+        }
+      }
+    },
+    "reason": "Complete results, failures, protocols and exact source/build/input identities retained. Current input and accepted G2 executable remain local; superseded binaries and compiler caches are disposable."
+  }
+}

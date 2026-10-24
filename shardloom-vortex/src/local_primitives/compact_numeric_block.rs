@@ -1,5 +1,5 @@
-//! One exact AVG/COUNT block recipe over native numeric owners. Dispatch is
-//! outside the row loop; group admission and row/measure order stay unchanged.
+//! One exact AVG with COUNT(*) block recipe over native numeric owners.
+//! Dispatch is outside the row loop; repeated counts keep their declared order.
 
 use super::{
     AggregateDirectColumnAccessor, AggregateValueTransform, GroupedAggregateStates,
@@ -10,7 +10,7 @@ fn inputs<'a>(
     states: &GroupedAggregateStates<'_>,
     accessors: &'a [AggregateDirectColumnAccessor],
     chunk_rows: usize,
-) -> Option<(&'a NativeNumericOwner, bool)> {
+) -> Option<(&'a NativeNumericOwner, usize)> {
     let [group] = states.group_columns.as_slice() else {
         return None;
     };
@@ -21,28 +21,30 @@ fn inputs<'a>(
     {
         return None;
     }
-    let [first, second] = states.compact_measure_specs.as_deref()? else {
-        return None;
-    };
-    if !matches!(first.value_transform, AggregateValueTransform::Identity)
-        || !matches!(second.value_transform, AggregateValueTransform::Identity)
-    {
+    let specs = states.compact_measure_specs.as_deref()?;
+    if specs.len() < 2 {
         return None;
     }
-    let (average, count, count_first) = match (first.function, second.function) {
-        (SimpleAggregateFunction::Avg, SimpleAggregateFunction::Count) => (first, second, false),
-        (SimpleAggregateFunction::Count, SimpleAggregateFunction::Avg) => (second, first, true),
-        _ => return None,
-    };
-    if count.column_index.is_some() {
-        return None;
+    let mut average_index = None;
+    for (index, spec) in specs.iter().enumerate() {
+        if !matches!(spec.value_transform, AggregateValueTransform::Identity) {
+            return None;
+        }
+        match spec.function {
+            SimpleAggregateFunction::Avg if average_index.is_none() => {
+                average_index = Some(index);
+            }
+            SimpleAggregateFunction::Count if spec.column_index.is_none() => {}
+            _ => return None,
+        }
     }
+    let average_index = average_index?;
     let AggregateDirectColumnAccessor::NativeNumeric(owner) =
-        accessors.get(average.column_index?)?
+        accessors.get(specs[average_index].column_index?)?
     else {
         return None;
     };
-    (owner.len() == chunk_rows).then_some((owner, count_first))
+    (owner.len() == chunk_rows).then_some((owner, average_index))
 }
 
 pub(super) fn update(
@@ -51,7 +53,7 @@ pub(super) fn update(
     rows: Option<&[usize]>,
     chunk_rows: usize,
 ) -> Result<bool> {
-    let Some((owner, count_first)) = inputs(states, accessors, chunk_rows) else {
+    let Some((owner, average_index)) = inputs(states, accessors, chunk_rows) else {
         return Ok(false);
     };
     let chunks = states.compact_numeric_block_chunks.checked_add(1);
@@ -64,7 +66,7 @@ pub(super) fn update(
                 .to_owned(),
         ));
     };
-    owner.update_compact_avg_count_block(states, accessors, rows, count_first)?;
+    owner.update_compact_avg_count_block(states, accessors, rows, average_index)?;
     states.compact_numeric_block_chunks = chunks;
     states.compact_numeric_block_input_rows = input_rows;
     Ok(true)
