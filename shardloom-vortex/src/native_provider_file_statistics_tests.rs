@@ -9,7 +9,7 @@ use vortex::{
         dtype::{DType, FieldName, FieldNames, Nullability, PType, StructFields},
         expr::stats::{Precision, Stat},
         memory::{
-            DefaultHostAllocator, HostAllocator, HostMemoryReservation, MemorySessionExt as _,
+            DefaultHostAllocator, HostAllocator, HostMemoryReservation, HostMemorySessionExt as _,
             WritableHostBuffer,
         },
         stats::StatsSet,
@@ -42,7 +42,7 @@ impl HostAllocator for TableAllocator {
 
 fn session(memory: &LiveMemoryPool) -> (VortexSession, Arc<Mutex<Vec<usize>>>) {
     let requests = Arc::new(Mutex::new(Vec::new()));
-    let consumer = VortexSession::default().with_allocator(Arc::new(TableAllocator {
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(TableAllocator {
         tables: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         requests: Arc::clone(&requests),
     }));
@@ -95,7 +95,8 @@ fn reopen(
     dtype: &DType,
     session: &VortexSession,
 ) -> VortexResult<FileStatistics> {
-    let root = flatbuffers::root::<vortex::flatbuffers::footer::FileStatistics<'_>>(bytes).unwrap();
+    let root =
+        flatbuffers::root::<vortex::file::flatbuffers::footer::FileStatistics<'_>>(bytes).unwrap();
     FileStatistics::from_flatbuffer(&root, dtype, session)
 }
 
@@ -196,7 +197,7 @@ fn native_file_statistics_empty_and_custom_allocator_boundaries() {
     assert_fields(&empty, 0);
     assert!(requests.lock().unwrap().is_empty());
     assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
-    let consumer = VortexSession::default().with_allocator(Arc::new(BufferOnlyAllocator));
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(BufferOnlyAllocator));
     assert_fields(&reopen(&bytes, &dtype, &consumer).unwrap(), 0);
     assert_fields(
         &FileStatistics::try_from_fn(0, |_| panic!("empty producer"), &consumer).unwrap(),
@@ -328,7 +329,8 @@ fn native_file_statistics_retained_peer_denial_and_retry_preserve_values() {
 
 #[test]
 fn native_file_statistics_parser_failure_releases_partial_tables() {
-    use vortex::flatbuffers::{array as fba, footer as fb};
+    use vortex::file::flatbuffers::footer as fb;
+    use vortex::flatbuffers::array as fba;
 
     let mut builder = flatbuffers::FlatBufferBuilder::new();
     let good = fba::ArrayStats::create(

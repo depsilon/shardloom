@@ -20,25 +20,37 @@ impl RowFnExecutionArgs {
         ConstantArray::new(Scalar::null(self.result_dtype.clone()), self.row_count).into_array()
     }
 
-    /// Validate the finished output and apply the row function's logical outer nullability.
+    /// Label the finished column, validate it, and apply the row function's logical outer
+    /// nullability.
     pub(super) fn finalize_output(
         &self,
         values: ArrayRef,
         expected_len: usize,
     ) -> VortexResult<ArrayRef> {
+        // Label before validation so the checks below see the dtype this function returns. Every
+        // batch strategy reaches this method after masking, so an empty, all-null, constant, or
+        // partially valid batch carries the same metadata as a dense one.
+        let values = self.plan.relabel_output(values)?;
+
         validate_output(self.id, &self.result_dtype, expected_len, &values)?;
 
         cast_output_nullability(&self.result_dtype, values)
     }
 
-    /// Validate the output from a row function before batch validity is attached.
+    /// Validate the unlabelled output from a row function before batch validity is attached.
     pub(super) fn validate_kernel_output(
         &self,
         values: ArrayRef,
         expected_len: usize,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<ArrayRef> {
-        finalize_kernel_output(self.id, &self.output_dtype, expected_len, values, ctx)
+        finalize_kernel_output(
+            self.id,
+            self.plan.storage_dtype(),
+            expected_len,
+            values,
+            ctx,
+        )
     }
 }
 
@@ -73,15 +85,14 @@ fn validate_output(
     vortex_ensure_eq!(
         values.len(),
         expected_len,
-        "the {id} kernel output must contain {expected_len} rows, got {}",
-        values.len(),
+        "the {id} kernel output has the wrong row count",
     );
     let values_with_result_nullability =
         values.dtype().with_nullability(result_dtype.nullability());
-    vortex_ensure!(
-        values_with_result_nullability == *result_dtype,
-        "the {id} output dtype must match {result_dtype} except for outer nullability, got {}",
-        values.dtype(),
+    vortex_ensure_eq!(
+        values_with_result_nullability,
+        *result_dtype,
+        "the {id} output dtype must match the result dtype except for outer nullability",
     );
 
     Ok(())

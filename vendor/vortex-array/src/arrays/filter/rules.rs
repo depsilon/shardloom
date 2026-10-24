@@ -14,13 +14,22 @@ use crate::arrays::StructArray;
 use crate::arrays::filter::FilterArraySlotsExt;
 use crate::arrays::filter::FilterReduce;
 use crate::arrays::filter::FilterReduceAdaptor;
+use crate::arrays::filter::execute::buffer::prepare_mask_for_reuse;
+use crate::arrays::filter::execute::contiguous_filter_range;
+use crate::arrays::scalar_fn::ExactScalarFn;
+use crate::arrays::scalar_fn::ScalarFnArrayView;
 use crate::arrays::struct_::StructDataParts;
+use crate::builtins::ArrayBuiltins;
+use crate::optimizer::rules::ArrayParentReduceRule;
 use crate::optimizer::rules::ArrayReduceRule;
 use crate::optimizer::rules::ParentRuleSet;
 use crate::optimizer::rules::ReduceRuleSet;
+use crate::scalar_fn::fns::get_item::GetItem;
 
-pub(super) const PARENT_RULES: ParentRuleSet<Filter> =
-    ParentRuleSet::new(&[ParentRuleSet::lift(&FilterReduceAdaptor(Filter))]);
+pub(super) const PARENT_RULES: ParentRuleSet<Filter> = ParentRuleSet::new(&[
+    ParentRuleSet::lift(&FilterReduceAdaptor(Filter)),
+    ParentRuleSet::lift(&FilterGetItemRule),
+]);
 
 pub(super) const RULES: ReduceRuleSet<Filter> =
     ReduceRuleSet::new(&[&TrivialFilterRule, &FilterStructRule]);
@@ -35,6 +44,23 @@ impl FilterReduce for Filter {
 }
 
 #[derive(Debug)]
+struct FilterGetItemRule;
+
+impl ArrayParentReduceRule<Filter> for FilterGetItemRule {
+    type Parent = ExactScalarFn<GetItem>;
+
+    fn reduce_parent(
+        &self,
+        array: ArrayView<'_, Filter>,
+        parent: ScalarFnArrayView<'_, GetItem>,
+        _child_idx: usize,
+    ) -> VortexResult<Option<ArrayRef>> {
+        let field = array.child().get_item(parent.options.clone())?;
+        Ok(Some(field.filter(array.filter_mask().clone())?))
+    }
+}
+
+#[derive(Debug)]
 struct TrivialFilterRule;
 
 impl ArrayReduceRule<Filter> for TrivialFilterRule {
@@ -42,7 +68,9 @@ impl ArrayReduceRule<Filter> for TrivialFilterRule {
         match array.filter_mask() {
             Mask::AllTrue(_) => Ok(Some(array.child().clone())),
             Mask::AllFalse(_) => Ok(Some(Canonical::empty(array.dtype()).into_array())),
-            Mask::Values(_) => Ok(None),
+            Mask::Values(_) => contiguous_filter_range(array.filter_mask())
+                .map(|range| array.child().slice(range))
+                .transpose(),
         }
     }
 }
@@ -65,6 +93,11 @@ impl ArrayReduceRule<Filter> for FilterStructRule {
             validity,
             ..
         } = struct_array.into_owned().into_data_parts();
+
+        if let Some(values) = mask.values() {
+            let consumers = fields.len();
+            prepare_mask_for_reuse(values, consumers);
+        }
 
         let filtered_validity = validity.filter(mask)?;
 

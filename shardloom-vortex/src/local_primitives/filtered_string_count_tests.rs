@@ -14,7 +14,7 @@ use vortex::{
         ArrayRef, IntoArray as _,
         arrays::{DictArray, FilterArray, PrimitiveArray, StructArray, VarBinViewArray},
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     mask::Mask,
@@ -108,14 +108,14 @@ fn run_filtered(chunks: &[ArrayRef], memory_bytes: usize) -> serde_json::Value {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
-        Some(vortex::array::legacy_session()),
+        Some(&vortex::array::array_session()),
     )
     .expect("states");
     states
         .enable_string_count_topk_first_pass_exact_histogram()
         .expect("histogram");
     let memory = LiveMemoryPool::new(memory_bytes as u64).expect("memory");
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     let mut workers = CountWorkers::admit(
@@ -193,7 +193,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
-        Some(vortex::array::legacy_session()),
+        Some(&vortex::array::array_session()),
     )
     .expect("states");
     states
@@ -201,7 +201,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
         .expect("histogram");
     states.string_count_topk_first_pass_exact_histogram_entry_budget = 1;
     let memory = LiveMemoryPool::new(1 << 20).expect("memory");
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     let mut workers = CountWorkers::admit(
@@ -232,7 +232,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
             &columns,
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .expect("refinement");

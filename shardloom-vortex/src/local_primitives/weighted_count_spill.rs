@@ -16,7 +16,9 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
-use vortex::{io::runtime::BlockingRuntime, session::VortexSession};
+use vortex::{
+    array::VortexSessionExecute as _, io::runtime::BlockingRuntime, session::VortexSession,
+};
 
 #[path = "weighted_count_spill_runs.rs"]
 mod runs;
@@ -459,6 +461,7 @@ impl WeightedCountSpill {
                         .map(|row| (row.number, row.text(&self.arena), row.weight)),
                     signature,
                     &self.copies,
+                    &mut session.create_execution_ctx(),
                 )
             }),
             runtime,
@@ -546,6 +549,7 @@ impl WeightedCountSpill {
                 spec.block_rows,
                 self.order.signature(),
                 &self.copies,
+                session,
             ),
             runtime,
             session,

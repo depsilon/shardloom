@@ -8,6 +8,7 @@ use vortex_array::ArrayRef;
 use vortex_array::RecursiveCanonical;
 use vortex_array::aggregate_fn::fns::all_non_distinct::all_non_distinct;
 use vortex_array::arrays::DictArray;
+use vortex_array::builtins::ArrayBuiltins;
 use vortex_array::expr::fill_null;
 use vortex_array::expr::is_not_null;
 use vortex_array::expr::is_null;
@@ -233,8 +234,8 @@ fn nullable_filters_and_pruning_preserve_parent_null_semantics() -> VortexResult
                                     .vortex_expect("fixture range end fits usize"),
                         )?
                         .apply_bound(&bound)?
-                        .null_as_false()
-                        .execute(&mut ctx)?
+                        .fill_null(false)?
+                        .execute::<Mask>(&mut ctx)?
                         .bitand(&selection);
                     let pruned = block_on(|_| {
                         reader

@@ -11,7 +11,7 @@ use vortex::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{PrimitiveArray, StructArray},
         dtype::{DType, FieldNames, Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     buffer::Alignment,
@@ -112,29 +112,29 @@ fn exact_distinct_spill_keeps_source_and_each_operator_allocator_independent() {
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default()
         .with_handle(runtime.handle())
-        .with_allocator(std::sync::Arc::new(
+        .with_host_allocator(std::sync::Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(parent.clone()),
         ));
-    let original = session.allocator();
+    let original = session.host_allocator();
     let existing_context = session.create_execution_ctx();
     let first = accumulator(&policy, &parent, &session, 4);
     let second = accumulator(&policy, &parent, &session, 4);
     for source in [
-        session.allocator(),
-        existing_context.allocator(),
-        first.source_ctx.allocator(),
-        second.source_ctx.allocator(),
+        session.host_allocator(),
+        existing_context.host_allocator(),
+        first.source_ctx.host_allocator(),
+        second.source_ctx.host_allocator(),
     ] {
         assert!(std::sync::Arc::ptr_eq(&original, &source));
     }
     assert!(!std::sync::Arc::ptr_eq(
-        &first.run_session.allocator(),
-        &second.run_session.allocator(),
+        &first.run_session.host_allocator(),
+        &second.run_session.host_allocator(),
     ));
     let first_before = first.operator_memory.snapshot().reserved_bytes;
     let second_before = second.operator_memory.snapshot().reserved_bytes;
     let source = existing_context
-        .allocator()
+        .host_allocator()
         .allocate(4096, Alignment::none())
         .unwrap();
     assert_eq!(
@@ -151,7 +151,7 @@ fn exact_distinct_spill_keeps_source_and_each_operator_allocator_independent() {
     );
     let run = first
         .run_session
-        .allocator()
+        .host_allocator()
         .allocate(2048, Alignment::none())
         .unwrap();
     assert_eq!(
@@ -166,7 +166,7 @@ fn exact_distinct_spill_keeps_source_and_each_operator_allocator_independent() {
     drop(source);
     drop(first);
     drop(second);
-    assert!(std::sync::Arc::ptr_eq(&original, &session.allocator()));
+    assert!(std::sync::Arc::ptr_eq(&original, &session.host_allocator()));
     assert_eq!(parent.snapshot().reserved_bytes, 0);
     workspace.empty();
 }

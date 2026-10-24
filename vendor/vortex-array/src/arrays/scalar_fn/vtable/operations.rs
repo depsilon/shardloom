@@ -5,6 +5,7 @@ use vortex_error::VortexResult;
 
 use crate::ExecutionCtx;
 use crate::IntoArray;
+use crate::ProbeState;
 use crate::array::ArrayView;
 use crate::array::OperationsVTable;
 use crate::arrays::ConstantArray;
@@ -15,6 +16,17 @@ use crate::scalar::Scalar;
 use crate::scalar_fn::VecExecutionArgs;
 
 impl OperationsVTable<ScalarFn> for ScalarFn {
+    type ProbeState = ();
+
+    /// The evaluated scalar carries the row's nullness, so no separate validity check is needed.
+    fn probe_scalar(
+        state: &mut ProbeState<'_, ScalarFn>,
+        index: usize,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<Scalar> {
+        Self::scalar_at(state.array(), index, ctx)
+    }
+
     fn scalar_at(
         array: ArrayView<'_, ScalarFn>,
         index: usize,
@@ -58,23 +70,29 @@ mod tests {
     use vortex_buffer::buffer;
     use vortex_error::VortexResult;
 
+    use crate::ArrayRef;
     use crate::ArraySlots;
-    use crate::Canonical;
     use crate::IntoArray;
     use crate::VortexSessionExecute;
     use crate::array::Array;
     use crate::array::ArrayParts;
     use crate::array_session;
     use crate::arrays::BoolArray;
+    use crate::arrays::ConstantArray;
     use crate::arrays::PrimitiveArray;
     use crate::arrays::ScalarFnArray;
     use crate::arrays::scalar_fn::ScalarFnArrayExt;
     use crate::arrays::scalar_fn::array::ScalarFnData;
     use crate::arrays::scalar_fn::vtable::ScalarFn;
     use crate::assert_arrays_eq;
+    use crate::dtype::DType;
+    use crate::dtype::Nullability;
+    use crate::dtype::PType;
     use crate::scalar::Scalar;
     use crate::scalar_fn::TypedScalarFnInstance;
     use crate::scalar_fn::fns::binary::Binary;
+    use crate::scalar_fn::fns::list_contains::PreparedSet;
+    use crate::scalar_fn::fns::list_contains::PreparedSetData;
     use crate::scalar_fn::fns::literal::Literal;
     use crate::scalar_fn::fns::operators::Operator;
     use crate::validity::Validity;
@@ -90,12 +108,8 @@ mod tests {
 
         assert_eq!(scalar_fn_array.len(), 3);
 
-        let result = scalar_fn_array
-            .into_array()
-            .execute::<Canonical>(&mut array_session().create_execution_ctx())?
-            .into_array();
         let expected = buffer![11i32, 22, 33].into_array();
-        assert_arrays_eq!(result, expected, &mut ctx);
+        assert_arrays_eq!(scalar_fn_array, expected, &mut ctx);
 
         Ok(())
     }
@@ -147,21 +161,28 @@ mod tests {
         let data = ScalarFnData { scalar_fn };
         let slots = [Some(lhs), None].into_iter().collect::<ArraySlots>();
 
-        let Err(err) = Array::<ScalarFn>::try_from_parts(
-            ArrayParts::new(vtable, dtype, 3, data).with_slots(slots),
-        ) else {
+        let Err(err) =
+            Array::<ScalarFn>::try_from_parts(ArrayParts::new(vtable, dtype, 3, data, slots))
+        else {
             panic!("ScalarFnArray must reject missing child slots");
         };
 
         assert!(
             err.to_string()
-                .contains("ScalarFnArray requires every child slot to be present, got 1 missing")
+                .contains("ScalarFnArray requires every child slot to be present")
         );
     }
 
     #[test]
     fn test_scalar_fn_without_children_requires_explicit_len() -> VortexResult<()> {
-        let scalar_fn = TypedScalarFnInstance::new(Literal, Scalar::from(1i32)).erased();
+        let list = Scalar::list(
+            DType::Primitive(PType::I32, Nullability::NonNullable),
+            vec![Scalar::from(1i32)],
+            Nullability::NonNullable,
+        );
+        let scalar_fn =
+            TypedScalarFnInstance::new(PreparedSet, PreparedSetData::try_new(list.clone())?)
+                .erased();
 
         let Err(err) = ScalarFnArray::try_new(scalar_fn.clone(), vec![]) else {
             panic!("ScalarFnArray::try_new should reject zero children");
@@ -174,8 +195,38 @@ mod tests {
         let scalar_fn_array = ScalarFnArray::try_new_with_len(scalar_fn, vec![], 3)?;
         assert_eq!(scalar_fn_array.len(), 3);
         assert_eq!(scalar_fn_array.child_count(), 0);
+        assert_arrays_eq!(
+            scalar_fn_array,
+            ConstantArray::new(list, 3),
+            &mut array_session().create_execution_ctx()
+        );
 
         Ok(())
+    }
+
+    #[test]
+    fn rejects_literal() {
+        let scalar_fn = TypedScalarFnInstance::new(Literal, Scalar::from(1i32)).erased();
+
+        let Err(err) = ScalarFnArray::try_new_with_len(scalar_fn.clone(), vec![], 3) else {
+            panic!("ScalarFnArray::try_new_with_len must reject a literal");
+        };
+        assert!(
+            err.to_string()
+                .contains("ScalarFnArray cannot wrap a literal")
+        );
+
+        let vtable = ScalarFn { id: scalar_fn.id() };
+        let data = ScalarFnData { scalar_fn };
+        let parts = ArrayParts::new(vtable, PType::I32.into(), 3, data, ArraySlots::new());
+
+        let Err(err) = Array::<ScalarFn>::try_from_parts(parts) else {
+            panic!("ScalarFnArray must reject a literal from parts");
+        };
+        assert!(
+            err.to_string()
+                .contains("ScalarFnArray cannot wrap a literal")
+        );
     }
 
     #[test]
@@ -187,12 +238,8 @@ mod tests {
         let scalar_fn = TypedScalarFnInstance::new(Binary, Operator::Mul).erased();
         let scalar_fn_array = ScalarFnArray::try_new(scalar_fn, vec![lhs, rhs])?;
 
-        let result = scalar_fn_array
-            .into_array()
-            .execute::<Canonical>(&mut array_session().create_execution_ctx())?
-            .into_array();
         let expected = buffer![10i32, 18, 28].into_array();
-        assert_arrays_eq!(result, expected, &mut ctx);
+        assert_arrays_eq!(scalar_fn_array, expected, &mut ctx);
 
         Ok(())
     }
@@ -210,16 +257,12 @@ mod tests {
         let scalar_fn = TypedScalarFnInstance::new(Binary, Operator::Add).erased();
         let scalar_fn_array = ScalarFnArray::try_new(scalar_fn, vec![lhs, rhs])?;
 
-        let result = scalar_fn_array
-            .into_array()
-            .execute::<Canonical>(&mut array_session().create_execution_ctx())?
-            .into_array();
         let expected = PrimitiveArray::new(
             buffer![11i32, 0, 33],
             Validity::from_iter([true, false, true]),
         )
         .into_array();
-        assert_arrays_eq!(result, expected, &mut ctx);
+        assert_arrays_eq!(scalar_fn_array, expected, &mut ctx);
 
         Ok(())
     }
@@ -233,13 +276,65 @@ mod tests {
         let scalar_fn = TypedScalarFnInstance::new(Binary, Operator::Eq).erased();
         let scalar_fn_array = ScalarFnArray::try_new(scalar_fn, vec![lhs, rhs])?;
 
-        let result = scalar_fn_array
-            .into_array()
-            .execute::<Canonical>(&mut array_session().create_execution_ctx())?
-            .into_array();
         let expected = BoolArray::from_iter([false, true, false]).into_array();
-        assert_arrays_eq!(result, expected, &mut ctx);
+        assert_arrays_eq!(scalar_fn_array, expected, &mut ctx);
 
+        Ok(())
+    }
+
+    /// Mul(Add(a1, a2), a3)
+    fn scalar_nested_add() -> VortexResult<ArrayRef> {
+        let lhs_n = PrimitiveArray::from_option_iter((0..10i64).map(|i| (i % 4 != 0).then_some(i)));
+        let rhs_r = PrimitiveArray::from_iter(0..10i64);
+
+        let scalar_fn_n = TypedScalarFnInstance::new(Binary, Operator::Add).erased();
+        let args_n = vec![lhs_n.into_array(), rhs_r.into_array()];
+
+        let lhs = ScalarFnArray::try_new(scalar_fn_n, args_n)?.into_array();
+        let rhs = PrimitiveArray::from_iter(0..10i64);
+
+        let scalar_fn = TypedScalarFnInstance::new(Binary, Operator::Mul).erased();
+        let args = vec![lhs, rhs.into_array()];
+
+        Ok(ScalarFnArray::try_new(scalar_fn, args)?.into_array())
+    }
+
+    #[test]
+    fn scalar_fn_probe() -> VortexResult<()> {
+        let ctx = &mut array_session().create_execution_ctx();
+        let array = scalar_nested_add()?;
+        let mut probe = array.probe();
+
+        assert!(!probe.execute_is_valid(0, ctx)?);
+        assert!(probe.execute_scalar(0, ctx)?.is_null());
+        assert!(probe.execute_is_valid(9, ctx)?);
+        assert_eq!(probe.execute_scalar(9, ctx)?, Scalar::from(Some(162i64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn scalar_fn_repeated_probe() -> VortexResult<()> {
+        let ctx = &mut array_session().create_execution_ctx();
+        let array = scalar_nested_add()?;
+        let mut probe = array.repeated_probe();
+
+        assert!(!probe.execute_is_valid(0, ctx)?);
+        assert!(probe.execute_scalar(0, ctx)?.is_null());
+        assert!(probe.execute_is_valid(9, ctx)?);
+        assert_eq!(probe.execute_scalar(9, ctx)?, Scalar::from(Some(162i64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn scalar_fn_all_valid() -> VortexResult<()> {
+        let ctx = &mut array_session().create_execution_ctx();
+        let array = scalar_nested_add()?;
+        assert!(!array.all_valid(ctx)?);
+        assert!(!array.all_invalid(ctx)?);
+        assert_eq!(array.valid_count(ctx)?, 7);
+        assert_eq!(array.invalid_count(ctx)?, 3);
         Ok(())
     }
 }

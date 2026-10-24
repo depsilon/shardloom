@@ -14,7 +14,7 @@ use vortex::{
     array::{
         ArrayRef, Columnar, IntoArray as _, VortexSessionExecute as _,
         dtype::{DType, Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
     file::{OpenOptionsSessionExt as _, VortexFile, WriteOptionsSessionExt as _},
     io::runtime::BlockingRuntime as _,
@@ -699,7 +699,7 @@ fn run_query(
     let session_prepare_ns = preparation.elapsed().as_nanos();
     let mut report = resident.with_native_session(|session, runtime| {
         let open_started = Instant::now();
-        let reader = ObservedFileReadAt::new(&artifact.path, session.allocator(), runtime.handle(),
+        let reader = ObservedFileReadAt::new(&artifact.path, session.host_allocator(), runtime.handle(),
             ReadObservationLimits { max_read_bytes: 32 * 1024 * 1024,
                 max_attempted_bytes: 256 * MIB, max_requests: 4096, max_in_flight: 32 }).unwrap();
         let file = runtime.block_on(session.open_options().open_read(reader.clone())).unwrap();
@@ -872,7 +872,7 @@ fn text_layout_filesystem_reads_and_lifecycle_are_exact_and_bounded() {
             "query_records": records.len() * queries().len(),
             "writer_background_cpu_drivers": 1, "writer_cpu_drivers_including_caller": 2,
             "query_requested_cpu_parallelism": 2,
-            "native_version": "0.85.0", "intended_validation_feature": "release-user-surfaces",
+            "native_version": "0.90.0", "intended_validation_feature": "release-user-surfaces",
             "release_user_surfaces_enabled": cfg!(feature = "release-user-surfaces"),
             "host_os": std::env::consts::OS, "host_arch": std::env::consts::ARCH,
             "available_parallelism": std::thread::available_parallelism().unwrap().get(),

@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use shardloom_exec::live_memory::Budgeted;
 use std::time::Duration;
 use vortex::{
-    array::memory::MemorySessionExt as _,
+    array::memory::HostMemorySessionExt as _,
     expr::{get_item, gt_eq, lit, root, select},
 };
 
@@ -169,7 +169,7 @@ fn consumers(
         let open = Instant::now();
         let observer = ObservedFileReadAt::new(
             path,
-            memory.session.allocator(),
+            memory.session.host_allocator(),
             context.runtime.handle(),
             ReadObservationLimits {
                 max_read_bytes: 16 << 20,

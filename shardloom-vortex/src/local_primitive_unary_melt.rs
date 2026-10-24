@@ -247,7 +247,7 @@ fn native_melt(
         arrays::{ChunkedArray, StructArray},
         builtins::ArrayBuiltins as _,
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     };
     let rows = selected.len();
@@ -266,7 +266,7 @@ fn native_melt(
     columns.values.push(result_batch::build_column(
         &DType::Utf8(Nullability::NonNullable),
         rows,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -309,13 +309,18 @@ fn native_melt(
         })?;
         take_column(&array, &indices, dtype, context)?
     } else {
-        result_batch::build_column(dtype, rows, &context.native_session().allocator(), |row| {
-            if row.is_multiple_of(1024) {
-                context.check_cancelled()?;
-            }
-            let (source, value) = selected[row];
-            super::values::common_value(batch.value(compiled.values[value], source)?, dtype)
-        })?
+        result_batch::build_column(
+            dtype,
+            rows,
+            &context.native_session().host_allocator(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                let (source, value) = selected[row];
+                super::values::common_value(batch.value(compiled.values[value], source)?, dtype)
+            },
+        )?
     };
     columns.values.push(value);
     let (columns, _ownership) = columns.into_parts();

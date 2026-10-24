@@ -41,6 +41,9 @@ fn scalar_values() -> Vec<ArrayRef> {
         PrimitiveArray::from_iter([0u64]).into_array(),
         PrimitiveArray::from_iter([2u64]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

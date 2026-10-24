@@ -144,7 +144,7 @@ fn native_zstd_metadata_selected_table_uses_only_selected_capacity_and_refunds_d
     let memory = LiveMemoryPool::new(bytes).unwrap();
     let consumer = session(&memory);
     let selected = data
-        .select_frames_in(&[0, 7], &consumer.allocator())
+        .select_frames_in(&[0, 7], &consumer.host_allocator())
         .unwrap();
     assert_eq!(
         u64::try_from(selected.metadata_capacity_bytes().unwrap()).unwrap(),
@@ -154,7 +154,7 @@ fn native_zstd_metadata_selected_table_uses_only_selected_capacity_and_refunds_d
     assert_ne!(selected.frame_metadata().as_ptr(), original);
     assert_eq!(memory.snapshot().reserved_bytes, bytes);
     let error = data
-        .select_frames_in(&[0], &consumer.allocator())
+        .select_frames_in(&[0], &consumer.host_allocator())
         .unwrap_err();
     assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
     assert_eq!(memory.snapshot().reserved_bytes, bytes);
@@ -171,7 +171,7 @@ fn native_zstd_metadata_selected_table_uses_only_selected_capacity_and_refunds_d
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     for indices in [&[][..], &[7, 0], &[0, 0], &[8], &[usize::MAX]] {
         assert!(
-            data.select_frames_in(indices, &consumer.allocator())
+            data.select_frames_in(indices, &consumer.host_allocator())
                 .is_err()
         );
         assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -193,7 +193,7 @@ fn native_zstd_metadata_buffer_replacement_uses_the_explicit_receiving_allocator
     let error = Zstd::with_buffers_in(
         input.as_::<Zstd>(),
         &input.buffer_handles(),
-        &session(&denied).allocator(),
+        &session(&denied).host_allocator(),
     )
     .err()
     .unwrap();
@@ -203,7 +203,7 @@ fn native_zstd_metadata_buffer_replacement_uses_the_explicit_receiving_allocator
     let parts = Zstd::with_buffers_in(
         input.as_::<Zstd>(),
         &input.buffer_handles(),
-        &session(&receiving).allocator(),
+        &session(&receiving).host_allocator(),
     )
     .unwrap();
     let output = ZstdArray::try_from_parts(parts).unwrap().into_array();

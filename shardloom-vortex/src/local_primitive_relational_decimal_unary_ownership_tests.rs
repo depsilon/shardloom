@@ -1,7 +1,7 @@
 use super::*;
 use crate::local_primitives::prepared_unary::BoundUnary;
 use crate::resident_session::NativeExecutionContext;
-use vortex::array::{arrays::DictArray, memory::MemorySessionExt as _};
+use vortex::array::{arrays::DictArray, memory::HostMemorySessionExt as _};
 
 fn request_for(kind: Kind) -> VortexQueryPrimitiveRequest {
     if kind == Kind::PivotRows {
@@ -29,7 +29,7 @@ fn dictionary(context: &NativeExecutionContext<'_>) -> ArrayRef {
     let values = result_batch::build_column(
         &DType::Decimal(DecimalDType::new(38, 2), Nullability::NonNullable),
         131_076,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             Ok(result_batch::Value::Decimal(
                 if row < 4 {

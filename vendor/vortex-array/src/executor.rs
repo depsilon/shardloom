@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: expose the admitted fallible host allocator to providers.
 
 //! Iterative array execution.
 //!
@@ -12,11 +13,13 @@
 //! See <https://docs.vortex.dev/developer-guide/internals/execution> for the full execution
 //! narrative, diagrams, and walkthroughs.
 
+use std::any::TypeId;
 use std::env::VarError;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::OnceLock;
 #[cfg(debug_assertions)]
 use std::sync::atomic::AtomicUsize;
 #[cfg(debug_assertions)]
@@ -25,26 +28,26 @@ use std::sync::atomic::Ordering;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_panic;
 use vortex_session::VortexSession;
 
 use crate::AnyCanonical;
 use crate::ArrayRef;
-use crate::Canonical;
 use crate::IntoArray;
+use crate::aggregate_fn::session::AggregateFnSessionExt;
+use crate::aggregate_fn::session::AggregateKernels;
 use crate::array::ArrayId;
 use crate::builders::ArrayBuilder;
 use crate::builders::builder_with_capacity_in;
 use crate::dtype::DType;
 use crate::matcher::Matcher;
-use crate::memory::HostAllocatorRef;
+use crate::memory::BufferAllocatorRef;
 use crate::memory::MemorySessionExt;
 use crate::optimizer::ArrayOptimizer;
 use crate::optimizer::kernels::ArrayKernelsExt;
 use crate::optimizer::kernels::ParentExecutionKernels;
 use crate::optimizer::kernels::execute_parent_key;
-use crate::stats::ArrayStats;
 use crate::stats::StatsSet;
 use crate::trace_op;
 
@@ -165,7 +168,10 @@ impl ArrayRef {
     /// parent rewrite would observe inconsistent state and could discard accumulated builder
     /// data.
     #[allow(clippy::cognitive_complexity)]
-    pub fn execute_until<M: Matcher>(self, ctx: &mut ExecutionCtx) -> VortexResult<ArrayRef> {
+    pub fn execute_until<M: Matcher + 'static>(
+        self,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<ArrayRef> {
         let mut current_array = self;
         let mut current_builder: Option<Box<dyn ArrayBuilder>> = None;
         let mut stack: Vec<StackFrame> = Vec::new();
@@ -185,12 +191,13 @@ impl ArrayRef {
                 current_builder.is_some(),
             ));
 
-            let is_done = stack
-                .last()
-                .map_or(M::matches as DonePredicate, |frame| frame.done);
-
-            let done_target = is_done(&current_array);
-            let done_canonical = AnyCanonical::matches(&current_array);
+            let (done_target, done_canonical) = match stack.last() {
+                None => root_done_check::<M>(&current_array),
+                Some(frame) => (
+                    (frame.done)(&current_array),
+                    AnyCanonical::matches(&current_array),
+                ),
+            };
             trace_op!(record_execute_until_done_check(done_target, done_canonical));
 
             if done_target || done_canonical {
@@ -267,7 +274,7 @@ impl ArrayRef {
 
             let expected_len = current_array.len();
             let expected_dtype = current_array.dtype().clone();
-            let stats = current_array.statistics().to_array_stats();
+            let stats = current_array.statistics().to_owned();
             let encoding_id = current_array.encoding_id();
             trace_op!(record_execute_encoding(&current_array));
             let result = current_array.execute_encoding_unchecked(ctx)?;
@@ -292,9 +299,9 @@ impl ArrayRef {
                     if current_builder.is_none() {
                         trace_op!(record_builder_start(&array));
                         current_builder = Some(builder_with_capacity_in(
-                            ctx.allocator(),
                             array.dtype(),
                             array.len(),
+                            ctx.allocator(),
                         ));
                     }
                     let (parent, child) = unsafe { array.take_slot_unchecked(i) }?;
@@ -350,7 +357,11 @@ struct StackFrame {
 #[derive(Debug, Clone)]
 pub struct ExecutionCtx {
     session: VortexSession,
+    // OnceLock avoids cloning the session allocator when a context does not allocate.
+    allocator: OnceLock<BufferAllocatorRef>,
     execute_parent_kernels: Arc<ParentExecutionKernels>,
+    // OnceLock avoids snapshotting the aggregate kernels when a context does not aggregate.
+    aggregate_kernels: OnceLock<AggregateKernels>,
     #[cfg(debug_assertions)]
     id: usize,
     #[cfg(debug_assertions)]
@@ -367,7 +378,9 @@ impl ExecutionCtx {
         let execute_parent_kernels = session.kernels().execute_parent_snapshot();
         Self {
             session,
+            allocator: OnceLock::new(),
             execute_parent_kernels,
+            aggregate_kernels: OnceLock::new(),
             #[cfg(debug_assertions)]
             id: {
                 static EXEC_CTX_ID: AtomicUsize = AtomicUsize::new(0);
@@ -383,9 +396,31 @@ impl ExecutionCtx {
         &self.session
     }
 
-    /// Get the session-scoped host allocator for this execution context.
-    pub fn allocator(&self) -> HostAllocatorRef {
-        self.session.allocator()
+    /// Get the allocator for this execution context.
+    pub fn allocator(&self) -> &BufferAllocatorRef {
+        self.allocator.get_or_init(|| self.session.allocator())
+    }
+
+    /// Fallible host allocation for the admitted native provider boundaries.
+    /// Separate from upstream builders whose allocation failures abort.
+    pub fn host_allocator(&self) -> crate::memory::HostAllocatorRef {
+        use crate::memory::HostMemorySessionExt as _;
+        self.session.host_allocator()
+    }
+
+    /// Get the aggregate kernels for this execution context.
+    ///
+    /// The session's aggregate kernel registries are snapshotted on first use. Kernels registered
+    /// after that are not visible to this context.
+    pub(crate) fn aggregate_kernels(&self) -> &AggregateKernels {
+        self.aggregate_kernels
+            .get_or_init(|| self.session.aggregate_fns().kernels_snapshot())
+    }
+
+    /// Set the allocator for this execution context.
+    pub fn with_allocator(mut self, allocator: BufferAllocatorRef) -> Self {
+        self.allocator = OnceLock::from(allocator);
+        self
     }
 
     /// Log an execution step at the current depth.
@@ -452,10 +487,9 @@ impl Executable for ArrayRef {
     fn execute(array: ArrayRef, ctx: &mut ExecutionCtx) -> VortexResult<Self> {
         trace_op!(record_single_step_start(&array));
 
-        if let Some(canonical) = array.as_opt::<AnyCanonical>() {
-            let output = Canonical::from(canonical).into_array();
-            trace_op!(record_single_step_applied("canonical", &array, &output));
-            return Ok(output);
+        if array.is::<AnyCanonical>() {
+            trace_op!(record_single_step_applied("canonical", &array, &array));
+            return Ok(array);
         }
         trace_op!(record_single_step_phase_none("canonical", &array));
 
@@ -469,6 +503,14 @@ impl Executable for ArrayRef {
         for (slot_idx, slot) in array.slots().iter().enumerate() {
             let Some(child) = slot else { continue };
             if let Some(reduced_parent) = child.reduce_parent(&array, slot_idx)? {
+                log_parent_rewrite(
+                    ctx,
+                    "reduce_parent",
+                    slot_idx,
+                    &array,
+                    child,
+                    &reduced_parent,
+                );
                 reduced_parent.statistics().inherit_from(array.statistics());
                 trace_op!(record_single_step_applied(
                     "reduce_parent",
@@ -493,13 +535,6 @@ impl Executable for ArrayRef {
                 kernels,
                 ctx,
             )? {
-                ctx.log(format_args!(
-                    "execute_parent: slot[{}]({}) rewrote {} -> {}",
-                    slot_idx,
-                    child.encoding_id(),
-                    array,
-                    executed_parent
-                ));
                 executed_parent
                     .statistics()
                     .inherit_from(array.statistics());
@@ -531,7 +566,7 @@ impl Executable for ArrayRef {
             ExecutionStep::AppendChild(_) => {
                 // Single-step: build the entire parent via the builder path.
                 trace_op!(record_builder_start(&array));
-                let builder = builder_with_capacity_in(ctx.allocator(), array.dtype(), array.len());
+                let builder = builder_with_capacity_in(array.dtype(), array.len(), ctx.allocator());
                 let mut builder = execute_into_builder(array, builder, ctx)?;
                 let output = builder.finish();
                 trace_op!(record_builder_finish(&output));
@@ -558,6 +593,16 @@ pub fn execute_into_builder(
     Ok(builder)
 }
 
+/// Returns `(matches M, is canonical)`, scanning once when `M` is [`AnyCanonical`].
+#[inline]
+fn root_done_check<M: Matcher + 'static>(array: &ArrayRef) -> (bool, bool) {
+    if TypeId::of::<M>() == TypeId::of::<AnyCanonical>() {
+        let canonical = AnyCanonical::matches(array);
+        return (canonical, canonical);
+    }
+    (M::matches(array), AnyCanonical::matches(array))
+}
+
 /// Pop a stack frame, restoring the parent with the finished child in its slot.
 fn pop_frame(
     frame: StackFrame,
@@ -582,7 +627,7 @@ fn finalize_done(
     mut builder: Option<Box<dyn ArrayBuilder>>,
     expected_len: usize,
     expected_dtype: DType,
-    stats: ArrayStats,
+    stats: StatsSet,
     encoding_id: ArrayId,
 ) -> VortexResult<(ArrayRef, Option<Box<dyn ArrayBuilder>>)> {
     let output = if let Some(mut builder) = builder.take() {
@@ -592,26 +637,26 @@ fn finalize_done(
     };
 
     if cfg!(debug_assertions) {
-        vortex_ensure!(
-            output.len() == expected_len,
+        vortex_ensure_eq!(
+            output.len(),
+            expected_len,
             "Result length mismatch for {:?}",
             encoding_id
         );
-        vortex_ensure!(
-            output.dtype() == &expected_dtype,
+        vortex_ensure_eq!(
+            output.dtype(),
+            &expected_dtype,
             "Executed canonical dtype mismatch for {:?}",
             encoding_id
         );
     }
 
-    output
-        .statistics()
-        .set_iter(StatsSet::from(stats).into_iter());
+    output.statistics().set_iter(stats.into_iter());
     Ok((output, None))
 }
 
 fn execute_parent_for_child(
-    _phase: &'static str,
+    phase: &'static str,
     parent: &ArrayRef,
     child: &ArrayRef,
     slot_idx: usize,
@@ -624,17 +669,20 @@ fn execute_parent_for_child(
         for (_plugin_idx, plugin) in plugins.as_ref().iter().enumerate() {
             if let Some(result) = plugin.execute_parent(child, parent, slot_idx, ctx)? {
                 if cfg!(debug_assertions) {
-                    vortex_ensure!(
-                        result.len() == parent.len(),
+                    vortex_ensure_eq!(
+                        result.len(),
+                        parent.len(),
                         "Executed parent canonical length mismatch"
                     );
-                    vortex_ensure!(
-                        result.dtype() == parent.dtype(),
+                    vortex_ensure_eq!(
+                        result.dtype(),
+                        parent.dtype(),
                         "Executed parent canonical dtype mismatch"
                     );
                 }
+                log_parent_rewrite(ctx, phase, slot_idx, parent, child, &result);
                 trace_op!(record_session_execute_parent_applied(
-                    _phase,
+                    phase,
                     parent,
                     child,
                     slot_idx,
@@ -644,7 +692,7 @@ fn execute_parent_for_child(
                 return Ok(Some(result));
             }
             trace_op!(record_session_execute_parent_declined(
-                _phase,
+                phase,
                 parent,
                 child,
                 slot_idx,
@@ -654,6 +702,21 @@ fn execute_parent_for_child(
     }
 
     Ok(None)
+}
+
+/// Log a parent rewrite to the execution log.
+fn log_parent_rewrite(
+    ctx: &mut ExecutionCtx,
+    phase: &'static str,
+    slot_idx: usize,
+    parent: &ArrayRef,
+    child: &ArrayRef,
+    output: &ArrayRef,
+) {
+    ctx.log(format_args!(
+        "{phase}: slot[{slot_idx}]({}) rewrote {parent} -> {output}",
+        child.encoding_id(),
+    ));
 }
 
 /// Try execute_parent on each occupied slot of the array.
@@ -667,13 +730,6 @@ fn try_execute_parent(
         if let Some(executed_parent) =
             execute_parent_for_child("child_execute_parent", array, child, slot_idx, kernels, ctx)?
         {
-            ctx.log(format_args!(
-                "execute_parent: slot[{}]({}) rewrote {} -> {}",
-                slot_idx,
-                child.encoding_id(),
-                array,
-                executed_parent
-            ));
             executed_parent
                 .statistics()
                 .inherit_from(array.statistics());
@@ -926,6 +982,8 @@ impl VortexSessionExecute for VortexSession {
 
 #[cfg(test)]
 mod tests {
+    use static_assertions::assert_impl_all;
+    use vortex_session::SessionExt;
     use vortex_session::VortexSession;
 
     use super::*;
@@ -933,9 +991,14 @@ mod tests {
     use crate::VortexSessionExecute;
     use crate::arrays::Bool;
     use crate::arrays::Primitive;
+    use crate::memory::BufferAllocatorRef;
+    use crate::memory::MemorySession;
+    use crate::memory::MemorySessionExt;
     use crate::optimizer::kernels::ExecuteParentFn;
     use crate::optimizer::kernels::KernelSession;
     use crate::optimizer::kernels::execute_parent_key;
+
+    assert_impl_all!(ExecutionCtx: Send, Sync);
 
     fn noop_execute_parent(
         _child: &ArrayRef,
@@ -973,5 +1036,28 @@ mod tests {
 
         let after_registration = session.create_execution_ctx();
         assert!(after_registration.execute_parent_kernels.contains_key(&key));
+    }
+
+    #[test]
+    fn execution_ctx_allocator_override() {
+        let first = BufferAllocatorRef::new(vortex_buffer::StaticBufferAllocator);
+        let second = BufferAllocatorRef::new(vortex_buffer::StaticBufferAllocator);
+        let third = BufferAllocatorRef::new(vortex_buffer::StaticBufferAllocator);
+        let session = VortexSession::empty()
+            .with::<MemorySession>()
+            .with_allocator(first.clone());
+        let ctx = session.create_execution_ctx();
+
+        session
+            .get_mut::<MemorySession>()
+            .set_allocator(third.clone());
+
+        assert!(session.allocator().ptr_eq(&third));
+        assert!(ctx.allocator().ptr_eq(&third));
+
+        let ctx = ctx.with_allocator(second.clone());
+        session.get_mut::<MemorySession>().set_allocator(first);
+
+        assert!(ctx.allocator().ptr_eq(&second));
     }
 }

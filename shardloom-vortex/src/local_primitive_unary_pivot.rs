@@ -758,7 +758,7 @@ impl ResidentCompletedPivot {
         count: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
-        use vortex::array::memory::MemorySessionExt as _;
+        use vortex::array::memory::HostMemorySessionExt as _;
         let mut arrays = ReservedVec::new(context.memory())?;
         arrays.reserve(self.fields.len())?;
         for (column, (_, dtype)) in self.fields.iter().enumerate() {
@@ -771,7 +771,7 @@ impl ResidentCompletedPivot {
                 super::super::result_batch::build_column(
                     dtype,
                     count,
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         context.check_cancelled()?;
                         self.value(compiled, projection, offset + row, column)

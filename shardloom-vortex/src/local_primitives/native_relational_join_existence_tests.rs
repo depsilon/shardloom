@@ -20,7 +20,7 @@ fn keyed(keys: ArrayRef, ids: impl IntoIterator<Item = u32>) -> ArrayRef {
 fn check_case(left: &ArrayRef, right: &[ArrayRef], expected_semi: &[u64], unique: usize) {
     for kind in [Kind::LeftSemi, Kind::LeftAnti] {
         let ids = logical_field_from_native_array(left, "id").unwrap();
-        let mut execution = vortex::array::legacy_session().create_execution_ctx();
+        let mut execution = vortex::array::array_session().create_execution_ctx();
         let expected = (0..left.len())
             .map(
                 |row| match result_batch::scalar_value(&ids, row, &mut execution).unwrap() {
@@ -245,15 +245,13 @@ fn existence_membership_denial_and_cancellation_release_state() {
 fn existence_membership_rejects_malformed_domains_and_observed_dictionary_codes() {
     let binary = VarBinArray::from(vec![&b"good"[..], &b"\xff"[..]]);
     let slots = binary.slots().iter().cloned().collect();
-    let malformed = VarBinArray::try_from_parts(
-        ArrayParts::new(
-            VarBin,
-            DType::Utf8(Nullability::NonNullable),
-            2,
-            binary.into_data(),
-        )
-        .with_slots(slots),
-    )
+    let malformed = VarBinArray::try_from_parts(ArrayParts::new(
+        VarBin,
+        DType::Utf8(Nullability::NonNullable),
+        2,
+        binary.into_data(),
+        slots,
+    ))
     .unwrap()
     .into_array();
     for (codes, domain) in [

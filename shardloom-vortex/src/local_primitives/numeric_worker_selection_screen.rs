@@ -318,8 +318,8 @@ fn small_count_automatic_selection_preserves_boundaries_encodings_and_nulls() {
 
 #[test]
 fn small_count_selection_preserves_nullable_parent_semantics() {
-    // Vortex 0.85's file statistics writer rejects nullable root structs. Check
-    // this logical source contract directly against native arrays instead.
+    // Check the logical nullable-parent contract directly against native
+    // arrays, independently of persisted file-statistics production.
     let values: Vec<u64> = (0..513).map(|i| i % 5).collect();
     let columns = vec!["alias_key".to_owned()];
     let request = VortexSimpleAggregateRequest::grouped(
@@ -363,7 +363,7 @@ fn small_count_selection_preserves_nullable_parent_semantics() {
             false,
             false,
             policy.resource_envelope(),
-            Some(vortex::array::legacy_session()),
+            Some(&vortex::array::array_session()),
         )
         .unwrap();
         assert!(
@@ -382,7 +382,7 @@ fn small_count_selection_preserves_nullable_parent_semantics() {
             &columns,
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap();

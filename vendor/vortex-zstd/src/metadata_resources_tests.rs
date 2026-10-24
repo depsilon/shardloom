@@ -2,7 +2,7 @@
 // ShardLoom regression tests for admitted native frame tables.
 
 use super::*;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use vortex_array::memory::{DefaultHostAllocator, HostAllocator, WritableHostBuffer};
 use vortex_buffer::Alignment;
 
@@ -26,7 +26,7 @@ struct Credit {
 
 impl Drop for Credit {
     fn drop(&mut self) {
-        self.counts.lock().unwrap().live -= self.bytes;
+        self.counts.lock().live -= self.bytes;
     }
 }
 
@@ -36,7 +36,7 @@ impl HostAllocator for Allocator {
     }
 
     fn reserve_external(&self, bytes: usize) -> VortexResult<HostMemoryReservation> {
-        let mut counts = self.counts.lock().unwrap();
+        let mut counts = self.counts.lock();
         counts.requests.push(bytes);
         let live = counts
             .live
@@ -78,14 +78,14 @@ fn frame_table_admission_is_exact_and_shared_until_the_last_owner() {
     assert_eq!(storage.metadata.frames.capacity(), 7);
     let retained = Arc::clone(&storage);
     drop(storage);
-    assert_eq!(counts.lock().unwrap().live, bytes);
-    assert_eq!(counts.lock().unwrap().requests, vec![bytes]);
+    assert_eq!(counts.lock().live, bytes);
+    assert_eq!(counts.lock().requests, vec![bytes]);
     assert!(FrameStorage::new_in(1, &allocator).is_err());
-    assert_eq!(counts.lock().unwrap().peak, bytes);
+    assert_eq!(counts.lock().peak, bytes);
     drop(retained);
-    assert_eq!(counts.lock().unwrap().live, 0);
+    assert_eq!(counts.lock().live, 0);
     drop(FrameStorage::new_in(7, &allocator).unwrap());
-    assert_eq!(counts.lock().unwrap().live, 0);
+    assert_eq!(counts.lock().live, 0);
 }
 
 #[test]
@@ -94,13 +94,13 @@ fn frame_table_denial_empty_and_overflow_do_not_allocate_a_table() {
     let (allocator, counts) = allocator(bytes - 1);
     let error = FrameStorage::new_in(1, &allocator).unwrap_err();
     assert!(error.to_string().contains("denied metadata reservation"));
-    assert_eq!(counts.lock().unwrap().peak, 0);
-    assert_eq!(counts.lock().unwrap().requests, vec![bytes]);
+    assert_eq!(counts.lock().peak, 0);
+    assert_eq!(counts.lock().requests, vec![bytes]);
     let empty = FrameStorage::new_in(0, &allocator).unwrap();
     assert_eq!(empty.frames.capacity(), 0);
     assert_eq!(empty.metadata.frames.capacity(), 0);
     assert!(FrameStorage::new_in(usize::MAX, &allocator).is_err());
-    assert_eq!(counts.lock().unwrap().requests, vec![bytes]);
+    assert_eq!(counts.lock().requests, vec![bytes]);
 }
 
 #[test]
@@ -144,11 +144,11 @@ fn frame_metadata_wire_scan_preserves_prost_unknown_and_repeated_field_semantics
         assert_eq!(storage.frames.capacity(), 2);
         assert_eq!(storage.metadata.frames.capacity(), 2);
         assert_eq!(
-            counts.lock().unwrap().requests,
+            counts.lock().requests,
             vec![capacity_bytes(2).unwrap()]
         );
         drop(storage);
-        assert_eq!(counts.lock().unwrap().live, 0);
+        assert_eq!(counts.lock().live, 0);
     }
 }
 
@@ -169,13 +169,13 @@ fn frame_metadata_rejects_top_level_wire_errors_before_reservation() {
     for bytes in malformed {
         assert!(ZstdMetadata::decode(*bytes).is_err());
         assert!(FrameStorage::deserialize(bytes, &[], &allocator).is_err());
-        assert!(counts.lock().unwrap().requests.is_empty());
+        assert!(counts.lock().requests.is_empty());
     }
     // Prost's bounded group recursion must apply to the preallocation scan too.
     let mut deep = vec![0x53; 150];
     deep.extend([0x54; 150]);
     assert!(FrameStorage::deserialize(&deep, &[], &allocator).is_err());
-    assert!(counts.lock().unwrap().requests.is_empty());
+    assert!(counts.lock().requests.is_empty());
 }
 
 #[test]
@@ -191,18 +191,18 @@ fn frame_metadata_rejects_buffer_count_before_reservation_and_refunds_nested_err
     let (allocator, counts) = allocator(capacity_bytes(1).unwrap());
     for count in [0, 1, 3] {
         assert!(FrameStorage::deserialize(&metadata, &buffers(count), &allocator).is_err());
-        assert!(counts.lock().unwrap().requests.is_empty());
+        assert!(counts.lock().requests.is_empty());
     }
     // Top-level frame count is valid, but the nested frame has an invalid tag.
     assert!(FrameStorage::deserialize(&[0x12, 1, 0], &buffers(1), &allocator).is_err());
     assert_eq!(
-        counts.lock().unwrap().requests,
+        counts.lock().requests,
         vec![capacity_bytes(1).unwrap()]
     );
-    assert_eq!(counts.lock().unwrap().live, 0);
+    assert_eq!(counts.lock().live, 0);
     // A valid parse still works after failure and releases the same credit.
     drop(FrameStorage::deserialize(&metadata, &buffers(2), &allocator).unwrap());
-    assert_eq!(counts.lock().unwrap().live, 0);
+    assert_eq!(counts.lock().live, 0);
 }
 
 #[test]
@@ -212,8 +212,8 @@ fn frame_metadata_reservation_precedes_prost_message_construction() {
     let error = FrameStorage::deserialize(&bytes, &buffers(4096), &allocator).unwrap_err();
     assert!(error.to_string().contains("denied metadata reservation"));
     assert_eq!(
-        counts.lock().unwrap().requests,
+        counts.lock().requests,
         vec![capacity_bytes(4096).unwrap()]
     );
-    assert_eq!(counts.lock().unwrap().peak, 0);
+    assert_eq!(counts.lock().peak, 0);
 }

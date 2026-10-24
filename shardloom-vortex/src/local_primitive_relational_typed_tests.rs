@@ -315,6 +315,9 @@ fn native_typed_payload_nested_gather_preserves_null_parent_and_leaf_types() {
         PrimitiveArray::from_iter([0u64, 2, 2, 3]).into_array(),
         PrimitiveArray::from_iter([2u64, 0, 1, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -375,6 +378,9 @@ fn native_typed_payload_explode_fields_preserve_values_and_empty_schema() {
         PrimitiveArray::from_iter([0u64, 2, 2, 3]).into_array(),
         PrimitiveArray::from_iter([2u64, 0, 1, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

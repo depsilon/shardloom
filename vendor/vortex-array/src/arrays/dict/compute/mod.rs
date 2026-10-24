@@ -32,11 +32,13 @@ impl TakeExecute for Dict {
         _ctx: &mut ExecutionCtx,
     ) -> VortexResult<Option<ArrayRef>> {
         let codes = array.codes().take(indices.clone())?;
-        // SAFETY: selecting codes doesn't change the invariants of DictArray
-        // Preserve all_values_referenced since taking codes doesn't affect which values are referenced
-        Ok(Some(unsafe {
-            DictArray::new_unchecked(codes, array.values().clone()).into_array()
-        }))
+
+        // SAFETY: Selection preserves the integer code type and non-null code bounds, so every code
+        // indexes the unchanged values. `new_unchecked` resets `all_values_referenced` because
+        // selection can remove a value's last reference.
+        let taken = unsafe { DictArray::new_unchecked(codes, array.values().clone()) };
+
+        Ok(Some(taken.into_array()))
     }
 }
 
@@ -44,11 +46,12 @@ impl FilterReduce for Dict {
     fn filter(array: ArrayView<'_, Dict>, mask: &Mask) -> VortexResult<Option<ArrayRef>> {
         let codes = array.codes().filter(mask.clone())?;
 
-        // SAFETY: filtering codes doesn't change invariants
-        // Preserve all_values_referenced since filtering codes doesn't affect which values are referenced
-        Ok(Some(unsafe {
-            DictArray::new_unchecked(codes, array.values().clone()).into_array()
-        }))
+        // SAFETY: Selection preserves the integer code type and non-null code bounds, so every code
+        // indexes the unchanged values. `new_unchecked` resets `all_values_referenced` because
+        // selection can remove a value's last reference.
+        let filtered = unsafe { DictArray::new_unchecked(codes, array.values().clone()) };
+
+        Ok(Some(filtered.into_array()))
     }
 }
 
@@ -97,14 +100,10 @@ mod test {
             &mut SESSION.create_execution_ctx(),
         )
         .unwrap();
-        let actual = dict
-            .into_array()
-            .execute::<PrimitiveArray>(&mut SESSION.create_execution_ctx())
-            .unwrap();
 
         let expected = PrimitiveArray::from_option_iter(values);
 
-        assert_arrays_eq!(actual, expected, &mut ctx);
+        assert_arrays_eq!(dict, expected, &mut ctx);
     }
 
     #[test]
@@ -120,11 +119,7 @@ mod test {
         .unwrap()
         .into_array();
 
-        let actual = dict
-            .execute::<PrimitiveArray>(&mut SESSION.create_execution_ctx())
-            .unwrap();
-
-        assert_arrays_eq!(actual, expected, &mut ctx);
+        assert_arrays_eq!(dict, expected, &mut ctx);
     }
 
     #[test]
@@ -140,11 +135,7 @@ mod test {
         .unwrap()
         .into_array();
 
-        let actual = dict
-            .execute::<PrimitiveArray>(&mut SESSION.create_execution_ctx())
-            .unwrap();
-
-        assert_arrays_eq!(actual, expected, &mut ctx);
+        assert_arrays_eq!(dict, expected, &mut ctx);
     }
 
     #[test]
@@ -286,12 +277,14 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(
-            array
-                .take(PrimitiveArray::from_option_iter([Option::<i32>::None]).into_array())
-                .unwrap()
-                .dtype(),
-            &DType::Primitive(I32, Nullability::Nullable)
+        let taken = array
+            .take(PrimitiveArray::from_option_iter([None::<i32>]).into_array())
+            .unwrap();
+        assert_eq!(taken.dtype(), &DType::Primitive(I32, Nullability::Nullable));
+        assert_arrays_eq!(
+            taken,
+            PrimitiveArray::from_option_iter([None::<i32>]),
+            &mut SESSION.create_execution_ctx()
         );
     }
 

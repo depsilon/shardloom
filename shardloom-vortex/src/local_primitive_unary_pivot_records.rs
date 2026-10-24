@@ -19,7 +19,7 @@ use std::borrow::Cow;
 use vortex::array::{
     ArrayRef,
     dtype::{DType, Nullability},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 const STATE_BYTES: usize = 80;
@@ -108,7 +108,7 @@ impl Schema {
                 result_batch::build_column(
                     dtype,
                     values.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         context.check_cancelled()?;
                         let (key, entry) = values[row];

@@ -1020,9 +1020,11 @@ mod native {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use vortex::array::arrays::VarBinArray;
+        use vortex::array::{VortexSessionExecute as _, arrays::VarBinArray};
 
         fn text_array(rows: &[(String, u64)]) -> vortex::array::ArrayRef {
+            let session = VortexSession::default();
+            let mut ctx = session.create_execution_ctx();
             let mut offsets = vec![0_u64];
             let mut bytes = Vec::new();
             for (key, _) in rows {
@@ -1037,6 +1039,7 @@ mod native {
                         bytes.into(),
                         DType::Utf8(Nullability::NonNullable),
                         Validity::NonNullable,
+                        &mut ctx,
                     )
                     .unwrap()
                     .into_array(),

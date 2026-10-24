@@ -2,7 +2,7 @@ use super::*;
 use crate::local_primitives::{prepared_unary::BoundUnary, result_batch};
 use crate::query_primitive::{VortexDuplicateKeepPolicy as Keep, VortexQueryPrimitiveKind as Kind};
 use std::borrow::Cow;
-use vortex::array::memory::MemorySessionExt as _;
+use vortex::array::memory::HostMemorySessionExt as _;
 
 fn hidden_children_fixture() -> (ArrayRef, DType) {
     use vortex::array::arrays::ConstantArray;
@@ -11,6 +11,9 @@ fn hidden_children_fixture() -> (ArrayRef, DType) {
         PrimitiveArray::from_iter([0u64, 0]).into_array(),
         PrimitiveArray::from_iter([1_000_000u64, 0]).into_array(),
         Validity::from_iter([false, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -19,6 +22,9 @@ fn hidden_children_fixture() -> (ArrayRef, DType) {
         PrimitiveArray::from_iter([0u64, 1]).into_array(),
         PrimitiveArray::from_iter([1u64, 0]).into_array(),
         Validity::AllValid,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -123,7 +129,7 @@ fn large_nested(context: &crate::resident_session::NativeExecutionContext<'_>) -
     let values = result_batch::build_column(
         &DType::Binary(Nullability::NonNullable),
         2,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             Ok(result_batch::Value::Binary(Cow::Borrowed(if row == 0 {
                 &huge
@@ -138,6 +144,9 @@ fn large_nested(context: &crate::resident_session::NativeExecutionContext<'_>) -
         PrimitiveArray::from_iter([1u64, 1, 1]).into_array(),
         PrimitiveArray::from_iter([1u64, 1, 1]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

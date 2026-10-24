@@ -93,12 +93,14 @@ impl<D: NativeDecimalType> PrecisionScale<D> {
     }
 
     /// The precision is the number of significant figures that the decimal tracks.
+    #[allow(clippy::inline_always)]
     #[inline(always)]
     pub fn precision(&self) -> u8 {
         self.precision.get()
     }
 
     /// The scale is the maximum number of digits relative to the decimal point.
+    #[allow(clippy::inline_always)]
     #[inline(always)]
     pub fn scale(&self) -> i8 {
         self.scale
@@ -142,6 +144,8 @@ mod tests {
         assert!(prec.is_valid(99));
         assert!(prec.is_valid(-9));
         assert!(prec.is_valid(0));
-        assert!(prec.is_valid(-99))
+        assert!(prec.is_valid(-99));
+        assert!(!prec.is_valid(100));
+        assert!(!prec.is_valid(-100));
     }
 }

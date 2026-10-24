@@ -560,7 +560,7 @@ fn pure_predicate_blocks_keep_output_credits_through_clones_and_release_partial_
             crate::local_primitives::result_batch::build_column(
                 &DType::Primitive(PType::I64, Nullability::Nullable),
                 4097,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |row| Ok(Value::Int(i64::try_from(row).unwrap())),
             )
         })

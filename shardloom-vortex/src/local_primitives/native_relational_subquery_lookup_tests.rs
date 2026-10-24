@@ -16,7 +16,7 @@ use vortex::array::{
     ArrayRef, IntoArray as _,
     arrays::{PrimitiveArray, StructArray},
     dtype::FieldNames,
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
 
@@ -100,7 +100,7 @@ fn subquery_membership_hash_collisions_preserve_exact_groups_and_nullable_row_tr
                 columns.values.push(result_batch::build_column(
                     &private::u64_type().as_nullable(),
                     41,
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         Ok(if source.hash(row, false)?.is_some() {
                             Value::UInt(full_hash)

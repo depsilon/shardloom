@@ -55,7 +55,7 @@ fn chunk_jobs_count_all_keys_at_each_worker_count_without_losing_global_winner()
             jobs.submit(64, move |worker, lease| {
                 run_count(
                     array,
-                    vortex::array::legacy_session().create_execution_ctx(),
+                    vortex::array::array_session().create_execution_ctx(),
                     worker,
                     lease,
                 )
@@ -105,7 +105,7 @@ fn native_dictionary_codes_remain_bound_to_own_values_and_unused_values_are_abse
         let mut lease = memory.reserve(64).unwrap();
         let partial = run_count(
             array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &worker,
             &mut lease,
         )
@@ -136,7 +136,7 @@ fn all_unique_keys_and_hash_bucket_collisions_preserve_exact_string_equality() {
     let mut lease = memory.reserve(0).unwrap();
     let partial = run_count(
         strings(&refs),
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )
@@ -171,7 +171,7 @@ fn duplicate_unicode_keys_with_same_bucket_keep_complete_byte_equality() {
     let refs = rows.map(String::as_str);
     let partial = run_count(
         strings(&refs),
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )
@@ -208,9 +208,9 @@ fn malformed_utf8_is_rejected_before_counting_and_binary_is_not_reinterpreted() 
             binary.data_buffers().iter().cloned(),
             DType::Utf8(Nullability::NonNullable),
             Validity::NonNullable,
-            &vortex::array::legacy_session()
+            &vortex::array::array_session()
                 .create_execution_ctx()
-                .allocator(),
+                .host_allocator(),
         )
         .unwrap_err();
         assert!(error.to_string().contains("utf-8 validation"));
@@ -218,7 +218,7 @@ fn malformed_utf8_is_rejected_before_counting_and_binary_is_not_reinterpreted() 
         let mut lease = memory.reserve(0).unwrap();
         let error = run_count(
             binary.into_array(),
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(CancellationToken::default()),
             &mut lease,
         )
@@ -241,7 +241,7 @@ fn nullable_admission_pressure_and_cancellation_fail_without_retained_state() {
     assert!(
         run_count(
             nullable,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &worker,
             &mut lease
         )
@@ -253,7 +253,7 @@ fn nullable_admission_pressure_and_cancellation_fail_without_retained_state() {
     assert!(
         run_count(
             strings(&["a", "b", "c", "d", "e"]),
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &worker,
             &mut lease
         )
@@ -265,7 +265,7 @@ fn nullable_admission_pressure_and_cancellation_fail_without_retained_state() {
     assert!(
         run_count(
             strings(&["a"]),
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(cancelled),
             &mut lease
         )
@@ -292,7 +292,7 @@ fn ordered_partial_merge_preserves_global_counts_across_native_pressure_transiti
             false,
             true,
             VortexLocalPrimitiveResourceEnvelope::new(24, 4).unwrap(),
-            Some(vortex::array::legacy_session()),
+            Some(&vortex::array::array_session()),
         )
         .unwrap();
         states
@@ -312,7 +312,7 @@ fn ordered_partial_merge_preserves_global_counts_across_native_pressure_transiti
             let mut lease = memory.reserve(0).unwrap();
             let partial = run_count(
                 strings(&rows),
-                vortex::array::legacy_session().create_execution_ctx(),
+                vortex::array::array_session().create_execution_ctx(),
                 &ChunkWorkerContext::Inline(CancellationToken::default()),
                 &mut lease,
             )
@@ -357,7 +357,7 @@ fn worker_pressure_sketch_cannot_hide_a_winner_outside_every_local_top_one() {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 4).unwrap(),
-        Some(vortex::array::legacy_session()),
+        Some(&vortex::array::array_session()),
     )
     .unwrap();
     states
@@ -376,7 +376,7 @@ fn worker_pressure_sketch_cannot_hide_a_winner_outside_every_local_top_one() {
         let mut lease = memory.reserve(partial_bytes(array).unwrap()).unwrap();
         let partial = super::count_string_chunk(
             array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(CancellationToken::default()),
             &mut lease,
         )
@@ -416,7 +416,7 @@ fn worker_pressure_sketch_cannot_hide_a_winner_outside_every_local_top_one() {
             &columns,
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap();
@@ -445,7 +445,7 @@ fn ordered_partial_merge_checks_global_count_overflow_and_invalidates_reducer() 
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 4).unwrap(),
-        Some(vortex::array::legacy_session()),
+        Some(&vortex::array::array_session()),
     )
     .unwrap();
     states
@@ -461,7 +461,7 @@ fn ordered_partial_merge_checks_global_count_overflow_and_invalidates_reducer() 
     let mut lease = memory.reserve(0).unwrap();
     let partial = run_count(
         strings(&["tea", "tea"]),
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )
@@ -503,7 +503,7 @@ fn ordinary_string_reducer_preserves_first_key_order_and_constant_dependent_colu
             jobs.submit(64, move |context, lease| {
                 let mut partial = run_count(
                     array,
-                    vortex::array::legacy_session().create_execution_ctx(),
+                    vortex::array::array_session().create_execution_ctx(),
                     context,
                     lease,
                 )?;
@@ -544,7 +544,7 @@ fn native_constant_strings_keep_one_value_and_count_without_row_expansion() {
     let mut lease = memory.reserve(0).unwrap();
     let partial = run_count(
         ConstantArray::new("東京", 1_000_000_000).into_array(),
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )
@@ -571,7 +571,7 @@ fn queued_string_tables_are_reserved_before_worker_execution_and_stay_with_outpu
     jobs.submit(64 + admitted, move |context, lease| {
         super::count_string_chunk(
             &array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             context,
             lease,
         )
@@ -595,7 +595,7 @@ fn queued_string_tables_are_reserved_before_worker_execution_and_stay_with_outpu
     let mut missing = memory.reserve(0).unwrap();
     let error = super::count_string_chunk(
         &strings(&["tea"]),
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut missing,
     )
@@ -634,7 +634,7 @@ fn bounded_native_counts_reserve_compact_slots_and_keep_exact_ownership() {
         let mut lease = memory.reserve(admitted).unwrap();
         let partial = count_string_chunk(
             &array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(CancellationToken::default()),
             &mut lease,
         )
@@ -673,7 +673,7 @@ fn compact_and_wide_count_kernels_preserve_partitions_and_first_key_order() {
         let mut wide_lease = memory.reserve(compact_bytes / 16 * 24).unwrap();
         let mut compact = count_string_chunk(
             &array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &worker,
             &mut compact_lease,
         )
@@ -682,7 +682,7 @@ fn compact_and_wide_count_kernels_preserve_partitions_and_first_key_order() {
         // constants below separately prove public selection of the wide path.
         let mut wide = count_with_word::<u64>(
             &array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &worker,
             &mut wide_lease,
             &mut super::super::vortex_error,
@@ -735,7 +735,7 @@ fn large_native_constant_counts_cross_u32_boundary_without_row_expansion() {
         let mut lease = memory.reserve(expected_bytes).unwrap();
         let mut partial = count_string_chunk(
             &array,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(CancellationToken::default()),
             &mut lease,
         )
@@ -796,7 +796,7 @@ fn resolved_dictionary_width_growth_is_denied_before_value_expansion() {
     let mut lease = memory.reserve(initial + 64).unwrap();
     let outcome = count_admitted(
         &projected,
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )

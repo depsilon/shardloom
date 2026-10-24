@@ -50,7 +50,7 @@ impl ZipKernel for ListView {
         };
 
         // Null mask entries select `if_false`, matching `Zip`'s SQL ELSE semantics.
-        let mask = mask.clone().null_as_false().execute(ctx)?;
+        let mask = mask.clone().fill_null(false)?.execute::<Mask>(ctx)?;
         match &mask {
             // Defer the trivial masks to the generic zip, which just casts one side.
             Mask::AllTrue(_) | Mask::AllFalse(_) => return Ok(None),
@@ -159,6 +159,7 @@ impl ZipKernel for ListView {
                 offsets.freeze().into_array(),
                 sizes.freeze().into_array(),
                 validity,
+                ctx,
             )?
             .into_array(),
         ))
@@ -265,7 +266,8 @@ mod tests {
         sizes: ArrayRef,
         validity: Validity,
     ) -> ArrayRef {
-        ListViewArray::try_new(elements, offsets, sizes, validity)
+        let mut ctx = array_session().create_execution_ctx();
+        ListViewArray::try_new(elements, offsets, sizes, validity, &mut ctx)
             .unwrap()
             .into_array()
     }
@@ -330,10 +332,7 @@ mod tests {
         // true -> if_true, false -> if_false
         let mask = Mask::from_iter([false, true, true]);
 
-        let result = mask
-            .into_array()
-            .zip(if_true, if_false)?
-            .execute::<ArrayRef>(&mut ctx)?;
+        let result = mask.into_array().zip(if_true, if_false)?;
 
         // Row 0 -> if_false[0] = [10]; row 1 -> if_true[1] = null; row 2 -> if_true[2] = [2]
         let expected = list_view(

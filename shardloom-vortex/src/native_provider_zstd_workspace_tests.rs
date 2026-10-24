@@ -18,7 +18,10 @@ impl HostAllocator for RecordingAllocator {
     }
 
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
-        self.requests.lock().unwrap().push((len, *alignment));
+        self.requests
+            .lock()
+            .unwrap()
+            .push((len, alignment.as_usize()));
         self.inner.allocate(len, alignment)
     }
 }
@@ -28,7 +31,7 @@ fn recorded_session(memory: &LiveMemoryPool) -> (VortexSession, Arc<RecordingAll
         inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         requests: Mutex::new(vec![]),
     });
-    let session = VortexSession::default().with_allocator(allocator.clone());
+    let session = VortexSession::default().with_host_allocator(allocator.clone());
     install(&session, memory.clone());
     (session, allocator)
 }

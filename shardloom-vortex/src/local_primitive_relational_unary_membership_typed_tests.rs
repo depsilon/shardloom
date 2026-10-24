@@ -101,6 +101,9 @@ pub(in crate::local_primitives) fn typed_source(dictionary: bool) -> (ArrayRef, 
         PrimitiveArray::from_option_iter([Some(7_i16), None, Some(7), None, None]).into_array(),
         PrimitiveArray::from_iter([0_u64, 2, 2, 4, 4, 4, 5]).into_array(),
         Validity::from_iter([true, true, true, false, true, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .into_array();
     let required_fixed = fixed_values(Validity::NonNullable);

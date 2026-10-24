@@ -66,6 +66,9 @@ fn fixture(profile: Values) -> ArrayRef {
         fixed,
         PrimitiveArray::from_iter([0_u32, 1, 2, 3, 4, 5]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .into_array();
     let nested = StructArray::new(

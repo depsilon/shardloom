@@ -13,13 +13,13 @@ use vortex::{
         },
         buffer::DeviceBuffer,
         dtype::Nullability,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
     buffer::{Buffer, ByteBuffer},
 };
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    VortexSession::default().with_allocator(Arc::new(
+    VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ))
 }
@@ -151,7 +151,10 @@ impl DeviceBuffer for UnreadableDevice {
         Arc::new(Self(range.end - range.start))
     }
     fn aligned(self: Arc<Self>, alignment: Alignment) -> VortexResult<Arc<dyn DeviceBuffer>> {
-        vortex_ensure!(*alignment <= 256, "test device alignment exceeded");
+        vortex_ensure!(
+            alignment.as_usize() <= 256,
+            "test device alignment exceeded"
+        );
         Ok(self)
     }
 }
@@ -204,7 +207,7 @@ fn native_varbin_device_host_replacement_validates_newly_accessible_values() {
         std::iter::once(device.clone()),
         DType::Utf8(Nullability::NonNullable),
         Validity::NonNullable,
-        &session.allocator(),
+        &session.host_allocator(),
     )
     .unwrap();
     let table = memory.snapshot().reserved_bytes;

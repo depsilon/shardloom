@@ -21,7 +21,7 @@ fn sparse_dictionary_handoff_preserves_rows_and_bounds_both_consumers() {
     let accessor = aggregate_direct_utf8_dictionary_accessor(
         &chunk,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
         ),
     )
     .unwrap()
@@ -80,7 +80,7 @@ fn sparse_dictionary_handoff_selects_encoded_values_before_canonicalization() {
         .map(|i| format!("https://example.test/path/{i}"))
         .collect::<Vec<_>>();
     let values = VarBinViewArray::from_iter_str(&strings).into_array();
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let compressor = fsst_train_compressor(&values, &mut ctx).unwrap();
     let encoded = fsst_compress(&values, &compressor, &mut ctx)
         .unwrap()
@@ -89,7 +89,7 @@ fn sparse_dictionary_handoff_selects_encoded_values_before_canonicalization() {
     let accessor = aggregate_direct_utf8_dictionary_accessor(
         &chunk,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
         ),
     )
     .unwrap()
@@ -118,7 +118,7 @@ fn sparse_dictionary_handoff_handles_empty_all_null_and_invalid_codes() {
         let accessor = aggregate_direct_utf8_dictionary_accessor(
             &chunk,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap()

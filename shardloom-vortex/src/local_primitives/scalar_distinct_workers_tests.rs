@@ -271,9 +271,9 @@ fn scalar_distinct_workers_reject_malformed_text_before_admission_and_ignore_unu
         binary.data_buffers().iter().cloned(),
         DType::Utf8(Nullability::NonNullable),
         Validity::NonNullable,
-        &vortex::array::legacy_session()
+        &vortex::array::array_session()
             .create_execution_ctx()
-            .allocator(),
+            .host_allocator(),
     )
     .unwrap_err();
     assert!(error.to_string().contains("utf-8 validation"));

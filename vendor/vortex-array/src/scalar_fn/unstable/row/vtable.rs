@@ -10,7 +10,7 @@
 
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure_eq;
-use vortex_mask::Mask;
+use vortex_mask::MaskValuesRef;
 use vortex_session::VortexSession;
 
 use super::batch::BorrowedRowFnArgs;
@@ -18,18 +18,22 @@ use super::batch::RowFnExecutionArgs;
 use super::batch::finalize_kernel_output;
 use super::row_fn::RowFn;
 use super::visitor::BatchPlanner;
+use super::visitor::ExecuteDenseWithRetry;
+use super::visitor::ExecuteFilteredRows;
 use super::visitor::ExecuteRows;
 use super::visitor::ExecuteValidRows;
 use crate::ArrayRef;
 use crate::ExecutionCtx;
 use crate::dtype::DType;
-use crate::expr::Expression;
-use crate::expr::union_child_validities;
 use crate::scalar_fn::Arity;
 use crate::scalar_fn::ChildName;
 use crate::scalar_fn::ExecutionArgs;
+use crate::scalar_fn::ReduceNode;
+use crate::scalar_fn::ReduceNodeValidity;
 use crate::scalar_fn::ScalarFnId;
 use crate::scalar_fn::ScalarFnVTable;
+use crate::scalar_fn::union_child_validities;
+use crate::scalar_fn::unstable::row::execute::DenseAttempt;
 
 impl<F: RowFn> ScalarFnVTable for F {
     type Options = F::Options;
@@ -67,12 +71,12 @@ impl<F: RowFn> ScalarFnVTable for F {
         execute_rows(self, options, args, ctx)
     }
 
-    fn validity(
+    fn validity<T: ReduceNode>(
         &self,
         _options: &Self::Options,
-        expression: &Expression,
-    ) -> VortexResult<Option<Expression>> {
-        union_child_validities(expression)
+        node: &T,
+    ) -> VortexResult<ReduceNodeValidity<T>> {
+        Ok(ReduceNodeValidity::Reduced(union_child_validities(node)?))
     }
 
     // `RowFn` is stricter than `ScalarFnVTable::is_strict`: its kernel cannot produce null from
@@ -94,7 +98,7 @@ pub fn row_fn_return_dtype<F: RowFn>(
 ) -> VortexResult<DType> {
     ensure_arity(function, args.len())?;
 
-    let plan = function.dispatch(options, args, BatchPlanner::<F>::new(args, options))?;
+    let plan = function.dispatch(options, args, BatchPlanner::<F>::new(args))?;
 
     Ok(plan.result_dtype(args))
 }
@@ -122,7 +126,9 @@ pub fn execute_rows<F: RowFn>(
     let batch = prepare_batch(function, options, args)?;
     batch.execute(
         |args, ctx| execute_row_kernel(function, options, args, ctx),
+        |args, ctx| execute_dense_attempt(function, options, args, ctx),
         |args, valid, ctx| try_execute_valid_rows(function, options, args, valid, ctx),
+        |args, valid, ctx| execute_filtered_rows(function, options, args, valid, ctx),
         ctx,
     )
 }
@@ -134,11 +140,13 @@ fn execute_nullary_rows<F: RowFn>(
     row_count: usize,
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<ArrayRef> {
-    let plan = function.dispatch(options, &[], BatchPlanner::<F>::new(&[], options))?;
+    let plan = function.dispatch(options, &[], BatchPlanner::<F>::new(&[]))?;
     let result_dtype = plan.result_dtype(&[]);
-    let args = BorrowedRowFnArgs::new(&[], row_count, &[], &plan.output_dtype, plan.policy);
+    let args = BorrowedRowFnArgs::new(&[], row_count, &[], &plan);
 
-    let values = execute_row_kernel(function, options, args, ctx)?;
+    // A nullary function has no input validity to propagate, so its kernel output is the finished
+    // column and this path labels it directly.
+    let values = plan.relabel_output(execute_row_kernel(function, options, args, ctx)?)?;
 
     finalize_kernel_output(RowFn::id(function), &result_dtype, row_count, values, ctx)
 }
@@ -148,7 +156,7 @@ fn ensure_arity<F: RowFn>(function: &F, actual: usize) -> VortexResult<()> {
     vortex_ensure_eq!(
         actual,
         expected,
-        "row function {} requires arity {expected}, got {actual}",
+        "row function {} has the wrong arity",
         RowFn::id(function),
     );
 
@@ -164,14 +172,20 @@ fn execute_row_kernel<F: RowFn>(
     function.dispatch(
         options,
         args.dtypes(),
-        ExecuteRows::<F>::new(
-            &args,
-            args.dtypes(),
-            options,
-            args.output_dtype(),
-            args.policy(),
-            ctx,
-        ),
+        ExecuteRows::<F>::new(&args, args.dtypes(), args.plan(), ctx),
+    )
+}
+
+fn execute_dense_attempt<F: RowFn>(
+    function: &F,
+    options: &F::Options,
+    args: BorrowedRowFnArgs<'_>,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<DenseAttempt> {
+    function.dispatch(
+        options,
+        args.dtypes(),
+        ExecuteDenseWithRetry::<F>::new(&args, ctx),
     )
 }
 
@@ -179,21 +193,28 @@ fn try_execute_valid_rows<F: RowFn>(
     function: &F,
     options: &F::Options,
     args: BorrowedRowFnArgs<'_>,
-    valid: &Mask,
+    valid: MaskValuesRef,
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<Option<ArrayRef>> {
     function.dispatch(
         options,
         args.dtypes(),
-        ExecuteValidRows::<F>::new(
-            &args,
-            args.dtypes(),
-            options,
-            args.output_dtype(),
-            args.policy(),
-            valid,
-            ctx,
-        ),
+        ExecuteValidRows::<F>::new(&args, args.dtypes(), args.plan(), valid, ctx),
+    )
+}
+
+/// Execute valid rows over `args` filtered to the valid row domain of `valid`.
+fn execute_filtered_rows<F: RowFn>(
+    function: &F,
+    options: &F::Options,
+    args: BorrowedRowFnArgs<'_>,
+    valid: MaskValuesRef,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<ArrayRef> {
+    function.dispatch(
+        options,
+        args.dtypes(),
+        ExecuteFilteredRows::<F>::new(&args, args.dtypes(), args.plan(), valid, ctx),
     )
 }
 
@@ -203,11 +224,7 @@ fn prepare_batch<F: RowFn>(
     args: &dyn ExecutionArgs,
 ) -> VortexResult<RowFnExecutionArgs> {
     RowFnExecutionArgs::new(RowFn::id(function), args, |arg_dtypes| {
-        function.dispatch(
-            options,
-            arg_dtypes,
-            BatchPlanner::<F>::new(arg_dtypes, options),
-        )
+        function.dispatch(options, arg_dtypes, BatchPlanner::<F>::new(arg_dtypes))
     })
 }
 
@@ -266,7 +283,7 @@ mod tests {
             *ID
         }
 
-        fn dispatch<V: RowVisitor<Self::Options>>(
+        fn dispatch<V: RowVisitor>(
             &self,
             _options: &Self::Options,
             _args: &[DType],
@@ -288,7 +305,7 @@ mod tests {
             *ID
         }
 
-        fn dispatch<V: RowVisitor<Self::Options>>(
+        fn dispatch<V: RowVisitor>(
             &self,
             _options: &Self::Options,
             args: &[DType],
@@ -311,7 +328,7 @@ mod tests {
             *ID
         }
 
-        fn dispatch<V: RowVisitor<Self::Options>>(
+        fn dispatch<V: RowVisitor>(
             &self,
             _options: &Self::Options,
             _args: &[DType],
@@ -382,7 +399,7 @@ mod tests {
             "unexpected error: {error}",
         );
         assert!(
-            message.contains("planned Dense, got ValidOnly"),
+            message.contains("planned Dense, got DenseWithRetry"),
             "unexpected error: {error}",
         );
         Ok(())
@@ -404,7 +421,9 @@ mod tests {
         };
 
         assert!(
-            error.to_string().contains("expected a u64 column"),
+            error
+                .to_string()
+                .contains("row input column has the wrong ptype"),
             "unexpected error: {error}",
         );
         Ok(())
@@ -413,7 +432,7 @@ mod tests {
     #[track_caller]
     fn assert_arity_error(error: VortexError) {
         assert!(
-            error.to_string().contains("requires arity 1, got 0"),
+            error.to_string().contains("has the wrong arity"),
             "unexpected error: {error}",
         );
     }

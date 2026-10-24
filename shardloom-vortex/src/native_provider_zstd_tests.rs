@@ -23,7 +23,7 @@ use vortex::{
         builders::VarBinViewBuilder,
         builtins::ArrayBuiltins as _,
         dtype::{Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         serde::{SerializeOptions, SerializedArray},
     },
     buffer::ByteBufferMut,
@@ -32,7 +32,7 @@ use vortex::{
 };
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     install(&session, memory.clone());
@@ -407,7 +407,11 @@ fn native_zstd_direct_append_uses_the_same_payload_admission() {
     let values = [Some("native append long value"), None, Some("λ")];
     let input = strings(&VarBinViewArray::from_iter_nullable_str(values));
     let denied = LiveMemoryPool::new(1).unwrap();
-    let mut builder = VarBinViewBuilder::with_capacity(input.dtype().clone(), input.len());
+    let mut builder = VarBinViewBuilder::with_capacity_in(
+        input.dtype().clone(),
+        input.len(),
+        vortex::buffer::BufferAllocatorRef::statically_allocated(),
+    );
     let error = input
         .append_to_builder(&mut builder, &mut session(&denied).create_execution_ctx())
         .unwrap_err();

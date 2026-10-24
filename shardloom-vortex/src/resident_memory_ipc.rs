@@ -7,18 +7,19 @@ use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{Result, ShardLoomError};
 use vortex::{
     array::{
-        ArrayId, ArrayRef, IntoArray as _,
+        ArrayDeserialization, ArrayId, ArrayRef, IntoArray as _,
         arrays::dict::DictArraySlotsExt as _,
         arrays::{Dict, DictArray},
         buffer::BufferHandle,
         dtype::DType,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         serde::ArrayChildren,
         session::ArraySessionExt as _,
     },
     buffer::{Alignment, ByteBuffer},
     error::{VortexResult, vortex_err},
-    flatbuffers::{array as fa, dtype as fd, message as fm},
+    flatbuffers::{array as fa, dtype as fd},
+    ipc::flatbuffers::message as fm,
 };
 
 #[path = "resident_memory_ipc_schema.rs"]
@@ -41,7 +42,7 @@ const MAX_NODES: usize = 4096;
 const MAX_DEPTH: usize = 24;
 
 impl super::ResidentMemorySource {
-    /// Copy one Vortex 0.85 native IPC record into the receiving resource owner.
+    /// Copy one Vortex 0.90 native IPC record into the receiving resource owner.
     /// Both inputs are complete framed messages from the pinned public encoder;
     /// their combined transport is bounded to 64 MiB. Encodings are checked
     /// against a closed provider registry, and wire statistics are discarded.
@@ -268,8 +269,7 @@ fn copy_bytes(
     context.check_cancelled()?;
     let mut output = context
         .native_session()
-        .memory()
-        .allocator()
+        .host_allocator()
         .allocate(bytes.len(), alignment)
         .map_err(native_error)?;
     for (source, target) in bytes
@@ -434,11 +434,7 @@ impl Decoder<'_, '_, '_> {
         };
         let metadata = node.metadata().map_or(&[][..], |bytes| bytes.bytes());
         let mut array = plugin.deserialize(
-            dtype,
-            len,
-            metadata,
-            &buffers,
-            &children,
+            ArrayDeserialization::new(id, dtype, len, metadata, &buffers, &children),
             self.context.native_session(),
         )?;
         if children.cache.borrow().iter().any(Option::is_none) {

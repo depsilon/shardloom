@@ -10,6 +10,8 @@ use crate::arrays::Constant;
 use crate::scalar::Scalar;
 
 impl OperationsVTable<Constant> for Constant {
+    type ProbeState = ();
+
     fn scalar_at(
         array: ArrayView<'_, Constant>,
         _index: usize,
@@ -52,12 +54,16 @@ mod tests {
         let array = ConstantArray::new(scalar.clone(), 3).into_array();
         let mut ctx = crate::array_session().create_execution_ctx();
 
-        assert_eq!(array.execute_scalar(1, &mut ctx)?, scalar);
+        let actual = array.execute_scalar(1, &mut ctx)?;
+        assert_eq!(actual.dtype(), scalar.dtype());
+        assert_eq!(actual, scalar);
 
         let null = Scalar::null(DType::Union(variants, Nullability::Nullable));
         let array = ConstantArray::new(null.clone(), 3).into_array();
 
-        assert_eq!(array.execute_scalar(1, &mut ctx)?, null);
+        let actual = array.execute_scalar(1, &mut ctx)?;
+        assert_eq!(actual.dtype(), null.dtype());
+        assert_eq!(actual, null);
 
         Ok(())
     }

@@ -266,7 +266,7 @@ fn read_complete(path: &Path) -> (DType, Vec<serde_json::Value>) {
             &chunk,
             &names,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap();
@@ -786,7 +786,7 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
 }
 
 #[test]
-fn false_filter_sink_writes_typed_empty_output_without_data_arrays() {
+fn false_filter_sink_writes_typed_empty_output_without_scanning_data() {
     let fixture = Fixture::new();
     let source = fixture.source(37);
     let request = VortexQueryPrimitiveRequest::filter_and_project(
@@ -795,20 +795,19 @@ fn false_filter_sink_writes_typed_empty_output_without_data_arrays() {
         ProjectionRequest::columns(vec![ColumnRef::new("destination").unwrap()]),
     );
     let output = fixture.0.join("empty.vortex");
-    let report = try_execute(
-        &request,
-        &source,
-        &output,
-        false,
-        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
-            .expect("explicit fixture allocation"),
-    )
-    .unwrap()
-    .unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
+    let prepared = prepare(&request, &source, policy).unwrap().unwrap();
+    // The 0.90 pruning expression proves the constant-false predicate before
+    // scanning. Keep that stronger metadata-only behavior in the evidence.
+    assert!(prepared.metadata_pruned);
+    let report = prepared.write(&request, &output, false, policy).unwrap();
     assert_eq!(report.rows_written, 0);
-    assert!(report.evidence.upstream_scan_called);
+    assert!(!report.evidence.upstream_scan_called);
     assert_eq!(report.arrays_read_count, 0);
     assert!(!report.evidence.side_effects.data_read);
+    assert!(!report.evidence.side_effects.data_decoded);
+    assert!(!report.evidence.side_effects.data_materialized);
     assert!(report.evidence.side_effects.write_io);
     let (dtype, rows) = read_complete(&output);
     let DType::Struct(fields, _) = dtype else {

@@ -14,6 +14,8 @@ use crate::optimizer::ArrayOptimizer;
 use crate::scalar::Scalar;
 
 impl OperationsVTable<Patched> for Patched {
+    type ProbeState = ();
+
     fn scalar_at(
         array: ArrayView<'_, Patched>,
         index: usize,
@@ -29,7 +31,7 @@ impl OperationsVTable<Patched> for Patched {
 
         let lane = (index + array.offset()) % array.n_lanes();
 
-        let range = array.lane_range(chunk, lane)?;
+        let range = array.lane_range(chunk, lane, ctx)?;
 
         // Get the range of indices corresponding to the lane, potentially decoding them to avoid
         // the overhead of repeated scalar_at calls.
@@ -71,6 +73,7 @@ mod tests {
 
     #[test]
     fn test_simple() {
+        let mut ctx = array_session().create_execution_ctx();
         let values = buffer![0u16; 1024].into_array();
         let patches = Patches::new(
             1024,
@@ -78,6 +81,7 @@ mod tests {
             buffer![1u32, 2, 3].into_array(),
             buffer![1u16; 3].into_array(),
             None,
+            &mut ctx,
         )
         .unwrap();
 
@@ -116,6 +120,7 @@ mod tests {
 
     #[test]
     fn test_multi_chunk() {
+        let mut ctx = array_session().create_execution_ctx();
         let values = buffer![0u16; 4096].into_array();
         let patches = Patches::new(
             4096,
@@ -123,6 +128,7 @@ mod tests {
             buffer![1u32, 2, 3].into_array(),
             buffer![1u16; 3].into_array(),
             None,
+            &mut ctx,
         )
         .unwrap();
 
@@ -148,6 +154,7 @@ mod tests {
 
     #[test]
     fn test_multi_chunk_sliced() {
+        let mut ctx = array_session().create_execution_ctx();
         let values = buffer![0u16; 4096].into_array();
         let patches = Patches::new(
             4096,
@@ -155,6 +162,7 @@ mod tests {
             buffer![1u32, 2, 3].into_array(),
             buffer![1u16; 3].into_array(),
             None,
+            &mut ctx,
         )
         .unwrap();
 

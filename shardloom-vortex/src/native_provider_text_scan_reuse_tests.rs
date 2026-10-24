@@ -13,7 +13,9 @@ use vortex::{
             struct_::StructArrayExt as _, varbinview::BinaryView,
         },
         dtype::Nullability,
-        memory::{HostAllocator, HostMemoryReservation, MemorySessionExt as _, WritableHostBuffer},
+        memory::{
+            HostAllocator, HostMemoryReservation, HostMemorySessionExt as _, WritableHostBuffer,
+        },
         validity::Validity,
     },
     buffer::{Alignment, ByteBuffer},
@@ -123,18 +125,18 @@ fn reuse_columns(
             plan.filter
                 .as_ref()
                 .unwrap()
-                .optimize_recursive(file.dtype())
-                .unwrap()
                 .bind(file.dtype())
+                .unwrap()
+                .optimize_recursive()
                 .unwrap(),
         )
         .with_projection(
             plan.projection
                 .as_ref()
                 .unwrap()
-                .optimize_recursive(file.dtype())
-                .unwrap()
                 .bind(file.dtype())
+                .unwrap()
+                .optimize_recursive()
                 .unwrap(),
         ),
         stats,
@@ -162,7 +164,7 @@ fn consume(
     });
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default()
-        .with_allocator(recorder.clone())
+        .with_host_allocator(recorder.clone())
         .with_handle(runtime.handle());
     crate::native_provider_memory::install(&session, memory.clone());
     let file = session.open_options().open_buffer(bytes.clone()).unwrap();
@@ -174,17 +176,17 @@ fn consume(
     };
     scan = scan.with_projection(
         select(["text"], root())
-            .optimize_recursive(file.dtype())
-            .unwrap()
             .bind(file.dtype())
+            .unwrap()
+            .optimize_recursive()
             .unwrap(),
     );
     if filtered {
         scan = scan.with_filter(
             not_eq(col("text"), lit(""))
-                .optimize_recursive(file.dtype())
-                .unwrap()
                 .bind(file.dtype())
+                .unwrap()
+                .optimize_recursive()
                 .unwrap(),
         );
     }
@@ -270,7 +272,7 @@ fn native_text_scan_reuse_decodes_once_and_returns_all_projected_values() {
 fn session(memory: &LiveMemoryPool, runtime: &CurrentThreadRuntime) -> VortexSession {
     let session = VortexSession::default()
         .with_handle(runtime.handle())
-        .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+        .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
             memory.clone(),
         )));
     crate::native_provider_memory::install(&session, memory.clone());

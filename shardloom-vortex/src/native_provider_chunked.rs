@@ -102,7 +102,7 @@ fn decode(
     let mut builder = VarBinViewBuilder::with_admitted_buffers(
         array.dtype().clone(),
         array.len(),
-        &ctx.allocator(),
+        &ctx.host_allocator(),
     )?;
     append_leaves(array, &mut builder, ctx, memory)?;
     let output = builder.finish()?;

@@ -3,7 +3,7 @@ use crate::local_primitives::prepared_unary::BoundUnary;
 use std::borrow::Cow;
 use vortex::array::{
     arrays::{DictArray, FilterArray, MaskedArray, SliceArray},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 #[test]
@@ -34,6 +34,9 @@ fn typed_unary_lazy_field_wrappers_never_evaluate_unselected_struct_scalars() {
                     .apply_bound(&projection)
                     .unwrap(),
                 Validity::from_iter([true, false, true]),
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    &vortex::array::array_session(),
+                ),
             )
             .unwrap()
             .into_array(),
@@ -82,7 +85,7 @@ fn large_dictionary(context: &crate::resident_session::NativeExecutionContext<'_
     let values = result_batch::build_column(
         &DType::Binary(Nullability::NonNullable),
         2,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             Ok(result_batch::Value::Binary(Cow::Borrowed(if row == 0 {
                 &huge

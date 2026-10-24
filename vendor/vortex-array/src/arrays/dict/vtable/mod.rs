@@ -8,7 +8,7 @@ use prost::Message;
 use smallvec::smallvec;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_error::vortex_panic;
 use vortex_mask::AllOr;
@@ -104,13 +104,13 @@ impl VTable for Dict {
         let view = DictSlotsView::from_slots(slots);
         let codes = view.codes;
         let values = view.values;
-        vortex_ensure!(codes.len() == len, "DictArray codes length mismatch");
-        vortex_ensure!(
+        vortex_ensure_eq!(codes.len(), len, "DictArray codes length mismatch");
+        vortex_ensure_eq!(
             values
                 .dtype()
-                .union_nullability(codes.dtype().nullability())
-                == *dtype,
-            "DictArray dtype does not match codes/values dtype"
+                .union_nullability(codes.dtype().nullability()),
+            *dtype,
+            "DictArray dtype does not match codes/values dtype",
         );
         Ok(())
     }
@@ -182,10 +182,13 @@ impl VTable for Dict {
         let values = children.get(1, dtype, metadata.values_len as usize)?;
         let all_values_referenced = metadata.all_values_referenced.unwrap_or(false);
 
-        Ok(ArrayParts::new(self.clone(), dtype.clone(), len, unsafe {
-            DictData::new_unchecked().set_all_values_referenced(all_values_referenced)
-        })
-        .with_slots(smallvec![Some(codes), Some(values)]))
+        Ok(ArrayParts::new(
+            self.clone(),
+            dtype.clone(),
+            len,
+            unsafe { DictData::new_unchecked().set_all_values_referenced(all_values_referenced) },
+            smallvec![Some(codes), Some(values)],
+        ))
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {
@@ -370,7 +373,7 @@ mod tests {
                 .into_array(),
         )?;
 
-        let mut builder = VarBinBuilder::<i32>::new(DType::Utf8(Nullable));
+        let mut builder = VarBinBuilder::<i32>::new_in(DType::Utf8(Nullable), ctx.allocator());
         dict.append_to_builder(&mut builder, &mut ctx)?;
 
         let expected = VarBinViewArray::from_iter(
@@ -394,7 +397,11 @@ mod tests {
                 .into_array(),
         )?;
 
-        let mut builder = VarBinViewBuilder::with_capacity(DType::Utf8(Nullable), 8);
+        let mut builder = VarBinViewBuilder::with_capacity_in(
+            DType::Utf8(Nullable),
+            8,
+            vortex_buffer::BufferAllocatorRef::statically_allocated(),
+        );
         builder.append_value(LONG);
         dict.append_to_builder(&mut builder, &mut ctx)?;
 
@@ -430,7 +437,11 @@ mod tests {
             values.into_array(),
         )?;
 
-        let mut builder = VarBinViewBuilder::with_buffer_deduplication(DType::Utf8(Nullable), 8);
+        let mut builder = VarBinViewBuilder::with_buffer_deduplication_in(
+            DType::Utf8(Nullable),
+            8,
+            vortex_buffer::BufferAllocatorRef::statically_allocated(),
+        );
         first.append_to_builder(&mut builder, &mut ctx)?;
         second.append_to_builder(&mut builder, &mut ctx)?;
         assert_eq!(builder.completed_block_count(), 1);

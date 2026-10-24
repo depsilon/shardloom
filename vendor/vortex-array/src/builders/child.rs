@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
+use vortex_buffer::BufferAllocatorRef;
 use vortex_error::VortexResult;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 
 use crate::ArrayRef;
 use crate::ExecutionCtx;
 use crate::IntoArray;
 use crate::arrays::ChunkedArray;
 use crate::builders::ArrayBuilder;
-use crate::builders::builder_with_capacity;
+use crate::builders::builder_with_capacity_in;
 use crate::dtype::DType;
 use crate::scalar::Scalar;
 
@@ -18,7 +19,7 @@ use crate::scalar::Scalar;
 /// Nested builders receive values from two sources: individual [`Scalar`]s, which have to be
 /// materialized into a canonical builder, and whole arrays, whose encoding the builder has no
 /// reason to decode. A `ChildBuilder` keeps the latter as chunks and materializes only the former,
-/// stitching everything back together into a [`ChunkedArray`] on [`finish`](Self::finish) when
+/// stitching everything back together into a [`crate::arrays::ChunkedArray`] on [`finish`](Self::finish) when
 /// more than one chunk accumulated.
 ///
 /// This keeps canonical arrays canonical only at the top level, which is all that [`Canonical`]
@@ -41,13 +42,13 @@ pub struct ChildBuilder {
 }
 
 impl ChildBuilder {
-    /// Creates a new `ChildBuilder` whose scalar builder is pre-allocated for `capacity` values.
-    pub fn with_capacity(dtype: &DType, capacity: usize) -> Self {
+    /// Creates a child builder with the provided allocator and capacity.
+    pub fn with_capacity(dtype: &DType, capacity: usize, allocator: &BufferAllocatorRef) -> Self {
         Self {
             dtype: dtype.clone(),
             chunks: Vec::new(),
             chunks_len: 0,
-            pending: builder_with_capacity(dtype, capacity),
+            pending: builder_with_capacity_in(dtype, capacity, allocator),
         }
     }
 
@@ -73,11 +74,10 @@ impl ChildBuilder {
     /// nested builders forwarding their [`ExecutionCtx`] here do not have to explain why they
     /// don't.
     pub fn append_array(&mut self, array: &ArrayRef, _ctx: &mut ExecutionCtx) -> VortexResult<()> {
-        vortex_ensure!(
-            array.dtype() == &self.dtype,
-            "Cannot append an array of dtype {} to a child builder of dtype {}",
+        vortex_ensure_eq!(
             array.dtype(),
-            self.dtype,
+            &self.dtype,
+            "Cannot append an array to a child builder of a different dtype",
         );
 
         if array.is_empty() {
@@ -155,6 +155,7 @@ impl ChildBuilder {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use vortex_buffer::BufferAllocatorRef;
     use vortex_buffer::buffer;
     use vortex_error::VortexResult;
 
@@ -164,7 +165,6 @@ mod tests {
     use crate::VortexSessionExecute;
     use crate::array_session;
     use crate::arrays::Chunked;
-    use crate::arrays::ChunkedArray;
     use crate::arrays::Constant;
     use crate::arrays::ConstantArray;
     use crate::arrays::Primitive;
@@ -194,7 +194,8 @@ mod tests {
     #[test]
     fn test_appended_arrays_are_kept_as_chunks() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         builder.append_array(&constant(1, CHUNK_LEN), &mut ctx)?;
         builder.append_array(&constant(2, CHUNK_LEN), &mut ctx)?;
@@ -206,6 +207,10 @@ mod tests {
         // The chunks were never decoded.
         assert!(chunked.iter_chunks().all(|c| c.is::<Constant>()));
 
+        let expected: PrimitiveArray = std::iter::repeat_n(1i32, CHUNK_LEN)
+            .chain(std::iter::repeat_n(2i32, CHUNK_LEN))
+            .collect();
+        assert_arrays_eq!(child, expected, &mut ctx);
         Ok(())
     }
 
@@ -214,7 +219,8 @@ mod tests {
     #[test]
     fn test_short_arrays_are_kept_as_chunks_too() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         builder.append_array(&constant(1, 1), &mut ctx)?;
         builder.append_array(&constant(2, 1), &mut ctx)?;
@@ -225,13 +231,18 @@ mod tests {
         assert_eq!(chunked.nchunks(), 2);
         assert!(chunked.iter_chunks().all(|c| c.is::<Constant>()));
 
+        let expected: PrimitiveArray = std::iter::repeat_n(1i32, 1)
+            .chain(std::iter::repeat_n(2i32, 1))
+            .collect();
+        assert_arrays_eq!(child, expected, &mut ctx);
         Ok(())
     }
 
     #[test]
     fn test_scalars_interleaved_with_chunks_keep_their_order() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         builder.append_scalar(&1i32.into())?;
         builder.append_array(&constant(2, CHUNK_LEN), &mut ctx)?;
@@ -240,15 +251,11 @@ mod tests {
         let child = builder.finish();
         assert_eq!(child.len(), CHUNK_LEN + 2);
 
-        let expected = ChunkedArray::try_new(
-            vec![
-                buffer![1i32].into_array(),
-                constant(2, CHUNK_LEN),
-                buffer![3i32].into_array(),
-            ],
-            DType::from(I32),
-        )?
-        .into_array();
+        let expected: PrimitiveArray = [1i32]
+            .into_iter()
+            .chain(std::iter::repeat_n(2i32, CHUNK_LEN))
+            .chain([3i32])
+            .collect();
         assert_arrays_eq!(&child, &expected, &mut ctx);
 
         Ok(())
@@ -257,20 +264,24 @@ mod tests {
     #[test]
     fn test_single_chunk_is_not_wrapped() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         builder.append_array(&constant(7, CHUNK_LEN), &mut ctx)?;
 
         let child = builder.finish();
         assert!(child.is::<Constant>());
 
+        let expected: PrimitiveArray = std::iter::repeat_n(7i32, CHUNK_LEN).collect();
+        assert_arrays_eq!(child, expected, &mut ctx);
         Ok(())
     }
 
     #[test]
     fn test_empty_arrays_never_become_chunks() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
         let empty = constant(1, CHUNK_LEN).slice(0..0)?;
 
         builder.append_array(&empty, &mut ctx)?;
@@ -280,7 +291,12 @@ mod tests {
         builder.append_array(&empty, &mut ctx)?;
 
         assert_eq!(builder.len(), 2 * CHUNK_LEN);
-        assert_eq!(builder.finish().as_::<Chunked>().nchunks(), 2);
+        let child = builder.finish();
+        assert_eq!(child.as_::<Chunked>().nchunks(), 2);
+        let expected: PrimitiveArray = std::iter::repeat_n(1i32, CHUNK_LEN)
+            .chain(std::iter::repeat_n(2i32, CHUNK_LEN))
+            .collect();
+        assert_arrays_eq!(child, expected, &mut ctx);
 
         Ok(())
     }
@@ -289,12 +305,14 @@ mod tests {
     #[test]
     fn test_empty_child_finishes_without_chunks() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         builder.append_array(&constant(1, CHUNK_LEN).slice(0..0)?, &mut ctx)?;
 
         let child = builder.finish();
         assert!(child.is_empty());
+        assert_eq!(child.dtype(), &DType::from(I32));
         assert!(child.is::<Primitive>());
 
         Ok(())
@@ -307,7 +325,8 @@ mod tests {
     #[case::non_empty(CHUNK_LEN)]
     fn test_appending_a_mismatched_dtype_is_rejected(#[case] len: usize) {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         let wrong_dtype = ConstantArray::new(1i64, len).into_array();
         assert!(builder.append_array(&wrong_dtype, &mut ctx).is_err());
@@ -318,7 +337,7 @@ mod tests {
     fn test_zeros_and_nulls_around_chunks_keep_their_order() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
         let dtype = DType::Primitive(I32, Nullable);
-        let mut builder = ChildBuilder::with_capacity(&dtype, 0);
+        let mut builder = ChildBuilder::with_capacity(&dtype, 0, BufferAllocatorRef::static_ref());
 
         builder.append_array(&nullable_constant(1, CHUNK_LEN), &mut ctx)?;
         builder.append_nulls(2);
@@ -344,11 +363,14 @@ mod tests {
     #[test]
     fn test_finish_resets_the_builder() -> VortexResult<()> {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder = ChildBuilder::with_capacity(&DType::from(I32), 0);
+        let mut builder =
+            ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
         builder.append_array(&constant(1, CHUNK_LEN), &mut ctx)?;
         builder.append_scalar(&2i32.into())?;
-        assert_eq!(builder.finish().len(), CHUNK_LEN + 1);
+        let first = builder.finish();
+        let expected: PrimitiveArray = std::iter::repeat_n(1i32, CHUNK_LEN).chain([2i32]).collect();
+        assert_arrays_eq!(first, expected, &mut ctx);
 
         assert_eq!(builder.len(), 0);
         builder.append_scalar(&3i32.into())?;

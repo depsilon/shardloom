@@ -1,4 +1,4 @@
-//! Finite byte-buffer bounds for the pinned 0.85 physical decoder paths.
+//! Finite byte-buffer bounds for the pinned 0.90 physical decoder paths.
 //!
 //! Sum potential allocations throughout a closed tree rather than assuming
 //! children are unique or their temporary outputs cannot overlap. These credits
@@ -10,7 +10,10 @@ use vortex::{
     array::arrays::{Patched, decimal::DecimalArrayExt as _, patched::PatchedArraySlotsExt as _},
     encodings::{
         alp::{ALP, ALPArrayExt as _, ALPRD},
-        fastlanes::{BitPackedSlots, FoRArrayExt as _, FoRArraySlotsExt as _},
+        fastlanes::{
+            BitPackedArrayExt as _, BitPackedSlots, FoRArrayExt as _, FoRArraySlotsExt as _,
+            FoRReferences,
+        },
     },
 };
 
@@ -30,7 +33,7 @@ impl Workspace {
     fn empty() -> Self {
         Self {
             bytes: 0,
-            alignment: *Alignment::DEFAULT_ALIGNMENT,
+            alignment: Alignment::DEFAULT_ALIGNMENT.as_usize(),
         }
     }
 
@@ -69,6 +72,17 @@ pub(super) fn workspace(
     let Some(alignment) = host_buffer_alignment(array) else {
         return Ok(None);
     };
+    // Blocked widths/references have different scratch trees in 0.90 and are
+    // outside this finite global-encoding allocation proof.
+    if array
+        .as_opt::<BitPacked>()
+        .is_some_and(|packed| !packed.bit_widths().is_global())
+        || array
+            .as_opt::<FoR>()
+            .is_some_and(|for_| !for_.references().is_global())
+    {
+        return Ok(None);
+    }
     if canonical(array) {
         let mut result = Workspace::empty();
         if mode == Mode::Canonical {
@@ -109,7 +123,8 @@ pub(super) fn workspace(
         return Ok(Some(result));
     }
     if let Some(for_) = array.as_opt::<FoR>()
-        && for_.reference_scalar().dtype().is_unsigned_int()
+        && let FoRReferences::Global(reference) = for_.references()
+        && reference.dtype().is_unsigned_int()
         && for_.encoded().is::<BitPacked>()
     {
         // The upstream fused path never canonicalizes the BitPacked child.
@@ -127,6 +142,12 @@ fn physical_workspace(
     mode: Mode,
     depth: usize,
 ) -> VortexResult<Option<Workspace>> {
+    if array.is::<Delta>() && array.dtype().is_nullable() {
+        // The reviewed Delta bound covers non-null integer children only.
+        // 0.90 may expose canonical validity without closing the nullable
+        // decoder's allocation tree, so keep this exclusion explicit.
+        return Ok(None);
+    }
     if let Some(sparse) = array.as_opt::<Sparse>()
         && (array.dtype().is_nullable()
             || (sparse.patches().offset() != 0 && !sparse.patch_indices().is::<Primitive>()))
@@ -166,7 +187,7 @@ fn physical_workspace(
         result.allocate(decoded_capacity(
             array,
             delta.deltas().len(),
-            *Alignment::DEFAULT_ALIGNMENT,
+            Alignment::DEFAULT_ALIGNMENT.as_usize(),
         )?)?;
     } else if let Some(rle) = array.as_opt::<RLE>() {
         let end = rle
@@ -178,7 +199,7 @@ fn physical_workspace(
         result.allocate(decoded_capacity(
             array,
             rows,
-            *Alignment::DEFAULT_ALIGNMENT,
+            Alignment::DEFAULT_ALIGNMENT.as_usize(),
         )?)?;
         // slice.iter().map().collect::<Vec<u64>>() is trusted-length.
         result.allocate(mul(rle.values_idx_offsets().len(), 8)?)?;
@@ -194,7 +215,7 @@ fn physical_workspace(
         result.allocate(decoded_capacity(
             array,
             array.len(),
-            *Alignment::DEFAULT_ALIGNMENT,
+            Alignment::DEFAULT_ALIGNMENT.as_usize(),
         )?)?;
         if array.dtype().is_nullable() {
             result.allocate(bitmap_capacity(array.len())?)?;
@@ -261,23 +282,23 @@ fn host_buffer_alignment(array: &ArrayRef) -> Option<usize> {
             .data()
             .buffer_handle()
             .as_host_opt()
-            .map(|buffer| *buffer.alignment());
+            .map(|buffer| buffer.alignment().as_usize());
     }
     if let Some(decimal) = array.as_opt::<Decimal>() {
         return decimal
             .data()
             .buffer_handle()
             .as_host_opt()
-            .map(|buffer| *buffer.alignment());
+            .map(|buffer| buffer.alignment().as_usize());
     }
     if let Some(boolean) = array.as_opt::<Bool>() {
         return Bool::buffer(boolean, 0)
             .as_host_opt()
-            .map(|buffer| *buffer.alignment());
+            .map(|buffer| buffer.alignment().as_usize());
     }
-    let mut alignment = *Alignment::DEFAULT_ALIGNMENT;
+    let mut alignment = Alignment::DEFAULT_ALIGNMENT.as_usize();
     for buffer in array.buffer_handles() {
-        alignment = alignment.max(*buffer.as_host_opt()?.alignment());
+        alignment = alignment.max(buffer.as_host_opt()?.alignment().as_usize());
     }
     Some(alignment)
 }
@@ -316,12 +337,12 @@ fn dictionary(
         }
     } else {
         result.allocate(decoded_capacity(values, array.len(), result.alignment)?)?;
-        if result.alignment > *Alignment::DEFAULT_ALIGNMENT {
+        if result.alignment > Alignment::DEFAULT_ALIGNMENT.as_usize() {
             // Native take gathers first, then aligns to the source buffer.
             result.allocate(decoded_capacity(
                 values,
                 array.len(),
-                *Alignment::DEFAULT_ALIGNMENT,
+                Alignment::DEFAULT_ALIGNMENT.as_usize(),
             )?)?;
         }
     }

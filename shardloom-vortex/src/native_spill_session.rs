@@ -1,6 +1,6 @@
 //! Independent memory configuration for native spill work on the query runtime.
 //!
-//! Vortex 0.85 session clones share a mutable configuration cell. Changing an
+//! Vortex 0.90 session clones share a mutable configuration cell. Changing an
 //! allocator on a clone also changes existing query contexts and sibling spill
 //! sessions. Start with an independent cell and inherit the native registries,
 //! writer policy and runtime handle explicitly. Registry contents remain shared;
@@ -13,7 +13,7 @@ use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::{
     array::{
         aggregate_fn::session::AggregateFnSession, dtype::session::DTypeSession,
-        memory::MemorySessionExt as _, optimizer::kernels::KernelSession,
+        memory::HostMemorySessionExt as _, optimizer::kernels::KernelSession,
         scalar_fn::session::ScalarFnSession, session::ArraySession, stats::session::StatsSession,
     },
     editions::{EditionSession, EnabledEditions},
@@ -44,7 +44,7 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     {
         crate::native_provider_memory::install(&child, memory.clone());
     }
-    child.with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+    child.with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
         memory,
     )))
 }
@@ -78,7 +78,7 @@ mod tests {
         let source_memory = LiveMemoryPool::new(4096).unwrap();
         let parent = VortexSession::default()
             .with_handle(runtime.handle())
-            .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+            .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 source_memory.clone(),
             )));
         parent.allow_unknown();
@@ -88,7 +88,7 @@ mod tests {
         // Replace a registered plugin before the child is created, so checking
         // pointer identity proves inheritance rather than identical defaults.
         parent.arrays().register(Primitive);
-        let source_allocator = parent.allocator();
+        let source_allocator = parent.host_allocator();
         let before = parent.create_execution_ctx();
         let memory = LiveMemoryPool::new(1024).unwrap();
         let child = with_memory(&parent, memory.clone());
@@ -110,17 +110,22 @@ mod tests {
             assert_eq!(actual, expected);
         }
         assert!(child.allows_unknown());
-        assert!(Arc::ptr_eq(&source_allocator, &parent.allocator()));
-        assert!(Arc::ptr_eq(&source_allocator, &before.allocator()));
-        assert!(child.allocator().allocate(1024, Alignment::none()).is_err());
+        assert!(Arc::ptr_eq(&source_allocator, &parent.host_allocator()));
+        assert!(Arc::ptr_eq(&source_allocator, &before.host_allocator()));
+        assert!(
+            child
+                .host_allocator()
+                .allocate(1024, Alignment::none())
+                .is_err()
+        );
         assert_eq!(source_memory.snapshot().reserved_bytes, 0);
         let source = before
-            .allocator()
+            .host_allocator()
             .allocate(1024, Alignment::none())
             .unwrap()
             .freeze();
         let run = child
-            .allocator()
+            .host_allocator()
             .allocate(512, Alignment::none())
             .unwrap()
             .freeze();
@@ -131,6 +136,6 @@ mod tests {
         assert_eq!(memory.snapshot().reserved_bytes, 0);
         drop(source);
         assert_eq!(source_memory.snapshot().reserved_bytes, 0);
-        assert!(Arc::ptr_eq(&source_allocator, &parent.allocator()));
+        assert!(Arc::ptr_eq(&source_allocator, &parent.host_allocator()));
     }
 }

@@ -133,17 +133,15 @@ impl VTable for ObservedNative {
 }
 
 fn observed(child: ArrayRef, calls: &Arc<AtomicUsize>) -> ArrayRef {
-    Array::try_from_parts(
-        ArrayParts::new(
-            ObservedNative,
-            child.dtype().clone(),
-            child.len(),
-            Observation {
-                calls: Arc::clone(calls),
-            },
-        )
-        .with_slots(vec![Some(child)].into()),
-    )
+    Array::try_from_parts(ArrayParts::new(
+        ObservedNative,
+        child.dtype().clone(),
+        child.len(),
+        Observation {
+            calls: Arc::clone(calls),
+        },
+        vec![Some(child)].into(),
+    ))
     .unwrap()
     .into_array()
 }

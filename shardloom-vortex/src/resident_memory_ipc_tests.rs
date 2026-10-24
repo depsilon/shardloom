@@ -128,6 +128,9 @@ fn ipc_null_fields_and_nested_null_elements_keep_receiving_ownership() {
                     elements.clone(),
                     PrimitiveArray::from_iter((0..=rows).map(|row| (row * 2) as u64)).into_array(),
                     Validity::NonNullable,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                        &vortex::array::array_session(),
+                    ),
                 )
                 .unwrap()
                 .into_array(),
@@ -338,7 +341,7 @@ fn independent_ipc_fixtures_preserve_all_values_encodings_and_reusable_sources()
                     "vortex.constant",
                     "vortex.dict",
                     "vortex.runend",
-                    "fastlanes.bitpacked"
+                    "fastlanes.bitpacked.v2"
                 ]
             );
             assert!(copied.report.encoded_buffer_bytes_copied < 256 << 10);
@@ -449,9 +452,12 @@ fn ipc_rebuilds_sliced_packed_patches_without_trusting_the_wire_cache() {
         original_patches.indices().clone(),
         original_patches.values().clone(),
         Some(PrimitiveArray::from_iter([0u64, 2, 5]).into_array()),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
-    .slice(50..2250)
+    .slice(50..2250, &mut execution)
     .unwrap()
     .unwrap();
     assert_eq!(patches.offset_within_chunk(), Some(1));
@@ -462,11 +468,16 @@ fn ipc_rebuilds_sliced_packed_patches_without_trusting_the_wire_cache() {
         patch_values: Some(patches.values().clone()),
         patch_chunk_offsets: patches.chunk_offsets().clone(),
         validity_child: None,
+        block_offsets: None,
     }
     .into_slots();
-    let packed = Array::<BitPacked>::try_from_parts(
-        ArrayParts::new(BitPacked, integers.dtype().clone(), 2200, data).with_slots(slots),
-    )
+    let packed = Array::<BitPacked>::try_from_parts(ArrayParts::new(
+        BitPacked,
+        integers.dtype().clone(),
+        2200,
+        data,
+        slots,
+    ))
     .unwrap()
     .into_array();
     let input = StructArray::from_fields(&[("packed", packed)])

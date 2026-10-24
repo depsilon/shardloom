@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: preserve shared buffer-table ownership.
 
-use std::sync::Arc;
-
 use vortex_buffer::Buffer;
+use vortex_buffer::BufferAllocatorRef;
 use vortex_error::VortexExpect;
-use vortex_mask::MaskValues;
+use vortex_mask::MaskValuesRef;
 
 use crate::arrays::VarBinViewArray;
 use crate::arrays::filter::execute::buffer;
@@ -15,11 +14,15 @@ use crate::arrays::varbinview::BinaryView;
 use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::buffer::BufferHandle;
 
-pub fn filter_varbinview(array: &VarBinViewArray, mask: &Arc<MaskValues>) -> VarBinViewArray {
+pub fn filter_varbinview(
+    array: &VarBinViewArray,
+    mask: &MaskValuesRef,
+    allocator: &BufferAllocatorRef,
+) -> VarBinViewArray {
     let filtered_validity = filter_validity(array.varbinview_validity(), mask);
 
     let views = Buffer::<BinaryView>::from_byte_buffer(array.views_handle().as_host().clone());
-    let filtered_views = buffer::filter_buffer(views, mask.as_ref());
+    let filtered_views = buffer::filter_buffer(views, mask.as_ref(), allocator);
 
     // SAFETY: filtering copies a subset of the original valid views and applies
     // the same mask to validity. The payload table and value type are unchanged.
@@ -34,7 +37,7 @@ pub fn filter_varbinview(array: &VarBinViewArray, mask: &Arc<MaskValues>) -> Var
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::IntoArray;
     use crate::VortexSessionExecute;
     use crate::array_session;

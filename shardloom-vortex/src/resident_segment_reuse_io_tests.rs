@@ -19,7 +19,7 @@ use vortex::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{PrimitiveArray, StructArray, VarBinViewArray},
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
@@ -142,7 +142,7 @@ fn observer(
 ) -> ObservedFileReadAt {
     ObservedFileReadAt::new(
         path,
-        session.allocator(),
+        session.host_allocator(),
         runtime.handle(),
         ReadObservationLimits {
             max_read_bytes: 8 << 20,
@@ -550,7 +550,7 @@ fn cache_retry_gate_rejects_corruption_with_a_simultaneous_owned_denial() {
         prepared.with_native_execution_cached_retry(io_policy(), |_, session, _, attempt| {
             calls += 1;
             let denied = session
-                .allocator()
+                .host_allocator()
                 .allocate(8 << 20, Alignment::DEFAULT_ALIGNMENT)
                 .unwrap_err();
             assert!(is_owned_reservation_denial(&denied));

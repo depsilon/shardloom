@@ -284,7 +284,7 @@ impl super::ResidentVortexSession {
         limits: ReadObservationLimits,
     ) -> Result<(super::PreparedVortexSource, ObservedFileReadAt)> {
         use vortex::{
-            array::memory::MemorySessionExt as _, file::OpenOptionsSessionExt as _,
+            array::memory::HostMemorySessionExt as _, file::OpenOptionsSessionExt as _,
             io::runtime::BlockingRuntime as _,
         };
         let _context = self.0.enter(
@@ -293,7 +293,7 @@ impl super::ResidentVortexSession {
         )?;
         let observer = ObservedFileReadAt::new(
             path,
-            self.0.session.allocator(),
+            self.0.session.host_allocator(),
             self.0.runtime.handle(),
             limits,
         )?;

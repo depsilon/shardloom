@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 use vortex_buffer::BufferMut;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_mask::Mask;
 
@@ -328,9 +328,10 @@ where
         .len()
         .checked_mul(length)
         .ok_or_else(|| vortex_err!("PiecewiseSequenceArray output length overflows usize"))?;
-    vortex_ensure!(
-        computed_len == output_len,
-        "PiecewiseSequenceArray expanded length {computed_len} does not match declared length {output_len}"
+    vortex_ensure_eq!(
+        computed_len,
+        output_len,
+        "PiecewiseSequenceArray expanded length does not match declared length",
     );
     let all_valid = data_validity.all_true();
     let total_elements = if all_valid {
@@ -393,9 +394,10 @@ where
             .checked_add(length)
             .ok_or_else(|| vortex_err!("PiecewiseSequenceArray output length overflows usize"))?;
     }
-    vortex_ensure!(
-        computed_len == output_len,
-        "PiecewiseSequenceArray expanded length {computed_len} does not match declared length {output_len}"
+    vortex_ensure_eq!(
+        computed_len,
+        output_len,
+        "PiecewiseSequenceArray expanded length does not match declared length",
     );
     let all_valid = data_validity.all_true();
     let total_elements = if all_valid {
@@ -875,6 +877,7 @@ mod test {
             buffer![0i32, 5, 3, 4].into_array(),
             buffer![0, 2, 3, 4, 4].into_array(),
             Validity::Array(BoolArray::from_iter(vec![true, true, false, true]).into_array()),
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -956,6 +959,7 @@ mod test {
             buffer![1i32, 2, 3, 4].into_array(),
             buffer![0u32, 2, 4].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -971,8 +975,9 @@ mod test {
             buffer![3i32, 4, 1, 2].into_array(),
             buffer![0u32, 2, 2, 4].into_array(),
             Validity::from_iter([true, false, true]),
+            &mut ctx,
         );
-        assert_arrays_eq!(expected, result, &mut ctx);
+        assert_arrays_eq!(result, expected, &mut ctx);
     }
 
     #[test]
@@ -982,6 +987,7 @@ mod test {
             buffer![1i32, 2, 7, 8].into_array(),
             buffer![0u32, 2, 4].into_array(),
             Validity::from_iter([true, false]),
+            &mut ctx,
         )
         .into_array();
 
@@ -992,16 +998,19 @@ mod test {
             buffer![1i32, 2].into_array(),
             buffer![0u32, 2, 2].into_array(),
             Validity::from_iter([true, false]),
+            &mut ctx,
         );
-        assert_arrays_eq!(expected, result, &mut ctx);
+        assert_arrays_eq!(result, expected, &mut ctx);
     }
 
     #[test]
     fn change_validity() {
+        let mut ctx = array_session().create_execution_ctx();
         let list = ListArray::try_new(
             buffer![0i32, 5, 3, 4].into_array(),
             buffer![0, 2, 3].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -1017,6 +1026,17 @@ mod test {
                 Nullability::Nullable
             )
         );
+        let expected = ListArray::new(
+            buffer![0i32, 5, 3].into_array(),
+            buffer![0u32, 2, 3, 3].into_array(),
+            Validity::from_iter([true, true, false]),
+            &mut ctx,
+        );
+        assert_arrays_eq!(
+            result,
+            expected,
+            &mut array_session().create_execution_ctx()
+        );
     }
 
     #[test]
@@ -1026,6 +1046,7 @@ mod test {
             buffer![0i32, 5, 3, 4].into_array(),
             buffer![0, 2, 3, 3, 4].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -1100,6 +1121,7 @@ mod test {
             buffer![0i32, 1, 2, 3, 4, 5, 6].into_array(),
             buffer![0u32, 2, 5, 5, 7].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -1148,6 +1170,7 @@ mod test {
             buffer![0i32, 1, 99, 100, 2, 3, 4, 5].into_array(),
             buffer![0u32, 2, 4, 7, 8].into_array(),
             Validity::Array(BoolArray::from_iter([true, false, true, true]).into_array()),
+            &mut ctx,
         )?
         .into_array();
         let idx = PiecewiseSequenceArray::try_new(
@@ -1159,14 +1182,14 @@ mod test {
         .into_array();
 
         let result = list.take(idx)?.execute::<ListViewArray>(&mut ctx)?;
-        assert_eq!(result.offset_at(0), 0);
-        assert_eq!(result.size_at(0), 2);
-        assert_eq!(result.offset_at(1), 2);
-        assert_eq!(result.size_at(1), 0);
-        assert_eq!(result.offset_at(2), 2);
-        assert_eq!(result.size_at(2), 3);
-        assert_eq!(result.offset_at(3), 5);
-        assert_eq!(result.size_at(3), 1);
+        assert_eq!(result.offset_at(0, &mut ctx), 0);
+        assert_eq!(result.size_at(0, &mut ctx), 2);
+        assert_eq!(result.offset_at(1, &mut ctx), 2);
+        assert_eq!(result.size_at(1, &mut ctx), 0);
+        assert_eq!(result.offset_at(2, &mut ctx), 2);
+        assert_eq!(result.size_at(2, &mut ctx), 3);
+        assert_eq!(result.offset_at(3, &mut ctx), 5);
+        assert_eq!(result.size_at(3, &mut ctx), 1);
 
         let element_dtype: Arc<DType> = Arc::new(I32.into());
         assert_eq!(
@@ -1200,6 +1223,7 @@ mod test {
             buffer![0i32, 1, 99, 100, 2, 3, 4, 5].into_array(),
             buffer![0u32, 2, 4, 7, 8].into_array(),
             Validity::Array(BoolArray::from_iter([true, false, true, true]).into_array()),
+            &mut ctx,
         )?
         .into_array();
         let idx = PiecewiseSequenceArray::try_new(
@@ -1211,12 +1235,12 @@ mod test {
         .into_array();
 
         let result = list.take(idx)?.execute::<ListViewArray>(&mut ctx)?;
-        assert_eq!(result.offset_at(0), 0);
-        assert_eq!(result.size_at(0), 0);
-        assert_eq!(result.offset_at(1), 0);
-        assert_eq!(result.size_at(1), 3);
-        assert_eq!(result.offset_at(2), 3);
-        assert_eq!(result.size_at(2), 2);
+        assert_eq!(result.offset_at(0, &mut ctx), 0);
+        assert_eq!(result.size_at(0, &mut ctx), 0);
+        assert_eq!(result.offset_at(1, &mut ctx), 0);
+        assert_eq!(result.size_at(1, &mut ctx), 3);
+        assert_eq!(result.offset_at(2, &mut ctx), 3);
+        assert_eq!(result.size_at(2, &mut ctx), 2);
 
         let element_dtype: Arc<DType> = Arc::new(I32.into());
         assert!(result.is_invalid(0, &mut ctx)?);
@@ -1241,10 +1265,12 @@ mod test {
 
     #[test]
     fn test_take_empty_array() {
+        let mut ctx = array_session().create_execution_ctx();
         let list = ListArray::try_new(
             buffer![0i32, 5, 3, 4].into_array(),
             buffer![0].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -1267,21 +1293,25 @@ mod test {
         buffer![0i32, 1, 2, 3, 4, 5].into_array(),
         buffer![0, 2, 3, 5, 5, 6].into_array(),
         Validity::NonNullable,
+        &mut array_session().create_execution_ctx(),
     ).unwrap())]
     #[case(ListArray::try_new(
         buffer![10i32, 20, 30, 40, 50].into_array(),
         buffer![0, 2, 3, 4, 5].into_array(),
         Validity::Array(BoolArray::from_iter(vec![true, false, true, true]).into_array()),
+        &mut array_session().create_execution_ctx(),
     ).unwrap())]
     #[case(ListArray::try_new(
         buffer![1i32, 2, 3].into_array(),
         buffer![0, 0, 2, 2, 3].into_array(), // First and third are empty
         Validity::NonNullable,
+        &mut array_session().create_execution_ctx(),
     ).unwrap())]
     #[case(ListArray::try_new(
         buffer![42i32, 43].into_array(),
         buffer![0, 2].into_array(),
         Validity::NonNullable,
+        &mut array_session().create_execution_ctx(),
     ).unwrap())]
     #[case({
         let elements = buffer![0i32..200].into_array();
@@ -1293,12 +1323,14 @@ mod test {
             elements,
             PrimitiveArray::from_iter(offsets).into_array(),
             Validity::NonNullable,
+            &mut array_session().create_execution_ctx(),
         ).unwrap()
     })]
     #[case(ListArray::try_new(
         PrimitiveArray::from_option_iter([Some(1i32), None, Some(3), Some(4), None]).into_array(),
         buffer![0, 2, 3, 5].into_array(),
         Validity::NonNullable,
+        &mut array_session().create_execution_ctx(),
     ).unwrap())]
     fn test_take_list_conformance(#[case] list: ListArray) {
         test_take_conformance(
@@ -1312,7 +1344,7 @@ mod test {
         let mut ctx = array_session().create_execution_ctx();
         let elements = buffer![0i32; 200].into_array();
         let offsets = buffer![0u8, 200].into_array();
-        let list = ListArray::try_new(elements, offsets, Validity::NonNullable)
+        let list = ListArray::try_new(elements, offsets, Validity::NonNullable, &mut ctx)
             .unwrap()
             .into_array();
 
@@ -1334,6 +1366,13 @@ mod test {
                 .is_valid(1, &mut array_session().create_execution_ctx())
                 .unwrap()
         );
+        let expected = ListArray::new(
+            buffer![0i32; 400].into_array(),
+            buffer![0u32, 200, 400].into_array(),
+            Validity::NonNullable,
+            &mut ctx,
+        );
+        assert_arrays_eq!(result_view, expected, &mut ctx);
     }
 
     #[test]
@@ -1342,7 +1381,7 @@ mod test {
         let elements = buffer![0i32; 150].into_array();
         let offsets = buffer![0u8, 150, 150].into_array();
         let validity = BoolArray::from_iter(vec![true, false]).into_array();
-        let list = ListArray::try_new(elements, offsets, Validity::Array(validity))
+        let list = ListArray::try_new(elements, offsets, Validity::Array(validity), &mut ctx)
             .unwrap()
             .into_array();
 
@@ -1369,6 +1408,13 @@ mod test {
                 .is_valid(2, &mut array_session().create_execution_ctx())
                 .unwrap()
         );
+        let expected = ListArray::new(
+            buffer![0i32; 300].into_array(),
+            buffer![0u32, 150, 150, 300].into_array(),
+            Validity::from_iter([true, false, true]),
+            &mut ctx,
+        );
+        assert_arrays_eq!(result_view, expected, &mut ctx);
     }
 
     /// Regression test for validity length mismatch bug.
@@ -1377,11 +1423,13 @@ mod test {
     /// the result validity must have length equal to indices.len(), not source.len().
     #[test]
     fn test_take_validity_length_mismatch_regression() {
+        let mut ctx = array_session().create_execution_ctx();
         // Source array with explicit validity array (length 2).
         let list = ListArray::try_new(
             buffer![1i32, 2, 3, 4].into_array(),
             buffer![0, 2, 4].into_array(),
             Validity::Array(BoolArray::from_iter(vec![true, true]).into_array()),
+            &mut ctx,
         )
         .unwrap()
         .into_array();
@@ -1392,5 +1440,16 @@ mod test {
         // This should not panic - result should have length 4.
         let result = list.take(idx).unwrap();
         assert_eq!(result.len(), 4);
+        let expected = ListArray::new(
+            buffer![1i32, 2, 3, 4, 1, 2, 3, 4].into_array(),
+            buffer![0u32, 2, 4, 6, 8].into_array(),
+            Validity::AllValid,
+            &mut ctx,
+        );
+        assert_arrays_eq!(
+            result,
+            expected,
+            &mut array_session().create_execution_ctx()
+        );
     }
 }

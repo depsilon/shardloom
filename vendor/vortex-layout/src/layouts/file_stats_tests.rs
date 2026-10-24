@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright 2026 Dylan Justin Heinrich
+// ShardLoom regression tests for bounded, conservative file statistics.
 
 use super::*;
 use vortex_array::IntoArray;

@@ -1,0 +1,524 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright the Vortex contributors
+
+use fearless_simd::Level;
+use fearless_simd::Simd;
+use fearless_simd::dispatch;
+use fearless_simd::prelude::*;
+use fearless_simd::u8x64;
+use fearless_simd::u64x8;
+use fearless_simd_macros::simd;
+use vortex_error::VortexExpect;
+
+use super::count_ones::align_offset_len;
+use crate::dispatch::CpuKernel;
+
+/// Returns the position of the `nth` set bit (0-indexed) within the logical range
+/// `[offset, offset + len)` of the given byte slice.
+///
+/// The returned position is relative to the logical start (i.e., 0-indexed from `offset`).
+/// Returns `None` if `nth` is out of bounds.
+///
+/// 64-byte chunks are scanned and selected with SIMD popcounts. The final in-word select uses
+/// `pdep` + `tzcnt` on x86_64 with BMI2, and a scalar fallback elsewhere.
+#[inline]
+pub fn bit_select(bytes: &[u8], offset: usize, len: usize, nth: usize) -> Option<usize> {
+    select_impl::<false>(bytes, offset, len, nth)
+}
+
+/// Returns the position of the `nth` unset bit (0-indexed) within the logical range
+/// `[offset, offset + len)` of the given byte slice.
+///
+/// The returned position is relative to the logical start (i.e., 0-indexed from `offset`).
+/// Returns `None` if `nth` is out of bounds.
+///
+/// This runs the same kernels as [`bit_select`] over the inverted bits.
+#[inline]
+pub fn bit_select_unset(bytes: &[u8], offset: usize, len: usize, nth: usize) -> Option<usize> {
+    select_impl::<true>(bytes, offset, len, nth)
+}
+
+/// The shared body of [`bit_select`] and [`bit_select_unset`]. With `UNSET`, every byte and word
+/// is read inverted, so the same scans find unset bits.
+#[inline]
+fn select_impl<const UNSET: bool>(
+    bytes: &[u8],
+    offset: usize,
+    len: usize,
+    nth: usize,
+) -> Option<usize> {
+    let (head, middle, tail) = align_offset_len(bytes, offset, len);
+    let mut remaining = nth;
+    let mut pos = 0usize;
+
+    // ── partial first byte ──────────────────────────────────────────────
+    if let Some(head) = head {
+        let start_bit = offset % 8;
+        let head_len = (8 - start_bit).min(len);
+        let head = read_partial_byte::<UNSET>(head, head_len);
+        let count = head.count_ones() as usize;
+        if remaining < count {
+            return Some(select_in_byte(head, remaining));
+        }
+        remaining -= count;
+        pos = head_len;
+    }
+
+    // ── aligned middle bytes ────────────────────────────────────────────
+    if !middle.is_empty() {
+        let (chunks, tail_bytes) = middle.as_chunks::<64>();
+
+        let (rem, new_pos, chunk_idx) = scan_chunks::<UNSET>(chunks, remaining, pos);
+        remaining = rem;
+        pos = new_pos;
+
+        if chunk_idx < chunks.len() {
+            return Some(pos + select_in_chunk::<UNSET>(&chunks[chunk_idx], remaining));
+        }
+
+        let (words, tail_bytes) = tail_bytes.as_chunks::<8>();
+
+        let (rem, new_pos, word_idx) = scan_words::<UNSET>(words, remaining, pos);
+        remaining = rem;
+        pos = new_pos;
+
+        if word_idx < words.len() {
+            let word = read_word::<UNSET>(u64::from_le_bytes(words[word_idx]));
+            return Some(pos + select_in_word(word, remaining));
+        }
+
+        // Remaining aligned bytes that don't fill a full u64.
+        for &byte in tail_bytes {
+            let byte = if UNSET { !byte } else { byte };
+            let count = byte.count_ones() as usize;
+            if remaining < count {
+                return Some(pos + select_in_byte(byte, remaining));
+            }
+            remaining -= count;
+            pos += 8;
+        }
+    }
+
+    // ── partial last byte ───────────────────────────────────────────────
+    // Every bit before the tail has been consumed, so the tail holds the last `len - pos`.
+    if let Some(tail) = tail.map(|tail| read_partial_byte::<UNSET>(tail, len - pos))
+        && remaining < tail.count_ones() as usize
+    {
+        return Some(pos + select_in_byte(tail, remaining));
+    }
+
+    None
+}
+
+// ── Inverted reads ──────────────────────────────────────────────────────
+
+/// `word` as [`select_impl`] reads it: inverted when selecting unset bits.
+#[inline]
+const fn read_word<const UNSET: bool>(word: u64) -> u64 {
+    if UNSET { !word } else { word }
+}
+
+/// A partial byte from [`align_offset_len`] as [`select_impl`] reads it. Only its low `bit_len`
+/// bits are in range, and the rest are zero, so after inverting they are masked off again.
+#[inline]
+fn read_partial_byte<const UNSET: bool>(byte: u8, bit_len: usize) -> u8 {
+    if UNSET {
+        !byte & ((1u8 << bit_len) - 1)
+    } else {
+        byte
+    }
+}
+
+// ── 64-byte chunk scan ──────────────────────────────────────────────────
+
+/// Scan `chunks` counting the bits being selected: set bits, or unset ones with `UNSET`.
+/// Returns `(remaining, position, chunk_index)`.
+///
+/// If `chunk_index < chunks.len()`, the target bit is inside that chunk and `remaining`
+/// is the rank *within* that chunk. Otherwise all chunks were consumed.
+#[inline]
+fn scan_chunks<const UNSET: bool>(
+    chunks: &[[u8; 64]],
+    remaining: usize,
+    pos: usize,
+) -> (usize, usize, usize) {
+    dispatch!(Level::new(), simd => scan_chunks_simd::<_, UNSET>(simd, chunks, remaining, pos))
+}
+
+#[simd]
+fn scan_chunks_simd<S: Simd, const UNSET: bool>(
+    simd: S,
+    chunks: &[[u8; 64]],
+    mut remaining: usize,
+    mut pos: usize,
+) -> (usize, usize, usize) {
+    for (idx, chunk) in chunks.iter().enumerate() {
+        let words: u64x8<S> = u8x64::from_slice(simd, chunk).bitcast();
+        let total = usize::try_from(words.count_ones().reduce_sum())
+            .vortex_expect("chunk popcount fits in usize");
+        // A chunk holds 512 bits, so the unset ones are the rest.
+        let total = if UNSET { 512 - total } else { total };
+        if remaining < total {
+            return (remaining, pos, idx);
+        }
+        remaining -= total;
+        pos += 512;
+    }
+    (remaining, pos, chunks.len())
+}
+
+// ── Word-level scan ─────────────────────────────────────────────────────
+
+/// Scan `words` counting the bits being selected: set bits, or unset ones with `UNSET`.
+/// Returns `(remaining, position, word_index)`.
+///
+/// If `word_index < words.len()`, the target bit is inside that word and `remaining`
+/// is the rank *within* that word. Otherwise all words were consumed.
+#[inline]
+fn scan_words<const UNSET: bool>(
+    words: &[[u8; 8]],
+    remaining: usize,
+    pos: usize,
+) -> (usize, usize, usize) {
+    scan_words_impl::<UNSET>(words, remaining, pos)
+}
+
+// ── Scalar word scan ────────────────────────────────────────────────────
+
+#[inline]
+fn scan_words_impl<const UNSET: bool>(
+    words: &[[u8; 8]],
+    remaining: usize,
+    pos: usize,
+) -> (usize, usize, usize) {
+    scan_words_scalar::<UNSET>(words, remaining, pos)
+}
+
+#[inline]
+fn scan_words_scalar<const UNSET: bool>(
+    words: &[[u8; 8]],
+    mut remaining: usize,
+    mut pos: usize,
+) -> (usize, usize, usize) {
+    let mut idx = 0;
+
+    // 4× unrolled: the four independent `count_ones` calls pipeline well.
+    while idx + 4 <= words.len() {
+        let count_0 = read_word::<UNSET>(u64::from_le_bytes(words[idx])).count_ones() as usize;
+        let count_1 = read_word::<UNSET>(u64::from_le_bytes(words[idx + 1])).count_ones() as usize;
+        let count_2 = read_word::<UNSET>(u64::from_le_bytes(words[idx + 2])).count_ones() as usize;
+        let count_3 = read_word::<UNSET>(u64::from_le_bytes(words[idx + 3])).count_ones() as usize;
+        let total = count_0 + count_1 + count_2 + count_3;
+
+        if remaining >= total {
+            remaining -= total;
+            pos += 256;
+            idx += 4;
+            continue;
+        }
+
+        if remaining < count_0 {
+            return (remaining, pos, idx);
+        }
+        remaining -= count_0;
+        pos += 64;
+        if remaining < count_1 {
+            return (remaining, pos, idx + 1);
+        }
+        remaining -= count_1;
+        pos += 64;
+        if remaining < count_2 {
+            return (remaining, pos, idx + 2);
+        }
+        remaining -= count_2;
+        pos += 64;
+        return (remaining, pos, idx + 3);
+    }
+
+    while idx < words.len() {
+        let word = read_word::<UNSET>(u64::from_le_bytes(words[idx]));
+        let count = word.count_ones() as usize;
+        if remaining < count {
+            return (remaining, pos, idx);
+        }
+        remaining -= count;
+        pos += 64;
+        idx += 1;
+    }
+
+    (remaining, pos, idx)
+}
+
+// ── In-chunk select ─────────────────────────────────────────────────────
+
+/// Position of the `nth` set bit, or unset bit with `UNSET`, inside a 64-byte chunk (0-indexed).
+#[inline]
+fn select_in_chunk<const UNSET: bool>(chunk: &[u8; 64], nth: usize) -> usize {
+    dispatch!(Level::new(), simd => select_in_chunk_simd::<_, UNSET>(simd, chunk, nth))
+}
+
+#[simd]
+fn select_in_chunk_simd<S: Simd, const UNSET: bool>(
+    simd: S,
+    chunk: &[u8; 64],
+    mut nth: usize,
+) -> usize {
+    let words: [u64; 8] = std::array::from_fn(|i| {
+        read_word::<UNSET>(u64::from_le_bytes(chunk.as_chunks::<8>().0[i]))
+    });
+    let counts = u64x8::from_slice(simd, &words).count_ones().to_array();
+    for (idx, count) in counts.into_iter().enumerate() {
+        // Each lane is the popcount of a u64, hence at most 64.
+        let count = usize::try_from(count).vortex_expect("u64 popcount fits in usize");
+        if nth < count {
+            return idx * 64 + select_in_word(words[idx], nth);
+        }
+        nth -= count;
+    }
+    unreachable!("select_in_chunk: nth exceeds popcount")
+}
+
+// ── In-word select ──────────────────────────────────────────────────────
+
+type SelectInWord = unsafe fn(u64, usize) -> usize;
+
+/// Position of the `nth` set bit inside a u64 (0-indexed, little-endian bit order).
+#[inline]
+fn select_in_word(word: u64, nth: usize) -> usize {
+    static KERNEL: CpuKernel<SelectInWord> = CpuKernel::new(|| {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("bmi1") && is_x86_feature_detected!("bmi2") {
+                return select_in_word_bmi2;
+            }
+        }
+        select_in_word_scalar
+    });
+    // SAFETY: the selector only returns kernels that are safe or whose required CPU
+    // features were probed before selection.
+    unsafe { KERNEL.get()(word, nth) }
+}
+
+/// BMI2: deposit a single bit at the nth set-bit position, then count trailing zeros.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "bmi1")]
+#[target_feature(enable = "bmi2")]
+unsafe fn select_in_word_bmi2(word: u64, nth: usize) -> usize {
+    use std::arch::x86_64::_pdep_u64;
+    use std::arch::x86_64::_tzcnt_u64;
+
+    use vortex_error::VortexExpect;
+
+    // Both intrinsics are safe to call here: `bmi1` and `bmi2` are enabled on this function.
+    usize::try_from(_tzcnt_u64(_pdep_u64(1u64 << nth, word)))
+        .vortex_expect("safe to convert tzcnt result to usize")
+}
+
+/// Scalar: narrow to the correct byte, then clear `nth` lowest set bits and trailing-zeros.
+#[inline]
+fn select_in_word_scalar(word: u64, mut nth: usize) -> usize {
+    let bytes = word.to_le_bytes();
+    let mut bit_offset = 0usize;
+    for &byte in &bytes {
+        let count = byte.count_ones() as usize;
+        if nth < count {
+            return bit_offset + select_in_byte(byte, nth);
+        }
+        nth -= count;
+        bit_offset += 8;
+    }
+    unreachable!("select_in_word: nth exceeds popcount")
+}
+
+// ── In-byte select ──────────────────────────────────────────────────────
+
+/// Position of the `nth` set bit inside a byte (0-indexed, LSB-first).
+///
+/// Clears the lowest `nth` set bits, then uses `trailing_zeros`.
+#[inline]
+fn select_in_byte(byte: u8, nth: usize) -> usize {
+    debug_assert!(nth < byte.count_ones() as usize);
+    let mut bits = u32::from(byte);
+    for _ in 0..nth {
+        bits &= bits - 1; // clear lowest set bit
+    }
+    bits.trailing_zeros() as usize
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::cast_possible_truncation)]
+
+    use rstest::rstest;
+
+    use super::*;
+
+    #[test]
+    fn test_select_all_set() {
+        // Every bit is set — select(n) == n.
+        let buf = [0xFFu8; 16]; // 128 bits, all set
+        for nth in 0..128 {
+            assert_eq!(bit_select(&buf, 0, 128, nth), Some(nth), "nth={nth}");
+        }
+    }
+
+    #[test]
+    fn test_select_every_other() {
+        // 0b01010101 repeated: bits 0,2,4,6 of each byte are set.
+        let buf = [0x55u8; 16]; // 128 bits, 64 set
+        for nth in 0..64 {
+            assert_eq!(bit_select(&buf, 0, 128, nth), Some(nth * 2), "nth={nth}");
+        }
+    }
+
+    #[test]
+    fn test_select_single_bit() {
+        // Only bit 42 is set.
+        let mut buf = [0u8; 16];
+        buf[42 / 8] |= 1 << (42 % 8);
+        assert_eq!(bit_select(&buf, 0, 128, 0), Some(42));
+    }
+
+    #[test]
+    fn test_select_out_of_bounds_returns_none() {
+        let buf = [0b0001_0100u8];
+        assert_eq!(bit_select(&buf, 0, 8, 0), Some(2));
+        assert_eq!(bit_select(&buf, 0, 8, 1), Some(4));
+        assert_eq!(bit_select(&buf, 0, 8, 2), None);
+    }
+
+    #[rstest]
+    #[case(0, 128)]
+    #[case(3, 100)]
+    #[case(7, 50)]
+    #[case(1, 7)]
+    #[case(5, 5)]
+    #[case(0, 1)]
+    #[case(0, 64)]
+    #[case(1, 64)]
+    #[case(0, 65)]
+    #[case(3, 256)]
+    #[case(0, 512)]
+    #[case(0, 513)]
+    #[case(5, 1024)]
+    fn test_select_agrees_with_naive(#[case] offset: usize, #[case] len: usize) {
+        let total_bits = offset + len;
+        let total_bytes = total_bits.div_ceil(8);
+        // Deterministic pattern with moderate density.
+        let buf: Vec<u8> = (0..total_bytes)
+            .map(|i| ((i.wrapping_mul(0x9E) ^ 0xA5) & 0xFF) as u8)
+            .collect();
+
+        // Collect set- and unset-bit positions naively.
+        let (expected, expected_unset): (Vec<usize>, Vec<usize>) = (0..len).partition(|&i| {
+            let phys = offset + i;
+            (buf[phys / 8] >> (phys % 8)) & 1 == 1
+        });
+
+        for (nth, &expected_pos) in expected.iter().enumerate() {
+            assert_eq!(
+                bit_select(&buf, offset, len, nth),
+                Some(expected_pos),
+                "offset={offset} len={len} nth={nth}"
+            );
+        }
+        for (nth, &expected_pos) in expected_unset.iter().enumerate() {
+            assert_eq!(
+                bit_select_unset(&buf, offset, len, nth),
+                Some(expected_pos),
+                "offset={offset} len={len} nth={nth}"
+            );
+        }
+        assert_eq!(
+            bit_select_unset(&buf, offset, len, expected_unset.len()),
+            None
+        );
+    }
+
+    #[test]
+    fn test_select_large_buffer() {
+        // ~64 KB buffer, ~50% density.
+        let len = 65_536 * 8;
+        let buf: Vec<u8> = (0u32..65_536)
+            .map(|i| ((i.wrapping_mul(0x37) ^ 0xBC) & 0xFF) as u8)
+            .collect();
+
+        let true_count = buf.iter().map(|b| b.count_ones() as usize).sum::<usize>();
+
+        let is_set = |index: &usize| buf[*index / 8] & (1 << (*index % 8)) != 0;
+        let expected_first = (0..len).find(is_set);
+        let expected_last = (0..len).rev().find(is_set);
+        assert_eq!(bit_select(&buf, 0, len, 0), expected_first);
+        assert_eq!(bit_select(&buf, 0, len, true_count - 1), expected_last);
+    }
+
+    /// Inverting a partial byte sets the bits outside the range, which must still not count.
+    #[rstest]
+    #[case(3, 7)]
+    #[case(5, 600)]
+    fn test_select_unset_ignores_bits_outside_range(#[case] offset: usize, #[case] len: usize) {
+        // Every bit is unset, including the byte past the range.
+        let buf = vec![0u8; (offset + len).div_ceil(8) + 1];
+        for nth in 0..len {
+            assert_eq!(
+                bit_select_unset(&buf, offset, len, nth),
+                Some(nth),
+                "nth={nth}"
+            );
+        }
+        assert_eq!(bit_select_unset(&buf, offset, len, len), None);
+    }
+
+    /// Sparse unset bits over several 64-byte chunks, so the scan subtracts `512 - total` for
+    /// whole chunks and then selects inside a later one.
+    #[rstest]
+    #[case(0)]
+    #[case(3)]
+    fn test_select_unset_across_chunks(#[case] offset: usize) {
+        let len = 4 * 512 + 100;
+        let mut buf = vec![0xFFu8; (offset + len).div_ceil(8)];
+        let expected: Vec<usize> = (0..len).filter(|i| i % 97 == 0).collect();
+        for &index in &expected {
+            let phys = offset + index;
+            buf[phys / 8] &= !(1 << (phys % 8));
+        }
+
+        for (nth, &expected_pos) in expected.iter().enumerate() {
+            assert_eq!(
+                bit_select_unset(&buf, offset, len, nth),
+                Some(expected_pos),
+                "offset={offset} nth={nth}"
+            );
+        }
+        assert_eq!(bit_select_unset(&buf, offset, len, expected.len()), None);
+    }
+
+    #[test]
+    fn test_select_in_word_basic() {
+        // 0b1010_1010 = 0xAA — bits 1,3,5,7 are set.
+        let word = 0x00000000_000000AAu64;
+        assert_eq!(select_in_word(word, 0), 1);
+        assert_eq!(select_in_word(word, 1), 3);
+        assert_eq!(select_in_word(word, 2), 5);
+        assert_eq!(select_in_word(word, 3), 7);
+    }
+
+    #[test]
+    fn test_select_in_word_all_set() {
+        let word = u64::MAX;
+        for nth in 0..64 {
+            assert_eq!(select_in_word(word, nth), nth, "nth={nth}");
+        }
+    }
+
+    #[test]
+    fn test_select_in_byte_basic() {
+        assert_eq!(select_in_byte(0b1010_1010, 0), 1);
+        assert_eq!(select_in_byte(0b1010_1010, 1), 3);
+        assert_eq!(select_in_byte(0b1010_1010, 2), 5);
+        assert_eq!(select_in_byte(0b1010_1010, 3), 7);
+        assert_eq!(select_in_byte(0b0000_0001, 0), 0);
+        assert_eq!(select_in_byte(0b1000_0000, 0), 7);
+        assert_eq!(select_in_byte(0xFF, 7), 7);
+    }
+}

@@ -101,6 +101,7 @@ pub fn runend_decode_typed_bool(
 /// Fast path for few runs with no offset. Uses direct slice access to minimize overhead.
 /// This avoids the `trimmed_ends_iter` iterator chain which adds significant overhead
 /// for small numbers of runs.
+#[allow(clippy::inline_always)]
 #[inline(always)]
 fn decode_few_runs_no_offset<E: vortex_array::dtype::IntegerPType>(
     ends: &[E],
@@ -220,6 +221,7 @@ fn decode_bool_nullable(
 }
 
 /// Sequential decode for few runs - avoids prefill overhead.
+#[allow(clippy::inline_always)]
 #[inline(always)]
 fn decode_nullable_sequential(
     run_ends: impl Iterator<Item = usize>,
@@ -251,7 +253,6 @@ mod tests {
     use vortex_array::VortexSessionExecute;
     use vortex_array::arrays::BoolArray;
     use vortex_array::arrays::PrimitiveArray;
-    use vortex_array::arrays::bool::BoolArrayExt;
     use vortex_array::assert_arrays_eq;
     use vortex_array::validity::Validity;
     use vortex_buffer::BitBuffer;
@@ -388,37 +389,11 @@ mod tests {
             BitBuffer::from(vec![true, false, true, false, true]),
             Validity::from(BitBuffer::from(vec![true, false, true, false, true])),
         );
-        let decoded = runend_decode_bools(ends, values, 0, 10000, &mut ctx)?
-            .execute::<BoolArray>(&mut ctx)?;
+        let decoded = runend_decode_bools(ends, values, 0, 10000, &mut ctx)?;
 
-        // Check length and a few values
-        assert_eq!(decoded.len(), 10000);
-        // First run: valid true
-        assert!(
-            decoded
-                .as_ref()
-                .validity()?
-                .execute_mask(decoded.as_ref().len(), &mut ctx)?
-                .value(0)
-        );
-        assert!(decoded.to_bit_buffer().value(0));
-        // Second run: null (validity false)
-        assert!(
-            !decoded
-                .as_ref()
-                .validity()?
-                .execute_mask(decoded.as_ref().len(), &mut ctx)?
-                .value(2000)
-        );
-        // Third run: valid true
-        assert!(
-            decoded
-                .as_ref()
-                .validity()?
-                .execute_mask(decoded.as_ref().len(), &mut ctx)?
-                .value(4000)
-        );
-        assert!(decoded.to_bit_buffer().value(4000));
+        let expected =
+            BoolArray::from_iter((0..10000).map(|i| ((i / 2000) % 2 == 0).then_some(true)));
+        assert_arrays_eq!(decoded, expected, &mut ctx);
         Ok(())
     }
 }

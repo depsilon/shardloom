@@ -203,6 +203,9 @@ fn unsigned_varbin_slices_preserve_values_schema_and_owned_lifetimes() {
                 reserved_test_bytes(&session, "outsideλnullbytes東京suffix".as_bytes()),
                 dtype.clone(),
                 Validity::from_iter([true, true, false, true, true, true]),
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    &vortex::array::array_session(),
+                ),
             )
             .unwrap()
             .into_array();
@@ -303,6 +306,9 @@ fn encoded_varbin_offsets_retain_native_backing_and_obey_serialized_byte_bound()
         payload.freeze(),
         DType::Binary(Nullability::Nullable),
         Validity::from_iter([true, false, true, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -367,9 +373,8 @@ fn memory_generation_evidence_uris_are_distinct_process_local_native_ids() {
 }
 
 #[test]
-fn varbin_compaction_rejects_invalid_payload_ranges_without_leaking_offsets() {
+fn varbin_checked_construction_rejects_invalid_payload_ranges_without_leaking_offsets() {
     use vortex::array::{
-        IntoArray as _,
         arrays::VarBinArray,
         dtype::{DType, Nullability, PType},
         validity::Validity,
@@ -377,20 +382,20 @@ fn varbin_compaction_rejects_invalid_payload_ranges_without_leaking_offsets() {
     let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
     let memory = session.memory().clone();
     for offsets in [&[4_u64, 3, 7][..], &[0, 8, 6], &[0, 15]] {
-        let array = VarBinArray::try_new(
+        let result = VarBinArray::try_new(
             reserved_test_offsets(&session, PType::U16, offsets),
             reserved_test_bytes(&session, b"abcdefgh"),
             DType::Binary(Nullability::NonNullable),
             Validity::NonNullable,
-        )
-        .unwrap()
-        .into_array();
-        let before = memory.snapshot().reserved_bytes;
-        assert!(
-            super::slice_generation_column(&array, 0..array.len(), &session.native_allocator())
-                .is_err()
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         );
-        assert_eq!(memory.snapshot().reserved_bytes, before);
+        assert!(
+            result.is_err(),
+            "invalid offsets {offsets:?} must be rejected"
+        );
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
     drop(session);
     assert_eq!(memory.snapshot().reserved_bytes, 0);

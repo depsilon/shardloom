@@ -241,7 +241,7 @@ impl NativeExecutionContext<'_> {
         // the operation cannot return while it still owns the shared grant.
         let input = Arc::new(super::ResidentFileReadAt {
             identity: Arc::clone(&identity),
-            allocator: self.owner.session.allocator(),
+            allocator: self.owner.session.host_allocator(),
             handle: self.owner.runtime.handle(),
             concurrency: self.cpu_lanes(),
             scope: Some(Arc::clone(scope)),
@@ -317,7 +317,7 @@ impl NativeExecutionContext<'_> {
         // does not reopen the file or cache an answer. Batch readers are unchanged.
         let reader = super::ResidentFileReadAt {
             identity: Arc::clone(identity),
-            allocator: self.owner.session.allocator(),
+            allocator: self.owner.session.host_allocator(),
             handle: self.owner.runtime.handle(),
             concurrency: self.cpu_lanes(),
             scope: Some(Arc::clone(scope)),
@@ -394,4 +394,4 @@ impl Drop for NativeExecutionContext<'_> {
     }
 }
 
-use vortex::array::memory::MemorySessionExt as _;
+use vortex::array::memory::HostMemorySessionExt as _;

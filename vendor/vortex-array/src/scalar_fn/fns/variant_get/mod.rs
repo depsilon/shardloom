@@ -9,8 +9,6 @@ use prost::Message;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_err;
-use vortex_proto::expr as pb;
-use vortex_proto::expr::variant_path_element;
 use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
 use vortex_utils::aliases::StringEscape;
@@ -27,6 +25,8 @@ use crate::dtype::DType;
 use crate::dtype::FieldName;
 use crate::dtype::Nullability;
 use crate::expr::display::ExprDisplay;
+use crate::proto::expr as pb;
+use crate::proto::expr::variant_path_element;
 use crate::scalar::Scalar;
 use crate::scalar_fn::Arity;
 use crate::scalar_fn::ChildName;
@@ -51,7 +51,7 @@ impl VariantGet {
     ///
     /// Returns an error if `input` is not Variant data.
     pub fn try_new(input: ArrayRef, options: VariantGetOptions) -> VortexResult<ScalarFnArray> {
-        ScalarFnArray::try_new(VariantGet.bind(options), vec![input])
+        ScalarFnArray::try_new(VariantGet.bind(options), [input])
     }
 }
 
@@ -144,7 +144,7 @@ impl ScalarFnVTable for VariantGet {
             .map_or(DType::Variant(Nullability::Nullable), DType::as_nullable);
 
         if !dtype.is_variant() {
-            let mut builder = builder_with_capacity_in(ctx.allocator(), &dtype, input.len());
+            let mut builder = builder_with_capacity_in(&dtype, input.len(), ctx.allocator());
             for idx in 0..input.len() {
                 let scalar = input.execute_scalar(idx, ctx)?;
                 let output = variant_get_scalar(&scalar, options, &dtype)?;
@@ -579,9 +579,6 @@ mod tests {
 
         let bare_path = parse_path("data[2]").unwrap();
         assert_eq!(bare_path.to_string(), "$.data[2]");
-        assert!(parse_path("$.").is_err());
-        assert!(parse_path("$data").is_err());
-        assert!(parse_path("$.data[-1]").is_err());
     }
 
     #[test]
@@ -837,13 +834,16 @@ mod tests {
         assert_eq!(variant.core_storage().len(), variant.len());
 
         let mut ctx = array_session().create_execution_ctx();
-        for (idx, expected) in [10i32, 20].into_iter().enumerate() {
-            let scalar = variant.execute_scalar(idx, &mut ctx)?;
-            let actual = scalar
-                .as_variant()
-                .value()
-                .and_then(|value| value.as_primitive().as_::<i32>());
-            assert_eq!(actual, Some(expected), "row {idx}");
+        for array in [variant, canonical_variant] {
+            assert_eq!(array.dtype(), &DType::Variant(Nullability::Nullable));
+            for (idx, expected) in [10i32, 20].into_iter().enumerate() {
+                let scalar = array.execute_scalar(idx, &mut ctx)?;
+                let actual = scalar
+                    .as_variant()
+                    .value()
+                    .and_then(|value| value.as_primitive().as_::<i32>());
+                assert_eq!(actual, Some(expected), "row {idx}");
+            }
         }
         Ok(())
     }

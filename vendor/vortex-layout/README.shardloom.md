@@ -1,6 +1,6 @@
 # ShardLoom native layout patches
 
-This directory contains the reviewed Apache-2.0 `vortex-layout` 0.85.0 registry
+This directory contains the reviewed Apache-2.0 `vortex-layout` 0.90.0 registry
 source. `upstream-provenance.json` records the authoritative archive, original
 member hashes, license and dirty upstream revision. The workspace lockfile owns
 dependency resolution; the archive's crate-local lockfile is recorded but omitted.
@@ -21,9 +21,14 @@ an intermediate vector. The existing vector-returning API remains available
 for caller-owned data. Running accumulator state and independently allocated
 statistics payloads retain their separate ownership scope.
 
-File/array/layout identities, serialization, provider version and dependencies
-are unchanged. The `publish = false` manifest marker prevents publication of
-this local patch. No query engine or execution fallback is introduced.
+The October 24 refresh ports those corrections to the 0.90 layout/context APIs.
+Upstream repartitioning now requests exact referenced-byte costs; physical
+buffer ownership and reservations remain separate. Existing production callers
+retain V1 reader-cache reuse. The new V2 execution/value-cache path is not
+admitted here: list coverage and source/cache allocation lifetimes need the
+following warm-source package's proof. The `publish = false` manifest marker
+prevents publication of this local patch. No query engine or execution fallback
+is introduced.
 
 The owning contract is
 `docs/architecture/native-persisted-reuse-2026-10-11.md`. ShardLoom integration
@@ -42,7 +47,10 @@ The `native_vortex_tests` CI lane runs this excluded crate's complete library
 test target, including the accumulator and nullable structural-reader
 regressions, plus strict library Clippy. It seeds the
 ignored crate-local lockfile from the workspace lockfile, applies the reviewed
-`vortex-array` patch and enables the provider's test harness and local runtime.
+`vortex-array` and `vortex-io` patches and enables the provider's test harness
+and local runtime. The indexed-layout and Bloom-filter golden metadata omitted
+from the published archive are restored from the exact upstream revision;
+provenance records their hashes and byte-identical associated test sources.
 Cargo resolves additional upstream test-only dependencies for that target;
 production resolution remains the root workspace's locked graph. The ordinary
 ShardLoom tests separately exercise the linked provider through real native

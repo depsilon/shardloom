@@ -22,7 +22,7 @@ pub(super) fn decompress(
             && indices.last().is_none_or(|last| *last < array.len()),
         "Selected Zstd view indices must be strictly increasing and in bounds"
     );
-    let allocator = ctx.allocator();
+    let allocator = ctx.host_allocator();
     let (buffers, views) = if indices.is_empty() {
         (
             VarBinViewBufferBuilder::try_with_capacity(0, &allocator)?,
@@ -152,7 +152,7 @@ mod tests {
     use vortex_array::array_session;
     use vortex_array::dtype::Nullability;
     use vortex_array::memory::{
-        DefaultHostAllocator, HostAllocator, MemorySessionExt, WritableHostBuffer,
+        DefaultHostAllocator, HostAllocator, HostMemorySessionExt, WritableHostBuffer,
     };
 
     use super::*;
@@ -215,10 +215,10 @@ mod tests {
     fn selected_views_reject_malformed_lengths_counts_and_extents() -> VortexResult<()> {
         let allocator: HostAllocatorRef = Arc::new(DefaultHostAllocator);
         for bytes in [
-            ByteBuffer::copy_from(&[1, 0, 0]),
-            ByteBuffer::copy_from(&[5, 0, 0, 0, b'a']),
-            ByteBuffer::copy_from(&[0xff, 0xff, 0xff, 0xff]),
-            ByteBuffer::copy_from(&[0, 0, 0, 0, 1]),
+            ByteBuffer::copy_from([1, 0, 0]),
+            ByteBuffer::copy_from([5, 0, 0, 0, b'a']),
+            ByteBuffer::copy_from([0xff, 0xff, 0xff, 0xff]),
+            ByteBuffer::copy_from([0, 0, 0, 0, 1]),
         ] {
             assert!(reconstruct(&bytes, 1, 0, &[0], 20, &allocator).is_err());
         }
@@ -271,7 +271,8 @@ mod tests {
         let plain = VarBinViewArray::from_iter_str(["first value", "second value"]);
         let encoded = Zstd::from_var_bin_view_without_dict(&plain, 0, 1, &mut ctx)?.into_array();
         let counter = Arc::new(AllocationCounter::default());
-        let session = array_session().with_allocator(Arc::<AllocationCounter>::clone(&counter));
+        let session =
+            array_session().with_host_allocator(Arc::<AllocationCounter>::clone(&counter));
         let mut ctx = session.create_execution_ctx();
         for indices in [&[2][..], &[1, 0], &[0, 0], &[0, usize::MAX]] {
             assert!(decompress(encoded.as_::<Zstd>(), indices, &mut ctx).is_err());

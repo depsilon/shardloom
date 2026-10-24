@@ -20,7 +20,7 @@ use vortex::array::{
     ArrayRef,
     arrays::StructArray,
     dtype::{DType, FieldNames},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
 
@@ -452,7 +452,7 @@ impl Spec {
         let column = result_batch::build_column(
             self.output_dtype()?,
             values.len(),
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| Ok(values[row].map_or(result_batch::Value::Null, result_batch::Value::Bool)),
         )?;
         self.append(array, column, context)

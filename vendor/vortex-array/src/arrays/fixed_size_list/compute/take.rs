@@ -8,6 +8,7 @@ use vortex_buffer::BufferMut;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 
 use crate::ArrayRef;
@@ -27,7 +28,7 @@ use crate::arrays::fixed_size_list::FixedSizeListArraySlotsExt;
 use crate::arrays::piecewise_sequence::constant_unsigned_usize;
 use crate::arrays::piecewise_sequence::maybe_contiguous_slices;
 use crate::arrays::primitive::PrimitiveArrayExt;
-use crate::builders::builder_with_capacity;
+use crate::builders::builder_with_capacity_in;
 use crate::dtype::DType;
 use crate::dtype::IntegerPType;
 use crate::executor::ExecutionCtx;
@@ -77,7 +78,7 @@ fn take_empty_fsl(
             "FixedSizeList take output length overflow: {new_len} lists of size {list_size}"
         )
     })?;
-    let new_elements = default_elements(array, elements_len);
+    let new_elements = default_elements(array, elements_len, ctx.allocator());
     let new_validity = if new_len == 0 {
         array.validity()?.take(indices)?
     } else {
@@ -184,9 +185,10 @@ fn take_piecewise_fsl(
         element_starts.push(u64::try_from(start * list_size)?);
         element_lengths.push(u64::try_from(length * list_size)?);
     }
-    vortex_ensure!(
-        total_len == new_len,
-        "PiecewiseSequenceArray expanded length {total_len} does not match declared length {new_len}"
+    vortex_ensure_eq!(
+        total_len,
+        new_len,
+        "PiecewiseSequenceArray expanded length does not match declared length",
     );
 
     let new_elements =
@@ -337,8 +339,12 @@ fn bounds_check_valid_indices<I: IntegerPType>(
     Ok(())
 }
 
-fn default_elements(array: ArrayView<'_, FixedSizeList>, len: usize) -> ArrayRef {
-    let mut builder = builder_with_capacity(array.elements().dtype(), len);
+fn default_elements(
+    array: ArrayView<'_, FixedSizeList>,
+    len: usize,
+    allocator: &vortex_buffer::BufferAllocatorRef,
+) -> ArrayRef {
+    let mut builder = builder_with_capacity_in(array.elements().dtype(), len, allocator);
     builder.append_defaults(len);
     builder.finish()
 }

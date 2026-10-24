@@ -207,6 +207,9 @@ fn physical_leaf(
                 PrimitiveArray::from_iter(indices).into_array(),
                 patch_values,
                 None,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    &vortex::array::array_session(),
+                ),
             )
             .unwrap();
             Sparse::try_new_from_patches(patches, 0i32.into())
@@ -244,7 +247,19 @@ fn patches(
         .execute::<Canonical>(ctx)
         .unwrap()
         .into_array();
-    Some(Patches::new(values.len(), 0, codes, selected, None).unwrap())
+    Some(
+        Patches::new(
+            values.len(),
+            0,
+            codes,
+            selected,
+            None,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
+        )
+        .unwrap(),
+    )
 }
 
 fn alprd(values: &ArrayRef) -> ArrayRef {
@@ -265,6 +280,9 @@ fn alprd(values: &ArrayRef) -> ArrayRef {
             .into_array(),
         Buffer::copy_from(&left).into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     ALPRD::try_new(

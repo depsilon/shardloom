@@ -35,7 +35,7 @@ use vortex::{
         dtype::{DType, FieldNames, Nullability},
         validity::Validity,
     },
-    arrow::ArrowSessionExt as _,
+    arrow::{ArrowExportOptions, ArrowSessionExt as _, CompactBuffers},
 };
 
 use crate::native_arrow_conversion as nested;
@@ -584,6 +584,19 @@ impl PreparedCompatibilityExport {
                                 &mut ctx,
                                 &self.limits,
                             )?;
+                            let view_target =
+                                if self.format == VortexLocalPrimitiveRowExportFormat::Parquet {
+                                    nested::immediate_parquet_target(
+                                        &canonical,
+                                        &self.schema,
+                                        expanded,
+                                        self.limits.arrow_batch_bytes,
+                                    )?
+                                } else {
+                                    None
+                                };
+                            let conversion_bytes =
+                                view_target.as_ref().map_or(expanded, |(_, bytes)| *bytes);
                             if self.limits.streaming {
                                 metadata = CompatibilityLimits::metadata_for_batches(
                                     self.schema_fields,
@@ -591,7 +604,7 @@ impl PreparedCompatibilityExport {
                                         .map_err(vortex_error)?,
                                 )?;
                             }
-                            let admitted = expanded
+                            let admitted = conversion_bytes
                                 .checked_mul(8)
                                 .and_then(|n| n.checked_add(metadata))
                                 .ok_or_else(|| error("writer admission overflow"))?
@@ -603,9 +616,19 @@ impl PreparedCompatibilityExport {
                             }
                             work.writer_reserved_bytes =
                                 work.writer_reserved_bytes.max(work_owner.bytes());
+                            let batch_schema = view_target
+                                .as_ref()
+                                .map_or(&self.schema, |(schema, _)| schema);
+                            let view_field = view_target.as_ref().map(|(schema, _)| {
+                                Field::new("", DataType::Struct(schema.fields().clone()), false)
+                            });
+                            let target = view_field.as_ref().unwrap_or(&target);
+                            let export_options = ArrowExportOptions::default()
+                                .with(CompactBuffers(view_target.is_none()));
                             let arrow = session
                                 .arrow()
-                                .execute_arrow(canonical, Some(&target), &mut ctx)
+                                .exporter(&export_options)
+                                .execute_arrow(canonical, Some(target), &mut ctx)
                                 .map_err(vortex_error)?;
                             let structure = arrow
                                 .as_any()
@@ -614,7 +637,7 @@ impl PreparedCompatibilityExport {
                                     error("Arrow provider did not return the admitted struct")
                                 })?;
                             let batch = RecordBatch::try_new(
-                                Arc::clone(&self.schema),
+                                Arc::clone(batch_schema),
                                 structure.columns().to_vec(),
                             )
                             .map_err(vortex_error)?;

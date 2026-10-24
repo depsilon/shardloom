@@ -27,10 +27,10 @@ impl ReservedHostAllocator {
 
 impl HostAllocator for ReservedHostAllocator {
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
-        // Pinned Vortex 0.85 DefaultHostAllocator requests len + preferred
+        // Pinned Vortex 0.90 DefaultHostAllocator requests len + preferred
         // alignment bytes. Charge that capacity, not just the logical slice.
         let capacity = len
-            .checked_add(*alignment.max(Alignment::DEFAULT_ALIGNMENT))
+            .checked_add(alignment.max(Alignment::DEFAULT_ALIGNMENT).as_usize())
             .and_then(|size| u64::try_from(size).ok())
             .ok_or_else(|| vortex_err!("native host allocation size overflow"))?;
         let lease = reserve(&self.memory, capacity)?;
@@ -103,7 +103,7 @@ impl HostBufferMut for ReservedWritableBuffer {
             buffer: buffer.freeze(),
             _lease: lease,
         };
-        ByteBuffer::from_bytes_aligned(bytes::Bytes::from_owner(owner), alignment)
+        ByteBuffer::from_bytes_aligned_with_owner(bytes::Bytes::from_owner(owner), alignment)
     }
 }
 
@@ -118,7 +118,7 @@ struct ReservedBufferOwner<L = MemoryLease> {
 #[cfg(feature = "vortex-local-primitives")]
 pub(crate) fn retain_credit(buffer: ByteBuffer, lease: MemoryLease) -> ByteBuffer {
     let alignment = buffer.alignment();
-    ByteBuffer::from_bytes_aligned(
+    ByteBuffer::from_bytes_aligned_with_owner(
         bytes::Bytes::from_owner(ReservedBufferOwner {
             buffer,
             _lease: lease,
@@ -134,7 +134,7 @@ pub(crate) fn retain_shared_credit(
     lease: std::sync::Arc<MemoryLease>,
 ) -> ByteBuffer {
     let alignment = buffer.alignment();
-    ByteBuffer::from_bytes_aligned(
+    ByteBuffer::from_bytes_aligned_with_owner(
         bytes::Bytes::from_owner(ReservedBufferOwner {
             buffer,
             _lease: lease,
@@ -164,6 +164,21 @@ pub(crate) fn bool_array_with_retained_buffer(
         len,
         validity,
     )
+}
+
+/// Retain the constructing allocator on an empty array so schema credit also
+/// survives empty array slices, which may detach their underlying byte buffers.
+/// Bare buffer clones retain their own owners separately. No source payload is copied.
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn retain_empty_array_credit(
+    array: vortex::array::ArrayRef,
+    allocator: &vortex::array::memory::HostAllocatorRef,
+) -> VortexResult<vortex::array::ArrayRef> {
+    if array.is_empty() {
+        array.with_retained_owner(std::sync::Arc::new(std::sync::Arc::clone(allocator)))
+    } else {
+        Ok(array)
+    }
 }
 
 /// Attach structural metadata credit to every buffer in a native result tree.
@@ -236,7 +251,7 @@ impl HostBufferMut for CreditBuffer {
     fn freeze(self: Box<Self>) -> ByteBuffer {
         let Self { buffer, lease } = *self;
         let alignment = buffer.alignment();
-        ByteBuffer::from_bytes_aligned(
+        ByteBuffer::from_bytes_aligned_with_owner(
             bytes::Bytes::from_owner(ReservedBufferOwner {
                 buffer: buffer.freeze(),
                 _lease: lease,
@@ -301,6 +316,20 @@ mod tests {
         let buffer = allocator.allocate(128, Alignment::new(512)).unwrap();
         assert_eq!(memory.snapshot().reserved_bytes, 640);
         drop(buffer);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn empty_buffer_aliases_retain_admitted_credit_through_typed_conversion() {
+        let memory = LiveMemoryPool::new(4096).unwrap();
+        let allocator = ReservedHostAllocator::new(memory.clone());
+        let frozen = allocator.allocate(0, Alignment::new(512)).unwrap().freeze();
+        let typed = vortex::buffer::Buffer::<u64>::from_byte_buffer(frozen.clone());
+        let alias = typed.clone().into_byte_buffer();
+        assert!(alias.is_empty());
+        drop((allocator, frozen, typed));
+        assert_eq!(memory.snapshot().reserved_bytes, 512);
+        drop(alias);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 

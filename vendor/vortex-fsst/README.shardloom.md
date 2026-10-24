@@ -1,6 +1,6 @@
 # Vortex FSST buffer-table patch
 
-This is the Apache-2.0 `vortex-fsst` 0.85.0 published source. Its canonical
+This is the Apache-2.0 `vortex-fsst` 0.90.0 published source. Its canonical
 decoder calls the existing Vortex view-construction loops through their admitted
 table helper. Temporary buffer collections and final handle-table conversion
 overlap use the caller's allocator. FSST decompression, payloads, DTypes and

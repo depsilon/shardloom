@@ -10,7 +10,9 @@ use vortex::{
         arrays::PrimitiveArray, patches::Patches,
     },
     encodings::{
-        fastlanes::{BitPacked, BitPackedArrayExt as _, BitPackedData, BitPackedSlots},
+        fastlanes::{
+            BitPacked, BitPackedArrayExt as _, BitPackedData, BitPackedSlots, BitWidthsView,
+        },
         runend::{RunEnd, RunEndArraySlotsExt as _},
     },
     error::{VortexResult, vortex_err},
@@ -114,7 +116,12 @@ pub(super) fn packed(
     let Some(packed) = array.as_opt::<BitPacked>() else {
         return Ok(array);
     };
-    if usize::from(packed.bit_width()) > array.dtype().as_ptype().byte_width() * 8 {
+    let BitWidthsView::Global(bit_width) = packed.bit_widths() else {
+        return Err(vortex_err!(
+            "SL-NATIVE-IPC: blocked packed widths are outside the admitted wire contract"
+        ));
+    };
+    if usize::from(bit_width) > array.dtype().as_ptype().byte_width() * 8 {
         return Err(vortex_err!(
             "SL-NATIVE-IPC: packed width exceeds its integer dtype"
         ));
@@ -147,15 +154,21 @@ pub(super) fn packed(
         patches.indices().clone(),
         patches.values().clone(),
         None,
+        &mut context.native_session().create_execution_ctx(),
     )?;
     let data = BitPackedData::try_new(
         packed.packed().clone(),
         Some(patches),
-        packed.bit_width(),
+        bit_width,
         packed.offset(),
     )?;
-    let mut parts = ArrayParts::new(BitPacked, array.dtype().clone(), array.len(), data);
-    parts.slots = array.slots().iter().cloned().collect();
+    let mut parts = ArrayParts::new(
+        BitPacked,
+        array.dtype().clone(),
+        array.len(),
+        data,
+        array.slots().iter().cloned().collect(),
+    );
     parts.slots[BitPackedSlots::PATCH_CHUNK_OFFSETS] = None;
     Ok(Array::<BitPacked>::try_from_parts(parts)?.into_array())
 }

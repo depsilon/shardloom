@@ -11,7 +11,7 @@ use vortex::{
         },
         dtype::{FieldNames, Nullability},
         iter::{ArrayIteratorAdapter, ArrayIteratorExt as _},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         scalar::Scalar,
         validity::Validity,
     },
@@ -208,7 +208,7 @@ fn real_paired_files_keep_segment_geometry_payloads_dictionary_epochs_and_full_v
                 (
                     spec.offset,
                     spec.length,
-                    *spec.alignment,
+                    spec.alignment.as_usize(),
                     bytes[start..start + spec.length as usize].to_vec(),
                 )
             })
@@ -702,7 +702,7 @@ fn root_children_clones_share_vectors_and_hold_credits_through_footer_lifetime()
             4,
         )
         .unwrap();
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     let root = matrix.into_layout(dtype, 4, &session).unwrap();

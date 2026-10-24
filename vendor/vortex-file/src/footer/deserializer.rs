@@ -7,7 +7,8 @@
 
 use flatbuffers::root;
 use vortex_array::dtype::DType;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::flatbuffers::FlatBuffer;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_buffer::Alignment;
 use vortex_buffer::ByteBuffer;
 use vortex_buffer::ByteBufferMut;
@@ -15,13 +16,13 @@ use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
-use vortex_flatbuffers::FlatBuffer;
 use vortex_session::VortexSession;
 
 use crate::EOF_SIZE;
 use crate::Footer;
 use crate::MAGIC_BYTES;
 use crate::VERSION;
+use crate::flatbuffers::footer::Postscript as PostscriptFlatbuffer;
 use crate::footer::FileStatistics;
 use crate::footer::postscript::Postscript;
 use crate::footer::postscript::PostscriptSegment;
@@ -113,7 +114,10 @@ impl FooterDeserializer {
             .len()
             .checked_add(self.buffer.len())
             .ok_or_else(|| vortex_err!("Footer buffer length overflow"))?;
-        let mut buffer = self.session.allocator().allocate(len, Alignment::none())?;
+        let mut buffer = self
+            .session
+            .host_allocator()
+            .allocate(len, Alignment::none())?;
         let (prefix, suffix) = buffer.as_mut_slice().split_at_mut(more_data.len());
         prefix.copy_from_slice(&more_data);
         suffix.copy_from_slice(&self.buffer);
@@ -279,9 +283,8 @@ impl FooterDeserializer {
             );
         }
 
-        let postscript = root::<vortex_flatbuffers::footer::Postscript<'_>>(
-            &initial_read[eof_loc - ps_size..eof_loc],
-        )?;
+        let postscript =
+            root::<PostscriptFlatbuffer<'_>>(&initial_read[eof_loc - ps_size..eof_loc])?;
         Postscript::read_with_session(&postscript, &self.session)
     }
 
@@ -311,7 +314,7 @@ impl FooterDeserializer {
     ) -> VortexResult<FileStatistics> {
         let sliced_buffer = checked_segment_slice(initial_read, initial_offset, segment)?;
 
-        let fb = root::<vortex_flatbuffers::footer::FileStatistics>(sliced_buffer)?;
+        let fb = root::<crate::flatbuffers::footer::FileStatistics>(sliced_buffer)?;
         FileStatistics::from_flatbuffer(&fb, dtype, session)
     }
 
@@ -347,7 +350,7 @@ impl FooterDeserializer {
     fn copy_flatbuffer(&self, bytes: &[u8]) -> VortexResult<FlatBuffer> {
         let mut buffer = self
             .session
-            .allocator()
+            .host_allocator()
             .allocate(bytes.len(), FlatBuffer::alignment())?;
         buffer.as_mut_slice().copy_from_slice(bytes);
         buffer.freeze().try_into()
@@ -384,7 +387,7 @@ mod tests {
     use vortex_array::array_session;
     use vortex_array::dtype::Nullability;
     use vortex_array::dtype::PType;
-    use vortex_flatbuffers::WriteFlatBufferExt;
+    use vortex_array::flatbuffers::WriteFlatBufferExt;
 
     use super::*;
 

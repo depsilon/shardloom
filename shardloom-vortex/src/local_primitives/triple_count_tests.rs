@@ -17,7 +17,7 @@ use vortex::{
         ArrayRef, IntoArray as _,
         arrays::{DictArray, PrimitiveArray, StructArray, VarBinViewArray},
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     session::VortexSession,
@@ -231,7 +231,7 @@ fn worker_values_with_routing_buffers(
     let mut states =
         GroupedAggregateStates::new(request, Some(limit), &columns, false, false).unwrap();
     let memory = LiveMemoryPool::new(16 << 20).unwrap();
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     let mut workers = CountWorkers::admit(

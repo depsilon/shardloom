@@ -9,7 +9,7 @@ use super::{
 use crate::local_primitives::native_numeric_owner::NativeNumericOwner;
 use vortex::{
     array::{
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         scalar::{PValue, ScalarValue},
     },
     buffer::{Alignment, BitBuffer},
@@ -214,7 +214,7 @@ impl Recipe {
         let owners = self.prepare_owners(input, context)?;
         let mut bits = context
             .native_session()
-            .allocator()
+            .host_allocator()
             .allocate(input.len().div_ceil(8), Alignment::none())
             .map_err(super::vortex_error)?;
         for (index, output) in bits.as_mut_slice().chunks_mut(8).enumerate() {

@@ -3,6 +3,9 @@
 debug
 target
 
+# Standalone provider tests resolve their own generated dependency locks.
+/vendor/*/Cargo.lock
+
 # OS/editor noise
 .DS_Store
 Thumbs.db

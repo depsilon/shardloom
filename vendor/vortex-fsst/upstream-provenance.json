@@ -1,51 +1,87 @@
 {
   "provider": "vortex-fsst",
-  "version": "0.85.0",
+  "version": "0.90.0",
   "license": "Apache-2.0",
-  "registry_archive_sha256": "aa353148fd0181d6caaecd7823c46c917140f264c3a67d8f5fb3b2574ce394fc",
-  "upstream_git_sha": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
-  "upstream_vcs_dirty": true,
-  "source_of_truth": "published registry archive, not an assumed clean Git tree",
+  "registry_archive_sha256": "e2a198ab5fcd335db05dab36506ae37988acde7e916d4bbf3cbac6519ae6ae27",
+  "registry_archive_file_count": 25,
+  "registry_archive_uncompressed_bytes": 294960,
   "original_files_sha256": {
-    ".cargo_vcs_info.json": "e079f09fbd7dd51829bfefa4796a048f5955d07f53df90d993771cc0f17cb55b",
-    "Cargo.lock": "a256c78ac3e9420cd847bccf0e95d0c4b28f544dcdf3a3dd6e3d92c0862370b9",
-    "Cargo.toml": "5cdd02aa5007b8d4d60e9a96becba42b1d271834738b74ae9ef917ae2d190908",
-    "Cargo.toml.orig": "90f5813f92acd331190b01fe26a353f2553de1c212b34b0948c8820329b83a4f",
+    ".cargo_vcs_info.json": "805065d7103aef7144c531320a9cd0fff3d01647a168b62481d5766dce350254",
+    "Cargo.lock": "40c51e5c27f26b6ec8b7d475d0e3dd8c7e1c3eb001f56f165fc9620cc36c8042",
+    "Cargo.toml": "f446b62199c0374f7c8557784ba11cc1bf41f22b6e88294e49b10c992d233f5e",
+    "Cargo.toml.orig": "14bc93e9e7ced190c8230c073ac112dab7e7361a52047a5b11b8e6249d01eb13",
     "README.md": "ecde4db2ad754c2d3d12b8d98f002dc4d447aeb7ac55986ac858da5242a4e753",
-    "src/array.rs": "26e521d904e9b33172b99f778a2222cccad237b69167ea1c663ace0d403ab82b",
-    "src/canonical.rs": "f67a5a0820b68cc64c3747feb42842f3b6099f444789e184c31a753e1e429929",
-    "src/compress.rs": "ede5d764625bd6378ee7be85cc79f0fe8b52b0ee05c51fb9cb7c5fbad8db4636",
+    "src/array.rs": "f0362b8705e524d89f505576a5b570aa693b2a2ac95ec49c28bfbfc83f97dcdb",
+    "src/canonical.rs": "2d7130ffb7114ec61c0de243e784d4d16e320ac3cc19b87479b1149101dc063a",
+    "src/compress.rs": "15846e1a0dd1ac1c1523f7e2920a4d4c68ca46c01fdaeaef66c702f13349c27e",
     "src/compute/byte_length.rs": "e5d61c09603d063742d35d4ca38b583b312c9938e235a92f0a2dded31cc42f3d",
-    "src/compute/cast.rs": "73c88a49a05541055b192f56e72646152622f504f7dc84716299e5cc5e9407e6",
-    "src/compute/compare.rs": "de96b58bb54ca1e5e8b139386148ac7f63ac00e8b9f89b84d24d8f7b99c8ae86",
+    "src/compute/cast.rs": "4ffa2e3d5652bad6a8922a012518a8d4c4228708729f63f2e7ac3447055e6324",
+    "src/compute/compare.rs": "322e0a70cccf90d1b5e19f5fd45e231623248cd920cb87c6eaddffb31f4c418b",
     "src/compute/filter.rs": "c384bb3b770a368a6cc6a90340704423c980b20a7bedb336d3c1cc6021c67912",
-    "src/compute/like.rs": "c93ffbf9aee77a1f4a9240de8a140a4b434d0d64577bc6a4f43e6f96c7dcb800",
-    "src/compute/mod.rs": "44942d0e082d90baee7c3e0472680f504c239672914751978863f69e33dde576",
+    "src/compute/like.rs": "cdecae7b2d9d956c97e28cdbd6b945ad5122629d2afb55b3bd32817f47772118",
+    "src/compute/mod.rs": "c72ef916ae23fbce3d69ea4533a592a02617974953cd1b60594e33daafc28245",
     "src/dfa/flat_contains.rs": "00dc0580cf05b5f63def355b54b24535fc81317b37dba0ea50ac8b1b22a809ef",
     "src/dfa/mod.rs": "8a2daf475d24625ddd7c1f7f4ec7e0da6b81d9e6170f9ec6c4f63b1962db350d",
     "src/dfa/prefix.rs": "f600d85b05ef84cd7c2e46117f0f74bece686d825af09586050670a43fcd08df",
-    "src/dfa/tests.rs": "9cdd44efd5facc28bd36ebcc57a49a847bf19a343ec79ff671d5940a368c112f",
-    "src/kernel.rs": "a1ba7d9efd555d8c956e4c887d81170b0566e7e99541f3b9d9e22b664156d3a5",
+    "src/dfa/tests.rs": "21e265a86f22f2f6aa73023cb423e3c16d2281f720b173c2c59fde8972d5719a",
+    "src/kernel.rs": "7f5fa34606417bf395b2c38652c54f6be88026b107eb427d3f35cfb77d004f5f",
     "src/lib.rs": "2471427d2f3d026c89db523e7b836fb5b1c7071b42bb0e7f6825df4a66cb1c7e",
-    "src/ops.rs": "e32fe3c66979f36db101758f8e9615ed8ce86e6aec18994cdc921024c91995cc",
+    "src/ops.rs": "5a040f109b084085f0e5172fcbec60975914fa7cdbf45292c1e0eacc5a2b2a1f",
     "src/rules.rs": "9a6c28ebd29885a06c44f22b45a59097d6949767330070a178a9950441f3157a",
     "src/slice.rs": "cbb5156ab0ff2cc1617959e03a68c16413de860c37cd3271ade20ac555d6f391",
     "src/test_utils.rs": "b0cda76f497afc492df6a881063f00a4759fed46c747f12956458dec10c5a689",
-    "src/tests.rs": "d532c94f21f8b15196d3610c336d1bb2e74254776ef5f037c7bb8cac31fa7708"
+    "src/tests.rs": "157e5d7007cbda5cddda7d483b900729fc9b110e670fdd284d2ca1add190fd9a"
   },
-  "omitted_original_files": {
-    "Cargo.lock": "workspace Cargo.lock controls dependency resolution"
+  "vcs_info": {
+    "git": {
+      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/fsst"
   },
-  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+  "source_of_truth": "https://static.crates.io/crates/vortex-fsst/vortex-fsst-0.90.0.crate",
+  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "migration_status": "ported_retained_local_invariants",
+  "predecessor": {
+    "source_commit": "3628a81bef597a4a3d833d93470ffae1b1cc7587",
+    "version": "0.85.0",
+    "registry_archive_sha256": "aa353148fd0181d6caaecd7823c46c917140f264c3a67d8f5fb3b2574ce394fc",
+    "provenance_path": "vendor/vortex-fsst/upstream-provenance.json"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "afcabb8a63f5bbbb7553a1cd716604034293a62b3d9bf376f9c7961b9d32e0c4",
+    "src/array.rs": "f22416b2918c53d8d2816f3bf753008d50b225599482f713421ee9e8b1c8f3b2",
+    "src/canonical.rs": "057cc58a8afad337f93e4d1384dc90f7226c1101f8d64f8c61f5c799108d77d3"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "dbb169f4e5aeee7f018f425af80e21a1a310b19f7d9cf77b57ef1af764795650",
+    "goldenfiles/fsst.metadata": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "dbb169f4e5aeee7f018f425af80e21a1a310b19f7d9cf77b57ef1af764795650"
+  },
   "supplemental_test_files": {
     "goldenfiles/fsst.metadata": {
-      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/encodings/fsst/goldenfiles/fsst.metadata",
+      "provider": "vortex-fsst",
+      "path": "goldenfiles/fsst.metadata",
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/encodings/fsst/goldenfiles/fsst.metadata",
       "git_blob_sha1": "d28c2e831b7f62f8c0e830585655c50e0f5ce7a4",
       "sha256": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40",
       "bytes": 4,
-      "reason": "The registry archive omits the golden fixture required by its unchanged library test. The pinned Git revision's src/array.rs is byte-identical to the published source."
+      "test_source": "src/array.rs",
+      "test_source_matches_published_archive": false,
+      "test_source_sha256": "f0362b8705e524d89f505576a5b570aa693b2a2ac95ec49c28bfbfc83f97dcdb",
+      "test_source_published_archive_sha256": "f0362b8705e524d89f505576a5b570aa693b2a2ac95ec49c28bfbfc83f97dcdb",
+      "test_source_current_sha256": "f22416b2918c53d8d2816f3bf753008d50b225599482f713421ee9e8b1c8f3b2",
+      "retained_test_module": {
+        "marker": "#[cfg(test)]\nmod test {",
+        "bytes": 12026,
+        "sha256": "adf6a13df3d2e16c6de1fff12038d56c5f4e1fb68fc63ec3b9af7018746071a8",
+        "matches_published_archive": true
+      }
     }
-  },
-  "local_changes": "Canonical string/binary decoding calls vortex-array's shared admitted view-construction helper. Existing FSST decompression and native view-building loops remain authoritative; temporary buffer elements and final handle-table conversion overlap use the context allocator. No new codec, execution engine, wire format, dependency version or unsafe boundary is introduced. The normalized manifest adds publish=false; README.shardloom.md and reviewed license/provenance records are included."
+  }
 }

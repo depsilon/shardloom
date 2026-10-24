@@ -3,7 +3,7 @@ use vortex::{
     VortexSessionDefault as _,
     array::{
         VortexSessionExecute as _, arrays::VarBinArray, dtype::Nullability,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
     encodings::fsst::{FSSTArrayExt as _, fsst_compress, fsst_train_compressor},
 };
@@ -18,11 +18,66 @@ fn fixture(values: &[Option<&str>]) -> FSSTArray {
 }
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     install(&session, memory.clone());
     session
+}
+
+#[test]
+fn native_fsst_sparse_small_array_gathers_before_admitted_decode() {
+    let values = (0..32)
+        .map(|row| (row != 0).then(|| format!("{}row={row}", "caption ".repeat(2048))))
+        .collect::<Vec<_>>();
+    let borrowed = values.iter().map(Option::as_deref).collect::<Vec<_>>();
+    let encoded = fixture(&borrowed).into_array();
+    assert!(encoded.len() < 1024);
+    assert!(encoded.as_::<FSST>().codes_bytes_handle().len() >= 8192);
+    for (range, indices, expected_rows) in [
+        (
+            0..32,
+            vec![Some(31u32), Some(31), Some(3)],
+            vec![Some(31), Some(31), Some(3)],
+        ),
+        (
+            0..32,
+            vec![Some(31u32), None, Some(0)],
+            vec![Some(31), None, Some(0)],
+        ),
+        (8..24, vec![Some(15u32), Some(2)], vec![Some(23), Some(10)]),
+    ] {
+        let memory = LiveMemoryPool::new(4 << 20).unwrap();
+        let session = session(&memory);
+        let mut ctx = session.create_execution_ctx();
+        let indices = PrimitiveArray::from_option_iter(indices).into_array();
+        let selected = encoded.slice(range).unwrap().take(indices).unwrap();
+        // This is the same generic take/execution dispatch used by selected
+        // native rows. The first step gathers compressed codes, before the
+        // ShardLoom decoder reserves and materializes only the chosen values.
+        let gathered = selected.execute::<ArrayRef>(&mut ctx).unwrap();
+        assert!(gathered.is::<FSST>(), "{}", gathered.encoding_id());
+        assert_eq!(gathered.len(), expected_rows.len());
+        let output = gathered.execute::<VarBinViewArray>(&mut ctx).unwrap();
+        let validity = output
+            .validity()
+            .unwrap()
+            .execute_mask(output.len(), &mut ctx)
+            .unwrap();
+        for (row, expected) in expected_rows.iter().enumerate() {
+            let expected = expected.and_then(|index| values[index].as_deref());
+            assert_eq!(validity.value(row), expected.is_some());
+            if let Some(expected) = expected {
+                assert_eq!(output.bytes_at(row).as_slice(), expected.as_bytes());
+            }
+        }
+        assert!(memory.snapshot().reserved_bytes > 0);
+        let payload = output.data_buffers()[0].as_host().clone();
+        drop((output, validity, ctx, session));
+        assert!(memory.snapshot().reserved_bytes > 0);
+        drop(payload);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]
@@ -297,10 +352,13 @@ fn native_fsst_code_lengths_preserve_integer_widths_and_sliced_ranges() {
                 codes_offsets: integers(&[1, 5, 5, 5], offset_type),
                 codes_validity: base.codes_validity().cloned(),
             };
-            let array = Array::<FSST>::try_from_parts(
-                ArrayParts::new(FSST, base.dtype().clone(), 3, base.data().clone())
-                    .with_slots(slots.into_slots()),
-            )
+            let array = Array::<FSST>::try_from_parts(ArrayParts::new(
+                FSST,
+                base.dtype().clone(),
+                3,
+                base.data().clone(),
+                slots.into_slots(),
+            ))
             .unwrap();
             let output = array
                 .into_array()
@@ -431,6 +489,9 @@ fn integer_fixture(array: &PrimitiveArray, kind: usize, ctx: &mut ExecutionCtx) 
                     indices,
                     array.clone().into_array(),
                     None,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                        &vortex::array::array_session(),
+                    ),
                 )
                 .unwrap(),
                 0i32.into(),
@@ -530,15 +591,13 @@ fn native_fsst_admits_each_reviewed_integer_metadata_provider_before_decode() {
             codes_offsets: offsets,
             codes_validity: encoded.codes_validity().cloned(),
         };
-        let input = Array::<FSST>::try_from_parts(
-            ArrayParts::new(
-                FSST,
-                encoded.dtype().clone(),
-                encoded.len(),
-                encoded.data().clone(),
-            )
-            .with_slots(slots.into_slots()),
-        )
+        let input = Array::<FSST>::try_from_parts(ArrayParts::new(
+            FSST,
+            encoded.dtype().clone(),
+            encoded.len(),
+            encoded.data().clone(),
+            slots.into_slots(),
+        ))
         .unwrap();
         let denied = LiveMemoryPool::new(scratch - 1).unwrap();
         // Exercise this exact metadata tree: the outer executor can reduce a
@@ -623,15 +682,13 @@ fn native_fsst_filtered_metadata_does_not_leave_unowned_mask_caches() {
             codes_offsets: filter(&offsets),
             codes_validity: encoded.codes_validity().cloned(),
         };
-        let input = Array::<FSST>::try_from_parts(
-            ArrayParts::new(
-                FSST,
-                encoded.dtype().clone(),
-                encoded.len(),
-                encoded.data().clone(),
-            )
-            .with_slots(slots.into_slots()),
-        )
+        let input = Array::<FSST>::try_from_parts(ArrayParts::new(
+            FSST,
+            encoded.dtype().clone(),
+            encoded.len(),
+            encoded.data().clone(),
+            slots.into_slots(),
+        ))
         .unwrap();
         let scratch = add(
             integer_workspace(input.uncompressed_lengths(), 0)
@@ -734,7 +791,15 @@ fn nullable_codes(kind: usize, present: &[bool]) -> ArrayRef {
             } else {
                 Validity::from_iter(present.iter().copied())
             };
-            MaskedArray::try_new(child, validity).unwrap().into_array()
+            MaskedArray::try_new(
+                child,
+                validity,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    &vortex::array::array_session(),
+                ),
+            )
+            .unwrap()
+            .into_array()
         }
         _ => unreachable!(),
     }
@@ -775,15 +840,13 @@ fn native_fsst_nullable_gathers_admit_nested_indices_and_release_scratch() {
             codes_offsets: encoded.codes_offsets().clone(),
             codes_validity: encoded.codes_validity().cloned(),
         };
-        let input = Array::<FSST>::try_from_parts(
-            ArrayParts::new(
-                FSST,
-                encoded.dtype().clone(),
-                encoded.len(),
-                encoded.data().clone(),
-            )
-            .with_slots(slots.into_slots()),
-        )
+        let input = Array::<FSST>::try_from_parts(ArrayParts::new(
+            FSST,
+            encoded.dtype().clone(),
+            encoded.len(),
+            encoded.data().clone(),
+            slots.into_slots(),
+        ))
         .unwrap();
         let scratch = integer_workspace(input.uncompressed_lengths(), 0)
             .unwrap_or_else(|error| panic!("metadata fixture {kind}: {error}"))

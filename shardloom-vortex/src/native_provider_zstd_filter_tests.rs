@@ -27,7 +27,7 @@ impl HostAllocator for OwnerCheckingAllocator {
 }
 
 fn owner_checking_session(memory: &LiveMemoryPool, owner: std::sync::Weak<()>) -> VortexSession {
-    let session = VortexSession::default().with_allocator(Arc::new(OwnerCheckingAllocator {
+    let session = VortexSession::default().with_host_allocator(Arc::new(OwnerCheckingAllocator {
         inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         owner,
     }));
@@ -78,7 +78,7 @@ fn native_zstd_sparse_text_filter_constructs_only_selected_views() {
         inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         views: std::sync::Mutex::new(Vec::new()),
     });
-    let session = VortexSession::default().with_allocator(recorder.clone());
+    let session = VortexSession::default().with_host_allocator(recorder.clone());
     install(&session, memory.clone());
     let selected = [1, 3, 120, 124];
     let output = encoded
@@ -751,7 +751,7 @@ fn native_zstd_sparse_selection_releases_every_failed_allocation_and_preserves_d
             call: std::sync::atomic::AtomicUsize::new(0),
             fail_at,
         });
-        let session = VortexSession::default().with_allocator(allocator.clone());
+        let session = VortexSession::default().with_host_allocator(allocator.clone());
         install(&session, memory.clone());
         match filtered
             .clone()

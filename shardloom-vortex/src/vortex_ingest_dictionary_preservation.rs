@@ -11,11 +11,11 @@ use vortex::{
         builtins::ArrayBuiltins as _,
         dtype::{DType, PType},
     },
-    compressor::{BtrBlocksCompressor, BtrBlocksCompressorBuilder},
+    compressor::BtrBlocksCompressor,
     editions::{ComponentKind, EditionSessionExt as _},
     error::{VortexResult, vortex_err},
     layout::{
-        LayoutRef, LayoutStrategy, LayoutStrategyEncodingValidator, LayoutWriterContext,
+        LayoutRef, LayoutStrategy, LayoutWriterContext,
         layouts::{
             chunked::writer::ChunkedLayoutStrategy,
             compressed::{CompressingStrategy, CompressorPlugin},
@@ -54,17 +54,16 @@ impl DictionaryPreservingStrategy {
             .filter(|id| **id != Dict.id())
             .copied()
             .collect();
-        let flat: Arc<dyn LayoutStrategy> = Arc::new(LayoutStrategyEncodingValidator::new(
-            FlatLayoutStrategy::default(),
-            allowed.into_iter().collect(),
-        ));
+        // The file writer's ArrayContext checks the actual wire IDs at serialization.
+        let flat: Arc<dyn LayoutStrategy> = Arc::new(FlatLayoutStrategy::default());
         let data: Arc<dyn LayoutStrategy> = Arc::new(
             CompressingStrategy::new(
                 Arc::clone(&flat),
                 DictionaryCodes {
-                    compressor: BtrBlocksCompressorBuilder::default()
-                        .retain_allowed_encodings(&compression_allowed)
-                        .build(),
+                    compressor: super::numeric_encoding::restricted_compressor(
+                        session,
+                        &compression_allowed,
+                    ),
                     timings,
                 },
             )

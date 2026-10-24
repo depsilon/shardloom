@@ -21,7 +21,7 @@ use vortex::{
     array::{
         ArrayRef, VortexSessionExecute as _,
         dtype::DType,
-        memory::{HostAllocatorRef, MemorySessionExt as _},
+        memory::{HostAllocatorRef, HostMemorySessionExt as _},
     },
     buffer::Alignment,
     error::{VortexResult, vortex_err},
@@ -428,7 +428,7 @@ impl ResidentVortexSession {
 
     #[cfg(unix)]
     pub(crate) fn native_allocator(&self) -> HostAllocatorRef {
-        self.0.session.allocator()
+        self.0.session.host_allocator()
     }
 
     /// Complete an admitted native array operation using this session's execution
@@ -565,7 +565,7 @@ impl ResidentVortexSession {
             .map_err(native_error)?;
         let session = VortexSession::default()
             .with_handle(runtime.handle())
-            .with_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
+            .with_host_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
         crate::native_provider_memory::install(&session, memory.clone());
         Ok(Self(Arc::new(RuntimeOwner {
             session,
@@ -627,7 +627,7 @@ impl ResidentVortexSession {
         let identity = Arc::new(SourceIdentity::capture(path.as_ref())?);
         cancellation.check()?;
         let input = identity.reader_scoped(
-            self.0.session.allocator(),
+            self.0.session.host_allocator(),
             self.0.runtime.handle(),
             context.cpu_lanes(),
             context.io_scope(),
@@ -1486,8 +1486,8 @@ impl PreparedVortexProjection {
         } else {
             scan
         };
-        // Vortex 0.85 rejects filter+limit. Keep the exact filter in the
-        // provider and apply the source-order limit to returned array slices.
+        // Filtered inputs apply their source-order limit to returned array
+        // slices below; unfiltered scans also cap provider row production.
         let scan = if self.filter.is_none() {
             scan.with_limit(self.max_rows)
         } else {

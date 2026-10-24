@@ -17,7 +17,7 @@ use vortex::array::{
     arrays::{ChunkedArray, PrimitiveArray, StructArray},
     builtins::ArrayBuiltins as _,
     dtype::{DType, FieldNames, Nullability, PType},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
 
@@ -509,7 +509,7 @@ impl Gather<'_> {
             return result_batch::build_column(
                 dtype,
                 self.indices.len(),
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |_| Ok(result_batch::Value::Null),
             );
         }
@@ -534,7 +534,7 @@ impl Gather<'_> {
             dtype,
             self.indices.len(),
             retained,
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -578,12 +578,17 @@ pub(super) fn index_array(
             Nullability::NonNullable
         },
     );
-    result_batch::build_column(&dtype, rows, &context.native_session().allocator(), |row| {
-        Ok(match value(row)? {
-            Some(row) => result_batch::Value::UInt(u64::try_from(row).map_err(vortex_error)?),
-            None => result_batch::Value::Null,
-        })
-    })
+    result_batch::build_column(
+        &dtype,
+        rows,
+        &context.native_session().host_allocator(),
+        |row| {
+            Ok(match value(row)? {
+                Some(row) => result_batch::Value::UInt(u64::try_from(row).map_err(vortex_error)?),
+                None => result_batch::Value::Null,
+            })
+        },
+    )
 }
 
 pub(super) fn take_column(
@@ -646,7 +651,7 @@ fn take_column_with_policy(
     let output = result_batch::build_column(
         dtype,
         indices.len(),
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;

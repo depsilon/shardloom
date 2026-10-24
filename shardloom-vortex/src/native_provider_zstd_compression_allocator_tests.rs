@@ -70,7 +70,7 @@ impl HostBufferMut for MalformedBuffer {
         match self.fault {
             Fault::ShortFrozen => buffer.slice(0..self.requested - 1),
             Fault::MisalignedFrozen => ByteBuffer::from_bytes_aligned(
-                buffer.into_inner().slice(1..=self.requested),
+                buffer.into_bytes().slice(1..=self.requested),
                 Alignment::none(),
             ),
             Fault::ShortMutable | Fault::LongMutable => {
@@ -88,7 +88,7 @@ fn malformed_compression(input: &VarBinViewArray, target: usize, fault: Fault) {
         target,
         fault,
     });
-    let session = VortexSession::default().with_allocator(allocator);
+    let session = VortexSession::default().with_host_allocator(allocator);
     install(&session, memory.clone());
     let error =
         ZstdData::from_var_bin_view_without_dict(input, 0, 1, &mut session.create_execution_ctx())
@@ -200,7 +200,7 @@ fn native_zstd_compression_overlapping_contexts_share_one_grant() {
     let first_input = input.clone();
     let first_memory = memory.clone();
     let first = std::thread::spawn(move || {
-        let session = VortexSession::default().with_allocator(allocator);
+        let session = VortexSession::default().with_host_allocator(allocator);
         install(&session, first_memory);
         ZstdData::from_primitive_without_dict(
             &first_input,

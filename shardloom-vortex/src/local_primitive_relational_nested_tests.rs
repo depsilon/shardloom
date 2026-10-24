@@ -24,6 +24,9 @@ fn lists() -> ArrayRef {
         PrimitiveArray::from_iter([0u64, 2, 2, 2]).into_array(),
         PrimitiveArray::from_iter([2u64, 0, 0, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array()
@@ -96,6 +99,9 @@ fn native_nested_gather_copies_only_selected_lists_and_retains_buffer_credits() 
         PrimitiveArray::from_iter([0u64, 1]).into_array(),
         PrimitiveArray::from_iter([1u64, 2]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -236,6 +242,9 @@ fn native_nested_expansion_is_denied_before_large_child_allocation_without_leaks
             PrimitiveArray::from_iter([0u64]).into_array(),
             PrimitiveArray::from_iter([1_000_000u64]).into_array(),
             Validity::NonNullable,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap()
         .into_array(),
@@ -363,6 +372,9 @@ fn native_nested_full_join_null_extends_both_payload_sides() {
                     PrimitiveArray::from_iter([0u64, 1]).into_array(),
                     PrimitiveArray::from_iter([1u64, 1]).into_array(),
                     Validity::AllValid,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                        &vortex::array::array_session(),
+                    ),
                 )
                 .unwrap()
                 .into_array(),
@@ -427,6 +439,9 @@ fn native_nested_repeated_explode_uses_preceding_order_and_preserves_struct_comp
         PrimitiveArray::from_iter([0u64, 3]).into_array(),
         PrimitiveArray::from_iter([3u64, 1]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

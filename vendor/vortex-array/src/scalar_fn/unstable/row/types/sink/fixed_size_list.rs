@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright the Vortex contributors
+
+//! Runtime-width fixed-size-list output for row kernels.
+//!
+//! [`FixedSizeListSink`] stores each row in a contiguous slice of one flat element allocation.
+//! [`InitializedRow`] proves that a row callback filled its entire slice before finishing.
+
+use std::mem::MaybeUninit;
+use std::sync::Arc;
+
+use vortex_buffer::BufferAllocatorRef;
+use vortex_error::VortexExpect;
+use vortex_error::VortexResult;
+use vortex_error::vortex_err;
+
+use super::OutputSink;
+use crate::ArrayRef;
+use crate::IntoArray;
+use crate::arrays::FixedSizeListArray;
+use crate::dtype::DType;
+use crate::dtype::Nullability;
+use crate::scalar_fn::unstable::row::FillDefault;
+use crate::scalar_fn::unstable::row::OutputBuffer;
+use crate::scalar_fn::unstable::row::OutputElement;
+use crate::scalar_fn::unstable::row::ViewLen;
+use crate::validity::Validity;
+
+/// Proof that every element in one uninitialized fixed-size row was initialized.
+#[must_use = "return this token from the row closure to prove that it initialized the output"]
+pub struct InitializedRow(());
+
+impl InitializedRow {
+    /// Fill every element in `row` and return its proof token.
+    ///
+    /// # Safety
+    ///
+    /// - `row` must be the entire [`FixedSizeListSink`] row supplied to the current callback,
+    ///   including when its width is zero.
+    /// - On success, that callback must return this token and preserve every element's
+    ///   initialization until it returns.
+    ///
+    /// Violating these requirements can cause undefined behavior.
+    #[inline]
+    pub unsafe fn fill<T>(
+        row: &mut [MaybeUninit<T>],
+        mut value_for_index: impl FnMut(usize) -> T,
+    ) -> Self {
+        for (index, element) in row.iter_mut().enumerate() {
+            element.write(value_for_index(index));
+        }
+
+        Self(())
+    }
+}
+
+/// A loop-local view of the flat storage and runtime shape of a [`FixedSizeListSink`].
+pub struct FixedSizeRows<'a, T> {
+    /// The flat elements for all output rows.
+    elements: &'a mut [MaybeUninit<T>],
+
+    /// The number of elements in each output row.
+    width: usize,
+
+    /// The number of output rows, stored separately so zero-width rows remain addressable.
+    row_count: usize,
+}
+
+impl<T> ViewLen for FixedSizeRows<'_, T> {
+    fn len(&self) -> usize {
+        self.row_count
+    }
+}
+
+impl<T: Copy + Default> FillDefault for FixedSizeRows<'_, T> {
+    fn fill_default(&mut self) {
+        for element in self.elements.iter_mut() {
+            element.write(T::default());
+        }
+    }
+}
+
+/// A fixed-size-list sink whose row width is supplied at dispatch time.
+///
+/// The row closure must return the [`InitializedRow`] from [`InitializedRow::fill`] on success.
+/// The width must fit in the `u32` list size stored by [`FixedSizeListArray`]. A dispatch derives
+/// and validates that physical parameter before calling [`RowVisitor::visit_into`].
+///
+/// [`RowVisitor::visit_into`]: crate::scalar_fn::unstable::row::RowVisitor::visit_into
+pub struct FixedSizeListSink<T: OutputElement> {
+    /// Spare flat storage written one fixed-size row at a time.
+    values: T::Buffer,
+    /// Allocator for any physical conversion when the sink finishes.
+    allocator: BufferAllocatorRef,
+    /// The number of elements in each output row.
+    width: usize,
+    /// The number of output rows.
+    row_count: usize,
+}
+
+// SAFETY: `with_capacity` reserves `row_count * width` elements, and `FixedSizeRows` retains that
+// shape for its lifetime. Each row is one disjoint `width`-element slice. `InitializedRow::fill`
+// requires the entire current row and preservation of its initialization until the callback
+// returns its private token. `FixedSizeRows::fill_default` writes every flat element before masked
+// traversal. `OutputBuffer` preserves initialized slots across row views and permits abandoning
+// partially initialized storage.
+unsafe impl<T: OutputElement + Copy + Default> OutputSink for FixedSizeListSink<T> {
+    type Params = usize;
+    type Rows<'a> = FixedSizeRows<'a, T>;
+    type Row<'a> = &'a mut [MaybeUninit<T>];
+    type WriteToken = InitializedRow;
+
+    fn storage_dtype(params: &Self::Params) -> DType {
+        DType::FixedSizeList(
+            Arc::new(T::element_dtype()),
+            fixed_size_list_size(*params),
+            Nullability::NonNullable,
+        )
+    }
+
+    fn with_capacity(
+        rows: usize,
+        params: &Self::Params,
+        allocator: &BufferAllocatorRef,
+    ) -> VortexResult<Self> {
+        let width = *params;
+        let element_capacity = rows.checked_mul(width).ok_or_else(|| {
+            vortex_err!(
+                InvalidArgument:
+                "fixed-size-list sink capacity must fit in usize, got {rows} rows with width {width}"
+            )
+        })?;
+
+        Ok(Self {
+            values: T::with_capacity(element_capacity, allocator),
+            allocator: allocator.clone(),
+            width,
+            row_count: rows,
+        })
+    }
+
+    fn rows(&mut self) -> Self::Rows<'_> {
+        FixedSizeRows {
+            elements: &mut self.values.slots()[..self.row_count * self.width],
+            width: self.width,
+            row_count: self.row_count,
+        }
+    }
+
+    unsafe fn row_unchecked<'a>(rows: &'a mut Self::Rows<'_>, index: usize) -> Self::Row<'a> {
+        let start = index * rows.width;
+        let end = start + rows.width;
+
+        // SAFETY: the caller guarantees `index < row_count`, and construction guarantees the
+        // element slice has length `row_count * width`.
+        unsafe { rows.elements.get_unchecked_mut(start..end) }
+    }
+
+    unsafe fn finish(self) -> VortexResult<ArrayRef> {
+        let element_count = self.row_count * self.width;
+
+        // SAFETY: the caller guarantees every row's `width` elements were initialized.
+        let elements = unsafe { self.values.finish(element_count, &self.allocator) };
+        let lists = FixedSizeListArray::new(
+            elements,
+            fixed_size_list_size(self.width),
+            Validity::NonNullable,
+            self.row_count,
+        );
+
+        Ok(lists.into_array())
+    }
+}
+
+fn fixed_size_list_size(width: usize) -> u32 {
+    u32::try_from(width)
+        .vortex_expect("fixed-size-list sink width must fit in u32; dispatch validated it")
+}

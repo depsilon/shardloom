@@ -177,19 +177,12 @@ mod tests {
                 scalar_fn::fns::operators::Operator,
             },
             compressor::BtrBlocksCompressorBuilder,
-            editions::{ComponentKind, EditionSessionExt as _},
             encodings::datetime_parts::DateTimeParts,
             session::VortexSession,
         };
 
         let session = VortexSession::default();
-        let allowed = session
-            .enabled_component_ids(ComponentKind::Array)
-            .into_iter()
-            .collect();
-        let compressor = BtrBlocksCompressorBuilder::default()
-            .retain_allowed_encodings(&allowed)
-            .build();
+        let compressor = BtrBlocksCompressorBuilder::from_session(&session).build();
         let dtype = Timestamp::new(TimeUnit::Microseconds, Nullability::Nullable).erased();
         let mut execution = session.create_execution_ctx();
         let boundary = [

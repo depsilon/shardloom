@@ -57,7 +57,7 @@ use vortex_array::match_each_varbin_builder;
 use vortex_array::memory::DefaultHostAllocator;
 use vortex_array::memory::HostAllocatorExt;
 use vortex_array::memory::HostAllocatorRef;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_array::memory::WritableHostBuffer;
 use vortex_array::scalar::Scalar;
 use vortex_array::serde::ArrayChildren;
@@ -76,6 +76,7 @@ use vortex_error::VortexError;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_mask::AllOr;
 use vortex_mask::Mask;
@@ -249,10 +250,16 @@ impl VTable for Zstd {
             vortex_bail!("ZstdArray expected 0 or 1 child, got {}", children.len());
         };
 
-        let storage = FrameStorage::deserialize(metadata, buffers, &session.allocator())?;
+        let storage = FrameStorage::deserialize(metadata, buffers, &session.host_allocator())?;
         let slots = smallvec![validity_to_child(&validity, len)];
         let data = ZstdData::from_storage(storage, len);
-        Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots))
+        Ok(ArrayParts::new(
+            self.clone(),
+            dtype.clone(),
+            len,
+            data,
+            slots,
+        ))
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {
@@ -289,14 +296,15 @@ impl VTable for Zstd {
         {
             return result;
         }
-        // The two arms here are every builder a `Utf8`/`Binary` dtype has: all four
-        // `VarBinBuilder` widths above, and `VarBinViewBuilder` below. There is deliberately no
-        // canonicalize-then-append fallback — it would decompress to a `VarBinView` only for
-        // `VarBinView::append_to_builder` to reject the same remainder.
-        let Some(builder) = builder.as_any_mut().downcast_mut::<VarBinViewBuilder>() else {
-            vortex_bail!("append_to_builder for Zstd requires a variable-binary builder")
-        };
-        append_to_varbinview(array, builder, ctx)
+        if let Some(builder) = builder.as_any_mut().downcast_mut::<VarBinViewBuilder>() {
+            return append_to_varbinview(array, builder, ctx);
+        }
+        array
+            .array()
+            .clone()
+            .execute::<Canonical>(ctx)?
+            .into_array()
+            .append_to_builder(builder, ctx)
     }
 
     fn reduce_parent(
@@ -382,16 +390,15 @@ fn append_to_varbinview(
     let value_bytes = slice.bytes.slice(slice.value_byte_range()?);
     // The values only reveal themselves while walking the length-prefixed frames, so the views
     // are built inside the builder's numbering callback rather than from a lengths slice.
-    let allocator = ctx.allocator();
+    let allocator = ctx.host_allocator();
     builder.append_views_built_with_owner(&mask, |next_buffer_index| {
         let (buffers, valid_views) =
             try_reconstruct_views_in(&value_bytes, next_buffer_index, MAX_BUFFER_LEN, &allocator)?;
-        vortex_ensure!(
-            valid_views.len() == mask.true_count(),
-            "Corrupt zstd metadata: the decompressed frames hold {} values for the {} valid rows \
-             of the slice",
+        vortex_ensure_eq!(
             valid_views.len(),
-            mask.true_count()
+            mask.true_count(),
+            "Corrupt zstd metadata: the decompressed frames must hold one value per valid row of \
+             the slice"
         );
 
         let views = match mask.bit_buffer() {
@@ -440,10 +447,13 @@ impl Zstd {
             slice_start: array.slice_start(),
             slice_stop: array.slice_stop(),
         };
-        Ok(
-            ArrayParts::new(Self, array.dtype().clone(), array.len(), data)
-                .with_slots(array.slots().iter().cloned().collect()),
-        )
+        Ok(ArrayParts::new(
+            Self,
+            array.dtype().clone(),
+            array.len(),
+            data,
+            array.slots().iter().cloned().collect(),
+        ))
     }
 
     /// Construct a [`ZstdArray`] from validated compressed data and validity.
@@ -451,9 +461,7 @@ impl Zstd {
         let len = data.len();
         data.validate(&dtype, len, &validity)?;
         let slots = smallvec![validity_to_child(&validity, data.unsliced_n_rows())];
-        Ok(unsafe {
-            Array::from_parts_unchecked(ArrayParts::new(Zstd, dtype, len, data).with_slots(slots))
-        })
+        Ok(unsafe { Array::from_parts_unchecked(ArrayParts::new(Zstd, dtype, len, data, slots)) })
     }
 
     /// Compress a [`VarBinViewArray`] using Zstd without a dictionary.
@@ -620,7 +628,7 @@ fn collect_valid_vbv(
                 .ok_or_else(|| vortex_err!("Native Zstd input size overflow"))?;
         }
     }
-    let allocator = ctx.allocator();
+    let allocator = ctx.host_allocator();
     let mut payload = allocator.allocate(payload_len, Alignment::none())?;
     let mut offsets = allocator.allocate_typed::<usize>(count)?;
     let bytes = payload.as_mut_slice();
@@ -1196,36 +1204,23 @@ impl ZstdData {
             self.slice_stop,
             self.unsliced_n_rows
         );
-        vortex_ensure!(
-            self.slice_stop - self.slice_start == len,
-            "Slice length {} does not match array length {}",
-            self.slice_stop - self.slice_start,
-            len
-        );
+        vortex_ensure_eq!(self.slice_stop - self.slice_start, len);
         if let Some(validity_len) = validity.maybe_len() {
-            vortex_ensure!(
-                validity_len == self.unsliced_n_rows,
-                "Validity length {} does not match unsliced row count {}",
-                validity_len,
-                self.unsliced_n_rows
-            );
+            vortex_ensure_eq!(validity_len, self.unsliced_n_rows);
         }
 
         match &self.storage.dictionary {
-            Some(dictionary) => vortex_ensure!(
-                usize::try_from(self.storage.metadata.dictionary_size)? == dictionary.len(),
-                "Dictionary size metadata {} does not match buffer size {}",
-                self.storage.metadata.dictionary_size,
+            Some(dictionary) => vortex_ensure_eq!(
+                usize::try_from(self.storage.metadata.dictionary_size)?,
                 dictionary.len()
             ),
-            None => vortex_ensure!(
-                self.storage.metadata.dictionary_size == 0,
+            None => vortex_ensure_eq!(
+                self.storage.metadata.dictionary_size,
+                0,
                 "Dictionary metadata present without dictionary buffer"
             ),
         }
-        vortex_ensure!(
-            self.storage.frames.len() == self.storage.metadata.frames.len(),
-            "Frame count {} does not match metadata frame count {}",
+        vortex_ensure_eq!(
             self.storage.frames.len(),
             self.storage.metadata.frames.len()
         );
@@ -1422,7 +1417,7 @@ impl ZstdData {
 
         let value_bytes = values.buffer_handle().try_to_host_sync()?;
         // Align frames to buffer alignment. This is necessary for overaligned buffers.
-        let alignment = *value_bytes.alignment();
+        let alignment = value_bytes.alignment().as_usize();
         let step_width = values_per_frame
             .checked_mul(byte_width)
             .and_then(|bytes| bytes.checked_next_multiple_of(alignment))
@@ -1434,7 +1429,7 @@ impl ZstdData {
             value_bytes.len() == value_bytes_len,
             "Native Zstd primitive buffer has incorrect length"
         );
-        let allocator = ctx.allocator();
+        let allocator = ctx.host_allocator();
         let frame_byte_starts =
             compression_offsets(value_bytes_len.div_ceil(step_width), &allocator, |index| {
                 index
@@ -1512,7 +1507,7 @@ impl ZstdData {
             n_values.max(1)
         };
 
-        let allocator = ctx.allocator();
+        let allocator = ctx.host_allocator();
         let frame_byte_starts =
             compression_offsets(n_values.div_ceil(values_per_frame), &allocator, |index| {
                 Ok(value_byte_indices[index * values_per_frame])
@@ -1636,8 +1631,9 @@ impl ZstdData {
                 // The same fallback would read a byte count as a value count for variable-width
                 // values, which misattributes values to frames. A single frame holds every stored
                 // value, so that case is still recoverable; anything else is not.
-                vortex_ensure!(
-                    self.storage.frames.len() == 1,
+                vortex_ensure_eq!(
+                    self.storage.frames.len(),
+                    1,
                     "Zstd frame metadata for a variable-width array is missing its value count"
                 );
                 unsliced_mask.true_count()
@@ -1670,7 +1666,7 @@ impl ZstdData {
         // ShardLoom local provider patch: admit the complete selected frame
         // extent before decompression and retain the allocator's buffer owner.
         let mut decompressed = ctx
-            .allocator()
+            .host_allocator()
             .allocate(uncompressed_size_to_decompress, Alignment::new(byte_width))?;
         decompressed.as_mut_slice().fill(0);
         let uncompressed_start = decoder_workspace::decompress_frames(
@@ -1680,7 +1676,7 @@ impl ZstdData {
                 .as_ref()
                 .map(|dictionary| dictionary.as_slice()),
             decompressed.as_mut_slice(),
-            ctx.allocator().as_ref(),
+            ctx.host_allocator().as_ref(),
         )?;
         if uncompressed_start != uncompressed_size_to_decompress {
             vortex_bail!(
@@ -1772,7 +1768,7 @@ impl ZstdData {
                             .checked_mul(slice.byte_width)
                             .ok_or_else(|| vortex_err!("Zstd primitive output size overflow"))?;
                         let mut storage = ctx
-                            .allocator()
+                            .host_allocator()
                             .allocate(len, Alignment::new(slice.byte_width))?;
                         let output = storage.as_mut_slice();
                         output.fill(0);
@@ -1799,7 +1795,7 @@ impl ZstdData {
             }
             DType::Binary(_) | DType::Utf8(_) => {
                 let mask = slice.validity.execute_mask(slice.n_rows, ctx)?;
-                let allocator = ctx.allocator();
+                let allocator = ctx.host_allocator();
                 match mask.bit_buffer() {
                     AllOr::All => {
                         let (buffers, all_views) =
@@ -1925,6 +1921,8 @@ impl ValidityVTable<Zstd> for Zstd {
 }
 
 impl OperationsVTable<Zstd> for Zstd {
+    type ProbeState = ();
+
     fn scalar_at(
         array: ArrayView<'_, Zstd>,
         index: usize,
@@ -2085,7 +2083,7 @@ mod tests {
     #[test]
     fn test_reconstruct_views_in_rejects_corruption_and_buffer_index_overflow() {
         let allocator: HostAllocatorRef = Arc::new(DefaultHostAllocator);
-        let truncated = ByteBuffer::copy_from(&[1u8, 0, 0]);
+        let truncated = ByteBuffer::copy_from([1u8, 0, 0]);
         for buffer in [truncated, make_overrunning()] {
             assert!(try_reconstruct_views_in(&buffer, 0, 20, &allocator).is_err());
         }
@@ -2176,12 +2174,16 @@ mod tests {
     #[test]
     fn test_append_to_varbin_copies_the_stored_values() -> VortexResult<()> {
         let slice = decompressed_slice(make_interleaved(&[b"hello", b"world"]), 0, 2, 0, 2);
-        let mut builder = VarBinBuilder::<i32>::new(DType::Utf8(NonNullable));
+        let mut builder = VarBinBuilder::<i32>::new_in(
+            DType::Utf8(NonNullable),
+            vortex_buffer::BufferAllocatorRef::static_ref(),
+        );
         append_slice_to_varbin(&slice, &Mask::new_true(2), &mut builder)?;
 
         let appended = builder.finish_into_varbin();
-        assert_eq!(appended.bytes_at(0).as_slice(), b"hello");
-        assert_eq!(appended.bytes_at(1).as_slice(), b"world");
+        let mut ctx = array_session().create_execution_ctx();
+        assert_eq!(appended.bytes_at(0, &mut ctx).as_slice(), b"hello");
+        assert_eq!(appended.bytes_at(1, &mut ctx).as_slice(), b"world");
         Ok(())
     }
 
@@ -2196,7 +2198,10 @@ mod tests {
         buffer.extend_from_slice(&1u32.to_le_bytes());
 
         let slice = decompressed_slice(ByteBuffer::copy_from(buffer.as_slice()), 0, 2, 0, 2);
-        let mut builder = VarBinBuilder::<i32>::new(DType::Utf8(NonNullable));
+        let mut builder = VarBinBuilder::<i32>::new_in(
+            DType::Utf8(NonNullable),
+            vortex_buffer::BufferAllocatorRef::static_ref(),
+        );
         assert!(append_slice_to_varbin(&slice, &Mask::new_true(2), &mut builder).is_err());
         // The builder rejected the values before committing any of them.
         assert_eq!(builder.finish_into_varbin().len(), 0);

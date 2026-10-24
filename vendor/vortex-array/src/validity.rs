@@ -24,14 +24,12 @@ use crate::ArrayRef;
 use crate::Canonical;
 use crate::ExecutionCtx;
 use crate::IntoArray;
-use crate::VortexSessionExecute;
 use crate::arrays::BoolArray;
 use crate::arrays::ChunkedArray;
 use crate::arrays::ConstantArray;
 use crate::builtins::ArrayBuiltins;
 use crate::dtype::DType;
 use crate::dtype::Nullability;
-use crate::legacy_session;
 use crate::optimizer::ArrayOptimizer;
 use crate::patches::Patches;
 use crate::scalar::Scalar;
@@ -59,7 +57,7 @@ impl Debug for Validity {
             Self::NonNullable => write!(f, "NonNullable"),
             Self::AllValid => write!(f, "AllValid"),
             Self::AllInvalid => write!(f, "AllInvalid"),
-            Self::Array(arr) => write!(f, "SomeValid({})", arr.display_values()),
+            Self::Array(arr) => write!(f, "SomeValid({arr})"),
         }
     }
 }
@@ -163,6 +161,7 @@ impl Validity {
     }
 
     /// Returns whether the `index` item is valid, using `ctx` to execute the validity array.
+    // Todo(joe): deprecate this
     #[inline]
     pub fn execute_is_valid(&self, index: usize, ctx: &mut ExecutionCtx) -> VortexResult<bool> {
         Ok(match self {
@@ -177,25 +176,10 @@ impl Validity {
     }
 
     /// Returns whether the `index` item is null, using `ctx` to execute the validity array.
+    // Todo(joe): deprecate this
     #[inline]
     pub fn execute_is_null(&self, index: usize, ctx: &mut ExecutionCtx) -> VortexResult<bool> {
         Ok(!self.execute_is_valid(index, ctx)?)
-    }
-
-    /// Returns whether the `index` item is valid.
-    #[deprecated(note = "use `execute_is_valid` with an explicit `ExecutionCtx`")]
-    #[inline]
-    #[allow(clippy::disallowed_methods)]
-    pub fn is_valid(&self, index: usize) -> VortexResult<bool> {
-        self.execute_is_valid(index, &mut legacy_session().create_execution_ctx())
-    }
-
-    /// Returns whether the `index` item is null.
-    #[deprecated(note = "use `execute_is_null` with an explicit `ExecutionCtx`")]
-    #[inline]
-    #[allow(clippy::disallowed_methods)]
-    pub fn is_null(&self, index: usize) -> VortexResult<bool> {
-        self.execute_is_null(index, &mut legacy_session().create_execution_ctx())
     }
 
     #[inline]
@@ -263,6 +247,11 @@ impl Validity {
         }
     }
 
+    /// Execute this validity into a [`Mask`] of the given length.
+    ///
+    /// Resolving [`Validity::Array`] can execute and scan up to `length` values. Optimistic fast
+    /// paths that do not need the exact mask should use [`Self::definitely_no_nulls`] or
+    /// [`Self::definitely_all_null`] and delay this work until necessary.
     #[inline]
     pub fn execute_mask(&self, length: usize, ctx: &mut ExecutionCtx) -> VortexResult<Mask> {
         match self {
@@ -375,6 +364,7 @@ impl Validity {
             patch_values.into_array(),
             // TODO(0ax1): chunk offsets
             None,
+            ctx,
         )?;
 
         Ok(Self::Array(source.patch(&patches, ctx)?.into_array()))
@@ -729,29 +719,43 @@ mod tests {
         );
     }
 
-    #[test]
-    #[should_panic]
-    fn out_of_bounds_patch() {
+    #[rstest]
+    #[case(
+        Validity::NonNullable,
+        1,
+        "Can't patch a non-nullable validity with nullable validity"
+    )]
+    #[case(
+        Validity::AllValid,
+        4,
+        "Patch indices 4, offset 0 are longer than the array length 2"
+    )]
+    fn rejects_invalid_patch(
+        #[case] validity: Validity,
+        #[case] index: u64,
+        #[case] message: &str,
+    ) {
         let mut ctx = array_session().create_execution_ctx();
-        Validity::NonNullable
+        let error = validity
             .patch(
                 2,
                 0,
-                &buffer![4].into_array(),
+                &buffer![index].into_array(),
                 &Validity::AllInvalid,
                 &mut ctx,
             )
-            .unwrap();
+            .unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "NonNullable validity must be AllValid")]
     fn into_validity_nullable() {
         Validity::from_mask(Mask::AllFalse(10), Nullability::NonNullable);
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "NonNullable validity must be AllValid")]
     fn into_validity_nullable_array() {
         Validity::from_mask(Mask::from_iter(vec![true, false]), Nullability::NonNullable);
     }
@@ -785,13 +789,9 @@ mod tests {
         #[case] expected: Validity,
     ) {
         let mut ctx = array_session().create_execution_ctx();
-        assert!(
-            validity
-                .take(&indices)
-                .unwrap()
-                .mask_eq(&expected, indices.len(), &mut ctx)
-                .unwrap()
-        );
+        let taken = validity.take(&indices).unwrap();
+        assert_eq!(taken.nullability(), expected.nullability());
+        assert!(taken.mask_eq(&expected, indices.len(), &mut ctx).unwrap());
     }
 
     #[rstest]

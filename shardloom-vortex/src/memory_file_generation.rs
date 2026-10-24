@@ -30,7 +30,7 @@ use vortex::{
         },
         buffer::BufferHandle,
         dtype::{DType, PType},
-        memory::HostAllocatorRef,
+        memory::{HostAllocatorRef, HostMemorySessionExt as _},
         stream::ArrayStreamAdapter,
         validity::Validity,
     },
@@ -377,8 +377,8 @@ impl MemoryFileGeneration {
         let filter = filter
             .map(|filter| {
                 filter
-                    .optimize_recursive(self.dtype())
-                    .and_then(|filter| filter.bind(self.dtype()))
+                    .bind(self.dtype())
+                    .and_then(|filter| filter.optimize_recursive())
                     .map_err(generation_error)
             })
             .transpose()?;
@@ -1005,8 +1005,8 @@ impl SegmentSink for MemorySegmentBuilder {
                 segment.spec.offset + u64::from(segment.spec.length)
             });
             let offset = previous_end
-                .checked_add(*alignment as u64 - 1)
-                .map(|offset| offset / *alignment as u64 * *alignment as u64)
+                .checked_add(alignment.as_usize() as u64 - 1)
+                .map(|offset| offset / alignment.as_usize() as u64 * alignment.as_usize() as u64)
                 .ok_or_else(|| vortex_err!("memory segment offset overflow"))?;
             if offset
                 .checked_add(length as u64)
@@ -1242,6 +1242,9 @@ fn compact_generation_varbin<O: Copy + Into<u64>>(
         payload,
         slice.dtype().clone(),
         slice.validity().map_err(generation_error)?,
+        &mut vortex::array::array_session()
+            .with_host_allocator(allocator.clone())
+            .create_execution_ctx(),
     )
     .map_err(generation_error)?
     .into_array();

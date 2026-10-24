@@ -1,0 +1,68 @@
+{
+  "provider": "vortex-buffer",
+  "version": "0.90.0",
+  "license": "Apache-2.0",
+  "registry_archive_sha256": "db52df963f2caa4380abb5ed4405476b2fb5d1675ae60b35cb80791a2de209dc",
+  "registry_archive_file_count": 33,
+  "registry_archive_uncompressed_bytes": 382194,
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "d86fc49e0ad578cb1ee4108300af6078ba314240a2d91a7451b690a9fb763d58",
+    "Cargo.lock": "f26d85c8740ede3411c86b88871bb186f9a17256896e383dfaa5498531caac2c",
+    "Cargo.toml": "08a3218fd074d948575d657531d1a08aae04a1e24ff7308a2655164a77d77a74",
+    "Cargo.toml.orig": "da68f0fc8aed879464795a3f3ead2208c3d31370b96fd0a08f3473140db67fe0",
+    "README.md": "ad61e4bd36d1c447f9e5c2db57b018a6380400dd66362637c12ca6ff72b8aa14",
+    "src/alignment.rs": "16fe445767f618c855514d3571e06a20b6f42ca171d9d1bac02ec4a752ff5729",
+    "src/allocation.rs": "7f623de46f1833cab11c00b4908d742677fa9631e473b294b2da301c8119b275",
+    "src/arrow.rs": "12f1d3608c3683b3aae21549cceda5bc8b7547edaa7b5a66e6db5a9f34fdf11a",
+    "src/bit/arrow.rs": "88f39b0afde3d4928aece775745882289643bc9446d96b6bf9c35878f6ca7238",
+    "src/bit/buf.rs": "7b7d92c9548e24fd24549fa260cd6c47ef8db4262880bd7dd1d721302f091d8a",
+    "src/bit/buf_mut.rs": "6175a2fe0b5ce2ff8becb37f8942b8df5bf8eef4443855b192e0dae52f76e0e7",
+    "src/bit/count_ones.rs": "4989d098f34d94fafc4a3ac6e8b39d453f83814aa2c72c99f946f49ccf106ff4",
+    "src/bit/macros.rs": "8442f397da18e8926822794f2d4b4c2b09dc3b913281717fc62a6ad6789988fa",
+    "src/bit/meta.rs": "5e8d446e8606fe50ae4f70ae01e8fe81005e33269e64f68aae558479aef55d55",
+    "src/bit/mod.rs": "53f158dbfb8872d3fde905f17b1bffba1b9c9abd2088bb70efe4f759513ff7f3",
+    "src/bit/ops.rs": "2c8f7156c824cb3d5ea8e6cb437a183752e4d7615617f20019f1b1ba614bcd73",
+    "src/bit/pack.rs": "00ffac714af1ba264818957e42c543c8c123db74b1e5567d84a45c6d9698b14b",
+    "src/bit/select.rs": "a8c91804468a7d76f07b43945a64da2502777c4e0856c18c6989e95efb959cbd",
+    "src/bit/take.rs": "96d762b1446353a8b3e8989f0b86a5276a526403d04df205bb6514cb4a633ce8",
+    "src/bit/take_avx2.rs": "47e1549d5785622cb74a2664ee2e81013a229e77efbdcdb1c76657947e637761",
+    "src/bit/view.rs": "be316e68dfa1668373430b7110552a09bf6cb8ff598099bfcc503e5348968012",
+    "src/buffer.rs": "aa0a3dbc0db1bc470992071a3eed7b2f3046c3f9edc3a046d2348c775f3a7a91",
+    "src/buffer_mut.rs": "4c93f291fbe8697a19690e33defceeb2a59157c0e11e439828394f7f9577739e",
+    "src/bytes.rs": "2cf405ec2d204b02b3142643e722a58eca7d115a18371334a98361f2be986191",
+    "src/const_.rs": "1ec6c90bb6a59f373c954f28ba553bd6b0616ab75a91b722b681a28c55c8f364",
+    "src/debug.rs": "bbd79406287de5df44e6414b7f002f17af4307489e9e6ce5425eca22d295078d",
+    "src/dispatch.rs": "eafc8236d139d9af36c8f4911915c28ffcf4d4f6937dfc667c30560be5a4151f",
+    "src/lib.rs": "f7daaad5ac3577e114f2f8efbeefdb58da389020370da281b0b2390b9d7aecdb",
+    "src/macros.rs": "5fb6b3aa726ebe380535cd718a428f0a8d87393f47213d8b56deac64c6e0d407",
+    "src/memmap2.rs": "76f75b05783944a192ea8db6b62fa1dc19b9b895f81182e9e3915932d9f671b7",
+    "src/serde.rs": "2f51c38b0bb4c6d5bd9707609ffc3d3754e2b984699e6518428a13b0882894d0",
+    "src/string.rs": "53328fd64e8c2a1b3d097888bf69f759e4ebfe6f0a68d48a0617f1999026d941",
+    "src/trusted_len.rs": "bb4a3b019d855eaa33982e3e92579fdc39e20255f2fee17a497c3387684472cb"
+  },
+  "vcs_info": {
+    "git": {
+      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43",
+      "dirty": true
+    },
+    "path_in_vcs": "vortex-buffer"
+  },
+  "source_of_truth": "https://static.crates.io/crates/vortex-buffer/vortex-buffer-0.90.0.crate",
+  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "migration_status": "ported_retained_local_invariants",
+  "modified_files_sha256": {
+    "Cargo.toml": "04771e2b07a2dd39e4ef01a4f8ffe79c772d5694678b5b961ff353ec58e1833e",
+    "src/arrow.rs": "2c115eb6c7e0588b7d93ed0d3ad79883ff0e7d7812d423cb3826ad73f50b9b5d",
+    "src/buffer.rs": "3f470511a20b8828de0e8369d998c191ca25cc6c9f5c36ace43feb5b6e22b719"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "a8509adf59f7880f6da39d8fcbde88d4a978db0597b5581265fe466edfb3e880"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "a8509adf59f7880f6da39d8fcbde88d4a978db0597b5581265fe466edfb3e880"
+  },
+  "supplemental_test_files": {}
+}

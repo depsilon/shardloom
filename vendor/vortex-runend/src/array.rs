@@ -8,6 +8,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use prost::Message;
+use vortex_array::AnyCanonical;
 use vortex_array::Array;
 use vortex_array::ArrayEq;
 use vortex_array::ArrayHash;
@@ -22,13 +23,17 @@ use vortex_array::IntoArray;
 use vortex_array::TypedArrayRef;
 use vortex_array::VortexSessionExecute;
 use vortex_array::array_slots;
+use vortex_array::arrays::DecimalArray;
+use vortex_array::arrays::ListViewArray;
 use vortex_array::arrays::Primitive;
+use vortex_array::arrays::PrimitiveArray;
 use vortex_array::arrays::VarBinViewArray;
+use vortex_array::arrays::listview::ListViewArraySlotsExt;
 use vortex_array::buffer::BufferHandle;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::Nullability;
 use vortex_array::dtype::PType;
-use vortex_array::legacy_session;
+use vortex_array::require_child;
 use vortex_array::serde::ArrayChildren;
 use vortex_array::validity::Validity;
 use vortex_array::vtable::VTable;
@@ -37,10 +42,12 @@ use vortex_error::VortexExpect as _;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_panic;
 use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
 
+use crate::compress::runend_decode_decimal;
 use crate::compress::runend_decode_primitive;
 use crate::compress::runend_decode_varbinview;
 use crate::compress::runend_encode;
@@ -85,7 +92,6 @@ impl VTable for RunEnd {
         *ID
     }
 
-    #[allow(clippy::disallowed_methods)]
     fn validate(
         &self,
         data: &Self::TypedArrayData,
@@ -96,15 +102,8 @@ impl VTable for RunEnd {
         let run_end_slots = RunEndSlotsView::from_slots(slots);
         let ends = run_end_slots.ends;
         let values = run_end_slots.values;
-        // TODO(ctx): trait fixes - VTable::validate has a fixed signature.
-        let mut ctx = legacy_session().create_execution_ctx();
-        RunEndData::validate_parts(ends, values, data.offset, len, &mut ctx)?;
-        vortex_ensure!(
-            values.dtype() == dtype,
-            "expected dtype {}, got {}",
-            dtype,
-            values.dtype()
-        );
+        RunEndData::validate_shape(ends, values, data.offset, len)?;
+        vortex_ensure_eq!(values.dtype(), dtype);
         Ok(())
     }
 
@@ -150,7 +149,7 @@ impl VTable for RunEnd {
         metadata: &[u8],
         _buffers: &[BufferHandle],
         children: &dyn ArrayChildren,
-        _session: &VortexSession,
+        session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
         let metadata = RunEndMetadata::decode(metadata)?;
         let ends_dtype = DType::Primitive(metadata.ends_ptype(), Nullability::NonNullable);
@@ -159,9 +158,22 @@ impl VTable for RunEnd {
 
         let values = children.get(1, dtype, runs)?;
         let offset = usize::try_from(metadata.offset).vortex_expect("Offset must be a valid usize");
+        RunEndData::validate_parts(
+            &ends,
+            &values,
+            offset,
+            len,
+            &mut session.create_execution_ctx(),
+        )?;
         let slots = RunEndSlots { ends, values }.into_slots();
         let data = RunEndData::new(offset);
-        Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots))
+        Ok(ArrayParts::new(
+            self.clone(),
+            dtype.clone(),
+            len,
+            data,
+            slots,
+        ))
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {
@@ -177,6 +189,8 @@ impl VTable for RunEnd {
     }
 
     fn execute(array: Array<Self>, ctx: &mut ExecutionCtx) -> VortexResult<ExecutionResult> {
+        let array = require_child!(array, array.ends(), RunEndSlots::ENDS => Primitive);
+        let array = require_child!(array, array.values(), RunEndSlots::VALUES => AnyCanonical);
         run_end_canonicalize(&array, ctx).map(ExecutionResult::done)
     }
 }
@@ -245,11 +259,7 @@ impl RunEnd {
         let dtype = values.dtype().clone();
         let slots = RunEndSlots { ends, values }.into_slots();
         let data = unsafe { RunEndData::new_unchecked(offset) };
-        unsafe {
-            Array::from_parts_unchecked(
-                ArrayParts::new(RunEnd, dtype, length, data).with_slots(slots),
-            )
-        }
+        unsafe { Array::from_parts_unchecked(ArrayParts::new(RunEnd, dtype, length, data, slots)) }
     }
 
     /// Build a new [`RunEndArray`] from ends and values.
@@ -263,7 +273,7 @@ impl RunEnd {
         let dtype = values.dtype().clone();
         let slots = RunEndSlots { ends, values }.into_slots();
         let data = RunEndData::new(0);
-        Array::try_from_parts(ArrayParts::new(RunEnd, dtype, len, data).with_slots(slots))
+        Array::try_from_parts(ArrayParts::new(RunEnd, dtype, len, data, slots))
     }
 
     /// Build a new [`RunEndArray`] from ends, values, offset, and length.
@@ -278,7 +288,7 @@ impl RunEnd {
         let dtype = values.dtype().clone();
         let slots = RunEndSlots { ends, values }.into_slots();
         let data = RunEndData::new(offset);
-        Array::try_from_parts(ArrayParts::new(RunEnd, dtype, length, data).with_slots(slots))
+        Array::try_from_parts(ArrayParts::new(RunEnd, dtype, length, data, slots))
     }
 
     /// Build a new [`RunEndArray`] from ends and values (panics on invalid input).
@@ -295,7 +305,7 @@ impl RunEnd {
             let dtype = values.dtype().clone();
             let slots = RunEndSlots { ends, values }.into_slots();
             let data = unsafe { RunEndData::new_unchecked(0) };
-            Array::try_from_parts(ArrayParts::new(RunEnd, dtype, len, data).with_slots(slots))
+            Array::try_from_parts(ArrayParts::new(RunEnd, dtype, len, data, slots))
         } else {
             vortex_bail!("REE can only encode primitive arrays")
         }
@@ -320,30 +330,7 @@ impl RunEndData {
         length: usize,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<()> {
-        // DType validation
-        vortex_ensure!(
-            ends.dtype().is_unsigned_int(),
-            "run ends must be unsigned integers, was {}",
-            ends.dtype(),
-        );
-        vortex_ensure!(
-            ends.len() == values.len(),
-            "run ends len != run values len, {} != {}",
-            ends.len(),
-            values.len()
-        );
-
-        // Handle empty run-ends
-        if ends.is_empty() {
-            vortex_ensure!(
-                offset == 0,
-                "non-zero offset provided for empty RunEndArray"
-            );
-            return Ok(());
-        }
-
-        // Zero-length logical slices may retain run metadata from the source array.
-        if length == 0 {
+        if !Self::validate_shape(ends, values, offset, length)? {
             return Ok(());
         }
 
@@ -368,15 +355,52 @@ impl RunEndData {
             return Ok(());
         }
 
-        // Validate the offset and length are valid for the given ends and values
-        if offset != 0 && length != 0 {
-            let first_run_end = usize::try_from(&ends.execute_scalar(0, ctx)?)?;
-            if first_run_end < offset {
-                vortex_bail!("First run end {first_run_end} must be >= offset {offset}");
-            }
+        let first_run_end = if offset == 0 {
+            0
+        } else {
+            usize::try_from(&ends.execute_scalar(0, ctx)?)?
+        };
+        let last_run_end = usize::try_from(&ends.execute_scalar(ends.len() - 1, ctx)?)?;
+        Self::validate_run_end_bounds(first_run_end, last_run_end, offset, length)
+    }
+
+    /// Validates the dtypes and lengths of the parts. Returns `false` when there are no runs to
+    /// check against `offset..offset + length`.
+    fn validate_shape(
+        ends: &ArrayRef,
+        values: &ArrayRef,
+        offset: usize,
+        length: usize,
+    ) -> VortexResult<bool> {
+        // DType validation
+        vortex_ensure!(
+            ends.dtype().is_unsigned_int(),
+            "run ends must be unsigned integers, was {}",
+            ends.dtype(),
+        );
+        vortex_ensure_eq!(ends.len(), values.len());
+
+        // Handle empty run-ends
+        if ends.is_empty() {
+            vortex_ensure_eq!(offset, 0, "non-zero offset provided for empty RunEndArray");
+            return Ok(false);
         }
 
-        let last_run_end = usize::try_from(&ends.execute_scalar(ends.len() - 1, ctx)?)?;
+        // Zero-length logical slices may retain run metadata from the source array.
+        Ok(length != 0)
+    }
+
+    /// Validates that the first and last run ends cover `offset..offset + length`.
+    fn validate_run_end_bounds(
+        first_run_end: usize,
+        last_run_end: usize,
+        offset: usize,
+        length: usize,
+    ) -> VortexResult<()> {
+        if first_run_end < offset {
+            vortex_bail!("First run end {first_run_end} must be >= offset {offset}");
+        }
+
         let min_required_end = offset + length;
         if last_run_end < min_required_end {
             vortex_bail!("Last run end {last_run_end} must be >= offset+length {min_required_end}");
@@ -484,33 +508,90 @@ pub(super) fn run_end_canonicalize(
         }
         DType::Primitive(..) => {
             let pvalues = array.values().clone().execute_as("values", ctx)?;
-            runend_decode_primitive(pends, pvalues, array.offset(), array.len(), ctx)?.into_array()
+            runend_decode_primitive(pends, pvalues, array.offset(), array.len(), ctx)?
+        }
+        DType::Decimal(..) => {
+            let values = array
+                .values()
+                .clone()
+                .execute_as::<DecimalArray>("values", ctx)?;
+            runend_decode_decimal(pends, values, array.offset(), array.len(), ctx)?
         }
         DType::Utf8(_) | DType::Binary(_) => {
             let values = array
                 .values()
                 .clone()
                 .execute_as::<VarBinViewArray>("values", ctx)?;
-            runend_decode_varbinview(pends, values, array.offset(), array.len(), ctx)?.into_array()
+            runend_decode_varbinview(pends, values, array.offset(), array.len(), ctx)?
+        }
+        DType::List(..) => {
+            let values = array
+                .values()
+                .clone()
+                .execute_as::<ListViewArray>("values", ctx)?;
+            runend_decode_listview(pends, values, array.offset(), array.len())?.into_array()
         }
         _ => vortex_bail!("Unsupported RunEnd value type: {}", array.dtype()),
     })
 }
 
+fn runend_decode_listview(
+    ends: PrimitiveArray,
+    values: ListViewArray,
+    offset: usize,
+    length: usize,
+) -> VortexResult<ListViewArray> {
+    let validity = match values.validity()? {
+        Validity::NonNullable => Validity::NonNullable,
+        Validity::AllValid => Validity::AllValid,
+        Validity::AllInvalid => Validity::AllInvalid,
+        Validity::Array(validity) => Validity::Array(unsafe {
+            RunEnd::new_unchecked(ends.clone().into_array(), validity, offset, length).into_array()
+        }),
+    };
+
+    // SAFETY: the `RunEndArray`s re-express valid per-run ListView metadata over the logical output
+    // length. The original `elements` child is reused, so every view still points at a valid range.
+    Ok(unsafe {
+        ListViewArray::new_unchecked(
+            values.elements().clone(),
+            RunEnd::new_unchecked(
+                ends.clone().into_array(),
+                values.offsets().clone(),
+                offset,
+                length,
+            )
+            .into_array(),
+            RunEnd::new_unchecked(ends.into_array(), values.sizes().clone(), offset, length)
+                .into_array(),
+            validity,
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use std::sync::LazyLock;
 
     use vortex_array::IntoArray;
     use vortex_array::VortexSessionExecute;
+    use vortex_array::arrays::DecimalArray;
     use vortex_array::arrays::DictArray;
+    use vortex_array::arrays::ListArray;
+    use vortex_array::arrays::ListViewArray;
     use vortex_array::arrays::VarBinViewArray;
+    use vortex_array::arrays::listview::ListViewArraySlotsExt;
     use vortex_array::assert_arrays_eq;
     use vortex_array::builders::VarBinBuilder;
     use vortex_array::dtype::DType;
+    use vortex_array::dtype::DecimalDType;
     use vortex_array::dtype::Nullability;
     use vortex_array::dtype::PType;
+    use vortex_array::dtype::i256;
+    use vortex_array::validity::Validity;
     use vortex_buffer::buffer;
+    use vortex_error::VortexResult;
     use vortex_session::VortexSession;
 
     use crate::RunEnd;
@@ -564,10 +645,193 @@ mod tests {
             Some("c"),
         ])
         .into_array();
-        let mut builder = VarBinBuilder::<i32>::with_capacity(arr.dtype().clone(), arr.len());
+        let mut builder = VarBinBuilder::<i32>::with_capacity_in(
+            arr.dtype().clone(),
+            arr.len(),
+            vortex_buffer::BufferAllocatorRef::static_ref(),
+        );
         arr.append_to_builder(&mut builder, &mut ctx).unwrap();
         assert_arrays_eq!(builder.finish_into_varbin(), expected, &mut ctx);
         assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_decimal() {
+        let mut ctx = SESSION.create_execution_ctx();
+        let decimal_dtype = DecimalDType::new(10, 2);
+        let values = DecimalArray::from_iter([12345i64, 67890, -12300], decimal_dtype).into_array();
+        let arr = RunEnd::new(buffer![2u32, 5, 10].into_array(), values, &mut ctx);
+        assert_eq!(arr.len(), 10);
+        assert_eq!(
+            arr.dtype(),
+            &DType::Decimal(decimal_dtype, Nullability::NonNullable)
+        );
+
+        let expected = DecimalArray::from_iter(
+            [
+                12345i64, 12345, 67890, 67890, 67890, -12300, -12300, -12300, -12300, -12300,
+            ],
+            decimal_dtype,
+        )
+        .into_array();
+        assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_list_i64() {
+        let mut ctx = SESSION.create_execution_ctx();
+        let values = ListArray::from_iter_slow::<u32, _>(
+            vec![vec![1i64, 2], vec![3], vec![4, 5, 6]],
+            Arc::new(DType::Primitive(PType::I64, Nullability::NonNullable)),
+        )
+        .unwrap()
+        .into_array();
+        let arr = RunEnd::new(buffer![2u32, 5, 10].into_array(), values, &mut ctx);
+
+        let expected = ListArray::from_iter_slow::<u32, _>(
+            vec![
+                vec![1i64, 2],
+                vec![1, 2],
+                vec![3],
+                vec![3],
+                vec![3],
+                vec![4, 5, 6],
+                vec![4, 5, 6],
+                vec![4, 5, 6],
+                vec![4, 5, 6],
+                vec![4, 5, 6],
+            ],
+            Arc::new(DType::Primitive(PType::I64, Nullability::NonNullable)),
+        )
+        .unwrap()
+        .into_array();
+        assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_nullable_decimal() {
+        let mut ctx = SESSION.create_execution_ctx();
+        let decimal_dtype = DecimalDType::new(10, 2);
+        let values =
+            DecimalArray::from_option_iter([Some(12345i64), None, Some(-12300)], decimal_dtype)
+                .into_array();
+        let arr = RunEnd::new(buffer![2u32, 5, 10].into_array(), values, &mut ctx);
+        assert_eq!(arr.len(), 10);
+        assert_eq!(
+            arr.dtype(),
+            &DType::Decimal(decimal_dtype, Nullability::Nullable)
+        );
+
+        let expected = DecimalArray::from_option_iter(
+            [
+                Some(12345i64),
+                Some(12345),
+                None,
+                None,
+                None,
+                Some(-12300),
+                Some(-12300),
+                Some(-12300),
+                Some(-12300),
+                Some(-12300),
+            ],
+            decimal_dtype,
+        )
+        .into_array();
+        assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_list_bool() {
+        let mut ctx = SESSION.create_execution_ctx();
+        let values = ListArray::from_iter_slow::<u32, _>(
+            vec![vec![true, false], vec![false], vec![true, true, false]],
+            Arc::new(DType::Bool(Nullability::NonNullable)),
+        )
+        .unwrap()
+        .into_array();
+        let arr = RunEnd::new(buffer![2u32, 5, 10].into_array(), values, &mut ctx);
+
+        let expected = ListArray::from_iter_slow::<u32, _>(
+            vec![
+                vec![true, false],
+                vec![true, false],
+                vec![false],
+                vec![false],
+                vec![false],
+                vec![true, true, false],
+                vec![true, true, false],
+                vec![true, true, false],
+                vec![true, true, false],
+                vec![true, true, false],
+            ],
+            Arc::new(DType::Bool(Nullability::NonNullable)),
+        )
+        .unwrap()
+        .into_array();
+        assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_list_utf8() {
+        let mut ctx = SESSION.create_execution_ctx();
+        let values = ListArray::try_new(
+            VarBinViewArray::from_iter_str(["a", "b", "c", "d", "e", "f"]).into_array(),
+            buffer![0u32, 2, 3, 6].into_array(),
+            Validity::NonNullable,
+            &mut ctx,
+        )
+        .unwrap()
+        .into_array();
+        let arr = RunEnd::new(buffer![2u32, 5, 10].into_array(), values, &mut ctx);
+
+        let expected = ListArray::try_new(
+            VarBinViewArray::from_iter_str([
+                "a", "b", "a", "b", "c", "c", "c", "d", "e", "f", "d", "e", "f", "d", "e", "f",
+                "d", "e", "f", "d", "e", "f",
+            ])
+            .into_array(),
+            buffer![0u32, 2, 4, 5, 6, 7, 10, 13, 16, 19, 22].into_array(),
+            Validity::NonNullable,
+            &mut ctx,
+        )
+        .unwrap()
+        .into_array();
+        assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_list_canonicalizes_to_runend_listview_slots() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let values = ListArray::try_new(
+            buffer![1i64, 2, 3, 4, 5, 6].into_array(),
+            buffer![0u32, 2, 3, 6].into_array(),
+            Validity::from_iter([true, false, true]),
+            &mut ctx,
+        )?
+        .into_array();
+        let arr = RunEnd::try_new(buffer![2u32, 5, 6].into_array(), values, &mut ctx)?;
+
+        let listview = arr
+            .clone()
+            .into_array()
+            .execute::<ListViewArray>(&mut ctx)?;
+        assert!(listview.offsets().is::<RunEnd>());
+        assert!(listview.sizes().is::<RunEnd>());
+        match listview.validity()? {
+            Validity::Array(validity) => assert!(validity.is::<RunEnd>()),
+            validity => panic!("expected array-backed validity, got {validity:?}"),
+        }
+
+        let expected = ListArray::try_new(
+            buffer![1i64, 2, 1, 2, 3, 3, 3, 4, 5, 6].into_array(),
+            buffer![0u32, 2, 4, 5, 6, 7, 10].into_array(),
+            Validity::from_iter([true, true, false, false, false, true]),
+            &mut ctx,
+        )?
+        .into_array();
+        assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+        Ok(())
     }
 
     #[test]
@@ -589,5 +853,84 @@ mod tests {
             VarBinViewArray::from_iter_str(["x", "x", "y", "y", "y", "z", "z", "z", "z", "z"])
                 .into_array();
         assert_arrays_eq!(arr.into_array(), expected, &mut ctx);
+    }
+
+    #[test]
+    fn test_runend_decimal_i128() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let decimal_dtype = DecimalDType::new(20, 2);
+        let values = DecimalArray::from_iter([12_345i128, -67_890, 100], decimal_dtype);
+        let arr = RunEnd::try_new(
+            buffer![2u32, 5, 6].into_array(),
+            values.into_array(),
+            &mut ctx,
+        )?;
+
+        let expected = DecimalArray::from_iter(
+            [12_345i128, 12_345, -67_890, -67_890, -67_890, 100],
+            decimal_dtype,
+        );
+        assert_arrays_eq!(arr, expected, &mut ctx);
+        Ok(())
+    }
+
+    #[test]
+    fn test_runend_decimal_nullable() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let decimal_dtype = DecimalDType::new(20, 2);
+        let values =
+            DecimalArray::from_option_iter([Some(12_345i128), None, Some(-67_890)], decimal_dtype);
+        let arr = RunEnd::try_new(
+            buffer![2u32, 5, 7].into_array(),
+            values.into_array(),
+            &mut ctx,
+        )?;
+
+        let expected = DecimalArray::from_option_iter(
+            [
+                Some(12_345i128),
+                Some(12_345),
+                None,
+                None,
+                None,
+                Some(-67_890),
+                Some(-67_890),
+            ],
+            decimal_dtype,
+        );
+        assert_arrays_eq!(arr, expected, &mut ctx);
+        Ok(())
+    }
+
+    #[test]
+    fn test_runend_decimal_slice() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let decimal_dtype = DecimalDType::new(20, 2);
+        let values = DecimalArray::from_iter([100i128, 200, 300], decimal_dtype);
+        let arr = RunEnd::try_new(
+            buffer![3u32, 5, 10].into_array(),
+            values.into_array(),
+            &mut ctx,
+        )?;
+
+        let sliced = arr.slice(2..8)?;
+        let expected = DecimalArray::from_iter([100i128, 200, 200, 300, 300, 300], decimal_dtype);
+        assert_arrays_eq!(sliced, expected, &mut ctx);
+        Ok(())
+    }
+
+    #[test]
+    fn test_runend_decimal_i256() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let decimal_dtype = DecimalDType::new(40, 4);
+        let first = i256::from_i128(123_456);
+        let second = i256::from_i128(-789_012);
+        let values = DecimalArray::from_iter([first, second], decimal_dtype);
+        let arr = RunEnd::try_new(buffer![2u32, 5].into_array(), values.into_array(), &mut ctx)?;
+
+        let expected =
+            DecimalArray::from_iter([first, first, second, second, second], decimal_dtype);
+        assert_arrays_eq!(arr, expected, &mut ctx);
+        Ok(())
     }
 }

@@ -8,7 +8,7 @@ use std::hash::Hash;
 use itertools::Itertools;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_utils::aliases::hash_map::HashMap;
 
 use crate::dtype::DType;
@@ -32,15 +32,6 @@ use crate::expr::traversal::TraversalOrder;
 /// Partition an expression into sub-expressions that are uniquely associated with an annotation.
 /// A root expression is also returned that can be used to recombine the results of the partitions
 /// into the result of the original expression.
-///
-/// ## Note
-///
-/// This function currently respects the validity of each field in the scope, but the not validity
-/// of the scope itself. The fix would be for the returned `BoundPartitionedExpr` to include a
-/// partition expression for computing the validity, or to include that expression as part of the
-/// root.
-///
-/// See <https://github.com/vortex-data/vortex/issues/1907>.
 pub fn partition_bound<A: AnnotationFn<BoundExpression>>(
     expr: BoundExpression,
     annotate_fn: A,
@@ -147,12 +138,7 @@ where
 
     /// Replace the partition expressions and update every root dtype in the recombination tree.
     pub fn replace_partitions(&mut self, partitions: Box<[BoundExpression]>) -> VortexResult<()> {
-        vortex_ensure!(
-            partitions.len() == self.partition_names.len(),
-            "Expected {} partitions, got {}",
-            self.partition_names.len(),
-            partitions.len()
-        );
+        vortex_ensure_eq!(partitions.len(), self.partition_names.len());
 
         let root_dtype = partition_root_dtype(&self.partition_names, &partitions);
         let root = replace_root_dtype(self.root.clone(), root_dtype)?;
@@ -312,14 +298,13 @@ mod tests {
     use crate::dtype::PType::I32;
     use crate::dtype::StructFields;
     use crate::expr::analysis::make_bound_free_field_annotator;
-    use crate::expr::and;
+    use crate::expr::checked_add;
     use crate::expr::col;
     use crate::expr::get_item;
     use crate::expr::lit;
     use crate::expr::merge;
     use crate::expr::pack;
     use crate::expr::root;
-    use crate::expr::transform::replace::replace_root_fields;
 
     #[fixture]
     fn dtype() -> DType {
@@ -359,10 +344,22 @@ mod tests {
         assert_eq!(partitioned.root, root().bind(&dtype).unwrap());
 
         // Instead, callers must expand the root expression themselves.
-        let expr = replace_root_fields(expr, fields);
+        let expr = pack(
+            fields
+                .names()
+                .iter()
+                .map(|name| (name.clone(), col(name.clone()))),
+            NonNullable,
+        );
         let partitioned = partition_by_field(expr.bind(&dtype).unwrap(), &dtype).unwrap();
 
         assert_eq!(partitioned.partitions.len(), fields.names().len());
+        for name in fields.names().iter() {
+            let expected = pack([(format!("{name}_0"), col(name.clone()))], NonNullable)
+                .bind(&dtype)
+                .unwrap();
+            assert_eq!(partitioned.find_partition(name), Some(&expected));
+        }
     }
 
     #[rstest]
@@ -409,20 +406,40 @@ mod tests {
 
     #[rstest]
     fn test_expr_top_level_ref_get_item_add(dtype: DType) {
-        let expr = and(get_item("y", get_item("a", root())), lit(1));
+        let expr = checked_add(get_item("y", get_item("a", root())), lit(1));
         let partitioned = partition_by_field(expr.bind(&dtype).unwrap(), &dtype).unwrap();
 
         // Whole expr is a single split
         assert_eq!(partitioned.partitions.len(), 1);
+        let expected = pack([("a_0", expr)], NonNullable).bind(&dtype).unwrap();
+        assert_eq!(partitioned.find_partition(&"a".into()), Some(&expected));
+        let root_dtype =
+            partition_root_dtype(&partitioned.partition_names, &partitioned.partitions);
+        assert_eq!(
+            partitioned.root,
+            get_item("a_0", col("a")).bind(&root_dtype).unwrap()
+        );
     }
 
     #[rstest]
     fn test_expr_top_level_ref_get_item_add_cannot_split(dtype: DType) {
-        let expr = and(get_item("y", get_item("a", root())), get_item("b", root()));
+        let expr = checked_add(get_item("y", get_item("a", root())), get_item("b", root()));
         let partitioned = partition_by_field(expr.bind(&dtype).unwrap(), &dtype).unwrap();
 
         // One for id.a and id.b
         assert_eq!(partitioned.partitions.len(), 2);
+        let expected_a = pack([("a_0", get_item("y", col("a")))], NonNullable)
+            .bind(&dtype)
+            .unwrap();
+        let expected_b = pack([("b_0", col("b"))], NonNullable).bind(&dtype).unwrap();
+        assert_eq!(partitioned.find_partition(&"a".into()), Some(&expected_a));
+        assert_eq!(partitioned.find_partition(&"b".into()), Some(&expected_b));
+        let root_dtype =
+            partition_root_dtype(&partitioned.partition_names, &partitioned.partitions);
+        let expected_root = checked_add(get_item("a_0", col("a")), get_item("b_0", col("b")))
+            .bind(&root_dtype)
+            .unwrap();
+        assert_eq!(partitioned.root, expected_root);
     }
 
     #[rstest]

@@ -13,7 +13,7 @@ use vortex::array::{
     ArrayRef, IntoArray, VortexSessionExecute as _,
     arrays::{ChunkedArray, ConstantArray, ListArray, StructArray},
     dtype::{DType, Nullability, PType},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     scalar::Scalar,
     validity::Validity,
 };
@@ -346,7 +346,7 @@ impl Expression {
                         .len()
                         .checked_add(1)
                         .ok_or_else(|| failed("list constructor offset overflow"))?,
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         if row.is_multiple_of(1024) {
                             context.check_cancelled()?;
@@ -356,9 +356,14 @@ impl Expression {
                         ))
                     },
                 )?;
-                ListArray::try_new(values, offsets, Validity::NonNullable)
-                    .map(IntoArray::into_array)
-                    .map_err(vortex_error)
+                ListArray::try_new(
+                    values,
+                    offsets,
+                    Validity::NonNullable,
+                    &mut context.native_session().create_execution_ctx(),
+                )
+                .map(IntoArray::into_array)
+                .map_err(vortex_error)
             }
             _ => Err(failed(
                 "constructor requires its bound list or struct schema",
@@ -411,7 +416,7 @@ impl Expression {
         result_batch::build_column(
             &self.dtype,
             rows,
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -592,7 +597,7 @@ fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -
         result_batch::build_column(
             dtype,
             array.len(),
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;

@@ -545,7 +545,12 @@ impl Inner {
         }
         let capacity = buffer
             .len()
-            .checked_add(*buffer.alignment().max(Alignment::DEFAULT_ALIGNMENT))
+            .checked_add(
+                buffer
+                    .alignment()
+                    .max(Alignment::DEFAULT_ALIGNMENT)
+                    .as_usize(),
+            )
             .and_then(|bytes| u64::try_from(bytes).ok())
             .ok_or_else(|| vortex_err!("segment retained allocation size overflow"))?;
         let lease = loop {

@@ -1,28 +1,64 @@
 {
   "provider": "vortex-zstd",
-  "text_reconstruction_changes": "Canonical UTF-8 materialization that fits one native view buffer keeps the admitted decompression allocation writable until the pinned array provider constructs only the requested contiguous values' views. Consumed selected record headers are normalized without changing value bytes; the immutable heap and all views pass the checked constructor before the validation receipt is established. Whole-frame record extents and counts are checked; only selected text is UTF-8-validated. The original allocation owner and full credit remain retained. Primitive, binary, sparse selection, builder append and oversized native text reconstruction retain their prior paths. No compressed source, persisted encoding, dependency or external engine boundary changes. Complete-workload acceptance remains open.",
-  "version": "0.85.0",
+  "version": "0.90.0",
   "license": "Apache-2.0",
-  "registry_archive_sha256": "03cae43b171152fd403b884d5e0b764e860261d38b2fd80dfd4e03678beac837",
-  "upstream_git_sha": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
-  "upstream_vcs_dirty": true,
-  "source_of_truth": "published registry archive, not an assumed clean Git tree",
+  "registry_archive_sha256": "16ed140fdf797d28c36b4d4b73223a7874d794ecd3c9cd3a79e16977bd6b03b4",
+  "registry_archive_file_count": 15,
+  "registry_archive_uncompressed_bytes": 192927,
   "original_files_sha256": {
-    ".cargo_vcs_info.json": "d68e8d5989ec8f4f60311197aeab0d43c4e8bdcfdff1b6cb36d32e611d45893d",
-    "Cargo.toml": "f94c9c4f484f01d5d980c2f9294da3776d0a7cf7554f73f651e56ba60da42169",
-    "Cargo.toml.orig": "7047e3725ec21ba51987ee5a523d570e44d39a5e158e07301e4cdb10823dfe28",
-    "README.md": "c2f9ab30dd59ac68d30b19b8402f5c8a3dfdc4dd8dba6921722a77ebf4ac54c0",
-    "src/array.rs": "bc843bdaeac0e742a783406a92d24b49f9ad6af31d3e775480e3e96a12dfdadb",
-    "src/compute/cast.rs": "654b6d86dec674e153ee86518acff7f04c30120d7524e41091abf39d9f249a8c",
+    ".cargo_vcs_info.json": "e14cbfa47ab80d9dd135c5691eca96290a472cf9f162f110fd7f3dac4da5ce5c",
+    "Cargo.lock": "0c3aba0d916fea7d20a4a80f523acd921f60ddb1ad680262e05990ba7e89191f",
+    "Cargo.toml": "749e19963ce838aa7ee1a58995c687945bd53e1a1e9c2b200381ad4e18df8605",
+    "Cargo.toml.orig": "7de2bbd82594c14f6cd09f6ce15fd8a1f5b6cb1a69b953c2221a04db08b93aae",
+    "README.md": "cd899987b96ab2c72c73b619e0a456553b01ab35776f177a8eeb52a3fcc8110e",
+    "src/array.rs": "58bfa50f2198250274fd958a5db321639146fc6139830c805206e83b073e5782",
+    "src/compute/cast.rs": "44712458e7b29d7ca80f37c77473b6fae1716b24347f790e6ba3f7ed1d2e4743",
     "src/compute/mod.rs": "dbc89a09dde21998f7e86dd62251976176c39b32c094b323a585814a18c9da87",
-    "src/lib.rs": "64f1f17f864c419aad6383fecf2f1eb1e117333efe1ba67e1b64fe507c6e24c2",
+    "src/decompressor.rs": "bd7853ce40d61f7e9d4fb8e87000fedc7a8f8fd748112de2bfc871a52f10c3cd",
+    "src/editions.rs": "6d05d4a2ee4372fafb563713cd9cd3ca57ba709971a449360619ea0cb5cde603",
+    "src/lib.rs": "c514d82b11865e263d607d8fe3668bd8ced1554d37c34908e3c1dd76bd26375f",
     "src/rules.rs": "15949c2b2656f6f66349b6ced09ac1b97038ae6dd1e9c9097cef9c8c9840e3a8",
     "src/slice.rs": "a907fda7287e39d13913f402d56e11da5e3f493ea038f5d13eaaf189ce1c870d",
-    "src/test.rs": "2100bf17dcb82c33658c2079629c444ab690b22d35f3d17acccfec3581560827",
-    "src/zstd_buffers.rs": "34fc3f14bb5775b0bd4c22ac426d346c49b26466f65c0f6fac762cfd4c581b69"
+    "src/test.rs": "9eb381afac711a6558e7a02ea96b5f13e043b827a2e02cc547fe649f99889916",
+    "src/zstd_buffers.rs": "8d24962c589814053704cbf7a42ea471fe4fec32e9ea3df1c91f7a1948c799dd"
   },
-  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+  "vcs_info": {
+    "git": {
+      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/zstd"
+  },
+  "source_of_truth": "https://static.crates.io/crates/vortex-zstd/vortex-zstd-0.90.0.crate",
+  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-  "varbin_metadata_changes": "Full and selected string reconstruction use vortex-array's bounded buffer builder and managed VarBinView table constructors. Temporary byte-buffer elements and final handle-table conversion overlap are admitted by the existing session allocator. Legacy builder append borrows the managed temporary collection until its own append completes. Existing frame decoding, selection, layout and native serialization are preserved; the decoder's independent payload and frame-metadata reservations remain in force.",
-  "local_changes": "Route decode payload, static decoder and by-reference prepared-dictionary workspaces through the existing fallible Vortex HostAllocator. Primitive builder append uses that same native decoder before native primitive append. The private workspace wrapper uses the locked zstd-sys 2.0.16 / Zstandard 1.5.7 static APIs under RFC 0044; legacy members are explicitly unsupported. Ordinary slices borrow contiguous frame ranges and count validity bits directly, avoiding temporary frame-reference and rank vectors. Allocator-aware string reconstruction pre-counts decoded buffer-handle capacity. Sparse UTF-8/binary frame selection now runs in ShardLoom's admitted execution-parent kernel; the context-free local FilterReduce rule is removed. Source buffers, dictionaries, original VTable, native slices and native file encoding are preserved. No C implementation is copied and no other query engine is invoked. Compression now uses allocator-backed input, offset, and sample buffers, dictionary output, reusable frame scratch, and retained frame payloads. The pinned synchronous compressor heap and default FASTCOVER training heap are reserved before provider calls. Checked frame and training extents reject invalid domains and arithmetic; primitive frame metadata tracks aligned extents for over-aligned input. The selected.rs extension reuses the admitted frame decoder, walks checked length prefixes, and creates views only for strictly ordered selected all-valid UTF-8/binary rows. The safe native constructor validates selected output; unfiltered and dense view reconstruction are unchanged. Frame handles and protobuf descriptions now share one immutable allocator-admitted table across clones, slices and nullability casts. A bounded two-pass Prost parser reserves exact requested vector capacity before metadata construction. Selected-frame and receiving-context copies admit a fresh table; raw construction/export remains an explicit caller-owned boundary. Serialization borrows metadata without cloning it. This safe-Rust metadata extension adds no dependency, wire-format change or unsafe code."
+  "migration_status": "ported_retained_local_invariants",
+  "predecessor": {
+    "source_commit": "3628a81bef597a4a3d833d93470ffae1b1cc7587",
+    "version": "0.85.0",
+    "registry_archive_sha256": "03cae43b171152fd403b884d5e0b764e860261d38b2fd80dfd4e03678beac837",
+    "provenance_path": "vendor/vortex-zstd/upstream-provenance.json"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "1e83967a55a88f3d9e129e41992d15a5c01661e00a3cf02b56a2503f31945cab",
+    "src/array.rs": "df40c9b9a92f975dac48612ce963d7a315cbfde298b5af57009f3fc518e8d0fd",
+    "src/compute/cast.rs": "e7c24896b4fda8f07e86bf5586b0134e9875c429aa35a12a069298953979e917",
+    "src/lib.rs": "ce93afbb532bcf135538926e697f508d240f07348aa40e2af120b9e52d69a29a",
+    "src/test.rs": "fc1a76dbd5bc6d3f3240003ebf8b55e97ce2b5d96fc7fe0cd54c13177b0fbda5"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "42c6811a7b8e0448c2ead7089cba10843c3be0dad005220d93ca4445d1cbc7c4",
+    "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
+    "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
+    "src/decoder_workspace.rs": "c34d518ed724b778663b959a21610b40d7d729009412c09a788ac9d0f9a2e48c",
+    "src/metadata_resources.rs": "66de9be321a47b23ee8192b7e1de37b163e5600ea1dd2af560e7109404622ce1",
+    "src/metadata_resources_tests.rs": "96c52da21492ddc0e46345af48d01a1483580bf14b6af25fcff3727da475b81d",
+    "src/selected.rs": "631aebf780aab0c585505e88d19d16a9c52b090b266bd05e5ed1d50874048c74"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "42c6811a7b8e0448c2ead7089cba10843c3be0dad005220d93ca4445d1cbc7c4"
+  },
+  "supplemental_test_files": {}
 }

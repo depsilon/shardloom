@@ -1,13 +1,16 @@
 //! Complete the bounded native writer task before returning a fallible result.
 //!
-//! Vortex 0.85's blocking push writer queues one array and spawns a layout task.
+//! Vortex 0.90's blocking push writer queues one array and spawns a layout task.
 //! Dropping a healthy writer, or returning a sink error from its output future,
 //! cancels that task without joining it. On an idle resident runtime its buffers
 //! can remain alive. Keep the sequential Flat strategy and native serialization;
 //! drain only already accepted input, never the producer, before releasing it.
 
 use crate::native_file_statistics::FileStatisticsReservation;
-use std::{cell::RefCell, io, rc::Rc, sync::Arc};
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
 use vortex::{
     array::{ArrayRef, dtype::DType},
     error::{VortexResult, vortex_err},
@@ -17,7 +20,34 @@ use vortex::{
     session::VortexSession,
 };
 
-type SinkFailure = Rc<RefCell<Option<io::Error>>>;
+#[derive(Clone, Default)]
+struct SinkFailure(Arc<Mutex<Option<io::Error>>>);
+
+impl SinkFailure {
+    fn has_error(&self) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_some()
+    }
+
+    fn take(&self) -> Option<io::Error> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+    }
+
+    fn record(&self, error: io::Error) {
+        let mut failure = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if failure.is_none() {
+            *failure = Some(error);
+        }
+    }
+}
 
 pub(super) struct NativeWriter<'runtime, 'sink, B: BlockingRuntime> {
     writer: Option<BlockingWriter<'runtime, 'sink, B>>,
@@ -45,7 +75,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
     pub(super) fn new(
         session: &VortexSession,
         runtime: &'runtime B,
-        sink: impl io::Write + Unpin + 'sink,
+        sink: impl io::Write + Unpin + Send + 'sink,
         dtype: DType,
         strategy: Arc<dyn LayoutStrategy>,
     ) -> Self {
@@ -56,7 +86,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
     pub(super) fn persisted(
         session: &VortexSession,
         runtime: &'runtime B,
-        sink: impl io::Write + Unpin + 'sink,
+        sink: impl io::Write + Unpin + Send + 'sink,
         dtype: DType,
         strategy: Arc<dyn LayoutStrategy>,
         statistics: FileStatisticsReservation,
@@ -67,12 +97,12 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
     fn with_statistics(
         session: &VortexSession,
         runtime: &'runtime B,
-        sink: impl io::Write + Unpin + 'sink,
+        sink: impl io::Write + Unpin + Send + 'sink,
         dtype: DType,
         strategy: Arc<dyn LayoutStrategy>,
         statistics: Option<FileStatisticsReservation>,
     ) -> Self {
-        let failure = Rc::new(RefCell::new(None));
+        let failure = SinkFailure::default();
         let selected_statistics = if statistics.is_some() {
             vortex::array::stats::PRUNING_STATS.to_vec()
         } else {
@@ -86,7 +116,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
             .writer(
                 DrainAfterFailure {
                     sink,
-                    failure: Rc::clone(&failure),
+                    failure: failure.clone(),
                 },
                 dtype,
             );
@@ -108,12 +138,12 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
             // Sink errors are handled below; never finish this future twice.
             self.writer.take();
             self.statistics.take();
-        } else if self.failure.borrow().is_some() {
+        } else if self.failure.has_error() {
             self.drain();
         } else {
             return result;
         }
-        match self.failure.borrow_mut().take() {
+        match self.failure.take() {
             Some(error) => Err(error.into()),
             None => result,
         }
@@ -125,7 +155,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
             .take()
             .ok_or_else(|| vortex_err!("native writer is already closed"))?
             .finish();
-        match self.failure.borrow_mut().take() {
+        match self.failure.take() {
             Some(error) => Err(error.into()),
             None => result.map(|summary| NativeWriteSummary {
                 summary,
@@ -171,28 +201,29 @@ struct DrainAfterFailure<W> {
 
 impl<W: io::Write> io::Write for DrainAfterFailure<W> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        if self.failure.borrow().is_some() {
+        if self.failure.has_error() {
             return Ok(bytes.len());
         }
         match self.sink.write(bytes) {
             Ok(0) if !bytes.is_empty() => {
-                *self.failure.borrow_mut() = Some(io::Error::from(io::ErrorKind::WriteZero));
+                self.failure
+                    .record(io::Error::from(io::ErrorKind::WriteZero));
                 Ok(bytes.len())
             }
             Ok(written) => Ok(written),
             Err(error) if error.kind() == io::ErrorKind::Interrupted => Err(error),
             Err(error) => {
-                *self.failure.borrow_mut() = Some(error);
+                self.failure.record(error);
                 Ok(bytes.len())
             }
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        if self.failure.borrow().is_none()
+        if !self.failure.has_error()
             && let Err(error) = self.sink.flush()
         {
-            *self.failure.borrow_mut() = Some(error);
+            self.failure.record(error);
         }
         Ok(())
     }

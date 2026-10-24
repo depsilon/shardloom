@@ -794,7 +794,7 @@ mod tests {
     fn column(array: ArrayRef, memory: &LiveMemoryPool) -> KeyColumn {
         KeyColumn::new(
             &array,
-            &mut vortex::array::legacy_session().create_execution_ctx(),
+            &mut vortex::array::array_session().create_execution_ctx(),
             memory,
             &CancellationToken::default(),
         )
@@ -987,7 +987,7 @@ mod tests {
         let source = VarBinViewArray::from_iter_str(["a", "b"]).into_array();
         let memory = LiveMemoryPool::new(15).unwrap();
         let token = CancellationToken::default();
-        let mut context = vortex::array::legacy_session().create_execution_ctx();
+        let mut context = vortex::array::array_session().create_execution_ctx();
         assert!(KeyColumn::new(&source, &mut context, &memory, &token).is_err());
         assert_eq!(memory.snapshot().reserved_bytes, 0);
         token.cancel();

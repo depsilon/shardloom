@@ -14,6 +14,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -25,12 +26,10 @@ use crate::ArrayRef;
 use crate::ArraySlots;
 use crate::ExecutionCtx;
 use crate::IntoArray;
-use crate::VortexSessionExecute;
 use crate::array::ArrayId;
 use crate::array::ArrayView;
 use crate::array::VTable;
 use crate::dtype::DType;
-use crate::legacy_session;
 use crate::stats::ArrayStats;
 use crate::stats::StatsSet;
 use crate::stats::StatsSetRef;
@@ -71,26 +70,25 @@ pub struct ArrayParts<V: VTable> {
 }
 
 impl<V: VTable> ArrayParts<V> {
-    /// Construct array parts with no child slots.
+    /// Construct array parts with their child slots.
     ///
+    /// Slot count, names, and meaning are encoding-specific and validated by [`VTable::validate`].
     /// The parts are not validated until they are passed to [`Array::try_from_parts`].
-    pub fn new(vtable: V, dtype: DType, len: usize, data: V::TypedArrayData) -> Self {
+    pub fn new(
+        vtable: V,
+        dtype: DType,
+        len: usize,
+        data: V::TypedArrayData,
+        slots: ArraySlots,
+    ) -> Self {
         Self {
             vtable,
             dtype,
             len,
             data,
-            slots: ArraySlots::new(),
+            slots,
             retained_owner: None,
         }
-    }
-
-    /// Attach child slots to the construction parts.
-    ///
-    /// Slot count, names, and meaning are encoding-specific and validated by [`VTable::validate`].
-    pub fn with_slots(mut self, slots: ArraySlots) -> Self {
-        self.slots = slots;
-        self
     }
 
     pub(crate) fn inherit_owner(
@@ -121,6 +119,26 @@ pub trait TypedArrayRef<V: VTable>: AsRef<ArrayRef> + Deref<Target = V::TypedArr
     fn to_owned(&self) -> Array<V> {
         self.as_ref().clone().downcast()
     }
+
+    /// Returns the child slots of the array.
+    fn slots(&self) -> &[Option<ArrayRef>] {
+        self.as_ref().slots()
+    }
+
+    /// Returns the logical [`DType`] of the array.
+    fn dtype(&self) -> &DType {
+        self.as_ref().dtype()
+    }
+
+    /// Returns the number of rows in the array.
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    /// Returns `true` if the array has no rows.
+    fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
+    }
 }
 
 impl<V: VTable> TypedArrayRef<V> for Array<V> {}
@@ -140,49 +158,53 @@ pub(crate) struct ArrayData<V: VTable> {
 }
 
 impl<V: VTable> ArrayInner<ArrayData<V>> {
-    /// Create a new validated [`ArrayInner`] from construction parameters.
-    #[doc(hidden)]
-    pub fn try_new(new: ArrayParts<V>) -> VortexResult<Self> {
-        new.vtable
-            .validate(&new.data, &new.dtype, new.len, &new.slots)?;
-        Ok(ArrayInner {
-            len: new.len,
-            encoding_id: new.vtable.id(),
-            dtype: new.dtype,
-            slots: new.slots,
-            stats: ArrayStats::default(),
-            data: ArrayData {
-                vtable: new.vtable,
-                data: new.data,
-                retained_owner: new.retained_owner,
-            },
-        })
-    }
-
-    /// Create an [`ArrayInner`] without validation.
+    /// Move the parts into an [`ArrayInner`] allocation that the caller made before.
+    ///
+    /// `Arc::new` takes a complete value, so the compiler builds the value on the stack and then
+    /// copies it into the heap. The caller allocates `uninit` before it moves the parts into this
+    /// function. Because no call runs between the move and the write, the compiler copies each
+    /// part once, from the caller's `ArrayParts` into the heap.
     ///
     /// # Safety
-    /// Caller must ensure dtype and len match the data.
-    pub(crate) unsafe fn new_unchecked(
-        vtable: V,
-        len: usize,
-        dtype: DType,
-        data: V::TypedArrayData,
-        slots: ArraySlots,
+    /// - `uninit` must be the only pointer to its allocation.
+    /// - The parts must be logically consistent.
+    /// - `encoding_id` must be the id of `parts.vtable`.
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
+    pub(crate) unsafe fn init_arc(
+        uninit: Arc<MaybeUninit<Self>>,
+        parts: ArrayParts<V>,
+        encoding_id: ArrayId,
         stats: ArrayStats,
-        retained_owner: Option<Arc<dyn Any + Send + Sync>>,
-    ) -> Self {
-        ArrayInner {
-            len,
-            encoding_id: vtable.id(),
+    ) -> Arc<Self> {
+        let ArrayParts {
+            vtable,
             dtype,
+            len,
+            data,
             slots,
-            stats,
-            data: ArrayData {
-                vtable,
-                data,
-                retained_owner,
-            },
+            retained_owner,
+        } = parts;
+
+        // SAFETY: The caller made `uninit` and did not share it, thus no other pointer to it
+        // exists. We initialise all fields before `assume_init`.
+        unsafe {
+            Arc::as_ptr(&uninit)
+                .cast_mut()
+                .cast::<Self>()
+                .write(ArrayInner {
+                    len,
+                    encoding_id,
+                    dtype,
+                    slots,
+                    stats,
+                    data: ArrayData {
+                        vtable,
+                        data,
+                        retained_owner,
+                    },
+                });
+            uninit.assume_init()
         }
     }
 }
@@ -247,10 +269,18 @@ impl<V: VTable> Array<V> {
     /// This is the safe construction path for encoding implementors. It calls
     /// [`VTable::validate`] before publishing the array as an [`ArrayRef`].
     pub fn try_from_parts(new: ArrayParts<V>) -> VortexResult<Self> {
-        let store = ArrayInner::<ArrayData<V>>::try_new(new)?;
-        let inner = ArrayRef::from_inner(Arc::new(store));
+        new.vtable
+            .validate(&new.data, &new.dtype, new.len, &new.slots)?;
+
+        let encoding_id = new.vtable.id();
+        let stats = ArrayStats::default();
+        let uninit = Arc::new_uninit();
+
+        // SAFETY: `uninit` is new. `validate` checked that the parts are consistent.
+        let store = unsafe { ArrayInner::init_arc(uninit, new, encoding_id, stats) };
+
         Ok(Self {
-            inner,
+            inner: ArrayRef::from_inner(store),
             _phantom: PhantomData,
         })
     }
@@ -261,20 +291,15 @@ impl<V: VTable> Array<V> {
     /// Caller must ensure the provided parts are logically consistent.
     #[doc(hidden)]
     pub unsafe fn from_parts_unchecked(new: ArrayParts<V>) -> Self {
-        let store = unsafe {
-            ArrayInner::<ArrayData<V>>::new_unchecked(
-                new.vtable,
-                new.len,
-                new.dtype,
-                new.data,
-                new.slots,
-                ArrayStats::default(),
-                new.retained_owner,
-            )
-        };
-        let inner = ArrayRef::from_inner(Arc::new(store));
+        let encoding_id = new.vtable.id();
+        let stats = ArrayStats::default();
+        let uninit = Arc::new_uninit();
+
+        // SAFETY: `uninit` is new. The caller guarantees that the parts are consistent.
+        let store = unsafe { ArrayInner::init_arc(uninit, new, encoding_id, stats) };
+
         Self {
-            inner,
+            inner: ArrayRef::from_inner(store),
             _phantom: PhantomData,
         }
     }
@@ -305,16 +330,19 @@ impl<V: VTable> Array<V> {
     }
 
     /// Returns the logical dtype.
+    #[allow(clippy::same_name_method)]
     pub fn dtype(&self) -> &DType {
         self.inner.dtype()
     }
 
     /// Returns the length.
+    #[allow(clippy::same_name_method)]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Returns whether this array is empty.
+    #[allow(clippy::same_name_method)]
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
@@ -377,11 +405,13 @@ impl<V: VTable> Array<V> {
     }
 
     /// Returns the array slots.
+    #[allow(clippy::same_name_method)]
     pub fn slots(&self) -> &[Option<ArrayRef>] {
         self.inner.slots()
     }
 
     /// Returns the internal [`ArrayRef`].
+    #[allow(clippy::inline_always)]
     #[inline(always)]
     pub fn as_array(&self) -> &ArrayRef {
         &self.inner
@@ -395,6 +425,7 @@ impl<V: VTable> Array<V> {
     }
 
     /// Downcast the inner `ArrayRef` to `&ArrayData<V>`.
+    #[allow(clippy::inline_always)]
     #[inline(always)]
     fn downcast_inner(&self) -> &ArrayData<V> {
         let any = self.inner.dyn_array().as_any();
@@ -410,16 +441,6 @@ impl<V: VTable> Array<V> {
     /// Lazily or eagerly slice the array to `range`, depending on available kernels.
     pub fn slice(&self, range: std::ops::Range<usize>) -> VortexResult<ArrayRef> {
         self.inner.slice(range)
-    }
-
-    #[deprecated(
-        note = "Use `execute_scalar` instead, which allows passing an execution context for more \
-        efficient execution when fetching multiple scalars from the same array."
-    )]
-    #[allow(clippy::disallowed_methods)]
-    pub fn scalar_at(&self, index: usize) -> VortexResult<crate::scalar::Scalar> {
-        self.inner
-            .execute_scalar(index, &mut legacy_session().create_execution_ctx())
     }
 
     /// Execute the array to extract a scalar at the given index.
@@ -464,13 +485,6 @@ impl<V: VTable> Array<V> {
     /// Returns whether every row is null.
     pub fn all_invalid(&self, ctx: &mut ExecutionCtx) -> VortexResult<bool> {
         self.inner.all_invalid(ctx)
-    }
-
-    #[deprecated(note = "Use Array::<V>::execute::<Canonical>() instead")]
-    pub fn to_canonical(&self) -> VortexResult<crate::Canonical> {
-        #[expect(deprecated)]
-        let result = self.inner.to_canonical();
-        result
     }
 
     /// Returns the estimated physical bytes owned or referenced by this array tree.
@@ -542,6 +556,7 @@ impl<V: VTable> AsRef<ArrayRef> for Array<V> {
 }
 
 impl<V: VTable> IntoArray for Array<V> {
+    #[allow(clippy::inline_always)]
     #[inline(always)]
     fn into_array(self) -> ArrayRef {
         self.inner
@@ -598,6 +613,8 @@ mod tests {
             Err(array) => array,
         };
 
-        assert_arrays_eq!(array, alias, &mut ctx);
+        let expected = PrimitiveArray::new(buffer![1i32, 2, 3], Validity::NonNullable);
+        assert_arrays_eq!(array, &expected, &mut ctx);
+        assert_arrays_eq!(alias, expected, &mut ctx);
     }
 }

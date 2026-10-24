@@ -499,10 +499,18 @@ pub(super) fn append_execution(
         result.provider_selection_reason.into(),
     ));
     if let Some(report) = &result.primitive_execution {
+        let mut primitive_fields = Vec::new();
         vortex_primitive_execution::append_vortex_local_primitive_execution_report_fields(
-            fields,
+            &mut primitive_fields,
             Some(report),
         );
+        // A writer has already emitted its resource and state policy. The
+        // completed shared primitive supplies the execution observations for
+        // those same keys, just as the relational fields below replace effects.
+        for (key, value) in primitive_fields {
+            fields.retain(|(existing, _)| existing != &key);
+            fields.push((key, value));
+        }
     }
     crate::execution_resources::append_declaration_fields(fields, result.resources);
     crate::execution_resources::append_resident_snapshot_fields(fields, &result.runtime);

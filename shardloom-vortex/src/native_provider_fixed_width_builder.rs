@@ -8,7 +8,7 @@ use super::*;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::array::{
     arrays::Decimal,
-    builders::{ArrayBuilder, builder_with_capacity},
+    builders::{ArrayBuilder, builder_with_capacity_in},
     dtype::DecimalType,
 };
 
@@ -38,7 +38,7 @@ pub(super) fn decode(
         .split(finish_bytes)
         .map_err(|error| vortex_err!("{error}"))?;
 
-    let mut builder = builder_with_capacity(array.dtype(), array.len());
+    let mut builder = builder_with_capacity_in(array.dtype(), array.len(), ctx.allocator());
     // Chunked appends nested chunks into this same builder. Native leaf append
     // implementations own their decode decisions; no second concatenation or
     // per-row adapter representation is introduced here.
@@ -148,10 +148,7 @@ fn retain<V: ArrayVTable>(
         "native fixed-width builder returned an unexpected buffer count"
     );
     let buffer = crate::owned_buffers::retain_credit(buffers.remove(0), credit);
-    Array::<V>::try_from_parts(
-        vtable
-            .with_buffers(output.as_::<V>(), &[BufferHandle::new_host(buffer)])?
-            .with_slots(std::iter::once(validity).collect()),
-    )
-    .map(IntoArray::into_array)
+    let mut parts = vtable.with_buffers(output.as_::<V>(), &[BufferHandle::new_host(buffer)])?;
+    parts.slots = std::iter::once(validity).collect();
+    Array::<V>::try_from_parts(parts).map(IntoArray::into_array)
 }

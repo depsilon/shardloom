@@ -56,7 +56,7 @@ fn state(
         false,
         false,
         policy.resource_envelope,
-        Some(vortex::array::legacy_session()),
+        Some(&vortex::array::array_session()),
     )
     .unwrap()
 }
@@ -220,7 +220,7 @@ fn utf8_integer_distinct_complete_workers_global_winner_offset_and_actual_eviden
             chunks[0].dtype(),
             &columns(),
             policy,
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
             &memory,
         )
         .unwrap()
@@ -302,7 +302,7 @@ fn admitted(dtype: &DType, aggregate: &VortexSimpleAggregateRequest) -> bool {
         dtype,
         &columns(),
         policy,
-        vortex::array::legacy_session(),
+        &vortex::array::array_session(),
         &memory,
     )
     .unwrap();
@@ -376,7 +376,7 @@ fn utf8_integer_distinct_entry_pressure_never_installs_untracked_exact_groups() 
         data.dtype(),
         &columns(),
         policy,
-        vortex::array::legacy_session(),
+        &vortex::array::array_session(),
         &memory,
     )
     .unwrap()
@@ -409,7 +409,7 @@ fn utf8_integer_distinct_initial_and_committed_task_capacity_denial_are_distinct
             data.dtype(),
             &columns(),
             policy,
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
             &memory,
         )
         .unwrap()
@@ -484,7 +484,7 @@ fn utf8_integer_distinct_actual_nullable_leaf_and_cancellation_fail_before_publi
         compound_count_partial::count(
             &nullable,
             &strings(&["x", "x"]),
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &worker(),
             &mut lease
         )
@@ -521,7 +521,7 @@ fn utf8_integer_distinct_cancel_submitted_jobs_publishes_no_partial_output() {
             chunks[0].dtype(),
             &columns(),
             policy,
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
             &memory,
         )
         .unwrap()

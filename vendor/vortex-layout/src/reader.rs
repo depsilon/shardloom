@@ -20,7 +20,7 @@ use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldMask;
 use vortex_array::expr::BoundExpression;
 use vortex_array::memory::HostMemoryReservation;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
@@ -434,7 +434,7 @@ impl LazyReaderChildren {
         let reservation = if bytes == 0 {
             None
         } else {
-            Some(session.allocator().reserve_external(bytes)?)
+            Some(session.host_allocator().reserve_external(bytes)?)
         };
         let mut dtypes = Vec::with_capacity(nchildren);
         let mut names = Vec::with_capacity(nchildren);
@@ -499,7 +499,7 @@ impl LazyReaderChildren {
         let reservation = if bytes == 0 {
             None
         } else {
-            Some(session.allocator().reserve_external(bytes)?)
+            Some(session.host_allocator().reserve_external(bytes)?)
         };
         let cache = vec![OnceCell::new(); nchildren];
         debug_assert_eq!(cache.capacity(), nchildren);

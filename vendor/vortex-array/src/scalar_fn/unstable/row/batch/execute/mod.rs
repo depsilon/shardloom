@@ -7,7 +7,7 @@
 //! valid-only execution.
 
 use vortex_error::VortexResult;
-use vortex_mask::Mask;
+use vortex_mask::MaskValuesRef;
 
 use super::RowFnExecutionArgs;
 use super::RowPolicy;
@@ -15,11 +15,13 @@ use super::args::BorrowedRowFnArgs;
 use crate::ArrayRef;
 use crate::ExecutionCtx;
 use crate::arrays::Constant;
+use crate::scalar_fn::unstable::row::execute::DenseAttempt;
 use crate::scalar_fn::unstable::row::types::batch_const;
 use crate::validity::Validity;
 
 mod constant;
 mod dense;
+mod filtered;
 mod valid_only;
 
 mod output;
@@ -28,16 +30,27 @@ pub(crate) use output::finalize_kernel_output;
 impl RowFnExecutionArgs {
     /// Apply constant folding and null handling around `kernel`.
     ///
-    /// For a partially valid batch, `try_valid_rows` executes only valid rows over the original
-    /// inputs. Every result is checked against the planned shape and dtype.
+    /// For a partially valid batch, `try_valid_rows` can avoid filtering. `Ok(None)` filters the
+    /// inputs to the valid rows and `execute_filtered_rows` runs the kernel over them while
+    /// writing into the original row domain. Every result is checked against the planned shape
+    /// and dtype.
     pub(crate) fn execute(
         &self,
         kernel: impl Fn(BorrowedRowFnArgs<'_>, &mut ExecutionCtx) -> VortexResult<ArrayRef>,
+        execute_dense_attempt: impl FnOnce(
+            BorrowedRowFnArgs<'_>,
+            &mut ExecutionCtx,
+        ) -> VortexResult<DenseAttempt>,
         try_valid_rows: impl FnOnce(
             BorrowedRowFnArgs<'_>,
-            &Mask,
+            MaskValuesRef,
             &mut ExecutionCtx,
         ) -> VortexResult<Option<ArrayRef>>,
+        execute_filtered_rows: impl FnOnce(
+            BorrowedRowFnArgs<'_>,
+            MaskValuesRef,
+            &mut ExecutionCtx,
+        ) -> VortexResult<ArrayRef>,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<ArrayRef> {
         // Strictness: an all-null batch has no observable row work. Keep the literal-constant
@@ -62,15 +75,23 @@ impl RowFnExecutionArgs {
             return self.execute_all_constant(kernel, ctx);
         }
 
-        // A known all-valid batch does not need to materialize validity, even when its row policy
-        // only permits valid rows.
+        // Do not resolve array-backed validity for the uncommon all-valid or all-null cases here.
+        // That can execute and scan the full mask; each policy resolves it only when necessary.
         if self.validity.definitely_no_nulls() {
             return self.execute_dense(kernel, ctx);
         }
 
-        match self.policy {
+        match self.plan.policy() {
             RowPolicy::Dense => self.execute_dense(kernel, ctx),
-            RowPolicy::ValidOnly => self.execute_valid_only(kernel, try_valid_rows, ctx),
+            RowPolicy::DenseWithRetry => self.execute_dense_with_retry(
+                execute_dense_attempt,
+                try_valid_rows,
+                execute_filtered_rows,
+                ctx,
+            ),
+            RowPolicy::ValidOnly => {
+                self.execute_valid_only(kernel, try_valid_rows, execute_filtered_rows, ctx)
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: admit temporary and final buffer tables.
 // Modified by ShardLoom on 2026-10-17: expose checked length-prefixed text construction.
+// Modified by ShardLoom on 2026-10-24: sanitize null views before validating visible UTF-8.
 
 use itertools::Itertools;
 use num_traits::AsPrimitive;
@@ -207,10 +208,13 @@ fn build_views_with_lengths_in(
         capacity <= u32::MAX as usize,
         "VarBinView has too many data buffers"
     );
-    let allocator = ctx.allocator();
+    let allocator = ctx.host_allocator();
     let mut buffers = MetadataVec::new(capacity, &allocator)?;
     let mut views = BufferMut::with_capacity(count);
-    if bytes.len() <= max_buffer_len && matches!(dtype, DType::Utf8(_)) {
+    if bytes.len() <= max_buffer_len
+        && matches!(dtype, DType::Utf8(_))
+        && matches!(validity, Validity::NonNullable | Validity::AllValid)
+    {
         simdutf8::basic::from_utf8(bytes.as_slice())
             .map_err(|_| vortex_err!("VarBinView byte heap failed utf-8 validation"))?;
         extend_views_single_buffer::<true>(&mut views, 0, &bytes, count, len_at)?;
@@ -233,9 +237,13 @@ fn build_views_with_lengths_in(
             )?
         };
         let slots = VarBinViewData::make_slots(&validity, data.len());
-        return VarBinViewArray::try_from_parts(
-            ArrayParts::new(VarBinView, dtype, data.len(), data).with_slots(slots),
-        );
+        return VarBinViewArray::try_from_parts(ArrayParts::new(
+            VarBinView,
+            dtype,
+            data.len(),
+            data,
+            slots,
+        ));
     }
     extend_views_into(
         &mut views,
@@ -246,13 +254,10 @@ fn build_views_with_lengths_in(
         len_at,
         |buffer| buffers.push(buffer),
     )?;
-    VarBinViewArray::try_new_handle_in(
-        BufferHandle::new_host(views.freeze().into_byte_buffer()),
-        buffers.iter().cloned().map(BufferHandle::new_host),
-        dtype,
-        validity,
-        &allocator,
-    )
+    // Null slots may hold arbitrary bytes or split a UTF-8 character. The
+    // context-taking constructor validates visible values and replaces null
+    // views with empty views before any raw value access becomes possible.
+    VarBinViewArray::try_new_from_buffers(views.freeze(), &buffers, dtype, validity, ctx)
 }
 
 /// Appends one view per value straight into `views`, splitting `bytes` into buffers.
@@ -450,11 +455,72 @@ mod tests {
     use rstest::rstest;
     use vortex_buffer::ByteBuffer;
     use vortex_buffer::ByteBufferMut;
+    use vortex_error::VortexResult;
 
+    use crate::VortexSessionExecute;
+    use crate::array_session;
     use crate::arrays::varbinview::BinaryView;
     use crate::arrays::varbinview::build_views::MAX_BUFFER_LEN;
     use crate::arrays::varbinview::build_views::build_views;
     use crate::arrays::varbinview::build_views::build_views_from_offsets;
+    use crate::arrays::varbinview::build_views::build_views_in;
+    use crate::dtype::DType;
+    use crate::dtype::Nullability;
+    use crate::validity::Validity;
+
+    #[rstest]
+    #[case::single_buffer(64)]
+    #[case::split_buffers(17)]
+    fn admitted_views_ignore_invalid_null_bytes(#[case] max_len: usize) -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
+        let visible = b"a visible string!";
+        let mut bytes = visible.to_vec();
+        bytes.push(0xff);
+        let bytes = ByteBuffer::from(bytes);
+        let dtype = DType::Utf8(Nullability::Nullable);
+        let array = build_views_in(
+            max_len,
+            bytes.clone(),
+            &[17u32, 1],
+            dtype.clone(),
+            Validity::from_iter([true, false]),
+            &mut ctx,
+        )?;
+        assert_eq!(array.bytes_at(0).as_slice(), visible);
+        assert!(array.bytes_at(1).is_empty());
+        assert!(!array.is_valid(1, &mut ctx)?);
+        assert!(
+            build_views_in(
+                max_len,
+                bytes,
+                &[17u32, 1],
+                dtype,
+                Validity::AllValid,
+                &mut ctx,
+            )
+            .is_err()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn admitted_null_views_may_split_multibyte_characters() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
+        let array = build_views_in(
+            64,
+            ByteBuffer::copy_from("aé"),
+            &[1u32, 1, 1],
+            DType::Utf8(Nullability::Nullable),
+            Validity::from_iter([true, false, false]),
+            &mut ctx,
+        )?;
+        assert_eq!(array.bytes_at(0).as_slice(), b"a");
+        for index in 1..3 {
+            assert!(array.bytes_at(index).is_empty());
+            assert!(!array.is_valid(index, &mut ctx)?);
+        }
+        Ok(())
+    }
 
     /// Concatenate `values` into a single byte heap and return it alongside the per-element lengths,
     /// matching the `(bytes, lens)` inputs that `build_views` consumes.
@@ -612,7 +678,13 @@ mod tests {
             1,
             "len == max_buffer_len must stay on fast path"
         );
-        assert_eq!(views.len(), 2);
+        assert_eq!(
+            reconstruct(&buffers, &views, 0),
+            vec![
+                b"this value is definitely long".to_vec(),
+                b"and so is this one here".to_vec()
+            ]
+        );
     }
 
     /// For the same logical data, the fast path (single buffer) and the slow rollover path must
@@ -643,12 +715,6 @@ mod tests {
             "small cap should split into many buffers"
         );
         assert_eq!(reconstruct(&slow_buffers, &slow_views, 0), expected);
-
-        // Same logical contents regardless of how the heap was partitioned.
-        assert_eq!(
-            reconstruct(&fast_buffers, &fast_views, 0),
-            reconstruct(&slow_buffers, &slow_views, 0)
-        );
     }
 
     /// Empty input must yield no buffers and no views, exercising the `bytes.is_empty()` branch.

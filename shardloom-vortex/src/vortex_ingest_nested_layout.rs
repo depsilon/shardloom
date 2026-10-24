@@ -4,9 +4,8 @@ use std::sync::Arc;
 use vortex::{
     array::dtype::{DType, FieldPath, PType},
     compressor::BtrBlocksCompressorBuilder,
-    editions::{ComponentKind, EditionSessionExt as _},
     layout::{
-        LayoutStrategy, LayoutStrategyEncodingValidator,
+        LayoutStrategy,
         layouts::{
             chunked::writer::ChunkedLayoutStrategy, compressed::CompressingStrategy,
             flat::writer::FlatLayoutStrategy,
@@ -36,28 +35,16 @@ fn preserve_field(dtype: &DType) -> bool {
     is_nested(dtype) || is_full_domain_timestamp(dtype)
 }
 
-fn preserved_writer(session: &VortexSession) -> Arc<dyn LayoutStrategy> {
-    Arc::new(ChunkedLayoutStrategy::new(
-        LayoutStrategyEncodingValidator::new(
-            FlatLayoutStrategy::default(),
-            session
-                .enabled_component_ids(ComponentKind::Array)
-                .into_iter()
-                .collect(),
-        ),
-    ))
+fn preserved_writer() -> Arc<dyn LayoutStrategy> {
+    // Vortex 0.90 validates every serialized ID against the file writer's
+    // edition-bound ArrayContext before the flat leaf publishes a segment.
+    Arc::new(ChunkedLayoutStrategy::new(FlatLayoutStrategy::default()))
 }
 
 fn timestamp_writer(session: &VortexSession) -> Arc<dyn LayoutStrategy> {
-    let allowed = session
-        .enabled_component_ids(ComponentKind::Array)
-        .into_iter()
-        .collect();
-    let compressor = BtrBlocksCompressorBuilder::default()
-        .retain_allowed_encodings(&allowed)
-        .build();
+    let compressor = BtrBlocksCompressorBuilder::from_session(session).build();
     Arc::new(
-        CompressingStrategy::new(preserved_writer(session), compressor)
+        CompressingStrategy::new(preserved_writer(), compressor)
             // Retain the source-chunk and parent-validity boundary. Compression
             // executes on the supplied session, with one outstanding task per
             // field; no extra runtime or independent memory owner is created.
@@ -82,7 +69,7 @@ pub(super) fn field_writers(
     let Some(fields) = dtype.as_struct_fields_opt().filter(|_| has_fields(dtype)) else {
         return Vec::new();
     };
-    let writer = preserved_writer(session);
+    let writer = preserved_writer();
     let mut timestamp = None;
     fields
         .names()
@@ -137,7 +124,7 @@ pub(super) fn append_evidence(
         }
     }
     if contains_full_domain_timestamp(dtype) {
-        layout.push_str(";timestamp_layout=chunked_flat_native_compressed;file_min_max=provider_exact_when_present;file_other_pruning_stats=retained;timestamp_provider=vortex_array_0.85.0_full_domain_microsecond_patch");
+        layout.push_str(";timestamp_layout=chunked_flat_native_compressed;file_min_max=provider_exact_when_present;file_other_pruning_stats=retained;timestamp_provider=vortex_array_0.90.0_full_domain_microsecond_patch");
         coalescing.push_str(";timestamp_fields=source_chunks");
         compression.push_str(
             ";timestamp_fields=native_btrblocks;timestamp_compression_concurrency_per_field=1",

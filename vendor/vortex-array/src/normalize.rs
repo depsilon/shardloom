@@ -105,6 +105,7 @@ mod tests {
     use super::NormalizeOptions;
     use super::Operation;
     use crate::ArrayRef;
+    use crate::Canonical;
     use crate::IntoArray;
     use crate::VortexSessionExecute;
     use crate::array::VTable;
@@ -193,9 +194,13 @@ mod tests {
             &original_children[1],
             &normalized_children[1]
         ));
+        assert!(normalized_children[1].is::<Primitive>());
         assert_arrays_eq!(
-            normalized_children[1],
-            PrimitiveArray::from_iter(12i32..16),
+            normalized,
+            StructArray::try_from_iter([
+                ("lhs", PrimitiveArray::from_iter(0i32..4).into_array()),
+                ("rhs", PrimitiveArray::from_iter(12i32..16).into_array()),
+            ])?,
             &mut ctx
         );
 
@@ -225,8 +230,7 @@ mod tests {
         assert_eq!(normalized.len(), 3);
 
         // Verify the data: codes [1,0,1] -> values [20, 10, 20]
-        #[expect(deprecated)]
-        let normalized_canonical = normalized.to_canonical()?;
+        let normalized_canonical = normalized.execute::<Canonical>(&mut ctx)?;
         assert_arrays_eq!(
             normalized_canonical,
             PrimitiveArray::from_iter(vec![20i32, 10, 20]),

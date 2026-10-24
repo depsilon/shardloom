@@ -16,10 +16,11 @@ use crate::{
     resident_memory_source::ResidentMemorySource, resident_session::ResidentVortexSession,
 };
 use shardloom_exec::compute_pool::CancellationToken;
+use vortex::layout::arrays::shared::{Shared, SharedArrayExt as _};
 use vortex::{
     VortexSessionDefault as _,
     array::{
-        VortexSessionExecute as _,
+        Canonical, VortexSessionExecute as _,
         arrays::{
             BoolArray, ChunkedArray, DictArray, ExtensionArray, FixedSizeListArray, ListArray,
             PrimitiveArray, StructArray, VarBinArray,
@@ -52,6 +53,35 @@ fn scalars(array: &ArrayRef) -> Vec<Scalar> {
     let mut execution = VortexSession::default().create_execution_ctx();
     (0..array.len())
         .map(|index| array.execute_scalar(index, &mut execution).unwrap())
+        .collect()
+}
+
+fn detach_varbin_scalar(scalar: Scalar) -> Scalar {
+    let dtype = scalar.dtype().clone();
+    match &dtype {
+        DType::Utf8(nullability) => match scalar.as_utf8().value() {
+            Some(value) => Scalar::utf8(value.as_str().to_owned(), *nullability),
+            None => Scalar::null(dtype),
+        },
+        DType::Binary(nullability) => match scalar.as_binary().value() {
+            Some(value) => Scalar::binary(
+                vortex::buffer::ByteBuffer::copy_from(value.as_slice()),
+                *nullability,
+            ),
+            None => Scalar::null(dtype),
+        },
+        DType::Struct(..) => match scalar.as_struct().fields_iter() {
+            Some(fields) => Scalar::struct_(dtype, fields.map(detach_varbin_scalar)),
+            None => Scalar::null(dtype),
+        },
+        _ => scalar,
+    }
+}
+
+fn detached_varbin_scalars(array: &ArrayRef) -> Vec<Scalar> {
+    scalars(array)
+        .into_iter()
+        .map(detach_varbin_scalar)
         .collect()
 }
 
@@ -107,6 +137,9 @@ fn encoded_transfer_preserves_complete_values_validity_and_physical_trees() {
             )
             .into_array(),
             None,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap(),
         Scalar::utf8("base", Nullability::Nullable),
@@ -194,6 +227,9 @@ fn encoded_transfer_preserves_complete_values_validity_and_physical_trees() {
             strings.clone(),
             PrimitiveArray::from_iter([0u64, 2, 4]).into_array(),
             Validity::NonNullable,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap()
         .into_array(),
@@ -203,7 +239,7 @@ fn encoded_transfer_preserves_complete_values_validity_and_physical_trees() {
     ];
     for column in fixtures {
         let input = record(column);
-        let expected = scalars(&input);
+        let expected = detached_varbin_scalars(&input);
         let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
         let copied = copy(&input, &session);
         let output = &copied.arrays.values[0].0;
@@ -239,8 +275,8 @@ fn encoded_transfer_copies_shared_nodes_and_exact_buffer_aliases_once() {
     assert!(copied.report.reused_array_references > 0);
     assert!(copied.report.reused_buffer_references > 0);
     assert!(ArrayRef::ptr_eq(
-        &output.nth_child(0).unwrap(),
-        &output.nth_child(1).unwrap()
+        output.nth_child(0).unwrap(),
+        output.nth_child(1).unwrap()
     ));
     let first = output.nth_child(0).unwrap().buffers()[0].clone();
     let second = output.nth_child(2).unwrap().buffers()[0].clone();
@@ -286,12 +322,18 @@ fn additional_encoded_providers_preserve_values_and_execute_after_transfer() {
             PrimitiveArray::from_iter([2u32, 0, 1]).into_array(),
             PrimitiveArray::from_iter([2u32, 3, 0]).into_array(),
             Validity::NonNullable,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap()
         .into_array(),
         MaskedArray::try_new(
             PrimitiveArray::from_iter([19i64, -11, 7]).into_array(),
             Validity::from_iter([true, false, true]),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap()
         .into_array(),
@@ -324,7 +366,7 @@ fn additional_encoded_providers_preserve_values_and_execute_after_transfer() {
         let receiver = ResidentVortexSession::new(32 << 20, 1).unwrap();
         let copied = copy(&input, &receiver);
         assert_physical_tree(&input, &copied.arrays.values[0].0);
-        let escaped = copied.arrays.values[0].0.nth_child(0).unwrap();
+        let escaped = copied.arrays.values[0].0.nth_child(0).unwrap().clone();
         drop((input, copied));
         assert!(receiver.snapshot().memory.reserved_bytes > 0);
         assert_eq!(scalars(&escaped), expected, "{encoding}");
@@ -341,19 +383,15 @@ fn additional_encoded_providers_preserve_values_and_execute_after_transfer() {
 
 #[test]
 fn shared_transfer_copies_the_child_without_retaining_the_producer_cache() {
-    use vortex::array::{
-        Canonical,
-        arrays::{Shared, SharedArray, shared::SharedArrayExt as _},
-    };
     let mut execution = VortexSession::default().create_execution_ctx();
-    let shared = SharedArray::new(ConstantArray::new(29i64, 73).into_array());
+    let shared = Shared::new(ConstantArray::new(29i64, 73).into_array());
     let original_cached = shared
         .get_or_compute(|source| source.clone().execute::<Canonical>(&mut execution))
         .unwrap();
     let input = record(shared.into_array());
     let receiving = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let copied = copy(&input, &receiving);
-    let output = copied.arrays.values[0].0.nth_child(0).unwrap();
+    let output = copied.arrays.values[0].0.nth_child(0).unwrap().clone();
     assert_physical_tree(&input, &copied.arrays.values[0].0);
     assert_eq!(copied.report.encoded_buffer_bytes_copied, 0);
     let mut computed = false;
@@ -368,6 +406,34 @@ fn shared_transfer_copies_the_child_without_retaining_the_producer_cache() {
     assert!(!ArrayRef::ptr_eq(&original_cached, &cached));
     assert_eq!(scalars(&cached), vec![Scalar::from(29i64); 73]);
     drop((input, original_cached, copied, output, cached));
+    assert_eq!(receiving.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn shared_input_references_copy_once_without_retaining_the_producer_owner() {
+    let producer = shardloom_exec::live_memory::LiveMemoryPool::new(1 << 20).unwrap();
+    let child = ConstantArray::new(29i64, 73)
+        .into_array()
+        .with_retained_owner(Arc::new(producer.reserve(4096).unwrap()))
+        .unwrap();
+    let input = StructArray::from_fields(&[("left", child.clone()), ("right", child.clone())])
+        .unwrap()
+        .into_array();
+    let receiving = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let copied = copy(&input, &receiving);
+    let output = copied.arrays.values[0].0.clone();
+    assert_physical_tree(&input, &output);
+    let left = output.nth_child(0).unwrap().clone();
+    let right = output.nth_child(1).unwrap().clone();
+    assert!(ArrayRef::ptr_eq(&left, &right));
+    assert!(!ArrayRef::ptr_eq(&child, &left));
+    assert!(copied.report.reused_array_references > 0);
+    assert_eq!(copied.report.encoded_buffer_bytes_copied, 0);
+    drop((input, child));
+    assert_eq!(producer.snapshot().reserved_bytes, 0);
+    assert!(receiving.snapshot().memory.reserved_bytes > 0);
+    assert_eq!(scalars(&left), vec![Scalar::from(29i64); 73]);
+    drop((copied, output, left, right));
     assert_eq!(receiving.snapshot().memory.reserved_bytes, 0);
 }
 
@@ -391,7 +457,7 @@ fn record_chunks_and_slices_preserve_encoded_fields_and_share_one_transfer() {
         .unwrap()
         .into_array();
     let input = SliceArray::try_new(whole, 1..11).unwrap().into_array();
-    let expected = scalars(&input);
+    let expected = detached_varbin_scalars(&input);
     let original = ResidentVortexSession::new(4 << 20, 1).unwrap();
     let receiving = ResidentVortexSession::new(4 << 20, 1).unwrap();
     let result = original
@@ -455,7 +521,7 @@ fn null_record_views_keep_receiving_credit_without_payload_buffers() {
             let session = ResidentVortexSession::new(256 << 10, 1).unwrap();
             let copied = copy(&input, &session);
             let retained = copied.arrays.values[0].0.clone();
-            let leaf = retained.nth_child(0).unwrap().nth_child(0).unwrap();
+            let leaf = retained.nth_child(0).unwrap().nth_child(0).unwrap().clone();
             assert_eq!(copied.report.encoded_buffer_bytes_copied, 0);
             assert_eq!(copied.report.materialized_rows, 0);
             drop((copied, input));
@@ -667,15 +733,17 @@ fn compact_transfer_does_not_narrow_float_semantics_to_the_materializer() {
 }
 
 fn sliced_patches(values: ArrayRef) -> Patches {
+    let mut execution = VortexSession::default().create_execution_ctx();
     let patches = Patches::new(
         3000,
         0,
         PrimitiveArray::from_iter([10u64, 100, 1030, 1190, 1510, 2160]).into_array(),
         values,
         Some(PrimitiveArray::from_iter([0u64, 2, 5]).into_array()),
+        &mut execution,
     )
     .unwrap();
-    let sliced = patches.slice(50..2250).unwrap().unwrap();
+    let sliced = patches.slice(50..2250, &mut execution).unwrap().unwrap();
     assert_eq!(sliced.offset_within_chunk(), Some(1));
     sliced
 }
@@ -724,7 +792,7 @@ fn encoded_transfer_preserves_sliced_patch_caches_and_alprd_dictionary_ownership
         let expected = scalars(&column);
         let receiving = ResidentVortexSession::new(8 << 20, 1).unwrap();
         let copied = copy(&input, &receiving);
-        let output = copied.arrays.values[0].0.nth_child(0).unwrap();
+        let output = copied.arrays.values[0].0.nth_child(0).unwrap().clone();
         assert_physical_tree(&column, &output);
         assert_eq!(scalars(&output), expected);
         let canonical = output

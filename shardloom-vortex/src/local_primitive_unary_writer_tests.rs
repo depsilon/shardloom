@@ -340,6 +340,7 @@ fn unary_writers_preserve_scalar_rewrite_rolling_melt_explode_and_pivot_through_
         PrimitiveArray::new(vec![0u64, 2, 2], Validity::NonNullable).into_array(),
         PrimitiveArray::new(vec![2u64, 0, 1], Validity::NonNullable).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::array_session().create_execution_ctx(),
     )
     .unwrap()
     .into_array();

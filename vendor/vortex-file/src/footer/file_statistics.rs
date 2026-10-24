@@ -11,16 +11,17 @@ use std::sync::Arc;
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::WIPOffset;
 use vortex_array::dtype::DType;
+use vortex_array::flatbuffers::FlatBufferRoot;
+use vortex_array::flatbuffers::WriteFlatBuffer;
 use vortex_array::memory::HostMemoryReservation;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_array::stats::StatsSet;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
-use vortex_flatbuffers::FlatBufferRoot;
-use vortex_flatbuffers::WriteFlatBuffer;
-use vortex_flatbuffers::footer as fb;
 use vortex_session::VortexSession;
+
+use crate::flatbuffers::footer as fb;
 
 /// Statistics and aligned field types for a native file.
 ///
@@ -122,7 +123,7 @@ impl FileStatistics {
                 storage: FileStatisticsStorage::Empty,
             });
         }
-        let reservation = session.allocator().reserve_external(bytes)?;
+        let reservation = session.host_allocator().reserve_external(bytes)?;
         let mut stats = Vec::with_capacity(count);
         let mut dtypes = Vec::with_capacity(count);
         for index in 0..count {

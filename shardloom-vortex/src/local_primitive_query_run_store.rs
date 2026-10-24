@@ -1,6 +1,6 @@
 //! Private native query-run storage, extracted from numeric sort (RFC 0044).
 //!
-//! Pinned Vortex 0.85 supplies the file writer, native arrays/Flat layout and
+//! Pinned Vortex 0.90 supplies the file writer, native arrays/Flat layout and
 //! exact row-range scan task. This module owns only temporary file admission,
 //! overlapping disk quota, checksums, held-generation reads and owned cleanup.
 //! Ordering, equality, row conversion, merge geometry and public spill admission
@@ -785,14 +785,14 @@ impl QueryRunReader {
         path_credit: Arc<MemoryLease>,
         namespace: RunNamespace,
     ) -> Result<Self> {
-        use vortex::array::memory::MemorySessionExt as _;
+        use vortex::array::memory::HostMemorySessionExt as _;
         let source = validate_run_bytes(run)?;
         let file = runtime
             .block_on(
                 session
                     .open_options()
                     .with_layout_reader_cache()
-                    .open_read(source.reader(session.allocator(), runtime.handle(), 1)),
+                    .open_read(source.reader(session.host_allocator(), runtime.handle(), 1)),
             )
             .map_err(vortex_error)?;
         if file.dtype() != dtype || file.row_count() != run.rows {

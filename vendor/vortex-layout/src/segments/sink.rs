@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: scope async_trait's generated-future lint compatibility.
 
 use std::sync::Arc;
 
