@@ -1,6 +1,6 @@
 //! Recursive logical keys over native children, never decoded list/struct rows.
 
-use super::{KeyColumn, failed, vortex_error};
+use super::{KeyColumn, Preparation, failed, vortex_error};
 use crate::local_primitives::{native_capacity::ReservedVec, native_list};
 use shardloom_core::Result;
 use shardloom_exec::{
@@ -44,6 +44,7 @@ impl Column {
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
         schema: Option<MemoryLease>,
+        purpose: Preparation,
     ) -> Result<Self> {
         cancellation.check()?;
         // Includes this boxed owner and the list's boxed child. The root schema
@@ -74,6 +75,7 @@ impl Column {
                         memory,
                         cancellation,
                         None,
+                        purpose,
                     )?);
                 }
                 Children::Struct { valid, fields }
@@ -88,6 +90,7 @@ impl Column {
                         memory,
                         cancellation,
                         None,
+                        purpose,
                     )?),
                     coordinates,
                 }
@@ -228,6 +231,36 @@ impl Column {
             }
         }
         Ok(true)
+    }
+
+    pub(super) fn validate_at(&self, row: usize) -> Result<()> {
+        self.cancellation.check()?;
+        if self.is_null(row)? {
+            return Ok(());
+        }
+        match &self.children {
+            Children::Struct { fields, .. } => {
+                for field in &fields.values {
+                    self.cancellation.check()?;
+                    field.validate_at(row)?;
+                }
+            }
+            Children::List {
+                coordinates,
+                elements,
+            } => {
+                let (start, count) = coordinates
+                    .at(row)?
+                    .ok_or_else(|| failed("list key validity changed"))?;
+                for index in 0..count {
+                    if index.is_multiple_of(1024) {
+                        self.cancellation.check()?;
+                    }
+                    elements.validate_at(start + index)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn write_exact_key(

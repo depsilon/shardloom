@@ -1,5 +1,9 @@
 //! Stable native sorting retains source payload and orders reserved ordinals.
 
+#[cfg(test)]
+#[path = "native_relational_sort_tests.rs"]
+mod tests;
+
 use super::{
     native_capacity::ReservedVec,
     native_payload::CopyPolicy,
@@ -69,12 +73,12 @@ impl<'a> Sort<'a> {
         array: ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        let batch = Batch::new(array, &self.spec.names, context)?;
+        let batch = Batch::for_ordering(array, &self.spec.names, context)?;
         for row in 0..batch.array.len() {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            batch.hash(row, true)?;
+            batch.validate_keys(row)?;
             for (index, key) in self.spec.keys.iter().enumerate() {
                 if key.nulls.is_none() && batch.key_is_null(row, index)? {
                     return Err(failed(
@@ -103,12 +107,14 @@ impl<'a> Sort<'a> {
             &mut ordinals.values,
             context.cancellation(),
             |left, right| {
+                let (left_batch, left_row) = self.table.locate_batch(left)?;
+                let (right_batch, right_row) = self.table.locate_batch(right)?;
                 for (index, key) in self.spec.keys.iter().enumerate() {
                     let order = compare_key(
                         key,
-                        self.table.key_is_null(left, index)?,
-                        self.table.key_is_null(right, index)?,
-                        || self.table.compare_key(left, right, index),
+                        left_batch.key_is_null(left_row, index)?,
+                        right_batch.key_is_null(right_row, index)?,
+                        || left_batch.compare_key(left_row, right_batch, right_row, index),
                     )?;
                     if order != Ordering::Equal {
                         return Ok(order);

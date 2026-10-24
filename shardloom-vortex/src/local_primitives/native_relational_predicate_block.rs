@@ -8,7 +8,11 @@ use super::{
 };
 use crate::local_primitives::native_numeric_owner::NativeNumericOwner;
 use vortex::{
-    array::scalar::{PValue, ScalarValue},
+    array::{
+        memory::MemorySessionExt as _,
+        scalar::{PValue, ScalarValue},
+    },
+    buffer::{Alignment, BitBuffer},
     mask::Mask,
 };
 
@@ -39,7 +43,7 @@ struct Truth {
     no: u64,
 }
 
-pub(super) struct Recipe<'a> {
+pub(in crate::local_primitives) struct Recipe<'a> {
     columns: [Option<&'a Expression>; MAX_COLUMNS],
     column_count: usize,
     instructions: [Instruction; MAX_INSTRUCTIONS],
@@ -50,7 +54,7 @@ pub(super) struct Recipe<'a> {
 }
 
 impl<'a> Recipe<'a> {
-    pub(super) fn compile(expression: &'a Expression) -> Option<Self> {
+    pub(in crate::local_primitives) fn compile(expression: &'a Expression) -> Option<Self> {
         #[cfg(all(test, debug_assertions))]
         super::super::native_relational_observation::record(|counts| {
             counts.predicate_compile_attempts += 1;
@@ -163,24 +167,7 @@ impl<'a> Recipe<'a> {
         input: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
-        let mut owners: [Option<NativeNumericOwner>; MAX_COLUMNS] = std::array::from_fn(|_| None);
-        for (index, column) in self.columns[..self.column_count].iter().enumerate() {
-            context.check_cancelled()?;
-            let column = column.expect("compiled column binding");
-            let Kind::Column(name) = &column.kind else {
-                unreachable!("compiled column binding");
-            };
-            let array = super::super::logical_field_from_native_array(input, name)?;
-            if array.dtype() != &column.dtype || array.len() != input.len() {
-                return Err(failed(
-                    "scalar expression changed its bound schema or row count",
-                ));
-            }
-            let KeyColumn::Numeric(owner) = keys(&array, context)? else {
-                return Err(failed("pure predicate requires its bound I64 native owner"));
-            };
-            owners[index] = Some(owner);
-        }
+        let owners = self.prepare_owners(input, context)?;
         let mut truth = Truth::default();
         #[cfg(all(test, debug_assertions))]
         super::super::native_relational_observation::record(|counts| {
@@ -200,6 +187,60 @@ impl<'a> Recipe<'a> {
                 Value::Null
             })
         })
+    }
+
+    /// WHERE consumes only true bits; projected expressions retain both truth
+    /// words through `evaluate`. The session allocator owns the packed credit.
+    pub(in crate::local_primitives) fn evaluate_mask(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Mask> {
+        context.check_cancelled()?;
+        let owners = self.prepare_owners(input, context)?;
+        let mut bits = context
+            .native_session()
+            .allocator()
+            .allocate(input.len().div_ceil(8), Alignment::none())
+            .map_err(super::vortex_error)?;
+        for (index, output) in bits.as_mut_slice().chunks_mut(8).enumerate() {
+            context.check_cancelled()?;
+            let start = index * 64;
+            let truth = self.block(&owners, start, input.len().min(start.saturating_add(64)))?;
+            // Vortex bit buffers use least-significant-bit-first byte order.
+            output.copy_from_slice(&truth.yes.to_le_bytes()[..output.len()]);
+        }
+        context.check_cancelled()?;
+        Ok(Mask::from_buffer(BitBuffer::new(
+            bits.freeze(),
+            input.len(),
+        )))
+    }
+
+    fn prepare_owners(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<[Option<NativeNumericOwner>; MAX_COLUMNS]> {
+        let mut owners: [Option<NativeNumericOwner>; MAX_COLUMNS] = std::array::from_fn(|_| None);
+        for (index, column) in self.columns[..self.column_count].iter().enumerate() {
+            context.check_cancelled()?;
+            let column = column.expect("compiled column binding");
+            let Kind::Column(name) = &column.kind else {
+                unreachable!("compiled column binding");
+            };
+            let array = super::super::logical_field_from_native_array(input, name)?;
+            if array.dtype() != &column.dtype || array.len() != input.len() {
+                return Err(failed(
+                    "scalar expression changed its bound schema or row count",
+                ));
+            }
+            let KeyColumn::Numeric(owner) = keys(&array, context)? else {
+                return Err(failed("pure predicate requires its bound I64 native owner"));
+            };
+            owners[index] = Some(owner);
+        }
+        Ok(owners)
     }
 
     fn block(

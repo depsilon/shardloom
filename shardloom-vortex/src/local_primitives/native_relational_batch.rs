@@ -4,7 +4,7 @@ use super::{
     logical_field_from_native_array,
     native_capacity::ReservedVec,
     native_payload,
-    native_relational_keys::{Cell, KeyColumn},
+    native_relational_keys::{Cell, KeyColumn, Preparation},
     result_batch, vortex_error,
 };
 use crate::resident_session::NativeExecutionContext;
@@ -37,7 +37,25 @@ impl Batch {
         key_names: &[String],
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        Self::from_names(array, key_names.iter().map(String::as_str), context)
+        Self::from_names(
+            array,
+            key_names.iter().map(String::as_str),
+            context,
+            Preparation::Hash,
+        )
+    }
+
+    pub(super) fn for_ordering(
+        array: ArrayRef,
+        key_names: &[String],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
+        Self::from_names(
+            array,
+            key_names.iter().map(String::as_str),
+            context,
+            Preparation::Values,
+        )
     }
 
     pub(super) fn with_names<const N: usize>(
@@ -45,13 +63,14 @@ impl Batch {
         key_names: [&str; N],
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        Self::from_names(array, key_names.into_iter(), context)
+        Self::from_names(array, key_names.into_iter(), context, Preparation::Hash)
     }
 
     fn from_names<'a>(
         array: ArrayRef,
         key_names: impl ExactSizeIterator<Item = &'a str>,
         context: &NativeExecutionContext<'_>,
+        purpose: Preparation,
     ) -> Result<Self> {
         let mut keys = ReservedVec::new(context.memory())?;
         keys.reserve(key_names.len())?;
@@ -59,7 +78,11 @@ impl Batch {
         for name in key_names {
             context.check_cancelled()?;
             let column = logical_field_from_native_array(&array, name)?;
-            keys.values.push(KeyColumn::new(
+            let prepare = match purpose {
+                Preparation::Values => KeyColumn::values,
+                Preparation::Hash => KeyColumn::new,
+            };
+            keys.values.push(prepare(
                 &column,
                 &mut execution,
                 context.memory(),
@@ -67,6 +90,13 @@ impl Batch {
             )?);
         }
         Ok(Self { array, keys })
+    }
+
+    pub(super) fn validate_keys(&self, row: usize) -> Result<()> {
+        for column in &self.keys.values {
+            column.validate_at(row)?;
+        }
+        Ok(())
     }
 
     pub(super) fn key(&self, key: usize) -> Result<&KeyColumn> {
@@ -167,7 +197,6 @@ impl Batch {
         Ok(column.hash_into(row, &mut hash)?.then(|| hash.finish()))
     }
 
-    #[cfg(feature = "vortex-write")]
     pub(super) fn compare_key(
         &self,
         row: usize,
@@ -237,6 +266,12 @@ impl Table {
             .partition_point(|segment| segment.start <= row)
             - 1;
         Ok((segment, row - self.segments.values[segment].start))
+    }
+
+    /// Resolve once when a comparator visits several keys of the same row.
+    pub(super) fn locate_batch(&self, row: usize) -> Result<(&Batch, usize)> {
+        let (segment, local) = self.locate(row)?;
+        Ok((&self.segments.values[segment].batch, local))
     }
 
     pub(super) fn hash(&self, row: usize, nulls_equal: bool) -> Result<Option<u64>> {

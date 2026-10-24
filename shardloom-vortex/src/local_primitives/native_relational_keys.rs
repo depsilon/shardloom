@@ -8,6 +8,9 @@ mod nested_tests;
 #[cfg(test)]
 #[path = "native_relational_typed_keys_tests.rs"]
 mod typed_tests;
+#[cfg(test)]
+#[path = "native_relational_value_preparation_tests.rs"]
+mod value_preparation_tests;
 
 #[path = "native_relational_nested_keys.rs"]
 mod nested;
@@ -59,14 +62,42 @@ pub(super) enum KeyColumn {
     Nested(Box<nested::Column>),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Preparation {
+    Values,
+    Hash,
+}
+
 pub(super) struct VariableColumn {
     values: VarBinViewArray,
     valid: Mask,
     codes: Option<NativeNumericOwner>,
-    hashes: Vec<u64>,
-    _hash_ownership: MemoryLease,
+    hashes: Option<VariableHashes>,
     rows: usize,
     binary: bool,
+}
+
+struct VariableHashes {
+    values: Vec<u64>,
+    _ownership: MemoryLease,
+}
+
+impl VariableHashes {
+    fn new(domain_len: usize, memory: &LiveMemoryPool) -> Result<Self> {
+        let bytes = domain_len
+            .checked_mul(size_of::<u64>())
+            .and_then(|bytes| u64::try_from(bytes).ok())
+            .ok_or_else(|| failed("text hash capacity overflow"))?;
+        let ownership = memory.reserve(bytes)?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.variable_hash_slot_bytes += bytes;
+        });
+        Ok(Self {
+            values: Vec::new(),
+            _ownership: ownership,
+        })
+    }
 }
 
 pub(super) struct DecimalColumn {
@@ -82,12 +113,31 @@ impl KeyColumn {
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<Self> {
+        Self::prepare(array, context, memory, cancellation, Preparation::Hash)
+    }
+
+    pub(super) fn values(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        Self::prepare(array, context, memory, cancellation, Preparation::Values)
+    }
+
+    fn prepare(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        purpose: Preparation,
+    ) -> Result<Self> {
         let schema = if super::native_payload::is_nested(array.dtype()) {
             Some(memory.reserve(crate::native_payload_schema::metadata_bytes(array.dtype())?)?)
         } else {
             None
         };
-        Self::new_inner(array, context, memory, cancellation, schema)
+        Self::new_inner(array, context, memory, cancellation, schema, purpose)
     }
 
     fn new_inner(
@@ -96,6 +146,7 @@ impl KeyColumn {
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
         schema: Option<MemoryLease>,
+        purpose: Preparation,
     ) -> Result<Self> {
         cancellation.check()?;
         #[cfg(all(test, debug_assertions))]
@@ -120,9 +171,13 @@ impl KeyColumn {
                     .map_err(vortex_error)?;
                 Self::Boolean { values, valid }
             }
-            DType::Utf8(_) | DType::Binary(_) => {
-                Self::Variable(VariableColumn::new(array, context, memory, cancellation)?)
-            }
+            DType::Utf8(_) | DType::Binary(_) => Self::Variable(VariableColumn::new(
+                array,
+                context,
+                memory,
+                cancellation,
+                purpose,
+            )?),
             DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
                 Self::Decimal(DecimalColumn::new(
                     array,
@@ -155,6 +210,7 @@ impl KeyColumn {
                     memory,
                     cancellation,
                     schema,
+                    purpose,
                 )?))
             }
             _ => {
@@ -290,6 +346,20 @@ impl KeyColumn {
         Ok(self.compare_at(row, other, other_row)? == Ordering::Equal)
     }
 
+    /// Validate every observed key value without constructing a discarded hash.
+    /// Unlike comparison with itself, nested validation visits all non-null
+    /// children, including children after an earlier unequal sort component.
+    pub(super) fn validate_at(&self, row: usize) -> Result<()> {
+        if row >= self.len() {
+            return Err(failed("hash row index exceeds key owner"));
+        }
+        match self {
+            Self::Nested(values) => values.validate_at(row),
+            Self::Variable(values) => values.index(row).map(|_| ()),
+            _ => self.cell(row).map(|_| ()),
+        }
+    }
+
     /// A hash is only a candidate lookup. Callers must compare complete cells.
     /// Equal numeric values hash identically without rounding integer domains.
     pub(super) fn hash_into(&self, row: usize, hash: &mut rustc_hash::FxHasher) -> Result<bool> {
@@ -301,8 +371,12 @@ impl KeyColumn {
         }
         if let Self::Variable(values) = self {
             if let Some(index) = values.index(row)? {
+                let hashes = values
+                    .hashes
+                    .as_ref()
+                    .ok_or_else(|| failed("value-only text owner has no admitted hash state"))?;
                 hash.write_u8(if values.binary { 6 } else { 5 });
-                hash.write_u64(values.hashes[index]);
+                hash.write_u64(hashes.values[index]);
                 return Ok(true);
             }
             hash.write_u8(0);
@@ -562,23 +636,22 @@ impl VariableColumn {
         context: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
+        purpose: Preparation,
     ) -> Result<Self> {
         let binary = matches!(array.dtype(), DType::Binary(_));
         let dictionary = array.as_opt::<Dict>();
         let domain = dictionary
             .as_ref()
             .map_or_else(|| array.clone(), |dict| dict.values().clone());
-        let bytes = domain
-            .len()
-            .checked_mul(size_of::<u64>())
-            .and_then(|bytes| u64::try_from(bytes).ok())
-            .ok_or_else(|| failed("text hash capacity overflow"))?;
-        let ownership = memory.reserve(bytes)?;
+        let mut hashes = if purpose == Preparation::Hash {
+            Some(VariableHashes::new(domain.len(), memory)?)
+        } else {
+            None
+        };
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| {
             counts.variable_domains += 1;
             counts.variable_domain_values += domain.len() as u64;
-            counts.variable_hash_slot_bytes += bytes;
         });
         let values = domain
             .clone()
@@ -612,38 +685,48 @@ impl VariableColumn {
                 Ok(owner)
             })
             .transpose()?;
-        let mut hashes = Vec::new();
-        hashes
-            .try_reserve_exact(values.len())
-            .map_err(vortex_error)?;
-        if hashes.capacity() > values.len() {
-            return Err(failed("text hash allocation exceeded its reservation"));
+        if let Some(hashes) = &mut hashes {
+            hashes
+                .values
+                .try_reserve_exact(values.len())
+                .map_err(vortex_error)?;
+            if hashes.values.capacity() > values.len() {
+                return Err(failed("text hash allocation exceeded its reservation"));
+            }
         }
         for index in 0..values.len() {
             if index.is_multiple_of(4096) {
                 cancellation.check()?;
             }
-            hashes.push(if valid.value(index) {
+            let hash = if valid.value(index) {
+                // Both purposes preserve the complete domain validation walk,
+                // even when a dictionary never refers to this value.
                 let value = values.bytes_at(index);
                 if !binary {
                     values.utf8_slice_at(index).map_err(vortex_error)?;
                 }
-                #[cfg(all(test, debug_assertions))]
-                super::native_relational_observation::record(|counts| {
-                    counts.variable_hash_values += 1;
-                    counts.variable_hash_bytes += value.len() as u64;
-                });
-                compound_count_partial::string_hash(value.as_slice())
+                if hashes.is_some() {
+                    #[cfg(all(test, debug_assertions))]
+                    super::native_relational_observation::record(|counts| {
+                        counts.variable_hash_values += 1;
+                        counts.variable_hash_bytes += value.len() as u64;
+                    });
+                    compound_count_partial::string_hash(value.as_slice())
+                } else {
+                    0
+                }
             } else {
                 0
-            });
+            };
+            if let Some(hashes) = &mut hashes {
+                hashes.values.push(hash);
+            }
         }
         Ok(Self {
             values,
             valid,
             codes,
             hashes,
-            _hash_ownership: ownership,
             rows: array.len(),
             binary,
         })

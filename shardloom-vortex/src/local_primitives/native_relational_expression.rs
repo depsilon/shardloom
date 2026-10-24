@@ -24,6 +24,8 @@ pub(super) mod scalar;
 #[path = "native_relational_predicate_block.rs"]
 mod predicate_block;
 
+pub(super) use predicate_block::Recipe as FilterRecipe;
+
 pub(super) struct Expression {
     pub(super) dtype: DType,
     pub(super) kind: Kind,
@@ -469,7 +471,7 @@ impl Expression {
 }
 
 pub(super) fn keys(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<KeyColumn> {
-    KeyColumn::new(
+    KeyColumn::values(
         array,
         &mut context.native_session().create_execution_ctx(),
         context.memory(),

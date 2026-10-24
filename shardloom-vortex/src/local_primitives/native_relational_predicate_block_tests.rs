@@ -10,7 +10,6 @@ use vortex::{
             bool::BoolArrayExt as _,
         },
         dtype::{FieldNames, Nullability},
-        memory::MemorySessionExt as _,
         scalar::Scalar,
         validity::Validity,
     },
@@ -96,6 +95,22 @@ fn check(
     session: &ResidentVortexSession,
 ) {
     assert!(Recipe::compile(expression).is_some());
+    let mask = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            Recipe::compile(expression)
+                .unwrap()
+                .evaluate_mask(input, context)
+        })
+        .unwrap();
+    assert_eq!(mask.len(), expected.len());
+    assert_eq!(
+        mask.iter().collect::<Vec<_>>(),
+        expected
+            .iter()
+            .map(|value| *value == Some(true))
+            .collect::<Vec<_>>()
+    );
+    drop(mask);
     let output = session
         .with_native_execution_context(&CancellationToken::default(), |context| {
             expression.evaluate(input, context)
@@ -570,5 +585,73 @@ fn pure_predicate_blocks_deny_before_output_growth_and_honor_cancellation() {
     assert!(result.is_err());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     check(&expr, &input, &vec![Some(true); rows], &session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn pure_predicate_masks_retain_credits_and_release_failed_or_cancelled_preparation() {
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let input = batch(&[(
+        "a",
+        PrimitiveArray::from_option_iter((0..4097).map(|row| Some(i64::from(row % 3))))
+            .into_array(),
+    )]);
+    let expression = binary(
+        cmp("a", ComparisonOp::Eq, 0, true, false),
+        BinaryOp::Or,
+        cmp("a", ComparisonOp::Eq, 2, true, false),
+    );
+    let recipe = Recipe::compile(&expression).unwrap();
+    let mask = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            recipe.evaluate_mask(&input, context)
+        })
+        .unwrap();
+    let retained = memory.snapshot().reserved_bytes;
+    assert!(retained >= 4097_usize.div_ceil(8) as u64);
+    let clone = mask.clone();
+    drop(mask);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    drop(clone);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let occupied = memory.reserve(1 << 20).unwrap();
+    let prior = memory.snapshot();
+    assert!(
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                recipe.evaluate_mask(&input, context)
+            })
+            .is_err()
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, prior.reserved_bytes);
+    assert!(memory.snapshot().denied_reservations > prior.denied_reservations);
+    drop(occupied);
+    let cancellation = CancellationToken::default();
+    assert!(
+        session
+            .with_native_execution_context(&cancellation, |context| {
+                cancellation.cancel();
+                recipe.evaluate_mask(&input, context)
+            })
+            .is_err()
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let missing = binary(
+        cmp("a", ComparisonOp::Gt, 0, true, false),
+        BinaryOp::And,
+        cmp("missing", ComparisonOp::Gt, 0, true, false),
+    );
+    assert!(
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                Recipe::compile(&missing)
+                    .unwrap()
+                    .evaluate_mask(&input, context)
+            })
+            .is_err()
+    );
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
