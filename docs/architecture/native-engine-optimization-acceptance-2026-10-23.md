@@ -373,6 +373,49 @@ remain essentially unchanged at the larger scale. This is a composed-expression
 benefit, not evidence of a general Full43 speedup. The isolated Full43 checkpoint
 follows this retained implementation.
 
+The isolated Full43 at `f6e2f9ed` passes all 43 queries and 381 expected rows,
+with **50.472347960 engine seconds**. Each query executes once; all other task
+work remains idle. Full input/source/reference identity checks, process cleanup
+and lock release pass. The same frozen runner, input, reference and explicit
+Q28/Q29 byte-length spelling remain in use. This single regression observation
+does not isolate the composed-expression improvement.
+
+### Composed numeric-consumer contract
+
+Extend the existing `NativeNumericOwner::bind_typed_row_update` consumption
+boundary to the composed aggregate's scalar SUM and AVG states. The primitive
+and compact aggregate callers already use that typed, validity-aware row kernel.
+Reuse its original-width slices and one-time type/validity dispatch; preserve
+the existing composed state, adjacent input-view sharing and finalization.
+There is no new numeric representation, accumulation algorithm or provider.
+
+Admit only ungrouped SUM/AVG over an existing numeric owner. Keep grouped,
+decimal, extrema, count, distinct and other inputs in their existing consumers.
+Each measure still processes its entire batch in declaration order. NULLs do
+not update state. For a valid value, preserve input-finiteness validation before
+checked count increment, then the original `NumericAggregateSum::add` and its
+nonfinite-total check, with the same errors and partial state. Do not merge
+fresh partial sums or change floating addition order across batches.
+
+Reserve the bounded borrowed-kernel metadata before allocating its closure,
+and release it before the input view. Keep cancellation checks at the original
+row cadence, including NULL rows. Verify all ten admitted physical numeric
+types, nullable/empty/encoded/sliced inputs, ordered floating results, exact
+failure precedence and partial state, credits, producer release and retained
+output ownership. Exercise the consumer after a computed projection/filter,
+and retain primitive-kernel, grouped, decimal and explicit-spill controls.
+
+Use the unchanged v3 cost harness and the accepted `22a42070` expression runtime
+as the immutable baseline. The large `aggregate_numeric` case is the target
+(engine ratio <= 0.95). Controls are `aggregate_text`, `aggregate_count`,
+`aggregate_interleaved`, `aggregate_distinct` and `value_numeric`, plus all six
+cases at 257 rows. Run exactly three alternating pairs for all 12 cells; keep
+the existing 10% or 100-microsecond median ceiling, complete values/schema,
+source, grant, producer and cleanup checks. Debug observations must prove actual
+typed-consumer use and no new retained input lifetime. A retained implementation
+receives one isolated Full43; final broad validation remains at the end of the
+cohesive feedback batch.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
