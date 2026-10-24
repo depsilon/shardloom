@@ -568,6 +568,12 @@ The [revised decision](../benchmarks/evidence/native-engine-optimization-2026-10
 and the [failed first decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/join-first-decision.json)
 preserve separate measurements. No unchanged retry or relaxed threshold occurs.
 
+The isolated Full43 at `50f68fff` passes all 43 queries, one execution each,
+and all 381 independent expected rows at **51.333297036 engine seconds**.
+Frozen input, reference, source and harness identities remain unchanged;
+process and lock cleanup pass. This regression observation does not measure
+the join-specific benefit established by the composed comparison.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
