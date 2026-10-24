@@ -277,9 +277,7 @@ impl KeyColumn {
         if let Self::Numeric(values) = self
             && let AggregateDistinctValue::Float64Bits(bits) = values.distinct_value(row)?
         {
-            if !f64::from_bits(bits).is_finite() {
-                return Err(failed("nonfinite scalar values are not admitted"));
-            }
+            validate_finite_scalar(f64::from_bits(bits))?;
             return Ok(Cell::Float(bits));
         }
         self.cell(row)
@@ -553,9 +551,7 @@ fn exact_float_integer(value: f64) -> Option<i128> {
 
 #[allow(clippy::cast_possible_truncation)] // Compare the bounded integer part, then the exact fractional sign.
 fn integer_float_order(integer: i128, value: f64) -> Result<Ordering> {
-    if !value.is_finite() {
-        return Err(failed("nonfinite scalar values are not admitted"));
-    }
+    validate_finite_scalar(value)?;
     if value < MIN_INTEGER_FLOAT {
         return Ok(Ordering::Greater);
     }
@@ -772,6 +768,13 @@ fn normalize_numeric(value: &AggregateDistinctValue) -> Result<Cell> {
         }
         _ => return Err(failed("numeric owner returned a nonnumeric key")),
     })
+}
+
+pub(super) fn validate_finite_scalar(value: f64) -> Result<()> {
+    if !value.is_finite() {
+        return Err(failed("nonfinite scalar values are not admitted"));
+    }
+    Ok(())
 }
 
 fn failed(detail: &str) -> ShardLoomError {

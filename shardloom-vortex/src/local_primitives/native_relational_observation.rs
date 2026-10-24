@@ -12,6 +12,8 @@ pub(crate) struct Counts {
     pub(crate) variable_hash_bytes: u64,
     pub(crate) aggregate_value_preparations: u64,
     pub(crate) aggregate_row_updates: u64,
+    pub(crate) aggregate_numeric_bound_batches: u64,
+    pub(crate) aggregate_numeric_bound_rows: u64,
     pub(crate) row_location_searches: u64,
     pub(crate) sort_retained_ordinals: u64,
     pub(crate) sort_output_rows_constructed: u64,

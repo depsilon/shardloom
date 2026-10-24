@@ -6,13 +6,19 @@
 #[path = "native_relational_aggregate_reuse_tests.rs"]
 mod reuse_tests;
 
+#[cfg(test)]
+#[path = "native_relational_aggregate_numeric_tests.rs"]
+mod numeric_tests;
+
 use super::{
     NumericAggregateSum, SimpleAggregateFunction as Function, logical_field_from_native_array,
     native_capacity::ReservedVec,
-    native_decimal_reduce, native_payload,
+    native_decimal_reduce,
+    native_numeric_owner::NativeNumericOwner,
+    native_payload,
     native_relational_batch::{failed, index_array},
     native_relational_expression::{keys, parent_validity},
-    native_relational_keys::{Cell, KeyColumn, compare_cells},
+    native_relational_keys::{Cell, KeyColumn, compare_cells, validate_finite_scalar},
     native_relational_set::RowSet,
     result_batch::{self, Value},
     vortex_error,
@@ -372,6 +378,13 @@ impl<'a> Aggregate<'a> {
                 )?;
                 continue;
             }
+            if self.groups.is_none()
+                && matches!(measure.function, Function::Sum | Function::Avg)
+                && let Some(KeyColumn::Numeric(owner)) = values
+            {
+                accumulate_numeric(&mut self.states.values[measure_index], owner, context)?;
+                continue;
+            }
             for (row, group) in ordinals.iter() {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -508,6 +521,47 @@ impl<'a> Aggregate<'a> {
         }
         Ok(())
     }
+}
+
+// The shared kernel captures a borrowed slice, a validity reference and the
+// zero-sized update_numeric function item. This covers its box and handle;
+// tests check the actual closure size for every admitted type/validity shape.
+const NUMERIC_KERNEL_BYTES: u64 = 256;
+
+fn accumulate_numeric(
+    state: &mut State,
+    owner: &NativeNumericOwner,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    if owner.len() == 0 {
+        return Ok(());
+    }
+    let _metadata = context.memory().reserve(NUMERIC_KERNEL_BYTES)?;
+    let kernel = owner.bind_row_update(update_numeric);
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| {
+        counts.aggregate_numeric_bound_batches += 1;
+        counts.aggregate_numeric_bound_rows += owner.len() as u64;
+    });
+    for row in 0..owner.len() {
+        // NULL rows still participate in the original cancellation cadence.
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        kernel(state, row)?;
+    }
+    Ok(())
+}
+
+fn update_numeric(state: &mut State, value: f64, integer: bool) -> Result<()> {
+    // raw_cell validated a nonfinite input before update changed the count.
+    validate_finite_scalar(value)?;
+    add_count(state, 1)?;
+    state.sum.add(value, integer);
+    if !state.sum.is_finite() {
+        return Err(failed("aggregate sum became nonfinite"));
+    }
+    Ok(())
 }
 
 fn accumulate_decimal(
