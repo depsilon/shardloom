@@ -9,6 +9,11 @@ execution parity pass under RFC 0044 and the existing user-workflow contracts,
 not another public API redesign. CG-1 through CG-23 remain independent gates;
 the optional backlog and rejected optimization mechanisms remain unchanged.
 
+The subsequent [warm execution/source-reuse handoff](native-warm-source-reuse-2026-10-24.md)
+uses this pass's lifecycle, completion and resource evidence. Exercise existing
+retained preparation here where required for parity; new source-sharing or
+retention mechanisms belong to that bounded next package before full ingestion.
+
 ## Contract and evidence boundary
 
 Equivalent computation, source data/types, resources, live ownership and result

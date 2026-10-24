@@ -4,7 +4,8 @@
 
 Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
-and the subsequently requested [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md).
+and the subsequently requested [warm source reuse](native-warm-source-reuse-2026-10-24.md),
+then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md).
 The current grouped optimization campaign, its Full43 and optimization PR come
 first. The handoff reviews main `06653efb` and #1594 `e1af0d68`; it is a source
 review and proposal, not new benchmark evidence or completed implementation.

@@ -4,6 +4,7 @@
 
 Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
+and the subsequently requested [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
 and before [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
 This records scope and source review, not an implemented optimization or new
 ingestion measurement. The grouped-preparation campaign is complete in #1595.
@@ -25,8 +26,11 @@ ownership, admission and last-owner release must be connected before adoption
 can replace copying. The acceptance also includes real complete ingestion,
 independent readback and consumers of the new artifact. Treat this as a
 separate source/ownership work unit after parity, while keeping its initial
-attribution finite. Selective first-use input belongs to universal I/O and is
-not a prerequisite for the full-ingest work.
+attribution finite. The later warm-source review places bounded existing-owner
+reuse before this work; a retention candidate that depends on unproved reader
+allocation provenance moves behind this ownership correction. Selective
+first-use input belongs to universal I/O and is not a prerequisite for the
+full-ingest work.
 
 ## Current source and provider boundary
 
