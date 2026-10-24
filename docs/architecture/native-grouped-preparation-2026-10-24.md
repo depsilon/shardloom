@@ -2,7 +2,7 @@
 
 # Native grouped preparation campaign
 
-Status: G1 and G2 retained; G3 dropped; final coherent acceptance pending.
+Status: complete; G1 and G2 retained, G3 dropped, final acceptance passed.
 
 The October 24 maintainer feedback selects compound grouping first, text
 preparation and grouped measures second, and exact URL grouping third. This is
@@ -87,6 +87,9 @@ Use the accepted PR #1594 executable, its recorded source/build receipt, the
 unchanged 99,997,497-row Vortex input, canonical query file and independent
 reference. Freeze both executable hashes and complete Rust/Cargo identities
 before comparison. Use complete public CLI operations with 24 GiB admission.
+Parallelism values below are requests, not observed active-worker counts. This
+host has 10 logical CPUs; the existing policy caps the admitted CPU grant.
+The 24-GiB admission setting is not physical RAM or an enforced RSS limit.
 Run five alternating baseline/candidate pairs of Q19 at parallelism 12, then
 three pairs each of Q19 at parallelism 1 and Q17/Q23/Q28/Q29/Q34/Q35 at
 parallelism 12. This is a separately declared 52-call targeted cohort, not a
@@ -121,16 +124,16 @@ pairs, with median engine execution changing from **4.370869207** to
 The single-lane and six companion controls pass; their numerical changes are
 not attributed to this implementation.
 
-| Case | Baseline median engine seconds | G1 median engine seconds |
+| Query / requested parallelism | Baseline median engine seconds | G1 median engine seconds |
 | --- | ---: | ---: |
-| Q19, 12 lanes | 4.370869207 | 3.580011250 |
-| Q19, 1 lane | 6.846754124 | 6.878928416 |
-| Q17, 12 lanes | 2.482753667 | 2.450697417 |
-| Q23, 12 lanes | 3.047823917 | 3.063272834 |
-| Q28, 12 lanes | 2.629902374 | 2.346813249 |
-| Q29, 12 lanes | 2.991511582 | 2.965427999 |
-| Q34, 12 lanes | 1.969679501 | 1.967714126 |
-| Q35, 12 lanes | 1.982756126 | 1.981574167 |
+| Q19 / 12 | 4.370869207 | 3.580011250 |
+| Q19 / 1 | 6.846754124 | 6.878928416 |
+| Q17 / 12 | 2.482753667 | 2.450697417 |
+| Q23 / 12 | 3.047823917 | 3.063272834 |
+| Q28 / 12 | 2.629902374 | 2.346813249 |
+| Q29 / 12 | 2.991511582 | 2.965427999 |
+| Q34 / 12 | 1.969679501 | 1.967714126 |
+| Q35 / 12 | 1.982756126 | 1.981574167 |
 
 Formatting, default and release-native Clippy pass. Default workspace tests
 pass 3,242 cases; release-native workspace tests pass 6,041, with 35 existing
@@ -204,7 +207,7 @@ the exact error and partial state. Reject unsupported recipes before updates.
 Freeze the G1 executable and its successful build/source receipt as baseline.
 Use the unchanged input, reference and public runner at 24 GiB. Run five
 alternating Q28/12 pairs, then three Q28/1 pairs and three pairs each of
-Q17/Q19/Q23/Q29/Q34/Q35 at 12 lanes: **52 calls**. Retain only when complete
+Q17/Q19/Q23/Q29/Q34/Q35 at requested parallelism 12: **52 calls**. Retain only when complete
 values/schemas/no-fallback agree, the target median and paired median saving
 improve and at least four of five target pairs improve. Every control permits
 at most max(5%, 5 ms) engine regression; target CPU permits at most 5%; each
@@ -226,19 +229,19 @@ engine execution changes from **2.315951250** to **2.092562459 seconds**,
 a **9.646%** reduction. Complete values, schemas, the single-lane case,
 all six companion queries and the original resource gates pass. G2 is retained.
 All five target pairs improve; the median paired saving is 0.202990584 seconds.
-The final coherent acceptance below must cover both this extension and the
+The final coherent acceptance below covers both this extension and the
 shared-owner correction; the earlier G1 Full43 remains an immutable observation.
 
-| Case | G1 median engine seconds | G2 median engine seconds |
+| Query / requested parallelism | G1 median engine seconds | G2 median engine seconds |
 | --- | ---: | ---: |
-| Q28, 12 lanes | 2.315951250 | 2.092562459 |
-| Q28, 1 lane | 2.412124249 | 2.170767209 |
-| Q17, 12 lanes | 2.543097292 | 2.486484459 |
-| Q19, 12 lanes | 3.836744375 | 3.720823625 |
-| Q23, 12 lanes | 3.038858917 | 3.038313751 |
-| Q29, 12 lanes | 3.055285459 | 3.075104626 |
-| Q34, 12 lanes | 2.081066042 | 2.073994126 |
-| Q35, 12 lanes | 2.328007373 | 2.016760458 |
+| Q28 / 12 | 2.315951250 | 2.092562459 |
+| Q28 / 1 | 2.412124249 | 2.170767209 |
+| Q17 / 12 | 2.543097292 | 2.486484459 |
+| Q19 / 12 | 3.836744375 | 3.720823625 |
+| Q23 / 12 | 3.038858917 | 3.038313751 |
+| Q29 / 12 | 3.055285459 | 3.075104626 |
+| Q34 / 12 | 2.081066042 | 2.073994126 |
+| Q35 / 12 | 2.328007373 | 2.016760458 |
 
 Companion movements are controls, not attributed speedups. Direct-consumer
 tests prove the wider block's activation and ordered error/partial-state
@@ -291,7 +294,7 @@ mask-domain identity, lazy error order and shared grant ownership.
 Freeze the retained G2 binary and its complete source/build receipt. Use the
 unchanged input, independent reference, canonical SQL adapter, 24-GiB admission
 and standard public runner. Run five alternating Q23/12 pairs, three Q23/1
-pairs, and three pairs each of Q17/Q19/Q22/Q28/Q29/Q34/Q35 at 12 lanes:
+pairs, and three pairs each of Q17/Q19/Q22/Q28/Q29/Q34/Q35 at requested parallelism 12:
 **58 calls**. Require positive decoded-chunk and projected-reuse counters on
 every Q23/12 candidate call. Complete results/schemas/no-fallback must agree.
 The target median and paired median saving must improve, with at least four
@@ -316,17 +319,17 @@ control allowances. **G3 is dropped.** No failed pair is excluded, no gate is
 relaxed and no unchanged rerun is performed. The Q23 gain is evidence for this
 rejected candidate only, not a retained-runtime or Full43 claim.
 
-| Case | G2 median engine seconds | G3 median engine seconds |
+| Query / requested parallelism | G2 median engine seconds | G3 median engine seconds |
 | --- | ---: | ---: |
-| Q23, 12 lanes | 3.013590958 | 1.688483750 |
-| Q23, 1 lane | 7.721962374 | 6.420631209 |
-| Q17, 12 lanes | 2.522326000 | 2.489197291 |
-| Q19, 12 lanes | 3.720383791 | 4.104597292 |
-| Q22, 12 lanes | 1.114787209 | 0.925009542 |
-| Q28, 12 lanes | 2.220709958 | 2.334778250 |
-| Q29, 12 lanes | 3.028104292 | 3.052282125 |
-| Q34, 12 lanes | 2.002180791 | 1.990317500 |
-| Q35, 12 lanes | 2.018465791 | 2.003240041 |
+| Q23 / 12 | 3.013590958 | 1.688483750 |
+| Q23 / 1 | 7.721962374 | 6.420631209 |
+| Q17 / 12 | 2.522326000 | 2.489197291 |
+| Q19 / 12 | 3.720383791 | 4.104597292 |
+| Q22 / 12 | 1.114787209 | 0.925009542 |
+| Q28 / 12 | 2.220709958 | 2.334778250 |
+| Q29 / 12 | 3.028104292 | 3.052282125 |
+| Q34 / 12 | 2.002180791 | 1.990317500 |
+| Q35 / 12 | 2.018465791 | 2.003240041 |
 
 All G3 production and test changes are restored to the retained G2 source.
 Its source patch, build, 16 passing focused tests, initial test/lint repairs,
@@ -348,3 +351,49 @@ The extra constant projection changes neither exact key identity nor that
 worker input. Review finds no bounded correction justified by these counters;
 their passing controls close this investigation without an invented rewrite.
 These observations do not establish an optimal string-grouping implementation.
+
+## Final coherent acceptance
+
+The retained G1/G2 executable completes one isolated standard Full43 at source
+commit `911923c1`: **49.503497253 engine seconds**, 43 queries executed once
+each, all **381 independent reference rows** and all accepted schemas matching.
+Every Rust/Cargo source hash matches the successful G2 build and native Clippy
+receipt after G3 removal. No query was rerun, no cache was manipulated and no
+other task work ran during execution. Pre/post input hashing, lightweight
+supervision, storage limits, deadlines and process cleanup remain unchanged.
+
+This observation is higher than the earlier PR #1594 result of 48.693636581
+seconds and the G1 result of 48.718933086 seconds. It does **not** establish an
+overall Full43 speedup. The paired Q19 and Q28 cohorts establish the retained
+target benefits; differences between complete single-pass observations are not
+attributed to a code change. No Q23 gain from rejected G3 is claimed.
+
+Final formatting, default Clippy and native-feature Clippy pass. Default
+workspace tests pass **3,242** cases; native-feature workspace tests pass
+**6,044**, with **35 existing ignored cases**. The focused retained-runtime
+checks include 22 triple-key and six compact-block cases. The 14 evidence tests
+cover relocation without original inputs/binaries, byte corruption, changed
+gates, attempted promotion of G3, changed identities, missing/reordered calls,
+result values, schemas, fallback and timing clocks.
+
+The [follow-up manifest](../benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/manifest.json)
+preserves 395 complete records, including all 52 G2 and 58 G3 comparison calls,
+failed setup/test/lint observations, final validation and Full43. Its
+[engine-free verifier](../benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/verify_packet.py)
+recomputes the original gates and requires both G2 retention and G3 rejection.
+It checks all final rows/schemas against the unchanged independent reference
+and accepted schema evidence. The [acceptance receipt](../benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/acceptance.json)
+links the replay, checks and [per-query engine timings](../benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/full43-query-timings.csv).
+The original G1 packet is unchanged.
+
+The [cleanup receipt](../benchmarks/evidence/native-grouped-preparation-2026-10-24/cleanup.json)
+records exact identities and closed-handle checks for retired comparison
+binaries, completed query logs and compiler/test outputs. The current Vortex
+input, original Parquet input, accepted G2 executable and existing native
+extension artifacts remain. Complete results and failures are retained in the
+portable packets; no payload backup or storage-limit change was made.
+
+This closes the finite grouped-preparation campaign. The queued next work is
+[user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md),
+followed by [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
+Neither handoff is an implemented feature or a new benchmark result.
