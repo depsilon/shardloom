@@ -2,8 +2,10 @@
 
 # Native engine optimization acceptance
 
-Status: October 23, 2026 protocol with subsequent candidate decisions below.
-Recorded benefit gates do not replace the final coherent validation. The
+Status: locally accepted October 24, 2026 after all eight final validation stages.
+The October 23 prospective contracts and every candidate decision remain below.
+The [final acceptance](#final-coherent-acceptance) discharges the earlier pending
+validation conditions without changing their measurements or thresholds. The
 baseline is PR #1593's repaired runtime, `407c1e80`. The maintainer
 requested all six candidates from the [source review](native-engine-optimization-review-2026-10-23.md),
 with PR #1593 integrated first. The repaired PR passed all 43 hosted checks and
@@ -63,7 +65,7 @@ at Q28 because the SQL spelling selected Unicode character length while the
 unchanged independent benchmark reference requires UTF-8 byte length. Q1–Q27
 passed; Q29–Q43 did not execute, and the failed pass has no Full43 total.
 
-The latest instruction requests a Full43 after merging PR #1593. Run the merged
+An intervening instruction requests a Full43 after merging PR #1593. Run the merged
 runtime at `06653efb` first, with the explicitly recorded benchmark dialect
 correction described in the [benchmarking skill](../skills/benchmarking.md).
 Preserve the combined candidate and its failed observation. Future implemented
@@ -173,7 +175,7 @@ its complete observation and subsequent drop are in the
 the six candidates above. Source work resumes from the preserved combined
 candidate at `ef57dfda`; no earlier implementation is silently treated as accepted.
 
-| Feedback | Current disposition and remaining proof |
+| Feedback | Disposition and remaining proof at intake |
 | --- | --- |
 | Purpose-specific value/hash preparation and compatible measure views | Already implemented in the preserved candidate, with full-domain validation, hash-consumer controls and adjacent compatible reuse. Apply the frozen composed cost screen before accepting it. |
 | Resolve retained rows once; replace discarded sort hashes with validation | Already implemented with the value owner and comparator. Preserve stable global ordinals and all-key validation; apply the existing many-batch sort target and controls. |
@@ -219,8 +221,9 @@ does not isolate each edit's unique contribution. No 20% whole-workload peak-sta
 claim is made. Finite sort demand and existence-join state are not implemented
 by this checkpoint.
 
-The local `native-engine-optimization-20261023/composed-comparison-1015` packet
-preserves the fixed schedule, each measured call, complete result/schema
+The [combined decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/composed-decision.json)
+and local `native-engine-optimization-20261023/composed-comparison-1015` packet
+preserve the fixed schedule, each measured call, complete result/schema
 witnesses, source/build identities and `decision.json`. The immutable baseline
 and candidate use the same v2 harness, toolchain, features and release profile.
 The following feedback extensions must compare against this retained operator
@@ -447,7 +450,7 @@ fixed by sharing the existing scalar validator. An overlap assertion in the test
 selection wrapper stopped after 54 passing tests; a separate preserved receipt
 completes the remaining control groups. Test-only lint repairs are followed by
 a passing eight-test rerun and feature-enabled Vortex Clippy with warnings denied.
-Final whole-batch validation is still pending.
+Final whole-batch validation subsequently passes as recorded below.
 
 The isolated Full43 at `e955081d` passes all 43 queries and 381 expected rows
 in **50.456658502 engine seconds**, with one execution per query and other task
@@ -613,3 +616,76 @@ neither Python overhead nor a specific runtime defect. The actionable proof
 gap is consistent strategy, actual-worker and physical-read reporting across
 the existing surfaces. Preserve this finding without attributing the spread
 or rerunning historical cohorts merely to fill missing fields.
+
+## Final coherent acceptance
+
+Runtime `4af8fc72` is locally accepted. Final validation at documentation
+checkpoint `dc9e53a4` preserves all 1,941 Rust/Cargo source hashes from the
+accepted CLI build. The Full43 executable and final semantics executable have
+the same SHA-256. Every final supervisor records successful exit, unchanged
+sources, a reaped child and a drained process group.
+
+The completed scope covers purpose-specific value/hash preparation, adjacent
+compatible aggregate views, scalar COUNT batches, once-resolved sort locations,
+validation-preserving finite sort demand, retained predicate recipes, bounded
+pure projection reuse, the shared typed scalar SUM/AVG consumer, and unique-key
+semi/anti join state with the revised shared key-copy path. Their frozen benefit
+and control gates pass in **420 complete comparison calls** for retained
+implementations. The first join attempt's additional 48 calls remain a failed
+retention decision, even though its values and schemas pass. The earlier unsafe
+sort-copy omission and dropped H1/H2 investigations remain rejected.
+
+The [final validation summary](../benchmarks/evidence/native-engine-optimization-2026-10-23/final-validation-summary.json)
+links exact commands, receipt hashes, source counts and skipped-case reasons:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --all -- --check` | Pass |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Pass |
+| `cargo test --workspace --all-targets` | 3,242 passed; zero failed or ignored |
+| Workspace Clippy with `shardloom-vortex/release-user-surfaces,shardloom-cli/release-user-surfaces`, warnings denied | Pass |
+| Workspace all-target tests with the same native feature set | 6,040 passed; zero failed; 35 explicitly ignored |
+| `cargo check --workspace --all-features` | Pass |
+| `python3.13 -B -m unittest discover -s scripts -p 'test_clickbench_*.py'` | 61 passed; six explicitly skipped |
+| `check_admitted_semantics_matrix.py` against the accepted CLI, `--skip-build` | All 145 stages pass: 118 executable fixtures, 25 diagnostic cases and two support checks |
+
+The 35 ignored Rust cases comprise three non-Unix checks reserved for Windows
+and 32 explicit measurement/fixture-generation helpers. The candidate's own
+ignored cost-screen entry point was exercised separately under its frozen serial
+protocol. The six Python skips require a separately enabled independent SQL
+oracle environment; this batch reuses the frozen independent Full43 reference.
+The final semantics matrix executes ten property and five deterministic fuzz
+cases within its fixture count. It reports no fallback or external engine use.
+Counts across workspace configurations overlap and are not distinct-test totals.
+
+The final isolated Full43 remains **51.333297036 engine seconds**: exactly one
+execution of each of 43 queries, with all 381 independent rows and schemas
+validated. No duplicate end-of-batch pass is added. The composed comparisons
+establish the targeted benefits; this single Full43 observation does not isolate
+a general speedup. The explicit Q28/Q29 byte-length adapter is benchmark dialect
+normalization, not a performance optimization.
+
+Adversarial review preserves the bounded claims: the sort heap limits candidate
+ordinals but still retains input; ordinary resident sorting validates omitted
+payloads in its existing order; projection reuse stays within the current batch
+and pure ordered expressions; SUM/AVG preserve input-order accumulation; ordinary
+join duplicate chains and explicit spill routes retain their existing behavior.
+The historical cross-surface strategy/worker/read-reporting gap remains as
+described above. No optional breadth, independent CG gate or release is closed.
+
+The [compact evidence guide](../benchmarks/evidence/native-engine-optimization-2026-10-23/README.md)
+links 4,196 preserved records, including complete values, schemas, failed
+observations, commands, scorer sources and final validation logs. Every member
+is read back byte-for-byte against its original and checked again before
+retirement. This is verified evidence preservation, not an additional semantic
+replay or corruption-test claim.
+
+The [cleanup receipt](../benchmarks/evidence/native-engine-optimization-2026-10-23/cleanup.json)
+records exact generations, hashes, closed handles and replacement/regeneration
+bases for 44,058 retired generated entries. Obsolete executables, the temporary
+native library, completed payloads and both Cargo output profiles are removed;
+no runtime or compiler-cache backup is created. Original Parquet, current Vortex
+input, the latest accepted CLI and the latest measured native test executable
+remain. Storage limits and benchmark supervision are unchanged. Git source and
+ordinary project files are preserved. This closes the authorized local batch;
+hosted integration and package publication are not performed.

@@ -17,6 +17,44 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Shared native operator optimization feedback` — locally accepted at
+  runtime `4af8fc72`, following PR #1593's merge at `06653efb`. The
+  [acceptance record](native-engine-optimization-acceptance-2026-10-23.md#final-coherent-acceptance)
+  preserves prospective gates, source identities and every candidate decision
+  under the current RFC 0044 native execution program.
+  - [x] Value-only owners omit unused hash sidecars; adjacent compatible
+    measures reuse their views; scalar COUNT avoids row-sized group ordinals.
+    Sort comparisons resolve source rows once and validate keys without an
+    unused combined hash.
+  - [x] Immediate finite sort demand uses existing ordering/gather machinery
+    while preserving omitted-payload validation, stable ties and explicit spill.
+    Prepared predicates and bounded pure projection reuse avoid repeated work
+    within the current execution and batch. Shared typed scalar SUM/AVG retains
+    input-order accumulation and the existing final result owner.
+  - [x] Eligible semi/anti joins retain unique matchable right keys. One
+    cause-backed revision removes repeated index search and numeric-copy
+    preparation after the first attempt fails its unique-key controls.
+    Ordinary duplicate chains, NULL policy, cancellation and state accounting
+    retain their existing contracts.
+  - [x] All 420 comparison calls for retained implementations pass complete
+    values, schemas, resources, cleanup and frozen timing ceilings. The first
+    join attempt's 48 calls remain a failed retention decision. H1/H2 and the
+    unsafe initial sort-copy omission remain rejected, with no relaxed gates.
+  - [x] Eight final validation stages pass: formatting, default/native workspace
+    lint and tests, all-feature compilation, benchmark-runner tests and the
+    145-stage admitted semantics matrix. The linked summary names all skips.
+    The final isolated Full43 validates all 43 queries and 381 independent rows
+    at **51.333297036 engine seconds**, with one execution per query.
+  - [x] The 4,196-member compact packet passes complete byte readback. Verified
+    retirement removes 44,058 obsolete generated entries while retaining
+    original inputs and the latest accepted CLI and measured native executable.
+    No compiler-cache or obsolete-runtime backup is kept.
+  - Composed measurements establish workload-specific benefits; Full43 remains
+    regression evidence. The 25-report historical surface investigation cannot
+    attribute the timing spread where strategy, actual-worker and physical-read
+    fields are missing. No optional breadth, whole PERF owner, independent CG
+    gate, hosted integration or package release is closed.
+
 - [x] `Shared native provider selection and public-surface coverage` — local
   acceptance at runtime `7c65f339` follows the initial `c70f03af` correction.
   The [October 23 report](../benchmarks/native-shared-surfaces-2026-10-23.md)
