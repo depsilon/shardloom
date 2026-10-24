@@ -395,5 +395,6 @@ portable packets; no payload backup or storage-limit change was made.
 
 This closes the finite grouped-preparation campaign. The queued next work is
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md),
+then [full-ingest ownership and preparation](native-ingest-ownership-preparation-2026-10-24.md),
 followed by [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
-Neither handoff is an implemented feature or a new benchmark result.
+These handoffs are not implemented features or new benchmark results.
