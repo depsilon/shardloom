@@ -494,6 +494,10 @@ pub(super) fn append_execution(
     result: &ExecutedVortexRelational,
     reused: bool,
 ) {
+    fields.push((
+        "relational_provider_selection_reason".into(),
+        result.provider_selection_reason.into(),
+    ));
     if let Some(report) = &result.primitive_execution {
         vortex_primitive_execution::append_vortex_local_primitive_execution_report_fields(
             fields,

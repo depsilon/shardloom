@@ -1,5 +1,11 @@
 # SQL Parser And Binder Readiness
 
+This page records the original GAR-0032-A report surface; its broad readiness
+labels are not the current native operator inventory. See the
+[user-surface index](../reference/shardloom-user-surface-index.md) for admitted
+public workflows. The October 24 source check below corrects its stale blanket
+CTE restriction without claiming unrestricted SQL support.
+
 `GAR-0032-A` recorded the original SQL front-end posture. The broad SQL front-end remains
 deterministically blocked, but the scoped local/source-free SQL ladder is now runtime-backed. The
 important distinction is:
@@ -38,9 +44,15 @@ important distinction is:
 - blocked broad SQL, catalog/CTE/set-operation, broad subquery, object-store/table SQL, and fallback
   engine paths.
 
-CTE syntax is an explicit parser-bound blocker. `WITH` and `WITH RECURSIVE` statements fail before
-bind, plan, runtime, source I/O, or fallback with requirements for `cte_plan_nodes`, catalog scope,
-recursive runtime policy, execution certificates, and no-fallback evidence.
+Current native SQL supports bounded nonrecursive `WITH` through
+[`sql_native_cte.rs`](../../shardloom-cli/src/sql_native_cte.rs), lowering admitted
+declarations into ordinary derived relations and the shared execution path.
+Nested WITH, recursive CTEs, column-name lists and materialization hints remain
+restricted; the implementation also bounds distinct names to 64 and expanded
+text to 256 KiB. The older report ladder's catalog/CTE/set-operation blocker row
+must not be used to claim those entire operator families are absent. Scoped plan
+references and recursive execution are queued in the
+[connected programming package](native-connected-programming-model-2026-10-24.md).
 
 ## Contract Fields
 

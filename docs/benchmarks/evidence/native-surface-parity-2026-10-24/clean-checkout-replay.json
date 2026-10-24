@@ -1,0 +1,50 @@
+{
+  "status": "passed",
+  "frozen_commit": "7f7613c6dcf7007aaca02d218f1f2f47235c1807",
+  "committed_source_hashes_checked": 1963,
+  "excluded_untracked_files": [
+    "vendor/vortex-file/Cargo.lock",
+    "vendor/vortex-layout/Cargo.lock"
+  ],
+  "runs": [
+    {
+      "label": "replay_initial",
+      "returncode": 0
+    },
+    {
+      "label": "replay_corrupted_root_lock",
+      "returncode": 1
+    },
+    {
+      "label": "replay_restored",
+      "returncode": 0
+    }
+  ],
+  "logs": {
+    "replay_corrupted_root_lock.stderr.txt": {
+      "bytes": 1364,
+      "sha256": "4ed9a1537ece01d5a99ccc1bde827881ce1542b6777d278ea97a1e7992059505"
+    },
+    "replay_corrupted_root_lock.stdout.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "replay_initial.stderr.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "replay_initial.stdout.txt": {
+      "bytes": 727,
+      "sha256": "ceddf373ca73cf1c1bf551ce1c55268d6b1c1c12bd0ed65956f9c692b68c19e1"
+    },
+    "replay_restored.stderr.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "replay_restored.stdout.txt": {
+      "bytes": 727,
+      "sha256": "ceddf373ca73cf1c1bf551ce1c55268d6b1c1c12bd0ed65956f9c692b68c19e1"
+    }
+  },
+  "engine_executed": false
+}

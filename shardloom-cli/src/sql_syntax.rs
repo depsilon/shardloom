@@ -1237,6 +1237,24 @@ impl ParsedSqlLocalSource {
 }
 
 impl ParsedAggregate {
+    /// Aliases do not change a reduction's value within the same query scope.
+    /// Compare parsed computed arguments rather than their SQL whitespace.
+    fn same_value(&self, other: &Self) -> bool {
+        self.function == other.function
+            && self.distinct == other.distinct
+            && match (&self.argument, &other.argument) {
+                (
+                    ParsedAggregateArgument::Computed {
+                        expression: left, ..
+                    },
+                    ParsedAggregateArgument::Computed {
+                        expression: right, ..
+                    },
+                ) => left == right,
+                (left, right) => left == right,
+            }
+    }
+
     fn column(&self) -> Option<&str> {
         match &self.argument {
             ParsedAggregateArgument::Column(column) => Some(column),
@@ -2783,6 +2801,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let (having_raw, having_aggregates) = if let Some(having_raw) = having_raw {
         let (rewritten, aggregates) = rewrite_having_aggregate_predicate(
             having_raw,
+            &projection_list.aggregates,
             reserved_having_aggregate_aliases(&projection_list),
         )?;
         (Some(rewritten), aggregates)
@@ -3219,10 +3238,11 @@ fn contains_array_literal_outside_quotes(raw: &str) -> bool {
 
 fn rewrite_having_aggregate_predicate(
     raw: &str,
+    selected: &[ParsedAggregate],
     mut reserved_aliases: BTreeSet<String>,
 ) -> Result<(String, Vec<ParsedAggregate>), ShardLoomError> {
     let mut rewritten = String::with_capacity(raw.len());
-    let mut aggregates = Vec::new();
+    let mut aggregates: Vec<ParsedAggregate> = Vec::new();
     let mut cursor = 0;
     let mut index = 0;
     let bytes = raw.as_bytes();
@@ -3231,6 +3251,17 @@ fn rewrite_having_aggregate_predicate(
         if bytes[index] == b'\'' {
             in_string = !in_string;
             index += 1;
+            continue;
+        }
+        // Subquery aggregates belong to their own source and grouping scope.
+        // Leave their complete text for the ordinary recursive SQL binder.
+        if !in_string
+            && bytes[index] == b'('
+            && starts_with_keyword(raw[index + 1..].trim_start(), "select")
+        {
+            index = matching_closing_parenthesis(raw, index)?.ok_or_else(|| {
+                unsupported_sql_error("HAVING subquery requires closing parentheses")
+            })? + 1;
             continue;
         }
         if !in_string && let Some(function_name) = aggregate_function_prefix_at(raw, index) {
@@ -3246,17 +3277,26 @@ fn rewrite_having_aggregate_predicate(
                     "HAVING aggregate predicates admit COUNT, SUM, AVG, MIN, or MAX only",
                 )
             })?;
-            let alias_base = sanitize_having_aggregate_alias(&aggregate.output_name());
-            let mut suffix = aggregates.len() + 1;
-            let alias = loop {
-                let candidate = format!("__having_{alias_base}_{suffix}");
-                if reserved_aliases.insert(candidate.clone()) {
-                    break candidate;
-                }
-                suffix += 1;
+            let existing = selected
+                .iter()
+                .chain(&aggregates)
+                .find(|candidate| candidate.same_value(&aggregate));
+            let alias = if let Some(existing) = existing {
+                existing.output_name()
+            } else {
+                let alias_base = sanitize_having_aggregate_alias(&aggregate.output_name());
+                let mut suffix = aggregates.len() + 1;
+                let alias = loop {
+                    let candidate = format!("__having_{alias_base}_{suffix}");
+                    if reserved_aliases.insert(candidate.clone()) {
+                        break candidate;
+                    }
+                    suffix += 1;
+                };
+                aggregate.alias = Some(alias.clone());
+                aggregates.push(aggregate);
+                alias
             };
-            aggregate.alias = Some(alias.clone());
-            aggregates.push(aggregate);
             rewritten.push_str(&raw[cursor..index]);
             rewritten.push_str(&alias);
             index = close_index + 1;
@@ -6226,21 +6266,7 @@ fn parse_selected_order_by(
             alias = projections
                 .aggregates
                 .iter()
-                .find(|projection| {
-                    projection.function == aggregate.function
-                        && projection.distinct == aggregate.distinct
-                        && match (&projection.argument, &aggregate.argument) {
-                            (
-                                ParsedAggregateArgument::Computed {
-                                    expression: left, ..
-                                },
-                                ParsedAggregateArgument::Computed {
-                                    expression: right, ..
-                                },
-                            ) => left == right,
-                            (left, right) => left == right,
-                        }
-                })
+                .find(|projection| projection.same_value(&aggregate))
                 .map(ParsedAggregate::output_name);
         }
         entries.push(alias.map_or(entry, |alias| {
@@ -15111,7 +15137,7 @@ mod tests {
         assert_eq!(parsed.aggregates.len(), 1);
 
         assert_eq!(parsed.aggregates[0].output_name(), "rows");
-        assert_eq!(parsed.having_aggregates.len(), 3);
+        assert_eq!(parsed.having_aggregates.len(), 2);
     }
 
     #[test]

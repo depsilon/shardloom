@@ -33,6 +33,26 @@ from clickbench_native_sql import native_query_statements
 from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 
 
+_EXECUTION_REPORT_PREFIXES = ("local_primitive_", "resident_", "relational_")
+_EXECUTION_REPORT_EXACT_KEYS = {
+    "fallback_attempted",
+    "external_engine_invoked",
+    "public_workflow_fallback_attempted",
+    "public_workflow_external_engine_invoked",
+    "execution_backend",
+    "execution_mode",
+}
+
+
+def execution_report(fields: dict) -> dict:
+    """Retain selected execution evidence without result payloads or inference."""
+    return {
+        key: value
+        for key, value in fields.items()
+        if key.startswith(_EXECUTION_REPORT_PREFIXES) or key in _EXECUTION_REPORT_EXACT_KEYS
+    }
+
+
 def extract_reference_result(envelope: dict):
     """Read immutable historical comparison evidence, never current executions.
 
@@ -467,7 +487,9 @@ def main() -> int:
                     if result["returncode"] != 0 or result["guard_failures"]:
                         raise ValueError("native command or watchdog failed")
                     envelope = strict_json(prefix.with_suffix(".stdout.json").read_text())
-                    result.update(query_phase_timings(report_fields(envelope), result["seconds"],
+                    fields = report_fields(envelope)
+                    result["execution_report"] = execution_report(fields)
+                    result.update(query_phase_timings(fields, result["seconds"],
                                                      allow_missing=args.allow_missing_engine_timing))
                     actual = extract_result(envelope)
                     if not equivalent(actual, expected):

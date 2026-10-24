@@ -20,13 +20,28 @@ use shardloom_vortex::local_primitives::prepared_dispatch;
 /// floats, nullable fields and values too wide for the optimized transform.
 /// HAVING also needs typed admission: primitive total ordering must not replace
 /// SQL unknown comparisons for nullable grouping keys or aggregate results.
+/// An aliased scalar COUNT(*) binds to the shared count provider; its spelling
+/// must not force generic aggregate state and completion work.
 pub(super) fn request_requires_relational(
     source: &shardloom_vortex::resident_session::PreparedVortexSource,
     request: &shardloom_vortex::VortexQueryPrimitiveRequest,
 ) -> Result<bool, ShardLoomError> {
     let extended = prepared_dispatch::request_requires_relational(source, request)?;
-    let typed_semantics = request.simple_aggregate.as_ref().is_some_and(|aggregate| {
-        !aggregate.having.is_empty()
+    let typed_binding = request.simple_aggregate.as_ref().is_some_and(|aggregate| {
+        (request.predicate.is_none()
+            && request.source_order_limit.is_none()
+            && aggregate.group_by.is_empty()
+            && aggregate.group_expressions.is_empty()
+            && aggregate.order_by.is_empty()
+            && aggregate.having.is_empty()
+            && aggregate.offset == 0
+            && aggregate.spill.is_none()
+            && aggregate.measures.len() == 1
+            && aggregate.measures[0].function.eq_ignore_ascii_case("count")
+            && aggregate.measures[0].column.is_none()
+            && aggregate.measures[0].argument_offset.is_none()
+            && aggregate.measures[0].value_transform.is_none())
+            || !aggregate.having.is_empty()
             || aggregate
                 .group_expressions
                 .iter()
@@ -36,7 +51,7 @@ pub(super) fn request_requires_relational(
                 .iter()
                 .any(|measure| measure.argument_offset.is_some_and(|offset| offset != 0))
     });
-    Ok(extended || typed_semantics)
+    Ok(extended || typed_binding)
 }
 
 /// Retain names already assigned by the primitive SQL declaration when its

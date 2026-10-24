@@ -32,6 +32,18 @@ use vortex::array::{
 
 const PARTITIONS: usize = 64;
 
+#[path = "triple_count_workers/owned_keys.rs"]
+mod owned_keys;
+use owned_keys::OwnedKeys;
+
+#[cfg(test)]
+type RoutingStartHook = Box<dyn FnOnce(&ChunkWorkerContext) + Send>;
+#[cfg(test)]
+thread_local! {
+    pub(super) static ROUTING_START_TEST_HOOK: std::cell::RefCell<Option<RoutingStartHook>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 fn failed(message: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native triple-key count: {message}; no fallback execution was attempted"
@@ -276,6 +288,8 @@ struct Work {
     rows: u64,
     update: u128,
     lock_wait: u128,
+    routing: u128,
+    routed_chunks: u64,
 }
 
 pub(super) struct TripleWorkers {
@@ -295,6 +309,7 @@ pub(super) struct TripleWorkers {
     growths: u64,
     growth_overlap_peak: u64,
     buffer_peak: u64,
+    retained_input_peak: u64,
     total_key_bytes: u64,
 }
 
@@ -363,6 +378,7 @@ impl TripleWorkers {
             growths: 0,
             growth_overlap_peak: 0,
             buffer_peak: 0,
+            retained_input_peak: 0,
             total_key_bytes: 0,
         }))
     }
@@ -407,6 +423,8 @@ impl TripleWorkers {
                 self.work.rows += work.rows;
                 self.work.update += work.update;
                 self.work.lock_wait += work.lock_wait;
+                self.work.routing += work.routing;
+                self.work.routed_chunks += work.routed_chunks;
                 Ok(())
             })?;
         }
@@ -449,38 +467,20 @@ impl TripleWorkers {
                 self.roles.minute_column_prepared,
             )?,
             None => None,
-        };
-        let buffers = if direct.is_some() { 1 } else { 2 };
-        let bytes = chunk
-            .len()
-            .checked_mul(size_of::<Key>() * buffers)
-            .and_then(|bytes| {
-                bytes.checked_add(
-                    size_of::<RoutedKeys>()
-                        + 2 * PARTITIONS * size_of::<usize>()
-                        + PARTITIONS * size_of::<Arc<Mutex<Partition>>>(),
-                )
-            })
-            .and_then(|bytes| u64::try_from(bytes).ok())
-            .ok_or_else(|| failed("key buffer size overflow"))?;
-        while self.jobs.outstanding() > 0
-            && self
-                .jobs
-                .memory()
-                .snapshot()
-                .limit_bytes
-                .saturating_sub(self.jobs.memory().snapshot().reserved_bytes)
-                < bytes
-        {
-            self.join_next()?;
         }
-        // The captured buffer owns its own lease; submit(0) must not charge it
-        // again. Window permits plus this per-buffer check bound captured inputs.
-        let lease = self.jobs.memory().reserve(bytes)?;
-        self.buffer_peak = self.buffer_peak.max(bytes);
-        let routed = if let Some(direct) = direct {
-            direct.route(|| self.jobs.check_cancelled())?
+        .is_some();
+        let dictionary_code_reuse = ids.is_some();
+        if direct {
+            let input = OwnedKeys::new(
+                accessors.values,
+                self.roles,
+                ids.ok_or_else(|| failed("admitted direct keys lost their bound IDs"))?,
+            )?;
+            self.submit_owned_keys(input)?;
         } else {
+            let bytes = key_buffer_bytes(chunk.len(), 2)?;
+            let lease = self.reserve_input(bytes)?;
+            self.buffer_peak = self.buffer_peak.max(bytes);
             let mut keys = Vec::new();
             keys.try_reserve_exact(chunk.len()).map_err(failed)?;
             if keys.capacity() > chunk.len() {
@@ -541,21 +541,69 @@ impl TripleWorkers {
                 next[index] += 1;
             }
             drop(keys);
-            RoutedKeys { keys: routed, ends }
-        };
-        self.total_key_bytes +=
-            u64::try_from(routed.keys.len() * size_of::<Key>()).map_err(failed)?;
-        let input = Budgeted::new(routed, lease);
-        let partitions = self.partitions.clone();
-        self.jobs.submit(0, move |worker, _| {
-            update_partitions(&partitions, input.value(), worker)
-        })?;
+            let input = Budgeted::new(RoutedKeys { keys: routed, ends }, lease);
+            let partitions = self.partitions.clone();
+            self.jobs.submit(0, move |worker, _| {
+                update_partitions(&partitions, input.value(), worker)
+            })?;
+        }
+        self.total_key_bytes += u64::try_from(chunk.len() * size_of::<Key>()).map_err(failed)?;
         self.routing += started.elapsed().as_nanos();
         states.numeric_minute_string_group_roles = Some(self.roles);
-        states.numeric_minute_string_dictionary_code_reuse |= ids.is_some();
+        states.numeric_minute_string_dictionary_code_reuse |= dictionary_code_reuse;
         states.numeric_minute_string_count_direct_updates = true;
         states.count_star_direct_updates = true;
         Ok(true)
+    }
+    fn reserve_input(&mut self, bytes: u64) -> Result<MemoryLease> {
+        while self.jobs.outstanding() > 0
+            && self
+                .jobs
+                .memory()
+                .snapshot()
+                .limit_bytes
+                .saturating_sub(self.jobs.memory().snapshot().reserved_bytes)
+                < bytes
+        {
+            self.join_next()?;
+        }
+        // Captured inputs own this lease; submit(0) must not charge it again.
+        // A permit still covers each queued/active/completed count operation.
+        self.jobs.memory().reserve(bytes)
+    }
+    fn submit_owned_keys(&mut self, input: OwnedKeys) -> Result<()> {
+        let key_bytes = key_buffer_bytes(input.len(), 1)?;
+        let input_bytes = input.retained_bytes()?;
+        let lease = self.reserve_input(
+            key_bytes
+                .checked_add(input_bytes)
+                .ok_or_else(|| failed("routing task capacity overflow"))?,
+        )?;
+        self.buffer_peak = self.buffer_peak.max(key_bytes);
+        self.retained_input_peak = self.retained_input_peak.max(input_bytes);
+        let input = Budgeted::new(input, lease);
+        let partitions = self.partitions.clone();
+        #[cfg(test)]
+        let start_hook = ROUTING_START_TEST_HOOK.with(|hook| hook.borrow_mut().take());
+        self.jobs.submit(0, move |worker, _| {
+            worker.check_cancelled()?;
+            #[cfg(test)]
+            if let Some(hook) = start_hook {
+                hook(worker);
+            }
+            let started = Instant::now();
+            let (input, mut lease) = input.into_parts();
+            let routed = input.route(|| worker.check_cancelled())?;
+            drop(input);
+            lease.resize(key_bytes)?;
+            let input = Budgeted::new(routed, lease);
+            let routing = started.elapsed().as_nanos();
+            let mut work = update_partitions(&partitions, input.value(), worker)?;
+            work.routing = routing;
+            work.routed_chunks = 1;
+            Ok(work)
+        })?;
+        Ok(())
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         self.jobs.check_cancelled()?;
@@ -674,21 +722,37 @@ impl TripleWorkers {
             "aggregate_workers_triple_growths": self.growths,
             "aggregate_workers_triple_growth_overlap_peak_bytes": self.growth_overlap_peak,
             "aggregate_workers_triple_buffer_peak_bytes": self.buffer_peak,
+            "aggregate_workers_triple_retained_input_peak_bytes": self.retained_input_peak,
             "aggregate_workers_triple_key_slot_payload_bytes": self.total_key_bytes,
             "aggregate_workers_triple_accessor_nanos": self.accessor,
             "aggregate_workers_triple_binding_nanos": self.binding,
             "aggregate_workers_triple_routing_submit_nanos": self.routing,
+            "aggregate_workers_triple_worker_routing_nanos": self.work.routing,
+            "aggregate_workers_triple_worker_routed_chunks": self.work.routed_chunks,
             "aggregate_workers_triple_update_nanos": self.work.update,
             "aggregate_workers_triple_lock_wait_nanos": self.work.lock_wait,
             "aggregate_workers_triple_join_wait_nanos": self.jobs.join_wait_nanos(),
             "aggregate_workers_triple_selection_nanos": self.selection,
-            "aggregate_workers_triple_memory_scope": "leased_key_buffers_and_conservative_table_capacity_with_growth_overlap;producer_interner_and_accessor_allocations_remain_separate;not_RSS_or_allocator_enforcement",
+            "aggregate_workers_triple_memory_scope": "leased_key_buffers_transferred_adapter_capacities_native_numeric_nbytes_estimates_and_conservative_table_capacity_with_growth_overlap;producer_interner_and_other_accessor_allocations_remain_separate;native_estimates_may_overlap_provider_credits;not_RSS_or_allocator_enforcement",
             "aggregate_workers_triple_pressure_policy": "cancel_drain_fail;no_serial_or_spill_replay",
-            "aggregate_workers_triple_counter_scope": "inserted_existing_counts_are_not_bucket_probes_or_local_duplicate_counts;worker_nanos_overlap"
+            "aggregate_workers_triple_counter_scope": "inserted_existing_counts_are_not_bucket_probes_or_local_duplicate_counts;typed_routing_and_updates_share_existing_jobs;worker_nanos_overlap_caller_and_other_workers;single_lane_inline_work_is_also_within_routing_submit"
         }).as_object().ok_or_else(|| failed("evidence is not an object"))?.clone());
         *summary = value.to_string();
         Ok(())
     }
+}
+
+fn key_buffer_bytes(rows: usize, buffers: usize) -> Result<u64> {
+    rows.checked_mul(size_of::<Key>() * buffers)
+        .and_then(|bytes| {
+            bytes.checked_add(
+                size_of::<RoutedKeys>()
+                    + 2 * PARTITIONS * size_of::<usize>()
+                    + PARTITIONS * size_of::<Arc<Mutex<Partition>>>(),
+            )
+        })
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| failed("key buffer size overflow"))
 }
 
 #[derive(Clone, Copy)]

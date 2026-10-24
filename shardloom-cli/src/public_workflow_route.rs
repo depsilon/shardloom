@@ -3478,6 +3478,7 @@ fn append_native_vortex_materializing_primitive_fields(
     append_native_vortex_materializing_row_fields(fields, report);
     append_native_vortex_materializing_side_effect_fields(fields, report);
     append_native_vortex_materializing_limit_fields(fields, report);
+    append_native_scan_column_fields(fields, report);
     append_local_primitive_result_summary_evidence_fields(fields, report.result_summary.as_deref());
     append_local_primitive_resource_envelope_fields(fields, &report.resource_envelope);
     append_local_primitive_physical_policy_fields(fields, &report.physical_policy);
@@ -3695,8 +3696,24 @@ fn append_native_vortex_materializing_limit_fields(
     );
 }
 
+pub(crate) fn append_native_scan_column_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &shardloom_vortex::VortexLocalPrimitiveExecutionReport,
+) {
+    let Some(columns) = &report.scan_columns else {
+        return;
+    };
+    fields.extend([
+        ("local_primitive_scan_projection_columns".into(), serde_json::json!(columns.projection_columns).to_string()),
+        ("local_primitive_scan_predicate_columns".into(), serde_json::json!(columns.predicate_columns).to_string()),
+        ("local_primitive_scan_metadata_completed".into(), columns.metadata_completed.to_string()),
+        ("local_primitive_scan_column_scope".into(),
+         "executed_provider_rewritten_scan_contract;not_per_column_payload_io_or_decode_measurement".into()),
+    ]);
+}
+
 #[allow(clippy::too_many_lines)]
-fn append_local_primitive_result_summary_evidence_fields(
+pub(crate) fn append_local_primitive_result_summary_evidence_fields(
     fields: &mut Vec<(String, String)>,
     result_summary: Option<&str>,
 ) {

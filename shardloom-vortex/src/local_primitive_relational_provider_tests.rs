@@ -8,6 +8,9 @@ use crate::{
 };
 use shardloom_core::{ComparisonOp, ExprId, Expression, ExpressionKind, ScalarValue};
 
+#[path = "local_primitive_relational_provider_normalization_tests.rs"]
+mod normalization_tests;
+
 fn column(name: &str) -> Expression {
     Expression::column(ExprId::new(name).unwrap(), ColumnRef::new(name).unwrap())
 }

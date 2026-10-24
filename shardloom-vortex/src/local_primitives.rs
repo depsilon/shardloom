@@ -1081,6 +1081,33 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     }
 
     #[cfg(feature = "vortex-local-primitives")]
+    fn for_footer_count(file: &vortex::file::VortexFile) -> Self {
+        // Exact COUNT(*) consumes only the held row count. Do not enumerate
+        // unrelated schema fields or realize layout nodes to render evidence.
+        // Explicit layout inspection remains available through inspect_file_layouts.
+        let footer = file.footer();
+        Self {
+            status: "footer_row_count_available".into(),
+            footer_row_count: file.row_count(),
+            footer_segment_count: u64::try_from(footer.segment_map().len()).unwrap_or(u64::MAX),
+            footer_statistics_available: footer.statistics().is_some(),
+            footer_statistics_status: "exact_footer_row_count;column_statistics_not_consulted"
+                .into(),
+            footer_approx_bytes: footer
+                .approx_byte_size()
+                .and_then(|value| u64::try_from(value).ok()),
+            footer_dtype_summary: "not_required_for_exact_footer_count".into(),
+            layout_inventory_scope: "row_count_only;no_layout_nodes_inspected".into(),
+            per_column_metadata_contract: "not_required_for_exact_footer_count".into(),
+            metadata_persisted_in_artifact: true,
+            planner_consumption_status: "exact_footer_row_count_consumed".into(),
+            operator_selection_metadata_status: "exact_footer_row_count_only".into(),
+            late_materialization_status: "no_input_materialization_for_footer_count".into(),
+            ..Self::not_available()
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
     fn from_file(
         file: &vortex::file::VortexFile,
         primitive_kind: VortexQueryPrimitiveKind,
@@ -1441,6 +1468,17 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     }
 }
 
+/// Exact rewritten scan fields used by a local aggregate scan.
+///
+/// These are the scan projection and predicate columns in `ShardLoom`'s rewritten
+/// scan contract. They do not describe per-column physical I/O or decoding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveScanColumns {
+    pub projection_columns: Vec<String>,
+    pub predicate_columns: Vec<String>,
+    pub metadata_completed: bool,
+}
+
 /// Report emitted by the narrow local Vortex primitive executor.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -1449,6 +1487,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub mode: VortexLocalPrimitiveExecutionMode,
     pub primitive_kind: VortexQueryPrimitiveKind,
     pub result_summary: Option<String>,
+    pub scan_columns: Option<VortexLocalPrimitiveScanColumns>,
     pub rows_scanned: u64,
     pub rows_selected: Option<u64>,
     pub rows_projected: Option<u64>,
@@ -1590,6 +1629,7 @@ impl VortexLocalPrimitiveExecutionReport {
             mode: VortexLocalPrimitiveExecutionMode::FeatureDisabled,
             primitive_kind,
             result_summary: None,
+            scan_columns: None,
             rows_scanned: 0,
             rows_selected: None,
             rows_projected: None,
@@ -3576,7 +3616,11 @@ fn local_primitive_source_capability_report(
         } else {
             "not_available".to_string()
         },
-        statistics_availability: if report.embedded_layout.footer_statistics_available {
+        statistics_availability: if report.mode
+            == VortexLocalPrimitiveExecutionMode::MetadataPreservingCount
+        {
+            "exact_footer_row_count".to_string()
+        } else if report.embedded_layout.footer_statistics_available {
             report.embedded_layout.footer_statistics_status.clone()
         } else if report.rows_scanned > 0 {
             "row_count_metadata_available".to_string()
@@ -14860,6 +14904,7 @@ impl ResidualPredicateMaterialization {
 struct LocalVortexAggregateScan {
     scan: LocalVortexScan,
     metadata_completed: bool,
+    scan_columns: Option<VortexLocalPrimitiveScanColumns>,
     result_summary: String,
     state_budget: VortexLocalPrimitiveStateBudgetReport,
     // Temporary drivers used by the completed scan or its immediate wrapper.
@@ -17063,16 +17108,16 @@ fn count_all_held_metadata_report(
     rows: u64,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> VortexLocalPrimitiveExecutionReport {
-    let embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
-        file,
-        VortexQueryPrimitiveKind::CountAll,
-        false,
-        false,
-    );
+    let embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::for_footer_count(file);
     VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::MetadataPreservingCount,
         primitive_kind: VortexQueryPrimitiveKind::CountAll,
+        scan_columns: Some(VortexLocalPrimitiveScanColumns {
+            projection_columns: Vec::new(),
+            predicate_columns: Vec::new(),
+            metadata_completed: true,
+        }),
         result_summary: Some(rows.to_string()),
         rows_scanned: rows,
         rows_selected: Some(rows),
@@ -17155,6 +17200,7 @@ fn partitioned_count_all_metadata_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::MetadataPreservingCount,
         primitive_kind: VortexQueryPrimitiveKind::CountAll,
+        scan_columns: None,
         result_summary: Some(rows.to_string()),
         rows_scanned: rows,
         rows_selected: Some(rows),
@@ -17223,6 +17269,7 @@ fn count_where_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "count_where rows_selected={} predicate={} values={result_summary}",
             rows_selected,
@@ -17314,6 +17361,7 @@ fn predicate_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind,
+        scan_columns: None,
         result_summary: Some(rows_selected.to_string()),
         rows_scanned: scan.source_row_count,
         rows_selected: Some(rows_selected),
@@ -17368,6 +17416,7 @@ fn projection_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "projected_columns={} rows={}",
             scan.projected_columns.join(","),
@@ -17426,6 +17475,7 @@ fn filter_and_project_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "projected_columns={} rows={}",
             scan.projected_columns.join(","),
@@ -17486,6 +17536,7 @@ fn distinct_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "distinct_rows={} projected_columns={} distinct_state_strategy=hash_row_key_exact{}",
             rows,
@@ -17561,6 +17612,7 @@ fn drop_duplicate_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: VortexQueryPrimitiveKind::DropDuplicateRows,
+        scan_columns: None,
         result_summary: Some(format!(
             "drop_duplicate_rows={} output_columns={} key_columns={} keep={} row_key_state_strategy=hash_row_key_exact{}",
             rows,
@@ -17634,6 +17686,7 @@ fn duplicate_mask_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: VortexQueryPrimitiveKind::DuplicateMaskRows,
+        scan_columns: None,
         result_summary: Some(format!(
             "duplicate_mask_rows={} subset_columns={} output_columns=duplicated keep={} row_key_state_strategy=hash_row_key_exact",
             rows,
@@ -17700,6 +17753,7 @@ fn tail_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "tail_rows={} projected_columns={}",
             rows,
@@ -17762,6 +17816,7 @@ fn sample_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "sample_rows={} projected_columns={} sample_seed={} {}{}",
             rows,
@@ -17829,6 +17884,7 @@ fn expression_project_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "expression_project_rows={} projected_columns={} expression_rewrites={}{}",
             rows,
@@ -17899,6 +17955,7 @@ fn melt_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "melt_rows={} projected_columns={} {}{}",
             rows,
@@ -17965,6 +18022,7 @@ fn explode_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "explode_rows={} projected_columns={} {}{}",
             rows,
@@ -18031,6 +18089,7 @@ fn pivot_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "pivot_rows={} projected_columns={} {}{}",
             rows,
@@ -18682,6 +18741,7 @@ fn rolling_window_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "rolling_window_rows={} projected_columns={} {}{}",
             rows,
@@ -18762,6 +18822,7 @@ fn simple_aggregate_report(
             VortexLocalPrimitiveExecutionMode::VortexScanPushdown
         },
         primitive_kind: request.kind,
+        scan_columns: aggregate.scan_columns.clone(),
         result_summary: Some(format!(
             "simple_aggregate input_rows={} output_rows={} projected_columns={} measures={}{} values={}",
             input_rows,
@@ -18857,6 +18918,7 @@ fn sort_rows_report(
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: request.kind,
+        scan_columns: None,
         result_summary: Some(format!(
             "sort_rows input_rows={} output_rows={} projected_columns={} order={} values={}",
             input_rows,
@@ -21124,6 +21186,40 @@ fn read_lowered_vortex_simple_aggregate_scan(
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
+    lowering: &aggregate_lowering::AggregateLowering,
+    attempt_started: Instant,
+    owned_output: Option<&mut aggregate_owned::AggregateOutput>,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+) -> Result<LocalVortexAggregateScan> {
+    let mut scan = execute_lowered_vortex_simple_aggregate_scan(
+        source_uri,
+        request,
+        policy,
+        file,
+        session,
+        runtime,
+        worker_memory,
+        uncached_retry,
+        lowering,
+        attempt_started,
+        owned_output,
+        cancellation,
+    )?;
+    lowering.annotate_scan(&mut scan);
+    Ok(scan)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn execute_lowered_vortex_simple_aggregate_scan(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: aggregate_scan_source::AggregateScanSource<'_>,
+    session: &vortex::session::VortexSession,
+    runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
+    worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
     lowering: &aggregate_lowering::AggregateLowering,
     attempt_started: Instant,
@@ -22329,6 +22425,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     check_cancelled()?;
     Ok(LocalVortexAggregateScan {
         metadata_completed: metadata_completion.is_some(),
+        scan_columns: None,
         scan: LocalVortexScan {
             source_row_count,
             result_row_count,
@@ -23130,6 +23227,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexAggregateScan {
         metadata_completed: false,
+        scan_columns: None,
         scan: LocalVortexScan {
             source_row_count,
             result_row_count,

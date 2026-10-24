@@ -1,0 +1,134 @@
+{
+  "schema": "shardloom.grouped_preparation.acceptance.v1",
+  "status": "passed",
+  "source_commit": "911923c17e3cb6d304c7f05e2c65a1ac98faa714",
+  "source_tree": "6a27cfd29c34600c783008f7f18322ce16b027ac",
+  "binary": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/shardloom-g2",
+    "bytes": 76720096,
+    "sha256": "c403e17a8cabdceefe0e98627a2c4816dcf5d02b70652b813afa43f69ee43371"
+  },
+  "input": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "bytes": 15713610513,
+    "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22"
+  },
+  "full43_engine_seconds": 49.503497253,
+  "full43_queries": 43,
+  "executions_per_query": 1,
+  "full43_independent_rows": 381,
+  "schemas_verified": true,
+  "whole_suite_speedup_claimed": false,
+  "paired_targets": {
+    "g1_q19": {
+      "control_median_engine_seconds": 4.370869207,
+      "candidate_median_engine_seconds": 3.58001125
+    },
+    "g2_q28": {
+      "control_median_engine_seconds": 2.31595125,
+      "candidate_median_engine_seconds": 2.092562459
+    }
+  },
+  "rejected_candidate": "g3",
+  "runtime_after_g3_removal_matches_g2": true,
+  "required_validation": {
+    "status": "passed",
+    "stages": [
+      {
+        "label": "final-final-format-1024",
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-final-format-1024.json",
+          "bytes": 502104,
+          "sha256": "8d5730abff4cfddd0b3e590e4397bc9331c3745249aafd880d37444c06f8c39e"
+        },
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      {
+        "label": "final-default-clippy-1024",
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-default-clippy-1024.json",
+          "bytes": 502147,
+          "sha256": "f25662a5b3e7da6e9b96d11b4a7c83d0128042e2258eac11c60a53df737c53f1"
+        },
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      {
+        "label": "final-default-tests-1024",
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-default-tests-1024.json",
+          "bytes": 502111,
+          "sha256": "7d0c0c4088eadee5117b332bb859f8239ff7fdeab84313a6d1947615ee09660d"
+        },
+        "passed": 3242,
+        "failed": 0,
+        "ignored": 0
+      },
+      {
+        "label": "final-native-tests-1024",
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/final-native-tests-1024.json",
+          "bytes": 502213,
+          "sha256": "ed6d730c89514f7cb6fcaa6711f4a4f68dd3497a4f60b517f3ed3383b435af51"
+        },
+        "passed": 6044,
+        "failed": 0,
+        "ignored": 35
+      }
+    ]
+  },
+  "native_clippy": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/g2-native-final-clippy-1024.json",
+    "bytes": 502246,
+    "sha256": "9ed0a72ee03957da35cd843d696cb9c2be743b112187bf54b3811cf3865248b6"
+  },
+  "packet_tests_passed": 14,
+  "test_modules": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_grouped_preparation_evidence.py",
+      "bytes": 8414,
+      "sha256": "e63b0795c02852741940e372696c21add264facf71320f92fca70ba729c13f01"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_grouped_preparation_followup_evidence.py",
+      "bytes": 8184,
+      "sha256": "c9b58065ffd0db8e95082808f910ad279b318bc5dbf131ea6fbd0dc590969bbf"
+    }
+  ],
+  "artifacts": {
+    "replay": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/replay.json",
+      "bytes": 757,
+      "sha256": "d74937e4cc79769610c02f05644431e728217013b3edc31ea6e635d66b849451"
+    },
+    "packet_tests": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/packet-tests.log",
+      "bytes": 3154,
+      "sha256": "a6cce4cd16845034173505d7d01ab8dd2b3c1a02f8729c9dd46d1f273edfcfcb"
+    },
+    "query_timings": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/full43-query-timings.csv",
+      "bytes": 16594,
+      "sha256": "8424aec6b968c103ad9d38528ece2e30f21804f51f7ab06f667830391ae7f262"
+    },
+    "contribution_governance": {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/contribution-governance.json",
+      "bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae"
+    }
+  },
+  "portable_manifest": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/manifest.json",
+    "bytes": 142478,
+    "sha256": "b4a29d635aa95defa44980ab65906bfb0a9fcbdf87ce13a5ecb1e1cc1e541267"
+  },
+  "limitations": [
+    "Single-pass Full43 differences are not attributed to code changes.",
+    "Q28 public wrapper does not retain the compact-block counter; direct-consumer tests prove activation.",
+    "User-surface execution parity and universal I/O are queued handoffs, not completed features."
+  ],
+  "query_timings_note": "Readable CSV uses LF line endings; all values and the original CSV bytes remain preserved in the immutable packet."
+}

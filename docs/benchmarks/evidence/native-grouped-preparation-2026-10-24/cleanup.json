@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "source_commit": "911923c17e3cb6d304c7f05e2c65a1ac98faa714",
+  "inventory": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/cleanup-inventory.json.xz",
+    "bytes": 623464,
+    "sha256": "6c3d2ff4832e80953ec11c79477ef8c4519aff44ddf34493c7f300b2927a8bfa"
+  },
+  "helper": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/retire_completed.py",
+    "bytes": 7564,
+    "sha256": "b6aba6b29c1f2e78eede08a79a4e7e2a699ab4580bf0df3207266e23763f8a1e"
+  },
+  "retained_binary": {
+    "path": "/Users/dylan/LocalData/shardloom/native-grouped-preparation-20261024/shardloom-g2",
+    "bytes": 76720096,
+    "sha256": "c403e17a8cabdceefe0e98627a2c4816dcf5d02b70652b813afa43f69ee43371"
+  },
+  "protected_input_generations": {
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex": {
+      "device": 16777233,
+      "inode": 111843112,
+      "size_bytes": 15713610513,
+      "mtime_ns": 1792325598752257621,
+      "ctime_ns": 1792325598757039417
+    },
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet": {
+      "device": 16777233,
+      "inode": 84833233,
+      "size_bytes": 14779976446,
+      "mtime_ns": 1788461344802364826,
+      "ctime_ns": 1788612069108841600
+    }
+  },
+  "packets": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/manifest.json",
+      "bytes": 100807,
+      "sha256": "d716a749b78b44da5a235df42011cf9dae3bac30266aeb158eac370262a391a6"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-grouped-preparation-2026-10-24/followup/manifest.json",
+      "bytes": 142478,
+      "sha256": "b4a29d635aa95defa44980ab65906bfb0a9fcbdf87ce13a5ecb1e1cc1e541267"
+    }
+  ],
+  "active_handles_found": false,
+  "payload_backups_created": false,
+  "retired_entries": 12845,
+  "retired_regular_bytes": 8572586453,
+  "original_parquet_and_current_vortex_input_untouched": true,
+  "runtime_or_benchmark_executed": false,
+  "storage_limits_changed": false,
+  "other_native_extension_artifacts_untouched": true
+}

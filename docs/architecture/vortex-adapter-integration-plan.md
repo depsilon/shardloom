@@ -1,5 +1,11 @@
 # Vortex Adapter Integration Plan
 
+The [October 24 provider refresh](native-vortex-provider-refresh-2026-10-24.md)
+targets released 0.90.0 after surface parity and before warm-source/ingestion
+work. Its API integration, ownership and caller-activation gates extend this
+boundary; the current dependency remains 0.85.0 until implementation acceptance.
+Historical files may be regenerated; backward file compatibility is not a gate.
+
 ## Purpose
 
 ShardLoom will integrate Vortex through a narrow adapter boundary so core crates stay

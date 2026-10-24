@@ -108,6 +108,144 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_renamed_grouped_count_filter_selects_shared_provider_on_every_surface(self):
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        schema = pa.schema([pa.field("entity", pa.uint32(), nullable=False)])
+        rows = [{"entity": value} for value in (2, 1, 2, 1, 3)]
+        with tempfile.TemporaryDirectory(prefix="shardloom-shared-alias-") as directory:
+            path = Path(directory) / "input.vortex"
+            source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+            session.plan(native.Relation.scan("memory://input"),
+                         sources=[("memory://input", source)]).write(path, "write_vortex")
+            frame = (sl.read_vortex(path, client=client).group_by("entity").agg(rows="COUNT(*)")
+                     .select("entity AS key", "rows AS total")
+                     .filter(sl.col("total") > 1).sort("key").limit(2))
+            relation = (native.Relation.scan(str(path)).aggregate(["entity"], [("count", None, "rows")])
+                        .project([("first_key", expr.column("entity")), ("first_total", expr.column("rows"))])
+                        .project([("key", expr.column("first_key")), ("total", expr.column("first_total"))])
+                        .filter(expr.column("total") > expr.literal(1))
+                        .sort([("key", False, None)]).limit(2))
+            sql = (f"SELECT entity AS key,COUNT(*) AS total FROM '{path}' "
+                   "GROUP BY entity HAVING total > 1 ORDER BY key LIMIT 2")
+            tables = self.all_surfaces(frame, relation, sql, {
+                "local_primitive_report_present": "true",
+                "local_primitive_native_io_certificate_path_id": "native_vortex_source_to_scalar_aggregate_result",
+                "local_primitive_scan_projection_columns": '["entity"]',
+                "local_primitive_scan_predicate_columns": '[]',
+            })
+            for table in tables:
+                self.assertEqual(table.to_pylist(), [{"key": 1, "total": 2}, {"key": 2, "total": 2}])
+                self.assertEqual(table.schema, tables[0].schema)
+
+    def test_aliased_scalar_count_star_selects_shared_provider_on_every_surface(self):
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        schema = pa.schema([pa.field("entity", pa.uint32(), nullable=False)])
+        with tempfile.TemporaryDirectory(prefix="shardloom-aliased-count-star-") as directory:
+            for name, rows, expected in (("nonempty", [{"entity": 4}, {"entity": 9}], 2),
+                                         ("empty", [], 0)):
+                path = Path(directory) / f"{name}.vortex"
+                source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+                session.plan(native.Relation.scan("memory://input"),
+                             sources=[("memory://input", source)]).write(path, "write_vortex")
+                frame = sl.read_vortex(path, client=client).agg("COUNT(*) AS record_total")
+                relation = native.Relation.scan(str(path)).aggregate(
+                    [], [("count", None, "record_total")])
+                sql = f"SELECT COUNT(*) AS record_total FROM '{path}'"
+                tables = self.all_surfaces(frame, relation, sql, {
+                    "local_primitive_arrays_read_count": "0",
+                    "local_primitive_native_io_certificate_path_id": "native_vortex_source_to_scalar_count_result",
+                    "local_primitive_scan_projection_columns": "[]",
+                    "local_primitive_scan_metadata_completed": "true",
+                    "local_primitive_footer_dtype_summary": "not_required_for_exact_footer_count",
+                    "local_primitive_embedded_layout_status": "footer_row_count_available",
+                })
+                for table in tables:
+                    self.assertEqual(table.to_pylist(), [{"record_total": expected}])
+                    self.assertEqual(table.schema.field("record_total").type, pa.uint64())
+                    self.assertEqual(table.schema, tables[0].schema)
+
+    def test_constant_group_reads_only_real_keys_on_every_surface(self):
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        schema = pa.schema([pa.field("unrelated", pa.uint64(), nullable=False),
+                            pa.field("label", pa.string(), nullable=False)])
+        with tempfile.TemporaryDirectory(prefix="shardloom-constant-group-") as directory:
+            for empty in (False, True):
+                path = Path(directory) / f"input-{empty}.vortex"
+                rows = [] if empty else [dict(unrelated=index, label=label)
+                                         for index, label in enumerate(("a", "b", "a", "a"))]
+                source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+                session.plan(native.Relation.scan("memory://input"),
+                             sources=[("memory://input", source)]).write(path, "write_vortex")
+                frame = (sl.read_vortex(path, client=client).select("1 AS literal_1", "label")
+                         .group_by("literal_1", "label").agg(c="COUNT(*)")
+                         .sort("c", descending=True).limit(10))
+                relation = (native.Relation.scan(str(path)).project([
+                    ("literal_1", expr.literal(1)), ("label", expr.column("label"))])
+                    .aggregate(["literal_1", "label"], [("count", None, "c")])
+                    .sort([("c", True, None)]).limit(10))
+                sql = (f"SELECT 1,label,COUNT(*) AS c FROM '{path}' "
+                       "GROUP BY 1,label ORDER BY c DESC LIMIT 10")
+                tables = self.all_surfaces(frame, relation, sql, {
+                    "local_primitive_scan_projection_columns": '["label"]',
+                    "local_primitive_scan_predicate_columns": '[]',
+                })
+                wanted = [] if empty else [dict(literal_1=1, label="a", c=3),
+                                          dict(literal_1=1, label="b", c=1)]
+                for table in tables:
+                    self.assertEqual(table.to_pylist(), wanted)
+                    self.assertEqual(table.schema, tables[0].schema)
+
+    def test_nullable_projection_filter_preserves_rows_on_every_surface(self):
+        import shardloom as sl
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        schema = pa.schema([pa.field("entity", pa.uint32(), nullable=True),
+                            pa.field("amount", pa.uint64(), nullable=False)])
+        rows = [{"entity": 3, "amount": 10}, {"entity": None, "amount": 20},
+                {"entity": 7, "amount": 30}, {"entity": 2, "amount": 40},
+                {"entity": None, "amount": 5}]
+        with tempfile.TemporaryDirectory(prefix="shardloom-nullable-filter-project-") as directory:
+            path = Path(directory) / "input.vortex"
+            source = session.from_arrow(pa.Table.from_pylist(rows, schema=schema))
+            session.plan(native.Relation.scan("memory://input"),
+                         sources=[("memory://input", source)]).write(path, "write_vortex")
+            source_frame = sl.read_vortex(path, client=client)
+            source_relation = native.Relation.scan(str(path))
+            cases = [
+                (source_frame.filter(sl.col("amount") >= 20).select("entity AS key", "amount AS paid"),
+                 source_relation.filter(expr.column("amount") >= expr.literal(20)).project([
+                     ("key", expr.column("entity")), ("paid", expr.column("amount"))]),
+                 f"SELECT entity AS key,amount AS paid FROM '{path}' WHERE amount >= 20",
+                 [{"key": None, "paid": 20}, {"key": 7, "paid": 30},
+                  {"key": 2, "paid": 40}]),
+                (source_frame.filter(sl.col("amount") > 100).select("entity AS key", "amount AS paid"),
+                 source_relation.filter(expr.column("amount") > expr.literal(100)).project([
+                     ("key", expr.column("entity")), ("paid", expr.column("amount"))]),
+                 f"SELECT entity AS key,amount AS paid FROM '{path}' WHERE amount > 100", []),
+            ]
+            for index, (frame, relation, sql, wanted) in enumerate(cases):
+                with self.subTest(case=index):
+                    tables = self.all_surfaces(frame, relation, sql)
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), wanted)
+                        self.assertEqual(table.schema, tables[0].schema)
+                    self.assertTrue(tables[0].schema.field("key").nullable)
+                    self.assertEqual(tables[0].schema.field("key").type, pa.uint32())
+                    self.assertEqual(tables[0].schema.field("paid").type, pa.uint64())
+
     def test_grouped_nonnull_mean_ordering_selects_shared_provider_on_every_surface(self):
         import shardloom as sl
         native, session, pa = self.native, self.session, self.pa
@@ -133,16 +271,19 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 .aggregate(["key"], [("avg", "bytes", "mean"), ("count", None, "rows")])
                 .filter(expr.column("rows") > expr.literal(1))
                 .sort([("mean", True, None)]).limit(2))
-            sql = (f"SELECT key,AVG(octet_length(text)) AS mean,COUNT(*) AS rows FROM '{path}' "
-                   "GROUP BY key HAVING rows > 1 ORDER BY mean DESC LIMIT 2")
-            tables = self.all_surfaces(frame, relation, sql, {
-                "local_primitive_report_present": "true",
-                "local_primitive_native_io_certificate_path_id": "native_vortex_source_to_scalar_aggregate_result",
-            })
-            for table in tables:
-                self.assertEqual(table.to_pylist(), [{"key": 1, "mean": 3.5, "rows": 2},
-                                                     {"key": 2, "mean": 3.0, "rows": 2}])
-                self.assertEqual(table.schema, tables[0].schema)
+            for predicate in ("rows > 1", "COUNT(*) > 1"):
+                with self.subTest(predicate=predicate):
+                    sql = (f"SELECT key,AVG(octet_length(text)) AS mean,COUNT(*) AS rows FROM '{path}' "
+                           f"GROUP BY key HAVING {predicate} ORDER BY mean DESC LIMIT 2")
+                    tables = self.all_surfaces(frame, relation, sql, {
+                        "local_primitive_report_present": "true",
+                        "local_primitive_native_io_certificate_path_id": "native_vortex_source_to_scalar_aggregate_result",
+                        "local_primitive_projected_columns": "key,mean,rows",
+                    })
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), [{"key": 1, "mean": 3.5, "rows": 2},
+                                                             {"key": 2, "mean": 3.0, "rows": 2}])
+                        self.assertEqual(table.schema, tables[0].schema)
 
     def test_mixed_numeric_having_is_exact_on_every_surface(self):
         import operator

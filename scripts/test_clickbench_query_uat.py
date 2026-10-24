@@ -16,7 +16,7 @@ import io
 from local_uat_storage import StorageGuardError, accounted_bytes, check_budgets
 import run_clickbench_query_uat as query_uat
 import run_clickbench_paired_query_uat as paired_uat
-from run_clickbench_query_uat import compress_completed_log, correctness_boundary, equivalent, extract_reference_result, extract_result, read_json_log, run_command, run_profiled_command, score, strict_json
+from run_clickbench_query_uat import compress_completed_log, correctness_boundary, equivalent, execution_report, extract_reference_result, extract_result, read_json_log, run_command, run_profiled_command, score, strict_json
 from native_workflow_protocol import public_workflow_command
 from clickbench_reference_packet import canonical_values_sha256
 from clickbench_native_sql import native_query_statements
@@ -82,6 +82,13 @@ class ClickBenchUatTests(unittest.TestCase):
                 "fields": [
                     {"key": "public_workflow_fallback_attempted", "value": "false"},
                     {"key": "public_workflow_external_engine_invoked", "value": "false"},
+                    {"key": "fallback_attempted", "value": False},
+                    {"key": "external_engine_invoked", "value": False},
+                    {"key": "execution_backend", "value": "native_vortex"},
+                    {"key": "execution_mode", "value": "native"},
+                    {"key": "local_primitive_rows_scanned", "value": "0"},
+                    {"key": "resident_native_preparation_reused", "value": "false"},
+                    {"key": "relational_scan_rows_delivered", "value": "0"},
                     {"key": "result_values_json", "value": json.dumps(result_rows)},
                     {"key": "result_payload_complete", "value": "true"},
                     {"key": "output_row_count", "value": "1"},
@@ -167,6 +174,51 @@ class ClickBenchUatTests(unittest.TestCase):
         package_sources = (Path(__file__).resolve().parents[1] / "python" / "src" / "shardloom").rglob("*.py")
         self.assertTrue({str(path.resolve()) for path in package_sources} <= set(summary["harness_sha256"]))
 
+    def test_execution_report_preserves_selected_values_without_payload_or_inference(self):
+        fields = {
+            "local_primitive_rows_scanned": "0",
+            "resident_native_preparation_reused": False,
+            "relational_scan_rows_delivered": 0,
+            "fallback_attempted": False,
+            "external_engine_invoked": "false",
+            "public_workflow_fallback_attempted": "false",
+            "public_workflow_external_engine_invoked": "false",
+            "execution_backend": "native_vortex",
+            "execution_mode": "native",
+            "result_values_json": '[{"value":1}]',
+            "result_payload_complete": "true",
+            "result_schema_json": '{"schema":[]}',
+        }
+        self.assertEqual(execution_report(fields), {
+            "local_primitive_rows_scanned": "0",
+            "resident_native_preparation_reused": False,
+            "relational_scan_rows_delivered": 0,
+            "fallback_attempted": False,
+            "external_engine_invoked": "false",
+            "public_workflow_fallback_attempted": "false",
+            "public_workflow_external_engine_invoked": "false",
+            "execution_backend": "native_vortex",
+            "execution_mode": "native",
+        })
+        self.assertEqual(execution_report({}), {})
+
+    def test_successful_query_record_retains_structured_execution_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(Path(directory))
+        self.assertEqual(result, 0)
+        record = summary["records"][0]
+        self.assertEqual(record["execution_report"], {
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "public_workflow_fallback_attempted": "false",
+            "public_workflow_external_engine_invoked": "false",
+            "execution_backend": "native_vortex",
+            "execution_mode": "native",
+            "local_primitive_rows_scanned": "0",
+            "resident_native_preparation_reused": "false",
+            "relational_scan_rows_delivered": "0",
+        })
+
     def test_single_and_paired_runners_record_and_submit_the_same_explicit_byte_sql(self):
         _, original = query_uat.query_statements(
             Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
@@ -186,6 +238,18 @@ class ClickBenchUatTests(unittest.TestCase):
                     self.assertEqual(record["executed_query_statement"], submitted[index])
                     self.assertEqual(record["command"][record["command"].index("--sql") + 1],
                                      submitted[index])
+                    if paired:
+                        self.assertEqual(record["execution_report"], {
+                            "fallback_attempted": False,
+                            "external_engine_invoked": False,
+                            "public_workflow_fallback_attempted": "false",
+                            "public_workflow_external_engine_invoked": "false",
+                            "execution_backend": "native_vortex",
+                            "execution_mode": "native",
+                            "local_primitive_rows_scanned": "0",
+                            "resident_native_preparation_reused": "false",
+                            "relational_scan_rows_delivered": "0",
+                        })
 
     def test_query_history_larger_than_active_run_budget_is_admitted(self):
         with tempfile.TemporaryDirectory() as directory:

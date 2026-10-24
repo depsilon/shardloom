@@ -1,5 +1,17 @@
 # Vortex Upstream Dependency Review
 
+## October 24, 2026 controlled 0.90 intake
+
+The [provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md)
+is queued immediately after surface parity. The workspace still resolves
+0.85.0 with seven Vortex patches and a separate Arrow/Python compatibility patch.
+The plan requires invariant-by-invariant patch disposition, Arrow/Parquet
+graph alignment, archive/license provenance, ownership and fresh write/read
+proof before migration acceptance. Historical-file compatibility is explicitly
+unrequired by the maintainer; regenerate or redesign as needed. New allocator and scan APIs are candidates
+for replacing local work, not grounds to drop existing guarantees. No dependency
+change or 0.90 performance claim is established by this intake note.
+
 ## October 17, 2026 native text reconstruction and validation candidate
 
 The [text validation handoff](../architecture/native-text-validity-2026-10-17.md)

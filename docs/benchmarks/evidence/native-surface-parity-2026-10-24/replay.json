@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "members": 1361,
+  "paired_complete_results": 1080,
+  "paired_failed_cells": {
+    "surfaces": 7,
+    "surfaces-r3": 5,
+    "surfaces-r4": 2,
+    "surfaces-r5": 1
+  },
+  "paired_timing_screen_passed": false,
+  "full43_complete_results": 215,
+  "full43_result_rows": 1905,
+  "equal_schema_queries": 43,
+  "engine_seconds": {
+    "cli_sql": 48.701809680000004,
+    "embedded_workflow": 49.967501,
+    "python_sql": 50.826739087,
+    "dataframe": 51.412729913999996,
+    "native_expression": 52.287469918999996
+  },
+  "final_small_fixture_results": 215,
+  "engine_executed": false,
+  "rejected_semantic_corruptions": [
+    "false_timing_pass",
+    "missing_final_call",
+    "changed_fixture_value"
+  ]
+}

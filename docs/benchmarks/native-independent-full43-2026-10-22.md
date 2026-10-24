@@ -178,6 +178,15 @@ and reject an altered recorded runner identity. The two historical replay tests,
 including the 18 Full43 and 22 matrix controls, pass without executing an engine.
 No archived result, reference value, runtime identity or original verifier changes.
 
+The user-surface parity PR subsequently added execution-report retention to the
+current runner. Its maintained dependency pin advances from
+`5a688d68a0147c1166f07c775858a33b2eb5e36a9afde766596b2425a1a34157` to
+`8194080ef372182c930a8077d5a38aaf89599141e96b7fd943c0aa2f9d35c5db`.
+The `equivalent` comparison syntax tree remains identical to the recorded runner;
+the existing control verifies this independently. This changes replay dependency
+metadata only. The archived harness, replay verifier, observations and reference
+values remain unchanged, and changed-helper rejection remains enforced.
+
 This refresh supersedes the stale-runtime limitation of the
 [prior matrix](native-workload-comparisons-2026-10-22.md), whose results remain
 unchanged. Its four-decimal comparison normalization, empty-sum convention and

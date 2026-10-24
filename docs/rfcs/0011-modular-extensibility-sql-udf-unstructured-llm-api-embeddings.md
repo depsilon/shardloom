@@ -357,6 +357,21 @@ API calls must not be hidden inside ordinary filters or projections.
 
 ## Unstructured data
 
+The October 24 maintainer decision adds
+[native vectors, tensors and binary-object lifecycle support](../architecture/native-rich-data-lifecycle-2026-10-24.md)
+to the active queue immediately after ingestion. Actual inline and locally
+managed payload bytes join explicitly external references as storage contracts.
+Preserving caller-supplied rich data through relational operations, spill and
+read/write/reopen does not require media interpretation or model execution.
+The reference/extraction design below remains applicable to optional processing
+boundaries; it must not be read as a permanent reference-only storage limit.
+This addition records implementation scope, not completed runtime support.
+The subsequent [AI-data package](../architecture/native-ai-data-workflows-2026-10-24.md)
+queues model-ready delivery, fitted feature state and native retrieval after the
+preceding analytical work. It reuses this RFC's explicit application/model effect
+boundaries; data delivery does not implicitly execute a model, and a queue entry
+does not certify a provider or authorize an external call.
+
 ShardLoom should support unstructured data through typed references and extracted representations.
 
 Unstructured sources may include:
