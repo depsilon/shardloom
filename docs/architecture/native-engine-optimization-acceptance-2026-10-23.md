@@ -359,8 +359,19 @@ actual array-owner reuse, name/search limits, signed-zero distinctions, late
 overflow, consumer failure, cancellation and denied preparation/execution credit.
 Focused Clippy passes with warnings denied. The first cancellation test mistakenly
 expected the enclosing cancelled session to succeed; correcting that expectation
-required no runtime change. The immutable same-harness baseline is `4e6db3a9`;
-the release benefit decision is pending and no speedup is claimed yet.
+required no runtime change. The immutable same-harness baseline is `4e6db3a9`.
+
+**Retain** the prepared-expression candidate at `22a42070`. All 72 alternating
+release calls pass complete values, schemas, input/partition identity, producer
+completion, grants and cleanup. The
+[recorded decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/expression-decision.json)
+preserves every sample and the declared gates. The 65,536-row shared-expression
+median falls from **0.021299086 to 0.016807333 engine seconds** (ratio 0.789111,
+21.1% lower). The unique-expression control is 0.025621416 versus 0.025508494
+seconds; all 12 cells pass their frozen regression ceiling. Predicate controls
+remain essentially unchanged at the larger scale. This is a composed-expression
+benefit, not evidence of a general Full43 speedup. The isolated Full43 checkpoint
+follows this retained implementation.
 
 ### Historical cross-surface investigation
 
