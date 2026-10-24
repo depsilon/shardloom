@@ -51,9 +51,90 @@ fn sift(
     Ok(())
 }
 
+/// Reuse the same fallible heap for a prefix of an already validated row
+/// domain. `rows` initially contains ordinals 0..K. Only those K slots are
+/// retained; the caller's comparator includes stable source ordinals.
+pub(super) fn select_prefix(
+    rows: &mut [usize],
+    total_rows: usize,
+    cancellation: &CancellationToken,
+    mut compare: impl FnMut(usize, usize) -> Result<Ordering>,
+) -> Result<()> {
+    cancellation.check()?;
+    if rows.len() > total_rows {
+        return Err(super::native_relational_batch::failed(
+            "ordering prefix exceeds its source domain",
+        ));
+    }
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let mut comparisons = 0usize;
+    let mut compare = |left, right| {
+        if comparisons.is_multiple_of(1024) {
+            cancellation.check()?;
+        }
+        comparisons = comparisons.wrapping_add(1);
+        compare(left, right)
+    };
+    for root in (0..rows.len() / 2).rev() {
+        sift(rows, root, &mut compare)?;
+    }
+    for row in rows.len()..total_rows {
+        if compare(row, rows[0])?.is_lt() {
+            rows[0] = row;
+            sift(rows, 0, &mut compare)?;
+        }
+    }
+    sort(rows, cancellation, compare)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_relational_order_prefix_matches_full_stable_order_and_propagates_failures() {
+        for length in [0, 1, 2, 3, 31, 1024, 4097] {
+            let mut expected: Vec<_> = (0..length).collect();
+            expected.sort_by_key(|row| (row % 17, *row));
+            for cap in [0, 1, 2, 5, 31, 257, length] {
+                let cap = cap.min(length);
+                let mut rows: Vec<_> = (0..cap).collect();
+                select_prefix(&mut rows, length, &CancellationToken::default(), |a, b| {
+                    Ok((a % 17, a).cmp(&(b % 17, b)))
+                })
+                .unwrap();
+                assert_eq!(rows, expected[..cap]);
+            }
+        }
+        let mut rows: Vec<_> = (0..5).collect();
+        let mut calls = 0;
+        assert!(
+            select_prefix(&mut rows, 4097, &CancellationToken::default(), |a, b| {
+                calls += 1;
+                if calls == 10 {
+                    return Err(super::super::native_relational_batch::failed(
+                        "comparison failed",
+                    ));
+                }
+                Ok(a.cmp(&b))
+            })
+            .is_err()
+        );
+        assert_eq!(calls, 10);
+        let cancel = CancellationToken::default();
+        let mut calls = 0;
+        assert!(
+            select_prefix(&mut rows, 4097, &cancel, |a, b| {
+                calls += 1;
+                cancel.cancel();
+                Ok(a.cmp(&b))
+            })
+            .is_err()
+        );
+        assert!(calls <= 1024);
+    }
 
     #[test]
     fn native_relational_order_matches_total_order_and_propagates_comparison_failure_and_cancel() {

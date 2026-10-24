@@ -95,35 +95,59 @@ impl<'a> Sort<'a> {
         &self,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ReservedVec<usize>> {
+        self.ordered_prefix(context, None)
+    }
+
+    fn ordered_prefix(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        bounded: Option<usize>,
+    ) -> Result<ReservedVec<usize>> {
+        let count = bounded.unwrap_or(self.table.rows()).min(self.table.rows());
         let mut ordinals = ReservedVec::new(context.memory())?;
-        ordinals.reserve(self.table.rows())?;
-        for row in 0..self.table.rows() {
+        ordinals.reserve(count)?;
+        for row in 0..count {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
             ordinals.values.push(row);
         }
-        native_relational_order::sort(
-            &mut ordinals.values,
-            context.cancellation(),
-            |left, right| {
-                let (left_batch, left_row) = self.table.locate_batch(left)?;
-                let (right_batch, right_row) = self.table.locate_batch(right)?;
-                for (index, key) in self.spec.keys.iter().enumerate() {
-                    let order = compare_key(
-                        key,
-                        left_batch.key_is_null(left_row, index)?,
-                        right_batch.key_is_null(right_row, index)?,
-                        || left_batch.compare_key(left_row, right_batch, right_row, index),
-                    )?;
-                    if order != Ordering::Equal {
-                        return Ok(order);
-                    }
-                }
-                Ok(left.cmp(&right))
-            },
-        )?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.sort_retained_ordinals += count as u64;
+        });
+        if bounded.is_some() {
+            native_relational_order::select_prefix(
+                &mut ordinals.values,
+                self.table.rows(),
+                context.cancellation(),
+                |left, right| self.compare_rows(left, right),
+            )?;
+        } else {
+            native_relational_order::sort(
+                &mut ordinals.values,
+                context.cancellation(),
+                |left, right| self.compare_rows(left, right),
+            )?;
+        }
         Ok(ordinals)
+    }
+
+    fn compare_rows(&self, left: usize, right: usize) -> Result<Ordering> {
+        let (left_batch, left_row) = self.table.locate_batch(left)?;
+        let (right_batch, right_row) = self.table.locate_batch(right)?;
+        for (index, key) in self.spec.keys.iter().enumerate() {
+            let order = compare_key(
+                key,
+                left_batch.key_is_null(left_row, index)?,
+                right_batch.key_is_null(right_row, index)?,
+                || left_batch.compare_key(left_row, right_batch, right_row, index),
+            )?;
+            if order != Ordering::Equal {
+                return Ok(order);
+            }
+        }
+        Ok(left.cmp(&right))
     }
 
     #[cfg(feature = "vortex-write")]
@@ -150,20 +174,71 @@ impl<'a> Sort<'a> {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
-        let ordinals = self.ordered_rows(context)?;
+        self.finish_prefix(context, batch_rows, None, false, consume)
+    }
+
+    /// `input_payloads_validated` is supplied only after the existing streaming
+    /// ordering detachment has validated every payload before retention.
+    pub(super) fn finish_prefix(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        requested: Option<usize>,
+        input_payloads_validated: bool,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let requested = requested.filter(|_| {
+            self.spec.copy_policy == CopyPolicy::ValidateValues
+                && (input_payloads_validated
+                    || self.spec.fields.iter().all(|(_, dtype)| {
+                        !matches!(dtype, DType::Decimal(..))
+                            && super::result_batch::width(dtype).is_ok()
+                    }))
+        });
+        let bounded = requested.filter(|cap| {
+            input_payloads_validated && *cap <= 16_384 && *cap <= self.table.rows() / 4
+        });
+        let ordinals = if bounded.is_some() {
+            self.ordered_prefix(context, bounded)?
+        } else {
+            self.ordered_rows(context)?
+        };
+        let mut remaining = requested
+            .unwrap_or(self.table.rows())
+            .min(self.table.rows());
         let mut rows = ReservedVec::new(context.memory())?;
-        rows.reserve(batch_rows.min(self.table.rows()))?;
+        rows.reserve(batch_rows.min(ordinals.values.len()))?;
         for part in ordinals.values.chunks(batch_rows) {
             context.check_cancelled()?;
+            let retained = remaining.min(part.len());
+            remaining -= retained;
+            if requested.is_some() && input_payloads_validated && retained == 0 {
+                break;
+            }
             rows.values.clear();
-            rows.values.extend(part.iter().map(|row| Some(*row)));
-            consume(gather(
+            let selected = if requested.is_some() && input_payloads_validated {
+                &part[..retained]
+            } else {
+                part
+            };
+            rows.values.extend(selected.iter().map(|row| Some(*row)));
+            let output = gather_with_prefix(
                 &self.table,
                 &rows.values,
                 &self.spec.fields,
                 self.spec.copy_policy,
+                (requested.is_some() && !input_payloads_validated && retained < part.len())
+                    .then_some(retained),
                 context,
-            )?)?;
+            )?;
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.sort_output_rows_constructed += output.len() as u64;
+                counts.sort_payload_rows_validated += selected.len() as u64;
+            });
+            if !output.is_empty() {
+                consume(output)?;
+            }
             context.check_cancelled()?;
         }
         Ok(())
@@ -194,13 +269,26 @@ pub(super) fn gather(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
+    gather_with_prefix(table, rows, fields, policy, None, context)
+}
+
+fn gather_with_prefix(
+    table: &Table,
+    rows: &[Option<usize>],
+    fields: &[(String, DType)],
+    policy: CopyPolicy,
+    prefix: Option<usize>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     let gather = table.gather(rows, false, context)?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
     for (name, dtype) in fields {
-        columns
-            .values
-            .push(gather.column_with_policy(name, dtype, policy, context)?);
+        columns.values.push(if let Some(retained) = prefix {
+            gather.column_prefix(name, dtype, retained, context)?
+        } else {
+            gather.column_with_policy(name, dtype, policy, context)?
+        });
     }
     let (columns, _ownership) = columns.into_parts();
     let array = StructArray::try_new(
@@ -209,7 +297,7 @@ pub(super) fn gather(
             .map(|(name, _)| name.as_str())
             .collect::<FieldNames>(),
         columns,
-        rows.len(),
+        prefix.unwrap_or(rows.len()),
         Validity::NonNullable,
     )
     .map_err(vortex_error)?;

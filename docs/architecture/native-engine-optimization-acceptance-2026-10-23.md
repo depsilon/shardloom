@@ -2,8 +2,9 @@
 
 # Native engine optimization acceptance
 
-Status: prospective protocol, October 23, 2026. No candidate is accepted by this
-document. The baseline is PR #1593's repaired runtime, `407c1e80`. The maintainer
+Status: October 23, 2026 protocol with subsequent candidate decisions below.
+Recorded benefit gates do not replace the final coherent validation. The
+baseline is PR #1593's repaired runtime, `407c1e80`. The maintainer
 requested all six candidates from the [source review](native-engine-optimization-review-2026-10-23.md),
 with PR #1593 integrated first. The repaired PR passed all 43 hosted checks and
 merged as `06653efb`. Candidate work remains on a separate local branch.
@@ -71,7 +72,7 @@ before runtime implementation do not. Do not add duplicate end-of-batch passes.
 These single observations complement the frozen cost screen below and do not
 independently isolate repeatable speedups.
 
-## Finite sort-output feasibility decision
+## First finite sort-output feasibility decision
 
 Drop the immediate-Limit output-copy candidate. Existing native sort gathering
 validates payloads in sorted output order while copying each output batch. The
@@ -276,3 +277,43 @@ the existing 10% or 100-microsecond median ceiling and complete correctness,
 grant and cleanup checks. Preserve every observation; no cache manipulation or
 concurrent task work. A failed candidate is revised once only for a diagnosed
 cause, or dropped. Run one isolated Full43 at the retained checkpoint.
+
+### Historical cross-surface investigation
+
+The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
+binds Q19/Q23/Q29/Q34/Q35 to the original compressed output and summary members
+of the [five-surface packet](../benchmarks/native-shared-surfaces-2026-10-23.md).
+Its source is `7c65f339`, before the final PR #1593 repairs. These are historical
+engine seconds, not new runs or measurements of the current candidate:
+
+| Surface | Q19 | Q23 | Q29 | Q34 | Q35 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CLI SQL | 4.722240 | 3.293214 | 3.118415 | 2.568379 | 2.682682 |
+| Embedded workflow | 4.872714 | 3.947033 | 4.255317 | 3.614409 | 3.546948 |
+| Python SQL | 5.331907 | 6.764748 | 4.975018 | 4.242673 | 3.492865 |
+| DataFrame | 5.567369 | 4.577225 | 4.563809 | 3.818391 | 3.847976 |
+| Typed expressions | 5.512588 | 4.517834 | 4.637102 | 3.864888 | 3.767842 |
+
+Every selected observation uses the same recorded Vortex input identity and
+reports native scan pushdown. For each query, scanned/selected rows and arrays
+read agree across all five surfaces. CLI, embedded workflow and Python SQL
+report identical strategy labels and available non-timing work counters for
+each query. The DataFrame Q34 report also agrees. The other four DataFrame
+reports and all five typed reports omit these strategy details, so their
+algorithm parity cannot be independently established from this evidence.
+
+All 25 reports admit at most 10 workers; this is a policy ceiling, not an actual
+worker count. Only seven reports expose peak active aggregate workers: Q34/Q35
+for CLI, embedded workflow and Python SQL, plus DataFrame Q34. Those report
+nine active workers and 64 partitions. Actual worker counts are unavailable
+for the other selected observations. Physical scan/read column lists are
+unreported in all 25; the projected-column field describes output columns and
+must not be substituted for them.
+
+Each summary engine duration equals its output's native execution nanoseconds.
+That confirms a consistent recorded clock, but does not isolate a frontend
+cost or exclude host/cache/order effects. The evidence therefore establishes
+neither Python overhead nor a specific runtime defect. The actionable proof
+gap is consistent strategy, actual-worker and physical-read reporting across
+the existing surfaces. Preserve this finding without attributing the spread
+or rerunning historical cohorts merely to fill missing fields.

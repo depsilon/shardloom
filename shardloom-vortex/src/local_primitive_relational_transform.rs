@@ -110,7 +110,12 @@ impl PreparedVortexRelational {
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
-        let NodeKind::Sort { input, spec } = &node.kind else {
+        let NodeKind::Sort {
+            input,
+            spec,
+            output_prefix,
+        } = &node.kind
+        else {
             return Err(failed("sort dispatch received another operator"));
         };
         #[cfg(feature = "vortex-write")]
@@ -137,7 +142,13 @@ impl PreparedVortexRelational {
             parameter,
             &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
         )?;
-        sort.finish(context, batch_rows, consume)
+        sort.finish_prefix(
+            context,
+            batch_rows,
+            *output_prefix,
+            metrics.input.is_some(),
+            consume,
+        )
     }
 }
 

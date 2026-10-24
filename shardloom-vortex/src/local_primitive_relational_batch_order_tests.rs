@@ -345,6 +345,154 @@ fn streamed_ordering_limits_and_offsets_apply_once_and_drain_every_input_batch()
 }
 
 #[test]
+fn streamed_ordering_prefix_is_admitted_only_for_an_immediate_limit() {
+    let rows = fixture_rows();
+    let keys = vec![
+        key("n", true, NullOrder::Last),
+        key("s", false, NullOrder::First),
+    ];
+    let mut expected = rows.clone();
+    reference_sort(&mut expected, &keys);
+    for barrier in ["none", "identity", "project", "filter"] {
+        let mut plan = sorted(scan(), keys.clone());
+        if matches!(barrier, "identity" | "project") {
+            plan = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+                input: plan,
+                expressions: vec![
+                    ("n".into(), col("n")),
+                    ("s".into(), col("s")),
+                    (
+                        "id".into(),
+                        if barrier == "identity" {
+                            col("id")
+                        } else {
+                            Expression::new(
+                                ExprId::new("id-plus-zero").unwrap(),
+                                ExpressionKind::Binary {
+                                    left: Box::new(col("id")),
+                                    op: shardloom_core::BinaryOp::Add,
+                                    right: Box::new(Expression::new(
+                                        ExprId::new("zero").unwrap(),
+                                        ExpressionKind::Literal(
+                                            shardloom_core::ScalarValue::Int64(0),
+                                        ),
+                                    )),
+                                },
+                            )
+                        },
+                    ),
+                ],
+            }));
+        } else if barrier == "filter" {
+            plan = VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+                input: plan,
+                predicate: Expression::new(
+                    ExprId::new("true").unwrap(),
+                    ExpressionKind::Literal(shardloom_core::ScalarValue::Boolean(true)),
+                ),
+            }));
+        }
+        let prepared = prepare_rows(&limited(plan, 3, 7));
+        let before = prepared.snapshot().memory.reserved_bytes;
+        let mut chunks = rows.chunks(17);
+        let mut input = |session: &ResidentVortexSession| {
+            chunks
+                .next()
+                .map(|rows| rows_source(session, rows))
+                .transpose()
+        };
+        #[cfg(debug_assertions)]
+        let observation = crate::local_primitives::native_relational_observation::Session::start();
+        let result = prepared
+            .with_batch_input(&mut input)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&result),
+            expected[3..10].iter().map(Row::json).collect::<Vec<_>>()
+        );
+        #[cfg(debug_assertions)]
+        {
+            let counts = observation.finish();
+            let retained = if matches!(barrier, "none" | "identity") {
+                10
+            } else {
+                rows.len() as u64
+            };
+            assert_eq!(counts.sort_retained_ordinals, retained, "{barrier}");
+            assert_eq!(counts.sort_output_rows_constructed, retained, "{barrier}");
+        }
+        assert!(
+            result
+                .execution
+                .input
+                .as_ref()
+                .unwrap()
+                .end_of_input_observed
+        );
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    }
+}
+
+#[test]
+fn streamed_ordering_limit_barriers_keep_late_expression_errors() {
+    for filter in [false, true] {
+        let increment = Expression::new(
+            ExprId::new("increment").unwrap(),
+            ExpressionKind::Binary {
+                left: Box::new(col("n")),
+                op: shardloom_core::BinaryOp::Add,
+                right: Box::new(Expression::new(
+                    ExprId::new("one").unwrap(),
+                    ExpressionKind::Literal(shardloom_core::ScalarValue::Int64(1)),
+                )),
+            },
+        );
+        let sorted = sorted(scan(), vec![key("n", false, NullOrder::Last)]);
+        let plan = if filter {
+            VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+                input: sorted,
+                predicate: Expression::new(
+                    ExprId::new("positive").unwrap(),
+                    ExpressionKind::Compare {
+                        left: Box::new(increment),
+                        op: shardloom_core::ComparisonOp::Gt,
+                        right: Box::new(Expression::new(
+                            ExprId::new("zero").unwrap(),
+                            ExpressionKind::Literal(shardloom_core::ScalarValue::Int64(0)),
+                        )),
+                    },
+                ),
+            }))
+        } else {
+            VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+                input: sorted,
+                expressions: vec![("n".into(), increment)],
+            }))
+        };
+        let prepared = prepare(&limited(plan, 0, 1), 2 << 20).unwrap();
+        let before = prepared.snapshot().memory.reserved_bytes;
+        let mut chunks = [0, i64::MAX].into_iter();
+        let mut input = |session: &ResidentVortexSession| {
+            chunks
+                .next()
+                .map(|n| source(session, &[Some(n)], &[Some("value")]))
+                .transpose()
+        };
+        let error = prepared
+            .with_batch_input(&mut input)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("overflow"), "{error}");
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    }
+}
+
+#[test]
 fn streamed_ordering_empty_all_null_and_filtered_inputs_observe_the_end() {
     for mode in ["empty", "empty-batches", "all-null", "filtered"] {
         let mut plan = scan();

@@ -151,3 +151,282 @@ fn native_relational_sort_validates_every_key_before_ordering() {
         })
         .unwrap();
 }
+
+#[test]
+#[allow(clippy::too_many_lines)] // Keep the independent ordering oracle beside both ownership modes.
+fn native_relational_sort_prefix_preserves_nullable_multikey_ties_and_payloads() {
+    use vortex::array::{VortexSessionExecute as _, arrays::VarBinViewArray};
+
+    let values: Vec<_> = (0..257)
+        .map(|row| {
+            (
+                (row % 19 != 0).then_some(i64::from(row % 3)),
+                (row % 13 != 0).then_some(i64::from(row % 7)),
+            )
+        })
+        .collect();
+    let payloads: Vec<_> = (0..values.len())
+        .map(|row| (row % 11 != 0).then(|| format!("λ\0{row:04}")))
+        .collect();
+    let array = StructArray::try_new(
+        FieldNames::from(["a", "b", "id", "payload"]),
+        vec![
+            PrimitiveArray::from_option_iter(values.iter().map(|value| value.0)).into_array(),
+            PrimitiveArray::from_option_iter(values.iter().map(|value| value.1)).into_array(),
+            PrimitiveArray::from_iter(0_i64..257).into_array(),
+            VarBinViewArray::from_iter(
+                payloads.iter().map(|value| value.as_deref()),
+                DType::Utf8(vortex::dtype::Nullability::Nullable),
+            )
+            .into_array(),
+        ],
+        values.len(),
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let mut binding = spec(&array, &["a", "b"]);
+    binding.keys[1].descending = true;
+    binding.keys[1].nulls = Some(NullOrder::Last);
+    let mut expected: Vec<_> = (0..values.len()).collect();
+    expected.sort_by(|&left, &right| {
+        values[left]
+            .0
+            .cmp(&values[right].0)
+            .then_with(|| match (values[left].1, values[right].1) {
+                (None, None) => Ordering::Equal,
+                (None, Some(_)) => Ordering::Greater,
+                (Some(_), None) => Ordering::Less,
+                (Some(left), Some(right)) => right.cmp(&left),
+            })
+            .then(left.cmp(&right))
+    });
+    for validated in [false, true] {
+        for cap in [0, 1, 7, 64, 65, 256, 257, 1000] {
+            let session = ResidentVortexSession::new(2 << 20, 1).unwrap();
+            let memory = session.memory().clone();
+            let mut outputs = Vec::new();
+            session
+                .with_native_execution_context(&CancellationToken::default(), |context| {
+                    let mut sort = Sort::new(&binding, context.memory())?;
+                    for range in [0..0, 0..1, 1..64, 64..64, 64..256, 256..257, 257..257] {
+                        let source = array.slice(range).map_err(vortex_error)?;
+                        let source = if validated {
+                            super::super::native_payload::detach(&source, context)?
+                        } else {
+                            source
+                        };
+                        sort.build(source, context)?;
+                    }
+                    #[cfg(debug_assertions)]
+                    let observation = super::super::native_relational_observation::Session::start();
+                    sort.finish_prefix(context, 31, Some(cap), validated, &mut |batch| {
+                        outputs.push(batch);
+                        Ok(())
+                    })?;
+                    #[cfg(debug_assertions)]
+                    {
+                        let counts = observation.finish();
+                        assert_eq!(
+                            counts.sort_output_rows_constructed,
+                            cap.min(values.len()) as u64
+                        );
+                        assert_eq!(
+                            counts.sort_retained_ordinals,
+                            if validated && cap <= values.len() / 4 {
+                                cap
+                            } else {
+                                values.len()
+                            } as u64
+                        );
+                        assert_eq!(
+                            counts.sort_payload_rows_validated,
+                            if validated {
+                                cap.min(values.len())
+                            } else {
+                                values.len()
+                            } as u64
+                        );
+                    }
+                    Ok(())
+                })
+                .unwrap();
+            // Native output owners survive the sort and its source table.
+            session
+                .with_native_execution_context(&CancellationToken::default(), |context| {
+                    let mut actual = Vec::new();
+                    let mut execution = context.native_session().create_execution_ctx();
+                    for batch in &outputs {
+                        let ids = super::super::logical_field_from_native_array(batch, "id")?;
+                        let text = super::super::logical_field_from_native_array(batch, "payload")?;
+                        for row in 0..batch.len() {
+                            let id = ids
+                                .execute_scalar(row, &mut execution)
+                                .map_err(vortex_error)?
+                                .as_primitive()
+                                .as_::<usize>()
+                                .expect("nonnegative fixture id");
+                            let value = super::super::result_batch::scalar_value(
+                                &text,
+                                row,
+                                &mut execution,
+                            )?
+                            .into_json()?;
+                            assert_eq!(value, serde_json::json!(payloads[id]));
+                            actual.push(id);
+                        }
+                    }
+                    assert_eq!(actual, expected[..cap.min(values.len())]);
+                    Ok(())
+                })
+                .unwrap();
+            drop(outputs);
+            drop(session);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn native_relational_sort_prefix_validates_discarded_payload_in_original_output_order() {
+    let array = StructArray::try_new(
+        FieldNames::from(["key", "payload"]),
+        vec![
+            PrimitiveArray::from_iter([1_i64, 0]).into_array(),
+            PrimitiveArray::from_iter([f64::NAN, 1.0]).into_array(),
+        ],
+        2,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let binding = spec(&array, &["key"]);
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let mut expected_error = None;
+    for cap in [None, Some(0), Some(1)] {
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                let mut sort = Sort::new(&binding, context.memory())?;
+                sort.build(array.clone(), context)?;
+                let mut emitted = 0;
+                let error = sort
+                    .finish_prefix(context, 1, cap, false, &mut |batch| {
+                        emitted += batch.len();
+                        Ok(())
+                    })
+                    .unwrap_err()
+                    .to_string();
+                assert_eq!(emitted, usize::from(cap != Some(0)));
+                assert!(error.contains("finite declared dtype"), "{error}");
+                assert_eq!(expected_error.get_or_insert(error.clone()), &error);
+                Ok(())
+            })
+            .unwrap();
+    }
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_relational_sort_prefix_retains_full_gather_for_resident_nested_and_decimal_payloads() {
+    use vortex::array::{arrays::DecimalArray, dtype::DecimalDType};
+
+    let payloads = [
+        StructArray::try_new(
+            FieldNames::from(["nested"]),
+            vec![PrimitiveArray::from_iter(0_i64..33).into_array()],
+            33,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array(),
+        DecimalArray::from_option_iter((0_i128..33).map(Some), DecimalDType::new(3, 0))
+            .into_array(),
+    ];
+    for payload in payloads {
+        let array = StructArray::try_new(
+            FieldNames::from(["key", "payload"]),
+            vec![PrimitiveArray::from_iter(0_i64..33).into_array(), payload],
+            33,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array();
+        let binding = spec(&array, &["key"]);
+        let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+        let memory = session.memory().clone();
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                let mut sort = Sort::new(&binding, context.memory())?;
+                sort.build(array, context)?;
+                let mut emitted = 0;
+                sort.finish_prefix(context, 7, Some(1), false, &mut |batch| {
+                    emitted += batch.len();
+                    Ok(())
+                })?;
+                assert_eq!(emitted, 33);
+                Ok(())
+            })
+            .unwrap();
+        drop(session);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn native_relational_sort_prefix_consumer_refusal_cancellation_and_denial_release_ownership() {
+    let array = StructArray::try_new(
+        FieldNames::from(["key"]),
+        vec![PrimitiveArray::from_iter(0_i64..257).into_array()],
+        257,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let binding = spec(&array, &["key"]);
+    for validated in [false, true] {
+        for failure in ["consumer", "cancel", "grant"] {
+            let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+            let memory = session.memory().clone();
+            let token = CancellationToken::default();
+            let error = session
+                .with_native_execution_context(&token, |context| {
+                    let mut sort = Sort::new(&binding, context.memory())?;
+                    let input = if validated {
+                        super::super::native_payload::detach(&array, context)?
+                    } else {
+                        array.clone()
+                    };
+                    sort.build(input, context)?;
+                    let _occupied = if failure == "grant" {
+                        let snapshot = context.memory().snapshot();
+                        Some(
+                            context
+                                .memory()
+                                .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)?,
+                        )
+                    } else {
+                        None
+                    };
+                    sort.finish_prefix(context, 1, Some(7), validated, &mut |_| {
+                        if failure == "cancel" {
+                            token.cancel();
+                            Ok(())
+                        } else {
+                            Err(failed("prefix consumer refused"))
+                        }
+                    })
+                })
+                .unwrap_err();
+            if failure == "consumer" {
+                assert!(error.to_string().contains("prefix consumer refused"));
+            }
+            if failure == "grant" {
+                assert!(memory.snapshot().denied_reservations > 0);
+            }
+            drop(session);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}

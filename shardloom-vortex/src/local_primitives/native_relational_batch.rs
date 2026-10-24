@@ -512,6 +512,41 @@ impl Gather<'_> {
                 |_| Ok(result_batch::Value::Null),
             );
         }
+        let array = self.source_column(name, context)?;
+        take_column_with_policy(&array, &self.indices, dtype, policy, context)
+    }
+
+    /// Full selection still reaches the shared scalar validator. Only its
+    /// retained prefix receives output buffers; no omitted value is skipped.
+    pub(super) fn column_prefix(
+        &self,
+        name: &str,
+        dtype: &DType,
+        retained: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        context.check_cancelled()?;
+        let array = self.source_column(name, context)?;
+        let mut execution = context.native_session().create_execution_ctx();
+        let selected = select_column(&array, &self.indices, dtype, &mut execution)?;
+        result_batch::build_column_prefix(
+            dtype,
+            self.indices.len(),
+            retained,
+            &context.native_session().allocator(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                result_batch::scalar_value(&selected, row, &mut execution)
+            },
+        )
+    }
+
+    fn source_column(&self, name: &str, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+        if self.segments.values.is_empty() {
+            return Err(failed("prefix gathering requires retained source rows"));
+        }
         let mut chunks = ReservedVec::new(context.memory())?;
         chunks.reserve(self.segments.values.len())?;
         for &segment in &self.segments.values {
@@ -522,10 +557,9 @@ impl Gather<'_> {
         }
         let source_dtype = chunks.values[0].dtype().clone();
         let (chunks, _ownership) = chunks.into_parts();
-        let array = ChunkedArray::try_new(chunks, source_dtype)
+        Ok(ChunkedArray::try_new(chunks, source_dtype)
             .map_err(vortex_error)?
-            .into_array();
-        take_column_with_policy(&array, &self.indices, dtype, policy, context)
+            .into_array())
     }
 }
 
@@ -584,14 +618,7 @@ fn take_column_with_policy(
         return native_payload::take_with_policy(array, indices, dtype, policy, context);
     }
     let mut execution = context.native_session().create_execution_ctx();
-    let selected = array
-        .take(indices.clone())
-        .map_err(vortex_error)?
-        .cast(dtype.clone())
-        .map_err(vortex_error)?
-        .execute::<Columnar>(&mut execution)
-        .map_err(vortex_error)?
-        .into_array();
+    let selected = select_column(array, indices, dtype, &mut execution)?;
     if dtype == &DType::Null {
         // The provider has checked selection and cardinality. Untyped NULL
         // intermediates have no value buffers to compact; projection gives
@@ -615,6 +642,22 @@ fn take_column_with_policy(
     )?;
     context.check_cancelled()?;
     Ok(output)
+}
+
+fn select_column(
+    array: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    execution: &mut vortex::array::ExecutionCtx,
+) -> Result<ArrayRef> {
+    Ok(array
+        .take(indices.clone())
+        .map_err(vortex_error)?
+        .cast(dtype.clone())
+        .map_err(vortex_error)?
+        .execute::<Columnar>(execution)
+        .map_err(vortex_error)?
+        .into_array())
 }
 
 pub(super) fn take_batch(

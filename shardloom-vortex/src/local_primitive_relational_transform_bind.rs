@@ -111,7 +111,11 @@ impl Binder<'_> {
         };
         Ok(Node {
             fields: input.fields.clone(),
-            kind: NodeKind::Sort { input, spec },
+            kind: NodeKind::Sort {
+                input,
+                spec,
+                output_prefix: None,
+            },
         })
     }
 
@@ -121,6 +125,11 @@ impl Binder<'_> {
             .checked_add(limit.count)
             .ok_or_else(|| failed("output range overflow"))?;
         let mut input = Box::new(self.bind(&limit.input, depth + 1)?);
+        // Only an immediate Sort may omit output. Intervening projections and
+        // filters can still observe rows that this Limit will discard.
+        if let NodeKind::Sort { output_prefix, .. } = &mut input.kind {
+            *output_prefix = Some(if limit.count == 0 { 0 } else { prefix });
+        }
         if limit.count != 0 {
             cap_rolling_prefix(&mut input, prefix)?;
         }
