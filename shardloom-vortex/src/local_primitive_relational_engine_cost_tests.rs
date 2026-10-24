@@ -76,6 +76,35 @@ impl Spec {
     fn plan(self, left: &DatasetUri, right: &DatasetUri) -> VortexRelationalPlan {
         let input = scan(left);
         match self.case {
+            "expression_shared" | "expression_unique" => {
+                let product = |offset| {
+                    binary(
+                        if offset == 0 {
+                            column("n")
+                        } else {
+                            binary(column("n"), BinaryOp::Add, literal(offset))
+                        },
+                        BinaryOp::Multiply,
+                        column("id"),
+                    )
+                };
+                let unique = self.case == "expression_unique";
+                VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+                    input,
+                    expressions: vec![
+                        ("id".into(), column("id")),
+                        ("gross".into(), product(0)),
+                        (
+                            "net".into(),
+                            binary(product(i64::from(unique)), BinaryOp::Subtract, column("n")),
+                        ),
+                        (
+                            "after".into(),
+                            binary(product(2 * i64::from(unique)), BinaryOp::Add, literal(3)),
+                        ),
+                    ],
+                }))
+            }
             "value_text" | "value_numeric" | "predicate_projected" => {
                 let value = match self.case {
                     "value_text" => expression(ExpressionKind::FunctionCall {
@@ -377,7 +406,7 @@ fn native_engine_optimization_cost_screen() {
     let path = root.join(format!("{mode}-{case}-{rows}-{role}-{sample}.json"));
     assert!(!path.exists(), "preserve each observation");
     let mut record = run(&root, Spec { case, rows });
-    record["protocol"] = json!("native-engine-cost-v2");
+    record["protocol"] = json!("native-engine-cost-v3");
     record["role"] = json!(role);
     record["sample"] = json!(sample);
     fs::OpenOptions::new()

@@ -17,6 +17,8 @@ pub(super) const CASES: &[&str] = &[
     "predicate_filter",
     "predicate_projected",
     "predicate_single",
+    "expression_shared",
+    "expression_unique",
     "join_semi_duplicate",
     "join_anti_duplicate",
     "join_semi_unique",
@@ -34,13 +36,17 @@ impl Spec {
         self.case.starts_with("join_")
     }
     pub(super) fn streaming(self) -> bool {
-        self.join() || self.case.starts_with("predicate_") || self.case.starts_with("sort_")
+        self.join()
+            || self.case.starts_with("predicate_")
+            || self.case.starts_with("sort_")
+            || self.case.starts_with("expression_")
     }
     fn text(self) -> bool {
         !matches!(
             self.case,
             "value_numeric" | "aggregate_numeric" | "aggregate_count"
         ) && !self.case.starts_with("predicate_")
+            && !self.case.starts_with("expression_")
             && !self.join()
     }
     fn wide(self, right: bool) -> bool {
@@ -221,7 +227,7 @@ impl Data {
             .collect::<Vec<_>>();
         json!({"rows":self.spec.rows,"schema":self.schema(),
             "complete_values_sha256":digest(&serde_json::to_vec(&rows).unwrap()),
-            "generator":"native-engine-cost-v2","right":self.right})
+            "generator":"native-engine-cost-v3","right":self.right})
     }
 
     fn truth(&self, row: usize, single: bool) -> Option<bool> {
@@ -240,6 +246,25 @@ impl Data {
         let u64_type = || DType::Primitive(PType::U64, Nullability::NonNullable);
         let f64_type = || DType::Primitive(PType::F64, Nullability::Nullable);
         match self.spec.case {
+            "expression_shared" | "expression_unique" => (
+                (0..self.spec.rows)
+                    .map(|row| {
+                        let id = self.ids[row];
+                        let number = self.numbers[row];
+                        let unique = self.spec.case == "expression_unique";
+                        json!({"id":id,
+                        "gross":number.map(|n| n * id),
+                        "net":number.map(|n| (n + i64::from(unique)) * id - n),
+                        "after":number.map(|n| (n + 2 * i64::from(unique)) * id + 3)})
+                    })
+                    .collect(),
+                record_dtype(vec![
+                    ("id", DType::Primitive(PType::I64, Nullability::NonNullable)),
+                    ("gross", nullable_i64()),
+                    ("net", nullable_i64()),
+                    ("after", nullable_i64()),
+                ]),
+            ),
             "value_text" => (
                 (0..self.spec.rows)
                     .map(|row| {

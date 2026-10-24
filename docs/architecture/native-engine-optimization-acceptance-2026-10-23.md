@@ -300,6 +300,56 @@ The original failed fixture/build observations remain in the local record.
 Focused tests and native-feature lint pass; final workspace gates remain due
 after the coherent feedback batch.
 
+The isolated Full43 at the same runtime (`a19471ee`, documentation checkpoint)
+passes exactly one execution of every query and all 381 complete result rows.
+Summed engine execution is **49.674458790 seconds**. Full source, executable,
+input and reference identities remain unchanged, and owned processes and locks
+are released. This is the sort-demand regression checkpoint.
+
+### Prepared-expression and batch-reuse contract
+
+The next candidate retains the existing finite predicate program, including a
+negative admission decision, when each native expression is bound. Replace its
+borrowed column references with bounded owned names and nullability. Keep the
+existing eight-column, 32-instruction and 64-visit limits, and cap retained name
+bytes at 256 per column. Prove the program and its owning expression fit the
+existing 4,096-byte per-expression preparation allowance before allocating it.
+The same program serves projected three-valued Booleans and filter truth masks.
+
+Within a projection, bind exact reuse of an earlier completed projection
+output. Admit only ordered, type-identical pure column/literal/unary/binary/
+comparison trees, with floating literals compared by bits. Search at most 16
+earlier outputs and 64 nodes per comparison/annotation traversal. Store the
+resolved output ordinal during preparation; do not repeat structural searches
+for every batch. Reuse the output arrays the projection already retains, with
+ordinary dtype/cardinality checks. Do not retain another array cache.
+
+Reuse is scoped to the same input batch and projection invocation. Lazy branches
+and selected sub-inputs retain their existing evaluation scope; CASE, COALESCE,
+NULLIF, casts, functions and constructors are not annotated through this first
+reuse family. There is no cross-query state, algebraic reassociation, new
+provider or new array representation. Original error order, cancellation,
+output ownership and metadata admission remain part of the contract.
+
+Extend the existing cost fixture as `native-engine-cost-v3` before implementing
+the runtime change. Preserve the v2 definitions and every previous observation.
+Two additional cases use the same nullable I64 inputs, uneven batches, grants
+and complete-result checks. `expression_shared` projects `id`, `n * id`,
+`n * id - n` and `n * id + 3`. `expression_unique` changes the latter products
+to `(n + 1) * id` and `(n + 2) * id`, respectively. Independent arithmetic fixes
+all expected values and schemas before either executable is built.
+
+Freeze a baseline with this harness and the retained sort runtime. Compare
+three alternating pairs per cell against the same-harness candidate. The
+65,536-row shared-expression case is the benefit target (ratio <= 0.95).
+Controls are the large unique-expression, projected-predicate, filter-predicate,
+single-predicate and numeric-value cases, plus all six cases at 257 rows.
+All 12 cells keep the existing median ceiling of 10% or 100 microseconds,
+complete-result, source, grant and cleanup checks. Debug checks must prove zero
+recipe compilation during repeated executions and actual reuse of completed
+outputs. Run one isolated Full43 after the retained checkpoint; broad validation
+remains at the end of the cohesive feedback batch.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
