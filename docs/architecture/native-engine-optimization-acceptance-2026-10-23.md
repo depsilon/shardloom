@@ -546,6 +546,28 @@ the revision and the existing join/set/aggregate/payload controls. The first lin
 attempt finds only a missing test semicolon; no lint exemption is added.
 Feature-enabled Vortex Clippy, workspace formatting and diff checks pass.
 
+The single revision at `4af8fc72` passes all 48 calls under the unchanged
+schedule. Complete values, schemas, input identities, producer consumption,
+grants and cleanup agree. Every one of the eight cells meets its original
+timing ceiling, including the previously failing unique-key controls.
+
+| Large join workload | Baseline median engine seconds | Revised median engine seconds |
+| --- | ---: | ---: |
+| Semi, duplicate right keys | 0.026781789 | 0.023336839 |
+| Anti, duplicate right keys | 0.034323042 | 0.027068459 |
+| Semi, unique right keys | 0.035885077 | 0.029658588 |
+| Anti, unique right keys | 0.025618962 | 0.024813914 |
+
+The declared target engine-time geometric-mean ratio is 0.828972. Each target
+also passes the independent credited-state gate: peak ratios remain 0.063848
+and 0.081544. Both benefit gates and all controls pass, so retain the revision
+subject to the isolated Full43 and final workspace checks. The native numeric
+copy change also affects output copying; this combined revision does not isolate
+the benefit of unique-key retention from the eliminated copy/lookup overhead.
+The [revised decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/join-revised-decision.json)
+and the [failed first decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/join-first-decision.json)
+preserve separate measurements. No unchanged retry or relaxed threshold occurs.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
