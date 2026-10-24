@@ -6,6 +6,8 @@ Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and before [full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md),
 then [universal I/O](native-universal-io-performance-coverage-2026-10-24.md).
+The subsequent [public-naming pass](shardloom-public-naming-2026-10-24.md)
+also precedes ingestion and uses this package's settled lifecycle terminology.
 This is source review and a finite implementation/measurement scope, not an
 implemented cache or a measured warm Full43 result. The review uses #1595 at
 `bc2d1b6a`, whose runtime is unchanged from the accepted grouped campaign.

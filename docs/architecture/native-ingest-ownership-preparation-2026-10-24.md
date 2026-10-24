@@ -5,6 +5,7 @@
 Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and the subsequently requested [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
+then [public naming and terminology](shardloom-public-naming-2026-10-24.md),
 and before [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
 This records scope and source review, not an implemented optimization or new
 ingestion measurement. The grouped-preparation campaign is complete in #1595.
