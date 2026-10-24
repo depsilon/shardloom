@@ -416,6 +416,39 @@ typed-consumer use and no new retained input lifetime. A retained implementation
 receives one isolated Full43; final broad validation remains at the end of the
 cohesive feedback batch.
 
+### Composed numeric-consumer decision
+
+Retain `90251f28`. The existing typed row kernel now feeds scalar SUM/AVG in
+composed execution, with one physical-type/validity dispatch per measure and
+batch. It borrows the existing numeric owner and updates the existing state in
+input order. A 256-byte reservation covers the borrowed closure until it drops;
+the actual closure size is checked for every admitted physical type and validity
+shape. Finalization and adjacent column-owner reuse remain shared.
+
+The [complete numeric-consumer decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/aggregate-numeric-decision.json)
+preserves all 72 release observations, their record hashes and the frozen v3
+scoring against `22a42070`. Large numeric aggregation falls from **0.007787084**
+to **0.005647500 engine seconds**, a ratio of **0.725239384** (27.5% lower).
+The small numeric case falls from 0.000136083 to 0.000129457 seconds. All 12
+cells meet their timing ceilings and validate complete values, schemas, input
+identities, producer completion, grants and cleanup. This is evidence for the
+declared composed workload, not an isolated Full43 speedup.
+
+The focused regression groups cover 104 distinct passing tests, including the
+existing primitive/compact numeric kernels, exact keys, grouped and decimal
+aggregates, spill recovery, native writers and the larger-than-grant cases.
+Eight new tests verify all ten numeric widths, nullable/empty/dictionary/constant/
+chunked/sliced inputs, exact accumulator bits after every row, failure precedence,
+partial state, ordered floating addition, denied credits and cancellation.
+Streaming tests run after a filter and computed projection, execute the prepared
+plan twice with different data, witness producer release and retain output beyond
+the prepared owner's lifetime. The initial diagnostic-prefix regression was
+fixed by sharing the existing scalar validator. An overlap assertion in the test
+selection wrapper stopped after 54 passing tests; a separate preserved receipt
+completes the remaining control groups. Test-only lint repairs are followed by
+a passing eight-test rerun and feature-enabled Vortex Clippy with warnings denied.
+Final whole-batch validation is still pending.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
