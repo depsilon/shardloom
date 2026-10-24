@@ -1,0 +1,152 @@
+{
+  "schema": "shardloom.native_surface_parity.ci_repairs.v1",
+  "accepted_source_commit": "7f7613c6dcf7007aaca02d218f1f2f47235c1807",
+  "runtime_change": {
+    "path": "shardloom-vortex/src/resident_session.rs",
+    "before_sha256": "0f3e927f9ae5b5a295a3c413dcc1c784d43e9fc5668e42adb3ff27ff7f2c4b60",
+    "after_sha256": "50acc527d268227493ae56402c5c68249d93dcf80d2c299606b9759db31629e6",
+    "exact_change": {
+      "before": "#[cfg(all(feature = \"vortex-write\", unix))]\n    pub(crate) fn consume_in_context",
+      "after": "#[cfg(all(feature = \"vortex-local-primitives\", unix))]\n    pub(crate) fn consume_in_context"
+    },
+    "only_feature_condition_changed": true,
+    "measured_release_user_surfaces_enables_both_features": true,
+    "new_runtime_measurement_claimed": false
+  },
+  "historical_replay_dependency": {
+    "path": "scripts/run_clickbench_query_uat.py",
+    "previous_sha256": "5a688d68a0147c1166f07c775858a33b2eb5e36a9afde766596b2425a1a34157",
+    "current_sha256": "8194080ef372182c930a8077d5a38aaf89599141e96b7fd943c0aa2f9d35c5db",
+    "comparison_function_syntax_tree_unchanged": true,
+    "archived_matrix_results_and_verifier_unchanged": true
+  },
+  "original_parity_packet_unchanged": true,
+  "checks": [
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-readonly-feature.json",
+        "bytes": 503057,
+        "sha256": "22cdd451a158a139346ab1d91afb8345ea0b5ac621892d3bc191df289515918c"
+      },
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "vortex-local-primitives"
+      ],
+      "status": "passed",
+      "process_group_drained": true,
+      "source_unchanged": true,
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-readonly-feature.log",
+        "bytes": 4571,
+        "sha256": "6e759f59a6965c4b263800927bf87739dc4ed339baa6301aba8d4b3337a25fcf"
+      },
+      "log_text": "   Compiling serde_core v1.0.229\n   Compiling zstd-sys v2.0.16+zstd.1.5.7\n    Checking serde_json v1.0.154\n    Checking arrow-schema v58.3.0\n    Checking vortex-error v0.85.0\n    Checking serde v1.0.229\n    Checking vortex-buffer v0.85.0\n    Checking vortex-session v0.85.0\n    Checking vortex-mask v0.85.0\n    Checking vortex-flatbuffers v0.85.0\n    Checking vortex-compute v0.85.0\n    Checking vortex-array v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array)\n    Checking arrow-data v58.3.0\n   Compiling zstd-safe v7.2.4\n    Checking arrow-array v58.3.0\n    Checking arrow-select v58.3.0\n    Checking vortex-runend v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-runend)\n    Checking arrow-ord v58.3.0\n    Checking vortex-fastlanes v0.85.0\n    Checking zstd v0.13.3\n    Checking bytemuck v1.25.0\n    Checking roaring v0.11.4\n    Checking vortex-alp v0.85.0\n    Checking arrow-cast v58.3.0\n    Checking vortex-zigzag v0.85.0\n    Checking vortex-fsst v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-fsst)\n    Checking vortex-zstd v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-zstd)\n    Checking vortex-pco v0.85.0\n    Checking vortex-sequence v0.85.0\n    Checking vortex-decimal-byte-parts v0.85.0\n    Checking vortex-datetime-parts v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-datetime-parts)\n    Checking vortex-compressor v0.85.0\n    Checking vortex-sparse v0.85.0\n    Checking vortex-io v0.85.0\n    Checking vortex-btrblocks v0.85.0\n    Checking vortex-arrow v0.85.0\n    Checking vortex-scan v0.85.0\n    Checking vortex-onpair v0.85.0\n    Checking vortex-layout v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-layout)\n    Checking shardloom-core v0.7.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-core)\n    Checking vortex-bytebool v0.85.0\n    Checking vortex-edition v0.85.0\n    Checking shardloom-plan v0.7.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-plan)\n    Checking vortex-file v0.85.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-file)\n    Checking vortex-ipc v0.85.0\n   Compiling shardloom-vortex v0.7.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex)\n    Checking shardloom-exec v0.7.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-exec)\n    Checking vortex v0.85.0\nwarning: method `finish` is never used\n   --> shardloom-vortex/src/local_primitives/native_relational_sort.rs:171:19\n    |\n 39 | impl<'a> Sort<'a> {\n    | ----------------- method in this implementation\n...\n171 |     pub(super) fn finish(\n    |                   ^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `gather` is never used\n   --> shardloom-vortex/src/local_primitives/native_relational_sort.rs:265:15\n    |\n265 | pub(super) fn gather(\n    |               ^^^^^^\n\nwarning: method `disable_sampling_preparation` is never used\n  --> shardloom-vortex/src/local_primitive_relational_sample_preparation.rs:45:19\n   |\n34 | impl PreparedVortexRelational {\n   | ----------------------------- method in this implementation\n...\n45 |     pub(super) fn disable_sampling_preparation(&mut self) {\n   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: method `disable_sampling_preparation` is never used\n   --> shardloom-vortex/src/local_primitive_prepared_unary.rs:458:19\n    |\n419 | impl BoundUnary {\n    | --------------- method in this implementation\n...\n458 |     pub(super) fn disable_sampling_preparation(&mut self) {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `shardloom-vortex` (lib) generated 4 warnings\n    Checking shardloom-cli v0.7.0 (/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-cli)\nwarning: unused import: `prepare_in_session_with_reuse`\n  --> shardloom-cli/src/public_resident_relational.rs:28:46\n   |\n28 |     has_file_collection, prepare_in_session, prepare_in_session_with_reuse,\n   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: `shardloom-cli` (lib) generated 1 warning (run `cargo fix --lib -p shardloom-cli` to apply 1 suggestion)\n    Finished `dev` profile [unoptimized] target(s) in 17.08s\n"
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-readonly-vortex.json",
+        "bytes": 503061,
+        "sha256": "0dfdce2bce798e1963d89e50af21fe9406bfb076ba733e808ba08f0d83c8622f"
+      },
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-local-primitives"
+      ],
+      "status": "passed",
+      "process_group_drained": true,
+      "source_unchanged": true,
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-readonly-vortex.log",
+        "bytes": 1356,
+        "sha256": "4658bd114e13d423507715e4f6fa3f713bc31a8ccb4d331b4ab35ed3ac4c8dbe"
+      },
+      "log_text": "warning: method `finish` is never used\n   --> shardloom-vortex/src/local_primitives/native_relational_sort.rs:171:19\n    |\n 39 | impl<'a> Sort<'a> {\n    | ----------------- method in this implementation\n...\n171 |     pub(super) fn finish(\n    |                   ^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `gather` is never used\n   --> shardloom-vortex/src/local_primitives/native_relational_sort.rs:265:15\n    |\n265 | pub(super) fn gather(\n    |               ^^^^^^\n\nwarning: method `disable_sampling_preparation` is never used\n  --> shardloom-vortex/src/local_primitive_relational_sample_preparation.rs:45:19\n   |\n34 | impl PreparedVortexRelational {\n   | ----------------------------- method in this implementation\n...\n45 |     pub(super) fn disable_sampling_preparation(&mut self) {\n   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: method `disable_sampling_preparation` is never used\n   --> shardloom-vortex/src/local_primitive_prepared_unary.rs:458:19\n    |\n419 | impl BoundUnary {\n    | --------------- method in this implementation\n...\n458 |     pub(super) fn disable_sampling_preparation(&mut self) {\n    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: `shardloom-vortex` (lib) generated 4 warnings\n    Finished `dev` profile [unoptimized] target(s) in 0.08s\n"
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-historical-replay.json",
+        "bytes": 503075,
+        "sha256": "fcd0fde130a475fb20a323a7cf4dded99e72ff3c21f57e8830a5e4b96d90331f"
+      },
+      "command": [
+        "/opt/homebrew/bin/python3.13",
+        "-B",
+        "-m",
+        "unittest",
+        "python.tests.test_independent_full43_evidence"
+      ],
+      "status": "passed",
+      "process_group_drained": true,
+      "source_unchanged": true,
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-historical-replay.log",
+        "bytes": 101,
+        "sha256": "07c5629b4d10d9065be3955324b60ccbaf23e44bf57d906f901d359daa0738c4"
+      },
+      "log_text": "..\n----------------------------------------------------------------------\nRan 2 tests in 31.224s\n\nOK\n"
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-portable-replay.json",
+        "bytes": 503097,
+        "sha256": "853c4e1b7132b58f7267a9c3ef0642c7672211fff3611918c7cd5ee591617d90"
+      },
+      "command": [
+        "/opt/homebrew/bin/python3.13",
+        "-B",
+        "docs/benchmarks/evidence/native-surface-parity-2026-10-24/verify_packet.py",
+        "--self-test"
+      ],
+      "status": "passed",
+      "process_group_drained": true,
+      "source_unchanged": true,
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/native-surface-parity-20261024/parity-pr-portable-replay.log",
+        "bytes": 727,
+        "sha256": "ceddf373ca73cf1c1bf551ce1c55268d6b1c1c12bd0ed65956f9c692b68c19e1"
+      },
+      "log_text": "{\n  \"status\": \"passed\",\n  \"members\": 1361,\n  \"paired_complete_results\": 1080,\n  \"paired_failed_cells\": {\n    \"surfaces\": 7,\n    \"surfaces-r3\": 5,\n    \"surfaces-r4\": 2,\n    \"surfaces-r5\": 1\n  },\n  \"paired_timing_screen_passed\": false,\n  \"full43_complete_results\": 215,\n  \"full43_result_rows\": 1905,\n  \"equal_schema_queries\": 43,\n  \"engine_seconds\": {\n    \"cli_sql\": 48.701809680000004,\n    \"embedded_workflow\": 49.967501,\n    \"python_sql\": 50.826739087,\n    \"dataframe\": 51.412729913999996,\n    \"native_expression\": 52.287469918999996\n  },\n  \"final_small_fixture_results\": 215,\n  \"engine_executed\": false,\n  \"rejected_semantic_corruptions\": [\n    \"false_timing_pass\",\n    \"missing_final_call\",\n    \"changed_fixture_value\"\n  ]\n}\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "status": "passed",
+      "output": ""
+    }
+  ],
+  "unsuccessful_local_attempt": {
+    "command": [
+      "/usr/bin/python3",
+      "-B",
+      "-m",
+      "unittest",
+      "python.tests.test_independent_full43_evidence"
+    ],
+    "python_version": "3.9.6",
+    "status": "failed_unsupported_interpreter",
+    "reason": "dataclass slots requires supported Python >=3.10; repeated using Python 3.13",
+    "engine_executed": false
+  }
+}

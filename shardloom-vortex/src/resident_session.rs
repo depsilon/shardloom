@@ -1456,7 +1456,7 @@ impl PreparedVortexProjection {
     /// Borrow the caller's single operation grant and deliver the same native
     /// ordered scan used by resident collection. The consumer determines result
     /// retention; source/reader owners cannot escape this execution boundary.
-    #[cfg(all(feature = "vortex-write", unix))]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn consume_in_context(
         &self,
         context: &NativeExecutionContext<'_>,

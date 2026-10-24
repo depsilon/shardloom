@@ -128,11 +128,19 @@ omitted; they remain identifiable and regenerable.
 
 ```sh
 python3 -B docs/benchmarks/evidence/native-surface-parity-2026-10-24/verify_packet.py \
-  --check-current-source --self-test
+  --self-test
 ```
 
-Current-source checking applies to the recorded runtime and Python implementation;
-later runtime categories should replay the historical packet without that flag.
+At commit `7f7613c6dcf7007aaca02d218f1f2f47235c1807`, adding
+`--check-current-source` also verifies the recorded runtime and Python sources.
+The subsequent PR repair changes only the `consume_in_context` feature condition
+from `vortex-write` to `vortex-local-primitives`, matching its read-only caller.
+Both features were enabled in the measured `release-user-surfaces` build; the
+method body is unchanged. The [PR repair record](evidence/native-surface-parity-2026-10-24/ci-repairs.json)
+retains both targeted compile checks, historical replay with all corruption
+controls, parity replay, formatting and source-identity checks. This follow-up
+does not claim a new runtime measurement or require repeating Full43. Later revisions replay
+the historical packet without current-source checking.
 The controlled Vortex provider refresh is the next queue category, with a PR
 boundary before its implementation. This record closes neither independent CG
 gates nor broad SQL/DataFrame parity, optional data/IO breadth, production
