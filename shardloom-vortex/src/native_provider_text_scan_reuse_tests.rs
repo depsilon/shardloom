@@ -614,6 +614,7 @@ fn text_and_metric(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep the allocation oracle and complete result comparison together.
 fn native_text_scan_conjunction_reuses_decode_after_later_mask_narrowing() {
     let values = (0..128)
         .map(|row| format!("{row:04}:{}:東京", "native-text".repeat(32)))
@@ -726,6 +727,7 @@ fn native_text_scan_conjunction_reuses_decode_after_later_mask_narrowing() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One decoded reference covers the complete predicate/null matrix.
 fn native_text_scan_conjunction_preserves_nullable_contains_order_and_empty_results() {
     let values = [
         None,
