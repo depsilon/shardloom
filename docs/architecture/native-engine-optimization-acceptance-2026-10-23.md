@@ -507,7 +507,29 @@ native writers and spill pressure/recovery. Feature-enabled Vortex Clippy also
 passes. An initial test expected the wrong text for the existing finite-value
 diagnostic; the corrected assertion preserves its exact original message.
 The initial function-length lint is resolved by sharing the existing semi/anti
-output branch. The measured retain/drop decision remains pending.
+output branch.
+
+The first 48-call comparison at `f7cf7654` passes complete values, schemas,
+input/producer checks and credit cleanup. The two duplicate-heavy target
+medians have an engine-time geometric-mean ratio of 0.945843, and their peak
+credited-state ratios are 0.063848 and 0.081544. Nevertheless, the candidate
+**fails retention**: the large unique-key semi/anti controls increase by 17.7%
+and 24.1%, above the unchanged 10% ceiling. Preserve this failed decision in
+`join-first-decision.json` and all 48 observations.
+
+The single permitted revision addresses two source-confirmed extra costs on
+new unique keys. `RowSet` first searches the index, then `RowIndex::insert`
+repeats that search. Its bounded key copy also calls scalar storage preparation
+per retained numeric row, whereas the existing native payload copier binds a
+`NativeNumericOwner` once. Reuse the same index publication and native numeric
+owner boundaries to remove those repeated operations. This is a source-based
+explanation to test, not an isolated measurement of either cost's contribution.
+Preserve exact collision equality, duplicate order for ordinary index users,
+reservation-before-publication, cancellation, selection, finite-value checking,
+and owned output credits. Add collision/denial and numeric-copy regression
+coverage, then run the same 48-call schedule against the same accepted baseline
+in a new result directory. Thresholds, fixture sizes and supervision remain
+unchanged. If this revision fails, drop the existence-join candidate.
 
 ### Historical cross-surface investigation
 
