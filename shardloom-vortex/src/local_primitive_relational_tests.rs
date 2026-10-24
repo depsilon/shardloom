@@ -31,6 +31,8 @@ mod compact_index_cost_tests;
 mod correlated_tests;
 #[path = "local_primitive_relational_dynamic_tests.rs"]
 mod dynamic_tests;
+#[path = "local_primitive_relational_engine_cost_tests.rs"]
+mod engine_cost_tests;
 #[path = "local_primitive_relational_expression_tests.rs"]
 mod expression_tests;
 #[path = "local_primitive_relational_join_condition_tests.rs"]

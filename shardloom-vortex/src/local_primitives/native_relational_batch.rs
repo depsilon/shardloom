@@ -3,8 +3,9 @@
 use super::{
     logical_field_from_native_array,
     native_capacity::ReservedVec,
+    native_numeric_owner::NativeNumericOwner,
     native_payload,
-    native_relational_keys::{Cell, KeyColumn},
+    native_relational_keys::{Cell, KeyColumn, Preparation},
     result_batch, vortex_error,
 };
 use crate::resident_session::NativeExecutionContext;
@@ -13,7 +14,7 @@ use shardloom_exec::live_memory::LiveMemoryPool;
 use std::hash::Hasher as _;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray as _, VortexSessionExecute as _,
-    arrays::{ChunkedArray, StructArray},
+    arrays::{ChunkedArray, PrimitiveArray, StructArray},
     builtins::ArrayBuiltins as _,
     dtype::{DType, FieldNames, Nullability, PType},
     memory::MemorySessionExt as _,
@@ -37,7 +38,25 @@ impl Batch {
         key_names: &[String],
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        Self::from_names(array, key_names.iter().map(String::as_str), context)
+        Self::from_names(
+            array,
+            key_names.iter().map(String::as_str),
+            context,
+            Preparation::Hash,
+        )
+    }
+
+    pub(super) fn for_ordering(
+        array: ArrayRef,
+        key_names: &[String],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
+        Self::from_names(
+            array,
+            key_names.iter().map(String::as_str),
+            context,
+            Preparation::Values,
+        )
     }
 
     pub(super) fn with_names<const N: usize>(
@@ -45,13 +64,14 @@ impl Batch {
         key_names: [&str; N],
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        Self::from_names(array, key_names.into_iter(), context)
+        Self::from_names(array, key_names.into_iter(), context, Preparation::Hash)
     }
 
     fn from_names<'a>(
         array: ArrayRef,
         key_names: impl ExactSizeIterator<Item = &'a str>,
         context: &NativeExecutionContext<'_>,
+        purpose: Preparation,
     ) -> Result<Self> {
         let mut keys = ReservedVec::new(context.memory())?;
         keys.reserve(key_names.len())?;
@@ -59,7 +79,11 @@ impl Batch {
         for name in key_names {
             context.check_cancelled()?;
             let column = logical_field_from_native_array(&array, name)?;
-            keys.values.push(KeyColumn::new(
+            let prepare = match purpose {
+                Preparation::Values => KeyColumn::values,
+                Preparation::Hash => KeyColumn::new,
+            };
+            keys.values.push(prepare(
                 &column,
                 &mut execution,
                 context.memory(),
@@ -67,6 +91,13 @@ impl Batch {
             )?);
         }
         Ok(Self { array, keys })
+    }
+
+    pub(super) fn validate_keys(&self, row: usize) -> Result<()> {
+        for column in &self.keys.values {
+            column.validate_at(row)?;
+        }
+        Ok(())
     }
 
     pub(super) fn key(&self, key: usize) -> Result<&KeyColumn> {
@@ -167,7 +198,6 @@ impl Batch {
         Ok(column.hash_into(row, &mut hash)?.then(|| hash.finish()))
     }
 
-    #[cfg(feature = "vortex-write")]
     pub(super) fn compare_key(
         &self,
         row: usize,
@@ -226,6 +256,8 @@ impl Table {
     }
 
     fn locate(&self, row: usize) -> Result<(usize, usize)> {
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| counts.row_location_searches += 1);
         if row >= self.rows {
             return Err(failed("row ordinal exceeds retained native input"));
         }
@@ -235,6 +267,12 @@ impl Table {
             .partition_point(|segment| segment.start <= row)
             - 1;
         Ok((segment, row - self.segments.values[segment].start))
+    }
+
+    /// Resolve once when a comparator visits several keys of the same row.
+    pub(super) fn locate_batch(&self, row: usize) -> Result<(&Batch, usize)> {
+        let (segment, local) = self.locate(row)?;
+        Ok((&self.segments.values[segment].batch, local))
     }
 
     pub(super) fn hash(&self, row: usize, nulls_equal: bool) -> Result<Option<u64>> {
@@ -475,6 +513,41 @@ impl Gather<'_> {
                 |_| Ok(result_batch::Value::Null),
             );
         }
+        let array = self.source_column(name, context)?;
+        take_column_with_policy(&array, &self.indices, dtype, policy, context)
+    }
+
+    /// Full selection still reaches the shared scalar validator. Only its
+    /// retained prefix receives output buffers; no omitted value is skipped.
+    pub(super) fn column_prefix(
+        &self,
+        name: &str,
+        dtype: &DType,
+        retained: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        context.check_cancelled()?;
+        let array = self.source_column(name, context)?;
+        let mut execution = context.native_session().create_execution_ctx();
+        let selected = select_column(&array, &self.indices, dtype, &mut execution)?;
+        result_batch::build_column_prefix(
+            dtype,
+            self.indices.len(),
+            retained,
+            &context.native_session().allocator(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                result_batch::scalar_value(&selected, row, &mut execution)
+            },
+        )
+    }
+
+    fn source_column(&self, name: &str, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+        if self.segments.values.is_empty() {
+            return Err(failed("prefix gathering requires retained source rows"));
+        }
         let mut chunks = ReservedVec::new(context.memory())?;
         chunks.reserve(self.segments.values.len())?;
         for &segment in &self.segments.values {
@@ -485,10 +558,9 @@ impl Gather<'_> {
         }
         let source_dtype = chunks.values[0].dtype().clone();
         let (chunks, _ownership) = chunks.into_parts();
-        let array = ChunkedArray::try_new(chunks, source_dtype)
+        Ok(ChunkedArray::try_new(chunks, source_dtype)
             .map_err(vortex_error)?
-            .into_array();
-        take_column_with_policy(&array, &self.indices, dtype, policy, context)
+            .into_array())
     }
 }
 
@@ -547,14 +619,7 @@ fn take_column_with_policy(
         return native_payload::take_with_policy(array, indices, dtype, policy, context);
     }
     let mut execution = context.native_session().create_execution_ctx();
-    let selected = array
-        .take(indices.clone())
-        .map_err(vortex_error)?
-        .cast(dtype.clone())
-        .map_err(vortex_error)?
-        .execute::<Columnar>(&mut execution)
-        .map_err(vortex_error)?
-        .into_array();
+    let selected = select_column(array, indices, dtype, &mut execution)?;
     if dtype == &DType::Null {
         // The provider has checked selection and cardinality. Untyped NULL
         // intermediates have no value buffers to compact; projection gives
@@ -565,6 +630,19 @@ fn take_column_with_policy(
     // Compact final selected values into allocator-owned native buffers. This
     // explicit copy prevents small string views retaining whole source domains;
     // buffer credits then survive output clones, slices and the producer.
+    // As at the native payload-copy boundary, prepare selected numeric storage
+    // and validity once. Selection, casts and finite-value validation retain
+    // their existing boundaries; unsupported leaves keep scalar diagnostics.
+    let numeric = if matches!(dtype, DType::Primitive(ptype, _) if *ptype != PType::F16)
+        || crate::native_payload_schema::temporal_storage(dtype).is_some()
+    {
+        let primitive = result_batch::scalar_storage(&selected, &mut execution)?
+            .execute::<PrimitiveArray>(&mut execution)
+            .map_err(vortex_error)?;
+        Some(NativeNumericOwner::new(primitive, &mut execution)?)
+    } else {
+        None
+    };
     let output = result_batch::build_column(
         dtype,
         indices.len(),
@@ -573,11 +651,31 @@ fn take_column_with_policy(
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            result_batch::scalar_value(&selected, row, &mut execution)
+            if let Some(numeric) = &numeric {
+                numeric.stat_value(row).map(result_batch::Value::from)
+            } else {
+                result_batch::scalar_value(&selected, row, &mut execution)
+            }
         },
     )?;
     context.check_cancelled()?;
     Ok(output)
+}
+
+fn select_column(
+    array: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    execution: &mut vortex::array::ExecutionCtx,
+) -> Result<ArrayRef> {
+    Ok(array
+        .take(indices.clone())
+        .map_err(vortex_error)?
+        .cast(dtype.clone())
+        .map_err(vortex_error)?
+        .execute::<Columnar>(execution)
+        .map_err(vortex_error)?
+        .into_array())
 }
 
 pub(super) fn take_batch(

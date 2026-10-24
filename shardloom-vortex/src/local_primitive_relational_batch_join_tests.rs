@@ -17,6 +17,9 @@ mod fault_tests;
 #[path = "local_primitive_relational_batch_multiple_tests.rs"]
 mod multiple_tests;
 
+#[path = "local_primitive_relational_batch_join_existence_tests.rs"]
+mod existence_tests;
+
 #[path = "local_primitive_relational_batch_replay_tests.rs"]
 mod replay_tests;
 

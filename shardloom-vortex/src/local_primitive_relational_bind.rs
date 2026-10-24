@@ -620,10 +620,20 @@ impl<'a> Binder<'a> {
         validate_unique(&fields)?;
         let condition =
             self.join_condition(join.condition.as_ref(), &left.fields, &right.fields)?;
+        let mut right_key_fields = Vec::new();
+        if matches!(join.kind, JoinKind::LeftSemi | JoinKind::LeftAnti) && condition.is_none() {
+            self.charge_fields(right_keys.len())?;
+            for name in &right_keys {
+                if !right_key_fields.iter().any(|(prior, _)| prior == name) {
+                    right_key_fields.push((name.clone(), field(&right.fields, name)?.clone()));
+                }
+            }
+        }
         let spec = native_relational_join::Spec {
             kind: join.kind,
             left_keys,
             right_keys,
+            right_key_fields,
             fields: fields.clone(),
             columns,
             condition,

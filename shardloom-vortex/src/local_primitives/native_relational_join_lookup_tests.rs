@@ -45,6 +45,7 @@ fn ordered_join_hash_collisions_still_compare_exact_keys_and_pack_across_blocks(
                 condition: None,
                 left_keys: vec!["key".into()],
                 right_keys: vec!["key".into()],
+                right_key_fields: Vec::new(),
                 fields: vec![(
                     "id".into(),
                     DType::Primitive(PType::U32, Nullability::NonNullable),

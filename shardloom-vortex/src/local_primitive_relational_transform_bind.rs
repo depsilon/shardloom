@@ -27,15 +27,17 @@ impl Binder<'_> {
             // validity reductions keep every NULL row without requiring a new
             // persistence type. Bind the entire expression before this coercion.
             if expression.dtype == DType::Null {
-                use crate::local_primitives::native_relational_expression::{Expression, Kind};
-                self.charge(4096)?;
-                expression = Expression {
-                    dtype: DType::Bool(super::Nullability::Nullable),
-                    kind: Kind::Cast {
+                use crate::local_primitives::native_relational_expression::{
+                    Expression, Kind, PREPARATION_BYTES,
+                };
+                self.charge(PREPARATION_BYTES)?;
+                expression = Expression::new(
+                    DType::Bool(super::Nullability::Nullable),
+                    Kind::Cast {
                         input: Box::new(expression),
                         tolerant: false,
                     },
-                };
+                );
             }
             validate_payload(&expression.dtype)?;
             self.charge(
@@ -66,6 +68,9 @@ impl Binder<'_> {
             return Ok(*input);
         }
         self.narrow_file_projection(&mut input, &expressions)?;
+        crate::local_primitives::native_relational_expression::Expression::bind_projection_reuse(
+            &mut expressions,
+        );
         Ok(Node {
             fields,
             kind: NodeKind::Project { input, expressions },
@@ -111,7 +116,11 @@ impl Binder<'_> {
         };
         Ok(Node {
             fields: input.fields.clone(),
-            kind: NodeKind::Sort { input, spec },
+            kind: NodeKind::Sort {
+                input,
+                spec,
+                output_prefix: None,
+            },
         })
     }
 
@@ -121,6 +130,11 @@ impl Binder<'_> {
             .checked_add(limit.count)
             .ok_or_else(|| failed("output range overflow"))?;
         let mut input = Box::new(self.bind(&limit.input, depth + 1)?);
+        // Only an immediate Sort may omit output. Intervening projections and
+        // filters can still observe rows that this Limit will discard.
+        if let NodeKind::Sort { output_prefix, .. } = &mut input.kind {
+            *output_prefix = Some(if limit.count == 0 { 0 } else { prefix });
+        }
         if limit.count != 0 {
             cap_rolling_prefix(&mut input, prefix)?;
         }

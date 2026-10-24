@@ -26,7 +26,7 @@ fn streamed_ordering_spill_preserves_multikey_ties_and_nested_stage_order() {
             row
         })
         .collect::<Vec<_>>();
-    for nested in [false, true] {
+    for (nested, demand) in [(false, None), (true, None), (false, Some((8, 5)))] {
         let keys = vec![
             key("n", true, NullOrder::Last),
             key("s", false, NullOrder::First),
@@ -39,6 +39,12 @@ fn streamed_ordering_spill_preserves_multikey_ties_and_nested_stage_order() {
         } else {
             reference_sort(&mut expected, &keys);
             sorted(scan(), keys)
+        };
+        let plan = if let Some((offset, count)) = demand {
+            expected = expected.into_iter().skip(offset).take(count).collect();
+            limited(plan, offset, count)
+        } else {
+            plan
         };
         let prepared = prepare_rows(&plan)
             .with_spill(spill(&fixture, 64 << 20))

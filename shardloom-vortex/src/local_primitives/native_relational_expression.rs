@@ -24,10 +24,26 @@ pub(super) mod scalar;
 #[path = "native_relational_predicate_block.rs"]
 mod predicate_block;
 
+#[path = "native_relational_expression_reuse.rs"]
+mod reuse;
+
+pub(super) use predicate_block::Recipe as FilterRecipe;
+
+pub(super) const PREPARATION_BYTES: usize = 4096;
+
 pub(super) struct Expression {
     pub(super) dtype: DType,
     pub(super) kind: Kind,
+    recipe: Option<Box<FilterRecipe>>,
+    reuse_output: Option<usize>,
 }
+
+// Each bound expression already owns this admission credit. The finite program
+// owns at most eight bounded column names; child expressions are charged apart.
+const _: () = assert!(
+    std::mem::size_of::<Expression>() + predicate_block::MAX_RETAINED_BYTES + 256
+        <= PREPARATION_BYTES
+);
 
 pub(super) enum Kind {
     Column(String),
@@ -51,6 +67,21 @@ pub(super) enum Kind {
 }
 
 impl Expression {
+    pub(super) fn new(dtype: DType, kind: Kind) -> Self {
+        let mut expression = Self {
+            dtype,
+            kind,
+            recipe: None,
+            reuse_output: None,
+        };
+        expression.recipe = FilterRecipe::compile(&expression).map(Box::new);
+        expression
+    }
+
+    pub(super) fn filter_recipe(&self) -> Option<&FilterRecipe> {
+        self.recipe.as_deref()
+    }
+
     pub(super) fn visit_columns(&self, visit: &mut impl FnMut(&str) -> Result<()>) -> Result<()> {
         match &self.kind {
             Kind::Column(name) => visit(name),
@@ -83,34 +114,42 @@ impl Expression {
         input: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
+        self.evaluate_in_scope(input, context, None)
+    }
+
+    /// Only the current projection supplies completed outputs from this exact
+    /// input. Selected sub-inputs and lazy branches use ordinary `evaluate`.
+    pub(super) fn evaluate_reusing(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        completed: &[ArrayRef],
+    ) -> Result<ArrayRef> {
+        self.evaluate_in_scope(input, context, Some(completed))
+    }
+
+    fn evaluate_in_scope(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        completed: Option<&[ArrayRef]>,
+    ) -> Result<ArrayRef> {
         context.check_cancelled()?;
-        if let Some(recipe) = predicate_block::Recipe::compile(self) {
+        if let Some((completed, index)) = completed.zip(self.reuse_output) {
+            return self.completed_result(completed, index, input.len(), context);
+        }
+        if let Some(recipe) = &self.recipe {
             let result = recipe.evaluate(self, input, context)?;
             return self.checked_result(result, input.len(), context);
         }
         let result = match &self.kind {
             Kind::Column(name) => super::logical_field_from_native_array(input, name)?,
-            Kind::Literal(scalar) => {
-                if crate::native_payload_schema::temporal_storage(&self.dtype).is_some() {
-                    // The pinned provider reduces Extension(Constant(storage))
-                    // through a calendar scalar with a narrower domain. A later
-                    // take (including result ownership) can therefore panic for
-                    // valid Date32/Int64 values. Keep these literals in credited
-                    // primitive buffers under their native extension dtype.
-                    let value = scalar
-                        .as_primitive()
-                        .as_::<i64>()
-                        .ok_or_else(|| failed("temporal literal has invalid primitive storage"))?;
-                    self.build(input.len(), context, |_| Ok(Value::Int(value)))?
-                } else {
-                    ConstantArray::new(scalar.clone(), input.len()).into_array()
-                }
-            }
+            Kind::Literal(scalar) => self.literal_array(scalar, input.len(), context)?,
             Kind::List(children) | Kind::Struct(children) => {
                 self.construct(input, context, children)?
             }
             Kind::Unary(op, expression) => {
-                let array = expression.evaluate(input, context)?;
+                let array = expression.evaluate_in_scope(input, context, completed)?;
                 if super::native_payload::is_nested(array.dtype())
                     && matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull)
                 {
@@ -126,8 +165,12 @@ impl Expression {
                 }
             }
             Kind::Binary(left, op, right) => {
-                let left_values = keys(&left.evaluate(input, context)?, context)?;
-                let right_values = keys(&right.evaluate(input, context)?, context)?;
+                let left_values =
+                    keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
+                let right_values = keys(
+                    &right.evaluate_in_scope(input, context, completed)?,
+                    context,
+                )?;
                 self.build(input.len(), context, |row| {
                     binary(
                         left_values.raw_cell(row)?,
@@ -140,8 +183,11 @@ impl Expression {
                 })?
             }
             Kind::Compare(left, op, right) => {
-                let left = keys(&left.evaluate(input, context)?, context)?;
-                let right = keys(&right.evaluate(input, context)?, context)?;
+                let left = keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
+                let right = keys(
+                    &right.evaluate_in_scope(input, context, completed)?,
+                    context,
+                )?;
                 self.build(input.len(), context, |row| {
                     if left.is_null(row)? || right.is_null(row)? {
                         return Ok(Value::Null);
@@ -185,6 +231,44 @@ impl Expression {
             }
         };
         self.checked_result(result, input.len(), context)
+    }
+
+    fn completed_result(
+        &self,
+        completed: &[ArrayRef],
+        index: usize,
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        let result = completed
+            .get(index)
+            .ok_or_else(|| failed("prepared expression reuse precedes its output"))?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.expression_output_reuses += 1;
+        });
+        self.checked_result(result.clone(), rows, context)
+    }
+
+    fn literal_array(
+        &self,
+        scalar: &Scalar,
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        if crate::native_payload_schema::temporal_storage(&self.dtype).is_some() {
+            // The pinned provider reduces Extension(Constant(storage)) through
+            // a calendar scalar with a narrower domain. A later take (including
+            // result ownership) can panic for valid Date32/Int64 values. Keep
+            // these literals in credited buffers under their native dtype.
+            let value = scalar
+                .as_primitive()
+                .as_::<i64>()
+                .ok_or_else(|| failed("temporal literal has invalid primitive storage"))?;
+            self.build(rows, context, |_| Ok(Value::Int(value)))
+        } else {
+            Ok(ConstantArray::new(scalar.clone(), rows).into_array())
+        }
     }
 
     fn checked_result(
@@ -469,7 +553,7 @@ impl Expression {
 }
 
 pub(super) fn keys(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<KeyColumn> {
-    KeyColumn::new(
+    KeyColumn::values(
         array,
         &mut context.native_session().create_execution_ctx(),
         context.memory(),

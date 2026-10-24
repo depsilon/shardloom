@@ -1,0 +1,1517 @@
+{
+  "schema": "shardloom.surface_timing_evidence_extract.v1b",
+  "scope": {
+    "expected_rows": 25,
+    "final_cohort": {
+      "bytes": 376420,
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/comparison-1000.json",
+      "sha256": "c5a82c005f54be01cf4d8b84f5e9a89fc987bcdc25be00b9f2f8f29801a52f97"
+    },
+    "queries": [
+      19,
+      23,
+      29,
+      34,
+      35
+    ],
+    "roles": [
+      "cli_sql",
+      "embedded_workflow",
+      "python_sql",
+      "dataframe",
+      "native_expression"
+    ]
+  },
+  "historical_only": true,
+  "source_commit": "7c65f339473e1f937d08da4b33fb538c00c171f7",
+  "input_identity": {
+    "bytes": 15713610513,
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22"
+  },
+  "observation_selection": "The manifest final_cohort references the final sequential cohort at source_commit; review.final_outputs binds each role and query ordinal to the final stdout member. Exactly one completed run per query per role is recorded.",
+  "field_policy": "Semantic names are corrected to source meaning. Absent or unreported fields are null and listed in omitted_fields. No field value implies actual worker count unless its source key explicitly measures workers.",
+  "source_members": {
+    "benchmark_markdown": {
+      "path": "docs/benchmarks/native-shared-surfaces-2026-10-23.md",
+      "sha256": "fb65db730e1b4d638628d485d8c4f97017d4439ee29dc269927d82cca4ae5956"
+    },
+    "records_json_xz": {
+      "bytes": 8116960,
+      "path": "docs/benchmarks/evidence/native-shared-surfaces-2026-10-23/records.json.xz",
+      "sha256": "b85ef70565dffa44fddf5230a9da0e080cb79ced37a0f74f0afda600454f013f"
+    },
+    "review_json": {
+      "path": "docs/benchmarks/evidence/native-shared-surfaces-2026-10-23/review.json",
+      "sha256": "83d3c71d7897414888b178b18b0f52481d4b6025d9557700d3a145da41564848"
+    },
+    "verify_py": {
+      "path": "docs/benchmarks/evidence/native-shared-surfaces-2026-10-23/verify.py",
+      "sha256": "1ce76ccee17ea876cb1aeba88cab07ab3fb8d342979a6470458b25f89e52b640"
+    }
+  },
+  "source_field_keys": {
+    "admitted_max_parallelism": "output.fields[execution_resource_admitted_max_parallelism]",
+    "aggregate_strategy_fields": "output.fields[local_primitive_*strategy]",
+    "aggregate_worker_evidence": "output.fields[local_primitive_aggregate_workers_* (exact keys listed per row)]",
+    "engine_execution_seconds": "summary.records[query-1].engine_execution_seconds",
+    "input_path": "output.fields[native_vortex_input_binding_sources] or predeclared plan.input.path when the output omits binding",
+    "input_sha256": "final_cohort.plan.input.sha256",
+    "physical_native_scan_projected_or_read_columns": "no matching output.fields key found among scan/read/projected column keys; null means unreported",
+    "provider_kind": "output.fields[local_primitive_kind]",
+    "provider_mode": "output.fields[local_primitive_mode]",
+    "reported_native_query_execution_nanos": "output.fields[native_query_execution_nanos]",
+    "requested_max_parallelism": "output.fields[local_primitive_max_parallelism_requested]",
+    "result_output_projected_columns": "output.fields[local_primitive_projected_columns]",
+    "scan_concurrency_per_worker": "output.fields[local_primitive_physical_policy_selected_scan_concurrency_per_worker]",
+    "selected_physical_max_parallelism": "output.fields[local_primitive_physical_policy_selected_max_parallelism]",
+    "work_counters": "output.fields[exact keys listed per row]"
+  },
+  "original_extract_sha256": "393d56d26a19b9eb74b3b0b6f8254e84653df8d6517788f42d23089ce404eaa3",
+  "rows": [
+    {
+      "role": "cli_sql",
+      "query": 19,
+      "engine_execution_seconds": 4.722239957,
+      "reported_native_query_execution_nanos": "4722239957",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "numeric_minute_string_dictionary_code_direct_group_update",
+        "local_primitive_compact_group_state_strategy": "numeric_minute_string_dictionary_code_compact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "typed_numeric_minute_string_count_topk",
+        "local_primitive_group_output_strategy": "capillary_streaming_numeric_minute_string_count_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "5716",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "6019103",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "UserID,m,SearchPhrase,count_all_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 21237,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/q19_run1.stdout.json.gz",
+          "sha256": "4d5e3399a9f4c237ae43deafda87a405982cff634c8d912d0d033d5037864150"
+        },
+        "summary_member": {
+          "bytes": 123878,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/summary.json",
+          "sha256": "44988d262db38d8794f16de90b024d8033bd82d986714f96bc4cac2f1efe04e3"
+        }
+      }
+    },
+    {
+      "role": "cli_sql",
+      "query": 23,
+      "engine_execution_seconds": 3.293213833,
+      "reported_native_query_execution_nanos": "3293213833",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+        "local_primitive_compact_group_state_strategy": "string_dictionary_code_heavy_hitter_exact_late_measure_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "proofbound_heavy_hitter_string_count_topk_first_pass_late_measure_exact",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "1313",
+        "local_primitive_arrays_read_count": "1313",
+        "local_primitive_decoded_string_count": "3673",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "7128"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "SearchPhrase,min_URL_1,min_Title_2,c,count_distinct_UserID_4",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 24482,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/q23_run1.stdout.json.gz",
+          "sha256": "35fe1ae77e5d6c5e28513d2a31be43e34837453ff1ff5066ccabf93051aa9b71"
+        },
+        "summary_member": {
+          "bytes": 123878,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/summary.json",
+          "sha256": "44988d262db38d8794f16de90b024d8033bd82d986714f96bc4cac2f1efe04e3"
+        }
+      }
+    },
+    {
+      "role": "cli_sql",
+      "query": 29,
+      "engine_execution_seconds": 3.118414707,
+      "reported_native_query_execution_nanos": "3118414707",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "transformed_dictionary_dense_general_chunk_partial_group_update",
+        "local_primitive_compact_group_state_strategy": "dense_transformed_dictionary_chunk_partial_measure_group_state",
+        "local_primitive_group_key_comparison_strategy": "interned_utf8_domain_id_then_string",
+        "local_primitive_group_output_strategy": "capillary_transformed_dictionary_dense_general_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_arrays_read_count": "3119",
+        "local_primitive_decoded_string_count": "3009017",
+        "local_primitive_rows_projected": "25",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "81032736"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "k,l,c,min_Referer_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 24880,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/q29_run1.stdout.json.gz",
+          "sha256": "c247923c8180af07593aa4ab0e2dc316c07fc5d43eec9076e7fcd21979821fde"
+        },
+        "summary_member": {
+          "bytes": 123878,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/summary.json",
+          "sha256": "44988d262db38d8794f16de90b024d8033bd82d986714f96bc4cac2f1efe04e3"
+        }
+      }
+    },
+    {
+      "role": "cli_sql",
+      "query": 34,
+      "engine_execution_seconds": 2.568378916,
+      "reported_native_query_execution_nanos": "2568378916",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "local_primitive_compact_group_state_strategy": "string_heavy_hitter_exact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "3821960766",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "3821960766",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 23145,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/q34_run1.stdout.json.gz",
+          "sha256": "fe22469597b7c514959510013454d06678cde21ae191b0c10de70e3463a42583"
+        },
+        "summary_member": {
+          "bytes": 123878,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/summary.json",
+          "sha256": "44988d262db38d8794f16de90b024d8033bd82d986714f96bc4cac2f1efe04e3"
+        }
+      }
+    },
+    {
+      "role": "cli_sql",
+      "query": 35,
+      "engine_execution_seconds": 2.6826825,
+      "reported_native_query_execution_nanos": "2682682500",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "count_star_direct_group_update",
+        "local_primitive_compact_group_state_strategy": "compact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "typed_count_star_key_topk",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "3730138025",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "3730138025",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "literal_1,URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 22430,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/q35_run1.stdout.json.gz",
+          "sha256": "08426125d0fc96402bd946cd386ae17eaad3bc9ff9401f2cefc3d1b0d2df5313"
+        },
+        "summary_member": {
+          "bytes": 123878,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/cli_sql/logs/full43_20261023T201744069091Z/summary.json",
+          "sha256": "44988d262db38d8794f16de90b024d8033bd82d986714f96bc4cac2f1efe04e3"
+        }
+      }
+    },
+    {
+      "role": "embedded_workflow",
+      "query": 19,
+      "engine_execution_seconds": 4.872714042,
+      "reported_native_query_execution_nanos": "4872714042",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "numeric_minute_string_dictionary_code_direct_group_update",
+        "local_primitive_compact_group_state_strategy": "numeric_minute_string_dictionary_code_compact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "typed_numeric_minute_string_count_topk",
+        "local_primitive_group_output_strategy": "capillary_streaming_numeric_minute_string_count_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "5716",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "6019103",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "UserID,m,SearchPhrase,count_all_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 14503,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/q19_run1.stdout.json.gz",
+          "sha256": "76d38f17eb448c9a1308087e14f493543abc5042cbf5657c93c050c5eebfd1a5"
+        },
+        "summary_member": {
+          "bytes": 123916,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/summary.json",
+          "sha256": "05bbc6b554710f947760d217983ef3cb3fa2203bc19cd42dbd05cba6344b9d1e"
+        }
+      }
+    },
+    {
+      "role": "embedded_workflow",
+      "query": 23,
+      "engine_execution_seconds": 3.947032667,
+      "reported_native_query_execution_nanos": "3947032667",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+        "local_primitive_compact_group_state_strategy": "string_dictionary_code_heavy_hitter_exact_late_measure_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "proofbound_heavy_hitter_string_count_topk_first_pass_late_measure_exact",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "1313",
+        "local_primitive_arrays_read_count": "1313",
+        "local_primitive_decoded_string_count": "3673",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "7128"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "SearchPhrase,min_URL_1,min_Title_2,c,count_distinct_UserID_4",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 18349,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/q23_run1.stdout.json.gz",
+          "sha256": "ab26e5288f9ccb425c62f643fe3dae80e1fa421e744a81de9ede3a7205d3952a"
+        },
+        "summary_member": {
+          "bytes": 123916,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/summary.json",
+          "sha256": "05bbc6b554710f947760d217983ef3cb3fa2203bc19cd42dbd05cba6344b9d1e"
+        }
+      }
+    },
+    {
+      "role": "embedded_workflow",
+      "query": 29,
+      "engine_execution_seconds": 4.255316833,
+      "reported_native_query_execution_nanos": "4255316833",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "transformed_dictionary_dense_general_chunk_partial_group_update",
+        "local_primitive_compact_group_state_strategy": "dense_transformed_dictionary_chunk_partial_measure_group_state",
+        "local_primitive_group_key_comparison_strategy": "interned_utf8_domain_id_then_string",
+        "local_primitive_group_output_strategy": "capillary_transformed_dictionary_dense_general_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_arrays_read_count": "3119",
+        "local_primitive_decoded_string_count": "3009017",
+        "local_primitive_rows_projected": "25",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "81032736"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "k,l,c,min_Referer_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 18675,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/q29_run1.stdout.json.gz",
+          "sha256": "d13d0f3a070688f4bc0e25ccd8cd58c69593877b996b3e87c266741f87efd6dd"
+        },
+        "summary_member": {
+          "bytes": 123916,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/summary.json",
+          "sha256": "05bbc6b554710f947760d217983ef3cb3fa2203bc19cd42dbd05cba6344b9d1e"
+        }
+      }
+    },
+    {
+      "role": "embedded_workflow",
+      "query": 34,
+      "engine_execution_seconds": 3.6144085,
+      "reported_native_query_execution_nanos": "3614408500",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "local_primitive_compact_group_state_strategy": "string_heavy_hitter_exact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "5973068159",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "5973068159",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 16362,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/q34_run1.stdout.json.gz",
+          "sha256": "1f5aa25298059f2568bf45d1a4479a687cba34ed199117f9fbd0ff442b1239ed"
+        },
+        "summary_member": {
+          "bytes": 123916,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/summary.json",
+          "sha256": "05bbc6b554710f947760d217983ef3cb3fa2203bc19cd42dbd05cba6344b9d1e"
+        }
+      }
+    },
+    {
+      "role": "embedded_workflow",
+      "query": 35,
+      "engine_execution_seconds": 3.546948083,
+      "reported_native_query_execution_nanos": "3546948083",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "count_star_direct_group_update",
+        "local_primitive_compact_group_state_strategy": "compact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "typed_count_star_key_topk",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "5532722867",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "5532722867",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "literal_1,URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 15972,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/q35_run1.stdout.json.gz",
+          "sha256": "3934815a543f76c9486645a05f3e47070eaa6302a7940d70f89967b8fefa08ab"
+        },
+        "summary_member": {
+          "bytes": 123916,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/embedded_workflow/logs/full43_20261023T201841605770Z/summary.json",
+          "sha256": "05bbc6b554710f947760d217983ef3cb3fa2203bc19cd42dbd05cba6344b9d1e"
+        }
+      }
+    },
+    {
+      "role": "python_sql",
+      "query": 19,
+      "engine_execution_seconds": 5.331906708,
+      "reported_native_query_execution_nanos": "5331906708",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "numeric_minute_string_dictionary_code_direct_group_update",
+        "local_primitive_compact_group_state_strategy": "numeric_minute_string_dictionary_code_compact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "typed_numeric_minute_string_count_topk",
+        "local_primitive_group_output_strategy": "capillary_streaming_numeric_minute_string_count_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "5716",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "6019103",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "UserID,m,SearchPhrase,count_all_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 14569,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/q19_run1.stdout.json.gz",
+          "sha256": "1c31a20b8fe97ca5dae72cfae0ad449260c095334087db3ae7bc8c60bd1f34b6"
+        },
+        "summary_member": {
+          "bytes": 123272,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/summary.json",
+          "sha256": "c7f66038c517c85107e34f3e3948dae80a1909fc5c3f85cf15116cfc6aec278c"
+        }
+      }
+    },
+    {
+      "role": "python_sql",
+      "query": 23,
+      "engine_execution_seconds": 6.764747792,
+      "reported_native_query_execution_nanos": "6764747792",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+        "local_primitive_compact_group_state_strategy": "string_dictionary_code_heavy_hitter_exact_late_measure_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "proofbound_heavy_hitter_string_count_topk_first_pass_late_measure_exact",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "1313",
+        "local_primitive_arrays_read_count": "1313",
+        "local_primitive_decoded_string_count": "3673",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "7128"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "SearchPhrase,min_URL_1,min_Title_2,c,count_distinct_UserID_4",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 18412,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/q23_run1.stdout.json.gz",
+          "sha256": "5dfeba648381169bfc44878382eb080f99670ba8ca385bcc5b1c2e2d686514d1"
+        },
+        "summary_member": {
+          "bytes": 123272,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/summary.json",
+          "sha256": "c7f66038c517c85107e34f3e3948dae80a1909fc5c3f85cf15116cfc6aec278c"
+        }
+      }
+    },
+    {
+      "role": "python_sql",
+      "query": 29,
+      "engine_execution_seconds": 4.975017625,
+      "reported_native_query_execution_nanos": "4975017625",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "transformed_dictionary_dense_general_chunk_partial_group_update",
+        "local_primitive_compact_group_state_strategy": "dense_transformed_dictionary_chunk_partial_measure_group_state",
+        "local_primitive_group_key_comparison_strategy": "interned_utf8_domain_id_then_string",
+        "local_primitive_group_output_strategy": "capillary_transformed_dictionary_dense_general_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_arrays_read_count": "3119",
+        "local_primitive_decoded_string_count": "3009017",
+        "local_primitive_rows_projected": "25",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "81032736"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "k,l,c,min_Referer_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 18760,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/q29_run1.stdout.json.gz",
+          "sha256": "925d605cba388c38add2387d499f63a5de038e2db351d9c5a6c3a7a87165e738"
+        },
+        "summary_member": {
+          "bytes": 123272,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/summary.json",
+          "sha256": "c7f66038c517c85107e34f3e3948dae80a1909fc5c3f85cf15116cfc6aec278c"
+        }
+      }
+    },
+    {
+      "role": "python_sql",
+      "query": 34,
+      "engine_execution_seconds": 4.242672917,
+      "reported_native_query_execution_nanos": "4242672917",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "local_primitive_compact_group_state_strategy": "string_heavy_hitter_exact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "6719840606",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "6719840606",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 16421,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/q34_run1.stdout.json.gz",
+          "sha256": "63bee21e3afdce0cbb06ef3f39f1e9b2bb6a52a0cb76055ddddda839d6898baa"
+        },
+        "summary_member": {
+          "bytes": 123272,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/summary.json",
+          "sha256": "c7f66038c517c85107e34f3e3948dae80a1909fc5c3f85cf15116cfc6aec278c"
+        }
+      }
+    },
+    {
+      "role": "python_sql",
+      "query": 35,
+      "engine_execution_seconds": 3.492865417,
+      "reported_native_query_execution_nanos": "3492865417",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "count_star_direct_group_update",
+        "local_primitive_compact_group_state_strategy": "compact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "typed_count_star_key_topk",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "6562871285",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "6562871285",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "literal_1,URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 16051,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/q35_run1.stdout.json.gz",
+          "sha256": "661922a2c9fcfb0e75ae9ff4e2f84e93213646e4ccd9a4fea98d71454732fcb3"
+        },
+        "summary_member": {
+          "bytes": 123272,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/python_sql/logs/full43_20261023T201950358977Z/summary.json",
+          "sha256": "c7f66038c517c85107e34f3e3948dae80a1909fc5c3f85cf15116cfc6aec278c"
+        }
+      }
+    },
+    {
+      "role": "dataframe",
+      "query": 19,
+      "engine_execution_seconds": 5.567369125,
+      "reported_native_query_execution_nanos": "5567369125",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "UserID,SearchPhrase,m,count_all_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 5605,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/q19_run1.stdout.json.gz",
+          "sha256": "090cc3b1d049ff158e0ffb02d7eadfae7676ecb521db47e60a9cd5fc3a9d8698"
+        },
+        "summary_member": {
+          "bytes": 123129,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/summary.json",
+          "sha256": "11664e558a49ba4dacb71f994f5589b63d938cb5b72e38a2583d1fc57931da2c"
+        }
+      }
+    },
+    {
+      "role": "dataframe",
+      "query": 23,
+      "engine_execution_seconds": 4.577225458,
+      "reported_native_query_execution_nanos": "4577225458",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "1313",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "7128"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "SearchPhrase,min_URL_1,min_Title_2,c,count_distinct_UserID_4",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 7266,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/q23_run1.stdout.json.gz",
+          "sha256": "4bc99d7bd1f0091ccc727c6ec01f7a2d7b394caa1e003e6d76f8722b49268a47"
+        },
+        "summary_member": {
+          "bytes": 123129,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/summary.json",
+          "sha256": "11664e558a49ba4dacb71f994f5589b63d938cb5b72e38a2583d1fc57931da2c"
+        }
+      }
+    },
+    {
+      "role": "dataframe",
+      "query": 29,
+      "engine_execution_seconds": 4.563808958,
+      "reported_native_query_execution_nanos": "4563808958",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3119",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "81032736"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "k,l,c,min_Referer_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 7731,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/q29_run1.stdout.json.gz",
+          "sha256": "a11c257e23fda3a8a0bb059eed085f5d987768d05aa295708731aec74476348a"
+        },
+        "summary_member": {
+          "bytes": 123129,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/summary.json",
+          "sha256": "11664e558a49ba4dacb71f994f5589b63d938cb5b72e38a2583d1fc57931da2c"
+        }
+      }
+    },
+    {
+      "role": "dataframe",
+      "query": 34,
+      "engine_execution_seconds": 3.818391042,
+      "reported_native_query_execution_nanos": "3818391042",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": "10",
+      "scan_concurrency_per_worker": "10",
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+        "local_primitive_compact_group_state_strategy": "string_heavy_hitter_exact_count_star_group_state",
+        "local_primitive_group_key_comparison_strategy": "proofbound_count_desc_string_asc",
+        "local_primitive_group_output_strategy": "complete_key_partition_exact_topk",
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": "6468543741",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120"
+      },
+      "work_counters": {
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls": "0",
+        "local_primitive_aggregate_workers_count_work_nanos": "6468543741",
+        "local_primitive_aggregate_workers_partition_count": "64",
+        "local_primitive_aggregate_workers_peak_active_workers": "9",
+        "local_primitive_aggregate_workers_submitted_chunks": "3120",
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_decoded_string_count": "640",
+        "local_primitive_rows_projected": "10",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "physical_native_scan_projected_or_read_columns"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 16413,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/q34_run1.stdout.json.gz",
+          "sha256": "a14bad9393a1d9b9943a7e9f9f5c1da32dfed1c830319227be3ca7807a0c5164"
+        },
+        "summary_member": {
+          "bytes": 123129,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/summary.json",
+          "sha256": "11664e558a49ba4dacb71f994f5589b63d938cb5b72e38a2583d1fc57931da2c"
+        }
+      }
+    },
+    {
+      "role": "dataframe",
+      "query": 35,
+      "engine_execution_seconds": 3.847976208,
+      "reported_native_query_execution_nanos": "3847976208",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,literal_1,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 5838,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/q35_run1.stdout.json.gz",
+          "sha256": "14f09934c6f75c2531379fd2e713b7f4a13d5e3a4f20bd86fe20ffd659020939"
+        },
+        "summary_member": {
+          "bytes": 123129,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/dataframe/logs/full43_20261023T202115971531Z/summary.json",
+          "sha256": "11664e558a49ba4dacb71f994f5589b63d938cb5b72e38a2583d1fc57931da2c"
+        }
+      }
+    },
+    {
+      "role": "native_expression",
+      "query": 19,
+      "engine_execution_seconds": 5.512587792,
+      "reported_native_query_execution_nanos": "5512587792",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "UserID,SearchPhrase,m,count_all_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 5446,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/q19_run1.stdout.json.gz",
+          "sha256": "69293d14ff7f99091cc4c9dd4aca8bc47203c2c859cf37ef55171b9751b766d1"
+        },
+        "summary_member": {
+          "bytes": 123861,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/summary.json",
+          "sha256": "2637bb856ee164f844addf907a531b3c6697406f4ddc58123cf24f613fed907b"
+        }
+      }
+    },
+    {
+      "role": "native_expression",
+      "query": 23,
+      "engine_execution_seconds": 4.517834167,
+      "reported_native_query_execution_nanos": "4517834167",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "1313",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "7128"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "SearchPhrase,min_URL_1,min_Title_2,c,count_distinct_UserID_4",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 7071,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/q23_run1.stdout.json.gz",
+          "sha256": "06f327a7f9a2ba237a50088d1cb51d048d5ff9b41a9b8dcbd43e2e6d444b2db7"
+        },
+        "summary_member": {
+          "bytes": 123861,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/summary.json",
+          "sha256": "2637bb856ee164f844addf907a531b3c6697406f4ddc58123cf24f613fed907b"
+        }
+      }
+    },
+    {
+      "role": "native_expression",
+      "query": 29,
+      "engine_execution_seconds": 4.63710225,
+      "reported_native_query_execution_nanos": "4637102250",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3119",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "81032736"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "k,l,c,min_Referer_3",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 7516,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/q29_run1.stdout.json.gz",
+          "sha256": "91287fa71875dd007e2b3497b03924969ba4e1cb0136340f6d300659dff6d4e6"
+        },
+        "summary_member": {
+          "bytes": 123861,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/summary.json",
+          "sha256": "2637bb856ee164f844addf907a531b3c6697406f4ddc58123cf24f613fed907b"
+        }
+      }
+    },
+    {
+      "role": "native_expression",
+      "query": 34,
+      "engine_execution_seconds": 3.864888333,
+      "reported_native_query_execution_nanos": "3864888333",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 5621,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/q34_run1.stdout.json.gz",
+          "sha256": "a5c13880bf2e2fb11524505445c3b9890d2d68dc52111d6579089f503ccb0011"
+        },
+        "summary_member": {
+          "bytes": 123861,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/summary.json",
+          "sha256": "2637bb856ee164f844addf907a531b3c6697406f4ddc58123cf24f613fed907b"
+        }
+      }
+    },
+    {
+      "role": "native_expression",
+      "query": 35,
+      "engine_execution_seconds": 3.767841667,
+      "reported_native_query_execution_nanos": "3767841667",
+      "provider_mode": "vortex_scan_pushdown",
+      "provider_kind": null,
+      "admitted_max_parallelism": "10",
+      "selected_physical_max_parallelism": null,
+      "scan_concurrency_per_worker": null,
+      "aggregate_strategy_fields": {
+        "local_primitive_aggregate_update_strategy": null,
+        "local_primitive_compact_group_state_strategy": null,
+        "local_primitive_group_key_comparison_strategy": null,
+        "local_primitive_group_output_strategy": null,
+        "local_primitive_kind": null
+      },
+      "aggregate_worker_evidence": {
+        "local_primitive_aggregate_workers_count_work_nanos": null,
+        "local_primitive_aggregate_workers_partition_count": null,
+        "local_primitive_aggregate_workers_peak_active_workers": null,
+        "local_primitive_aggregate_workers_submitted_chunks": null
+      },
+      "work_counters": {
+        "local_primitive_arrays_read_count": "3120",
+        "local_primitive_rows_scanned": "99997497",
+        "local_primitive_rows_selected": "99997497"
+      },
+      "physical_native_scan_projected_or_read_columns": null,
+      "result_output_projected_columns": "URL,literal_1,c",
+      "omitted_fields": [
+        "provider_kind",
+        "local_primitive_kind",
+        "local_primitive_group_output_strategy",
+        "local_primitive_aggregate_update_strategy",
+        "local_primitive_compact_group_state_strategy",
+        "local_primitive_group_key_comparison_strategy",
+        "local_primitive_rows_projected",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_native_numeric_accessor_native_decode_calls",
+        "local_primitive_decoded_string_count",
+        "selected_physical_max_parallelism",
+        "scan_concurrency_per_worker",
+        "physical_native_scan_projected_or_read_columns",
+        "local_primitive_aggregate_workers_submitted_chunks",
+        "local_primitive_aggregate_workers_peak_active_workers",
+        "local_primitive_aggregate_workers_count_work_nanos",
+        "local_primitive_aggregate_workers_partition_count"
+      ],
+      "evidence": {
+        "output_member": {
+          "bytes": 5689,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/q35_run1.stdout.json.gz",
+          "sha256": "9c622fdf897e7e8920791f7852a4eecdac44a2aec181a1c3ef06da98e5735cc8"
+        },
+        "summary_member": {
+          "bytes": 123861,
+          "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/runs/native_expression/logs/full43_20261023T202238084800Z/summary.json",
+          "sha256": "2637bb856ee164f844addf907a531b3c6697406f4ddc58123cf24f613fed907b"
+        }
+      }
+    }
+  ]
+}

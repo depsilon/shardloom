@@ -24,6 +24,10 @@ use crate::owned_buffers::bool_array_with_retained_buffer;
 #[path = "local_primitive_variant_result.rs"]
 mod variant;
 
+#[cfg(all(test, unix))]
+#[path = "local_primitive_result_batch_prefix_tests.rs"]
+mod prefix_tests;
+
 /// Borrow text from a completed key/state whenever it already exists there.
 #[derive(Clone)]
 pub(super) enum Value<'a> {
@@ -469,6 +473,34 @@ pub(super) fn build_column<'a>(
     dtype: &DType,
     rows: usize,
     allocator: &HostAllocatorRef,
+    value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
+    build_column_prefix_inner::<false>(dtype, rows, rows, allocator, value)
+}
+
+/// Construct a prefix while preserving validation of every scalar in its
+/// original order. The caller still supplies the complete selected input;
+/// discarded rows use the same typed writes against bounded stack scratch.
+#[cfg(unix)]
+pub(super) fn build_column_prefix<'a>(
+    dtype: &DType,
+    rows: usize,
+    retained: usize,
+    allocator: &HostAllocatorRef,
+    value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
+    if retained > rows {
+        return Err(failed("output prefix exceeds the selected row count"));
+    }
+    build_column_prefix_inner::<true>(dtype, rows, retained, allocator, value)
+}
+
+#[allow(clippy::too_many_lines)] // Both consumers share the exact validation and value visitation order.
+fn build_column_prefix_inner<'a, const PREFIX: bool>(
+    dtype: &DType,
+    rows: usize,
+    retained: usize,
+    allocator: &HostAllocatorRef,
     mut value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     let stride = width(dtype)?;
@@ -476,94 +508,135 @@ pub(super) fn build_column<'a>(
     let text = matches!(dtype, DType::Utf8(_) | DType::Binary(_));
     let mut validity = dtype
         .is_nullable()
-        .then(|| allocate(allocator, rows.div_ceil(8), 1))
+        .then(|| allocate(allocator, retained.div_ceil(8), 1))
         .transpose()?;
     let mut data = allocate(
         allocator,
         if boolean {
-            rows.div_ceil(8)
+            retained.div_ceil(8)
         } else {
-            multiply(add(rows, usize::from(text))?, stride)?
+            multiply(add(retained, usize::from(text))?, stride)?
         },
         stride.max(1),
     )?;
     let mut text_bytes = 0;
+    let mut retained_text_bytes = 0;
     if text {
         for row in 0..rows {
-            text_bytes = add(
-                text_bytes,
-                value(row)?.variable_bytes().map_or(0, <[u8]>::len),
-            )?;
+            let bytes = value(row)?.variable_bytes().map_or(0, <[u8]>::len);
+            text_bytes = add(text_bytes, bytes)?;
+            if PREFIX && row < retained {
+                retained_text_bytes = add(retained_text_bytes, bytes)?;
+            }
         }
     }
     let mut text_data = text
-        .then(|| allocate(allocator, text_bytes, 1))
+        .then(|| {
+            allocate(
+                allocator,
+                if PREFIX {
+                    retained_text_bytes
+                } else {
+                    text_bytes
+                },
+                1,
+            )
+        })
         .transpose()?;
     let mut text_end = 0;
+    let mut observed_text_end = 0;
+    let mut discarded = [0_u8; 16];
     for row in 0..rows {
         let value = value(row)?;
+        let keep = !PREFIX || row < retained;
         if matches!(value, Value::Null) {
             if !dtype.is_nullable() {
                 return Err(failed("null in a nonnullable output column"));
             }
         } else {
-            if let Some(validity) = validity.as_mut() {
+            if keep && let Some(validity) = validity.as_mut() {
                 set_bit(validity, row);
             }
             match (dtype, value) {
                 (DType::Bool(_), Value::Bool(value)) => {
-                    if value {
+                    if keep && value {
                         set_bit(&mut data, row);
                     }
                 }
                 (DType::Utf8(_), value @ (Value::Text(_) | Value::SharedText(_)))
                 | (DType::Binary(_), value @ (Value::Binary(_) | Value::SharedBinary(_))) => {
-                    text_end = copy_bytes(
-                        text_data.as_mut().expect("variable buffer allocated"),
-                        text_end,
-                        value.variable_bytes().expect("variable variant matched"),
-                    )?;
+                    let bytes = value.variable_bytes().expect("variable variant matched");
+                    if PREFIX {
+                        observed_text_end = add(observed_text_end, bytes.len())?;
+                        if observed_text_end > text_bytes {
+                            return Err(failed("completed text changed during construction"));
+                        }
+                    }
+                    if keep {
+                        text_end = copy_bytes(
+                            text_data.as_mut().expect("variable buffer allocated"),
+                            text_end,
+                            bytes,
+                        )?;
+                    }
                 }
                 (DType::Primitive(ptype, _), value) => {
                     write_primitive(
                         *ptype,
                         value,
-                        &mut data.as_mut_slice()[row * stride..(row + 1) * stride],
+                        if keep {
+                            &mut data.as_mut_slice()[row * stride..(row + 1) * stride]
+                        } else {
+                            &mut discarded[..stride]
+                        },
                     )?;
                 }
                 (DType::Extension(_), value) => write_primitive(
                     crate::native_payload_schema::temporal_storage(dtype)
                         .ok_or_else(|| failed("unsupported temporal output dtype"))?,
                     value,
-                    &mut data.as_mut_slice()[row * stride..(row + 1) * stride],
+                    if keep {
+                        &mut data.as_mut_slice()[row * stride..(row + 1) * stride]
+                    } else {
+                        &mut discarded[..stride]
+                    },
                 )?,
                 (DType::Decimal(dtype, _), Value::Decimal(value, actual))
                     if *dtype == actual
                         && value.unsigned_abs() < 10_u128.pow(u32::from(dtype.precision())) =>
                 {
-                    data.as_mut_slice()[row * stride..(row + 1) * stride]
-                        .copy_from_slice(&value.to_ne_bytes());
+                    if keep {
+                        data.as_mut_slice()[row * stride..(row + 1) * stride]
+                            .copy_from_slice(&value.to_ne_bytes());
+                    }
                 }
                 _ => return Err(failed("value differs from the declared output dtype")),
             }
         }
         if text {
-            data.as_mut_slice()[(row + 1) * 8..(row + 2) * 8]
-                .copy_from_slice(&u64::try_from(text_end).map_err(vortex_error)?.to_ne_bytes());
+            // Check the full observed offset even when no output retains it.
+            let observed = u64::try_from(if PREFIX { observed_text_end } else { text_end })
+                .map_err(vortex_error)?;
+            if keep {
+                data.as_mut_slice()[(row + 1) * 8..(row + 2) * 8]
+                    .copy_from_slice(&observed.to_ne_bytes());
+            }
         }
     }
     let validity = validity
-        .map(|buffer| finish_validity(buffer.freeze(), rows))
+        .map(|buffer| finish_validity(buffer.freeze(), retained))
         .transpose()?
         .unwrap_or(Validity::NonNullable);
-    if text_end != text_bytes {
+    if (if PREFIX { observed_text_end } else { text_end }) != text_bytes
+        || (PREFIX && text_end != retained_text_bytes)
+    {
         return Err(failed(
             "completed variable payload changed during construction",
         ));
     }
     finish_column(
         dtype,
-        rows,
+        retained,
         data.freeze(),
         validity,
         text_data.map(WritableHostBuffer::freeze),

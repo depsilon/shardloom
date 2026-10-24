@@ -2,13 +2,23 @@
 //! retain ordered floating inputs and compensate integer-input additions, with
 //! separate exact decimal totals.
 
+#[cfg(test)]
+#[path = "native_relational_aggregate_reuse_tests.rs"]
+mod reuse_tests;
+
+#[cfg(test)]
+#[path = "native_relational_aggregate_numeric_tests.rs"]
+mod numeric_tests;
+
 use super::{
     NumericAggregateSum, SimpleAggregateFunction as Function, logical_field_from_native_array,
     native_capacity::ReservedVec,
-    native_decimal_reduce, native_payload,
+    native_decimal_reduce,
+    native_numeric_owner::NativeNumericOwner,
+    native_payload,
     native_relational_batch::{failed, index_array},
     native_relational_expression::{keys, parent_validity},
-    native_relational_keys::{Cell, KeyColumn, compare_cells},
+    native_relational_keys::{Cell, KeyColumn, compare_cells, validate_finite_scalar},
     native_relational_set::RowSet,
     result_batch::{self, Value},
     vortex_error,
@@ -26,6 +36,7 @@ use vortex::{
         validity::Validity,
     },
     buffer::Alignment,
+    mask::Mask,
 };
 
 pub(super) struct Measure {
@@ -53,6 +64,48 @@ struct State {
 struct NativeExtreme {
     array: ArrayRef,
     key: KeyColumn,
+}
+
+/// Scalar aggregates share one group without allocating an ordinal per row.
+enum GroupOrdinals {
+    Scalar(usize),
+    Grouped(ReservedVec<usize>),
+}
+
+impl GroupOrdinals {
+    fn len(&self) -> usize {
+        match self {
+            Self::Scalar(rows) => *rows,
+            Self::Grouped(groups) => groups.values.len(),
+        }
+    }
+
+    fn at(&self, row: usize) -> usize {
+        debug_assert!(row < self.len());
+        match self {
+            Self::Scalar(_) => 0,
+            Self::Grouped(groups) => groups.values[row],
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        (0..self.len()).map(|row| (row, self.at(row)))
+    }
+}
+
+/// Only adjacent compatible measures share this owner. A different column or
+/// nested COUNT mode releases it before the next preparation, preserving the
+/// sequential ownership bound and the original measure/error order.
+struct PreparedColumn<'a> {
+    name: &'a str,
+    values: Option<KeyColumn>,
+    validity: Option<Mask>,
+}
+
+impl PreparedColumn<'_> {
+    fn matches(&self, name: Option<&str>, count_nested: bool) -> bool {
+        name == Some(self.name) && self.validity.is_some() == count_nested
+    }
 }
 
 pub(super) struct Aggregate<'a> {
@@ -232,19 +285,25 @@ impl<'a> Aggregate<'a> {
         accumulate_distinct_values: bool,
     ) -> Result<()> {
         context.check_cancelled()?;
-        let mut ordinals = ReservedVec::new(context.memory())?;
-        if let Some(groups) = &mut self.groups {
-            ordinals = groups.intern_batch(array.clone(), context, batch_rows)?;
+        let ordinals = if let Some(groups) = &mut self.groups {
+            GroupOrdinals::Grouped(groups.intern_batch(array.clone(), context, batch_rows)?)
         } else {
-            ordinals.reserve(array.len())?;
-            ordinals.values.resize(array.len(), 0);
-        }
+            GroupOrdinals::Scalar(array.len())
+        };
         self.reserve_states()?;
         let mut decimal_index = 0;
+        let mut prepared: Option<PreparedColumn<'_>> = None;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
             if !accumulate_distinct_values && measure.function == Function::CountDistinct {
+                prepared = None;
                 continue;
+            }
+            if prepared
+                .as_ref()
+                .is_some_and(|prior| Some(prior.name) != measure.column.as_deref())
+            {
+                prepared = None;
             }
             let column = measure
                 .column
@@ -255,11 +314,39 @@ impl<'a> Aggregate<'a> {
                 && column
                     .as_ref()
                     .is_some_and(|array| native_payload::is_nested(array.dtype()));
-            let (validity, values) = match &column {
-                Some(array) if count_nested => (Some(parent_validity(array, context)?), None),
-                Some(array) => (None, Some(keys(array, context)?)),
-                None => (None, None),
-            };
+            if !prepared
+                .as_ref()
+                .is_some_and(|prior| prior.matches(measure.column.as_deref(), count_nested))
+            {
+                prepared = None;
+                if let (Some(name), Some(array)) = (measure.column.as_deref(), &column) {
+                    let (validity, values) = if count_nested {
+                        (Some(parent_validity(array, context)?), None)
+                    } else {
+                        #[cfg(all(test, debug_assertions))]
+                        super::native_relational_observation::record(|counts| {
+                            counts.aggregate_value_preparations += 1;
+                        });
+                        (None, Some(keys(array, context)?))
+                    };
+                    prepared = Some(PreparedColumn {
+                        name,
+                        values,
+                        validity,
+                    });
+                }
+            }
+            let values = prepared.as_ref().and_then(|column| column.values.as_ref());
+            let validity = prepared
+                .as_ref()
+                .and_then(|column| column.validity.as_ref());
+            if measure.function == Function::Count && column.is_none() && self.groups.is_none() {
+                add_count(
+                    &mut self.states.values[measure_index],
+                    u64::try_from(array.len()).map_err(vortex_error)?,
+                )?;
+                continue;
+            }
             if let Some(source) = measure.decimal_source {
                 let totals = self
                     .decimal_totals
@@ -267,10 +354,8 @@ impl<'a> Aggregate<'a> {
                     .ok_or_else(|| failed("decimal aggregate state absent"))?;
                 accumulate_decimal(
                     &mut totals.values,
-                    &ordinals.values,
-                    values
-                        .as_ref()
-                        .ok_or_else(|| failed("decimal aggregate input absent"))?,
+                    &ordinals,
+                    values.ok_or_else(|| failed("decimal aggregate input absent"))?,
                     self.decimal_width,
                     decimal_index,
                     source,
@@ -282,9 +367,9 @@ impl<'a> Aggregate<'a> {
             if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
                 accumulate_distinct(
                     distinct,
-                    &ordinals.values,
+                    &ordinals,
                     column.as_ref().expect("bound distinct column"),
-                    values.as_ref().expect("bound distinct values"),
+                    values.expect("bound distinct values"),
                     &mut self.states.values,
                     self.spec.measures.len(),
                     measure_index,
@@ -293,7 +378,14 @@ impl<'a> Aggregate<'a> {
                 )?;
                 continue;
             }
-            for (row, &group) in ordinals.values.iter().enumerate() {
+            if self.groups.is_none()
+                && matches!(measure.function, Function::Sum | Function::Avg)
+                && let Some(KeyColumn::Numeric(owner)) = values
+            {
+                accumulate_numeric(&mut self.states.values[measure_index], owner, context)?;
+                continue;
+            }
+            for (row, group) in ordinals.iter() {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
@@ -307,9 +399,7 @@ impl<'a> Aggregate<'a> {
                         column
                             .as_ref()
                             .ok_or_else(|| failed("nested extremum column absent"))?,
-                        values
-                            .as_ref()
-                            .ok_or_else(|| failed("nested extremum keys absent"))?,
+                        values.ok_or_else(|| failed("nested extremum keys absent"))?,
                         row,
                         context,
                     )?;
@@ -318,7 +408,6 @@ impl<'a> Aggregate<'a> {
                 let state = &mut self.states.values[state_index];
                 if count_nested {
                     if validity
-                        .as_ref()
                         .ok_or_else(|| failed("nested COUNT validity absent"))?
                         .value(row)
                     {
@@ -326,10 +415,11 @@ impl<'a> Aggregate<'a> {
                     }
                     continue;
                 }
-                let value = values
-                    .as_ref()
-                    .map(|values| values.raw_cell(row))
-                    .transpose()?;
+                let value = values.map(|values| values.raw_cell(row)).transpose()?;
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.aggregate_row_updates += 1;
+                });
                 update(state, measure, value, context)?;
             }
         }
@@ -433,16 +523,57 @@ impl<'a> Aggregate<'a> {
     }
 }
 
+// The shared kernel captures a borrowed slice, a validity reference and the
+// zero-sized update_numeric function item. This covers its box and handle;
+// tests check the actual closure size for every admitted type/validity shape.
+const NUMERIC_KERNEL_BYTES: u64 = 256;
+
+fn accumulate_numeric(
+    state: &mut State,
+    owner: &NativeNumericOwner,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    if owner.len() == 0 {
+        return Ok(());
+    }
+    let _metadata = context.memory().reserve(NUMERIC_KERNEL_BYTES)?;
+    let kernel = owner.bind_row_update(update_numeric);
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| {
+        counts.aggregate_numeric_bound_batches += 1;
+        counts.aggregate_numeric_bound_rows += owner.len() as u64;
+    });
+    for row in 0..owner.len() {
+        // NULL rows still participate in the original cancellation cadence.
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        kernel(state, row)?;
+    }
+    Ok(())
+}
+
+fn update_numeric(state: &mut State, value: f64, integer: bool) -> Result<()> {
+    // raw_cell validated a nonfinite input before update changed the count.
+    validate_finite_scalar(value)?;
+    add_count(state, 1)?;
+    state.sum.add(value, integer);
+    if !state.sum.is_finite() {
+        return Err(failed("aggregate sum became nonfinite"));
+    }
+    Ok(())
+}
+
 fn accumulate_decimal(
     totals: &mut [native_decimal_reduce::Total],
-    ordinals: &[usize],
+    ordinals: &GroupOrdinals,
     values: &KeyColumn,
     width: usize,
     index: usize,
     source: DecimalDType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
-    for (row, &group) in ordinals.iter().enumerate() {
+    for (row, group) in ordinals.iter() {
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
         }
@@ -496,7 +627,7 @@ fn update_native_extreme(
 #[allow(clippy::too_many_arguments)] // A bounded batch updates one measure's state through the shared exact set.
 fn accumulate_distinct(
     distinct: &mut RowSet<'_>,
-    groups: &[usize],
+    groups: &GroupOrdinals,
     column: &ArrayRef,
     values: &KeyColumn,
     states: &mut [State],
@@ -519,7 +650,7 @@ fn accumulate_distinct(
         return Ok(());
     }
     let ordinals = index_array(rows.values.len(), false, context, |row| {
-        Ok(Some(groups[rows.values[row]]))
+        Ok(Some(groups.at(rows.values[row])))
     })?;
     let selection = index_array(rows.values.len(), false, context, |row| {
         Ok(Some(rows.values[row]))
@@ -566,6 +697,14 @@ fn accumulate_distinct(
     Ok(())
 }
 
+fn add_count(state: &mut State, count: u64) -> Result<()> {
+    state.count = state
+        .count
+        .checked_add(count)
+        .ok_or_else(|| failed("aggregate count overflow"))?;
+    Ok(())
+}
+
 fn update(
     state: &mut State,
     measure: &Measure,
@@ -575,10 +714,7 @@ fn update(
     if value == Some(Cell::Null) {
         return Ok(());
     }
-    state.count = state
-        .count
-        .checked_add(1)
-        .ok_or_else(|| failed("aggregate count overflow"))?;
+    add_count(state, 1)?;
     match measure.function {
         Function::Count => Ok(()),
         Function::Sum | Function::Avg => {

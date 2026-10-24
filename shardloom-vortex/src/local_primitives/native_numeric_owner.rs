@@ -30,29 +30,29 @@ pub(super) struct NativeNumericOwner {
 // widened in registers only, with the same signedness and f32 -> f64 behavior
 // as the previous Vec conversion.
 macro_rules! numeric_dispatch_type {
-    ($owner:expr, $method:ident, $all:literal $(, $arg:expr)*) => {
+    ($owner:expr, $method:ident $(::<$state:ty>)?, $all:literal $(, $arg:expr)*) => {
         match $owner.primitive.ptype() {
-            PType::U8 => $owner.$method::<u8, $all>($($arg),*),
-            PType::U16 => $owner.$method::<u16, $all>($($arg),*),
-            PType::U32 => $owner.$method::<u32, $all>($($arg),*),
-            PType::U64 => $owner.$method::<u64, $all>($($arg),*),
-            PType::I8 => $owner.$method::<i8, $all>($($arg),*),
-            PType::I16 => $owner.$method::<i16, $all>($($arg),*),
-            PType::I32 => $owner.$method::<i32, $all>($($arg),*),
-            PType::I64 => $owner.$method::<i64, $all>($($arg),*),
-            PType::F32 => $owner.$method::<f32, $all>($($arg),*),
-            PType::F64 => $owner.$method::<f64, $all>($($arg),*),
+            PType::U8 => $owner.$method::<u8, $all $(, $state)?>($($arg),*),
+            PType::U16 => $owner.$method::<u16, $all $(, $state)?>($($arg),*),
+            PType::U32 => $owner.$method::<u32, $all $(, $state)?>($($arg),*),
+            PType::U64 => $owner.$method::<u64, $all $(, $state)?>($($arg),*),
+            PType::I8 => $owner.$method::<i8, $all $(, $state)?>($($arg),*),
+            PType::I16 => $owner.$method::<i16, $all $(, $state)?>($($arg),*),
+            PType::I32 => $owner.$method::<i32, $all $(, $state)?>($($arg),*),
+            PType::I64 => $owner.$method::<i64, $all $(, $state)?>($($arg),*),
+            PType::F32 => $owner.$method::<f32, $all $(, $state)?>($($arg),*),
+            PType::F64 => $owner.$method::<f64, $all $(, $state)?>($($arg),*),
             PType::F16 => unreachable!("f16 is not admitted by the numeric owner"),
         }
     };
 }
 
 macro_rules! numeric_dispatch {
-    ($owner:expr, $method:ident $(, $arg:expr)*) => {
+    ($owner:expr, $method:ident $(::<$state:ty>)? $(, $arg:expr)*) => {
         if $owner.all_valid() {
-            numeric_dispatch_type!($owner, $method, true $(, $arg)*)
+            numeric_dispatch_type!($owner, $method $(::<$state>)?, true $(, $arg)*)
         } else {
-            numeric_dispatch_type!($owner, $method, false $(, $arg)*)
+            numeric_dispatch_type!($owner, $method $(::<$state>)?, false $(, $arg)*)
         }
     };
 }
@@ -166,6 +166,16 @@ impl NativeNumericOwner {
 
     pub(super) fn bind_numeric_update(&self) -> super::bound_numeric_updates::RowKernel<'_> {
         numeric_dispatch!(self, bind_numeric_update_typed)
+    }
+
+    /// Reuse the primitive consumer's borrowed, original-width row kernel with
+    /// another accumulator. The caller accounts for the closure and keeps its
+    /// own validation, update order, cancellation and finalization contracts.
+    pub(super) fn bind_row_update<State: 'static>(
+        &self,
+        update: impl Fn(&mut State, f64, bool) -> Result<()> + 'static,
+    ) -> super::bound_numeric_updates::RowKernel<'_, State> {
+        numeric_dispatch!(self, bind_typed_row_update::<State>, update)
     }
 
     fn bind_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(

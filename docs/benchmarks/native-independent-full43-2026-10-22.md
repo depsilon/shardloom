@@ -168,6 +168,16 @@ source identities, missing inventory entries, changed replay helpers and a
 mismatched replay program, while allowing later frontend changes in historical
 mode. The original packet, observations and runtime identities remain unchanged.
 
+The October 24 PR check exposed a separate source-identity mismatch after the
+ClickBench dialect adapter changed the current query runner. The replay manifest
+now pins that maintained runner and its adapter separately from the original
+measured harness. All recorded harness hashes are still verified. Three added
+controls bring the matrix suite to 22 tests: they require the comparison function
+to match its recorded syntax tree, reject changes to either maintained helper,
+and reject an altered recorded runner identity. The two historical replay tests,
+including the 18 Full43 and 22 matrix controls, pass without executing an engine.
+No archived result, reference value, runtime identity or original verifier changes.
+
 This refresh supersedes the stale-runtime limitation of the
 [prior matrix](native-workload-comparisons-2026-10-22.md), whose results remain
 unchanged. Its four-decimal comparison normalization, empty-sum convention and

@@ -1,0 +1,61 @@
+{
+  "status": "passed",
+  "inventory": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-engine-optimization-2026-10-23/cleanup-inventory.json.xz",
+    "bytes": 2163268,
+    "sha256": "5cc6dd62a19918a26dbf73dc188ff7880f7629c818f34d37b72b9d73d0f3a6c7"
+  },
+  "retained": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/shardloom-join-full43-1020",
+      "bytes": 76622496,
+      "sha256": "4acd1055ea566cd9714b61dcd836cf11cc7f6944008c03eb169dccc8820d45c7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/shardloom-engine-cost-join-revision-1020",
+      "bytes": 97253040,
+      "sha256": "15148c7bc5aadbe31b567da78bd88cb000a9a0cc0250d5eb85324eba2bea283c"
+    }
+  ],
+  "verified_packet": {
+    "status": "passed",
+    "members": 4196,
+    "raw_member_bytes": 178645985,
+    "archive_bytes": 9923280,
+    "archive_sha256": "69fcbd1c44577051e191a3f0ab48a9430b27457e28ec5a7b2d9e3566c25dfb7b",
+    "manifest_sha256": "85639d1c908945f317437304cff92b1ea43461898cc03aa894bf2a934f56453c",
+    "all_member_bytes_read_back": true,
+    "all_original_generations_unchanged": true,
+    "excluded_generated_artifacts": 299
+  },
+  "helper": {
+    "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/retire_completed_1020.py",
+    "bytes": 11207,
+    "sha256": "13d67246fb5247f30ff5d296415d7ece90f6df3623f16ffd6a82a1ccb3f54492"
+  },
+  "source_commit": "dc9e53a4837a615bbcac0430c0a0929e6449e45e",
+  "protected_input_generations": {
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex": [
+      16777233,
+      111843112,
+      15713610513,
+      1792325598752257621,
+      1792325598757039417
+    ],
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet": [
+      16777233,
+      84833233,
+      14779976446,
+      1788461344802364826,
+      1788612069108841600
+    ]
+  },
+  "active_handles_found": false,
+  "payload_backups_created": false,
+  "retired_entries": 44058,
+  "retired_regular_bytes": 39512255271,
+  "original_parquet_and_current_vortex_input_untouched": true,
+  "runtime_or_benchmark_executed": false,
+  "storage_limits_changed": false,
+  "obsolete_compiler_outputs_removed": true
+}

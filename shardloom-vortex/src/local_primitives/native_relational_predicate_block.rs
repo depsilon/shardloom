@@ -8,7 +8,11 @@ use super::{
 };
 use crate::local_primitives::native_numeric_owner::NativeNumericOwner;
 use vortex::{
-    array::scalar::{PValue, ScalarValue},
+    array::{
+        memory::MemorySessionExt as _,
+        scalar::{PValue, ScalarValue},
+    },
+    buffer::{Alignment, BitBuffer},
     mask::Mask,
 };
 
@@ -19,6 +23,10 @@ mod tests;
 const MAX_COLUMNS: usize = 8;
 const MAX_INSTRUCTIONS: usize = 32;
 const MAX_VISITS: usize = 64;
+const MAX_COLUMN_NAME_BYTES: usize = 256;
+
+pub(super) const MAX_RETAINED_BYTES: usize =
+    std::mem::size_of::<Recipe>() + MAX_COLUMNS * MAX_COLUMN_NAME_BYTES;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Instruction {
@@ -39,8 +47,13 @@ struct Truth {
     no: u64,
 }
 
-pub(super) struct Recipe<'a> {
-    columns: [Option<&'a Expression>; MAX_COLUMNS],
+struct Column {
+    name: Box<str>,
+    nullable: bool,
+}
+
+pub(in crate::local_primitives) struct Recipe {
+    columns: [Option<Column>; MAX_COLUMNS],
     column_count: usize,
     instructions: [Instruction; MAX_INSTRUCTIONS],
     instruction_count: usize,
@@ -49,8 +62,12 @@ pub(super) struct Recipe<'a> {
     root: usize,
 }
 
-impl<'a> Recipe<'a> {
-    pub(super) fn compile(expression: &'a Expression) -> Option<Self> {
+impl Recipe {
+    pub(in crate::local_primitives) fn compile(expression: &Expression) -> Option<Self> {
+        #[cfg(all(test, debug_assertions))]
+        super::super::native_relational_observation::record(|counts| {
+            counts.predicate_compile_attempts += 1;
+        });
         if !matches!(
             expression.kind,
             Kind::Binary(_, BinaryOp::And | BinaryOp::Or, _) | Kind::Unary(UnaryOp::Not, _)
@@ -58,7 +75,7 @@ impl<'a> Recipe<'a> {
             return None;
         }
         let mut recipe = Self {
-            columns: [None; MAX_COLUMNS],
+            columns: std::array::from_fn(|_| None),
             column_count: 0,
             instructions: [Instruction::Empty; MAX_INSTRUCTIONS],
             instruction_count: 0,
@@ -70,7 +87,7 @@ impl<'a> Recipe<'a> {
         (recipe.comparisons >= 2).then_some(recipe)
     }
 
-    fn lower(&mut self, expression: &'a Expression) -> Option<usize> {
+    fn lower(&mut self, expression: &Expression) -> Option<usize> {
         if self.visits == MAX_VISITS || !matches!(expression.dtype, DType::Bool(_)) {
             return None;
         }
@@ -103,9 +120,9 @@ impl<'a> Recipe<'a> {
 
     fn comparison(
         &mut self,
-        left: &'a Expression,
+        left: &Expression,
         op: ComparisonOp,
-        right: &'a Expression,
+        right: &Expression,
     ) -> Option<Instruction> {
         if !matches!(left.dtype, DType::Primitive(PType::I64, _))
             || !matches!(right.dtype, DType::Primitive(PType::I64, _))
@@ -132,14 +149,16 @@ impl<'a> Recipe<'a> {
         })
     }
 
-    fn column(&mut self, expression: &'a Expression) -> Option<usize> {
+    fn column(&mut self, expression: &Expression) -> Option<usize> {
         let Kind::Column(name) = &expression.kind else {
             return None;
         };
+        if name.len() > MAX_COLUMN_NAME_BYTES {
+            return None;
+        }
         if let Some(index) = self.columns[..self.column_count].iter().position(|prior| {
-            prior.is_some_and(|prior| {
-                prior.dtype == expression.dtype
-                    && matches!(&prior.kind, Kind::Column(prior) if prior == name)
+            prior.as_ref().is_some_and(|prior| {
+                prior.nullable == expression.dtype.is_nullable() && prior.name.as_ref() == name
             })
         }) {
             return Some(index);
@@ -148,7 +167,10 @@ impl<'a> Recipe<'a> {
             return None;
         }
         let index = self.column_count;
-        self.columns[index] = Some(expression);
+        self.columns[index] = Some(Column {
+            name: name.as_str().into(),
+            nullable: expression.dtype.is_nullable(),
+        });
         self.column_count += 1;
         Some(index)
     }
@@ -159,25 +181,12 @@ impl<'a> Recipe<'a> {
         input: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
-        let mut owners: [Option<NativeNumericOwner>; MAX_COLUMNS] = std::array::from_fn(|_| None);
-        for (index, column) in self.columns[..self.column_count].iter().enumerate() {
-            context.check_cancelled()?;
-            let column = column.expect("compiled column binding");
-            let Kind::Column(name) = &column.kind else {
-                unreachable!("compiled column binding");
-            };
-            let array = super::super::logical_field_from_native_array(input, name)?;
-            if array.dtype() != &column.dtype || array.len() != input.len() {
-                return Err(failed(
-                    "scalar expression changed its bound schema or row count",
-                ));
-            }
-            let KeyColumn::Numeric(owner) = keys(&array, context)? else {
-                return Err(failed("pure predicate requires its bound I64 native owner"));
-            };
-            owners[index] = Some(owner);
-        }
+        let owners = self.prepare_owners(input, context)?;
         let mut truth = Truth::default();
+        #[cfg(all(test, debug_assertions))]
+        super::super::native_relational_observation::record(|counts| {
+            counts.predicate_boolean_rows += input.len() as u64;
+        });
         expression.build(input.len(), context, |row| {
             if row.is_multiple_of(64) {
                 context.check_cancelled()?;
@@ -192,6 +201,60 @@ impl<'a> Recipe<'a> {
                 Value::Null
             })
         })
+    }
+
+    /// WHERE consumes only true bits; projected expressions retain both truth
+    /// words through `evaluate`. The session allocator owns the packed credit.
+    pub(in crate::local_primitives) fn evaluate_mask(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Mask> {
+        context.check_cancelled()?;
+        let owners = self.prepare_owners(input, context)?;
+        let mut bits = context
+            .native_session()
+            .allocator()
+            .allocate(input.len().div_ceil(8), Alignment::none())
+            .map_err(super::vortex_error)?;
+        for (index, output) in bits.as_mut_slice().chunks_mut(8).enumerate() {
+            context.check_cancelled()?;
+            let start = index * 64;
+            let truth = self.block(&owners, start, input.len().min(start.saturating_add(64)))?;
+            // Vortex bit buffers use least-significant-bit-first byte order.
+            output.copy_from_slice(&truth.yes.to_le_bytes()[..output.len()]);
+        }
+        context.check_cancelled()?;
+        Ok(Mask::from_buffer(BitBuffer::new(
+            bits.freeze(),
+            input.len(),
+        )))
+    }
+
+    fn prepare_owners(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<[Option<NativeNumericOwner>; MAX_COLUMNS]> {
+        let mut owners: [Option<NativeNumericOwner>; MAX_COLUMNS] = std::array::from_fn(|_| None);
+        for (index, column) in self.columns[..self.column_count].iter().enumerate() {
+            context.check_cancelled()?;
+            let column = column.as_ref().expect("compiled column binding");
+            let array = super::super::logical_field_from_native_array(input, &column.name)?;
+            if !matches!(array.dtype(), DType::Primitive(PType::I64, _))
+                || array.dtype().is_nullable() != column.nullable
+                || array.len() != input.len()
+            {
+                return Err(failed(
+                    "scalar expression changed its bound schema or row count",
+                ));
+            }
+            let KeyColumn::Numeric(owner) = keys(&array, context)? else {
+                return Err(failed("pure predicate requires its bound I64 native owner"));
+            };
+            owners[index] = Some(owner);
+        }
+        Ok(owners)
     }
 
     fn block(

@@ -9,6 +9,7 @@ use vortex::array::{
     dtype::{Nullability, PType},
     memory::MemorySessionExt as _,
 };
+use vortex::mask::{AllOr, Mask};
 
 enum Indices {
     Compact(ReservedVec<u16>),
@@ -39,6 +40,30 @@ impl LocalSelection {
             Indices::Wide(rows)
         };
         Ok(Self { rows, source_rows })
+    }
+
+    pub(super) fn from_mask(mask: &Mask, context: &NativeExecutionContext<'_>) -> Result<Self> {
+        let mut selection = Self::new(mask.len(), context)?;
+        match mask.bit_buffer() {
+            AllOr::All => selection.extend(0..mask.len(), context)?,
+            AllOr::None => {}
+            AllOr::Some(bits) => selection.extend(bits.set_indices(), context)?,
+        }
+        Ok(selection)
+    }
+
+    fn extend(
+        &mut self,
+        rows: impl Iterator<Item = usize>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        for (index, row) in rows.enumerate() {
+            if index.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            self.push(row)?;
+        }
+        context.check_cancelled()
     }
 
     pub(super) fn push(&mut self, row: usize) -> Result<()> {

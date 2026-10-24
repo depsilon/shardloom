@@ -31,8 +31,8 @@
   },
   "replay_verifier": {
     "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/verify_matrix_packet_951.py",
-    "bytes": 23245,
-    "sha256": "4f0e748b7035b29192331a238c113c7943e1fcb1059a2d2fe4e28d8f01cc709c"
+    "bytes": 23558,
+    "sha256": "b8709c3ed9c49675f156e5f6004a2e3aac8b20410f134c98036f2b570a18ec38"
   },
   "original_repository": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
   "independent_full43": {
@@ -67,6 +67,16 @@
       "repository_path": "scripts/check_benchmark_artifact_completeness.py",
       "bytes": 28662,
       "sha256": "6aeecae7890154a924a18e6053815e33518c383ed0384103712205576948e0cd"
+    },
+    {
+      "repository_path": "scripts/run_clickbench_query_uat.py",
+      "bytes": 27636,
+      "sha256": "5a688d68a0147c1166f07c775858a33b2eb5e36a9afde766596b2425a1a34157"
+    },
+    {
+      "repository_path": "scripts/clickbench_native_sql.py",
+      "bytes": 3061,
+      "sha256": "6ac0d1042aca1089bc9d9e3c7ea21bcacda8f341d90532178ccfe782acd328cd"
     }
   ],
   "retained_reports": 18,

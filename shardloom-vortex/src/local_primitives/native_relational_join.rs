@@ -6,6 +6,7 @@ use super::{
     native_relational_batch::{Batch, Table, failed, index_array, take_column},
     native_relational_expression::Expression,
     native_relational_index::RowIndex,
+    native_relational_set::RowSet,
     result_batch, vortex_error,
 };
 use crate::{
@@ -26,6 +27,7 @@ pub(super) struct Spec {
     pub(super) kind: Kind,
     pub(super) left_keys: Vec<String>,
     pub(super) right_keys: Vec<String>,
+    pub(super) right_key_fields: Vec<(String, DType)>,
     pub(super) fields: Vec<(String, DType)>,
     pub(super) columns: Vec<(Side, String)>,
     pub(super) condition: Option<Condition>,
@@ -48,6 +50,7 @@ pub(super) struct Join<'a> {
     right: Table,
     index: RowIndex,
     matched: ReservedVec<bool>,
+    membership: Option<RowSet<'a>>,
 }
 
 impl<'a> Join<'a> {
@@ -57,6 +60,13 @@ impl<'a> Join<'a> {
             right: Table::new(memory)?,
             index: RowIndex::new(memory)?,
             matched: ReservedVec::new(memory)?,
+            membership: (spec.short_circuit()
+                && spec.condition.is_none()
+                && !spec.right_keys.is_empty())
+            .then(|| {
+                RowSet::with_nulls_equal(&spec.right_key_fields, &spec.right_keys, false, memory)
+            })
+            .transpose()?,
         })
     }
 
@@ -64,14 +74,28 @@ impl<'a> Join<'a> {
         &mut self,
         array: ArrayRef,
         context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
     ) -> Result<()> {
         context.check_cancelled()?;
+        if let Some(membership) = &mut self.membership {
+            let retained = membership.insert_batch(array, None, context, batch_rows, None)?;
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.join_retained_right_rows += retained;
+            });
+            let _ = retained;
+            return context.check_cancelled();
+        }
         let batch = Batch::new(array, &self.spec.right_keys, context)?;
         let keep_matches = matches!(self.spec.kind, Kind::Right | Kind::Full);
         if keep_matches {
             self.matched.reserve(batch.array.len())?;
         }
         let rows = self.right.push(batch)?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.join_retained_right_rows += (rows.end - rows.start) as u64;
+        });
         if keep_matches {
             self.matched.values.resize(rows.end, false);
         }
@@ -111,16 +135,21 @@ impl<'a> Join<'a> {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            let entry = left
-                .hash(row, false)?
-                .map(|hash| {
-                    self.index.find(hash, context.cancellation(), |right| {
-                        self.right.equal_batch(right, &left, row, false)
+            let entry = if self.membership.is_none() {
+                left.hash(row, false)?
+                    .map(|hash| {
+                        self.index.find(hash, context.cancellation(), |right| {
+                            self.right.equal_batch(right, &left, row, false)
+                        })
                     })
-                })
-                .transpose()?
-                .flatten();
-            let has_match = if self.spec.kind == Kind::Cross {
+                    .transpose()?
+                    .flatten()
+            } else {
+                None
+            };
+            let has_match = if let Some(membership) = &self.membership {
+                membership.contains(&left, row, context)?
+            } else if self.spec.kind == Kind::Cross {
                 self.right.rows() > 0
             } else {
                 entry.is_some()

@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "source_commit": "c034c6990057628525c9511e85d5b4383a512143",
+  "source_tree": "56e578bb6e7794f117306b8417b5578bf9fd7e54",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1594",
+  "binary": {
+    "path": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/shardloom-join-full43-1020",
+    "bytes": 76622496,
+    "sha256": "4acd1055ea566cd9714b61dcd836cf11cc7f6944008c03eb169dccc8820d45c7"
+  },
+  "binary_reused": true,
+  "input": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "bytes": 15713610513,
+    "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22"
+  },
+  "reference": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+    "bytes": 454630,
+    "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+  },
+  "engine_execution_seconds": 48.693636581,
+  "result_rows": 381,
+  "pre_input_hash_verified": true,
+  "post_input_hash_verified": true,
+  "source_unchanged": true,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "uat_lock_released": true,
+  "queries": 43,
+  "executions_per_query": 1,
+  "archive": "full43-pr1594-1022.tar.xz",
+  "archive_sha256": "71843d90afd8df266eb1a663d1e5fb049ed2907af14fe4e3b4a179b9139d379e",
+  "archive_bytes": 1105124,
+  "manifest": "full43-pr1594-manifest-1022.json",
+  "manifest_sha256": "fd203244f83a339e7fa73907453dcc3dd7c46ebd2d459e713082248ec9f289a6",
+  "preserved_members": 216,
+  "complete_byte_readback": true,
+  "runtime_rebuilt": false,
+  "comparison_claim": false
+}
