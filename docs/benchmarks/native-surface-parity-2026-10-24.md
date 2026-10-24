@@ -131,8 +131,15 @@ python3 -B docs/benchmarks/evidence/native-surface-parity-2026-10-24/verify_pack
   --self-test
 ```
 
-At commit `7f7613c6dcf7007aaca02d218f1f2f47235c1807`, adding
-`--check-current-source` also verifies the recorded runtime and Python sources.
+Using this verifier with `--repository` pointing to a clean snapshot of commit
+`7f7613c6dcf7007aaca02d218f1f2f47235c1807`, adding `--check-current-source`
+also verifies the recorded committed runtime and Python sources. The two
+untracked standalone-test lockfiles (`vendor/vortex-file/Cargo.lock` and
+`vendor/vortex-layout/Cargo.lock`) retain their exact identities in the archived
+build record, but local copies are not required or compared. The root workspace
+lockfile and every committed runtime source remain checked. Regression controls
+reject missing or changed runtime sources, including the root lockfile, and
+changes to the recorded identities of the two generated files.
 The subsequent PR repair changes only the `consume_in_context` feature condition
 from `vortex-write` to `vortex-local-primitives`, matching its read-only caller.
 Both features were enabled in the measured `release-user-surfaces` build; the

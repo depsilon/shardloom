@@ -9,7 +9,7 @@
   "archive": "evidence.tar.xz",
   "archive_bytes": 6688280,
   "archive_sha256": "23fd330f3ba3b1d10313ecb3803ec097aca9d053ff574fb7a91231275e932531",
-  "verifier_sha256": "7e3cc1b1b9dd6531ee1fee06052761f1703fa29c914776b8956f69c4fce319ed",
+  "verifier_sha256": "90de4dfcf364df27e0bf3357589f26ba03673d32f274b974ce8328090bb34db7",
   "complete_byte_readback": true,
   "files": [
     {

@@ -27,6 +27,14 @@ GATES = ['parity-r4-workspace-native-tests', 'parity-r4-workspace-native-lint-re
          'parity-r5-matched-release-build', 'parity-r5-public-provider-tests',
          'parity-r5-small-fixtures', 'parity-r5-preparation-preflight', 'parity-r5-adapter-selftest',
          'parity-r5-scope-execution', 'parity-pr-runner-tests', 'parity-pr-user-reference', 'parity-pr-contribution']
+# These standalone-test lockfiles were generated locally and were not part of
+# the measured root workspace build or its Git source snapshot. Keep their
+# exact recorded identities in the packet, but do not require local copies when
+# checking committed runtime sources. In particular, the root lockfile is checked.
+GENERATED_TEST_LOCKFILES = {
+    'vendor/vortex-file/Cargo.lock': 'e4594b8110c13a4cbef53fb7634b166f551df33835a9b23b48fa8134f2eb5a27',
+    'vendor/vortex-layout/Cargo.lock': 'ba66d545212ba1a9bb939a8f66ed05af11ed7ae1adf44ee32cdfacf491c7c1ef',
+}
 
 
 def require(condition, message):
@@ -147,6 +155,18 @@ def check_harness(packet, summary):
         packet.data(dict(path=path, sha256=sha))
 
 
+def check_current_source(build, repository):
+    sources = {**build['source_after'], **build['runtime_python_sources']}
+    require(all(sources.get(path) == sha for path, sha in GENERATED_TEST_LOCKFILES.items()),
+            'recorded generated-test lockfile identities differ')
+    for path, sha in sources.items():
+        if path in GENERATED_TEST_LOCKFILES:
+            continue
+        source = repository / path
+        require(source.is_file(), 'current runtime source is missing: ' + path)
+        require(digest(source.read_bytes()) == sha, 'current runtime source differs: ' + path)
+
+
 def verify(packet, repository, current, api):
     extract, fields_of, equivalent, strict = api
     m = packet.manifest
@@ -162,8 +182,7 @@ def verify(packet, repository, current, api):
             and build['package_feature_union'] == 'release-user-surfaces', 'matched final build')
     packet.data(m['source_patch'])
     if current:
-        for path, sha in {**build['source_after'], **build['runtime_python_sources']}.items():
-            require(digest((repository / path).read_bytes()) == sha, 'current runtime source differs: ' + path)
+        check_current_source(build, repository)
     require([Path(g['receipt']['path']).stem for g in m['gates']] == GATES, 'required gate coverage')
     for item in m['gates']:
         gate = packet.read(item['receipt'])
