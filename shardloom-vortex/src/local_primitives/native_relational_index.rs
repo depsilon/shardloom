@@ -75,7 +75,34 @@ impl RowIndex {
         cancellation: &CancellationToken,
         equal: impl FnMut(usize) -> Result<bool>,
     ) -> Result<usize> {
+        self.insert_with_duplicates(hash, row, true, cancellation, equal)
+            .map(|(position, _)| position)
+    }
+
+    /// Search once and retain only a new key. The boolean reports publication;
+    /// an existing key acquires no new link or reservation.
+    pub(super) fn insert_unique(
+        &mut self,
+        hash: u64,
+        row: usize,
+        cancellation: &CancellationToken,
+        equal: impl FnMut(usize) -> Result<bool>,
+    ) -> Result<(usize, bool)> {
+        self.insert_with_duplicates(hash, row, false, cancellation, equal)
+    }
+
+    fn insert_with_duplicates(
+        &mut self,
+        hash: u64,
+        row: usize,
+        retain_duplicate: bool,
+        cancellation: &CancellationToken,
+        equal: impl FnMut(usize) -> Result<bool>,
+    ) -> Result<(usize, bool)> {
         let existing = self.find(hash, cancellation, equal)?;
+        if !retain_duplicate && let Some(position) = existing {
+            return Ok((position, false));
+        }
         self.links.reserve_one()?;
         if existing.is_none() {
             self.entries.reserve_one()?;
@@ -93,7 +120,7 @@ impl RowIndex {
             let entry = &mut self.entries.values[position];
             self.links.values[entry.last].next = link;
             entry.last = link;
-            return Ok(position);
+            return Ok((position, false));
         }
         let position = self.entries.values.len();
         self.entries.values.push(Entry {
@@ -102,7 +129,7 @@ impl RowIndex {
             last: link,
         });
         self.buckets.values[vacant.expect("new entry has a vacant bucket")] = position;
-        Ok(position)
+        Ok((position, true))
     }
 
     fn reserve_entry(&mut self, cancellation: &CancellationToken) -> Result<()> {
@@ -189,6 +216,87 @@ fn failed() -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unique_insert_searches_collision_keys_once_and_keeps_only_first_rows() {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let cancellation = CancellationToken::default();
+        let mut index = RowIndex::new(&memory).unwrap();
+        for row in 0..256 {
+            let key = row % 64;
+            let mut comparisons = 0;
+            let (position, inserted) = index
+                .insert_unique(7, row, &cancellation, |old| {
+                    comparisons += 1;
+                    Ok(old % 64 == key)
+                })
+                .unwrap();
+            assert_eq!(position, key);
+            assert_eq!(inserted, row < 64);
+            assert_eq!(comparisons, if inserted { key } else { key + 1 });
+            assert_eq!(index.rows(position).unwrap().collect::<Vec<_>>(), [key]);
+        }
+        assert_eq!(index.unique_rows(), 64);
+        assert_eq!(index.links.values.len(), 64);
+        // The ordinary mode still adds duplicates in source order.
+        index
+            .insert(7, 256, &cancellation, |old| Ok(old == 0))
+            .unwrap();
+        assert_eq!(index.rows(0).unwrap().collect::<Vec<_>>(), [0, 256]);
+        drop(index);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn unique_insert_preserves_publication_on_denial_error_and_cancellation() {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let cancellation = CancellationToken::default();
+        let mut index = RowIndex::new(&memory).unwrap();
+        index
+            .insert_unique(0, 0, &cancellation, |_| Ok(false))
+            .unwrap();
+        let hold = memory
+            .reserve((1 << 20) - memory.snapshot().reserved_bytes)
+            .unwrap();
+        assert_eq!(
+            index
+                .insert_unique(0, 1, &cancellation, |_| Ok(true))
+                .unwrap(),
+            (0, false)
+        );
+        assert!(
+            index
+                .insert_unique(0, 1, &cancellation, |_| Err(failed()))
+                .is_err()
+        );
+        assert_eq!(index.unique_rows(), 1);
+        assert_eq!(index.links.values.len(), 1);
+        drop(hold);
+        let cancelled = CancellationToken::default();
+        assert!(
+            index
+                .insert_unique(0, 1, &cancelled, |_| {
+                    cancelled.cancel();
+                    Ok(false)
+                })
+                .is_err()
+        );
+        assert_eq!(index.rows(0).unwrap().collect::<Vec<_>>(), [0]);
+        drop(index);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+        let memory = LiveMemoryPool::new(64).unwrap();
+        let mut denied = RowIndex::new(&memory).unwrap();
+        assert!(
+            denied
+                .insert_unique(0, 0, &cancellation, |_| Ok(false))
+                .is_err()
+        );
+        assert_eq!(denied.unique_rows(), 0);
+        assert!(denied.links.values.is_empty());
+        drop(denied);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 
     #[test]
     fn complete_hash_collisions_keep_distinct_keys_and_every_duplicate_in_source_order() {

@@ -387,6 +387,7 @@ enum NodeKind {
     Sort {
         input: Box<Node>,
         spec: native_relational_sort::Spec,
+        output_prefix: Option<usize>,
     },
     Limit {
         input: Box<Node>,
@@ -1657,7 +1658,13 @@ impl PreparedVortexRelational {
                     metrics,
                     batch_rows,
                     parameter,
-                    &mut |array| join.build(metrics.detach_join_build(array, context)?, context),
+                    &mut |array| {
+                        join.build(
+                            metrics.detach_join_build(array, context)?,
+                            context,
+                            batch_rows,
+                        )
+                    },
                 )?;
                 self.run(
                     left,

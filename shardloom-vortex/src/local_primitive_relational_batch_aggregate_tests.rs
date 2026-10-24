@@ -16,6 +16,9 @@ mod pressure_tests;
 #[path = "local_primitive_relational_batch_aggregate_fault_tests.rs"]
 mod fault_tests;
 
+#[path = "local_primitive_relational_batch_aggregate_numeric_tests.rs"]
+mod numeric_tests;
+
 fn measure(function: &str, column: Option<&str>, alias: &str) -> VortexSimpleAggregateMeasure {
     VortexSimpleAggregateMeasure::new(
         function,

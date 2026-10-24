@@ -19,6 +19,7 @@ import run_clickbench_paired_query_uat as paired_uat
 from run_clickbench_query_uat import compress_completed_log, correctness_boundary, equivalent, extract_reference_result, extract_result, read_json_log, run_command, run_profiled_command, score, strict_json
 from native_workflow_protocol import public_workflow_command
 from clickbench_reference_packet import canonical_values_sha256
+from clickbench_native_sql import native_query_statements
 from native_workflow_test_support import schema_payload
 from query_timing_report import TIMING_BOUNDARY, TIMING_CLOCK
 
@@ -31,10 +32,13 @@ def envelope(summary):
 
 
 class ClickBenchUatTests(unittest.TestCase):
-    def _runner_fixture(self, root, reference_kind="independent_reference"):
+    def _runner_fixture(self, root, reference_kind="independent_reference", *, pinned_queries=False):
         query_path = root / "queries.sql"
         statements = [f"SELECT {query_id} AS value" for query_id in range(1, 44)]
         query_bytes = ("\n".join(f"{statement};" for statement in statements) + "\n").encode()
+        if pinned_queries:
+            query_bytes, statements = query_uat.query_statements(
+                Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
         query_path.write_bytes(query_bytes)
         packet_path = root / "reference.json"
         records = []
@@ -58,9 +62,11 @@ class ClickBenchUatTests(unittest.TestCase):
 
     def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
                            historical_bytes=0, check_storage=False, budget_probe=None,
-                           query_ids="1", repeats=None, paired=False, engine_timing=True):
+                           query_ids="1", repeats=None, paired=False, engine_timing=True,
+                           pinned_queries=False):
         runner = paired_uat if paired else query_uat
-        query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
+        query_path, packet_path, binary, source, uat_root = self._runner_fixture(
+            root, pinned_queries=pinned_queries)
         if historical_bytes:
             history = uat_root / "logs/completed/retained.json"
             history.parent.mkdir(parents=True)
@@ -160,6 +166,26 @@ class ClickBenchUatTests(unittest.TestCase):
         } <= hashed_names)
         package_sources = (Path(__file__).resolve().parents[1] / "python" / "src" / "shardloom").rglob("*.py")
         self.assertTrue({str(path.resolve()) for path in package_sources} <= set(summary["harness_sha256"]))
+
+    def test_single_and_paired_runners_record_and_submit_the_same_explicit_byte_sql(self):
+        _, original = query_uat.query_statements(
+            Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
+        for paired in (False, True):
+            with self.subTest(paired=paired), tempfile.TemporaryDirectory() as directory:
+                result, summary = self._run_mocked_single(
+                    Path(directory), pinned_queries=True, query_ids="28,29", paired=paired)
+                self.assertEqual(result, 0)
+                submitted, receipt = native_query_statements(original, summary["queries_sha256"])
+                self.assertEqual(summary["query_dialect"], receipt)
+                self.assertIn("clickbench_native_sql.py",
+                              {Path(path).name for path in summary["harness_sha256"]})
+                self.assertEqual(len(summary["records"]), 4 if paired else 2)
+                for record in summary["records"]:
+                    index = record["query"] - 1
+                    self.assertEqual(record["query_statement"], original[index])
+                    self.assertEqual(record["executed_query_statement"], submitted[index])
+                    self.assertEqual(record["command"][record["command"].index("--sql") + 1],
+                                     submitted[index])
 
     def test_query_history_larger_than_active_run_budget_is_admitted(self):
         with tempfile.TemporaryDirectory() as directory:

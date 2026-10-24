@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "members": 4196,
+  "raw_member_bytes": 178645985,
+  "archive_bytes": 9923280,
+  "archive_sha256": "69fcbd1c44577051e191a3f0ab48a9430b27457e28ec5a7b2d9e3566c25dfb7b",
+  "manifest_sha256": "85639d1c908945f317437304cff92b1ea43461898cc03aa894bf2a934f56453c",
+  "all_member_bytes_read_back": true,
+  "all_original_generations_unchanged": true,
+  "excluded_generated_artifacts": 299
+}

@@ -1,0 +1,319 @@
+{
+  "schema_version": "shardloom.native_engine_optimization.validation.v1",
+  "status": "passed",
+  "source_commit": "dc9e53a4837a615bbcac0430c0a0929e6449e45e",
+  "binary_sha256": "4acd1055ea566cd9714b61dcd836cf11cc7f6944008c03eb169dccc8820d45c7",
+  "steps": [
+    {
+      "label": "final-format-1019",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-format-1019.json",
+      "receipt_sha256": "decdd6ac0c7126ef9f17b98a9a4aba24eaa9634ff8d3b3d09fe61058c22a2a4b",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true
+    },
+    {
+      "label": "final-default-clippy-1019",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-default-clippy-1019.json",
+      "receipt_sha256": "a9e63531acf8472bfaae26695a1a256df5cc7ade57773c8828fc3240e2856958",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true
+    },
+    {
+      "label": "final-default-tests-1019",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-default-tests-1019.json",
+      "receipt_sha256": "7eef33e19c870e4f81cb5c581ef1432967d43ba7f748080041b0e281d27d1a4a",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "targets": 107,
+      "passed": 3242,
+      "failed": 0,
+      "ignored": 0,
+      "ignored_cases": []
+    },
+    {
+      "label": "final-native-clippy-1019",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "shardloom-vortex/release-user-surfaces,shardloom-cli/release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-native-clippy-1019.json",
+      "receipt_sha256": "47fb8e38e5c1f74d2097eb7c3e4d948b7a4b954828009cc4efdd85b2279c8e04",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true
+    },
+    {
+      "label": "final-native-tests-1019",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "shardloom-vortex/release-user-surfaces,shardloom-cli/release-user-surfaces"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-native-tests-1019.json",
+      "receipt_sha256": "b4ea5f7cf170f9d1c6208b519d3e951c9312e170ed4fc0dba776518f3f70b079",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "targets": 118,
+      "passed": 6040,
+      "failed": 0,
+      "ignored": 35,
+      "ignored_cases": [
+        {
+          "name": "non_unix_cli_reports_refusal_without_admitted_resource_fields",
+          "reason": "requires the non-Unix runtime branch; executed by Windows CI"
+        },
+        {
+          "name": "non_unix_primitives_refuse_before_existing_or_missing_source_access",
+          "reason": "requires the non-Unix runtime branch; executed by Windows CI"
+        },
+        {
+          "name": "non_unix_writer_refusal_preserves_existing_destination_and_creates_nothing",
+          "reason": "requires the non-Unix runtime branch; executed by Windows CI"
+        },
+        {
+          "name": "local_primitives::bounded_numeric_reduction_experiment::tests::bounded_numeric_measured_scalar_consumers",
+          "reason": "manual release-mode bounded-native-consumer feasibility measurement"
+        },
+        {
+          "name": "local_primitives::columnar_compat_sink::tests::benchmark::columnar_compatibility_release_lifecycle",
+          "reason": "bounded serial native compatibility lifecycle; root owns release timing"
+        },
+        {
+          "name": "local_primitives::compact_string_state::benchmark::paired::compact_string_state_actual_retained_paired_release",
+          "reason": "paired release state benchmark; run serially with --release --ignored --nocapture"
+        },
+        {
+          "name": "local_primitives::encoded_numeric_reduction::tests::encoded_numeric_reduction_measured_native_scalar_consumers",
+          "reason": "manual release-mode scalar-consumer benchmark; emits paired complete-value evidence"
+        },
+        {
+          "name": "local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen",
+          "reason": "native sink attribution; release, guarded local TMPDIR and serial execution required"
+        },
+        {
+          "name": "local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen",
+          "reason": "extended-boundary release screen; guarded local root and serial execution required"
+        },
+        {
+          "name": "local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen",
+          "reason": "held-out release screen; guarded local root and serial execution required"
+        },
+        {
+          "name": "local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen",
+          "reason": "bounded public-call selector screen; guarded local root, release and serial execution required"
+        },
+        {
+          "name": "local_primitives::prepared_relational::tests::compact_index_cost_tests::native_compact_local_indices_screen",
+          "reason": "frozen compact local indices protocol; serial guarded execution only"
+        },
+        {
+          "name": "local_primitives::prepared_relational::tests::engine_cost_tests::native_engine_optimization_cost_screen",
+          "reason": "frozen native engine decision screen; guarded serial execution only"
+        },
+        {
+          "name": "local_primitives::prepared_relational::tests::prepared_sample_cost_tests::native_prepared_sampling_cost_screen",
+          "reason": "frozen prepared-sampling protocol; serial guarded comparison only"
+        },
+        {
+          "name": "local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen",
+          "reason": "frozen complete-operation resource/cost screen; use serial guarded release execution"
+        },
+        {
+          "name": "local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release",
+          "reason": "requires isolated release timing; root owns serial benchmark gate"
+        },
+        {
+          "name": "local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic",
+          "reason": "requires an explicitly supplied resident Vortex file and exact reference values"
+        },
+        {
+          "name": "local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture",
+          "reason": "fixture regeneration helper; writes shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex"
+        },
+        {
+          "name": "local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows",
+          "reason": "bounded spill ownership screen; guarded local TMPDIR, release and serial execution required"
+        },
+        {
+          "name": "native_provider_memory::builder_tests::cost::native_builder_lifecycle_cost_screen",
+          "reason": "native builder lifecycle screen; guarded serial release execution required"
+        },
+        {
+          "name": "native_provider_memory::builder_tests::decoder_cost::native_decoder_lifecycle_cost_sample",
+          "reason": "native decoder lifecycle screen; guarded serial release execution required"
+        },
+        {
+          "name": "native_provider_memory::zstd_tests::compression_cost_tests::native_zstd_complete_compression_cost_screen",
+          "reason": "explicit frozen compression lifecycle cost screen; not a routine unit test"
+        },
+        {
+          "name": "resident_memory_source::encoded_transfer::tests::varbin_metadata_cost_tests::native_varbin_metadata_complete_lifecycle_cost_screen",
+          "reason": "frozen complete buffer-table lifecycle screen; guarded serial release execution only"
+        },
+        {
+          "name": "resident_session::composition_bench::native_composition_producer_memory_attribution",
+          "reason": "bounded R5.a producer memory attribution; requires SHARDLOOM_R5A_SOURCE"
+        },
+        {
+          "name": "resident_session::composition_bench::native_memory_file_composition_baseline",
+          "reason": "bounded R5.a native baseline; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact"
+        },
+        {
+          "name": "resident_session::composition_bench::native_owned_array_composition_candidate",
+          "reason": "bounded R5.a owned-array candidate; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact"
+        },
+        {
+          "name": "resident_session::concurrent_serving_tests::load_harness::serving_fixed_arrival_load_receipt",
+          "reason": "explicit bounded fixed-arrival load run; prints complete JSON receipts"
+        },
+        {
+          "name": "resident_session::segment_reuse::tests::io_tests::release_bench::scan_segment_reuse_release_lifecycle_pairs",
+          "reason": "paired release-mode native query lifecycle experiment; run serially with --release --ignored --exact"
+        },
+        {
+          "name": "resident_session::source_reuse_bench::concurrent_source_reuse_attribution",
+          "reason": "bounded release-only concurrent native source attribution screen; run serially with --release --ignored --exact"
+        },
+        {
+          "name": "resident_session::source_reuse_bench::fanout::existing_owned_producer_fanout_pairs",
+          "reason": "bounded release-only owned producer fanout screen; run serially with --release --ignored --exact"
+        },
+        {
+          "name": "vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers",
+          "reason": "bounded paired release writer lifecycle; root owns serial timings"
+        },
+        {
+          "name": "vortex_ingest::dictionary_preservation::source_dictionary_bench::clickbench_source_dictionary_admission_screen",
+          "reason": "manual bounded R1.b source-dictionary admission screen; requires SHARDLOOM_R1B_SOURCE"
+        },
+        {
+          "name": "vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen",
+          "reason": "manual bounded R6.b FSST admission; requires SHARDLOOM_R1B_SOURCE"
+        },
+        {
+          "name": "vortex_ingest::dictionary_preservation::source_dictionary_bench::zstd_size_screen::clickbench_zstd_size_admission_screen",
+          "reason": "manual bounded native text-size screen; requires SHARDLOOM_R1B_SOURCE"
+        },
+        {
+          "name": "vortex_ingest::text_codec_portfolio::text_codec_portfolio_release_reuse_1_10_100",
+          "reason": "bounded serial native text lifecycle portfolio; release only, root owns timing"
+        }
+      ]
+    },
+    {
+      "label": "final-all-features-1019",
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-features"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-all-features-1019.json",
+      "receipt_sha256": "801ee47c5363f7dd9667f67aba167c8bad3ec12f0d0575c57ec2a3923e713d0e",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true
+    },
+    {
+      "label": "final-clickbench-protocol-1020",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_clickbench_*.py"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-clickbench-protocol-1020.json",
+      "receipt_sha256": "a08b506ba116996e8bdb88122b04fe4b37206ea5e33ddac8794900e3d58ed321",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "passed": 61,
+      "skipped": 6,
+      "skip_reason": "IndependentSqlTests require the separately enabled external-oracle environment; the frozen independent Full43 reference is unchanged."
+    },
+    {
+      "label": "final-admitted-semantics-1019",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_admitted_semantics_matrix.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/shardloom-join-full43-1020",
+        "--skip-build",
+        "--work-dir",
+        "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/final-admitted-semantics-1019",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/final-admitted-semantics-report-1019.json"
+      ],
+      "status": "passed",
+      "receipt_member": "batch/final-admitted-semantics-1019.json",
+      "receipt_sha256": "958599bd00609acade43f29bb50d99e3ad22d85086da89a9de67663474351fae",
+      "source_file_count": 1941,
+      "process_group_drained": true,
+      "direct_child_reaped": true
+    }
+  ],
+  "admitted_semantics": {
+    "status": "passed",
+    "stage_count": 145,
+    "executable_fixture_count": 118,
+    "diagnostic_case_count": 25,
+    "property_lane_count": 10,
+    "deterministic_fuzz_case_count": 5,
+    "blockers": [],
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
+  "artifact_member": "batch/final-admitted-semantics-report-1019.json",
+  "artifact_sha256": "faddd959cc59cb58310284033e952f626c3864a1c8996954f488b8558233ab55"
+}

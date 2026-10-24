@@ -162,6 +162,9 @@ mod native_relational_join;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_keys.rs"]
 mod native_relational_keys;
+#[cfg(all(test, debug_assertions, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_observation.rs"]
+pub(crate) mod native_relational_observation;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_order.rs"]
 mod native_relational_order;

@@ -45,19 +45,17 @@ fn native_nested_parent_validity_does_not_prepare_hidden_child_keys() {
     let memory = session.memory().clone();
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
-            let column = |name: &str| NativeExpression {
-                dtype: dtype.clone(),
-                kind: NativeKind::Column(name.into()),
-            };
+            let column =
+                |name: &str| NativeExpression::new(dtype.clone(), NativeKind::Column(name.into()));
             let mut execution = context.native_session().create_execution_ctx();
             for (op, expected) in [
                 (shardloom_core::UnaryOp::IsNull, [true, false]),
                 (shardloom_core::UnaryOp::IsNotNull, [false, true]),
             ] {
-                let expression = NativeExpression {
-                    dtype: DType::Bool(Nullability::NonNullable),
-                    kind: NativeKind::Unary(op, Box::new(column("hidden"))),
-                };
+                let expression = NativeExpression::new(
+                    DType::Bool(Nullability::NonNullable),
+                    NativeKind::Unary(op, Box::new(column("hidden"))),
+                );
                 let result = expression.evaluate(&input, context)?;
                 for (row, value) in expected.into_iter().enumerate() {
                     assert_eq!(
@@ -90,10 +88,10 @@ fn native_nested_parent_validity_does_not_prepare_hidden_child_keys() {
                 );
                 Ok(())
             })?;
-            let coalesce = NativeExpression {
-                dtype: dtype.clone(),
-                kind: NativeKind::Coalesce(vec![column("hidden"), column("alternative")]),
-            };
+            let coalesce = NativeExpression::new(
+                dtype.clone(),
+                NativeKind::Coalesce(vec![column("hidden"), column("alternative")]),
+            );
             let output = coalesce.evaluate(&input, context)?;
             assert_eq!(
                 output

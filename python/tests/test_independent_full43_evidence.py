@@ -91,7 +91,7 @@ class IndependentFull43EvidenceTests(unittest.TestCase):
                 timeout=240, check=False,
             )
             self.assertEqual(controls.returncode, 0, controls.stdout + controls.stderr)
-            self.assertIn("Ran 19 tests", controls.stderr)
+            self.assertIn("Ran 22 tests", controls.stderr)
             self.assertIn("\nOK\n", controls.stderr)
 
 

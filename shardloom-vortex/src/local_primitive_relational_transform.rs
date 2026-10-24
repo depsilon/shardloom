@@ -28,7 +28,9 @@ impl PreparedVortexRelational {
                     let mut columns = ReservedVec::new(context.memory())?;
                     columns.reserve(expressions.len())?;
                     for expression in expressions {
-                        columns.values.push(expression.evaluate(&array, context)?);
+                        let result =
+                            expression.evaluate_reusing(&array, context, &columns.values)?;
+                        columns.values.push(result);
                     }
                     let (columns, _ownership) = columns.into_parts();
                     let output = StructArray::try_new(
@@ -44,29 +46,26 @@ impl PreparedVortexRelational {
                     consume(vortex::array::IntoArray::into_array(output))
                 },
             ),
-            NodeKind::Filter { input, predicate } => self.run(
-                input,
-                context,
-                metrics,
-                batch_rows,
-                parameter,
-                &mut |array| {
-                    let predicate = native_relational_expression::keys(
-                        &predicate.evaluate(&array, context)?,
-                        context,
-                    )?;
-                    let mut rows = LocalSelection::new(array.len(), context)?;
-                    for row in 0..array.len() {
-                        if row.is_multiple_of(1024) {
-                            context.check_cancelled()?;
-                        }
-                        if predicate.cell(row)? == KeyCell::Boolean(true) {
-                            rows.push(row)?;
-                        }
-                    }
-                    rows.for_each_batch(&array, &node.fields, array.len().max(1), context, consume)
-                },
-            ),
+            NodeKind::Filter { input, predicate } => {
+                let recipe = predicate.filter_recipe();
+                self.run(
+                    input,
+                    context,
+                    metrics,
+                    batch_rows,
+                    parameter,
+                    &mut |array| {
+                        let rows = filter_rows(predicate, recipe, &array, context)?;
+                        rows.for_each_batch(
+                            &array,
+                            &node.fields,
+                            array.len().max(1),
+                            context,
+                            consume,
+                        )
+                    },
+                )
+            }
             NodeKind::Sort { .. } => {
                 self.run_sort(node, context, metrics, batch_rows, parameter, consume)
             }
@@ -113,7 +112,12 @@ impl PreparedVortexRelational {
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
-        let NodeKind::Sort { input, spec } = &node.kind else {
+        let NodeKind::Sort {
+            input,
+            spec,
+            output_prefix,
+        } = &node.kind
+        else {
             return Err(failed("sort dispatch received another operator"));
         };
         #[cfg(feature = "vortex-write")]
@@ -140,6 +144,38 @@ impl PreparedVortexRelational {
             parameter,
             &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
         )?;
-        sort.finish(context, batch_rows, consume)
+        sort.finish_prefix(
+            context,
+            batch_rows,
+            *output_prefix,
+            metrics.input.is_some(),
+            consume,
+        )
     }
+}
+
+fn filter_rows(
+    predicate: &native_relational_expression::Expression,
+    recipe: Option<&native_relational_expression::FilterRecipe>,
+    array: &ArrayRef,
+    context: &NativeExecutionContext<'_>,
+) -> Result<LocalSelection> {
+    if let Some(recipe) = recipe {
+        let mask = recipe.evaluate_mask(array, context)?;
+        return LocalSelection::from_mask(&mask, context);
+    }
+    // Keep the existing evaluation and ownership of unadmitted expressions,
+    // including lazy/fallible branches and nullable Boolean projections.
+    let predicate =
+        native_relational_expression::keys(&predicate.evaluate(array, context)?, context)?;
+    let mut rows = LocalSelection::new(array.len(), context)?;
+    for row in 0..array.len() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        if predicate.cell(row)? == KeyCell::Boolean(true) {
+            rows.push(row)?;
+        }
+    }
+    Ok(rows)
 }

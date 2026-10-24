@@ -7,6 +7,9 @@ use vortex::array::{
     dtype::{Nullability, PType},
 };
 
+#[path = "native_relational_join_existence_tests.rs"]
+mod existence_tests;
+
 fn input(keys: &[Option<u64>], ids: &[u32]) -> ArrayRef {
     StructArray::try_new(
         FieldNames::from(["key", "id"]),
@@ -58,6 +61,10 @@ fn spec(kind: Kind) -> Spec {
         condition: None,
         left_keys: keys.clone(),
         right_keys: keys,
+        right_key_fields: vec![(
+            "key".into(),
+            DType::Primitive(PType::U64, Nullability::Nullable),
+        )],
         fields,
         columns,
     }
@@ -141,7 +148,7 @@ fn every_native_join_kind_preserves_duplicates_nulls_order_and_integer_payload_w
             .with_native_execution_context(&CancellationToken::default(), |context| {
                 let mut join = Join::new(&binding, context.memory())?;
                 for array in &right {
-                    join.build(array.clone(), context)?;
+                    join.build(array.clone(), context, 2)?;
                 }
                 let mut consume = |array: ArrayRef| {
                     assert!(array.len() <= 2);
@@ -190,7 +197,7 @@ fn empty_sides_null_extension_and_cancellation_have_no_leaked_native_state() {
                 .with_native_execution_context(&CancellationToken::default(), |context| {
                     let mut join = Join::new(&binding, context.memory())?;
                     if empty_left {
-                        join.build(input(&[None], &[20]), context)?;
+                        join.build(input(&[None], &[20]), context, 1)?;
                     }
                     let mut consume = |array: ArrayRef| {
                         observed.extend(pairs(&array));
@@ -222,7 +229,7 @@ fn empty_sides_null_extension_and_cancellation_have_no_leaked_native_state() {
         session
             .with_native_execution_context(&cancellation, |context| {
                 let mut join = Join::new(&binding, context.memory())?;
-                join.build(input(&[Some(1), Some(2)], &[20, 21]), context)?;
+                join.build(input(&[Some(1), Some(2)], &[20, 21]), context, 1)?;
                 join.consume(
                     input(&[Some(1), Some(2)], &[10, 11]),
                     context,
@@ -260,7 +267,7 @@ fn native_relational_join_null_root_hides_keys_and_payload_before_matching() {
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let mut join = Join::new(&binding, context.memory())?;
-            join.build(right.clone(), context)?;
+            join.build(right.clone(), context, 2)?;
             let mut consume = |array: ArrayRef| {
                 observed.extend(pairs(&array));
                 Ok(())

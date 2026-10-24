@@ -29,6 +29,7 @@ from local_uat_storage import (
 )
 from native_workflow_protocol import extract_result, public_workflow_command, report_fields, strict_json
 from clickbench_reference_packet import load_reference_packet, query_statements
+from clickbench_native_sql import native_query_statements
 from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 
 
@@ -113,6 +114,7 @@ def clickbench_harness_paths() -> tuple[Path, ...]:
         for name in (
             script.name,
             "clickbench_reference_packet.py",
+            "clickbench_native_sql.py",
             "native_workflow_protocol.py",
             "timed_native_command.py",
             "query_timing_report.py",
@@ -384,6 +386,7 @@ def main() -> int:
                     references.append(override["values"])
                 else:
                     references.append(extract_reference_result(read_json_log(args.reference_dir / f"q{index:02d}_run1.stdout.json")))
+        submitted_queries, query_dialect = native_query_statements(queries, queries_sha256)
         identity = source.stat()
         harness = {str(path): file_sha256(path) for path in clickbench_harness_paths()}
         reference_kind = (
@@ -415,6 +418,7 @@ def main() -> int:
             "schema_version": "shardloom.clickbench.public_result_regression.v2",
             "build_commit": args.build_commit, "binary_sha256": file_sha256(args.binary),
             "queries_sha256": queries_sha256, "source": str(source),
+            "query_dialect": query_dialect,
             "source_bytes": identity.st_size, "platform": platform.platform(),
             "source_generation": {"device": identity.st_dev, "inode": identity.st_ino,
                                   "size_bytes": identity.st_size, "mtime_ns": identity.st_mtime_ns,
@@ -452,11 +456,12 @@ def main() -> int:
             for run in range(1, args.repeats + 1):
                 prefix = logs / f"q{index:02d}_run{run}"
                 command = public_workflow_command(
-                    args.binary, query, input_path=source, input_format="vortex",
+                    args.binary, submitted_queries[index - 1], input_path=source, input_format="vortex",
                     memory_gb=args.memory_gb, max_parallelism=args.max_parallelism,
                 )
                 result = run_profiled_command(command, prefix, args.timeout, guard)
-                result.update(query=index, run=run, command=command, query_statement=query, passed=False)
+                result.update(query=index, run=run, command=command, query_statement=query,
+                              executed_query_statement=submitted_queries[index - 1], passed=False)
                 validation_started = time.perf_counter()
                 try:
                     if result["returncode"] != 0 or result["guard_failures"]:

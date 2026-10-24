@@ -30,6 +30,7 @@ from local_uat_storage import GIB, MIB, add_log_budget_arguments, check_budgets,
 from native_workflow_protocol import public_workflow_command, report_fields
 from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 from clickbench_reference_packet import load_reference_packet, query_statements
+from clickbench_native_sql import native_query_statements
 from run_clickbench_query_uat import correctness_boundary, equivalent, extract_reference_result, extract_result, file_sha256, read_json_log, run_profiled_command, score
 
 
@@ -245,6 +246,7 @@ def main():
             queries_sha256 = hashlib.sha256(query_bytes).hexdigest()
             reference_paths = {q: args.reference_dir / f"q{q:02d}_run1.stdout.json" for q in selected}
             references = {q: extract_reference_result(read_json_log(path)) for q, path in reference_paths.items()}
+        submitted_queries, query_dialect = native_query_statements(queries, queries_sha256)
         binaries = {role: getattr(args, role + "_binary").resolve() for role in ("control", "candidate")}
         identities = {role: {"path": str(path), "sha256": file_sha256(path), "commit": getattr(args, role + "_commit")}
                       for role, path in binaries.items()}
@@ -254,6 +256,7 @@ def main():
             *(script.with_name(name) for name in (
                 "run_clickbench_query_uat.py",
                 "clickbench_reference_packet.py",
+                "clickbench_native_sql.py",
                 "native_workflow_protocol.py",
                 "timed_native_command.py",
                 "query_timing_report.py",
@@ -273,6 +276,7 @@ def main():
                    "harness_sha256": harness,
                    "source": str(source), "source_generation": original_generations["control"],
                    "sources": frozen_sources, "queries_sha256": queries_sha256,
+                   "query_dialect": query_dialect,
                    "reference_dir": str(args.reference_dir) if args.reference_dir is not None else None,
                    "reference_packet": packet_receipt,
                    "reference_kind": reference_kind,
@@ -306,7 +310,7 @@ def main():
                     prefix = logs / f"q{query:02d}_run{run}_{role}"
                     verify_source_generations(sources, original_generations)
                     command = public_workflow_command(
-                        binaries[role], queries[query-1], input_path=sources[role],
+                        binaries[role], submitted_queries[query-1], input_path=sources[role],
                         input_format="vortex", memory_gb=args.memory_gb,
                         max_parallelism=args.max_parallelism,
                     )
@@ -315,8 +319,9 @@ def main():
                         record = run_profiled_command(command, prefix, args.timeout, guard)
                     finally:
                         verify_source_generations(sources, original_generations)
-                    record.update(query=query, run=run, role=role, pair_position=position,
+                    record.update(query=query, run=run, role=role, pair_position=position, command=command,
                                   query_statement=queries[query-1],
+                                  executed_query_statement=submitted_queries[query-1],
                                   host_before=before, host_after=host_snapshot(), passed=False)
                     validation_started = time.perf_counter()
                     try:

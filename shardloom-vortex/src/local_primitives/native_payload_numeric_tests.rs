@@ -2,11 +2,12 @@
 
 use super::*;
 use crate::{
-    local_primitives::native_relational_batch::index_array, resident_session::ResidentVortexSession,
+    local_primitives::native_relational_batch::{index_array, take_column},
+    resident_session::ResidentVortexSession,
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::{
-    arrays::{DictArray, ExtensionArray},
+    arrays::{ConstantArray, DictArray, ExtensionArray},
     dtype::FieldNames,
     extension::datetime::{TimeUnit, Timestamp},
 };
@@ -29,6 +30,171 @@ fn dictionary(values: ArrayRef, rows: usize) -> ArrayRef {
     )
     .unwrap()
     .into_array()
+}
+
+fn check_numeric_take(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+    let mut execution = context.native_session().create_execution_ctx();
+    let rows = [Some(3), None, Some(0), Some(2), Some(1), Some(3)];
+    let indices = index_array(rows.len(), true, context, |row| Ok(rows[row]))?;
+    let dtype = array.dtype().as_nullable();
+    let output = take_column(array, &indices, &dtype, context)?;
+    assert_eq!(output.dtype(), &dtype);
+    assert_eq!(output.len(), rows.len());
+    for (row, selected) in rows.iter().enumerate() {
+        let expected = selected.map_or(Ok(Value::Null), |row| {
+            result_batch::scalar_value(array, row, &mut execution)
+        })?;
+        let actual = result_batch::scalar_value(&output, row, &mut execution)?;
+        match (actual, expected) {
+            (Value::Null, Value::Null) => {}
+            (Value::Int(actual), Value::Int(expected)) => assert_eq!(actual, expected),
+            (Value::UInt(actual), Value::UInt(expected)) => assert_eq!(actual, expected),
+            (Value::Float(actual), Value::Float(expected)) => {
+                assert_eq!(actual.to_bits(), expected.to_bits());
+            }
+            _ => panic!("numeric gather changed selected value, type or validity"),
+        }
+    }
+    Ok(output)
+}
+
+#[test]
+fn relational_numeric_take_preserves_widths_encodings_selection_and_owned_credits() {
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let cancellation = CancellationToken::default();
+    let output = session
+        .with_native_execution_context(&cancellation, |context| {
+            let mut arrays = Vec::new();
+            macro_rules! integer {
+                ($ty:ty) => {
+                    let zero: $ty = 0;
+                    let one: $ty = 1;
+                    arrays.push(
+                        PrimitiveArray::from_option_iter([
+                            Some(<$ty>::MIN),
+                            Some(<$ty>::MAX),
+                            None,
+                            Some(one),
+                        ])
+                        .into_array(),
+                    );
+                    arrays.push(
+                        PrimitiveArray::from_iter([<$ty>::MIN, <$ty>::MAX, zero, one]).into_array(),
+                    );
+                };
+            }
+            integer!(u8);
+            integer!(u16);
+            integer!(u32);
+            integer!(u64);
+            integer!(i8);
+            integer!(i16);
+            integer!(i32);
+            integer!(i64);
+            arrays.push(
+                PrimitiveArray::from_option_iter([
+                    Some(-0.0_f32),
+                    Some(f32::MAX),
+                    None,
+                    Some(f32::MIN_POSITIVE),
+                ])
+                .into_array(),
+            );
+            arrays.push(
+                PrimitiveArray::from_option_iter([
+                    Some(-0.0_f64),
+                    Some(f64::MAX),
+                    None,
+                    Some(f64::MIN_POSITIVE),
+                ])
+                .into_array(),
+            );
+            for array in arrays {
+                let mut execution = context.native_session().create_execution_ctx();
+                let constant = ConstantArray::new(
+                    array
+                        .execute_scalar(0, &mut execution)
+                        .map_err(vortex_error)?,
+                    4,
+                )
+                .into_array();
+                let dictionary = DictArray::try_new(
+                    PrimitiveArray::from_iter([3_u8, 1, 2, 0, 1]).into_array(),
+                    array.clone(),
+                )
+                .map_err(vortex_error)?
+                .into_array();
+                let chunked = ChunkedArray::try_new(
+                    vec![
+                        array.slice(0..1).map_err(vortex_error)?,
+                        array.slice(1..4).map_err(vortex_error)?,
+                    ],
+                    array.dtype().clone(),
+                )
+                .map_err(vortex_error)?
+                .into_array();
+                for source in [
+                    array,
+                    constant,
+                    dictionary.slice(1..5).map_err(vortex_error)?,
+                    chunked,
+                ] {
+                    check_numeric_take(&source, context)?;
+                    let empty = index_array(0, false, context, |_| unreachable!())?;
+                    assert_eq!(
+                        take_column(&source, &empty, source.dtype(), context)?.len(),
+                        0
+                    );
+                }
+            }
+            check_numeric_take(&timestamps(8), context)?;
+            let all_null = PrimitiveArray::from_option_iter([None::<i64>; 4]).into_array();
+            check_numeric_take(&all_null, context)
+        })
+        .unwrap();
+    assert!(session.memory().snapshot().reserved_bytes > 0);
+    let child = output.slice(1..3).unwrap();
+    drop(output);
+    assert!(session.memory().snapshot().reserved_bytes > 0);
+    drop(child);
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn relational_numeric_take_keeps_selected_finite_checks_and_failure_cleanup() {
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let cancellation = CancellationToken::default();
+    let mut checked_cancelled_copy = false;
+    let error = session.with_native_execution_context(&cancellation, |context| {
+        let source = PrimitiveArray::from_iter([f64::NAN, -0.0, f64::INFINITY, 2.0]).into_array();
+        let indices = index_array(2, false, context, |row| Ok(Some(row * 2 + 1)))?;
+        let output = take_column(&source, &indices, source.dtype(), context)?;
+        let mut execution = context.native_session().create_execution_ctx();
+        assert!(matches!(result_batch::scalar_value(&output, 0, &mut execution)?, Value::Float(value) if value.to_bits() == (-0.0_f64).to_bits()));
+        for row in [0, 2] {
+            let bad = index_array(1, false, context, |_| Ok(Some(row)))?;
+            let before = context.memory().snapshot().reserved_bytes;
+            assert_eq!(take_column(&source, &bad, source.dtype(), context).unwrap_err().to_string(),
+                "native result batch: numeric value differs from its finite declared dtype; no fallback execution was attempted");
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+        }
+        let before = context.memory().snapshot().reserved_bytes;
+        let hold = context.memory().reserve((1 << 20) - before)?;
+        assert!(take_column(&source, &indices, source.dtype(), context).is_err());
+        drop(hold);
+        assert_eq!(context.memory().snapshot().reserved_bytes, before);
+        cancellation.cancel();
+        assert!(take_column(&source, &indices, source.dtype(), context).is_err());
+        assert_eq!(context.memory().snapshot().reserved_bytes, before);
+        checked_cancelled_copy = true;
+        Ok(())
+    }).unwrap_err();
+    assert!(checked_cancelled_copy);
+    assert_eq!(
+        error.to_string(),
+        "execution cancelled; fallback execution was not attempted"
+    );
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
 }
 
 fn timestamps(rows: usize) -> ArrayRef {

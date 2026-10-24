@@ -1,0 +1,2598 @@
+{
+  "schema_version": "shardloom.full43.compact_observation.v1",
+  "source_commit": "c034c6990057628525c9511e85d5b4383a512143",
+  "members": {
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654241,
+        0,
+        1792823177535425991,
+        1792823177535436533
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.timing.json",
+      "bytes": 624,
+      "sha256": "691e25ca434b11b0af106a4486676ac8b67e9e27dea119983e1ccc42e88e6c02",
+      "generation": [
+        16777233,
+        124654125,
+        624,
+        1792823150927783843,
+        1792823150927783843
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.timing.json",
+      "bytes": 613,
+      "sha256": "92c1b3fe278d9e751ef96ade0ec96d578c50a257ab0f879b3decf4563b1f1bff",
+      "generation": [
+        16777233,
+        124654322,
+        613,
+        1792823197203845224,
+        1792823197203845224
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.stdout.json.gz",
+      "bytes": 23148,
+      "sha256": "b5d73c19e715370c35a9cf3778d16e81cc8d0c07d196a068f053c48530a92e03",
+      "generation": [
+        16777233,
+        124654295,
+        23148,
+        1792823193419564971,
+        1792823193419564971
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.timing.json",
+      "bytes": 623,
+      "sha256": "c410b856cb2c5eb246c05ae1fcbf8176d15a90e7fb0e02efaac84f8bdb1aeb0a",
+      "generation": [
+        16777233,
+        124654196,
+        623,
+        1792823165595196197,
+        1792823165595196197
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.timing.json",
+      "bytes": 612,
+      "sha256": "ace76835d73cf46e2b12114629e37857b512bae7e942583558331183b2668603",
+      "generation": [
+        16777233,
+        124654244,
+        612,
+        1792823178817898969,
+        1792823178817898969
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/summary.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/summary.json",
+      "bytes": 134683,
+      "sha256": "5b7511af5be33794c07c1dff3aa6ca0d6dc4d34eb9c50c7f3f5127b21575d4d7",
+      "generation": [
+        16777233,
+        124654091,
+        134683,
+        1792823199450897523,
+        1792823199450897523
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.stdout.json.gz",
+      "bytes": 22425,
+      "sha256": "0f6511d2d1401c21972978efa075d2cf3a9bde7c8583993adce6d85b5e47a885",
+      "generation": [
+        16777233,
+        124654301,
+        22425,
+        1792823195408618747,
+        1792823195408618747
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654093,
+        0,
+        1792823145974248111,
+        1792823145974257903
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.timing.json",
+      "bytes": 624,
+      "sha256": "6741ea20bc1ceacf76537aa326936fc557fd9d8450deae1779274998c730c008",
+      "generation": [
+        16777233,
+        124654345,
+        624,
+        1792823199402506542,
+        1792823199402506542
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.pid",
+      "bytes": 5,
+      "sha256": "0bac83d121af467dc13f974fc2e9908f59b811bf80fa74e0f1bf905e9311b483",
+      "generation": [
+        16777233,
+        124654143,
+        5,
+        1792823152640071220,
+        1792823152640071220
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.pid",
+      "bytes": 5,
+      "sha256": "24a3dc9b4497509fc8fd35067f1cf4f322db61f96ff00f98042ebb33497d7af7",
+      "generation": [
+        16777233,
+        124654150,
+        5,
+        1792823154534008996,
+        1792823154534008996
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.pid",
+      "bytes": 5,
+      "sha256": "9c04e3facb783e40d211e21767d65b12e16819b18b4c369972a7235d46887432",
+      "generation": [
+        16777233,
+        124654232,
+        5,
+        1792823175968375057,
+        1792823175968375057
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.pid",
+      "bytes": 5,
+      "sha256": "29ea87504e78339083dceedda7394bc7db9db8f1c61fe6aecf98208a875e06ba",
+      "generation": [
+        16777233,
+        124654237,
+        5,
+        1792823177166740517,
+        1792823177166740517
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.stdout.json.gz",
+      "bytes": 11432,
+      "sha256": "b687795e944b58141e6fdf4f844e3a95b2df8787e2b9a3f283b65c47c3d3541d",
+      "generation": [
+        16777233,
+        124654306,
+        11432,
+        1792823195850305008,
+        1792823195850305008
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.timing.json",
+      "bytes": 624,
+      "sha256": "ac1d5bf3659800c6cd6e2a717fb2c9ffd8a58c8913acdb2075f73de0e0ccb718",
+      "generation": [
+        16777233,
+        124654281,
+        624,
+        1792823189464704345,
+        1792823189464704345
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654267,
+        0,
+        1792823186059528633,
+        1792823186059541091
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654261,
+        0,
+        1792823183033214916,
+        1792823183033231958
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654167,
+        0,
+        1792823157474884983,
+        1792823157474895733
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.stdout.json.gz",
+      "bytes": 21078,
+      "sha256": "e47ae8771a8f05eb7b5760a5d3f3746f6715473f1a5566ea9efed18ec2551522",
+      "generation": [
+        16777233,
+        124654312,
+        21078,
+        1792823196345673552,
+        1792823196345673552
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.timing.json",
+      "bytes": 623,
+      "sha256": "f7a5ec939894da032d3b7573f1491a425c6fefc92be95be03be8f29f8f4fcec2",
+      "generation": [
+        16777233,
+        124654164,
+        623,
+        1792823157464630085,
+        1792823157464630085
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.pid",
+      "bytes": 5,
+      "sha256": "42f515a7c89434bcce7fc39e562de44d83c5c7dff2afc2011f7727c20994c4b0",
+      "generation": [
+        16777233,
+        124654321,
+        5,
+        1792823196937249723,
+        1792823196937249723
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.pid",
+      "bytes": 5,
+      "sha256": "d28f3cd3faf63e09eee0c68e54598b5c77456f81f690f003a073f7a941bc7793",
+      "generation": [
+        16777233,
+        124654316,
+        5,
+        1792823196394487783,
+        1792823196394487783
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.stdout.json.gz",
+      "bytes": 21096,
+      "sha256": "f25f3d9af72bce95fd78b258e2bf1b9d5c1d2ba4f4faeff1b31bbb19300bcf19",
+      "generation": [
+        16777233,
+        124654275,
+        21096,
+        1792823188101052690,
+        1792823188101052690
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.timing.json",
+      "bytes": 611,
+      "sha256": "43365f5af6f6d65b4afcf54f1288097daa5fa38ad90058a60e5e404a6caa8154",
+      "generation": [
+        16777233,
+        124654264,
+        611,
+        1792823186047605981,
+        1792823186047605981
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.timing.json",
+      "bytes": 623,
+      "sha256": "0da9dd6f174a0f38197d73cf453c729838fe3f25dd793d14d346af14aae309cc",
+      "generation": [
+        16777233,
+        124654191,
+        623,
+        1792823165167516510,
+        1792823165167516510
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654159,
+        0,
+        1792823156807954897,
+        1792823156807965480
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.stdout.json.gz",
+      "bytes": 11870,
+      "sha256": "92fe9037594eb7230d66d436786c7dbf360bd5b01eadeeb9bef97ace3d59f31c",
+      "generation": [
+        16777233,
+        124654259,
+        11870,
+        1792823183030626952,
+        1792823183030626952
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.pid",
+      "bytes": 5,
+      "sha256": "f9b0e2696914e114d50232834c583267da9d4466c37c8af3b4a77de9f05f9674",
+      "generation": [
+        16777233,
+        124654124,
+        5,
+        1792823150888682548,
+        1792823150888682548
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.pid",
+      "bytes": 5,
+      "sha256": "aeb902a19e48d899fc5544a0e879f42038ab646190d14984da876b295f49f9b9",
+      "generation": [
+        16777233,
+        124654119,
+        5,
+        1792823149733004557,
+        1792823149733004557
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654308,
+        0,
+        1792823195853686681,
+        1792823195853699140
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.timing.json",
+      "bytes": 612,
+      "sha256": "337cad9f3b4ac9178aa966aaadadc2d3e89d8553bcdcc969bf4707cef6dbfdc1",
+      "generation": [
+        16777233,
+        124654305,
+        612,
+        1792823195841965031,
+        1792823195841965031
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.timing.json",
+      "bytes": 613,
+      "sha256": "763a52c9f3e71595e3a45be24e927c141042060c9fd7bc95e28fd2ac3874f880",
+      "generation": [
+        16777233,
+        124654130,
+        613,
+        1792823151166998200,
+        1792823151166998200
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.stdout.json.gz",
+      "bytes": 13622,
+      "sha256": "ece577cfdedd7ca3de8d42a9c2c4f2195fb6909b1aa5da1eab28c3beb21f47a2",
+      "generation": [
+        16777233,
+        124654270,
+        13622,
+        1792823186923100400,
+        1792823186923100400
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.stdout.json.gz",
+      "bytes": 15322,
+      "sha256": "d2d22c4e6bfe385b20239df603e92392a686ab649607984e4d87ebba8918ac45",
+      "generation": [
+        16777233,
+        124654265,
+        15322,
+        1792823186056522543,
+        1792823186056522543
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654314,
+        0,
+        1792823196348950976,
+        1792823196348961767
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.timing.json",
+      "bytes": 613,
+      "sha256": "2dd8655212f62ff370c90fc2800f44579de6dd54e3ca51d80532e6cc136e039e",
+      "generation": [
+        16777233,
+        124654220,
+        613,
+        1792823172817408026,
+        1792823172817408026
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654111,
+        0,
+        1792823148242333540,
+        1792823148242346290
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.stdout.json.gz",
+      "bytes": 21951,
+      "sha256": "cb20b24f27e65d3bca0eb65ba2f9452250e779b70b715e3d54afafd44379bd4d",
+      "generation": [
+        16777233,
+        124654289,
+        21951,
+        1792823191296022860,
+        1792823191296022860
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.pid",
+      "bytes": 5,
+      "sha256": "d672e9fb368dcc07d769c298458683af9a9d8bb05322c8fcd8aa9d984e88772a",
+      "generation": [
+        16777233,
+        124654285,
+        5,
+        1792823189521299261,
+        1792823189521299261
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654336,
+        0,
+        1792823198813161334,
+        1792823198813177293
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.pid",
+      "bytes": 5,
+      "sha256": "ab213cae5e258c0d4d2eb87d3b83ace05a1f7fb73b7b8eaccc9faeaf2dd64f9e",
+      "generation": [
+        16777233,
+        124654279,
+        5,
+        1792823188153194846,
+        1792823188153194846
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.stdout.json.gz",
+      "bytes": 20989,
+      "sha256": "cba7007de1a304d2cbe7ad4cedf299d15d87452b6af3cc5ed4aa9d19bd0e2191",
+      "generation": [
+        16777233,
+        124654282,
+        20989,
+        1792823189473415947,
+        1792823189473415947
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654211,
+        0,
+        1792823170474154098,
+        1792823170474165224
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/query-timings.csv": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/query-timings.csv",
+      "bytes": 16655,
+      "sha256": "3c6f17a969d70d3d5e5d6ad5964119f5fd452ad57b8a5bdb862abf1a073e1911",
+      "generation": [
+        16777233,
+        124654090,
+        16655,
+        1792823199450461272,
+        1792823199450461272
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.timing.json",
+      "bytes": 611,
+      "sha256": "0df870a3366ee2e348f6a402c23b02bf4618163dce0ac33863b0f6a8dd7f7377",
+      "generation": [
+        16777233,
+        124654103,
+        611,
+        1792823147647588695,
+        1792823147647588695
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.timing.json",
+      "bytes": 624,
+      "sha256": "58088ed9fd6e4dfcb30c1e02c55df3a9de33c8e55c927d61ba379662fa5edae0",
+      "generation": [
+        16777233,
+        124654340,
+        624,
+        1792823199096369914,
+        1792823199096369914
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654154,
+        0,
+        1792823155342339685,
+        1792823155342350310
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.stdout.json.gz",
+      "bytes": 14292,
+      "sha256": "174c001497a4ec8d136fd22c71f659e0b95994b0a4083779ad0e9f6490f99c6e",
+      "generation": [
+        16777233,
+        124654245,
+        14292,
+        1792823178825756195,
+        1792823178825756195
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.timing.json",
+      "bytes": 613,
+      "sha256": "cf5feba86c756eaf2843072e0d3496bee70b26ad77284c96089cf48e90004507",
+      "generation": [
+        16777233,
+        124654203,
+        613,
+        1792823170115075645,
+        1792823170115075645
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.timing.json",
+      "bytes": 625,
+      "sha256": "2d089a1bfaa2396863b685527e0280629666873945872d3d770af186ffa7daa5",
+      "generation": [
+        16777233,
+        124654252,
+        625,
+        1792823180214081863,
+        1792823180214081863
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.timing.json",
+      "bytes": 613,
+      "sha256": "1d9c1bbf7e2003fd9052b5adb72efbbcd6657c492eafb72a1d92398d918c8c76",
+      "generation": [
+        16777233,
+        124654120,
+        613,
+        1792823150834625055,
+        1792823150834625055
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.timing.json",
+      "bytes": 614,
+      "sha256": "f7f7c7c1efe7e6cdd73eb8faa846ffa7bcc685abc50451691d1bf7cb1ff44821",
+      "generation": [
+        16777233,
+        124654317,
+        614,
+        1792823196879163387,
+        1792823196879163387
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.pid",
+      "bytes": 5,
+      "sha256": "ae67de723a4738c3a27a828b2871776fd770f432d1831e71e5db63b2ea04a8eb",
+      "generation": [
+        16777233,
+        124654087,
+        5,
+        1792823145920648327,
+        1792823145920648327
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.stdout.json.gz",
+      "bytes": 14443,
+      "sha256": "47ce33d0b9b78dd98aad7ffe13031e57dd2b98eba26c7ddc9016c862cd165538",
+      "generation": [
+        16777233,
+        124654253,
+        14443,
+        1792823180222053255,
+        1792823180222053255
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654303,
+        0,
+        1792823195411805671,
+        1792823195411820837
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.stdout.json.gz",
+      "bytes": 22980,
+      "sha256": "738a507da17e5c8511095c5cb5c1b9311cb05d3c54a65cddc87ed8c2c9791d57",
+      "generation": [
+        16777233,
+        124654234,
+        22980,
+        1792823177115566197,
+        1792823177115566197
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.timing.json",
+      "bytes": 633,
+      "sha256": "a65ea89bf62a31154c17ea57c1e0238f8e84b0e296e6c2b68967869143193fa7",
+      "generation": [
+        16777233,
+        124654156,
+        633,
+        1792823156798712585,
+        1792823156798712585
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654343,
+        0,
+        1792823199109627026,
+        1792823199109641776
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.pid",
+      "bytes": 5,
+      "sha256": "7ea9e5bc2736f0e3d0f16383c05fa0d0085279aad54f26b944e5ed3f35775310",
+      "generation": [
+        16777233,
+        124654292,
+        5,
+        1792823191344462591,
+        1792823191344462591
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.pid",
+      "bytes": 5,
+      "sha256": "92f4cbee3b42474440d509856efb48c44436245b7882b075bc0cfd0d71c725c4",
+      "generation": [
+        16777233,
+        124654298,
+        5,
+        1792823193469190247,
+        1792823193469190247
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654320,
+        0,
+        1792823196891724498,
+        1792823196891735498
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654106,
+        0,
+        1792823147655772171,
+        1792823147655782588
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654206,
+        0,
+        1792823170125604960,
+        1792823170125615335
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.pid",
+      "bytes": 5,
+      "sha256": "6356587db2a73ec11c68666b201a84e8427d97b50711a407802fbea4f38d145c",
+      "generation": [
+        16777233,
+        124654344,
+        5,
+        1792823199158052882,
+        1792823199158052882
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.pid",
+      "bytes": 5,
+      "sha256": "762da1911cc324cf7135692ff62e8001905e9f915e335ace1791d96c98c1015c",
+      "generation": [
+        16777233,
+        124654337,
+        5,
+        1792823198858941726,
+        1792823198858941726
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.stdout.json.gz",
+      "bytes": 14580,
+      "sha256": "3a0d36d3466d76c4ed6a4fb7c8881dc6f39512a9c7621c955fa7d8f2bddc6f02",
+      "generation": [
+        16777233,
+        124654239,
+        14580,
+        1792823177533034278,
+        1792823177533034278
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.timing.json",
+      "bytes": 614,
+      "sha256": "311c50eee4aea891f395d8a04ccf3464340e12e3b5d2c542f9f6bb2ac79f1964",
+      "generation": [
+        16777233,
+        124654288,
+        614,
+        1792823191287342007,
+        1792823191287342007
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.stdout.json.gz",
+      "bytes": 24470,
+      "sha256": "d02b54c2accdd21fec7c44f11b3be2e53c940a8e17567bdc0e3dd52eeefb02b4",
+      "generation": [
+        16777233,
+        124654229,
+        24470,
+        1792823175905224461,
+        1792823175905224461
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q29_run1.pid",
+      "bytes": 5,
+      "sha256": "20ae1e26ff37e6e1e89d85687a0868092af811e6348c673f96462dad1e4907a6",
+      "generation": [
+        16777233,
+        124654262,
+        5,
+        1792823183082612608,
+        1792823183082612608
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.pid",
+      "bytes": 5,
+      "sha256": "3b032039238673d0f349ac17ddb01d747b144dda9ee7f84314c1bb8f3c27af5c",
+      "generation": [
+        16777233,
+        124654256,
+        5,
+        1792823180269767402,
+        1792823180269767402
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.timing.json",
+      "bytes": 615,
+      "sha256": "53626e0af8373dd93936264a1512c3aa58c4691221dafe4b5c106520b3a378d0",
+      "generation": [
+        16777233,
+        124654311,
+        615,
+        1792823196336790449,
+        1792823196336790449
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.timing.json",
+      "bytes": 613,
+      "sha256": "d6f66575d3d46ad511b1f6372d3afcbee8541bd4b33a6fcd4e7e75824737da8a",
+      "generation": [
+        16777233,
+        124654139,
+        613,
+        1792823152582040801,
+        1792823152582040801
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654247,
+        0,
+        1792823178828252909,
+        1792823178828264075
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.timing.json",
+      "bytes": 626,
+      "sha256": "486fa86f94345d5ca73bf31f86080347900c44663163e973752ec2615d5d211c",
+      "generation": [
+        16777233,
+        124654258,
+        626,
+        1792823183022995186,
+        1792823183022995186
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.timing.json",
+      "bytes": 614,
+      "sha256": "dcb7343a65f22afbf0edbb9ceb674a6a6892d30aca334f5beaf1946d2093b697",
+      "generation": [
+        16777233,
+        124654184,
+        614,
+        1792823162636634879,
+        1792823162636634879
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654098,
+        0,
+        1792823146279333905,
+        1792823146279344030
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.stdout.json.gz",
+      "bytes": 22239,
+      "sha256": "cfc5a41d05a5ff5b20a9b4f776e39752d09f931331b395e85432ac081f4f42dc",
+      "generation": [
+        16777233,
+        124654221,
+        22239,
+        1792823172826614088,
+        1792823172826614088
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.pid",
+      "bytes": 5,
+      "sha256": "b883df7a787c316c7bc0f10662618827b6b9277c92f40218ae6e84fa5b0d87ac",
+      "generation": [
+        16777233,
+        124654189,
+        5,
+        1792823162693032670,
+        1792823162693032670
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.pid",
+      "bytes": 5,
+      "sha256": "2c4d96b4370d9cb852954bd79a8c90fc53b691dfee5981b5be1941d3a7df05c5",
+      "generation": [
+        16777233,
+        124654182,
+        5,
+        1792823161005150846,
+        1792823161005150846
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q38_run1.stdout.json.gz",
+      "bytes": 21437,
+      "sha256": "b42da8ab23d2c089415fc3addc4b10e60f9bfe950e5744b84fe43015c973b7b6",
+      "generation": [
+        16777233,
+        124654318,
+        21437,
+        1792823196888284824,
+        1792823196888284824
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654272,
+        0,
+        1792823186925863489,
+        1792823186925873573
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.pid",
+      "bytes": 5,
+      "sha256": "663d3518ca0be643b452446ccff306a260f90d585868a8f847b88cbecc07044b",
+      "generation": [
+        16777233,
+        124654224,
+        5,
+        1792823172877254032,
+        1792823172877254032
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.pid",
+      "bytes": 5,
+      "sha256": "a9e8c3f9bb6d58e5ee73afa9eedbf976a6536d6029e6c4efd3dcad4feb59b8fe",
+      "generation": [
+        16777233,
+        124654219,
+        5,
+        1792823171638611776,
+        1792823171638611776
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.timing.json",
+      "bytes": 613,
+      "sha256": "8106459c14b986796719e81bbf3b6c80577b5d001b35a09d899218614474490e",
+      "generation": [
+        16777233,
+        124654095,
+        613,
+        1792823146271447054,
+        1792823146271447054
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.stdout.json.gz",
+      "bytes": 11950,
+      "sha256": "c5c4bfcfcd5f195e54a24a95e2e353af7164717b78f6857485a7e8ab38440437",
+      "generation": [
+        16777233,
+        124654214,
+        11950,
+        1792823171589427710,
+        1792823171589427710
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q39_run1.stdout.json.gz",
+      "bytes": 20936,
+      "sha256": "7fa66b8f93aab7701f1b665ddc1b3c876c615a93e0dfc9fcc26a56491b29b783",
+      "generation": [
+        16777233,
+        124654323,
+        20936,
+        1792823197212925286,
+        1792823197212925286
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.timing.json",
+      "bytes": 614,
+      "sha256": "6786cc24b5b376583579c09b8f778dfe4b1ee6857c62b332db7c943ca3ab5f2f",
+      "generation": [
+        16777233,
+        124654228,
+        614,
+        1792823175895252689,
+        1792823175895252689
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q28_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654255,
+        0,
+        1792823180224561552,
+        1792823180224571386
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.stdout.json.gz",
+      "bytes": 3954,
+      "sha256": "be07997258666472bcf84cbbc201e95ac4d0b8359657d9ae2cd095182f034cea",
+      "generation": [
+        16777233,
+        124654209,
+        3954,
+        1792823170472091219,
+        1792823170472091219
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654174,
+        0,
+        1792823159248238579,
+        1792823159248250537
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.timing.json",
+      "bytes": 612,
+      "sha256": "b2af88111e25ee2f5ab639769e8ecda6da08290cdba3f7c03530c346dde955f5",
+      "generation": [
+        16777233,
+        124654151,
+        612,
+        1792823155332970664,
+        1792823155332970664
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.stdout.json.gz",
+      "bytes": 21157,
+      "sha256": "57aff0acc949d9e211fc702838816a470b85c17239b8ed3fb732a50cb80303e8",
+      "generation": [
+        16777233,
+        124654140,
+        21157,
+        1792823152590068694,
+        1792823152590068694
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.stdout.json.gz",
+      "bytes": 19661,
+      "sha256": "1730ef32ed3745b1bd9a6648b03b37490abacc420f57c48e82bbdb7ddae01a34",
+      "generation": [
+        16777233,
+        124654334,
+        19661,
+        1792823198809664952,
+        1792823198809664952
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.stdout.json.gz",
+      "bytes": 21656,
+      "sha256": "030faed8de69c8a8e80134d79148980fe57efe194cec2b5d9772a2ade992c4b4",
+      "generation": [
+        16777233,
+        124654147,
+        21656,
+        1792823154486706684,
+        1792823154486706684
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654291,
+        0,
+        1792823191299034116,
+        1792823191299044533
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654133,
+        0,
+        1792823151175886261,
+        1792823151175896303
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.pid",
+      "bytes": 5,
+      "sha256": "98dcbe34de2e0081d70b9a0e47bc2c8875d9fb6c00574913aecf0d47d525c579",
+      "generation": [
+        16777233,
+        124654268,
+        5,
+        1792823186109402617,
+        1792823186109402617
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.pid",
+      "bytes": 5,
+      "sha256": "58b56ca565b863349e33f05ed62532784bc8f11935ad7386e97b57033322c31a",
+      "generation": [
+        16777233,
+        124654273,
+        5,
+        1792823186971486298,
+        1792823186971486298
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.stdout.json.gz",
+      "bytes": 19244,
+      "sha256": "e4d22d7ddc19feceb1bdcc86af08e845785fbe7e56df852fb89e27145ff3c3b6",
+      "generation": [
+        16777233,
+        124654131,
+        19244,
+        1792823151174506300,
+        1792823151174506300
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654142,
+        0,
+        1792823152591849906,
+        1792823152591863656
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.stdout.json.gz",
+      "bytes": 21236,
+      "sha256": "ef7ec2ff1539d9b67eb9b0fe8486d6fe6293d4e9bfb4669d3d04df98d5fcc823",
+      "generation": [
+        16777233,
+        124654329,
+        21236,
+        1792823198153275388,
+        1792823198153275388
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q30_run1.timing.json",
+      "bytes": 623,
+      "sha256": "94ad0f3ae78cf0335906e3a486010e97eccc910a347284c0cf0092ef9eb8440c",
+      "generation": [
+        16777233,
+        124654269,
+        623,
+        1792823186915379175,
+        1792823186915379175
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.stdout.json.gz",
+      "bytes": 21750,
+      "sha256": "c72d43ce32a176fe8db29bd295a399559740f0de8096a389b68ed5b22c4a3912",
+      "generation": [
+        16777233,
+        124654152,
+        21750,
+        1792823155340767807,
+        1792823155340767807
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q22_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654216,
+        0,
+        1792823171591883507,
+        1792823171591894757
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.stdout.json.gz",
+      "bytes": 20088,
+      "sha256": "211d5612867091ff10f45ea5e896544020fff57dc115736c6c8233de0f777c50",
+      "generation": [
+        16777233,
+        124654157,
+        20088,
+        1792823156806326226,
+        1792823156806326226
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q43_run1.stdout.json.gz",
+      "bytes": 19350,
+      "sha256": "85cb24bba2ed0a6164dc7b04d419b85b4600cd4cc0474ffcac50eeac03f2a690",
+      "generation": [
+        16777233,
+        124654346,
+        19350,
+        1792823199411783896,
+        1792823199411783896
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.timing.json",
+      "bytes": 624,
+      "sha256": "da97d67457c9a439148d2c8620bb0f614b638ea81463554366fb8bd82abe443a",
+      "generation": [
+        16777233,
+        124654333,
+        624,
+        1792823198800807974,
+        1792823198800807974
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.timing.json",
+      "bytes": 615,
+      "sha256": "9f700525c6f3062588b3869aef6414499ed78bc45aec8e770fab5ef46919fc0e",
+      "generation": [
+        16777233,
+        124654233,
+        615,
+        1792823177105238632,
+        1792823177105238632
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.pid",
+      "bytes": 5,
+      "sha256": "696d9363dc5a99999e82bc3f4a78d98b96bd5367c4c268421d645e34979a9fec",
+      "generation": [
+        16777233,
+        124654107,
+        5,
+        1792823147700216227,
+        1792823147700216227
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.pid",
+      "bytes": 5,
+      "sha256": "47a75f17bd50932dd6d81072d512910dd506a353ad82d6fd35bd70542ac12da4",
+      "generation": [
+        16777233,
+        124654112,
+        5,
+        1792823148286841138,
+        1792823148286841138
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.stdout.json.gz",
+      "bytes": 23175,
+      "sha256": "cacb5b2f9c15bec886e2abd9d2911de2280a42cd532ad516b9eb7d0d4bd1a7a2",
+      "generation": [
+        16777233,
+        124654165,
+        23175,
+        1792823157473166187,
+        1792823157473166187
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q42_run1.stdout.json.gz",
+      "bytes": 19395,
+      "sha256": "1f3f24206749d4a3c057e9bf6bebe993a3c8afd2ed5b4821bee0cf41be98ee6c",
+      "generation": [
+        16777233,
+        124654341,
+        19395,
+        1792823199105771184,
+        1792823199105771184
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654331,
+        0,
+        1792823198156885688,
+        1792823198156897605
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.timing.json",
+      "bytes": 614,
+      "sha256": "2556051217847160609baa8dd44721e489c35254242e2dfff98657b941e1712b",
+      "generation": [
+        16777233,
+        124654115,
+        614,
+        1792823149679575148,
+        1792823149679575148
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654118,
+        0,
+        1792823149688521876,
+        1792823149688539918
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q27_run1.pid",
+      "bytes": 5,
+      "sha256": "6a1befc44c314642f04a8cf4cdf6a7f208580615eada11e8d8b09c9bf643b4f9",
+      "generation": [
+        16777233,
+        124654248,
+        5,
+        1792823178873573675,
+        1792823178873573675
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q26_run1.pid",
+      "bytes": 5,
+      "sha256": "1315c02ef378242ad4dc0de55e38161502116a68e37e78788c4fe93194776028",
+      "generation": [
+        16777233,
+        124654243,
+        5,
+        1792823177580971966,
+        1792823177580971966
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.timing.json",
+      "bytes": 624,
+      "sha256": "dfd9f95009473c9fa753c8ac97fc409e346f5a275d84a9e4ff2ea134520f32c8",
+      "generation": [
+        16777233,
+        124654088,
+        624,
+        1792823145967463763,
+        1792823145967463763
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654086,
+        0,
+        1792823145875679312,
+        1792823145875688603
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.stdout.json.gz",
+      "bytes": 22726,
+      "sha256": "26d175ebfebfbf5a389f0cd41918bf5d57c7cb9fcb337886b8e7aa082927f7ce",
+      "generation": [
+        16777233,
+        124654178,
+        22726,
+        1792823160953850400,
+        1792823160953850400
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.stdout.json.gz",
+      "bytes": 22416,
+      "sha256": "913a5344cf665e018c43c02ac4f59431e195a7b1cec351abca450eecdd54b6e0",
+      "generation": [
+        16777233,
+        124654172,
+        22416,
+        1792823159246380658,
+        1792823159246380658
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.pid",
+      "bytes": 5,
+      "sha256": "24f4c4b4339871082ca94b4071f289b166bda59c2efc638890e72d638981010d",
+      "generation": [
+        16777233,
+        124654201,
+        5,
+        1792823165650902236,
+        1792823165650902236
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.pid",
+      "bytes": 5,
+      "sha256": "0ab4360647fe97924dd026006e6023661cdc1255f5d268c678d72ba0cc022160",
+      "generation": [
+        16777233,
+        124654195,
+        5,
+        1792823165227345850,
+        1792823165227345850
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654236,
+        0,
+        1792823177118243619,
+        1792823177118254036
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654194,
+        0,
+        1792823165178593285,
+        1792823165178609910
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.timing.json",
+      "bytes": 637,
+      "sha256": "a26fca37d69f54238a73cea50d4e4c3c3ffd9ec3625db75657999a5c0bace5dc",
+      "generation": [
+        16777233,
+        124654208,
+        637,
+        1792823170465610580,
+        1792823170465610580
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q34_run1.timing.json",
+      "bytes": 625,
+      "sha256": "2cda0a4df8356eed695c29490c4be05097044fe92c61966e00905666d88ef67c",
+      "generation": [
+        16777233,
+        124654294,
+        625,
+        1792823193410078409,
+        1792823193410078409
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.stdout.json.gz",
+      "bytes": 22583,
+      "sha256": "f55f3a72fbac3d9d20bdd5cc84a6ca830e6aeb57bfb6b753dcfdae76d6174f69",
+      "generation": [
+        16777233,
+        124654192,
+        22583,
+        1792823165176443447,
+        1792823165176443447
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q17_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654187,
+        0,
+        1792823162646543901,
+        1792823162646554026
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q33_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654284,
+        0,
+        1792823189476347162,
+        1792823189476359746
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.timing.json",
+      "bytes": 615,
+      "sha256": "0f25740e8192e9d892c8000b153345d4c97ab23b4a30d342af5b840228416e2f",
+      "generation": [
+        16777233,
+        124654177,
+        615,
+        1792823160944383129,
+        1792823160944383129
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q13_run1.pid",
+      "bytes": 5,
+      "sha256": "6c370f5d4c81f6890cb7ed824f7dd2f95ba213642a532d2c080ad1fe6ba9c936",
+      "generation": [
+        16777233,
+        124654160,
+        5,
+        1792823156853352913,
+        1792823156853352913
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q12_run1.pid",
+      "bytes": 5,
+      "sha256": "724621df41017c042e5778de2b13bf4d0e2092f239029a62715db9f9140b484c",
+      "generation": [
+        16777233,
+        124654155,
+        5,
+        1792823155387959951,
+        1792823155387959951
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.stdout.json.gz",
+      "bytes": 21421,
+      "sha256": "5fbcf675078b62fa8469fcbe55a8f37c1a68991a4b2bc87fe02a050c006c1d0f",
+      "generation": [
+        16777233,
+        124654185,
+        21421,
+        1792823162644636064,
+        1792823162644636064
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q31_run1.timing.json",
+      "bytes": 624,
+      "sha256": "d15aac0c134970e30b7d71d36ae5047873ac8cd09a66ff620d0e3b908b3a766d",
+      "generation": [
+        16777233,
+        124654274,
+        624,
+        1792823188092217796,
+        1792823188092217796
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q20_run1.pid",
+      "bytes": 5,
+      "sha256": "4f48212b2b4f5b7c919d1fc81600d1ebfb733b37b82b026a9fa5e0ee82819b10",
+      "generation": [
+        16777233,
+        124654207,
+        5,
+        1792823170173801191,
+        1792823170173801191
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.pid",
+      "bytes": 5,
+      "sha256": "cff5ce09e8418fb3ec8264c559db436204c2e8f3d0171dddea35eb025f739905",
+      "generation": [
+        16777233,
+        124654212,
+        5,
+        1792823170519585906,
+        1792823170519585906
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.stdout.json.gz",
+      "bytes": 11924,
+      "sha256": "298400558c1047be6509425b289ab1d254e803fb315eb80ae60ffbd49c4e578b",
+      "generation": [
+        16777233,
+        124654096,
+        11924,
+        1792823146278378486,
+        1792823146278378486
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q24_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654231,
+        0,
+        1792823175907740258,
+        1792823175907754466
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654199,
+        0,
+        1792823165605492053,
+        1792823165605507053
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.stdout.json.gz",
+      "bytes": 18751,
+      "sha256": "6bdb464d4eabf8836368389635346833d8a194f51953678db5ef5d878cefa7e7",
+      "generation": [
+        16777233,
+        124654104,
+        18751,
+        1792823147654702669,
+        1792823147654702669
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q10_run1.timing.json",
+      "bytes": 614,
+      "sha256": "fb1e6dbf30449b3035a610f9ef13079d5432dddf0389bc2b1e2512619f8f243b",
+      "generation": [
+        16777233,
+        124654146,
+        614,
+        1792823154478289874,
+        1792823154478289874
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q16_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654180,
+        0,
+        1792823160956258030,
+        1792823160956273655
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q19_run1.stdout.json.gz",
+      "bytes": 21249,
+      "sha256": "6affc4c4a91d10dc7a8b4e3e66245f0d5128d26120716bf9236560363a72bdb7",
+      "generation": [
+        16777233,
+        124654204,
+        21249,
+        1792823170123528789,
+        1792823170123528789
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.timing.json",
+      "bytes": 612,
+      "sha256": "b1f049a6af868f89aed0b9c6debb345defdd3b76c390f4ebbfa26d8bbe5b7d3f",
+      "generation": [
+        16777233,
+        124654108,
+        612,
+        1792823148234186106,
+        1792823148234186106
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q01_run1.stdout.json.gz",
+      "bytes": 5337,
+      "sha256": "e4f176a712334a620d3dd910ea39b42468ad30c248547f83543c1fd3a700618a",
+      "generation": [
+        16777233,
+        124654089,
+        5337,
+        1792823145973372567,
+        1792823145973372567
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q25_run1.timing.json",
+      "bytes": 625,
+      "sha256": "6dbcc6e5ce8b8f7e013aed94a6986c15fc0ce6e8a47ef9f8bc4aa26721eafc53",
+      "generation": [
+        16777233,
+        124654238,
+        625,
+        1792823177525066385,
+        1792823177525066385
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.timing.json",
+      "bytes": 614,
+      "sha256": "2bfb0bdbd44ca7cf5d07f9a24b8828c88f916ff571a81b7c37e8487ac3bfdf10",
+      "generation": [
+        16777233,
+        124654328,
+        614,
+        1792823198144177702,
+        1792823198144177702
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.pid",
+      "bytes": 5,
+      "sha256": "6f8b2a214159853ec93fcfa624445f0490d6825cad4929eff421f70dd1cee8b5",
+      "generation": [
+        16777233,
+        124654168,
+        5,
+        1792823157520623875,
+        1792823157520623875
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q15_run1.pid",
+      "bytes": 5,
+      "sha256": "898080001ad1b33d60756f155d98a2cc9c09003d8d2d0ac66e3ee932be5378c0",
+      "generation": [
+        16777233,
+        124654175,
+        5,
+        1792823159298356605,
+        1792823159298356605
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q18_run1.stdout.json.gz",
+      "bytes": 20221,
+      "sha256": "167bf41f635289955bc4cdd9a8c78aac537d02e27427f3280f26d3e4c71dc78f",
+      "generation": [
+        16777233,
+        124654197,
+        20221,
+        1792823165603481674,
+        1792823165603481674
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q32_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654277,
+        0,
+        1792823188103930822,
+        1792823188103947530
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654297,
+        0,
+        1792823193422903229,
+        1792823193422916854
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q21_run1.timing.json",
+      "bytes": 614,
+      "sha256": "5d192e22681efb6c83e26eeadb1407e6a6e2f2cb8ec212fe8e8d16fa3af47d4e",
+      "generation": [
+        16777233,
+        124654213,
+        614,
+        1792823171581824235,
+        1792823171581824235
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654128,
+        0,
+        1792823150936365070,
+        1792823150936381028
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.stdout.json.gz",
+      "bytes": 17466,
+      "sha256": "1aee2ff8469a5744bca2dffd8de8bc0f03270b01219a2f7ad860574d43340b7f",
+      "generation": [
+        16777233,
+        124654126,
+        17466,
+        1792823150935068692,
+        1792823150935068692
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q37_run1.pid",
+      "bytes": 5,
+      "sha256": "1c9dde0669a66e94a5597edc7f101eb9e48243619fceeac15e6cec7f1e8cb607",
+      "generation": [
+        16777233,
+        124654310,
+        5,
+        1792823195902476080,
+        1792823195902476080
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q36_run1.pid",
+      "bytes": 5,
+      "sha256": "423e18a4a465a7312217ed281315633908183cb31df1005c43eae4d6d063a693",
+      "generation": [
+        16777233,
+        124654304,
+        5,
+        1792823195462724283,
+        1792823195462724283
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q06_run1.stdout.json.gz",
+      "bytes": 18072,
+      "sha256": "47afaf849f479662c851dad80a9bcbfe80b079a3022b1e1ca3c6793b3aaf87e5",
+      "generation": [
+        16777233,
+        124654121,
+        18072,
+        1792823150841960904,
+        1792823150841960904
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.pid",
+      "bytes": 5,
+      "sha256": "cbc2b54ff2d8262a25ca9b3864a56388789a2a5116d1860b5552e79b1ed1e9ef",
+      "generation": [
+        16777233,
+        124654326,
+        5,
+        1792823197261792685,
+        1792823197261792685
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q41_run1.pid",
+      "bytes": 5,
+      "sha256": "ba97db3b1045ae8a6e40f629befad8bb2114a947e53d2c0483ef31ee28ded979",
+      "generation": [
+        16777233,
+        124654332,
+        5,
+        1792823198202735914,
+        1792823198202735914
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q09_run1.pid",
+      "bytes": 5,
+      "sha256": "6422cb4858f15d79a373e466483012b9e2467bc699bd8ec8316c2750d7af0a97",
+      "generation": [
+        16777233,
+        124654134,
+        5,
+        1792823151220828568,
+        1792823151220828568
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q08_run1.pid",
+      "bytes": 5,
+      "sha256": "664ed72cb47df01e52aa917c412f3a0f93ee063c6b0347d70ea1c13c182a0f10",
+      "generation": [
+        16777233,
+        124654129,
+        5,
+        1792823150980898334,
+        1792823150980898334
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q11_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654149,
+        0,
+        1792823154488355604,
+        1792823154488371021
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q05_run1.stdout.json.gz",
+      "bytes": 18986,
+      "sha256": "72c7a73c2767d715d74176b3c2742f039a378bbc8ab997308024863bd2c35c53",
+      "generation": [
+        16777233,
+        124654116,
+        18986,
+        1792823149687287123,
+        1792823149687287123
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q23_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654223,
+        0,
+        1792823172829095968,
+        1792823172829106885
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q14_run1.timing.json",
+      "bytes": 612,
+      "sha256": "94854392d58f4bafabdd2d7dec3b82f387b85915d8b6889aedb771b03d276e53",
+      "generation": [
+        16777233,
+        124654171,
+        612,
+        1792823159237637764,
+        1792823159237637764
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q03_run1.pid",
+      "bytes": 5,
+      "sha256": "f783659d8065aa371c77b8b3a01a4575ae5a49863dfb8951c80d64c19250c89c",
+      "generation": [
+        16777233,
+        124654099,
+        5,
+        1792823146324487921,
+        1792823146324487921
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q07_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654123,
+        0,
+        1792823150843209116,
+        1792823150843219907
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.pid": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q02_run1.pid",
+      "bytes": 5,
+      "sha256": "3dc87ab71825dc94bda11a295dfe809fbde5a0ca821683b4986c00b78cebbe67",
+      "generation": [
+        16777233,
+        124654094,
+        5,
+        1792823146018680667,
+        1792823146018680667
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.timing.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q35_run1.timing.json",
+      "bytes": 625,
+      "sha256": "619f0c364594d611cfd945a05f849d19e61a420171e74246f0aa4a145d47e6d1",
+      "generation": [
+        16777233,
+        124654300,
+        625,
+        1792823195399331060,
+        1792823195399331060
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.stdout.json.gz": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q04_run1.stdout.json.gz",
+      "bytes": 18520,
+      "sha256": "451978acaed2830e7a213edac2b4b75699afbd9311e65b396aa64db9d4842838",
+      "generation": [
+        16777233,
+        124654109,
+        18520,
+        1792823148241231913,
+        1792823148241231913
+      ]
+    },
+    "full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.stderr.txt": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-1022/logs/full43_20261024T062545835197Z/q40_run1.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "generation": [
+        16777233,
+        124654325,
+        0,
+        1792823197216392252,
+        1792823197216403127
+      ]
+    },
+    "full43-pr1594-plan-1022.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-plan-1022.json",
+      "bytes": 84584,
+      "sha256": "eb023e3119efd42a30e36c4dbd7bcd10203c6bd9062f9c0faad6b45588874516",
+      "generation": [
+        16777233,
+        124654079,
+        84584,
+        1792823145737724051,
+        1792823145737724051
+      ]
+    },
+    "full43-pr1594-run-1022.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-run-1022.json",
+      "bytes": 110017,
+      "sha256": "cb965f1a6367932312bac048a7eadd7f1104220c8e1591810c2f5cf1c80ad153",
+      "generation": [
+        16777233,
+        124654353,
+        110017,
+        1792823205718317427,
+        1792823205718317427
+      ]
+    },
+    "full43-pr1594-run-1022.log": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-pr1594-run-1022.log",
+      "bytes": 101484,
+      "sha256": "5445bf6736076f4c485700c6c2536ac8035ac00ce3f4bb2ef11a1c585130c8da",
+      "generation": [
+        16777233,
+        124654080,
+        101484,
+        1792823199451960192,
+        1792823199451960192
+      ]
+    },
+    "run_full43_pr1594_1022.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/run_full43_pr1594_1022.py",
+      "bytes": 14605,
+      "sha256": "d2cda2c1cec0a85b269b0bee49c22fe1ac43fbd81fe270f9465a426296a4df64",
+      "generation": [
+        16777233,
+        124654064,
+        14605,
+        1792823126583989530,
+        1792823126583989530
+      ]
+    },
+    "package_full43_pr1594_1022.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/package_full43_pr1594_1022.py",
+      "bytes": 5375,
+      "sha256": "182ae1a1ab505282c94e95f351ddd58b94106b9ebbc95c01c2cbd1f4473922d7",
+      "generation": [
+        16777233,
+        124672501,
+        5375,
+        1792823505145198805,
+        1792823505145198805
+      ]
+    },
+    "join-cli-build-1020.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/join-cli-build-1020.json",
+      "bytes": 501904,
+      "sha256": "f21d0a04b8306fcda2b5a8ab27d2ca2b2d5f8f947ea90192079c0e66e08cb963",
+      "generation": [
+        16777233,
+        124471002,
+        501904,
+        1792818530518399123,
+        1792818530518399123
+      ]
+    },
+    "join-cli-build-1020.log": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/join-cli-build-1020.log",
+      "bytes": 303,
+      "sha256": "154f2e63288a1266448f4ada70efe63a5e786795afd83229841d36f7419c433f",
+      "generation": [
+        16777233,
+        124469812,
+        303,
+        1792818530139956942,
+        1792818530139956942
+      ]
+    },
+    "full43-join-run-1020.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/full43-join-run-1020.json",
+      "bytes": 111500,
+      "sha256": "55e941739113da8e782cad52a90138792834a38aada74591d8d147b96a8ff1e5",
+      "generation": [
+        16777233,
+        124471356,
+        111500,
+        1792818624427424630,
+        1792818624427424630
+      ]
+    },
+    "pr-contribution-governance-1022.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/pr-contribution-governance-1022.json",
+      "bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae",
+      "generation": [
+        16777233,
+        124653732,
+        2433,
+        1792822943365241137,
+        1792822943365241137
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/run_clickbench_query_uat.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/run_clickbench_query_uat.py",
+      "bytes": 27636,
+      "sha256": "5a688d68a0147c1166f07c775858a33b2eb5e36a9afde766596b2425a1a34157",
+      "generation": [
+        16777233,
+        124653995,
+        27636,
+        1792823072652521245,
+        1792823072652521245
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/clickbench_reference_packet.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/clickbench_reference_packet.py",
+      "bytes": 4863,
+      "sha256": "8d20759e0b2d41dcdba4b9d4033abfa7961f888d62cdf3e3e2545d8482ba5102",
+      "generation": [
+        16777233,
+        124653895,
+        4863,
+        1792823071977869100,
+        1792823071977869100
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/clickbench_native_sql.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/clickbench_native_sql.py",
+      "bytes": 3061,
+      "sha256": "6ac0d1042aca1089bc9d9e3c7ea21bcacda8f341d90532178ccfe782acd328cd",
+      "generation": [
+        16777233,
+        124653894,
+        3061,
+        1792823071971435919,
+        1792823071971435919
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/native_workflow_protocol.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/native_workflow_protocol.py",
+      "bytes": 7464,
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855",
+      "generation": [
+        16777233,
+        124653979,
+        7464,
+        1792823072543040005,
+        1792823072543040005
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/timed_native_command.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/timed_native_command.py",
+      "bytes": 3632,
+      "sha256": "a174e86eb6e0d525ceb5d6427c7f152642f57842fbd74c69551fc20deafb40e4",
+      "generation": [
+        16777233,
+        124654035,
+        3632,
+        1792823072924783175,
+        1792823072924783175
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/query_timing_report.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/query_timing_report.py",
+      "bytes": 4235,
+      "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1",
+      "generation": [
+        16777233,
+        124653984,
+        4235,
+        1792823072577104121,
+        1792823072577104121
+      ]
+    },
+    "clickbench-harness-pr1594-1022/scripts/local_uat_storage.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/scripts/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "generation": [
+        16777233,
+        124653903,
+        8451,
+        1792823072032075677,
+        1792823072032075677
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/__init__.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/__init__.py",
+      "bytes": 2810,
+      "sha256": "7a24b83dee50c90d311df97b2962ad68c7a3e66e2ff9df0959e22cfc54cef2d2",
+      "generation": [
+        16777233,
+        124653792,
+        2810,
+        1792823071293838518,
+        1792823071293838518
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_batches.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_batches.py",
+      "bytes": 20227,
+      "sha256": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
+      "generation": [
+        16777233,
+        124653794,
+        20227,
+        1792823071308901842,
+        1792823071308901842
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_compat.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_compat.py",
+      "bytes": 802,
+      "sha256": "e45cc0674b26eaae5b9992affc180092e2957d1d9e6e064940d8a4bc98cdce0f",
+      "generation": [
+        16777233,
+        124653795,
+        802,
+        1792823071315834566,
+        1792823071315834566
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_exports.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_exports.py",
+      "bytes": 15680,
+      "sha256": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
+      "generation": [
+        16777233,
+        124653796,
+        15680,
+        1792823071322708998,
+        1792823071322708998
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_input_schema.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_input_schema.py",
+      "bytes": 13216,
+      "sha256": "502f76827c524f8ae837ea8db8d1b90a307711a038876d7643104f1a0ec4b495",
+      "generation": [
+        16777233,
+        124653797,
+        13216,
+        1792823071329316262,
+        1792823071329316262
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_native_backend.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_native_backend.py",
+      "bytes": 25618,
+      "sha256": "3f0345d86074e2187450a1e17b3c64a6b320662b0aa6389fca54875dd61f3df4",
+      "generation": [
+        16777233,
+        124653798,
+        25618,
+        1792823071335926152,
+        1792823071335926152
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_relational_sql.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_relational_sql.py",
+      "bytes": 11069,
+      "sha256": "012e87be5e0df1a905a2304c444d073f6c0cbcaec543bc4b8f134e98b6172d23",
+      "generation": [
+        16777233,
+        124653799,
+        11069,
+        1792823071342635250,
+        1792823071342635250
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_result_schema.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_result_schema.py",
+      "bytes": 10263,
+      "sha256": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
+      "generation": [
+        16777233,
+        124653800,
+        10263,
+        1792823071349458681,
+        1792823071349458681
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/_version.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/_version.py",
+      "bytes": 169,
+      "sha256": "15c2301be8f0c46290c326511c9c44251d91252f7cdc8b573b2d66e23826a328",
+      "generation": [
+        16777233,
+        124653801,
+        169,
+        1792823071356217654,
+        1792823071356217654
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/client.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/client.py",
+      "bytes": 356182,
+      "sha256": "3415b4ec8e0e4ab5a5022ae9bc773ba0e4868c37cd9309440bbabe1949bbed9a",
+      "generation": [
+        16777233,
+        124653802,
+        356182,
+        1792823071363728838,
+        1792823071363728838
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/context.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/context.py",
+      "bytes": 478458,
+      "sha256": "0393f7df9559928b818c9e68b102623ce62969babdb618a687039884a3b99dbf",
+      "generation": [
+        16777233,
+        124653803,
+        478458,
+        1792823071371967771,
+        1792823071371967771
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/diagnostics.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/diagnostics.py",
+      "bytes": 590,
+      "sha256": "b8f9a81b1723bd8c08dc025e5028a0e232496b428b5e6a085fc5f2f01ab312c1",
+      "generation": [
+        16777233,
+        124653806,
+        590,
+        1792823071379743955,
+        1792823071379743955
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/errors.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/errors.py",
+      "bytes": 7794,
+      "sha256": "8409187140941c8552541c428b25b5a27c7a75d6c0fd15bbce92c0ef2413cbf5",
+      "generation": [
+        16777233,
+        124653808,
+        7794,
+        1792823071396192158,
+        1792823071396192158
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/execution_resources.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/execution_resources.py",
+      "bytes": 11808,
+      "sha256": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
+      "generation": [
+        16777233,
+        124653809,
+        11808,
+        1792823071403772299,
+        1792823071403772299
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/models.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/models.py",
+      "bytes": 64175,
+      "sha256": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
+      "generation": [
+        16777233,
+        124653810,
+        64175,
+        1792823071410762773,
+        1792823071410762773
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/native.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/native.py",
+      "bytes": 1744,
+      "sha256": "c9fca7e207421c05cceeed231bd83a824351c57095b7c49fa7049fbebd768110",
+      "generation": [
+        16777233,
+        124653811,
+        1744,
+        1792823071417739163,
+        1792823071417739163
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/query.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/query.py",
+      "bytes": 539284,
+      "sha256": "e5ca4d11a43faacccbd8fda13fc31d7fdd246929c66bfed200f0639135ea689d",
+      "generation": [
+        16777233,
+        124653813,
+        539284,
+        1792823071432583738,
+        1792823071432583738
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/quickstart.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/quickstart.py",
+      "bytes": 5605,
+      "sha256": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
+      "generation": [
+        16777233,
+        124653814,
+        5605,
+        1792823071439866545,
+        1792823071439866545
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/runtime_defaults.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/runtime_defaults.py",
+      "bytes": 401,
+      "sha256": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
+      "generation": [
+        16777233,
+        124653815,
+        401,
+        1792823071446931936,
+        1792823071446931936
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/session.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/session.py",
+      "bytes": 63618,
+      "sha256": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",
+      "generation": [
+        16777233,
+        124653816,
+        63618,
+        1792823071454152868,
+        1792823071454152868
+      ]
+    },
+    "clickbench-harness-pr1594-1022/python/src/shardloom/testing.py": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/python/src/shardloom/testing.py",
+      "bytes": 589,
+      "sha256": "ee05e4b62eb245f763d7aea6c6098a29be74f186473aaed2415ff8cd5f5b4f90",
+      "generation": [
+        16777233,
+        124653817,
+        589,
+        1792823071461337592,
+        1792823071461337592
+      ]
+    },
+    "clickbench-harness-pr1594-1022/benchmarks/clickbench/queries.sql": {
+      "source": "/Users/dylan/LocalData/shardloom/native-engine-optimization-20261023/clickbench-harness-pr1594-1022/benchmarks/clickbench/queries.sql",
+      "bytes": 8551,
+      "sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+      "generation": [
+        16777233,
+        124653788,
+        8551,
+        1792823071285496708,
+        1792823071285496708
+      ]
+    },
+    "protocol/reference.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+      "bytes": 454630,
+      "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b",
+      "generation": [
+        16777233,
+        121652500,
+        454630,
+        1792707108371037938,
+        1792707108371037938
+      ]
+    },
+    "protocol/acceptance.json": {
+      "source": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/acceptance.json",
+      "bytes": 454102,
+      "sha256": "215257830383f093501c1365805f26bd4fa0b7c6cf5670e58abfffd7fd9364a1",
+      "generation": [
+        16777233,
+        121652501,
+        454102,
+        1792707108378502983,
+        1792707108378502983
+      ]
+    },
+    "protocol/bounded_build_process_resume_20260912.py": {
+      "source": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "generation": [
+        16777233,
+        89406795,
+        8431,
+        1789246837532150184,
+        1789246837532150184
+      ]
+    },
+    "protocol/native_workload_guard_816.py": {
+      "source": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/native_workload_guard_816.py",
+      "bytes": 1789,
+      "sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+      "generation": [
+        16777233,
+        115975273,
+        1789,
+        1792509875541532126,
+        1792509875541532126
+      ]
+    }
+  }
+}
