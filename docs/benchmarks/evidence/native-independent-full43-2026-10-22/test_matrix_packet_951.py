@@ -1,4 +1,5 @@
 """Reject incomplete, substituted and misrepresented corrected-matrix evidence."""
+import ast
 import copy
 import gzip
 import importlib.util
@@ -104,6 +105,37 @@ class MatrixPacketTests(unittest.TestCase):
         with patch.object(Path, 'read_bytes', changed):
             with self.assertRaisesRegex(ValueError, 'replay harness source changed'):
                 self.verify()
+
+    def test_maintained_query_runner_and_adapter_drift_are_rejected(self):
+        read_bytes = Path.read_bytes
+        for name in ('scripts/run_clickbench_query_uat.py', 'scripts/clickbench_native_sql.py'):
+            with self.subTest(source=name):
+                source = REPO / name
+
+                def changed(path):
+                    raw = read_bytes(path)
+                    return raw + b'\n# changed maintained replay helper\n' if path == source else raw
+
+                with patch.object(Path, 'read_bytes', changed):
+                    with self.assertRaisesRegex(ValueError, 'trusted replay source changed'):
+                        self.verify()
+
+    def test_maintained_query_comparison_matches_recorded_function(self):
+        name = 'scripts/run_clickbench_query_uat.py'
+        recorded = self.evidence.raw(self.manifest['original_repository'] + '/' + name)
+
+        def comparison(raw):
+            functions = [node for node in ast.parse(raw).body
+                         if isinstance(node, ast.FunctionDef) and node.name == 'equivalent']
+            self.assertEqual(len(functions), 1)
+            return ast.dump(functions[0], include_attributes=False)
+
+        self.assertEqual(comparison(recorded), comparison((REPO / name).read_bytes()))
+
+    def test_recorded_query_runner_identity_is_still_required(self):
+        self.reject_decoded_changes({self.manifest['protocol']['path']:
+            lambda d: d['harness_source_hashes'].__setitem__('scripts/run_clickbench_query_uat.py', '0' * 64)},
+            'recorded harness source changed')
 
     def test_maintained_verifier_identity_is_required(self):
         manifest = copy.deepcopy(self.manifest)

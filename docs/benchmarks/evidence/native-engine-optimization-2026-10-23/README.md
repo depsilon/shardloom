@@ -46,3 +46,21 @@ generation checks and closed-handle checks. Original Parquet and current Vortex
 input remain, together with the latest accepted CLI and measured native test
 executable. Old executables, compiler outputs and package environments are not
 archived as rollback backups. Git source remains the regeneration basis.
+
+The maintainer-requested observation after opening PR #1594 is recorded
+separately in [full43-pr1594-1022.json](full43-pr1594-1022.json). It reports
+**48.693636581 engine seconds**, one execution per query, all 381 independent
+rows, and the same accepted runtime. Its
+[216-member archive](full43-pr1594-1022.tar.xz) and
+[manifest](full43-pr1594-manifest-1022.json) retain complete results, the driver,
+reference, source/build identities and protocol files with full byte readback.
+This later observation does not replace any earlier measurement or candidate
+decision.
+
+The [PR follow-up validation](pr1594-validation-1023.json),
+[31-member packet](pr1594-validation-1023.tar.xz) and
+[manifest](pr1594-validation-manifest-1023.json) preserve the initial hosted
+website audit and Python replay failures, their local fixes and checks, and the
+temporary harness retirement. Original measurements remain unchanged; all
+Rust/Cargo sources still match the accepted executable. Local checks do not
+substitute for the updated PR's hosted checks.

@@ -689,3 +689,59 @@ input, the latest accepted CLI and the latest measured native test executable
 remain. Storage limits and benchmark supervision are unchanged. Git source and
 ordinary project files are preserved. This closes the authorized local batch;
 hosted integration and package publication are not performed.
+
+## Requested PR follow-up
+
+The maintainer requested another Full43 and asked to open a new PR first.
+[PR #1594](https://github.com/depsilon/shardloom/pull/1594) was opened at
+`c034c699` before the pass. The fresh observation passes all 43 queries, once
+each, and all 381 independent rows at **48.693636581 engine seconds**. The
+accepted executable is reused after confirming every Rust/Cargo source hash;
+no rebuild or engine change occurs. Input, reference, harness, resource settings,
+complete-result validation, process cleanup and lock release retain their
+previous contracts. Input hashing and inventories stay outside query execution.
+
+The [observation receipt](../benchmarks/evidence/native-engine-optimization-2026-10-23/full43-pr1594-1022.json),
+[216-member packet](../benchmarks/evidence/native-engine-optimization-2026-10-23/full43-pr1594-1022.tar.xz)
+and [manifest](../benchmarks/evidence/native-engine-optimization-2026-10-23/full43-pr1594-manifest-1022.json)
+preserve the requested pass separately. Complete byte readback passes. The
+earlier 51.333297036-second completion observation remains unchanged; the new
+pass is a single observation of the same runtime and does not attribute their
+difference to an implementation change.
+
+The first hosted website check fails its existing `npm audit --audit-level=low`
+gate for transitive `fast-uri` 3.1.8 and `undici` 8.10.2. The website lockfile
+updates only those two existing packages to 3.1.9 and 8.12.3, within their
+unchanged parent ranges. Their BSD-3-Clause and MIT licenses are unchanged.
+The [fast-uri release](https://github.com/fastify/fast-uri/releases/tag/v3.1.9)
+and [Undici advisory](https://github.com/advisories/GHSA-xjj6-f33q-929c)
+document the patched version boundaries; the
+[Undici release](https://github.com/nodejs/undici/releases/tag/v8.12.3)
+records the selected compatible patch. This is website dependency maintenance;
+the Rust runtime and measured executable remain unchanged.
+
+Local installation, the same audit gate, website build, type checks, public
+status checks, link tests, readiness checks and static-asset validation pass.
+The audit reports zero vulnerabilities; website type checks report zero errors,
+warnings or hints. Local Node 26 and Python 3.13 differ from CI's Node 22 and
+Python 3.11, so hosted confirmation remains separate.
+
+The first hosted Python core check also catches a historical matrix replay
+source pin invalidated by the earlier ClickBench dialect change. Its failure is
+reproduced locally before repair. The manifest now separately pins the maintained
+runner and adapter while preserving all recorded harness identities. The result
+comparison function's syntax tree is unchanged. The two historical replay tests
+pass, including all 18 Full43 and 22 matrix controls; added controls reject
+altered current helpers and altered historical source identities. This repairs
+evidence replay without modifying the measured runtime or any observation.
+
+The complete Python core check then passes: 588 reported tests, including 26
+explicit skips, with zero failures or errors. The
+[follow-up validation receipt](../benchmarks/evidence/native-engine-optimization-2026-10-23/pr1594-validation-1023.json)
+and its [31-member packet](../benchmarks/evidence/native-engine-optimization-2026-10-23/pr1594-validation-1023.tar.xz)
+preserve both initial hosted failures, the local reproduction, all subsequent
+checks and exact source identities with complete byte readback. All 1,941
+Rust/Cargo files still match the accepted executable's build. The temporary
+246-file harness reconstruction is retired after closed-handle checks, complete
+observation-packet verification and exact regeneration from its recorded Git
+commit; current inputs, the runtime and the fresh results remain retained.

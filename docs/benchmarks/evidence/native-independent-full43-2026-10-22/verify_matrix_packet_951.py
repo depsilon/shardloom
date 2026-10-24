@@ -108,7 +108,10 @@ def replay(repository, manifest, packet, *, check_current_runtime=False):
             'docs/benchmarks/evidence/native-independent-full43-2026-10-22/verify_matrix_packet_951.py'
             and len(replay_source) == replay_verifier['bytes']
             and digest(replay_source) == replay_verifier['sha256'], 'matrix replay verifier source differs')
+    trusted_replay_paths = set()
     for item in manifest['trusted_replay_sources']:
+        require(item['repository_path'] not in trusted_replay_paths, 'duplicate trusted replay source')
+        trusted_replay_paths.add(item['repository_path'])
         raw = (repository / item['repository_path']).read_bytes()
         require(len(raw) == item['bytes'] and digest(raw) == item['sha256'], 'trusted replay source changed')
     protocol = evidence.read(evidence.check(manifest['protocol']))
@@ -244,8 +247,9 @@ def replay(repository, manifest, packet, *, check_current_runtime=False):
         # The harness inventory also includes the Python engine frontends. Their
         # historical source/build binding was checked above; current-runtime
         # equivalence is requested separately with --check-current-runtime.
-        # Actual replay helpers still have to match their trusted identities.
-        if name not in binding['source_hashes']:
+        # Maintained replay helpers match the separate trusted identities checked
+        # above. Everything else still matches its original measured source.
+        if name not in binding['source_hashes'] and name not in trusted_replay_paths:
             require(digest((repository / name).read_bytes()) == expected, 'replay harness source changed')
     validator_name = 'scripts/check_benchmark_artifact_completeness.py'
     require((repository / validator_name).read_bytes() == evidence.raw(original_root + '/' + validator_name),
