@@ -624,6 +624,7 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
                             runtime,
                             None,
                             None,
+                            None,
                             &prepared.lowering,
                             Instant::now(),
                             None,

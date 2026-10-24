@@ -450,6 +450,7 @@ fn selected_small_count_preserves_prepared_cancellation_generation_and_cleanup()
                     context.native_session(),
                     context.runtime(),
                     Some(resident.memory()),
+                    Some(resident.memory()),
                     None,
                 )?;
                 late_cancel.cancel();
@@ -466,6 +467,7 @@ fn selected_small_count_preserves_prepared_cancellation_generation_and_cleanup()
                 file,
                 session,
                 runtime,
+                Some(resident.memory()),
                 Some(resident.memory()),
                 None,
             )?;

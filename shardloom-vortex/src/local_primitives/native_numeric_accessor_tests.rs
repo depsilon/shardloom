@@ -1252,6 +1252,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
             &runtime,
             None,
             None,
+            None,
         )
         .err()
         .expect("real query decode must propagate its configured context failure");
