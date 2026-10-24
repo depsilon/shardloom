@@ -2,7 +2,7 @@
 
 # Native grouped preparation campaign
 
-Status: G1 finite candidate contract; no performance acceptance.
+Status: G1 retained; G2 finite candidate contract, without performance acceptance.
 
 The October 24 maintainer feedback selects compound grouping first, text
 preparation and grouped measures second, and exact URL grouping third. This is
@@ -33,9 +33,12 @@ the earlier 52.823-second campaign baseline are arithmetic, not attribution.
 - Q23's predicate/projection decoding opportunity remains credible after H2's
   rejection. A later candidate must reduce additional work or establish a
   different reuse mechanism while preserving selection and lazy failures.
-- Q28 and Q29 now follow the composed relational route after the explicit
-  `OCTET_LENGTH` benchmark translation. Inspect those consumers before assuming
-  primitive-aggregate preparation explains their cost. Byte-length semantics
+- Q28 and Q29 enter through the relational route after the explicit
+  `OCTET_LENGTH` benchmark translation. Their recorded physical policy is
+  `transformed_dictionary_aggregate`; provider lowering invokes the shared
+  prepared aggregate. The facade's aggregate-present flag is not a physical
+  strategy. The relational wrapper currently omits the detailed accessor and
+  group-update counters, so those costs remain unknown. Byte-length semantics
   and the unchanged independent reference remain authoritative.
 - Q34/Q35 remain exact string-count and ranked-selection controls. No defect
   or optimization is inferred from their engine times alone.
@@ -108,3 +111,101 @@ in evidence; routine timing communication uses engine time only.
 Later text-preparation candidates require their own finite source-backed
 contracts. This candidate cannot establish a Q17 speedup, general SQL parity,
 external-engine superiority, a CG gate, hosted integration or package release.
+
+### G1 decision and complete acceptance
+
+The frozen 52-call cohort passes every gate. Q19/12 improves in all five
+pairs, with median engine execution changing from **4.370869207** to
+**3.580011250 seconds**, an **18.094%** reduction. Median paired saving is
+0.774900125 seconds. Worker routing activates on every candidate Q19 call.
+The single-lane and six companion controls pass; their numerical changes are
+not attributed to this implementation.
+
+| Case | Baseline median engine seconds | G1 median engine seconds |
+| --- | ---: | ---: |
+| Q19, 12 lanes | 4.370869207 | 3.580011250 |
+| Q19, 1 lane | 6.846754124 | 6.878928416 |
+| Q17, 12 lanes | 2.482753667 | 2.450697417 |
+| Q23, 12 lanes | 3.047823917 | 3.063272834 |
+| Q28, 12 lanes | 2.629902374 | 2.346813249 |
+| Q29, 12 lanes | 2.991511582 | 2.965427999 |
+| Q34, 12 lanes | 1.969679501 | 1.967714126 |
+| Q35, 12 lanes | 1.982756126 | 1.981574167 |
+
+Formatting, default and release-native Clippy pass. Default workspace tests
+pass 3,242 cases; release-native workspace tests pass 6,041, with 35 existing
+ignored cases. The 20 focused triple-key cases include delayed-owner lifetime,
+cancellation, pressure and asynchronous invalid-minute propagation.
+
+One isolated standard Full43 at runtime commit `9ca3cbda` passes all 43 queries,
+one execution each, and all 381 independent rows and accepted schemas. Engine
+time is **48.718933086 seconds**. The prior 48.693636581-second single
+observation is effectively level; this is not evidence of an overall suite
+speedup. Q19 is 3.720030542 seconds in this pass; the paired cohort above is
+the attribution evidence. The setup invocation through system Python 3.9
+failed during imports before any query; the unchanged helper then ran under
+its declared Python 3.13 interpreter. Both outcomes remain recorded.
+
+The [portable packet](../benchmarks/evidence/native-grouped-preparation-2026-10-24/manifest.json)
+retains complete raw results, source/build/input identities, every comparison,
+resource gates, validation receipts and the per-query timing CSV. Its
+[verifier](../benchmarks/evidence/native-grouped-preparation-2026-10-24/verify_packet.py)
+replays 52 comparisons and Full43 without a binary or dataset. It does not
+execute archived helper code. Historical gates and failed observations remain
+unchanged.
+
+## G2: one average with repeated count measures
+
+Source finding: `sql_syntax.rs::rewrite_having_aggregate_predicate` appends a
+separate COUNT for `HAVING COUNT(*)`. The shared provider preserves the declared
+measures. Q28 therefore carries AVG, its output COUNT and its HAVING COUNT.
+`compact_numeric_block.rs` admits exactly two measures and declines this shape,
+even after existing embedded byte-length lowering provides a native numeric
+owner. This is a source-confirmed dispatch opportunity, not a measured cause
+of Q28's complete engine time. Do not infer decoding from the policy label.
+
+Provider decision: extend the existing native-owner block recipe to one AVG
+and one or more COUNT(*) measures in any declared order. Reuse Vortex
+`PrimitiveArray` owners, validity and original-width numeric dispatch; keep
+the existing two-measure loop intact. The wider recipe increments each count
+state in order, evaluates AVG at its original position and updates the remaining
+counts afterward. Preserve group lookup/admission, selected row order, NULLs,
+signedness, integer accumulation, nonfinite failures and partial state when a
+count overflows. No count deduplication, SQL normalization, new state family,
+worker, allocation, source read, decode, materialization or external engine is
+introduced. Multiple averages, COUNT(column), transformed measures and other
+unsupported shapes remain on the existing native consumer.
+
+This extends the shared numerical consumer used by primitive and composed
+providers. The Vortex-first review finds no different scan or kernel provider
+needed: the remaining operation is ShardLoom's exact ordered aggregate-state
+update. PulseWeave/capillary scheduling and admission are unchanged. Metadata
+avoidance and original-width execution already apply. Existing block-activation
+counters and complete result checks supply evidence; no new public field or
+per-row logging is needed. The expert comparator checks semantic identity and
+complete-operation benefit, not a synthetic loop speedup.
+
+Before measurement, compare the wider block with the existing row updater over
+all numeric widths, nullable/empty/sliced input, nullable integer keys, every
+AVG position among repeated counts, reordered/duplicated selected rows,
+cross-chunk width changes, source-order limits, HAVING and ordered output. Seed
+each count/AVG count at overflow and use NaN/infinity/nonfinite sums to compare
+the exact error and partial state. Reject unsupported recipes before updates.
+
+Freeze the G1 executable and its successful build/source receipt as baseline.
+Use the unchanged input, reference and public runner at 24 GiB. Run five
+alternating Q28/12 pairs, then three Q28/1 pairs and three pairs each of
+Q17/Q19/Q23/Q29/Q34/Q35 at 12 lanes: **52 calls**. Retain only when complete
+values/schemas/no-fallback agree, the target median and paired median saving
+improve and at least four of five target pairs improve. Every control permits
+at most max(5%, 5 ms) engine regression; target CPU permits at most 5%; each
+case's median RSS permits max(25%, 256 MiB). Use focused direct-consumer tests
+for positive wider-block activation because the current relational result
+wrapper does not retain that counter. Preserve all observations and drop on
+any failed gate, without an unchanged rerun or revised threshold.
+
+The existing G1 cohort machinery, storage/deadline/cleanup guards and isolated
+measurement rules apply. Required broad validation and one isolated Full43
+follow only if retained. This candidate does not change provider selection,
+frontends or timing boundaries. The later user-surface parity pass retains
+those separate requirements.
