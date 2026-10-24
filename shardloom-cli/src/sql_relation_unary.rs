@@ -20,23 +20,7 @@ pub(super) fn parse(raw: &str) -> Result<Option<ParsedRelationUnary>, ShardLoomE
     if validate_sql_identifier(name).is_err() {
         return Ok(None);
     }
-    let kind = match name.to_ascii_uppercase().as_str() {
-        "DISTINCT_ROWS" => Kind::DistinctRows,
-        "DROP_DUPLICATES" => Kind::DropDuplicateRows,
-        "DUPLICATED" => Kind::DuplicateMaskRows,
-        "TAIL" => Kind::TailRows,
-        "SAMPLE" => Kind::SampleRows,
-        "REWRITE" => Kind::ExpressionProjectRows,
-        "MELT" => Kind::MeltRows,
-        "ROLLING" => Kind::RollingWindowRows,
-        "EXPLODE" => Kind::ExplodeRows,
-        "PIVOT" => Kind::PivotRows,
-        _ => {
-            return Err(unsupported_sql_error(
-                "unknown native relation table expression",
-            ));
-        }
-    };
+    let kind = operation_kind(name)?;
     let close = matching_closing_parenthesis(raw, open)?
         .ok_or_else(|| unsupported_sql_error("table expression parentheses must be balanced"))?;
     if close + 1 != raw.len() || raw[open + 1..close].trim_end().ends_with(',') {
@@ -61,7 +45,16 @@ pub(super) fn parse(raw: &str) -> Result<Option<ParsedRelationUnary>, ShardLoomE
             "table expression requires a parenthesized input query",
         ));
     }
-    let request = operation(kind, &args[1..])?;
+    let value = if kind == Kind::TailRows {
+        args[1].clone()
+    } else {
+        parse_sql_string_literal(&args[1])?
+    };
+    let keep = args
+        .get(2)
+        .map(|value| parse_sql_string_literal(value))
+        .transpose()?;
+    let request = operation(kind, &value, keep.as_deref())?;
     let input = ParsedRelationQuery::parse(&input[1..input.len() - 1])?;
     Ok(Some(ParsedRelationUnary {
         input: Arc::new(input),
@@ -69,11 +62,51 @@ pub(super) fn parse(raw: &str) -> Result<Option<ParsedRelationUnary>, ShardLoomE
     }))
 }
 
-fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
+fn operation_kind(name: &str) -> Result<Kind, ShardLoomError> {
+    Ok(match name.to_ascii_uppercase().as_str() {
+        "DISTINCT_ROWS" => Kind::DistinctRows,
+        "DROP_DUPLICATES" => Kind::DropDuplicateRows,
+        "DUPLICATED" => Kind::DuplicateMaskRows,
+        "TAIL" => Kind::TailRows,
+        "SAMPLE" => Kind::SampleRows,
+        "REWRITE" => Kind::ExpressionProjectRows,
+        "MELT" => Kind::MeltRows,
+        "ROLLING" => Kind::RollingWindowRows,
+        "EXPLODE" => Kind::ExplodeRows,
+        "PIVOT" => Kind::PivotRows,
+        _ => {
+            return Err(unsupported_sql_error(
+                "unknown native relation table expression",
+            ));
+        }
+    })
+}
+
+/// Shared inert operation options; no SQL construction, sources or execution.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn request(
+    name: &str,
+    value: &str,
+    keep: Option<&str>,
+) -> Result<Request, ShardLoomError> {
+    operation(operation_kind(name)?, value, keep)
+}
+
+fn operation(kind: Kind, value: &str, keep: Option<&str>) -> Result<Request, ShardLoomError> {
+    if value.len() > 65_536 {
+        return Err(unsupported_sql_error(
+            "unary operation arguments exceed 64 KiB",
+        ));
+    }
+    if keep.is_some() && !matches!(kind, Kind::DropDuplicateRows | Kind::DuplicateMaskRows) {
+        return Err(unsupported_sql_error(
+            "keep is only valid for duplicate operations",
+        ));
+    }
     let mut request = Request::for_relational_input(kind, ProjectionRequest::All);
     if kind == Kind::TailRows {
         request.source_order_limit = Some(
-            args[0]
+            value
                 .parse::<usize>()
                 .ok()
                 .filter(|n| *n > 0)
@@ -83,25 +116,16 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
         );
         return Ok(request);
     }
-    let value = parse_sql_string_literal(&args[0])?;
-    if value.len() > 65_536 {
-        return Err(unsupported_sql_error(
-            "unary operation arguments exceed 64 KiB",
-        ));
-    }
     match kind {
-        Kind::DistinctRows => request.projection = parse_projection_columns(&value)?,
+        Kind::DistinctRows => request.projection = parse_projection_columns(value)?,
         Kind::DropDuplicateRows | Kind::DuplicateMaskRows => {
-            let keys = parse_projection_columns(&value)?;
+            let keys = parse_projection_columns(value)?;
             if kind == Kind::DropDuplicateRows {
                 request.deduplicate_key_projection = Some(keys);
             } else {
                 request.projection = keys;
             }
-            request.duplicate_keep = match parse_sql_string_literal(&args[1])?
-                .to_ascii_lowercase()
-                .as_str()
-            {
+            request.duplicate_keep = match keep.unwrap_or("first").to_ascii_lowercase().as_str() {
                 "first" => VortexDuplicateKeepPolicy::First,
                 "last" => VortexDuplicateKeepPolicy::Last,
                 "false" => VortexDuplicateKeepPolicy::AllDuplicates,
@@ -112,15 +136,15 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
                 }
             };
         }
-        Kind::SampleRows => return sample(&value),
-        Kind::PivotRows => return pivot(&value),
+        Kind::SampleRows => return sample(value),
+        Kind::PivotRows => return pivot(value),
         Kind::ExpressionProjectRows => {
-            validate_fields(&value, &[&["columns"], &["rewrites"]])?;
-            return parse_expression_project_primitive_request(None, &value);
+            validate_fields(value, &[&["columns"], &["rewrites"]])?;
+            return parse_expression_project_primitive_request(None, value);
         }
         Kind::MeltRows => {
             validate_fields(
-                &value,
+                value,
                 &[
                     &["id_columns", "id_vars"],
                     &["value_columns", "value_vars"],
@@ -128,11 +152,11 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
                     &["value_column", "value_name"],
                 ],
             )?;
-            return parse_melt_primitive_request(None, &value);
+            return parse_melt_primitive_request(None, value);
         }
         Kind::RollingWindowRows => {
             validate_fields(
-                &value,
+                value,
                 &[
                     &["source_column", "column", "on"],
                     &["output_column", "alias"],
@@ -142,11 +166,11 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
                     &["center"],
                 ],
             )?;
-            return parse_rolling_primitive_request(None, &value);
+            return parse_rolling_primitive_request(None, value);
         }
         Kind::ExplodeRows => {
             validate_fields(
-                &value,
+                value,
                 &[
                     &["column", "explode_column", "target_column"],
                     &["columns"],
@@ -156,7 +180,7 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
                     &["element_output_column", "output_column"],
                 ],
             )?;
-            return parse_explode_primitive_request(None, &value);
+            return parse_explode_primitive_request(None, value);
         }
         _ => return Err(unsupported_sql_error("unsupported unary table expression")),
     }

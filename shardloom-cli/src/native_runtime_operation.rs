@@ -152,6 +152,11 @@ impl PreparedNativeOperation {
         }
     }
 
+    pub(super) fn with_reuse(mut self, reusable: bool) -> Self {
+        self.reusable &= reusable;
+        self
+    }
+
     /// Execute a complete result under the already admitted allocation.
     /// # Errors
     /// Propagates provider, source, pressure, cancellation and input failures.

@@ -710,7 +710,7 @@ impl PreparedVortexAggregate {
         Ok(executed)
     }
 
-    fn consume_native_in_context(
+    pub(crate) fn consume_native_in_context(
         &self,
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,

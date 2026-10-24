@@ -16,7 +16,7 @@ impl Binder<'_> {
     ) -> Result<Node> {
         validate_width(project.expressions.len())?;
         self.charge_fields(project.expressions.len())?;
-        let input = Box::new(self.bind(&project.input, depth + 1)?);
+        let mut input = Box::new(self.bind(&project.input, depth + 1)?);
         let mut fields = Vec::new();
         let mut expressions = Vec::new();
         for (name, expression) in &project.expressions {
@@ -65,6 +65,7 @@ impl Binder<'_> {
         {
             return Ok(*input);
         }
+        self.narrow_file_projection(&mut input, &expressions)?;
         Ok(Node {
             fields,
             kind: NodeKind::Project { input, expressions },
@@ -72,12 +73,17 @@ impl Binder<'_> {
     }
 
     pub(super) fn filter(&mut self, filter: &VortexRelationalFilter, depth: usize) -> Result<Node> {
-        let input = Box::new(self.bind(&filter.input, depth + 1)?);
+        let mut input = Box::new(self.bind(&filter.input, depth + 1)?);
+        let metadata_before = self.metadata.bytes();
         let predicate = self.expression(&filter.predicate, &input.fields, 0)?;
+        let predicate_metadata = self.metadata.bytes() - metadata_before;
         if !matches!(predicate.dtype, DType::Bool(_) | DType::Null) {
             return Err(failed("filter predicate must produce a nullable boolean"));
         }
         self.charge_fields(input.fields.len())?;
+        if self.push_file_filter(&mut input, &filter.predicate, predicate_metadata)? {
+            return Ok(*input);
+        }
         Ok(Node {
             fields: input.fields.clone(),
             kind: NodeKind::Filter { input, predicate },

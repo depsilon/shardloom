@@ -1,0 +1,319 @@
+{
+  "status": "passed",
+  "retained_replacement": {
+    "cli": {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/artifacts/shardloom",
+      "bytes": 76595712,
+      "sha256": "7f038cb7670279f40d7276f03c151e20ddcd3dab7eeb7f2ac7d40a48d4829749"
+    },
+    "library": {
+      "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/artifacts/_native.abi3.so",
+      "bytes": 76459632,
+      "sha256": "85d727935a31b8d634aba16342d7b8ed1c22518c86a2002c9a9832dcb6d4107b"
+    }
+  },
+  "acceptance": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-surfaces-2026-10-23/replay.json",
+    "bytes": 1998,
+    "sha256": "0f02400535296073d40d144a43a09159e0acd2289f5f250b59fdf5c1bd13a679"
+  },
+  "packet": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-surfaces-2026-10-23/records.json.xz",
+    "bytes": 8116960,
+    "sha256": "b85ef70565dffa44fddf5230a9da0e080cb79ced37a0f74f0afda600454f013f"
+  },
+  "candidates": [
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts/_native.abi3.so",
+        "bytes": 314838912,
+        "sha256": "b6532f4f475d5545903f0eb140ed9407d552aeee1b16c7aa6cbc5f79d9f6b54c"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 122920609,
+        "bytes": 314838912,
+        "mtime_ns": 1792777014944154396,
+        "ctime_ns": 1792777014944840314
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-runtime.json",
+        "bytes": 858,
+        "sha256": "b242d20e6ccf120aef95e0afb9742b39b81916001d45af1731eeb311134ace5e"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts/shardloom",
+        "bytes": 340873152,
+        "sha256": "adf79361d534558aabfe2ec7d0c53939e4d2339cf97fce3f2b05f38860a0efc7"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 122920610,
+        "bytes": 340873152,
+        "mtime_ns": 1792776735769211646,
+        "ctime_ns": 1792777015137267205
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-runtime.json",
+        "bytes": 858,
+        "sha256": "b242d20e6ccf120aef95e0afb9742b39b81916001d45af1731eeb311134ace5e"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/artifacts/shardloom",
+        "bytes": 76549312,
+        "sha256": "c669fe9842f115fe4ca9ab174d2b6242d9b3a84c6a09d7ea0050f78539b8e38e"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123231675,
+        "bytes": 76549312,
+        "mtime_ns": 1792780949769315778,
+        "ctime_ns": 1792780965979600313
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/artifacts/build-summary.json",
+        "bytes": 499835,
+        "sha256": "9c7cb0153cb3828b80225c0f72823c24cf5b105ec0172f350a221b34d0794a88"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/artifacts/_native.abi3.so",
+        "bytes": 76415792,
+        "sha256": "cd538f7d666e1f9a920059904d932914ff9bc629666d7eca8f04ab9a1dfceeab"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123231676,
+        "bytes": 76415792,
+        "mtime_ns": 1792780792796538057,
+        "ctime_ns": 1792780966080298886
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/artifacts/build-summary.json",
+        "bytes": 499835,
+        "sha256": "9c7cb0153cb3828b80225c0f72823c24cf5b105ec0172f350a221b34d0794a88"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-995/shardloom",
+        "bytes": 340889328,
+        "sha256": "8fcc8bebc4197511d2f7cc6611b7489ac1c4bb387b6f5ceb13b7a383f8437e02"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123022388,
+        "bytes": 340889328,
+        "mtime_ns": 1792778155310575410,
+        "ctime_ns": 1792778210245024030
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-995/build-summary.json",
+        "bytes": 496714,
+        "sha256": "2727b3c87facd55aa35267fcef8275b5ab3d67c5ab993d2e089f2feee9336fb8"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-995/_native.abi3.so",
+        "bytes": 314840160,
+        "sha256": "55fca6aae6f86ce22ffdaaeb35d42cc7dde6005866ce22b5f030c679a3edb465"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123022391,
+        "bytes": 314840160,
+        "mtime_ns": 1792778155997836078,
+        "ctime_ns": 1792778210555159022
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-995/build-summary.json",
+        "bytes": 496714,
+        "sha256": "2727b3c87facd55aa35267fcef8275b5ab3d67c5ab993d2e089f2feee9336fb8"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996/shardloom",
+        "bytes": 340891312,
+        "sha256": "9bcbf1daf5bb5849666ca679180eeadc474c86e0683a946b7e0b73fdbfc1469f"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123022994,
+        "bytes": 340891312,
+        "mtime_ns": 1792778765900957099,
+        "ctime_ns": 1792778791957341370
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996/build-summary.json",
+        "bytes": 496714,
+        "sha256": "9e9adcfb5211387b13d2deabbe0a87d8334f5d1f2466a376e5a54196ce293909"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996/_native.abi3.so",
+        "bytes": 314860768,
+        "sha256": "e93dd85cfe35f4f29c2085ae24926da1066ccd2133df0c533ede5c583f78bf58"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123022995,
+        "bytes": 314860768,
+        "mtime_ns": 1792778766786700397,
+        "ctime_ns": 1792778792150364322
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996/build-summary.json",
+        "bytes": 496714,
+        "sha256": "9e9adcfb5211387b13d2deabbe0a87d8334f5d1f2466a376e5a54196ce293909"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996b/shardloom",
+        "bytes": 340925632,
+        "sha256": "c4f42b58bebd1fd6fa7eed08a4cb5e1a04a62e331df02ea51c2e9cd250bc4e48"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123023217,
+        "bytes": 340925632,
+        "mtime_ns": 1792778935247159652,
+        "ctime_ns": 1792778989093831703
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996b/build-summary.json",
+        "bytes": 499865,
+        "sha256": "4b47f2a7bcb67facf580d22325eeee013cfbbb3730cdd6c60005b09c53010433"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996b/_native.abi3.so",
+        "bytes": 314869584,
+        "sha256": "907f5793b7718f89e6fe026334cf8f0bca5aaa6662208a71dfacd973eb6c199c"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123023218,
+        "bytes": 314869584,
+        "mtime_ns": 1792778935674548227,
+        "ctime_ns": 1792778989506199530
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-994/debug-artifacts-996b/build-summary.json",
+        "bytes": 499865,
+        "sha256": "4b47f2a7bcb67facf580d22325eeee013cfbbb3730cdd6c60005b09c53010433"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-998/artifacts/shardloom",
+        "bytes": 76595520,
+        "sha256": "4949d882474cf4810885057a6e1c4cda1ee2a61c92b18518c00044992b4baa53"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123426899,
+        "bytes": 76595520,
+        "mtime_ns": 1792784501877500694,
+        "ctime_ns": 1792784552391958229
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-998/artifacts/build-summary.json",
+        "bytes": 500107,
+        "sha256": "2a42254323d08792080473530ed5016074e615e53adfb0a8a10b0b7088e04232"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-998/artifacts/_native.abi3.so",
+        "bytes": 76459536,
+        "sha256": "93face5c331b1ed14b4049a2de8ccd647d8db1a9513ed4a38c15a36950f231ff"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123426900,
+        "bytes": 76459536,
+        "mtime_ns": 1792784329234086962,
+        "ctime_ns": 1792784552493172483
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-998/artifacts/build-summary.json",
+        "bytes": 500107,
+        "sha256": "2a42254323d08792080473530ed5016074e615e53adfb0a8a10b0b7088e04232"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/debug-artifacts/shardloom",
+        "bytes": 341219056,
+        "sha256": "71753277bb4da6d334464a823e9e2b90530b21c65ba7b363318ffdf128c45684"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123452851,
+        "bytes": 341219056,
+        "mtime_ns": 1792784912180769063,
+        "ctime_ns": 1792784952390586218
+      },
+      "role": "cli",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/debug-artifacts/build-summary.json",
+        "bytes": 500126,
+        "sha256": "209e24b59dc5edf7b6fa64eb83b5177f2942fe8da9ee5c17d7bff4255bb009b5"
+      }
+    },
+    {
+      "artifact": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/debug-artifacts/_native.abi3.so",
+        "bytes": 315114000,
+        "sha256": "fd3b526231825b66cca7e784c8060b3609105dc9aeeec15ae1003142a2362913"
+      },
+      "generation": {
+        "device": 16777233,
+        "inode": 123452852,
+        "bytes": 315114000,
+        "mtime_ns": 1792784912542189565,
+        "ctime_ns": 1792784952808399038
+      },
+      "role": "library",
+      "retained_build_record": {
+        "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-1000/debug-artifacts/build-summary.json",
+        "bytes": 500126,
+        "sha256": "209e24b59dc5edf7b6fa64eb83b5177f2942fe8da9ee5c17d7bff4255bb009b5"
+      }
+    }
+  ],
+  "closed_handle_check": true,
+  "logical_bytes": 3585342064,
+  "free_bytes_before": 120225652736,
+  "source_inputs_changed": false,
+  "rollback_archive_created": false,
+  "retired_file_count": 14,
+  "free_bytes_after": 123811131392,
+  "retirement_plan": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/shared-surface-retirement-plan-1001.json",
+    "bytes": 12348,
+    "sha256": "c5f81ab3d6af8c52a4a94bfa049f2affce4c69273e6cb14267d247935a2b460c"
+  }
+}

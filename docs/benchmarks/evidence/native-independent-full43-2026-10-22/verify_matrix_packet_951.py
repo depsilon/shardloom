@@ -10,7 +10,7 @@ import lzma
 from pathlib import Path, PurePosixPath
 import posixpath
 import sys
-from types import SimpleNamespace
+from types import FunctionType, SimpleNamespace
 
 
 def require(value, reason):
@@ -63,11 +63,21 @@ def recorded_validator(evidence, original_root, repository):
                 if path.parent == self and fnmatch.fnmatchcase(path.name, pattern):
                     yield path
 
-    saved = {key: getattr(validator, key) for key in ('Path', 'ROOT', 'load_json', 'file_sha256')}
+    # Reuse the verified current inventory algorithm against the packet's file
+    # view. Its module-level filesystem globals otherwise inspect today's Python
+    # frontend even when the validator itself reads only recorded artifacts.
+    inventory = validator.harness_source_inventory
+    inventory_globals = dict(inventory.__globals__, Path=RecordedPath,
+        REPO=RecordedPath(original_root),
+        __file__=str(RecordedPath(original_root) / 'benchmarks/traditional_analytics/run.py'),
+        file_sha256=lambda path: evidence.identity(path)['sha256'])
+    saved = {key: getattr(validator, key) for key in
+             ('Path', 'ROOT', 'load_json', 'file_sha256', 'harness_source_inventory')}
     validator.Path = RecordedPath
     validator.ROOT = RecordedPath(original_root)
     validator.load_json = lambda path: evidence.read(path)
     validator.file_sha256 = lambda path: evidence.identity(path)['sha256']
+    validator.harness_source_inventory = FunctionType(inventory.__code__, inventory_globals)
     try:
         yield validator, RecordedPath
     finally:
@@ -89,7 +99,15 @@ def replay(repository, manifest, packet, *, check_current_runtime=False):
             and manifest['omitted_payload_count'] == len(evidence.omitted), 'member coverage differs')
     evidence.check(manifest['builder'])
     evidence.check(manifest['verifier'])
-    require(digest(Path(__file__).read_bytes()) == manifest['verifier']['sha256'], 'matrix verifier source differs')
+    # The original verifier remains an immutable packet member. The maintained
+    # replay program has a separate identity so compatibility repairs do not
+    # rewrite the program or observations that produced historical acceptance.
+    replay_verifier = manifest['replay_verifier']
+    replay_source = Path(__file__).read_bytes()
+    require(replay_verifier['repository_path'] ==
+            'docs/benchmarks/evidence/native-independent-full43-2026-10-22/verify_matrix_packet_951.py'
+            and len(replay_source) == replay_verifier['bytes']
+            and digest(replay_source) == replay_verifier['sha256'], 'matrix replay verifier source differs')
     for item in manifest['trusted_replay_sources']:
         raw = (repository / item['repository_path']).read_bytes()
         require(len(raw) == item['bytes'] and digest(raw) == item['sha256'], 'trusted replay source changed')
@@ -222,8 +240,13 @@ def replay(repository, manifest, packet, *, check_current_runtime=False):
     original_root = manifest['original_repository']
     require(original_root == protocol['command'][protocol['command'].index('--repo') + 1], 'repository binding differs')
     for name, expected in protocol['harness_source_hashes'].items():
-        require(digest((repository / name).read_bytes()) == expected
-                and digest(evidence.raw(original_root + '/' + name)) == expected, 'harness source changed')
+        require(digest(evidence.raw(original_root + '/' + name)) == expected, 'recorded harness source changed')
+        # The harness inventory also includes the Python engine frontends. Their
+        # historical source/build binding was checked above; current-runtime
+        # equivalence is requested separately with --check-current-runtime.
+        # Actual replay helpers still have to match their trusted identities.
+        if name not in binding['source_hashes']:
+            require(digest((repository / name).read_bytes()) == expected, 'replay harness source changed')
     validator_name = 'scripts/check_benchmark_artifact_completeness.py'
     require((repository / validator_name).read_bytes() == evidence.raw(original_root + '/' + validator_name),
             'completeness validator changed')

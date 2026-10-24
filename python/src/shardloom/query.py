@@ -51,6 +51,7 @@ _NATIVE_UNARY_PRIMITIVES = frozenset({
     "distinct", "drop_duplicates", "duplicate_mask", "tail", "sample",
     "expression_project", "melt", "explode", "pivot", "rolling_window",
 })
+_NATIVE_USIZE_MAX = (1 << 64) - 1
 MAX_DATE_ARITHMETIC_DAYS = 366_000
 MAX_TIMESTAMP_ARITHMETIC_SECONDS = MAX_DATE_ARITHMETIC_DAYS * 86_400
 _INTERVAL_SECOND_MULTIPLIERS = {
@@ -122,7 +123,13 @@ class WorkflowOperation:
         if self.kind == "select":
             return f"select({','.join(self.values)})"
         if self.kind == "limit":
-            return f"limit({self.values[0]})"
+            limit_parts = _limit_operation_parts(self.values)
+            if limit_parts is None:
+                return f"limit({','.join(self.values)})"
+            count, offset = limit_parts
+            if offset != "0":
+                return f"limit({count}, offset={offset})"
+            return f"limit({count})"
         return f"{self.kind}({','.join(self.values)})"
 
 
@@ -506,6 +513,16 @@ class ColumnExpression:
 
         return ColumnExpression(f"TRIM({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
+    def url_domain(self) -> "ColumnExpression":
+        """Return the native URL-domain extraction expression for this column."""
+
+        return ColumnExpression(f"URL_DOMAIN({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def regex_domain(self) -> "ColumnExpression":
+        """Apply the fixed HTTP(S) domain-replacement contract, not arbitrary regex."""
+
+        return ColumnExpression(f"REGEX_DOMAIN({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
     def length(self) -> "ColumnExpression":
         """Return a scoped `LENGTH(column)` UTF-8 length expression."""
 
@@ -853,6 +870,19 @@ class ColumnExpression:
         """Return a scoped UTC timestamp minute extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def extract_minute(self) -> "ColumnExpression":
+        """Extract a minute from integer epoch seconds or timestamp text.
+
+        TimestampMicros values should use :meth:`timestamp_minute`.
+        """
+
+        return ColumnExpression(f"EXTRACT_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def date_trunc_minute(self) -> "ColumnExpression":
+        """Truncate integer epoch seconds or timestamp text to the minute."""
+
+        return ColumnExpression(f"DATE_TRUNC_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_second(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp second extract expression for predicates."""
@@ -5284,14 +5314,12 @@ class LazyFrame:
 
         return self.with_columns(**named_expressions)
 
-    def limit(self, count: int) -> "LazyFrame":
-        """Return a lazy plan with an added limit."""
+    def limit(self, count: int, *, offset: int = 0) -> "LazyFrame":
+        """Return a lazy plan with an added count and optional row offset."""
 
-        if isinstance(count, bool) or not isinstance(count, int):
-            raise TypeError("limit count must be an integer")
-        if count < 0:
-            raise ValueError("limit count must be non-negative")
-        return self._append(WorkflowOperation("limit", (str(count),)))
+        count, offset = _normalize_limit_range(count, offset)
+        values = (str(count),) if offset == 0 else (str(count), str(offset))
+        return self._append(WorkflowOperation("limit", values))
 
 
     def plan(self, *, check: bool = False) -> OutputEnvelope:
@@ -6854,10 +6882,10 @@ class LazyFrame:
         if len(operations) < 1:
             return False
         if operations[-1].kind == "limit":
-            try:
-                if int(operations[-1].values[0]) <= 0:
-                    return False
-            except (TypeError, ValueError):
+            limit_parts = _limit_operation_parts(operations[-1].values)
+            if limit_parts is None or limit_parts[1] != "0":
+                return False
+            if int(limit_parts[0]) <= 0:
                 return False
             operations = operations[:-1]
         if not operations or operations[0].kind != "select":
@@ -6888,6 +6916,8 @@ class LazyFrame:
     def _can_append_scalar_aggregate(self) -> bool:
         if self._relation_statement() is not None:
             return True
+        if _workflow_has_offset(self):
+            return False
         if not _is_declared_local_source(self.source) and self.source.source_format != "vortex":
             return False
         if self.source.source_format == "vortex" and any(
@@ -6902,6 +6932,8 @@ class LazyFrame:
     def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
         if self._relation_statement() is not None:
             return True
+        if _workflow_has_offset(self):
+            return False
         if not _is_declared_local_source(self.source):
             return False
         return all(
@@ -7731,6 +7763,17 @@ class LazyFrame:
         predicate = _quarantine_pushdown_predicate(checks)
         if predicate is None:
             return None
+        if _workflow_has_offset(self):
+            # The legacy quarantine helper rebuilt source/filter stages and
+            # could not preserve an offset. Keep the complete relation as the
+            # input to the quarantine filter instead of dropping that stage.
+            relation = self._relation_statement()
+            if relation is None:
+                return None
+            return (
+                f"SELECT * FROM ({relation}) AS _sl_quarantine "
+                f"WHERE {predicate} LIMIT {limit}"
+            )
         operations: list[WorkflowOperation] = []
         filters: list[str] = []
         saw_select = False
@@ -7820,6 +7863,7 @@ class LazyFrame:
         predicate: str | None = None
         having: str | None = None
         limit: str | None = None
+        limit_offset = "0"
         for operation in self.operations:
             if operation.kind == "select" and projection_list is None:
                 if window_expressions or distinct_requested:
@@ -7927,7 +7971,10 @@ class LazyFrame:
                     return None
                 having = operation.values[0]
             elif operation.kind == "limit" and limit is None:
-                limit = operation.values[0]
+                limit_parts = _limit_operation_parts(operation.values)
+                if limit_parts is None:
+                    return None
+                limit, limit_offset = limit_parts
             else:
                 return None
         if limit is None:
@@ -7935,7 +7982,13 @@ class LazyFrame:
                 return None
             if default_limit is not None:
                 limit = str(default_limit)
-        limit_clause = f" LIMIT {limit}" if limit is not None else ""
+                limit_offset = "0"
+        limit_clause = (
+            f" LIMIT {limit}"
+            + (f" OFFSET {limit_offset}" if limit is not None and limit_offset != "0" else "")
+            if limit is not None
+            else ""
+        )
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
@@ -9829,6 +9882,43 @@ def _normalize_non_negative_int(name: str, value: object) -> int:
     return value
 
 
+def _normalize_limit_range(count: object, offset: object) -> tuple[int, int]:
+    """Validate a DataFrame LIMIT range against the native 64-bit usize bound."""
+
+    normalized_count = _normalize_non_negative_int("limit count", count)
+    normalized_offset = _normalize_non_negative_int("limit offset", offset)
+    if (
+        normalized_count > _NATIVE_USIZE_MAX
+        or normalized_offset > _NATIVE_USIZE_MAX
+        or normalized_offset > _NATIVE_USIZE_MAX - normalized_count
+    ):
+        raise ValueError("limit offset + count must fit in a 64-bit native usize")
+    return normalized_count, normalized_offset
+
+
+def _limit_operation_parts(values: Sequence[str]) -> tuple[str, str] | None:
+    """Return canonical count/offset strings for one- or two-field limit ops."""
+
+    if len(values) not in {1, 2}:
+        return None
+    try:
+        count, offset = _normalize_limit_range(
+            int(values[0]), int(values[1]) if len(values) == 2 else 0,
+        )
+    except (TypeError, ValueError):
+        return None
+    return str(count), str(offset)
+
+
+def _workflow_has_offset(frame: LazyFrame) -> bool:
+    return any(
+        operation.kind == "limit"
+        and (parts := _limit_operation_parts(operation.values)) is not None
+        and parts[1] != "0"
+        for operation in frame.operations
+    )
+
+
 def _normalize_positive_int(name: str, value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"{name} must be an integer")
@@ -11312,8 +11402,7 @@ def _sql_temporal_difference_arg(value: object, dtype: str) -> str:
 
 
 def _sql_string_literal(value: object) -> str:
-    text = _require_non_empty("string literal", value)
-    return "'" + text.replace("'", "''") + "'"
+    return _sql_string_function_literal("string literal", value, allow_empty=False)
 
 
 def _sql_string_function_literal(
@@ -11345,7 +11434,7 @@ def _sql_literal(value: object) -> str:
     if isinstance(value, (bytes, bytearray)):
         return f"X'{bytes(value).hex()}'"
     if isinstance(value, str):
-        return _sql_string_literal(value)
+        return _sql_string_function_literal("predicate string literal", value, allow_empty=True)
     raise TypeError(
         "SQL predicate literals must be bool, int, float, Decimal, str, bytes, date, datetime, or None"
     )
@@ -11519,6 +11608,8 @@ def _sql_generic_expression_projection_expression(expression: object) -> str:
         "TIMESTAMP_HOUR", "TIMESTAMP_MINUTE", "TIMESTAMP_SECOND", "DATE_ADD_DAYS",
         "DATE_SUB_DAYS", "TIMESTAMP_ADD_SECONDS", "TIMESTAMP_SUB_SECONDS",
         "DATE_DIFF_DAYS", "TIMESTAMP_DIFF_SECONDS",
+        "EXTRACT_MINUTE", "MINUTE", "DATE_TRUNC_MINUTE", "TRUNCATE_MINUTE",
+        "URL_DOMAIN", "REGEX_DOMAIN", "REGEX_REPLACE_DOMAIN", "REGEXP_REPLACE", "REGEX_REPLACE",
     }
     if not (
         _expression_has_numeric_operator(text)
@@ -12501,7 +12592,9 @@ def _contains_sql_token_outside_quotes(statement: str, token: str) -> bool:
 
 
 def _like_needle(name: str, value: object) -> str:
-    text = _require_non_empty(name, value)
+    text = str(value)
+    if not text:
+        raise ValueError(f"{name} must not be empty")
     if "%" in text or "_" in text:
         raise ValueError(f"{name} must not contain SQL LIKE wildcard characters")
     return text
@@ -12510,7 +12603,7 @@ def _like_needle(name: str, value: object) -> str:
 def _like_escape_clause(escape: object | None) -> str:
     if escape is None:
         return ""
-    text = _require_non_empty("LIKE escape character", escape)
+    text = str(escape)
     if len(text) != 1:
         raise ValueError("LIKE escape character must be exactly one character")
     return f" ESCAPE {_sql_string_literal(text)}"

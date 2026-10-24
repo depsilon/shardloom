@@ -32,6 +32,12 @@ pub(in crate::local_primitives) enum Function {
     Right,
     Replace,
     ByteLength,
+    EpochMinute {
+        truncate: bool,
+    },
+    Domain {
+        regex: bool,
+    },
     Unhex,
     FromBase64,
     DateExtract(fn(i32) -> i64),
@@ -70,12 +76,23 @@ impl Function {
         if matches!(self, Self::Concat) {
             return concat(columns, row, scratch);
         }
+        if let Self::EpochMinute { truncate } = self {
+            return epoch_minute(&columns[0].raw_cell(row)?, dtype, *truncate, scratch);
+        }
         if let Some(value) = self.typed(columns, row, scratch)? {
             return Ok(value);
         }
         let bytes = text(columns[0].cell(row)?)?;
         let value = utf8(&bytes)?;
         match self {
+            Self::Domain { regex } => {
+                let domain = if *regex {
+                    crate::url_domain::shardloom_regex_domain(value)
+                } else {
+                    crate::url_domain::shardloom_url_domain(value)
+                };
+                output(scratch, domain.len(), || domain.to_owned())
+            }
             Self::JsonExtract(path) => path.extract(value, scratch),
             Self::Strptime { format, tolerant } => match format.timestamp(value) {
                 Ok(value) => Ok(Value::Int(value)),
@@ -264,6 +281,44 @@ impl Function {
             .nth(count)
             .map_or(value.len(), |(index, _)| begin + index);
         output(scratch, end - begin, || value[begin..end].to_owned())
+    }
+}
+
+fn epoch_minute(
+    value: &Cell,
+    dtype: &DType,
+    truncate: bool,
+    scratch: &mut MemoryLease,
+) -> Result<Value<'static>> {
+    use crate::local_primitives as native;
+    if let Cell::Utf8(bytes) = value {
+        let value = utf8(bytes)?;
+        return if truncate {
+            reserve(scratch, value.len().saturating_add(3))?;
+            let value = native::truncate_timestamp_string_to_minute(value)
+                .ok_or_else(|| failed("minute truncation requires timestamp text"))?;
+            Ok(Value::Text(Cow::Owned(value)))
+        } else {
+            native::parse_timestamp_minute(value)
+                .map(|value| Value::UInt(u64::from(value)))
+                .ok_or_else(|| failed("minute extraction requires timestamp text"))
+        };
+    }
+    let value = integer(value)?;
+    let scalar = if matches!(dtype, DType::Primitive(PType::U64, _)) {
+        shardloom_core::StatValue::UInt64(u64::try_from(value).map_err(vortex_error)?)
+    } else {
+        shardloom_core::StatValue::Int64(i64::try_from(value).map_err(vortex_error)?)
+    };
+    let value = if truncate {
+        native::aggregate_date_trunc_minute(&scalar)?
+    } else {
+        native::aggregate_extract_minute(&scalar)?
+    };
+    match value {
+        shardloom_core::StatValue::Int64(value) => Ok(Value::Int(value)),
+        shardloom_core::StatValue::UInt64(value) => Ok(Value::UInt(value)),
+        _ => Err(failed("minute provider returned an invalid type")),
     }
 }
 

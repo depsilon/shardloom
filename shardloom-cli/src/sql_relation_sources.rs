@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 #[path = "sql_relation_unary.rs"]
 mod unary;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) use unary::request as native_unary_request;
 
 pub(super) fn validate_query_structure(raw: &str) -> Result<(), ShardLoomError> {
     if raw.len() > 256 * 1024 {
@@ -136,14 +138,20 @@ impl ParsedRelationQuery {
         if synthetic {
             write!(&mut statement, " LIMIT {}", usize::MAX).expect("String writes cannot fail");
         }
-        if top_level_sql_union_operators(&statement)?.is_empty() {
-            let mut parsed = parse_sql_local_source_statement(&statement)?;
+        let (body, offset) = relation_offset(&statement)?;
+        if top_level_sql_union_operators(body)?.is_empty() {
+            let mut parsed = parse_sql_local_source_statement(body)?;
+            validate_range(parsed.limit, offset)?;
+            parsed.offset = offset;
+            parsed.normalized_statement = statement;
             parsed.limit_is_synthetic = synthetic;
             Ok(Self::Select(Box::new(parsed)))
         } else {
-            Ok(Self::Set(Box::new(parse_sql_local_source_union_statement(
-                &statement,
-            )?)))
+            let mut parsed = parse_sql_local_source_union_statement(body)?;
+            validate_range(parsed.limit, offset)?;
+            parsed.offset = offset;
+            parsed.normalized_statement = statement;
+            Ok(Self::Set(Box::new(parsed)))
         }
     }
 
@@ -153,6 +161,34 @@ impl ParsedRelationQuery {
             Self::Set(set) => &set.normalized_statement,
         }
     }
+}
+
+fn relation_offset(statement: &str) -> Result<(&str, usize), ShardLoomError> {
+    let limit = top_level_keyword_indexes(statement, "limit")?
+        .last()
+        .copied()
+        .ok_or_else(|| unsupported_sql_error("native SQL limit is absent"))?;
+    let offsets = top_level_keyword_indexes(statement, "offset")?
+        .into_iter()
+        .filter(|index| *index > limit)
+        .collect::<Vec<_>>();
+    match offsets.as_slice() {
+        [] => Ok((statement, 0)),
+        [index] => {
+            let offset = parse_limit(statement[index + "offset".len()..].trim())?;
+            Ok((statement[..*index].trim(), offset))
+        }
+        _ => Err(unsupported_sql_error(
+            "native SQL admits one trailing OFFSET after LIMIT",
+        )),
+    }
+}
+
+fn validate_range(count: usize, offset: usize) -> Result<(), ShardLoomError> {
+    count
+        .checked_add(offset)
+        .ok_or_else(|| unsupported_sql_error("LIMIT plus OFFSET exceeds the native row range"))?;
+    Ok(())
 }
 
 pub(super) fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
@@ -282,6 +318,43 @@ pub(super) fn parse_source(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_ranges_keep_offsets_at_each_select_and_set_stage() {
+        let parsed = ParsedRelationQuery::parse(
+            "SELECT offset FROM (SELECT offset FROM 'missing.vortex' LIMIT 4 OFFSET 2) AS q LIMIT 2 OFFSET 1",
+        ).unwrap();
+        let ParsedRelationQuery::Select(select) = parsed else {
+            panic!("SELECT expected")
+        };
+        assert_eq!((select.limit, select.offset), (2, 1));
+        let ParsedRelationSource::Derived(inner) = &select.source else {
+            panic!("derived expected")
+        };
+        let ParsedRelationQuery::Select(inner) = inner.as_ref() else {
+            panic!("SELECT expected")
+        };
+        assert_eq!((inner.limit, inner.offset), (4, 2));
+        let parsed = ParsedRelationQuery::parse(
+            "SELECT value FROM 'a.vortex' UNION ALL SELECT value FROM 'b.vortex' LIMIT 3 OFFSET 1",
+        )
+        .unwrap();
+        let ParsedRelationQuery::Set(set) = parsed else {
+            panic!("set expected")
+        };
+        assert_eq!((set.limit, set.offset), (3, 1));
+        for tail in [
+            "OFFSET -1",
+            "OFFSET 1.5",
+            "OFFSET 1 OFFSET 2",
+            "OFFSET 18446744073709551615",
+        ] {
+            let sql = format!(
+                "SELECT value FROM (SELECT value FROM 'missing.vortex' LIMIT 2 {tail}) AS q"
+            );
+            assert!(ParsedRelationQuery::parse(&sql).is_err(), "{sql}");
+        }
+    }
 
     #[test]
     fn derived_sources_are_parsed_without_opening_or_inventing_files() {

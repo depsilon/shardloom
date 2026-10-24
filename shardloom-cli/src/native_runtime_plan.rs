@@ -79,6 +79,26 @@ impl NativeRelationDeclaration {
         self.depth
     }
 
+    /// Apply an existing native unary operator to this relation. Options use
+    /// the same bounded metadata grammar as SQL/DataFrame declarations: column
+    /// lists for distinct/duplicates, a positive count for tail, and JSON for
+    /// sample/rewrite/melt/rolling/explode/pivot. This performs no source I/O.
+    /// # Errors
+    /// Rejects unknown operations/options and excessive declaration depth.
+    pub fn unary(&self, operation: &str, options: &str, keep: Option<&str>) -> Result<Self> {
+        if self.depth >= NATIVE_RECURSION_LIMIT {
+            return Err(failed("recursive plan exceeds 24 levels"));
+        }
+        let request =
+            crate::sql_local_source_runtime::native_unary_request(operation, options, keep)?;
+        Self::new(Plan::Unary(Box::new(
+            shardloom_vortex::relational_query::VortexRelationalUnary {
+                input: self.plan().clone(),
+                request,
+            },
+        )))
+    }
+
     /// Bind a typed declaration inside the supplied resource owner. The boolean
     /// reports whether its source membership permits retained preparation reuse.
     /// # Errors

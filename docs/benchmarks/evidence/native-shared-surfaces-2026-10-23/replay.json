@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "baseline": {
+    "status": "passed",
+    "members": 2716,
+    "validated_queries": 215,
+    "historical_validated_queries": 370,
+    "full43_equal_schema_queries": 43,
+    "small_fixture_comparisons": 215,
+    "engine_seconds": {
+      "cli_sql": 52.413672785,
+      "embedded_workflow": 61.010366919,
+      "python_sql": 72.963240459,
+      "dataframe": 69.390462004,
+      "native_expression": 69.154491086
+    },
+    "engine_executed": false
+  },
+  "controls": [
+    {
+      "control": "compressed member integrity",
+      "rejected": true,
+      "reason": "packet hash"
+    },
+    {
+      "control": "omitted required gate",
+      "rejected": true,
+      "reason": "validation gate scope"
+    },
+    {
+      "control": "omitted final result",
+      "rejected": true,
+      "reason": "result coverage"
+    },
+    {
+      "control": "changed complete result value",
+      "rejected": true,
+      "reason": "result differs from independent reference"
+    },
+    {
+      "control": "external execution flag",
+      "rejected": true,
+      "reason": "unsafe execution evidence: external_engine_invoked"
+    },
+    {
+      "control": "changed engine clock",
+      "rejected": true,
+      "reason": "engine clock mismatch"
+    },
+    {
+      "control": "changed logical result schema",
+      "rejected": true,
+      "reason": "Full43 cross-surface schemas"
+    },
+    {
+      "control": "missing shared aggregate provider",
+      "rejected": true,
+      "reason": "grouped provider unreachable"
+    },
+    {
+      "control": "missing typed scan pushdown",
+      "rejected": true,
+      "reason": "typed scan filter not pushed"
+    }
+  ],
+  "engine_executed": false,
+  "archived_code_executed": false,
+  "verifier_sha256": "1ce76ccee17ea876cb1aeba88cab07ab3fb8d342979a6470458b25f89e52b640",
+  "review_sha256": "83d3c71d7897414888b178b18b0f52481d4b6025d9557700d3a145da41564848",
+  "control_program_sha256": "7a755e14a64fa3ecf30084d0b5a2452123ffc3b4146b6740ba8bf724282dd557"
+}

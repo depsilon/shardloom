@@ -45,6 +45,8 @@ use crate::{
 mod syntax;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 pub(crate) use syntax::native_relational;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) use syntax::native_unary_request;
 
 const VORTEX_PREPARE_COMMAND: &str = "vortex-prepare";
 

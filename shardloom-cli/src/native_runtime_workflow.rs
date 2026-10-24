@@ -131,21 +131,17 @@ impl NativeWorkflowDeclaration {
             let statement = request.sql_statement.as_deref().ok_or_else(|| {
                 failed("a compatibility input requires its complete shared SQL declaration")
             })?;
-            let operation = workflow::resident_relational::prepare_in_session(
-                statement,
-                &request,
-                session,
-                |_| Ok(()),
-                cancellation,
-            )?;
-            let mut prepared = PreparedNativeOperation::relational(operation, resources);
-            prepared.reusable = !workflow::resident_relational::has_file_collection(
-                statement,
-                &request,
-                &session.shared_memory_pool(),
-                cancellation,
-            )?;
-            return Ok(prepared);
+            let (operation, reusable) =
+                workflow::resident_relational::prepare_in_session_with_reuse(
+                    statement,
+                    &request,
+                    session,
+                    |_| Ok(()),
+                    cancellation,
+                )?;
+            return Ok(
+                PreparedNativeOperation::relational(operation, resources).with_reuse(reusable)
+            );
         }
         // Normalize compatibility sources through the same accounted preparation
         // used by CLI. Keep explicit primitive options on the rebound request;
@@ -242,11 +238,19 @@ impl NativeWorkflowDeclaration {
             )
             && let Some(statement) = request.sql_statement.as_deref()
             && sources.iter().try_fold(false, |extended, source| {
-                prepared_dispatch::request_requires_relational(source, &primitive_request)
+                workflow::resident_sql::request_requires_relational(source, &primitive_request)
                     .map(|required| extended || required)
             })? {
+            // Extended-field SQL already used typed output names. Preserve the
+            // primitive names only for the HAVING path newly admitted here.
+            let preserve_having_names = sources.iter().try_fold(true, |preserve, source| {
+                prepared_dispatch::request_requires_relational(source, &primitive_request)
+                    .map(|extended| preserve && !extended)
+            })?;
+            let statement =
+                workflow::resident_sql::typed_statement(statement, &request, preserve_having_names);
             let operation = workflow::resident_relational::prepare_in_session(
-                statement,
+                &statement,
                 &request,
                 session,
                 |schemas| {

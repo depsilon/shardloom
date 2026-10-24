@@ -24,7 +24,10 @@ mod batches;
 #[path = "public_relational_sources.rs"]
 mod sources;
 pub(super) use batches::run as run_batches;
-pub(super) use sources::{has_file_collection, prepare_in_session, prepare_native_in_session};
+pub(super) use sources::{
+    has_file_collection, prepare_in_session, prepare_in_session_with_reuse,
+    prepare_native_in_session,
+};
 
 pub(super) struct PreparedPublicRelational {
     pub(super) request: PublicWorkflowRouteRequest,
@@ -491,6 +494,12 @@ pub(super) fn append_execution(
     result: &ExecutedVortexRelational,
     reused: bool,
 ) {
+    if let Some(report) = &result.primitive_execution {
+        vortex_primitive_execution::append_vortex_local_primitive_execution_report_fields(
+            fields,
+            Some(report),
+        );
+    }
     crate::execution_resources::append_declaration_fields(fields, result.resources);
     crate::execution_resources::append_resident_snapshot_fields(fields, &result.runtime);
     crate::execution_resources::append_spill_observation_fields(

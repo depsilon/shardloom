@@ -10297,6 +10297,9 @@ fn parse_summary_like_predicate(value: &str) -> Option<(&str, String, bool)> {
         }
         let pattern = parse_sql_single_quoted_literal(&value[position + keyword.len()..])?;
         let needle = sql_like_contains_needle(&pattern)?;
+        if !tiny_predicate_preserves_text(&needle) {
+            return None;
+        }
         return Some((column, needle, negated));
     }
     None
@@ -10328,8 +10331,10 @@ fn parse_summary_in_predicate(value: &str) -> Option<(&str, Vec<String>, bool)> 
             .into_iter()
             .map(summary_sql_literal_to_tiny_scalar)
             .collect::<Option<Vec<_>>>()?;
-        if values.is_empty() {
-            continue;
+        // The compact IN grammar discards empty entries. Keep quoted empty
+        // strings on the ordinary typed SQL binder instead of losing a member.
+        if values.is_empty() || values.iter().any(String::is_empty) {
+            return None;
         }
         return Some((column, values, negated));
     }
@@ -10356,7 +10361,15 @@ fn summary_sql_literal_to_tiny_scalar(value: &str) -> Option<String> {
     if value.parse::<i64>().is_ok() {
         return Some(value.to_string());
     }
-    parse_sql_single_quoted_literal(value)
+    let text = parse_sql_single_quoted_literal(value)?;
+    // This compact CLI grammar trims predicates, uses unescaped delimiters and
+    // infers integers. Only lower SQL strings that survive it without changing
+    // their value or type. Other SQL uses the shared typed native binder.
+    (tiny_predicate_preserves_text(&text) && text.parse::<i64>().is_err()).then_some(text)
+}
+
+fn tiny_predicate_preserves_text(value: &str) -> bool {
+    value.trim() == value && !value.contains([',', ';', '|'])
 }
 
 fn parse_sql_single_quoted_literal(value: &str) -> Option<String> {
@@ -13037,6 +13050,44 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn sql_predicate_summary_requires_lossless_literal_representation() {
+        for (sql, expected) in [
+            ("text = ''", "eq:text:"),
+            ("text = 'é'", "eq:text:é"),
+            ("text = 'O''Reilly'", "eq:text:O'Reilly"),
+            ("number = 123", "eq:number:123"),
+            ("text LIKE '%123%'", "contains:text:123"),
+            ("number IN (1,2)", "in:number:1,2"),
+        ] {
+            assert_eq!(
+                super::summary_tiny_predicate_from_sql(sql).as_deref(),
+                Some(expected),
+                "{sql}"
+            );
+        }
+        for sql in [
+            "text = ' '",
+            "text = '  text  '",
+            "text = '123'",
+            "text = 'a,b'",
+            "text = 'a;b'",
+            "text = 'a|b'",
+            "text LIKE '% a %'",
+            "text LIKE '%a;b%'",
+            "text LIKE '%a|b%'",
+            "text IN ('', 'x')",
+            "text IN ('123', 'x')",
+            "text IN ('a,b', 'x')",
+            "text = 'x' AND text != ' a '",
+        ] {
+            assert!(
+                super::summary_tiny_predicate_from_sql(sql).is_none(),
+                "{sql}"
+            );
+        }
+    }
+
     #[test]
     fn native_vortex_row_export_fidelity_status_classifies_supported_formats() {
         let cases = [

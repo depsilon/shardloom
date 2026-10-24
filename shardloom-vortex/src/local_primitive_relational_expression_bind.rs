@@ -324,6 +324,9 @@ impl Binder<'_> {
             ("upper" | "utf8_upper", 1) => F::Upper,
             ("trim" | "utf8_trim", 1) => F::Trim,
             ("length" | "utf8_length", 1) => F::Length,
+            ("url_domain", 1) => F::Domain { regex: false },
+            ("regex_domain" | "regex_replace_domain", 1) => F::Domain { regex: true },
+            ("regexp_replace" | "regex_replace", 3) => fixed_domain_replacement(&args)?,
             ("starts_with" | "utf8_starts_with", 2) => F::StartsWith,
             ("ends_with" | "utf8_ends_with", 2) => F::EndsWith,
             ("contains" | "utf8_contains", 2) => F::Contains,
@@ -431,9 +434,25 @@ impl Binder<'_> {
     }
 }
 
+fn fixed_domain_replacement(args: &[Expression]) -> Result<Function> {
+    use crate::local_primitives::native_relational_expression::scalar::Function as F;
+
+    if literal_text(&args[1], "domain replacement pattern")?
+        != Some(r"^https?://(?:www\.)?([^/]+)/.*$")
+        || literal_text(&args[2], "domain replacement capture")? != Some(r"\1")
+    {
+        return Err(failed(
+            "REGEXP_REPLACE admits only the fixed HTTP(S) domain capture; arbitrary regex replacement is unsupported",
+        ));
+    }
+    Ok(F::Domain { regex: true })
+}
+
 fn calendar_function(name: &str, arity: usize) -> Option<Function> {
     use shardloom_core::expression as calendar;
     Some(match (name, arity) {
+        ("extract_minute" | "minute", 1) => Function::EpochMinute { truncate: false },
+        ("date_trunc_minute" | "truncate_minute", 1) => Function::EpochMinute { truncate: true },
         ("date_year" | "year", 1) => {
             Function::DateExtract(|value| i64::from(calendar::date32_year(value)))
         }
@@ -686,6 +705,22 @@ fn typed_function_dtype(
         }
     };
     let dtype = match function {
+        F::EpochMinute { truncate } => match first {
+            DType::Primitive(ptype, _) if ptype.is_signed_int() => {
+                DType::Primitive(PType::I64, nullable)
+            }
+            DType::Primitive(ptype, _) if ptype.is_unsigned_int() => {
+                DType::Primitive(PType::U64, nullable)
+            }
+            DType::Utf8(_) if *truncate => DType::Utf8(nullable),
+            DType::Utf8(_) => DType::Primitive(PType::U64, nullable),
+            DType::Null => DType::Primitive(PType::I64, nullable),
+            _ => {
+                return Err(failed(
+                    "minute functions require integer epoch seconds or timestamp text; use timestamp_minute for TimestampMicros",
+                ));
+            }
+        },
         F::JsonExtract(_) | F::Strptime { .. } => {
             if args
                 .iter()

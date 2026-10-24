@@ -62,6 +62,21 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
 
+    def test_predicate_string_literals_preserve_empty_space_unicode_and_quotes(self) -> None:
+        for value in ("", " ", "  text  ", "é", " O'Reilly "):
+            with self.subTest(value=value):
+                literal = "'" + value.replace("'", "''") + "'"
+                self.assertEqual(str(sl.col("text") == value), f"text = {literal}")
+                self.assertEqual(str(sl.col("text") != value), f"text != {literal}")
+        self.assertEqual(str(sl.col("text").like(" text ")), "text LIKE ' text '")
+        self.assertEqual(str(sl.col("text").not_like(" text ")), "text NOT LIKE ' text '")
+        self.assertEqual(str(sl.col("text").rlike(" text ")), "text RLIKE ' text '")
+        self.assertEqual(str(sl.col("text").not_rlike(" text ")), "text NOT RLIKE ' text '")
+        self.assertEqual(str(sl.col("text").contains(" ")), "text LIKE '% %'")
+        self.assertEqual(str(sl.col("text").startswith(" x ")), "text LIKE ' x %'")
+        self.assertEqual(str(sl.col("text").endswith(" x ")), "text LIKE '% x '")
+        self.assertEqual(str(sl.col("text").like(" _", escape=" ")), "text LIKE ' _' ESCAPE ' '")
+
     def fake_cli(self, body: str) -> list[str]:
         worker_env_patch = mock.patch.dict(
             os.environ,

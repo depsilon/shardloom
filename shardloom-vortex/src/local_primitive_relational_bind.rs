@@ -20,6 +20,8 @@ mod dynamic;
 #[path = "local_primitive_relational_expression_bind.rs"]
 mod expression;
 pub(in crate::local_primitives) use expression::{arithmetic_dtype, literal_dtype};
+#[path = "local_primitive_relational_scan_bind.rs"]
+mod scan;
 #[path = "local_primitive_relational_subquery_bind.rs"]
 mod subquery;
 pub(super) use subquery::validate_relation as validate_subquery_relation;

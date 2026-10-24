@@ -304,6 +304,12 @@ impl NativeNumericOwner {
         transform: AggregateValueTransform,
     ) -> Result<AggregateDistinctValue> {
         let value = self.distinct_value(row)?;
+        if matches!(transform, AggregateValueTransform::DateTruncMinute) && !self.is_integer() {
+            return Err(super::aggregate_temporal_type_error(
+                "date-trunc-minute",
+                "float64",
+            ));
+        }
         match (value, transform) {
             (AggregateDistinctValue::Null, AggregateValueTransform::DateTruncMinute)
                 if self.is_integer() =>
@@ -323,8 +329,19 @@ impl NativeNumericOwner {
                 Ok(AggregateDistinctValue::UInt64((value / 60) * 60))
             }
             (AggregateDistinctValue::Int64(value), AggregateValueTransform::DateTruncMinute) => {
-                Ok(AggregateDistinctValue::Int64(value.div_euclid(60) * 60))
+                super::aggregate_date_trunc_minute(&StatValue::Int64(value))
+                    .map(|value| AggregateDistinctValue::from(&value))
             }
+            (
+                AggregateDistinctValue::Int64(value),
+                AggregateValueTransform::SignedAddOffset(offset),
+            ) => super::aggregate_add_signed_offset(&StatValue::Int64(value), offset)
+                .map(|value| AggregateDistinctValue::from(&value)),
+            (
+                AggregateDistinctValue::UInt64(value),
+                AggregateValueTransform::SignedAddOffset(offset),
+            ) => super::aggregate_add_signed_offset(&StatValue::UInt64(value), offset)
+                .map(|value| AggregateDistinctValue::from(&value)),
             (AggregateDistinctValue::UInt64(value), AggregateValueTransform::AddOffset(offset)) => {
                 if offset >= 0 {
                     value
@@ -694,7 +711,7 @@ impl Wide for f64 {
         StatValue::Float64(self)
     }
     fn distinct(self) -> AggregateDistinctValue {
-        AggregateDistinctValue::Float64Bits(self.to_bits())
+        AggregateDistinctValue::float(self)
     }
     fn numeric(self) -> f64 {
         self

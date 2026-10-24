@@ -1,5 +1,32 @@
 use super::*;
 
+#[test]
+fn native_typed_arithmetic_group_keys_preserve_names_and_bind_selected_expressions() {
+    for (projection, grouping, name) in [
+        ("ip - 3", "ip-3", "ip_minus3"),
+        ("ip+2", "ip + 2", "ip_plus2"),
+        ("ip - 3 AS shifted", "ip-3", "shifted"),
+        ("ip-3 AS shifted", "ip - 3", "shifted"),
+        ("ip - 3 AS shifted", "shifted", "shifted"),
+    ] {
+        let parsed = parse_sql_local_source_statement(&format!(
+            "SELECT ip,{projection},COUNT(*) AS n FROM 'missing.vortex' GROUP BY ip,{grouping} ORDER BY {grouping} DESC NULLS LAST,COUNT(*) LIMIT 10"
+        )).unwrap();
+        assert_eq!(parsed.group_by, ["ip", name]);
+        let order = parsed.order_by.unwrap();
+        assert_eq!(order.keys[0].column, name);
+        assert_eq!(order.keys[0].direction, SortDirection::Desc);
+        assert_eq!(order.keys[0].null_ordering, Some(SortNullOrdering::Last));
+        assert_eq!(order.keys[1].column, "n");
+    }
+    assert!(
+        parse_sql_local_source_statement(
+            "SELECT ip,COUNT(*) AS n FROM 'missing.vortex' GROUP BY ip-3 LIMIT 10"
+        )
+        .is_err()
+    );
+}
+
 fn computed_columns(aggregate: &ParsedAggregate) -> &[String] {
     let ParsedAggregateArgument::Computed { source_columns, .. } = &aggregate.argument else {
         panic!("expected computed aggregate argument");

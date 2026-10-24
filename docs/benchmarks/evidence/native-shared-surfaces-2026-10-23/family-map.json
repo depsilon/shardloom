@@ -1,0 +1,745 @@
+{
+  "inventory": "source-verified executable public-surface coverage beyond ClickBench",
+  "repository": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "scope": "Python tests and shardloom-cli integration tests only; test sources inspected, not executed",
+  "shared_provider_matrix": {
+    "file": "python/tests/test_native_shared_provider_binding.py",
+    "helper": "all_surfaces",
+    "entry_points": [
+      "Python DataFrame API: frame.collect(check=True)",
+      "native Relation: Session.plan(relation).collect()",
+      "native SQL: Session.sql(statement).collect()",
+      "embedded workflow: Session.workflow(arguments).collect()",
+      "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+    ],
+    "asserts": "The helper returns Arrow tables. Native results assert fallback_attempted=false and external_engine_invoked=false, while CLI results assert the equivalent envelope fields. Individual cases compare explicit expected values and schemas or compare complete tables across surfaces, as recorded in each case; equality alone is not an independent arithmetic oracle.",
+    "scope_boundary": "The subprocess patch is relaxed only around the explicit CLI entry point. This helper establishes coverage for the cases passed to it, not universal operator/type coverage."
+  },
+  "families": [
+    {
+      "family": "filter/project/scalars",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_expression_binding.py",
+          "test": "test_range_filter_project_reuse_vortex_roundtrip_and_stream",
+          "frontdoors": [
+            "native Relation via Session.plan"
+          ],
+          "asserts": "range source, scan/filter/project, exact collected rows, declaration reuse, Vortex write/reopen, batches and retained results; subprocess run/Popen patched to fail"
+        },
+        {
+          "file": "python/tests/test_native_expression_binding.py",
+          "test": "test_exact_and_rich_literals_list_struct_call_and_cast",
+          "frontdoors": [
+            "native Relation via Session.plan"
+          ],
+          "asserts": "exact uint64, binary, decimal, date, timestamp, list, struct, scalar call and cast values"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "filter_project case applies value filter, key alias, arithmetic and UPPER projection; all five results match exact rows and schema; native reports and CLI envelope assert fallback false and external engine false"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_shared_scalar_spellings_preserve_nulls_units_and_unicode",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "extract_minute, date_trunc_minute, url_domain, regex_domain, octet_length and length spellings produce exact null-aware outputs for negative/positive timestamps and Unicode text; all five outputs have matching schemas"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_sql_arithmetic_uses_shared_signed_float_and_nullable_binding",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "Nullable uint32, int64 (including a value below -2^53), and float64 fixtures test subtraction by 3 in grouped keys and SUM; all five grouped outputs match exact rows and schema, while aggregate outputs and unaliased primitive SUM names compare across the four non-DataFrame entry points to the DataFrame result. Native reports/CLI envelope assert fallback false and external engine false through all_surfaces."
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_sql_arithmetic_uses_shared_signed_float_and_nullable_binding",
+          "case_ref": "grouped_computed_arithmetic_key",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "For nullable uint32, int64 (including a value below -2^53), and float64 sources, projects n - 3 AS shifted, groups by n and n - 3, and orders by n - 3 NULLS FIRST. all_surfaces asserts exact rows and matching schema across five entry points; its native reports and CLI envelope assert fallback false and external engine false."
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_string_comparisons_preserve_literal_content_on_every_surface",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "For nullable UTF8 input, equality and inequality compare nine strings covering empty, whitespace, padded text, Unicode, quotes, quoted integers, comma, semicolon and pipe. Five substring cases and IN with empty/quoted-integer/comma entries also execute through all five entry points. Complete output rows match fixture-derived expectations; comparison cases assert schema equality and all entry points assert no external execution."
+        }
+      ],
+      "boundary": "These focused runtime tests do not establish every catalog scalar or cross-surface combination."
+    },
+    {
+      "family": "scalar function spellings",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_shared_scalar_spellings_preserve_nulls_units_and_unicode",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "Six function spellings—extract_minute, date_trunc_minute, url_domain, regex_domain, octet_length and length—match exact values, null behavior, timestamp units and Unicode byte/character lengths across all five entry points"
+        }
+      ],
+      "boundary": "This is a representative spelling/type fixture, not a full scalar function arity or input-type matrix."
+    },
+    {
+      "family": "aggregate",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_expression_binding.py",
+          "test": "test_typed_set_join_aggregate_sort_matches_native_sql",
+          "frontdoors": [
+            "native Relation via Session.plan",
+            "native Session.sql API"
+          ],
+          "asserts": "join then grouped aggregation and sort exact values, with equivalent SQL results"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "grouped sum/count case matches exact rows and schema across all five entry points"
+        },
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "test": "public_sql_file_collections_return_complete_typed_rows_and_shared_writers",
+          "frontdoors": [
+            "CLI SQL"
+          ],
+          "asserts": "partitioned Vortex directory/manifest filtering, sorting, limit, count/sum, exact JSONL output and no-fallback route evidence"
+        },
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "test": "public_raw_sql_prepares_vortex_for_text_aggregates_and_writes",
+          "frontdoors": [
+            "CLI SQL over CSV prepared to Vortex"
+          ],
+          "asserts": "text aggregate with JSON extraction/TRY_CAST, exact collected/written values and route evidence"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_sql_arithmetic_uses_shared_signed_float_and_nullable_binding",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "Nullable uint32, int64 (including a value below -2^53), and float64 fixtures test subtraction by 3 in grouped keys and SUM; all five grouped outputs match exact rows and schema, while aggregate outputs and unaliased primitive SUM names compare across the four non-DataFrame entry points to the DataFrame result. Native reports/CLI envelope assert fallback false and external engine false through all_surfaces."
+        },
+        {
+          "file": "shardloom-cli/src/sql_aggregate_expression_tests.rs",
+          "test": "native_typed_arithmetic_group_keys_preserve_names_and_bind_selected_expressions",
+          "frontdoors": [
+            "SQL local-source statement parser (construction only)"
+          ],
+          "asserts": "Parser-only test covers arithmetic group-key spelling and alias binding for `ip - 3`, `ip+2`, explicit alias use and grouping by alias; verifies the computed projection alias and group-by name, and rejects grouped arithmetic without a matching projection. Does not execute a query or establish runtime behavior."
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_sql_arithmetic_uses_shared_signed_float_and_nullable_binding",
+          "case_ref": "single_computed_sum",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "Evaluates SUM(n - 3) AS total for the same nullable signed, unsigned and float inputs using DataFrame, typed Relation and the complete SQL statement. Each of the four non-DataFrame results is Arrow-equal (including metadata) to the DataFrame result; this case asserts cross-surface agreement, not an independent expected total."
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_sql_arithmetic_uses_shared_signed_float_and_nullable_binding",
+          "case_ref": "multiple_primitive_sums_and_order_by_expression",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "Evaluates unaliased SELECT SUM(n), SUM(n - 3) with ORDER BY SUM(n - 3) NULLS FIRST and compares each of the four non-DataFrame outputs to the DataFrame aggregate output using Arrow equality with metadata. This records primitive output naming and aggregate ORDER BY syntax coverage; no independent expected values are asserted."
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_grouped_nonnull_mean_ordering_selects_shared_provider_on_every_surface",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API: frame.collect(check=True)",
+            "native Relation: Session.plan(relation).collect()",
+            "native SQL: Session.sql(statement).collect()",
+            "embedded workflow: Session.workflow(arguments).collect()",
+            "CLI SQL: subprocess ShardLoomClient with transport=subprocess and use_persistent_worker=False"
+          ],
+          "asserts": "A non-null UInt32/UTF8 file groups AVG(octet_length(text)) and COUNT, applies HAVING rows > 1, orders mean descending without explicit NULL placement, and limits to two. All five entry points assert local_primitive_report_present=true and native_vortex_source_to_scalar_aggregate_result, exact rows [{key:1,mean:3.5,rows:2},{key:2,mean:3.0,rows:2}] and matching schemas."
+        }
+      ]
+    },
+    {
+      "family": "sort/limit/offset",
+      "evidence": [
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "test": "public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanup",
+          "frontdoors": [
+            "CLI SQL",
+            "DataFrame primitive workflow"
+          ],
+          "asserts": "131072-row numeric sort with offset 123456, exact complete values and spill cleanup"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_dataframe_offsets_keep_operator_position_and_match_typed_sql",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "DataFrame limit(count, offset) matches typed relation and SQL for sorted offset, zero count with nonzero offset, filter/sort after limit, aggregation after limit, and repeated limits; all five results have exact expected rows and matching schemas"
+        }
+      ],
+      "boundary": "The shared provider test executes the DataFrame offset declaration through five entry points. It does not enumerate every count/offset pair or every possible operator placement."
+    },
+    {
+      "family": "join",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_expression_binding.py",
+          "test": "test_typed_set_join_aggregate_sort_matches_native_sql",
+          "frontdoors": [
+            "native Relation via Session.plan",
+            "native Session.sql API"
+          ],
+          "asserts": "exact joined/grouped results"
+        },
+        {
+          "file": "python/tests/test_native_binding.py",
+          "test": "test_public_native_frames_compose_across_clients",
+          "frontdoors": [
+            "Python DataFrame API"
+          ],
+          "asserts": "cross-client join and filter/semi-membership composition, repeated collection, native result equality, no subprocess or Python row conversion"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "left join case returns exact expected rows with identical schemas across all five entry points"
+        },
+        {
+          "file": "shardloom-cli/tests/public_memory_inputs.rs",
+          "test": "public_three_input_memory_join_preserves_multiplicity_and_order",
+          "frontdoors": [
+            "CLI memory workflow"
+          ],
+          "asserts": "three declared inputs, join multiplicity and row order"
+        }
+      ]
+    },
+    {
+      "family": "union/intersect/except",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_set_binding.py",
+          "test": "test_native_set_independent_repeated_and_positional_sources_across_terminals",
+          "frontdoors": [
+            "Python DataFrame set operations",
+            "Python SqlWorkflow set-operation declaration"
+          ],
+          "asserts": "union_all, union, intersect, except; independent/repeated/positional source bindings; exact row multiset/schema across collect, batches, single and fanout terminals; no external engine"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "union_all, union, intersect, except cases match exact expected rows and schemas across all five entry points"
+        }
+      ],
+      "boundary": "The older Python/native tests alone do not establish CLI parity. The listed test_relational_families_share_five_frontdoors cases additionally execute CLI SQL for their four set-operation examples."
+    },
+    {
+      "family": "analytic windows",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_expression_binding.py",
+          "test": "test_window_analytics_scalar_subquery_and_public_aliases",
+          "frontdoors": [
+            "native Relation via Session.plan"
+          ],
+          "asserts": "rolling sum, row_number, lag exact rows; scalar subquery sum and public aliases"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "row_number window output matches exact values and schema across all five entry points"
+        }
+      ]
+    },
+    {
+      "family": "unary operations (10)",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_unary_binding.py",
+          "test": "test_native_unary_families_columnar_and_scalar_input_across_all_terminals",
+          "frontdoors": [
+            "Python DataFrame API",
+            "Python SqlWorkflow API for columnar declarations"
+          ],
+          "asserts": "distinct, drop_duplicates, duplicated, tail, sample, fillna, reset_index, melt, rolling, explode; columnar/scalar input; mixed/empty/null data; exact schemas/rows across collection, batches, Vortex and fanout; input/completion/ownership and no-fallback evidence"
+        },
+        {
+          "file": "python/tests/test_native_unary_binding.py",
+          "test": "test_native_unary_late_failure_zero_limit_cancellation_and_clean_reuse",
+          "frontdoors": [
+            "Python DataFrame API"
+          ],
+          "asserts": "failure/cancel/zero-limit/reuse lifecycle"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_typed_unary_families_preserve_nulls_schema_order_and_reuse",
+          "frontdoors": [
+            "native Relation via Session.plan"
+          ],
+          "asserts": "typed unary KINDS across mixed, empty and all-null fixtures; exact Arrow values/schema metadata, row order, and resident declaration reuse on repeat collection"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_typed_unary_file_input_matches_existing_dataframe_and_sql",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "all typed unary KINDS on Vortex file input produce exact expected values and metadata-preserving schemas through all five entry points"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_typed_unary_rejects_invalid_metadata_before_source_access",
+          "frontdoors": [
+            "native Relation declaration builder"
+          ],
+          "asserts": "invalid unary names/options, duplicate option keys and oversized pivot metadata fail without opening the deliberately missing source"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_typed_dynamic_pivot_keeps_downstream_binding_and_reuse",
+          "frontdoors": [
+            "native Relation via Session.plan",
+            "native Session.sql API"
+          ],
+          "asserts": "pivot with downstream filter/project is reusable; relation and SQL paths preserve sorted limit/offset output; invalid downstream pivot column fails"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "dynamic pivot over sparse categories has exact null-filled columns, values and schemas through all five entry points"
+        }
+      ],
+      "boundary": "Parameter variants represented by the test's KINDS are not a complete public API matrix."
+    },
+    {
+      "family": "subqueries IN/EXISTS/ANY/ALL",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_subquery_binding.py",
+          "test": "test_direct_subquery_plans_rows_arrow_reuse_and_retained_results",
+          "frontdoors": [
+            "native Session.sql API with row/Arrow batch bindings"
+          ],
+          "asserts": "IN, row-IN, EXISTS, ANY, ALL, scalar, parameterized, guarded and shared queries; exact SQL-null results for rows/Arrow, collection/batches, repeat calls, source reports and no-fallback"
+        },
+        {
+          "file": "python/tests/test_native_dynamic_subquery_binding.py",
+          "test": "test_dynamic_predicates_rows_arrow_repeated_calls_and_owned_results",
+          "frontdoors": [
+            "native Session.sql API with row/Arrow batch bindings"
+          ],
+          "asserts": "IN/NOT IN and row variants, EXISTS/NOT EXISTS, ANY/ALL across six comparisons; exact results/schema, ownership and reports"
+        },
+        {
+          "file": "python/tests/test_native_subquery_binding.py",
+          "test": "test_direct_unused_inner_faults_cancel_and_scalar_errors_prevent_publication",
+          "frontdoors": [
+            "native Session.sql API with row/Arrow batch bindings"
+          ],
+          "asserts": "inner faults, cancellation and scalar errors do not publish outputs"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_relational_families_share_five_frontdoors",
+          "helper": "all_surfaces",
+          "frontdoors": [
+            "Python DataFrame API",
+            "native Relation via Session.plan",
+            "native Session.sql API",
+            "native Session.workflow API",
+            "CLI SQL via subprocess ShardLoomClient"
+          ],
+          "asserts": "IN, EXISTS, ANY and ALL representative predicates match exact rows and schemas across all five entry points"
+        }
+      ]
+    },
+    {
+      "family": "local source adapters and collections",
+      "evidence": [
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "test": "public_sql_file_collections_return_complete_typed_rows_and_shared_writers",
+          "frontdoors": [
+            "CLI SQL"
+          ],
+          "asserts": "local partitioned Vortex collections and shared outputs"
+        },
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "test": "public_raw_sql_prepares_vortex_for_text_aggregates_and_writes",
+          "frontdoors": [
+            "CLI SQL"
+          ],
+          "asserts": "local CSV intake is prepared as Vortex before native SQL"
+        },
+        {
+          "file": "python/tests/test_native_binding.py",
+          "test": "test_public_native_file_sql_selects_typed_decimal_providers",
+          "frontdoors": [
+            "Python DataFrame read/aggregate API",
+            "Python sl.sql API"
+          ],
+          "asserts": "Vortex file/collection, Parquet and Arrow IPC sources select typed decimal providers for grouped aggregate and SQL query cases"
+        },
+        {
+          "file": "python/tests/test_native_shared_provider_binding.py",
+          "test": "test_sql_collection_membership_is_rebound_for_directory_and_manifest",
+          "frontdoors": [
+            "native Session.sql API with files bindings"
+          ],
+          "asserts": "a prepared directory and manifest plan sees added/reordered Vortex parts on reuse, returns updated exact counts/rows, and reports preparation reuse false after membership changes"
+        }
+      ],
+      "boundary": "Other test_native_workflow_declarations and test_native_relational_collection tests are mocked declaration/dispatch evidence, not execution semantics."
+    },
+    {
+      "family": "memory and rich typed intake",
+      "evidence": [
+        {
+          "file": "shardloom-cli/tests/public_memory_inputs.rs",
+          "tests": [
+            "source_free_inputs_use_the_same_public_engine_on_every_surface",
+            "declared_memory_rows_compose_with_sql_range_and_validate_before_output",
+            "typed_nullable_and_empty_memory_inputs_keep_native_semantics",
+            "memory_query_fanout_reopens_all_eight_formats_through_the_public_engine"
+          ],
+          "frontdoors": [
+            "CLI public surfaces"
+          ],
+          "asserts": "source-free and declared memory input, exact typed/null/empty values, pre-output validation, all eight output formats reopen with exact rows"
+        },
+        {
+          "file": "python/tests/test_native_binding.py",
+          "tests": [
+            "test_public_native_object_intake_infers_and_converts_without_json_cells",
+            "test_public_native_object_intake_preserves_rich_exact_values_and_null_masks",
+            "test_public_native_batch_factories_use_fresh_values_without_json_cells",
+            "test_public_native_batch_admission_precedes_factory_and_stream_close_cleans_producer"
+          ],
+          "frontdoors": [
+            "Python native object/columnar/batch APIs"
+          ],
+          "asserts": "exact rich values/null masks, fresh batch values, admission-before-producer and cleanup"
+        },
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "test": "public_run_executes_declared_memory_rows_with_attached_route_envelope",
+          "frontdoors": [
+            "CLI run"
+          ],
+          "asserts": "declared memory rows execute with route envelope"
+        }
+      ]
+    },
+    {
+      "family": "streaming and result delivery",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_binding.py",
+          "tests": [
+            "test_columnar_stream_is_one_shot_reports_completion_and_preserves_result",
+            "test_incremental_execution_waits_for_demand_and_reports_only_complete_results",
+            "test_incremental_close_and_session_cancel_keep_retained_batches_valid",
+            "test_public_native_stream_destinations_consume_once_and_preserve_empty_schema",
+            "test_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first"
+          ],
+          "frontdoors": [
+            "Python native stream/terminal APIs"
+          ],
+          "asserts": "demand-driven one-shot streaming, completion/export counters, retained results, valid batches after close/cancel, exact recursive values, schema-first admission, empty schema"
+        }
+      ],
+      "boundary": "streaming_plan_snapshots.rs and streaming_batch_plan_snapshots.rs are plan snapshots only, not execution proof."
+    },
+    {
+      "family": "native and compatibility sinks",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_binding.py",
+          "tests": [
+            "test_native_writer_outputs_reopen_all_complete_values",
+            "test_native_fanout_reopens_complete_values_and_preserves_empty_outputs",
+            "test_public_native_persisted_files_reopen_in_independent_jobs",
+            "test_public_native_stream_destinations_consume_once_and_preserve_empty_schema",
+            "test_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first"
+          ],
+          "frontdoors": [
+            "Python native writer/fanout/stream destinations"
+          ],
+          "asserts": "native Vortex and compatibility Parquet/Arrow IPC/CSV/JSON/JSONL/Avro/ORC files reopen with complete exact values; empty outputs/schema and one-producer fanout behavior"
+        },
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "tests": [
+            "public_run_executes_local_write_through_prepared_vortex_row_export",
+            "public_run_executes_local_fanout_through_native_relational_writer"
+          ],
+          "frontdoors": [
+            "CLI run"
+          ],
+          "asserts": "local write/fanout through prepared native relational writer"
+        }
+      ]
+    },
+    {
+      "family": "resource admission, cancellation, deadlines, generation",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_binding.py",
+          "test": "test_public_native_resource_refusal_precedes_loading_and_producer",
+          "frontdoors": [
+            "Python public Context API"
+          ],
+          "asserts": "resource refusal precedes extension loading and producer inspection for Context range and Arrow input"
+        },
+        {
+          "file": "python/tests/test_native_binding.py",
+          "tests": [
+            "test_resource_override_admits_before_producer_and_does_not_replace_session_default",
+            "test_native_deadlines_reject_before_input_or_output_and_allow_session_reuse"
+          ],
+          "frontdoors": [
+            "native Session API"
+          ],
+          "asserts": "resource override is admitted before producer consumption without replacing the session default; deadlines reject before input/output and allow session reuse"
+        },
+        {
+          "file": "python/tests/test_native_binding.py",
+          "test": "test_public_native_cancel_drains_producer_and_preserves_results_and_reuse",
+          "frontdoors": [
+            "Python Client/DataFrame API"
+          ],
+          "asserts": "cancellation drains a streaming producer, preserves a retained result and allows later collection"
+        },
+        {
+          "file": "python/tests/test_native_binding.py",
+          "test": "test_native_memory_denial_evidence_is_frozen_before_later_success",
+          "frontdoors": [
+            "native Session.sql API"
+          ],
+          "asserts": "resource denial evidence remains frozen after a later successful execution"
+        },
+        {
+          "file": "shardloom-cli/tests/resident_worker.rs",
+          "test": "worker_rejects_replaced_source_then_reprepares_without_stale_answers",
+          "frontdoors": [
+            "resident CLI worker"
+          ],
+          "asserts": "replaced prepared source errors with prepared-source-changed, then re-prepares and returns fresh results"
+        },
+        {
+          "file": "shardloom-cli/tests/public_memory_inputs.rs",
+          "test": "generated_range_grows_while_small_result_collection_keeps_its_bound",
+          "frontdoors": [
+            "CLI memory range"
+          ],
+          "asserts": "generated range growth and bounded small-result collection"
+        }
+      ]
+    },
+    {
+      "family": "unsupported/no-fallback diagnostics",
+      "evidence": [
+        {
+          "file": "shardloom-cli/tests/public_workflow_route.rs",
+          "tests": [
+            "public_route_blocks_unbounded_collect_before_execution",
+            "public_route_rejects_native_vortex_sql_non_where_limit_tail",
+            "public_route_blocks_collect_fanout_before_execution",
+            "public_route_blocks_native_vortex_missing_required_payload"
+          ],
+          "frontdoors": [
+            "CLI route: Python/SQL/DataFrame policies"
+          ],
+          "asserts": "unsupported/blocked outcomes, stable blocker IDs where applicable, runtime_execution false or route absent, fallback_attempted false, external_engine_invoked false"
+        },
+        {
+          "file": "python/tests/test_native_expression_binding.py",
+          "test": "test_preflight_failures_are_side_effect_free_and_same_plan_can_retry",
+          "frontdoors": [
+            "native Relation/Session API"
+          ],
+          "asserts": "resource/timeout/cancel/invalid source/function preflight failures before output, same plan retry"
+        }
+      ]
+    },
+    {
+      "family": "declaration-only evidence (do not count as runtime coverage)",
+      "evidence": [
+        {
+          "file": "python/tests/test_native_workflow_declarations.py",
+          "tests": [
+            "test_input_adapters_and_unary_workflows_submit_complete_declarations",
+            "test_every_terminal_preserves_the_same_declaration_bindings_and_resources",
+            "test_memory_constructors_share_bindings_and_output_adapters",
+            "test_sql_always_reaches_native_admission_without_python_shape_routing"
+          ],
+          "asserts": "mocked transport/declaration shape only"
+        },
+        {
+          "file": "python/tests/test_native_relational_collection.py",
+          "tests": [
+            "test_sql_submits_the_whole_statement_once_for_all_relational_families",
+            "test_native_and_mixed_dataframe_relations_reach_the_same_route"
+          ],
+          "asserts": "mocked route/dispatch only"
+        },
+        {
+          "file": "shardloom-cli/src/public_workflow_route.rs",
+          "test": "sql_predicate_summary_requires_lossless_literal_representation",
+          "asserts": "Admission-only test: compact native predicate lowering accepts six exact representations and declines thirteen whitespace, type, delimiter and empty-membership cases; this test does not execute a query."
+        }
+      ]
+    }
+  ],
+  "open_coverage_gaps": [
+    "The new all_surfaces tests provide a shared five-entry-point matrix for their listed representative cases, including offsets, selected unary families, scalar spellings and relational operators. They do not enumerate the full Cartesian product of scalar/type/operator options, nor do they make every distinct source rebinding and validation case run through all five entry points.",
+    "Catalog entries and mocked workflow declaration/dispatch tests do not establish runtime behavior.",
+    "Dedicated native Session/Relation tests for directory/manifest membership rebinding and invalid unary metadata are narrower than all_surfaces; broad claims must stay attached to the exact listed methods and assertions."
+  ],
+  "requested_parser_evidence_status": {
+    "file": "shardloom-cli/src/sql_aggregate_expression_tests.rs",
+    "test": "native_typed_arithmetic_group_keys_preserve_names_and_bind_selected_expressions",
+    "status": "verified source reference; construction-only evidence, not runtime coverage"
+  },
+  "source_hashes": {
+    "python/tests/test_native_binding.py": "9c997a5d54e73d43bb12ae2e3a8ff5e0c840f04f572308b85c7d6070e654febc",
+    "python/tests/test_native_dynamic_subquery_binding.py": "021510df03b3b12a7f7b19bf57cc9e45e5718b7c35eb48cc7f06584b62c98be5",
+    "python/tests/test_native_expression_binding.py": "8ace7d3d7fc586a653c6b611cd7da51fe141aa23be69aedf1e0ac04e7a5c0c0f",
+    "python/tests/test_native_relational_collection.py": "e3effb8f00a13fc60dc8a3c36211c90ebfddfee7c96cf8d52e8e4ea0f6dbdd28",
+    "python/tests/test_native_set_binding.py": "2a85bf999574d2ffb20dd18f84aa817545e31ef6bf900cf2be5cab2eba2c045e",
+    "python/tests/test_native_shared_provider_binding.py": "985b5cc91afeb6cc0a4b3203efa728a658941b4d7555f1823a41a600c243520a",
+    "python/tests/test_native_subquery_binding.py": "c7a808c673abcd3283c684df20cbcabdf303083bf0835478413b838d8b984ec1",
+    "python/tests/test_native_unary_binding.py": "a12963739d6d14175e907ea2dad3ae1ac548d8ad3c0779190c9f41c1fe3844bb",
+    "python/tests/test_native_workflow_declarations.py": "461dd6a7d9dd8c4ec4f18d578882eb0a4d2720e35b73f58affa0f90f680cf12c",
+    "shardloom-cli/src/public_workflow_route.rs": "7f8a6b646b3c44e6de4cbc37fcc5d83a98e8bd71634714409c1a92d682720ac5",
+    "shardloom-cli/src/sql_aggregate_expression_tests.rs": "280e41792bc387cfacd56f63f006a865df1217bfb9a1e83285a12746379cd070",
+    "shardloom-cli/tests/public_memory_inputs.rs": "5b7330b6ee8449bd693d669f8728f035b608887466b202534aaf85511342e79d",
+    "shardloom-cli/tests/public_workflow_route.rs": "fca2b316f578f21194eba0a63056768bc858de7e428b6c9f50a3177028ef5759",
+    "shardloom-cli/tests/resident_worker.rs": "e6b91accc464c81974f43229b2b2599324950bdeebadd0bf290f73d0ea9c0f13"
+  },
+  "artifact_type": "source inventory; not a test execution result",
+  "source_verification": {
+    "all_listed_symbols_found": true,
+    "families": 16,
+    "test_references": 82,
+    "distinct_tests": 66,
+    "execution_claim": false
+  }
+}
