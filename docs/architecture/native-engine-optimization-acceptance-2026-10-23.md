@@ -278,6 +278,28 @@ grant and cleanup checks. Preserve every observation; no cache manipulation or
 concurrent task work. A failed candidate is revised once only for a diagnosed
 cause, or dropped. Run one isolated Full43 at the retained checkpoint.
 
+The revised implementation at `3d1411ca` passes all 30 declared calls, with
+complete values, schemas, producer consumption, source identities and credited
+cleanup checked. The [decision](../benchmarks/evidence/native-engine-optimization-2026-10-23/sort-prefix-decision.json)
+retains it under the unchanged gate. Large limited-sort median engine time is
+0.196951667 seconds for the previous checkpoint and 0.043669208 seconds for the
+candidate, a ratio of 0.221726. Full-sort medians are 0.193829292 and 0.194905796;
+all three small-input controls also meet their original ceilings. This is a
+composed-workload result, not a Full43 speedup claim, and input retention remains
+unbounded by the requested prefix.
+
+Focused evidence covers independent stable ordering, nullable multikey ties,
+complete omitted-payload validation, every admitted flat scalar family,
+resident nested/decimal controls, prepared immediate-demand activation,
+computed projection/filter barriers, explicit spill, cancellation, denied
+grants, consumer refusal, result ownership and cleanup. The existing binder
+may safely remove an identity projection before demand reaches its sort;
+a computed projection remains a barrier. An initial test incorrectly expected
+the identity projection to remain and was corrected to cover both cases.
+The original failed fixture/build observations remain in the local record.
+Focused tests and native-feature lint pass; final workspace gates remain due
+after the coherent feedback batch.
+
 ### Historical cross-surface investigation
 
 The [25-observation extraction](../benchmarks/evidence/native-engine-optimization-2026-10-23/surface-comparison.json)
