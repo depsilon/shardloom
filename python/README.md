@@ -9,10 +9,10 @@ with `sl.context(...)` and explicit memory and parallelism settings.
 ## Install
 
 <!-- BEGIN SHARDLOOM RELEASE -->
-Published **0.7.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+Published **1.0.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
 
 ```sh
-python -m pip install shardloom==0.7.0
+python -m pip install shardloom==1.0.0
 ```
 
 - macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.

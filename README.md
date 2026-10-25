@@ -24,10 +24,10 @@ specific local analytical workflows; broader capabilities remain under developme
 ## First query
 
 <!-- BEGIN SHARDLOOM RELEASE -->
-Published **0.7.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+Published **1.0.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
 
 ```sh
-python -m pip install shardloom==0.7.0
+python -m pip install shardloom==1.0.0
 ```
 
 - macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.

@@ -10,7 +10,7 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples use the published [0.7.0 API](package-user-install.md) and
+These examples use the published [1.0.0 API](package-user-install.md) and
 the matching [source build](source-checkout-install.md). The
 [migration guide](../reference/python-api-migration.md) covers the 0.7.0
 Context/Result and error contracts. Memory and parallelism allocations remain

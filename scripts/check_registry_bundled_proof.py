@@ -112,7 +112,7 @@ def bundled_registry_proof_blockers(
 ) -> list[str]:
     prefix = f"{channel_id}: bundled CLI proof "
     errors: list[str] = []
-    expanded_workflows = package_version in {"0.5.1", "0.6.0", "0.7.0"}
+    expanded_workflows = package_version in {"0.5.1", "0.6.0", "0.7.0", "1.0.0"}
 
     def require(condition: bool, message: str) -> None:
         if not condition:
@@ -240,7 +240,7 @@ def bundled_registry_proof_blockers(
                        and cli_path.is_relative_to(package_path.parent / "bin")
                        and cli_path.name in ("shardloom", "shardloom.exe"))
     require(paths_valid, "must resolve the package and bundled CLI inside the same clean venv")
-    if package_version in {"0.6.0", "0.7.0"}:
+    if package_version in {"0.6.0", "0.7.0", "1.0.0"}:
         native = result.get("native_module_proof")
         if not isinstance(native, dict):
             require(False, "requires the installed native module and retained-result proof")
@@ -264,7 +264,7 @@ def bundled_registry_proof_blockers(
                     and library.startswith("/") and ".." not in PurePosixPath(library).parts
                     and PurePosixPath(library) == PurePosixPath(package).parent / "_native.abi3.so",
                     "native module must resolve inside the same installed package")
-    if package_version == "0.7.0":
+    if package_version in {"0.7.0", "1.0.0"}:
         expected_context = {
             "default_transport": "native",
             "result_type": "Result",
