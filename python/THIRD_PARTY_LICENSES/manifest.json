@@ -5456,11 +5456,11 @@
     },
     {
       "name": "prost",
-      "version": "0.14.3",
+      "version": "0.14.4",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/tokio-rs/prost",
-      "crate_checksum_sha256": "d2ea70524a2f82d518bce41317d0fae74151505651af45faf1ffbd6fd33f0568",
+      "crate_checksum_sha256": "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1",
       "files": [
         {
           "text": "texts/a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2.txt",
@@ -5488,11 +5488,11 @@
     },
     {
       "name": "prost-derive",
-      "version": "0.14.3",
+      "version": "0.14.4",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/tokio-rs/prost",
-      "crate_checksum_sha256": "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b",
+      "crate_checksum_sha256": "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf",
       "files": [
         {
           "text": "texts/a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2.txt",
@@ -7086,11 +7086,11 @@
     },
     {
       "name": "tokio",
-      "version": "1.53.3",
+      "version": "1.54.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
       "repository": "https://github.com/tokio-rs/tokio",
-      "crate_checksum_sha256": "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e",
+      "crate_checksum_sha256": "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3",
       "files": [
         {
           "text": "texts/253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552.txt",

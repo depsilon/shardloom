@@ -10,7 +10,10 @@ then the [warm execution/source-reuse package](native-warm-source-reuse-2026-10-
 and [public naming and terminology](shardloom-public-naming-2026-10-24.md).
 The October 25 ordering decision places
 [consolidated dependency maintenance](dependency-intake-2026-10-25.md) directly
-after this package, followed by the
+after this package. The subsequent instruction combines both in PR #1605;
+[complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md)
+and the new [batch/window and shared CPU speed investigation](native-ingest-batch-window-scheduling-2026-10-25.md)
+then precedes the
 [connected programming model](native-connected-programming-model-2026-10-24.md),
 then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
@@ -20,7 +23,10 @@ control passes and selects controlled-reader ownership transfer. The candidate
 implementation passes 23 focused ownership, actual-reader and timing tests,
 3,256 default workspace tests and 3,295 native Vortex library tests. Formatting
 and strict workspace/native lint pass; 32 existing opt-in native tests remain
-ignored. Complete-ingest benefit acceptance remains pending. The grouped-preparation campaign
+ignored. The complete-ingest screen fails its frozen speed gate; the maintainer
+retains the 61.2% copying reduction explicitly. Complete value/layout checks and
+one isolated subsequent Full43 pass. Final combined dependency/package/CI
+integration remains active. The grouped-preparation campaign
 from closed #1595 is included in merged #1596.
 The existing RFC 0044 resource contract and PERF-02/03/06/09 owners apply;
 CG-1 through CG-23 remain independent gates.
@@ -116,7 +122,8 @@ duplicate. The new `compare_parquet_native_artifact` example extends the
 existing bounded native artifact comparator with direct pinned Parquet decoding
 and independent references for all seven derived fields. It is a read-only
 correctness boundary, with no external query engine or production ingest helper.
-The first complete control now passes; no ownership optimization is accepted.
+The first complete control passes. The later retention and consumer decision
+below records the candidate separately from that initial control.
 
 The preliminary complete readback now validates the existing accepted file:
 99,997,497 rows across all 105 source and seven derived fields, with independent
@@ -263,6 +270,39 @@ publication guarantees. Do not add hidden caching or weaken admission.
 
 ## Measurement and scope discipline
 
+### October 25 retention and consumer decision
+
+The implementation at `20f03396` transfers 70,821,530,583 buffer bytes and cuts
+copied bytes from 115,652,962,945 to 44,831,432,362, a 61.236% reduction in the
+single complete screen. All 99,997,497 rows, 112 columns and 11,199,719,664
+values pass independent readback. The full physical inventory matches, and the
+15,715,228,660-byte file is byte-identical to the control and previously
+accepted provider artifact. Publication, source generation, accounting and
+cleanup checks pass with their documented allocator scope.
+
+The initial screen's complete-ingest improvement is below the frozen 3% gate.
+Its rejection remains recorded and no matched confirmation cohort is run.
+After reviewing that result, the maintainer requests retaining the concrete
+copying reduction and opening PR #1605. This is an explicit retention decision,
+not a changed threshold or a proven ingest speedup. Earlier failed readback and
+layout admissions remain preserved.
+
+One isolated standard Full43 on the new artifact verifies all 43 queries, 381
+complete result rows and exact schema continuity at **47.281897502 engine
+seconds**. The previous accepted observation is **49.625514041 engine seconds**.
+The new observation is lower, but separate executions/builds with uncontrolled
+cache and host variation do not establish a causal query benefit from ingest
+ownership. Query input content is byte-identical. No additional query execution
+was needed for verification and the 10% regression trigger does not activate.
+
+The [measurement record](../benchmarks/native-ingest-ownership-2026-10-25.md)
+preserves the original screen and this subsequent decision. The completed
+preparation/probe audit above finds no demonstrated second mechanism. The
+separately queued [batch/window work](native-ingest-batch-window-scheduling-2026-10-25.md)
+examines remaining policy interactions after dependency maintenance and the
+new workflow work-elimination package; it does
+not restart ownership transfer or the completed duplication audit.
+
 The latest grouped-preparation Full43 is **49.503497253 engine seconds**, not
 a new cold/warm comparison or a repeated five-surface result. The handoff's
 48.693636581 query observation and earlier 58.450 ingestion figure remain
@@ -275,8 +315,9 @@ ranking, an official ClickBench placement or superiority. Verify exact primary
 records if those comparisons are published; do not promote the supplied table
 into acceptance evidence for this implementation.
 
-The universal I/O handoff retains selective Parquet/other-format first-use
-normalization, one-execution multi-output writes, bulk writer policies and
-format coverage. One-off projected input and complete durable ingestion are
+The workflow work-elimination handoff now owns the earlier implementation of
+one-execution multi-output writes. Universal I/O retains format-specific
+selective Parquet/other-format first-use normalization, bulk writer policies and
+format coverage, reusing that execution contract. One-off projected input and complete durable ingestion are
 different workloads. A projected prepared artifact must never masquerade as a
 complete source copy, and a selective-query gain is not a complete-ingest gain.

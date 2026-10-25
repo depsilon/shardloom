@@ -9,6 +9,8 @@ then [warm source reuse](native-warm-source-reuse-2026-10-24.md),
 then [public naming](shardloom-public-naming-2026-10-24.md),
 then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md),
 [consolidated dependency maintenance](dependency-intake-2026-10-25.md),
+[complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md),
+[ingestion batch/window scheduling](native-ingest-batch-window-scheduling-2026-10-25.md),
 and the [connected programming model](native-connected-programming-model-2026-10-24.md).
 The subsequent October 24 ordering decision places I/O immediately after
 connected programming and before [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
@@ -46,7 +48,9 @@ a selective one-off operation, while durable native preparation remains valuable
 for repeated broad work. This is an input strategy, not another query engine.
 The #1583 provider-selection and scalar-writer repairs are completed foundations.
 
-Accepted immediate implementation work is explicit multi-output reuse and bulk
+The October 25 work-elimination addition promotes explicit multi-output reuse
+into its earlier execute-once package. Reuse that shared producer contract here;
+do not duplicate its implementation. Immediate I/O work starts with bulk
 writer policy. Rich ORC output, long values, target-aware conversion and streaming
 JSON follow. Selective first-use reading, dataset layouts, variants and enterprise,
 table and transport adapters remain later implementation groups; they must not
@@ -55,9 +59,9 @@ every listed feature is absent or making a format count a completion criterion.
 This explicit queue addition does not make every family a v1 release blocker or
 close independent CG-1 through CG-23 evidence gates.
 
-## First: execute explicit fanout once and improve writer layout
+## First: reuse explicit fanout and improve writer layout
 
-- **One producer for one multi-output request.** The reviewed single-use streaming
+- **One producer for one multi-output request, owned by the earlier workflow package.** The reviewed single-use streaming
   path already records/replays one native result. Ordinary non-streaming
   relational `write_many` and primitive per-destination `operation.write(...)`
   callbacks need reconciliation with that mechanism. Extend it to file-backed
@@ -126,6 +130,12 @@ in the pinned ORC reader. Preserve validation and generation identity. A project
 or predicate-specific prepared artifact cannot masquerade as a complete source.
 Choose the input strategy internally; no separate user-facing fast/compatibility
 engine modes are requested.
+
+The earlier workflow work-elimination package owns shared setup/admission for
+appropriate first-use preparation. This I/O package owns the format-specific
+read/pushdown and streaming mechanisms plus their full consumer proof. Develop
+one shared implementation and extend it here instead of creating parallel
+source resolvers or treating the earlier plan as completed adapter coverage.
 
 | Family | Coverage to audit and complete with actual read/write/reopen evidence |
 | --- | --- |

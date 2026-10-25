@@ -10,7 +10,12 @@ Status: accepted October 24 maintainer addition, following the active
 and [ingestion](native-ingest-ownership-preparation-2026-10-24.md) packages.
 The October 25 ordering decision inserts
 [consolidated dependency maintenance](dependency-intake-2026-10-25.md)
-immediately after ingestion. This package follows that maintenance, then
+immediately after ingestion. A later instruction combines both in PR #1605
+and inserts [complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md),
+then the [batch/window and shared CPU speed pass](native-ingest-batch-window-scheduling-2026-10-25.md)
+after maintenance. Reuse the earlier package's immutable plan/setup foundation
+and shared execution contracts here; named plans and interface composition
+remain this package's responsibility. This programming package follows the speed pass, then
 [universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
 The subsequent [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)

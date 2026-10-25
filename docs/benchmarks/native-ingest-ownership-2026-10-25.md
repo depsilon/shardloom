@@ -180,3 +180,37 @@ readback, layout, native accounting and diagnostic ingest clocks. Receipt
 assembly preserves its two corrected assertions: target-bound decision digest
 comparison and the inventory's explicit `sha256:` prefix. No candidate benefit
 or new Full43 result is accepted yet; every prospective gate above is unchanged.
+
+## Candidate screen, retention override and consumer check
+
+The controlled-reader candidate at `20f03396` completes one guarded ingest.
+Copied bytes fall from 115,652,962,945 to **44,831,432,362**; **70,821,530,583**
+buffer bytes transfer with their complete eligible allocation charges. This is
+**61.236% less copying** in the measured full ingest. All original and derived
+values, exact schema/order, physical layout, generation, publication and cleanup
+checks pass. The 15,715,228,660-byte output has the same SHA-256 as the control
+and accepted provider file. Independent readback covers all 11,199,719,664
+values, with native/Arrow readback reservations and tasks drained.
+
+The first observation does **not** pass the prospective 3% complete-ingest
+speed gate. The immutable `candidate-screen-r1-decision.json` preserves that
+rejection; no three-pair confirmation is run. Diagnostic process clocks remain
+in the local receipts. The maintainer subsequently asks to retain the concrete
+copying improvement and open PR #1605. That decision supersedes the proposed
+runtime removal, without changing the failed gate or establishing a repeatable
+ingest-speedup claim.
+
+The required consumer check executes each of the 43 queries exactly once under
+the existing isolated procedure on the newly written artifact. All independent
+values (381 rows), schemas, no-fallback reports, identity and cleanup checks pass.
+The engine sum is **47.281897502 seconds**, versus the previous provider-refresh
+observation of **49.625514041 seconds**. This is approximately 4.7% lower in one
+observation and does not activate the 10% regression trigger. It is not a matched
+comparison or proof of a causal query speedup; the persisted input is byte-identical
+and host/cache conditions are uncontrolled. No cache manipulation or repeated
+query trial was added. `candidate-full43-r1-acceptance.json` reopens every saved
+query result and verifies all values, schemas and engine clocks independently.
+
+These observations bind the ownership implementation before the subsequently
+requested dependency consolidation. Final combined validation must identify its
+own source/dependency state and must not relabel these earlier measurements.

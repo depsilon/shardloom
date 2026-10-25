@@ -252,7 +252,7 @@ dependencies = [
  "bytes",
  "futures",
  "once_cell",
- "prost 0.14.3",
+ "prost 0.14.4",
  "prost-types",
  "tonic",
  "tonic-prost",
@@ -2603,12 +2603,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2ea70524a2f82d518bce41317d0fae74151505651af45faf1ffbd6fd33f0568"
+checksum = "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1"
 dependencies = [
  "bytes",
- "prost-derive 0.14.3",
+ "prost-derive 0.14.4",
 ]
 
 [[package]]
@@ -2626,9 +2626,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
+checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -2643,7 +2643,7 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8991c4cbdb8bc5b11f0b074ffe286c30e523de90fee5ba8132f1399f23cb3dd7"
 dependencies = [
- "prost 0.14.3",
+ "prost 0.14.4",
 ]
 
 [[package]]
@@ -3110,7 +3110,7 @@ dependencies = [
  "memchr",
  "orc-rust",
  "parquet",
- "prost 0.14.3",
+ "prost 0.14.4",
  "regex",
  "rustc-hash",
  "rustls",
@@ -3400,9 +3400,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.3"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -3526,7 +3526,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50849f68853be452acf590cde0b146665b8d507b3b8af17261df47e02c209ea0"
 dependencies = [
  "bytes",
- "prost 0.14.3",
+ "prost 0.14.4",
  "tonic",
 ]
 
@@ -3729,7 +3729,7 @@ dependencies = [
  "alp",
  "itertools 0.14.0",
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -3762,7 +3762,7 @@ dependencies = [
  "parking_lot",
  "paste",
  "pin-project-lite",
- "prost 0.14.3",
+ "prost 0.14.4",
  "prost-types",
  "rand 0.10.1",
  "regex",
@@ -3912,7 +3912,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a67e541dca82970bf5ea3ad5ea47b02ab46f60cd53a2ada94e561aeabef74d2d"
 dependencies = [
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-compute",
@@ -3928,7 +3928,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08e3371e16e9ee8cc24734d9e9e67cf8013ec2a4a443fe499916edb11aba780b"
 dependencies = [
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -3956,7 +3956,7 @@ dependencies = [
  "arrow-schema",
  "flatbuffers",
  "jiff",
- "prost 0.14.3",
+ "prost 0.14.4",
 ]
 
 [[package]]
@@ -3969,7 +3969,7 @@ dependencies = [
  "itertools 0.14.0",
  "lending-iterator",
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-compute",
@@ -4026,7 +4026,7 @@ version = "0.90.0"
 dependencies = [
  "fsst-rs",
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -4098,7 +4098,7 @@ dependencies = [
  "parking_lot",
  "paste",
  "pin-project-lite",
- "prost 0.14.3",
+ "prost 0.14.4",
  "roaring",
  "rustc-hash",
  "sketches-ddsketch",
@@ -4151,7 +4151,7 @@ checksum = "d7b86706bb011bd76084e5fb0f34137a10fa210a8364b28cdfb53dd7222a2ab3"
 dependencies = [
  "num-traits",
  "onpair",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -4166,7 +4166,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d54b4a848b899a70fcbbd86da1e20b4ec0527722a08dbf3cf000610f7f02260"
 dependencies = [
  "pco",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -4180,7 +4180,7 @@ version = "0.90.0"
 dependencies = [
  "itertools 0.14.0",
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -4214,7 +4214,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0913adc59e97fb965b9bcf5feee11bf090027b7c7b711494c4b72282365e1bd"
 dependencies = [
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "smallvec",
  "vortex-array",
  "vortex-buffer",
@@ -4245,7 +4245,7 @@ checksum = "b9c445dddd2c49ce562444382be4d4cac8a36d2832a0a1b2728acbd4b74b107a"
 dependencies = [
  "itertools 0.14.0",
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-error",
@@ -4300,7 +4300,7 @@ version = "0.90.0"
 dependencies = [
  "itertools 0.14.0",
  "num-traits",
- "prost 0.14.3",
+ "prost 0.14.4",
  "vortex-array",
  "vortex-buffer",
  "vortex-edition",
