@@ -35,12 +35,12 @@ categories = ["command-line-utilities", "database", "encoding", "science"]
 rust-version = "1.96"
 
 [workspace.dependencies]
-arrow-array = "=59.3.1"
-arrow-avro = { version = "=59.3.1", default-features = false, features = ["deflate", "snappy"] }
-arrow-flight = { version = "=59.3.1", default-features = false, features = ["flight-sql", "tls-ring"] }
+arrow-array = "=60.0.0"
+arrow-avro = { version = "=60.0.0", default-features = false, features = ["deflate", "snappy"] }
+arrow-flight = { version = "=60.0.0", default-features = false, features = ["flight-sql", "tls-ring"] }
 arrow-ipc = "=59.3.1"
-arrow-pyarrow = "=59.3.1"
-arrow-schema = "=59.3.1"
+arrow-pyarrow = "=60.0.0"
+arrow-schema = "=60.0.0"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
