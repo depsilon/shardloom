@@ -17,7 +17,74 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Ingest allocation ownership and consolidated dependencies — local acceptance`
+- [x] `Ingestion representation and scheduling — closed without runtime change`
+  — the [October 25 decision](../benchmarks/native-ingest-window-decision-2026-10-25.md)
+  preserves one isolated current-main ingestion at 49.303 engine seconds and
+  byte-identical accepted output. Source review confirms existing dictionary
+  hints, large-source views and shared bounded scheduling; no new implementation
+  or candidate comparison occurred. The unchanged runtime's independently
+  verified Full43 remains 47.889862794 engine seconds for 43 queries once each.
+  The maintainer requests advancing the 1.0.0 train if no worthwhile new change
+  is established. This closes the finite investigation, not every future
+  scheduling opportunity. The active phase plan now owns the version train;
+  connected programming, universal I/O and CG-1 through CG-23 retain their scope.
+
+- [x] `Complete-workflow work elimination — whole item 15 batch dropped`
+  — the maintainer drops the whole unmerged item 15 runtime batch after its
+  combined candidate Full43 records 52.873938411 engine seconds and fails the
+  frozen 10% regression gate against 46.973255495 seconds. All item 15 runtime
+  edits are removed and source is restored to #1605 main,
+  `167ac248ba662ae7967a7801995e9b160b17bae5`. The
+  [drop report](../benchmarks/native-workflow-drop-2026-10-25.md) records the
+  candidate, exact accepted-executable restoration at 47.176619540 seconds,
+  and fresh latest-main run at 47.889862794 seconds (+1.95133867% against the
+  prior accepted observation). Each run executes 43 queries once and validates
+  381 result rows and schemas with the 24 GiB, 12-worker configuration. These
+  observations do not isolate a cause. The prior join and fused-measure passes
+  remain historical evidence only, with no retained-runtime claim. Unstarted
+  shared branches, decorrelation, keep-data-moving and setup work are closed
+  with item 15, not carried forward. Item 16 is active; after its retain/drop
+  decision the 1.0.0 major-version bump is next either way. Package publication
+  remains separately authorized. The [portable evidence packet](../benchmarks/evidence/native-workflow-drop-2026-10-25/README.md)
+  preserves receipts, query comparisons, the drop manifest and candidate patch.
+
+- [x] `Workflow work elimination — historical mechanism-level experiments`
+  — the [counted-join decision](native-join-count-work-elimination-2026-10-25.md#october-25-mechanism-decision)
+  recorded an exact scalar join multiplicity candidate after 84 release calls
+  and fourteen observations passed its finite mechanism gates. The
+  [computed-measure decision](../benchmarks/native-fused-measure-2026-10-25.md)
+  recorded direct integer consumption and native dictionary-view resolution
+  after 72 release calls and twelve separate observations passed their finite
+  mechanism gates. Those results are historical only: the maintainer later
+  dropped the entire item 15 runtime batch after the combined Full43 regression.
+  No mechanism-level pass asserts a retained runtime change. The [drop report](../benchmarks/native-workflow-drop-2026-10-25.md)
+  gives the final whole-batch decision and evidence boundary. Unstarted item 15
+  work is closed rather than left as active scope.
+
+- [x] `CI performance and preserved coverage` —
+  [PR #1605](https://github.com/depsilon/shardloom/pull/1605) merges as
+  `167ac248ba662ae7967a7801995e9b160b17bae5` after all 57 checks pass at
+  `c9affef41210aa7dcc913cc18c6db6678978127b`, with no retries or omitted jobs.
+  The [acceptance](../release/ci-performance-2026-10-25.md#completed-remote-acceptance)
+  and its compact evidence record 40m 25s completion versus 1h 55m 18s for the
+  successful #1604 baseline, and 14,536 versus 19,709 summed runner seconds.
+  These single complete observations show 64.9% shorter elapsed completion and
+  26.2% less runner execution; they are not weighted billing or profile-only
+  causal evidence.
+  - One optimized executable retains assertions and overflow checks; four
+    partitions cover every native test once, with 3,295 passes and the same
+    32 ignores. Eight provider configurations and ordinary debug coverage stay
+    distinct. Exact product identities govern CLI reuse and one Linux abi3
+    wheel under both Python interpreters. macOS and Windows coverage passes.
+  - Full validation selects 26 job groups and the final summary verifies the
+    other 25 results. The deterministic source-generation regression correction
+    changes its test only. No fixture, memory grant or coverage reduction occurs.
+  - Guarded local retirement removes completed test/package/compiler payloads
+    while preserving accepted input/runtime/wheel and complete compact results.
+    Engine benchmarks are not rerun for CI bookkeeping. CG-1 through CG-23 and
+    publication authorization remain independent.
+
+- [x] `Ingest allocation ownership and consolidated dependencies — merged acceptance`
   — [PR #1605](https://github.com/depsilon/shardloom/pull/1605) combines the two
   categories at the maintainer's explicit request. The
   [acceptance](../benchmarks/native-ingest-ownership-2026-10-25.md#combined-runtime-acceptance)
@@ -41,8 +108,10 @@ phase plan first.
     7,702 generated regular files and three environment links; current data,
     combined runtime/wheel and complete compact results remain. Earlier
     failures and the failed ingestion gate remain.
-    GitHub integration is pending; package publication and CG gates remain
-    independent. The active plan owns the following work-elimination package.
+    GitHub integration completes in #1605 as `167ac248ba662ae7967a7801995e9b160b17bae5`
+    after the separately recorded CI revision passes all 57 checks. Package
+    publication and CG gates remain independent. The active plan owns the
+    following work-elimination package.
 
 - [x] `Public naming and terminology — local acceptance` — the
   [October 25 record](shardloom-public-naming-2026-10-24.md#october-25-local-acceptance)

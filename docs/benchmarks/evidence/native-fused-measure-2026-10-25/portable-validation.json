@@ -1,0 +1,366 @@
+{
+  "status": "passed",
+  "engine_executions": 0,
+  "checks": [
+    {
+      "name": "isolated_copy_with_original_reads_denied",
+      "outcome": "passed"
+    },
+    {
+      "name": "missing_archive_member",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "archive_path_traversal",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "corrupt_archive_bytes",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "missing_timing_call",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "missing_failed_first_attempt",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "changed_frozen_protocol",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: frozen_protocol"
+    },
+    {
+      "name": "missing_failed_activation_call",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "failed_activation_relabelled_as_success",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "wrong_ordered_result",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: full ordered values: dictionary_dense"
+    },
+    {
+      "name": "wrong_sum",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: full ordered values: dictionary_dense"
+    },
+    {
+      "name": "wrong_count_type",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: full ordered values: dictionary_dense"
+    },
+    {
+      "name": "wrong_schema",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "wrong_complete_input",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: frozen input: dictionary_dense"
+    },
+    {
+      "name": "wrong_original_json",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: raw emitted JSON"
+    },
+    {
+      "name": "missing_actual_dictionary_domains",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "wrong_source_rows",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "extra_dictionary_domains",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "missing_dictionary_values",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "intermediate_still_constructed",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "wrong_mapped_rows",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "wrong_aggregate_updates",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "false_public_activation",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: ('dictionary_dense', 'fused_measure_stages', ['0'])"
+    },
+    {
+      "name": "owner_leak",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "over_grant",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "fallback",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "extra_cpu",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: admitted_max_parallelism"
+    },
+    {
+      "name": "missing_clock",
+      "outcome": "rejected",
+      "diagnostic": "KeyError: 'engine_execution_ns'"
+    },
+    {
+      "name": "production_change_hidden_as_harness_fix",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "encoding_fix_changes_unrelated_runtime",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "reused_baseline_identity_changed",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: "
+    },
+    {
+      "name": "failed_test_source_missing",
+      "outcome": "rejected",
+      "diagnostic": "AssertionError: missing evidence: fused-measure-failed-tests-source-r3.tar.gz"
+    },
+    {
+      "name": "second_cohort_regression_changes_frozen_decision",
+      "outcome": "passed"
+    }
+  ],
+  "verifier_sha256": "21cd8d8f4848e27310ecd1c3efa4746b164e10b9f5f142bf2917f454cf1249bd",
+  "validator_sha256": "1104f1082f136eb0d029ee3835a61e39b0b7d370c750f1df773fc3d6c771eb6f",
+  "packet_sha256": "019822c727f37fbeb5de2f765cf12a024988f4dd9c8cd3c6d5fa96766b5a30f7",
+  "portable_result": {
+    "portable_replay_passed": true,
+    "engine_executions": 0,
+    "failed_first_attempt_preserved": true,
+    "failed_dictionary_activation_preserved": true,
+    "production_source_unchanged_by_harness_repair": true,
+    "encoding_correction_limited_to_fused_consumer_and_regression": true,
+    "observations": {
+      "protocol": "native-fused-measure-v2",
+      "mode": "observe",
+      "calls": 12,
+      "complete_values_schemas_resources_and_closure_passed": true,
+      "work_elimination_observations_passed": true
+    },
+    "comparison": {
+      "protocol": "native-fused-measure-v2",
+      "mode": "measure",
+      "calls": 72,
+      "complete_values_schemas_resources_and_closure_passed": true,
+      "all_timing_gates_passed": true,
+      "cells": {
+        "1:dictionary_dense": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 27058041,
+              "preparation_engine_ns": 27650958
+            },
+            "candidate": {
+              "engine_ns": 20078000,
+              "preparation_engine_ns": 20672708
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "1:dictionary_skew": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 26524292,
+              "preparation_engine_ns": 27096167
+            },
+            "candidate": {
+              "engine_ns": 19619333,
+              "preparation_engine_ns": 20232041
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "1:dictionary_sparse": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 9661542,
+              "preparation_engine_ns": 10228084
+            },
+            "candidate": {
+              "engine_ns": 9157375,
+              "preparation_engine_ns": 9772584
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "1:plain_high_cardinality": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 23926000,
+              "preparation_engine_ns": 24516583
+            },
+            "candidate": {
+              "engine_ns": 22112709,
+              "preparation_engine_ns": 22699584
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "1:tiny": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 440749,
+              "preparation_engine_ns": 975457
+            },
+            "candidate": {
+              "engine_ns": 426125,
+              "preparation_engine_ns": 978500
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "1:ineligible_i64": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 7330417,
+              "preparation_engine_ns": 7886417
+            },
+            "candidate": {
+              "engine_ns": 7422083,
+              "preparation_engine_ns": 7995958
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "2:dictionary_dense": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 26762500,
+              "preparation_engine_ns": 27340209
+            },
+            "candidate": {
+              "engine_ns": 20069082,
+              "preparation_engine_ns": 20649249
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "2:dictionary_skew": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 26661042,
+              "preparation_engine_ns": 27278251
+            },
+            "candidate": {
+              "engine_ns": 19811584,
+              "preparation_engine_ns": 20396709
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "2:dictionary_sparse": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 9663542,
+              "preparation_engine_ns": 10241167
+            },
+            "candidate": {
+              "engine_ns": 9032333,
+              "preparation_engine_ns": 9616167
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "2:plain_high_cardinality": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 24041585,
+              "preparation_engine_ns": 24638625
+            },
+            "candidate": {
+              "engine_ns": 22297541,
+              "preparation_engine_ns": 22879041
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "2:tiny": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 434583,
+              "preparation_engine_ns": 977376
+            },
+            "candidate": {
+              "engine_ns": 442708,
+              "preparation_engine_ns": 1020083
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        },
+        "2:ineligible_i64": {
+          "medians": {
+            "baseline": {
+              "engine_ns": 7413459,
+              "preparation_engine_ns": 7998376
+            },
+            "candidate": {
+              "engine_ns": 7508874,
+              "preparation_engine_ns": 8078207
+            }
+          },
+          "control_passed": true,
+          "target_passed": true
+        }
+      }
+    },
+    "package_acceptance": "pending"
+  },
+  "temporary_fixtures_retired": true
+}

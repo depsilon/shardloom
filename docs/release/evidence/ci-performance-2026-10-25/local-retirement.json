@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "completed_at": "2026-10-25T14:30:23.722596+00:00",
+  "revision": "c9affef41210aa7dcc913cc18c6db6678978127b",
+  "merged_revision": "167ac248ba662ae7967a7801995e9b160b17bae5",
+  "plan_sha256": "eb5103fe2cc232ac2bf41ff75645be494e6a718a30281ec5e0a67404c022bcfb",
+  "inventory_sha256": "d9311edac676c51cc2bd7c8dcb4aaf0af4524f5136b3372daa7d4473d2522d22",
+  "removed_entries": 70049,
+  "accounted_regular_bytes": 54331248640,
+  "free_bytes_before": 82195861504,
+  "free_bytes_after": 135851098112,
+  "open_handle_checks": [
+    {
+      "path": "/Users/dylan/.cache/shardloom/cargo-target",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ci-performance-20261025",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/target/debug",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "all_candidates_absent": true,
+  "retained_replacements_unchanged": true,
+  "no_payload_backup_created": true,
+  "storage_limits_unchanged": true,
+  "workspace_clean": true
+}

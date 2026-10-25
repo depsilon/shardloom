@@ -251,25 +251,19 @@ the ledger.
 
 Current autonomous execution order:
 
-**October 25 priority override:** complete PR #1605 with the
-[CI performance and coverage-preservation batch](../release/ci-performance-2026-10-25.md)
-before resuming engine optimization below. After its final native check exposed
-a source-generation test assertion race, the maintainer explicitly authorized
-folding the CI revision and regression correction into #1605 and rerunning it.
-This supersedes the earlier freeze/separate-PR instruction. It extends existing
-release/CI work under RFC 0024 without changing the CG-1 through CG-23 gates.
-
-- [ ] Complete the CI performance batch in PR #1605.
-  - Execution checklist:
-    - [x] Evaluate optimized native tests with debug assertions and overflow checks.
-    - [x] Verify complete duration-balanced test partitions and independent provider validation.
-    - [x] Reuse identical CLI and wheel artifacts with configuration identities.
-    - [x] Make provider dependency resolution and cache scopes reproducible.
-    - [x] Activate conservative job selection and an always-running result summary.
-    - [ ] Measure total required-PR completion and runner consumption, review coverage and record acceptance.
-  - ShardLoom technique review: existing metadata-first CI work shaping and capillary
-    change families select validation; configuration-bound evidence reuse avoids
-    duplicate builds. No engine/runtime optimization or benchmark rerun is implied.
+**October 25 continuation:** PR #1605 is merged as
+`167ac248ba662ae7967a7801995e9b160b17bae5`, including the accepted
+[CI performance and coverage-preservation batch](../release/ci-performance-2026-10-25.md#completed-remote-acceptance).
+All 57 checks pass; the completed ledger records integration and the complete
+CI comparison. Item 15 has since been closed as dropped after its combined
+Full43 gate failed; all runtime edits were removed and source restored to
+`167ac248ba662ae7967a7801995e9b160b17bae5`. Item 16 closes without a runtime
+change after current-main ingestion and source review. The maintainer then
+requests proceeding through the **1.0.0 version bump train** if no worthwhile
+additional change is established. That train is now active through the existing
+GitHub, TestPyPI, PyPI and Homebrew sequence, with fresh package and channel
+proofs. Connected programming and universal I/O follow. Optional backlog,
+blocked prerequisites and CG-1 through CG-23 retain their existing boundaries.
 
 The October 18 [public documentation and API consolidation](public-documentation-api-acceptance-2026-10-18.md)
 is implemented and locally validated under PERF-10/07/11/12 with PERF-03 resource
@@ -315,8 +309,10 @@ and requires all PRs to be merged or closed before resuming the queue. Package
 publication still requires separate authorization.
 
 The October 25 maintainer instruction explicitly combines items 13 and 14 in
-PR #1605. Complete their combined validation before merging, then continue with
-the newly requested item 15. This exception does not merge the later categories.
+PR #1605. Complete their combined validation before merging, then proceed to
+item 15. The maintainer later drops the whole item 15 batch, including all
+unstarted branches and packages; item 16 now heads the active queue. The PR
+exception does not merge later categories.
 
 1. **Complete:** documentation integration and deployed-website verification for the authorized v0.7.0 train, following the GitHub, TestPyPI, PyPI and Homebrew proofs. The [publication record](../release/v0.7.0-publication-verification.md) binds PR #1585's 44 passing checks and the byte-exact production observation. The maintainer's subsequent README/field-guide audit and homepage materialization, admission and lifecycle polish precede resuming the queue below; they do not add engine scope or a package release. Subsequent trains require their own authorization. Do not convert the format correction into a broader performance claim, a first-use adapter rewrite or optional breadth work.
 2. **Complete for the selected review scope and integrated:** the [workload gap matrix](../benchmarks/native-workload-comparisons-2026-10-22.md), [selected guarantee acceptance](../benchmarks/native-workload-guarantees-2026-10-22.md) and [independent Full43 correction](../benchmarks/native-independent-full43-2026-10-22.md) are merged in PR #1589 as `3d07013fb12cf21e6040adb03f9e97e995996875`, after all 44 required checks passed. The [integration record](../benchmarks/evidence/native-current-attribution-2026-10-22/pr1589-integration-958.json) preserves the reviewed head and identical merge tree; no benchmark was rerun for integration. Finite acceptance covers the 22-task matrix, named guarantee reviews, independently checked Full43 values, integer/regex corrections and Q29 dictionary admission. It does not close all fifteen required owner contracts or CG-5/CG-6. Extra types, operators, platforms and implementation techniques do not become mandatory because they are feasible.
@@ -337,16 +333,15 @@ the newly requested item 15. This exception does not merge the later categories.
     - [x] Merge parity PR #1596 without further changes after all 44 checks pass. The October 24 closeout verifies no open PRs remain; merge commit is `d593da49e275dec4f554218e96e99e2b2fbbbde1`.
     - [x] Complete portable replay of both public runs, the recovered modular matrix, fresh-ingest linkage, all 43 query results, installed-wheel proof and 138 validation receipts; reject all eight corruption controls.
     - [x] Merge provider PR #1601 after all 44 checks pass; exact-head review and merge receipts are preserved. Dependabot requirements are incorporated or explicitly blocked above. Check for newly opened PRs at each category closeout.
-    - [ ] Complete the [October 25 consolidated dependency follow-up](dependency-intake-2026-10-25.md) directly after item 13, as item 14 below: Tokio 1.54.1, prost/prost-derive 0.14.4, and current-main workflow-action review. New bot PRs #1598/#1599/#1600/#1602 are closed into this active queue. Partial Arrow 60 remains blocked on a coherent provider/format/Python graph; ingestion follows public-naming integration.
+    - [x] Complete the [October 25 consolidated dependency follow-up](dependency-intake-2026-10-25.md) with item 13 in merged PR #1605: Tokio 1.54.1, prost/prost-derive 0.14.4, and reviewed workflow-action pins. The earlier bot PRs are closed; partial Arrow 60 remains blocked on a coherent provider/format/Python graph.
 11. **Warm-source implementation investigated and rejected under the frozen gates:** the [October 25 decision](native-warm-source-reuse-2026-10-24.md#final-finite-decision) records a complete implementation and two 93-call cohorts with correct independent values and exact schemas. Actual source opens fall from 75 to 49, but only one of four physical families passes the benefit gate and Q28 fails a first-use control; measured dictionary insertions and hits are zero. The final candidate passes focused ownership/lifecycle checks, strict native lint and 142 installed-wheel integration tests without skips. Preserve earlier broad-test failures and their focused repairs; final broad candidate acceptance is not claimed. The exact patch is preserved and all experimental runtime/provider/report changes are removed. PR #1603 merged at `b9b842ef` after all 44 checks passed. This completes the finite pre-ingestion investigation without an accepted cache. Variable-width retention remains dependent on ingestion allocation provenance. The earlier separately requested 129-call accepted-runtime characterization remains distinct from this candidate and from ordinary single-pass Full43. The naming pass follows below; CG-1 through CG-23 remain independent.
 12. **Public naming and terminology accepted and merged:** the [October 25 acceptance](shardloom-public-naming-2026-10-24.md#october-25-local-acceptance) applies ShardLoom's unified-engine identity across README, package descriptions, website, field guide, interactive diagrams, API/help copy, human reports and benchmark display names. Actual format/fidelity, lifecycle and measurement distinctions remain explicit. Reports distinguish planned work from observed preparation/reuse, execution and completed output; errors lead with the problem and recovery step. Stable callable/command identifiers, machine schemas and historical evidence remain intact. Required default Rust checks pass with 3,256 tests; selected native suites pass 1,117; Python discovery passes 790 with 26 existing opt-in/environment skips. API/export and website checks, desktop/mobile review and actual CLI observations pass. The unchanged quickstart passes against the retained accepted wheel, not a newly rebuilt local naming wheel. PR #1604 merges at `3239ade0` after all 44 checks pass and review is clear; no repository PR remains open at that closeout. This closes the terminology pass, not broader support, connected-programming work, CG gates or publication.
-13. **Full-ingest ownership transfer retained for reduced copying; local acceptance complete in PR #1605:** the [October 25 decision](native-ingest-ownership-preparation-2026-10-24.md#october-25-retention-and-consumer-decision) records 61.2% fewer copied bytes, with safe controlled-reader allocation transfer and unchanged generic external-owner copies. The first complete screen passes independent readback of all 99,997,497 rows and 112 columns, physical inventory and byte-identical 15,715,228,660-byte output; its frozen 3% speed threshold fails. The maintainer explicitly retains the copying improvement and requests a PR without relabeling that failed gate or claiming a repeatable speedup. Formatting, strict workspace/native lint, 3,256 default tests and 3,295 native Vortex tests pass; 32 existing opt-in native tests remain ignored. One isolated Full43 verifies all 43 queries, 381 rows and schema continuity at 47.281897502 engine seconds. This is a consumer check, not a causal query-speedup claim. The completed preparation/probe audit finds no additional demonstrated duplication candidate. The subsequent maintainer instruction combines this category and item 14 in #1605; the final combined source passes nine local gates (9,364 test executions; 35 declared exclusions), 140 installed-wheel tests without skips and one isolated Full43 at 46.973255495 engine seconds. The portable packet preserves every prior observation and rejects 21 corruption controls. Final GitHub integration remains pending.
-14. **Consolidated dependency follow-up is combined with item 13 in PR #1605:** the [October 25 intake](dependency-intake-2026-10-25.md) reviews Tokio/prost updates and current workflow-action pins as one maintenance category. The maintainer explicitly authorizes folding these two categories into the open PR before merge. License/provenance, lockfile, native/default, MSRV, installed-package and workflow checks pass for source 23807cb7; the combined portable packet binds their raw evidence and preserves existing audit warnings. Partial Arrow 60 remains blocked until a coherent provider/format/Python graph is available. Merge the locally accepted combined change before item 15; no package publication is authorized.
-15. **Complete-workflow work elimination precedes the ingestion speed pass:** the [October 25 handoff](native-workflow-work-elimination-2026-10-25.md) organizes three coherent packages: execute once, keep data moving, and make setup cheap. The compact-structure addition prioritizes exact aggregate-through-join execution, starting with eligible equality-join COUNT/multiplicity, then one fused, encoding-preserving scan → predicate → computed key/measure → grouped reduction pipeline. Extend existing membership/cyclic-existence, dictionary partials, prepared kernels and resource owners. Keep promoted single-computation multi-output writing, shared branches, guarded decorrelation, final spill-merge delivery before finite-demand ordering, and byte-accounted scan/output overlap in their existing packages. Shared immutable plan structure, incremental metadata and a few cheaply bound precompiled fragments prepare connected programming; selective first-use I/O retains its adapter owner. Preserve NULL/duplicate/overflow/cardinality/order/error semantics, exact dictionary identity, full backing ownership and destination publication. Freeze activating complete-workflow benefit/control gates. Full43 stays one isolated engine-time pass of independent queries; earlier failed reuse/ingest/PGO decisions remain intact. No global answer cache, broad JIT, new executor/pool, hardware requirement or promised speedup is implied.
-16. **Ingestion representation reuse and batch/window scheduling follow workflow work elimination:** the [October 25 handoff](native-ingest-batch-window-scheduling-2026-10-25.md) starts from #1605's controlled ownership transfer and completed preparation audit. First trace one actually compatible source encoding through existing adapters and the Vortex writer, preserving codes/values/runs/deltas where it avoids demonstrated expansion and rebuilding. Existing dictionary preservation is a foundation, not proof of arbitrary Parquet-page compatibility. Keep ordinary native decoding for other cases. Then investigate actual batch/window interaction and byte-accounted admission, task granularity within the existing CPU allocation, and adjacent writer overlap only after a measured recoverable tail. Preserve schema/validity/dictionary scope, generation, corruption checks, codec/output quality, bounded order and publication. Do not rerun rejected worker reassignment or generic overlap unchanged. Require finite complete-ingest benefit/control proof, independent readback and subsequent queries. No new format executor, pool, user-facing queue tuning or predicted speedup is introduced; connected programming follows.
+13. **Full-ingest ownership transfer accepted and merged in PR #1605:** the [October 25 decision](native-ingest-ownership-preparation-2026-10-24.md#october-25-retention-and-consumer-decision) retains 61.2% fewer copied bytes and independently verified byte-identical output by explicit maintainer choice. The frozen 3% ingest-speed gate remains failed. The combined runtime passes installed-package and broad native/default checks, portable replay with 21 corruption controls, and one isolated Full43 at 46.973255495 engine seconds. The completed ledger preserves all earlier observations. PR #1605 merges as `167ac248ba662ae7967a7801995e9b160b17bae5` after the CI revision passes all 57 checks; no repeatable ingest-speedup, package publication or CG closure is claimed.
+14. **Consolidated dependency follow-up accepted in the same merge:** the [October 25 intake](dependency-intake-2026-10-25.md) records the source/license-reviewed Tokio/prost and workflow-pin changes, native/default/MSRV/installed-package proof and original audit warnings. Partial Arrow 60 remains blocked until a coherent provider/format/Python graph is available. The completed ledger records acceptance; item 15 began next and is now closed as dropped.
+15. **Complete-workflow work elimination — closed, whole batch dropped:** after the combined candidate Full43 failed the frozen regression gate, the maintainer dropped all item 15 runtime changes and every unstarted item 15 branch/package, including shared branches, guarded decorrelation, keep-data-moving and setup work. The runtime is restored to main `167ac248ba662ae7967a7801995e9b160b17bae5`. Earlier counted-join and fused-measure mechanism passes are historical evidence only, not retained-runtime claims. The [October 25 drop report](../benchmarks/native-workflow-drop-2026-10-25.md) records the candidate, restored-binary and fresh-main observations; the cause was not isolated. Item 16 is also closed and the 1.0.0 train is active. No item 15 work may be restarted unchanged without a new maintainer decision.
+16. **Ingestion representation reuse and batch/window scheduling — closed without a runtime change:** the [October 25 decision](../benchmarks/native-ingest-window-decision-2026-10-25.md) records one isolated latest-main ingestion at 49.303 engine seconds, exact byte identity with the independently validated accepted output, and the unchanged runtime's Full43 at 47.889862794 engine seconds. Source review confirms existing dictionary/schema hints, large-source string views and shared bounded scheduling; no new candidate has established complete-ingest benefit. The maintainer requests advancing the version bump train if nothing worthwhile is established. This closes the investigation before new implementation or a candidate comparison; it does not prove optimal scheduling or reject all future mechanisms. **The 1.0.0 train is active immediately afterward**, with source/package validation and the established GitHub → TestPyPI → PyPI → Homebrew proofs. The dropped item 15 stays out; connected programming and universal I/O retain their subsequent order.
 17. **Connected programming model follows the ingestion representation and batch/window pass:** the [October 24 addition](native-connected-programming-model-2026-10-24.md) consolidates lazy SQL/DataFrame composition, session-local named plans, functions/types/window discovery, typed parameters and query-local relation binding, reusable plan transformations, and metrics during writes; then connects notebook, DB-API and ADBC interfaces. The subsequent core-completion request adds scoped CTE plan references and nested ordinary composition here, with recursive execution as a separately accepted implementation group. Acceptance is a mixed read → DataFrame → named plan → parameterized multi-CTE SQL → DataFrame join/window → observed write workflow, with full native optimization visibility and no intermediate execution/conversion merely to change syntax. Align the earlier naming pass. The maintainer places this package before universal I/O and rich-data lifecycle support. Explicit batch functions follow under the completion package below; persistent catalogs and remote execution retain their governing contracts.
 18. **Universal I/O performance and coverage immediately follows connected programming:** the [October 24 handoff](native-universal-io-performance-coverage-2026-10-24.md) reuses the earlier workflow package's one-execution multi-output contract and separates bulk Parquet/ORC layout policy from small conversion batches. Rich ORC output, long-value/resource-aware conversion and genuine whole-document JSON streaming follow; selective first-use readers, dataset layouts, IPC/codec variants and enterprise/table/transport adapters come afterward. Preserve completed #1583 foundations, native owners, one shared compute engine and independent readback. Audit real family gaps and implement them; the supplied source review is not benchmark or completion evidence. Large-output and fresh-source workflows, not Full43's 381 result rows alone, determine adapter acceptance. This ordering does not delay the immediately actionable local writer work behind broader adapters or make every proposed family a v1 release blocker.
-    - **Version milestone: 1.0.0 major bump after universal I/O acceptance.** Prepare the version, API/migration contract, release notes and applicable package/channel evidence before advancing to rich-data lifecycle work. This is the first of the three October 25 requested version milestones.
 19. **Rich-data lifecycle support follows universal I/O:** the [October 24 addition](native-rich-data-lifecycle-2026-10-24.md) makes vectors/embeddings, tensors, nested values and actual binary payloads part of ordinary native data workflows. The maintainer's clarification treats baseline rich columns as competitive completeness against established Polars/Spark/DuckDB capabilities. Deliver dense-vector, inline-binary and nested-value fidelity first; accept managed/external binary-object ownership and lazy access separately, then tensor metadata, sparse/multiple/quantized/lower-precision representations, and shared exact vector expressions. Verify a mixed import → retain → select/filter/join → stream/spill → write → separate-process reopen → export workload, including complete bytes, metadata, resource pressure and shared-owner cleanup. Measure avoidable payload reads, copies, decoding and materialization before making efficiency claims. Extend the preceding I/O package with mappings for newly admitted rich types. Model generation, OCR/media interpretation and ANN indexes remain separate optional capabilities; existing report-only contracts do not count as implementation.
 20. **Everyday analytical completion follows the already queued work:** the [October 24 completion requirements](#everyday-analytical-completion) prioritize statistics/richer aggregation, temporal fidelity and time-series workflows, then broader numeric semantics and explicit batch-function integration. SQL composition and complete connector/refresh workflows extend items 17 and 18 respectively, rather than creating duplicate projects. Existing joins, windows, pivots, sets, subqueries and nested data are foundations to extend. Verify unconfirmed operation combinations before classifying gaps. Six ordinary user workloads establish acceptance; source inventories alone do not. Scalable traversal and resource admission replace demonstrated structural ceilings without deleting safety checks. This is requested implementation work, distinct from the optional breadth backlog and from larger transactional, continuous and distributed milestones.
 21. **Real Foundry integration follows everyday analytical completion and precedes AI workflows:** the [October 25 handoff](native-foundry-integration-2026-10-25.md) attaches three working deliverables to existing RFC 0036 and packaging owners: a pinned installed native package with real transform/output readback, a scalable multi-file dataset and native writer adapter, then incremental and Foundry-managed Iceberg integration. The compact-structure addition attaches logical delta maintenance to that third deliverable and existing CG-17/CG-22 state owners: begin with explicit changes and a narrow exact aggregate/join family; prove source identity, retained state, retractions, recovery and consistent state/output publication against full recomputation. This is distinct from warm caches and the rejected whole-file refresh adapter, and platform snapshot/append support does not imply a changelog. Verify the actual Linux ABI and replace the stale Conda CLI-wrapper delivery. Foundry hosts the job; ShardLoom computes through ordinary SQL/DataFrame APIs. Preserve snapshot/read-mode identity, global multi-file semantics, explicit resources/spill, schema fidelity and failure-safe output transactions. A small Arrow bridge starts deployment proof; realistic multi-file join/aggregation, independent readback and deliberate failed publication establish adapter acceptance. Whole-table Arrow materialization is not the bulk-data design. Managed Iceberg's documented single-node Arrow interface does not require a standalone Iceberg scanner first and does not imply support for every external virtual table. Keep real-enrollment proof explicit, Mac timing separate, publication separately authorized, and SDK/Compute Module/S3 extensions behind the three deliverables. Foundry remains an optional package, with its implementation now requested in this queue; CG-18/20/21/23 remain independent acceptance gates.
@@ -363,9 +358,10 @@ prepared families and remote clients are optional unless a named comparison gap
 justifies them. Existing exact sampling semantics and payload-observation rules
 remain protected by their [accepted contract](native-sampling-population-spill-2026-10-19.md).
 The completed nullable-layout/cleanup/UAT and public/API/spill foundations remain
-in their existing ledgers and PRs. The October 21 authorization covers the
-v0.7.0 train after the merged format correction; subsequent trains require
-their own maintainer authorization.
+in their existing ledgers and PRs. The October 21 authorization covered the
+v0.7.0 train after the merged format correction. The October 25 instruction
+now authorizes the 1.0.0 train after item 16; later trains still require their
+own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
@@ -394,31 +390,31 @@ The optional rows comprise 22 former breadth requirements and 16 extensions of
 finite conditional decisions. These counts describe scope placement, not new
 implementation projects, completed capabilities or a PR forecast.
 
-### Consolidated dependency maintenance directly after ingestion
+### Version 1.0.0 train
 
-- [ ] Review and integrate the [October 25 dependency follow-up](dependency-intake-2026-10-25.md).
-  - Source/current state: provider PR #1601 is merged; bot PRs #1598/#1599/#1600/#1602
-    are closed into this active item. Tokio/prost and the four workflow-pin
-    updates are applied in the combined branch; final validation and integration
-    remain pending. Partial Arrow 60 is blocked on a coherent provider graph.
-    Public naming is merged; ingestion ownership/preparation is active above.
-    The October 25 maintainer instruction requires completion directly after
-    item 13, as item 14 above. The later instruction combines both in PR #1605;
-    complete-workflow work elimination now follows them, then the batch/window
-    speed pass and connected programming.
-  - ShardLoom technique review: this is dependency and release maintenance;
-    PulseWeave, capillary tasks, work shaping and metadata optimizations do not
-    apply. Preserve existing execution, timing and evidence contracts.
-  - Execution checklist:
-    - [x] Review and apply accepted Rust updates with license/lockfile evidence.
-    - [x] Reconcile proposed action pins against current main and upstream changes.
-    - [ ] Pass affected native/default, MSRV, installed-package and workflow checks.
-    - [ ] Merge the coherent maintenance PR after CI/review and move its outcome
-      to the completed ledger, preserving any explicitly blocked proposals.
-  - Acceptance/verification: use the linked checklist and exact current-head
-    validation; maintain one compatible Arrow/Parquet graph and pinned actions.
-  - Non-goals and claim boundary: no package publication, fallback execution,
-    automatic Arrow-major upgrade or performance/security claim from bot metadata.
+- [ ] `RELEASE-1.0.0` package the accepted runtime through #1605 and close the
+  maintainer-requested selected-channel train before item 17.
+  - V1 scope classification: `required_for_v1` for this explicitly requested
+    release train; this queue identifier adds no engine or capability requirement.
+  - Source: RFC 0024, the selected-channel contract and October 25 authorization.
+  - ShardLoom technique review: preserve dynamic admission, capillary work units,
+    PulseWeave and metadata-first runtime behavior; use timing-surface separation
+    and evidence-tier controls to keep source measurements distinct from package
+    and publication proofs. No new execution mechanism is part of the bump.
+  - [x] Close items 15 and 16 with their original observations and exact runtime
+    restoration; no dropped candidate enters the release.
+  - [x] Synchronize Cargo, Python and website package versions; regenerate API
+    source identities and write scoped [release/migration notes](../release/v1.0.0-release-notes.md).
+  - [ ] Validate the exact source, native/default checks, installed package,
+    no-fallback boundaries, checksums, SBOM and provenance.
+  - [ ] Complete hosted source checks and review, then publish and independently
+    prove GitHub, TestPyPI, PyPI and Homebrew in that order.
+  - [ ] Advance published-version contracts and current documentation only after
+    the corresponding channel proofs exist; verify the public site and cleanup.
+  - The October 25 request authorizes this established version train. It does
+    not close unfinished capability/production/CG gates or authorize additional
+    channels. Pre-bump engine observations retain their source and executable
+    identities; package publication alone is not a new benchmark.
 
 ### Everyday analytical completion
 

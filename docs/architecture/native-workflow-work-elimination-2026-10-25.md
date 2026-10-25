@@ -2,12 +2,22 @@
 
 # Eliminate repeated work across complete native workflows
 
-Status: requested October 25, immediately after the combined ownership and
+Status: item 15 closed as dropped at the maintainer's October 25 request.
+All unmerged counted-join, fused-measure and retained multi-output changes are
+removed. Unstarted shared branches, decorrelation, spill-delivery/finite-demand,
+scan/output overlap and setup-reuse work are also removed from the active item.
+The [drop and restoration record](../benchmarks/native-workflow-drop-2026-10-25.md)
+preserves the exact patch, failures and complete query comparisons. Do not
+restart these mechanisms unchanged. Item 16, ingestion representation and
+batch/window scheduling, is now active. The handoff below is historical scope.
+
+Originally requested October 25, immediately after the combined ownership and
 [dependency-maintenance PR #1605](dependency-intake-2026-10-25.md) and before
 the [ingestion batch/window speed pass](native-ingest-batch-window-scheduling-2026-10-25.md).
 The subsequent connected-programming, universal-I/O, rich-data, analytical,
-Foundry and AI packages retain their order. Version milestones stay attached
-to universal I/O, Foundry and AI acceptance.
+Foundry and AI packages retain their order. The later maintainer instruction
+moves 1.0.0 immediately after the ingestion retain/drop decision; the 1.1.0
+and 1.2.0 milestones remain attached to Foundry and AI acceptance.
 
 The handoff reviews main `3239ade0` and the description/evidence of draft #1605;
 it does not report new benchmark execution. Refresh its source observations on

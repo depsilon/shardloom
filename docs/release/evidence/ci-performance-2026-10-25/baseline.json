@@ -1,0 +1,479 @@
+{
+  "schema_version": "shardloom.ci_performance_observation.v1",
+  "revision": "b42df2870c0786dd8dce03475f7b53b9672aef22",
+  "workflow_runs": [
+    40167963537,
+    40167963538
+  ],
+  "all_check_count": 44,
+  "counted_runner_jobs": 42,
+  "runner_job_seconds": 19709.0,
+  "all_checks_elapsed_seconds_from_workflow_creation": 6918.0,
+  "job_execution_span_seconds": 6916.0,
+  "counting_policy": "each distinct actual CI/CodeQL runner job once; summaries and external check durations excluded from runner consumption; all check completion included in elapsed span",
+  "checks_without_completion": [],
+  "jobs": [
+    {
+      "id": 121092780754,
+      "name": "CI work shaping plan",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:08:42Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059411",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780838,
+      "name": "Python compatibility (ubuntu-latest, 3.11)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:08:24Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059419",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780867,
+      "name": "Python test shard (release_scripts)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:08:45Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059412",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780869,
+      "name": "Website and docs validation",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:08:23Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059410",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780891,
+      "name": "Python test shard (front_door_benchmark_publication)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:08:18Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059417",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780916,
+      "name": "Native Python wheel (py313_macos)",
+      "started_at": "2026-10-25T06:07:17Z",
+      "completed_at": "2026-10-25T06:38:53Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059426",
+      "labels": [
+        "macos-latest"
+      ]
+    },
+    {
+      "id": 121092780917,
+      "name": "Rust baseline (test)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:09:16Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059420",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780918,
+      "name": "Native Python wheel (py313_ubuntu)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:26:33Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059414",
+      "labels": [
+        "ubuntu-24.04"
+      ]
+    },
+    {
+      "id": 121092780941,
+      "name": "Native Python wheel (py310_ubuntu)",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:29:38Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059415",
+      "labels": [
+        "ubuntu-24.04"
+      ]
+    },
+    {
+      "id": 121092780949,
+      "name": "Rust MSRV validation",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:10:02Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059416",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780950,
+      "name": "Python compatibility (macos-latest, 3.11)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:09:59Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059413",
+      "labels": [
+        "macos-latest"
+      ]
+    },
+    {
+      "id": 121092780967,
+      "name": "Dependency and security gates",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:08:55Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059425",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780976,
+      "name": "Rust baseline (clippy)",
+      "started_at": "2026-10-25T06:10:06Z",
+      "completed_at": "2026-10-25T06:11:51Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059443",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780989,
+      "name": "Python test shard (core)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:13:45Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059418",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780992,
+      "name": "Python compatibility (ubuntu-latest, 3.10)",
+      "started_at": "2026-10-25T06:08:19Z",
+      "completed_at": "2026-10-25T06:09:05Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059427",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781003,
+      "name": "Rust feature matrix (all_features)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:15:09Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059421",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781009,
+      "name": "Rust baseline (fmt)",
+      "started_at": "2026-10-25T06:08:42Z",
+      "completed_at": "2026-10-25T06:09:37Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059430",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781011,
+      "name": "Python compatibility (ubuntu-latest, 3.13)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:08:40Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059424",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781028,
+      "name": "Release runtime core evidence",
+      "started_at": "2026-10-25T06:09:07Z",
+      "completed_at": "2026-10-25T06:12:19Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059435",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781039,
+      "name": "Rust feature matrix (native_release_clippy)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:09:27Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059423",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781041,
+      "name": "Python compatibility (ubuntu-latest, 3.12)",
+      "started_at": "2026-10-25T06:09:17Z",
+      "completed_at": "2026-10-25T06:10:00Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059436",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781042,
+      "name": "Python and package smoke",
+      "started_at": "2026-10-25T06:08:57Z",
+      "completed_at": "2026-10-25T06:15:12Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059434",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781045,
+      "name": "Rust feature matrix (upstream_vortex)",
+      "started_at": "2026-10-25T06:07:03Z",
+      "completed_at": "2026-10-25T06:08:50Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059422",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781062,
+      "name": "Rust feature matrix (release_user_surfaces)",
+      "started_at": "2026-10-25T06:08:47Z",
+      "completed_at": "2026-10-25T06:10:18Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059432",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781063,
+      "name": "Rust feature matrix (native_public_surface_tests)",
+      "started_at": "2026-10-25T06:08:51Z",
+      "completed_at": "2026-10-25T06:13:20Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059433",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781073,
+      "name": "Python compatibility (windows-latest, 3.11)",
+      "started_at": "2026-10-25T06:08:25Z",
+      "completed_at": "2026-10-25T06:26:53Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059429",
+      "labels": [
+        "windows-latest"
+      ]
+    },
+    {
+      "id": 121092781077,
+      "name": "Rust feature matrix (vortex_file_io)",
+      "started_at": "2026-10-25T06:08:44Z",
+      "completed_at": "2026-10-25T06:10:04Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059431",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781084,
+      "name": "CI gate matrix contract",
+      "started_at": "2026-10-25T06:10:43Z",
+      "completed_at": "2026-10-25T06:12:32Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059445",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781093,
+      "name": "Rust feature matrix (default_features)",
+      "started_at": "2026-10-25T06:09:39Z",
+      "completed_at": "2026-10-25T06:11:44Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059438",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781099,
+      "name": "Rust feature matrix (packaging_deployment)",
+      "started_at": "2026-10-25T06:10:02Z",
+      "completed_at": "2026-10-25T06:12:31Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059441",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781100,
+      "name": "Rust feature matrix (no_default_features)",
+      "started_at": "2026-10-25T06:09:53Z",
+      "completed_at": "2026-10-25T06:12:08Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059439",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781101,
+      "name": "Rust feature matrix (vortex_local_primitives)",
+      "started_at": "2026-10-25T06:09:29Z",
+      "completed_at": "2026-10-25T06:10:42Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059437",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781115,
+      "name": "Rust feature matrix (native_vortex_tests)",
+      "started_at": "2026-10-25T06:10:19Z",
+      "completed_at": "2026-10-25T08:02:18Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059444",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781116,
+      "name": "Rust feature matrix (preparation_resource_profile)",
+      "started_at": "2026-10-25T06:10:00Z",
+      "completed_at": "2026-10-25T06:12:56Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059440",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781124,
+      "name": "Rust feature matrix (synthetic_spill_resources)",
+      "started_at": "2026-10-25T06:10:03Z",
+      "completed_at": "2026-10-25T06:11:50Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059442",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092781299,
+      "name": "Rust feature matrix (vortex_encoded_read_spike)",
+      "started_at": "2026-10-25T06:11:46Z",
+      "completed_at": "2026-10-25T06:14:24Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059446",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121093915367,
+      "name": "Python tests",
+      "started_at": "2026-10-25T06:13:46Z",
+      "completed_at": "2026-10-25T06:15:09Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059447",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121094173588,
+      "name": "Release package and governance evidence",
+      "started_at": "2026-10-25T06:15:14Z",
+      "completed_at": "2026-10-25T06:16:44Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059449",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121094173614,
+      "name": "Release user-surface evidence",
+      "started_at": "2026-10-25T06:15:14Z",
+      "completed_at": "2026-10-25T06:30:41Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059448",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121098240918,
+      "name": "Release readiness reports",
+      "started_at": "2026-10-25T06:38:55Z",
+      "completed_at": "2026-10-25T06:41:13Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059450",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780431,
+      "name": "CodeQL python",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:09:51Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059409",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 121092780450,
+      "name": "CodeQL rust",
+      "started_at": "2026-10-25T06:07:02Z",
+      "completed_at": "2026-10-25T06:31:50Z",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000059408",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    }
+  ]
+}

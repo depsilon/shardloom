@@ -1,0 +1,32 @@
+{
+  "status": "completed",
+  "retired_duplicate": {
+    "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/outputs/current-main-r1/hits.vortex",
+    "bytes": 15715228660,
+    "sha256": "95a393d153a8c2e1ffeb5084b2656ac61465c6ef9dad435d032365844f1ac057",
+    "generation": [
+      16777233,
+      129425061,
+      15715228660,
+      1792957865678301341,
+      1792957865682470401
+    ]
+  },
+  "retained_replacement": {
+    "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/outputs/candidate-screen-r1/hits.vortex",
+    "bytes": 15715228660,
+    "sha256": "95a393d153a8c2e1ffeb5084b2656ac61465c6ef9dad435d032365844f1ac057",
+    "generation": [
+      16777233,
+      127766127,
+      15715228660,
+      1792921883239515944,
+      1792921883240006403
+    ]
+  },
+  "prior_full_hash_and_generation_proof": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/current-main-r1-acceptance.json",
+  "closed_handles_verified": true,
+  "retired_bytes": 15715228660,
+  "no_payload_backup": true,
+  "all_compact_results_retained": true
+}

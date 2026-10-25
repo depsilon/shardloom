@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "revision": "c9affef41210aa7dcc913cc18c6db6678978127b",
+  "workflow_runs": [
+    40198905498,
+    40198905526
+  ],
+  "source_snapshot_sha256": "0e015b0977989e56705ef689c68bad1fc4db822a5cb946ec24862b7e4b15913e",
+  "all_check_count": 57,
+  "runner_jobs": 55,
+  "all_checks_elapsed_seconds": 2425.0,
+  "runner_job_seconds": 14536.0,
+  "baseline": {
+    "revision": "b42df2870c0786dd8dce03475f7b53b9672aef22",
+    "all_checks_elapsed_seconds": 6918.0,
+    "runner_job_seconds": 19709.0,
+    "runner_jobs": 42
+  },
+  "elapsed_reduction_percent": 64.94651633420064,
+  "runner_reduction_percent": 26.246892282713485,
+  "scope": "Single completed full CI and CodeQL runs; all check completion in elapsed, unique actual runner jobs in consumption; no billing weights or causal profile-only claim. Revised native test and CLI producers report cold caches."
+}
