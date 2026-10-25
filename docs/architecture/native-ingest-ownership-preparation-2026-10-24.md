@@ -158,6 +158,14 @@ reader transfer under the frozen materiality rule.
 
 ### Selected internal-transfer contract
 
+The [combined local acceptance](../benchmarks/native-ingest-ownership-2026-10-25.md#combined-runtime-acceptance)
+now binds the retained ownership implementation and reviewed dependency updates:
+9,364 passing default/native test executions, 140 installed-wheel tests without
+skips, and a final isolated Full43 of 46.973255495 engine seconds. The original
+ingestion speed gate remains failed. The portable packet preserves complete
+readback, earlier failures and both source/build identities; integration of
+PR #1605 is separate from local acceptance.
+
 Use an opaque ingest source that privately retains the actual ShardLoom-opened
 Parquet reader and its ownership policy. The existing public flat source has a
 replaceable reader, so a mutable Boolean, metadata label or pointer receipt

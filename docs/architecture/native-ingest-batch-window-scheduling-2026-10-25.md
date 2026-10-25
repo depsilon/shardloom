@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Ingest batch geometry, buffering and shared CPU scheduling
+# Ingest representation reuse, batch geometry and shared CPU scheduling
 
 Status: requested October 25, queued after consolidated dependency maintenance
 and before connected programming. The maintainer subsequently combines
@@ -21,8 +21,11 @@ by 61.2%, but fails the frozen complete-ingest speed threshold. The maintainer
 retains that copying improvement explicitly, without a repeatable speed claim.
 Do not repeat that implementation or restart the completed duplication audit.
 
-The remaining question is whether the existing batch, memory-window and task
-policies interact efficiently after ownership transfer. The current PR retains
+The subsequent compact-structure addition asks whether source encodings can
+survive normalization without expanding and rebuilding their values. This
+representation investigation precedes batch/window tuning within this item.
+The scheduling question remains whether the existing batch, memory-window and
+task policies interact efficiently after ownership transfer. The current PR retains
 those policies. Refresh the actual applied values on the integrated dependency
 baseline before selecting a mechanism; the older handoff's nominal settings
 are context, not a measured bottleneck or the next run's applied geometry.
@@ -44,7 +47,36 @@ allocations outside native credits remain explicitly excluded until proved.
 Preserve the ordered reader's protection against accumulating later work behind
 a slow earlier task.
 
-## Priority 1: batch and window interaction
+## Priority 1: preserve one compatible source representation
+
+Trace one real source-encoding → adapter → Vortex writer case before changing
+queues. Investigate validated translation of dictionary codes/values, constant
+or range structure, runs or integer deltas only where the current route expands
+and rebuilds compatible structure. Ownership transfer in #1605 avoids a copy
+after decoding; this candidate must demonstrate additional decoder, encoding
+analysis or intermediate work avoided.
+
+Reuse existing input adapters, Arrow/Vortex conversion and the native writer.
+`vortex_ingest_dictionary_preservation.rs` already preserves eligible exposed
+native dictionary chunks and dictionary-value owners; it does not prove that
+every Parquet dictionary page reaches that boundary intact. Trace actual
+provider behavior and dictionary epochs before selecting a missing case.
+Compression framing, types, validity, dictionary scope, offsets, exceptions and
+required format validation must all match. Arbitrary compressed Parquet pages
+cannot be copied into a Vortex file. Keep ordinary native decoding for cases
+without a proved compatible translation.
+
+Freeze complete-value/schema/order, generation, corruption, cancellation,
+credit and publication controls. Measure complete ingestion and output quality
+with an activating encoded case and tiny/high-entropy/non-admitted controls;
+record decode/encode work and retained allocations, not only copied bytes.
+Retain the accepted codec/layout quality contract or explicitly compare the
+entire changed representation and downstream consumption. No renamed file
+format, hidden source dependency, independent format executor or new pool is
+introduced. Extend a proven mapping through the later universal-I/O package
+instead of duplicating this implementation for every adapter.
+
+## Priority 2: batch and window interaction
 
 Distinguish source decode batches, conversion work units, compression work
 units, persisted blocks/segments and buffered writes. Current source-batch
@@ -76,7 +108,7 @@ and release useless lookahead promptly at EOF. These are proposed responses
 requiring evidence, not findings about the present workload. A window target
 must not become a permanent limit on valid source size.
 
-## Priority 2: task granularity and CPU scheduling
+## Priority 3: task granularity and CPU scheduling
 
 Attribute storage wait, Parquet decompression/decoding, conversion/derived-field
 preparation, and output compression separately. Establish whether source tasks
@@ -90,7 +122,7 @@ fixed reader/compressor split, or a second buffering layer. Increased CPU
 activity is not a benefit when it represents copying, repeated compression,
 polling or contention rather than productive work.
 
-## Priority 3: conditional adjacent writer overlap
+## Priority 4: conditional adjacent writer overlap
 
 Preparing the following input already overlaps the active writer subtree.
 Starting useful successor writer work before that subtree completes is a
@@ -121,7 +153,7 @@ overlapping timers must not be summed as exclusive CPU or elapsed time. Check
 observer overhead before selecting a candidate from added measurements.
 
 Freeze a finite candidate and complete-ingest benefit/control gates before
-timing. Retain a scheduling change only for meaningful complete-ingest benefit
+timing. Retain a representation or scheduling change only for meaningful complete-ingest benefit
 with correct values, schema/order, resource behavior, publication, output
 size/layout and subsequent queries. No expected winning size, depth or speedup
 percentage is established by this handoff. Preserve every failed observation.

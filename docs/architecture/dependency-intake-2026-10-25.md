@@ -2,7 +2,7 @@
 
 # Consolidated dependency follow-up after provider refresh
 
-Status: applied in combined PR #1605; final validation and integration pending.
+Status: applied and locally accepted in combined PR #1605; GitHub integration pending.
 The maintainer requests that all category and
 dependency PRs be merged or closed, with needed dependency work retained in the
 active queue. Provider PR #1601 is merged. The four new bot PRs below are closed
@@ -17,9 +17,9 @@ defer this active maintenance.
 
 | Closed proposal | Accepted baseline | Combined intake | Disposition |
 | --- | --- | --- | --- |
-| [#1598](https://github.com/depsilon/shardloom/pull/1598) | Tokio 1.53.3 | Tokio 1.54.1 | Source/license review complete; applied, combined validation pending |
+| [#1598](https://github.com/depsilon/shardloom/pull/1598) | Tokio 1.53.3 | Tokio 1.54.1 | Source/license review and combined local validation complete |
 | [#1599](https://github.com/depsilon/shardloom/pull/1599) | prost/prost-derive 0.14.3 | 0.14.4 | Source/license review complete; applied with the same existing prost 0.13.5 compatibility graph |
-| [#1600](https://github.com/depsilon/shardloom/pull/1600) | Existing pinned workflow actions | rust-cache, setup-python, CodeQL and PyPI publishing action updates | All four move forward from the verified current pins; workflow validation pending |
+| [#1600](https://github.com/depsilon/shardloom/pull/1600) | Existing pinned workflow actions | rust-cache, setup-python, CodeQL and PyPI publishing action updates | All four move forward from verified pins; 29 uses and 16 workflow-contract lanes pass local verification |
 | [#1602](https://github.com/depsilon/shardloom/pull/1602) | One Arrow/Parquet 59.3.1 graph | Selected Arrow packages at 60.0.0 | Blocked until the complete Vortex/Arrow/Parquet/Python graph is compatible |
 
 PR #1600 is based on `d593da49`, an ancestor of current provider merge
@@ -90,7 +90,7 @@ Execution checklist:
   retain one compatible dependency graph and regenerate package-license data.
 - [x] Compare the four proposed workflow pins with current main and upstream
   action changes, then update all accepted pins in one coherent batch.
-- [ ] Run formatting, strict workspace lint/tests, native provider and MSRV
+- [x] Run formatting, strict workspace lint/tests, native provider and MSRV
   checks, installed-package proof and affected workflow validation.
 - [ ] Merge the combined PR #1605 after checks and review; move its
   outcome to the completed ledger. Recheck for additional bot PRs at closeout.
@@ -98,3 +98,21 @@ Execution checklist:
 Arrow 60 stays blocked outside the executable checklist until the coherent
 provider/format/Python prerequisite is satisfied. The next outcome is a
 source-reviewed maintenance batch, not a promise to accept every proposed pin.
+
+## Combined local acceptance
+
+At `23807cb7`, all nine selected Rust/default/native/MSRV gates pass, including
+9,364 passing test executions and 35 declared platform/opt-in exclusions.
+The installed Mac wheel passes 140 native integration tests without skips.
+One isolated combined-runtime Full43 passes complete values and schemas at
+46.973255495 engine seconds. The
+[acceptance record](../benchmarks/native-ingest-ownership-2026-10-25.md#combined-runtime-acceptance)
+and its portable packet bind source bytes, logs, frozen binaries, package
+identities and both historical and combined observations.
+
+Cargo deny's license/advisory/ban/source checks and Cargo audit pass. Existing
+paste, anyhow and event-listener warnings remain in the raw logs; the intake
+adds no waiver and does not claim an exhaustive dependency security audit.
+The workflow diff changes only the four reviewed pins and setup-python's
+version comment. Triggers, permissions, inputs and publication gates are
+unchanged. Final GitHub checks and merge remain a separate integration step.

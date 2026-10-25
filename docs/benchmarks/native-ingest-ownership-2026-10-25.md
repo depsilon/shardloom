@@ -214,3 +214,50 @@ query result and verifies all values, schemas and engine clocks independently.
 These observations bind the ownership implementation before the subsequently
 requested dependency consolidation. Final combined validation must identify its
 own source/dependency state and must not relabel these earlier measurements.
+
+## Combined runtime acceptance
+
+The combined source at `23807cb70e13ba2981140a895798e9aff99fb9da`
+retains the ownership implementation with Tokio 1.54.1, prost/prost-derive
+0.14.4 and the four reviewed workflow-action updates. The
+[dependency intake](../architecture/dependency-intake-2026-10-25.md) records
+the exact scope, license/provenance checks and unchanged provider graph.
+
+Nine local gates pass: formatting, strict default and selected native lint,
+default and release-user-surfaces workspace tests, all-feature and minimal
+checks, and Rust 1.96 minimal/native checks. The two test suites execute
+**9,364 passing tests**, with no failures and 35 declared exclusions: three
+Windows-only checks plus 32 explicit opt-in benchmark/fixture checks. This is
+a test-execution count across feature suites, not a count of unique test names.
+Source-byte inventories bind all 2,858 build-relevant files to the final build.
+The pre-commit test inventory differs only in seven historical Git index blobs;
+working source bytes and modes are identical.
+
+The installed Mac ABI3 wheel passes **140 integration tests without skips**,
+isolated import/CLI checks, embedded CLI/library identity, license verification
+and uninstall. The native extension uses the existing extension-module build
+path; the CLI is built separately without that linkage flag. Both dependency
+listings exclude Homebrew/Python-framework links. The earlier package-linkage
+failure remains preserved. A subsequent receipt-inventory mismatch is resolved
+by rehashing every prior receipt and accounting for the newly added evidence;
+its original `NEEDS_REASONING` status is retained alongside primary acceptance.
+No package is published, and this local proof does not establish a Linux ABI.
+
+The combined runtime's one isolated Full43 pass validates all 43 independent
+results, 381 rows and exact schemas at **46.973255495 engine seconds**.
+The earlier ownership-only observation remains **47.281897502 seconds**;
+the accepted provider observation remains **49.625514041 seconds**. Each is
+one execution of each query. The combined pass does not activate the 10%
+regression trigger, but separate runs with uncontrolled host/cache state do
+not establish a causal speedup. Full input hashing and recursive inventories
+remain outside query execution; every earlier observation stays unchanged.
+
+The [portable evidence packet](evidence/native-ingest-ownership-2026-10-25/README.md)
+preserves 735 original files as 592 unique objects. Independent replay checks
+both complete ingests/readbacks, unchanged failed speed gates, both Full43
+passes, the combined tests/dependency audit and installed-wheel provenance.
+All 21 corruption controls reject altered coverage, values, clocks, source
+bindings, package identities or acceptance decisions. Replay does not execute
+native code or need the historical datasets. Existing audit warnings remain
+visible; no waiver or runtime fallback is introduced. GitHub integration is
+recorded separately from these completed local checks.

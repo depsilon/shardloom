@@ -16,6 +16,14 @@ native ownership, RFC 0033 workflows, RFCs 0013–0017 streaming/resources/seman
 optimization/recovery, and RFCs 0021–0022 expression/plan contracts apply. This
 adds no phase ID, alternate executor or completion claim for CG-1 through CG-23.
 
+The subsequent October 25 compact-structure addition extends these same owners.
+Its leading algorithmic targets are exact aggregate-through-join execution,
+then one fused, encoding-preserving scan-to-aggregate pipeline. Encoding-aware
+source translation belongs to the following ingestion item. Logical incremental
+maintenance attaches to the later stateful/Foundry contract; reversible
+cross-column transforms stay conditional. This is a proposal to remove work
+within the existing engine, not a new architecture, dependency or measured gain.
+
 ## Verified source owners
 
 The October 25 source check at `20f03396` confirms the following boundaries.
@@ -53,7 +61,39 @@ cache-hit counts nor copied-byte counters alone establish workflow benefit.
 
 ## Package 1: execute once
 
-**One computation for one explicit multi-output request comes first.** The
+**Reduce eligible joins without expanding their row pairs.** Begin with
+`COUNT(*)` directly above an inner equality join without a residual condition.
+For ordinary SQL equality over non-null keys, compute
+`sum(left_count[key] * right_count[key])` with checked arithmetic, instead of
+constructing every matching pair. The [FAQ research](https://www.relational.ai/post/functional-aggregate-query-faq-questions-asked-frequently)
+uses variable elimination across joins and aggregates; the proposed native
+mapping here is deliberately narrower.
+
+The current `native_relational_join.rs::Join::consume` enumerates matching
+pairs; eligible semi/anti joins already use membership state, and
+`local_primitive_relational_cyclic_exists.rs` avoids a supported cyclic
+existence intermediate. Extend that work avoidance through the existing bound
+plan, key semantics and aggregate state. First carry exact key multiplicities
+and admitted aggregate contributions, retaining source references only when
+needed. Do not introduce a universal factorized IR before the narrow consumer
+proves useful. Expand only when a downstream operator actually needs rows.
+
+Preserve duplicate multiplicity, composite-key and NULL rules, empty input,
+integer overflow, required source/error validation, cancellation and memory/
+spill accounting. Outer joins, residual predicates, DISTINCT and scalar
+cardinality need separate equivalence proofs; reject only the optimization
+when unproved and keep ordinary native execution. Do not reorder floating-point
+reductions merely because a real-number identity permits it. Later admit
+aggregation before a many-to-one dimension join only with verified uniqueness
+and functional dependencies for the actual snapshot. A complete row-producing
+join remains proportional to its required output.
+
+Use a duplicate-heavy count workflow and low-fanout/no-reduction controls.
+Prove the complete answer against independent references, record avoided pair
+construction and retained state, and include adversarial null/overflow/skew/
+pressure cases. The 10,000-by-20,000 example is arithmetic, not a benchmark.
+
+**Use one computation for one explicit multi-output request.** The
 reviewed ordinary relational `write_many` path calls a writer for each
 destination and repeats plan execution while sharing retained sources and the
 resource budget. Reconcile it and primitive per-destination callbacks with the
@@ -99,6 +139,51 @@ illustrates the algorithmic category; ShardLoom must implement and certify its
 own native rewrites. Full43 does not cover all such reporting workflows.
 
 ## Package 2: keep data moving
+
+**Keep an admitted tile and its consumer state together.** The first composed
+target is encoded scan → predicate → computed key/measure → grouped reduction.
+Identify a real intermediate allocation, traversal or repeated dispatch in
+that path, then feed the admitted values directly into existing aggregate
+state. Current prepared filter recipes, numeric consumers and dictionary-local
+count partials are foundations; separate plan nodes do not prove a missing
+optimization.
+
+[FlashAttention](https://arxiv.org/abs/2205.14135) tiles exact attention to
+reduce transfers between memory levels; [Eyeriss](https://dspace.mit.edu/entities/publication/f6342515-2b7d-411c-a8ad-a9edb23dd394)
+organizes local operand and partial-result reuse. The transferable relation
+is locality of both input and working state. CPU caches differ from explicitly
+managed GPU/chip storage, so no cache-residency guarantee or hardware-specific
+speedup transfers to ShardLoom.
+
+Prefer a small dense state array for an admitted low-cardinality domain.
+Partition high-cardinality work only when measured partition/reconciliation
+cost is lower than the random-access or spill work it removes. Preserve source
+order where floating accumulation requires it, skew handling, variable-width
+owners, dictionary lifetime, cancellation and progress under pressure. Use the
+existing resource grants and scheduler; another worker pool is not required.
+Measure the complete composed workflow and retained traffic, including setup
+and final reconciliation, with tiny/high-entropy/skew controls.
+
+**Preserve useful encodings through compatible consumers.** Extend the
+existing Vortex provider, kernel registry and typed plan capability contracts
+with explicit consumed/preserved representation facts where those facts are
+missing. Check the pinned provider before adding a new representation protocol.
+The objective is to avoid expanding structure before a later operator can use
+it: dictionary values/codes through deterministic transforms, run multiplicities
+through eligible filter/count, or checked frame-of-reference predicates over
+residual integers. Existing dictionary-ID counts and dictionary-local partials
+already retain source indices; do not implement them again.
+
+Transform only demanded dictionary entries when evaluating unused entries could
+raise an otherwise absent error. Reconcile dictionary identities exactly;
+identical numeric codes in different dictionaries do not establish equality.
+Prove NULLs, exceptions, checked arithmetic, lazy errors, selected order and
+complete backing-allocation ownership across filter → transform → join/aggregate
+→ output. High-entropy or unsupported encodings retain the ordinary native
+path. [FastLanes](https://ir.cwi.nl/pub/35881/35881.pdf) supplies a conceptual
+reference for partial decompression and compressed vectors, not a replacement
+format or a dependency. Distinct-value/run counts are work-size illustrations,
+never whole-query speed predictions.
 
 **Stream the final external ordering merge to its consumer.** The reviewed
 spill path persists a final merged run, reopens it and reads it for delivery.
@@ -156,6 +241,24 @@ and this package does not introduce a new JIT engine.
 
 ## Package 3: make setup cheap
 
+**Bind a small set of specialized native fragments.** Resolve input fields,
+types, validity, expression dependencies, encoding accessors and consumer
+requirements once during existing preparation, then connect precompiled kernel
+families to direct consumers. Share an intermediate value only when semantics,
+effects and lifetime permit it. Use the same fragment across ordinary SQL/
+DataFrame declarations and explicit shared branches; do not introduce another
+executor or a separate public programming model.
+
+[Weld](https://dawn.cs.stanford.edu/weld) motivates visibility across operation
+boundaries, and [MLIR Linalg](https://mlir.llvm.org/docs/Dialects/Linalg/)
+retains structured operation information for transformation. ShardLoom's
+proposed mapping is inexpensive binding of existing native code. A heavyweight
+JIT is not the starting point; any later runtime compilation needs a separate
+amortization and code-size case. This changes the workload's operation sequence,
+unlike the completed PGO investigation. Limit specialization to demonstrated
+high-value fragments and measure preparation plus first execution, not only a
+warm loop.
+
 **Use shared immutable plan structure with incremental metadata.** In the
 reviewed native relation wrapper, `child()` clones the accumulated plan, and
 new declarations revisit nodes/expressions and debug-format into a byte-counting
@@ -192,10 +295,13 @@ as a complete source is admitted.
 
 ## Finite acceptance and sequencing
 
-Prioritize single-computation multi-output writes, final-merge streaming and
-cheaper native plan composition as immediate concrete targets. Branch sharing
-and decorrelation follow their semantic prerequisites; scan/output overlap and
-intermediate elimination require an activating workflow. Use the three packages
+Prioritize exact aggregate-through-join execution, then one fused,
+encoding-preserving scan-to-aggregate pipeline as the leading new algorithmic
+investigations. Single-computation multi-output writes, final-merge streaming
+and cheaper native plan composition remain concrete work in their existing
+packages. Branch sharing and decorrelation follow their semantic prerequisites;
+scan/output overlap requires an activating workflow. Source-encoding translation
+is the next ingestion item's leading representation investigation. Use the three packages
 as coherent implementation boundaries, not a requirement to combine every
 operator and public API change into one PR.
 
@@ -217,3 +323,11 @@ characterize bulk output or platform integration. No additional cache, thread
 pool, transport protocol, broad compiler campaign or predicted speedup is
 required by this handoff. Keep native Vortex, explicit effects and no external
 query-engine fallback throughout.
+
+Distinguish cheaper execution of the same work, less logical work for the same
+answer, and less repeated work across actual updates. Report which mechanism
+was activated. If a fraction `f` of a workload improves by `s`, the unchanged
+remainder bounds total improvement by `1 / ((1 - f) + f / s)`; a kernel gain
+does not establish an engine-wide gain. Required output cardinality cannot be
+optimized away. Incremental state and optional cross-column encoding have
+their own later acceptance boundaries and cannot be counted as warm Full43 wins.

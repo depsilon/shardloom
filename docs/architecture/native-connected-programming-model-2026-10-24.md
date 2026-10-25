@@ -31,6 +31,14 @@ resource, extension and remote-API RFCs remain governing boundaries.
 
 ## Product contract
 
+Consume the preceding work-elimination package's shared immutable structure,
+admitted aggregate-through-join rewrites and small precompiled execution
+fragments through the same binder. SQL/DataFrame transitions and named-plan
+references must retain encoding, multiplicity, dependency and consumer facts
+needed by those optimizations. Do not rebuild a specialization layer in the
+facade or materialize an intermediate merely to expose a different syntax.
+Prepared structure is not retained mutable aggregate state or an answer cache.
+
 `sl.context(...)` with explicit resources is the ordinary entry point. Read a
 file, build DataFrame expressions, name the plan, use it in SQL, continue with a
 join/window/filter, then write. Changing syntax must not execute, collect,

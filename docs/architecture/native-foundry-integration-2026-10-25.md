@@ -146,6 +146,47 @@ changelog incremental support absent; do not promise that unavailable boundary.
 
 ## Resource, fidelity and governance acceptance
 
+### Logical incremental maintenance within the stateful deliverable
+
+The October 25 compact-structure addition extends the third deliverable with
+explicit logical changes plus retained native operator state. Begin with a
+limited append/update contract and maintainable counts/sums or a proved join
+family, after snapshot and append transport work. The engine owns the shared
+implementation under RFCs 0029/0034 and CG-17/CG-22; Foundry supplies an optional
+platform integration and actual source-change semantics.
+
+[DBSP](https://www.vldb.org/pvldb/vol16/p1601-budiu.pdf) formalizes incremental
+database computation using streams and differences; [F-IVM](https://arxiv.org/abs/2303.08583)
+combines maintained views and factorization. The proposed ShardLoom transfer
+is exact update propagation through existing native state, not adoption of
+either runtime and not a warm-data benchmark.
+
+Require trustworthy change identity/ranges, source snapshots, schema/operator
+compatibility, durable state ownership, checkpoint/recovery and publication of
+state and output at one defined consistent point. Cover duplicate delivery,
+retry/crash, gaps and reordered changes, upstream replacement, changed dimensions,
+join fanout, deletions/retractions and recovery before claiming each capability.
+A changed file is not a row changelog; unchanged bytes alone do not establish
+unchanged logical meaning. Preserve platform restrictions: the snapshot/append
+Iceberg boundary above does not become a changelog interface by this addition.
+
+Counts and exact admitted sums may have direct delta rules. Removing a current
+minimum/maximum needs additional retained information or explicit native
+recomputation; floating order and decimal precision prohibit unconstrained
+subtraction or reassociation. Compare each accepted update sequence against a
+complete independent recomputation, including pressure/spill, state cleanup
+and failed publication. Measure initial state creation, actual updates, recovery
+and required outputs separately in the evidence; a changed-row ratio is not a
+speed forecast.
+
+The [rejected whole-file refresh adapter](native-changed-source-reuse-2026-10-20.md)
+remains rejected under its original gates. It reused prepared source regions
+while producing a complete new artifact; it did not implement logical incremental
+query maintenance. This larger stateful capability is separate from first-ingest
+optimization, finite batch streaming and independent Full43 queries.
+### Host, resource and publication checks
+
+
 - Map the job's declared allocation into ShardLoom memory and parallelism. Leave
   measured room for Python, input/output exchange and unaccounted codec owners.
   Do not derive the worker grant from physical-host capacity or claim engine

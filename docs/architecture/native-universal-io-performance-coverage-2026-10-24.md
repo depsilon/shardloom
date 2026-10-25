@@ -34,6 +34,13 @@ everyday analytical completion and before the AI-data package.
 
 ## Contract and intake
 
+Reuse any source-encoding translation accepted by the preceding ingestion
+item, and carry its representation capabilities through the work-elimination
+package's existing native consumers. Extend proved type/validity/dictionary/
+offset mappings across adapters here; do not assume equal encodings or duplicate
+the earlier mechanism. Output adapters continue to report unavoidable
+normalization and metadata loss.
+
 Format choice determines input/output adaptation around the same native engine.
 Equivalent data, semantics, resources and result requirements receive equally
 capable native computation. Minimize required reads, decode, conversion, encoding
@@ -58,6 +65,20 @@ delay the immediate local fixes. Audit complete families rather than assuming
 every listed feature is absent or making a format count a completion criterion.
 This explicit queue addition does not make every family a v1 release blocker or
 close independent CG-1 through CG-23 evidence gates.
+
+## Later conditional encoding research
+
+The optional `PERF-09.portfolio` owner now includes exact cross-column
+transforms inspired by [FastLanes multi-column compression](https://ir.cwi.nl/pub/35881/35881.pdf).
+For a proved integer/fixed-scale relation such as `y = a*x + b + residual`,
+preserve exact reconstruction, NULLs, overflow and exceptions; floating data
+requires the original bit/semantic contract, not a real-number approximation.
+First check Vortex's existing encoding/extension surfaces. A useful profile
+must justify dependency reads, bounded dependency graphs, encoder metadata,
+random access and selected reconstruction against independent columns.
+Test narrow reads and uncorrelated data as controls. This remains conditional
+research behind the execution and ingestion opportunities, distinct from the
+rejected structural-text profile, without a new format or broad release promise.
 
 ## First: reuse explicit fanout and improve writer layout
 

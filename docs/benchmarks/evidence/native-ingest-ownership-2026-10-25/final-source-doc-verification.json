@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "build_relevant_files_unchanged": 2858,
+  "changed_tracked_paths": [
+    "docs/architecture/dependency-intake-2026-10-25.md",
+    "docs/architecture/native-connected-programming-model-2026-10-24.md",
+    "docs/architecture/native-foundry-integration-2026-10-25.md",
+    "docs/architecture/native-ingest-batch-window-scheduling-2026-10-25.md",
+    "docs/architecture/native-ingest-ownership-preparation-2026-10-24.md",
+    "docs/architecture/native-universal-io-performance-coverage-2026-10-24.md",
+    "docs/architecture/native-workflow-work-elimination-2026-10-25.md",
+    "docs/architecture/phased-execution-completed-ledger.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/benchmarks/native-ingest-ownership-2026-10-25.md"
+  ],
+  "changed_markdown_local_links": 454,
+  "scope": "Post-observation changes are roadmap, acceptance documentation and standalone evidence only; no rebuild or benchmark repeat."
+}
