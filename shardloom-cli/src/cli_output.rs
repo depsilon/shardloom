@@ -211,6 +211,8 @@ fn envelope_from_fields(
     mut fields: Vec<(String, String)>,
 ) -> OutputEnvelope {
     append_admitted_observation(&mut fields, &diagnostics);
+    let text =
+        crate::human_report::workflow_text(command, status, &summary, text, &diagnostics, &fields);
     let envelope = base_envelope_from_fields(command, status, summary, text, diagnostics);
     apply_typed_envelope_fields(envelope, command, fields)
 }
@@ -250,7 +252,7 @@ pub(crate) fn emit_error_with_fields(
     let envelope = apply_typed_envelope_fields(envelope, command, fields);
     match format {
         OutputFormat::Text => write_output_line(PendingLine::Stderr {
-            message: error.to_string(),
+            message: envelope.to_text(),
         }),
         OutputFormat::Json => write_stdout_line(envelope.to_json()),
     }
@@ -468,14 +470,77 @@ mod tests {
         )
         .unwrap();
         let mut lines = outer.take().into_iter();
-        assert!(
-            matches!(lines.next(), Some(super::PendingLine::Stderr { message })
-            if message.contains("expected diagnostic"))
-        );
-        assert!(
-            matches!(lines.next(), Some(super::PendingLine::Stdout { rendered })
-            if serde_json::from_str::<serde_json::Value>(&rendered).is_ok())
-        );
+        let Some(super::PendingLine::Stderr { message }) = lines.next() else {
+            panic!("text errors must remain on stderr");
+        };
+        assert!(message.starts_with("expected diagnostic\n"));
+        assert!(message.find("Next step:").unwrap() < message.find("Diagnostic:").unwrap());
+        let Some(super::PendingLine::Stdout { rendered }) = lines.next() else {
+            panic!("JSON errors must remain on stdout");
+        };
+        let json: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert_eq!(json["status"], "error");
+        assert_eq!(json["human_text"], message);
+        assert_eq!(json["diagnostics"][0]["code"], "SL_INVALID_INPUT");
+        assert_eq!(json["diagnostics"][0]["message"], "Invalid input provided.");
+        assert_eq!(json["diagnostics"][0]["reason"], "expected diagnostic");
+        assert_eq!(json["fallback"]["attempted"], false);
+        assert_eq!(json["fallback"]["allowed"], false);
         assert!(lines.next().is_none());
+    }
+
+    #[test]
+    fn workflow_display_preserves_structured_payload_and_handler_result() {
+        let mut fields = vec![
+            (
+                "public_workflow_route_schema_version".into(),
+                "shardloom.public_workflow_route.v1".into(),
+            ),
+            ("public_workflow_source_format".into(), "parquet".into()),
+            ("public_workflow_requested_output".into(), "collect".into()),
+            ("runtime_execution".into(), "true".into()),
+            ("result_payload_complete".into(), "true".into()),
+            ("result_count".into(), "2".into()),
+            ("fallback_attempted".into(), "false".into()),
+        ];
+        let actual = super::envelope_from_fields(
+            "run",
+            CommandStatus::Success,
+            "complete".into(),
+            "result_rows: [{\"value\":3},{\"value\":5}]".into(),
+            Vec::new(),
+            fields.clone(),
+        );
+        // Freeze the existing machine envelope construction and compare every
+        // field; only its human display is permitted to change.
+        super::append_admitted_observation(&mut fields, &[]);
+        let previous = super::apply_typed_envelope_fields(
+            super::base_envelope_from_fields(
+                "run",
+                CommandStatus::Success,
+                "complete".into(),
+                "result_rows: [{\"value\":3},{\"value\":5}]".into(),
+                Vec::new(),
+            ),
+            "run",
+            fields,
+        );
+        let mut actual_json: serde_json::Value = serde_json::from_str(&actual.to_json()).unwrap();
+        let mut previous_json: serde_json::Value =
+            serde_json::from_str(&previous.to_json()).unwrap();
+        actual_json.as_object_mut().unwrap().remove("human_text");
+        previous_json.as_object_mut().unwrap().remove("human_text");
+        assert_eq!(actual_json, previous_json);
+        assert!(actual.to_text().starts_with("Input: Parquet\n"));
+        assert!(
+            actual
+                .to_text()
+                .contains("Execution: ShardLoom\nOutput: Result")
+        );
+        assert!(
+            actual
+                .to_text()
+                .ends_with("result_rows: [{\"value\":3},{\"value\":5}]")
+        );
     }
 }

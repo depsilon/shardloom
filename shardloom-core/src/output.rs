@@ -859,7 +859,8 @@ impl OutputEnvelope {
         error: &ShardLoomError,
     ) -> Self {
         let diagnostic = error.to_diagnostic();
-        Self::from_diagnostic(command, summary, error.to_string(), diagnostic)
+        let human_text = diagnostic.human_text_with_message(&error.to_string());
+        Self::from_diagnostic(command, summary, human_text, diagnostic)
     }
 
     #[must_use]

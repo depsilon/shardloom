@@ -342,13 +342,12 @@ pub(crate) fn handle_public_workflow_route(
     };
     let request = effective_public_workflow_request(&request);
     let plan = plan_public_workflow_route(&request);
-    let human_text = route_human_text(&request, &plan);
     emit(
         "route",
         format,
         plan.status,
         "public workflow route".to_string(),
-        human_text,
+        String::new(),
         plan.diagnostics.clone(),
         route_fields(&request, &plan),
     );
@@ -5700,7 +5699,7 @@ pub(crate) fn handle_public_workflow_prepare(
         format,
         CommandStatus::Success,
         "public workflow prepare completed".to_string(),
-        facade_human_text("prepare", &request, &plan, true),
+        String::new(),
         Vec::new(),
         fields,
     );
@@ -12120,16 +12119,6 @@ fn fanout_outputs_field(request: &PublicWorkflowRouteRequest) -> String {
     }
 }
 
-fn route_human_text(
-    request: &PublicWorkflowRouteRequest,
-    plan: &PublicWorkflowRoutePlan,
-) -> String {
-    format!(
-        "public workflow route\nsurface: {}\nroute_id: {}\nresolved_internal_command: {}\nstatus: {}\nexecution: not_performed\nfallback_attempted: false\nexternal_engine_invoked: false",
-        request.surface, plan.route_id, plan.resolved_internal_command, plan.route_status
-    )
-}
-
 fn emit_blocked_facade(
     command: &'static str,
     format: OutputFormat,
@@ -12141,27 +12130,11 @@ fn emit_blocked_facade(
         format,
         CommandStatus::Unsupported,
         format!("public workflow {command} blocked before execution"),
-        facade_human_text(command, request, plan, false),
+        String::new(),
         plan.diagnostics.clone(),
         blocked_facade_fields(command, request, plan),
     );
     ExitCode::from(1)
-}
-
-fn facade_human_text(
-    command: &str,
-    request: &PublicWorkflowRouteRequest,
-    plan: &PublicWorkflowRoutePlan,
-    runtime_execution: bool,
-) -> String {
-    format!(
-        "public workflow {command}\nsurface: {}\nroute_id: {}\nresolved_internal_command: {}\nstatus: {}\nruntime_execution: {}\nfallback_attempted: false\nexternal_engine_invoked: false",
-        request.surface,
-        plan.route_id,
-        plan.resolved_internal_command,
-        plan.route_status,
-        runtime_execution
-    )
 }
 
 fn blocked_facade_fields(

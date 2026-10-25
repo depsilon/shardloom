@@ -364,10 +364,10 @@ scenes.forEach(s=>visibility.observe(s.el));
 const ro = typeof ResizeObserver==='function'?new ResizeObserver(()=>{resized=true;layoutDirty=true;dirty();}):null;
 if(ro){scenes.forEach(s=>ro.observe(s.el));ro.observe(document.body);}
 const stages=[
- 'Start with what the artifact already knows. Metadata and statistics can rule out work before row reads.',
- 'Prune irrelevant segments where statistics permit. Work that cannot contribute never enters the active path.',
- 'Use the encoded representation where the route supports it. Avoid turning everything into decoded rows first.',
- 'Decode only what an operation requires. An admitted encoded path and a decoded path are not the same claim.',
+ 'Start with what the dataset already knows. Metadata and statistics can rule out work before row reads.',
+ 'Skip irrelevant segments where statistics permit. Read only the data that can contribute to the answer.',
+ 'Compute on encoded data where the operation supports it, without first expanding every value into a row.',
+ 'Decode only what an operation requires. Execution reports identify where values were decoded.',
  'Produce the requested result at an explicit output boundary. The illustration shows a principle, not a measured reduction.'
 ];
 const sections=$$('main > section');
@@ -488,18 +488,18 @@ $$('[data-stage]').forEach(button=>button.addEventListener('click',()=>{
   window.scrollTo({top:top+travel*value+1,behavior:'smooth'});
  }else{state.introManual=value;layoutDirty=true;dirty();}
 }));
-const modes={steady:['01 / Steady flow','Work units travel through a bounded route. The model keeps source, execution, and output work visible.'],memory:['02 / Memory pressure','This scenario illustrates smaller bounded work under memory pressure. It is an explanatory model, not a measured engine response.'],sink:['03 / Sink pressure','This scenario illustrates output pressure feeding back into upstream work. Adaptive behavior remains bounded by route evidence.']};
+const modes={steady:['01 / Steady flow','Execution tasks move through the engine. The illustration keeps reading, computation, and writing visible.'],memory:['02 / Memory pressure','This scenario illustrates smaller bounded work under memory pressure. It is an explanatory model, not a measured engine response.'],sink:['03 / Sink pressure','This scenario illustrates output pressure feeding back into earlier work. Reports identify which scheduling controls actually applied.']};
 $$('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
  state.mode=button.dataset.mode;$$('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));$('#pressureReadout').textContent=modes[state.mode][0];$('#modeDescription').textContent=modes[state.mode][1];dirty();
 }));
 const layerInfo=[
- ['01 / DATA','The prepared columnar payload remains the center of the artifact—not a query sidecar.'],
- ['02 / LAYOUT','Native Vortex preparation preserves the existing input layout. A shared optimization policy for every I/O format remains follow-up work.'],
- ['03 / STATISTICS','Artifact statistics can support metadata-first decisions and pruning where a route can use them.'],
- ['04 / SEGMENT MAP','Segment membership helps make the relevant parts of a prepared artifact explicit.'],
- ['05 / DICTIONARIES','Dictionary-aware paths can use native codes when the layout exposes them; evidence distinguishes those accessors.'],
- ['06 / DOMAIN INTEL','Admitted preparation can embed derived helpers such as string lengths and time buckets. Their availability depends on the preparation route.'],
- ['07 / ROW LOCALITY','Row-position locality can help retained-row paths defer payload materialization until the final selection.']
+ ['01 / DATA','The file contains columnar data alongside the metadata used to read it.'],
+ ['02 / LAYOUT','Reading an existing Vortex file preserves its layout. A shared optimization policy across every input and output format remains follow-up work.'],
+ ['03 / STATISTICS','Dataset statistics can answer supported questions or help the engine skip irrelevant data.'],
+ ['04 / SEGMENT MAP','Segment membership identifies which parts of the data file may be relevant to a query.'],
+ ['05 / DICTIONARIES','Supported operators can work with dictionary codes when the layout exposes them. Execution reports identify the access used.'],
+ ['06 / DERIVED METADATA','Supported preparation can store derived values such as string lengths and time buckets. Availability depends on the operation and layout.'],
+ ['07 / ROW LOCALITY','Row positions can help the engine defer fetching full values until it has selected the needed rows.']
 ];
 $$('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
  state.layer=+button.dataset.layer;$$('[data-layer]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));$('#layerName').textContent=layerInfo[state.layer][0];$('#layerDescription').textContent=layerInfo[state.layer][1];dirty();
@@ -543,9 +543,9 @@ setCode('python');
 
 /* These studies visualize documented contracts, not live engine outcomes. */
 const materializationBoundaries={
- native:['01 / Native result','Native arrays','Keep ownership with the result.','Supported in-process results retain native arrays and their memory credits. Chaining can use those arrays without first building Python rows.'],
- file:['02 / Typed file','Writer boundary','Translate when the output requires it.','A supported typed export can write the retained result without rerunning the query. The chosen writer still determines representation and metadata loss.'],
- rows:['03 / Python rows','Python values','Make row materialization explicit.','Call to_rows() when you need Python values. This materializes rows from the result; keeping a native result does not promise that every earlier operation avoided decoding.']
+ native:['01 / Columnar result','Engine-owned arrays','Keep ownership with the result.','Supported in-process results retain engine-owned columnar arrays and memory reservations. Eligible operations can use them without first building Python rows.'],
+ file:['02 / Typed file','Writer boundary','Translate when the output requires it.','A supported writer can save the retained result without rerunning the query. The output format determines which types and metadata are preserved.'],
+ rows:['03 / Python rows','Python values','Make row materialization explicit.','Call to_rows() when you need Python values. This builds Python objects from the result. Earlier operations may already have decoded values where required.']
 };
 $$('[data-materialization-choice]').forEach(button=>button.addEventListener('click',()=>{
  const choice=button.dataset.materializationChoice;
@@ -564,8 +564,8 @@ $$('[data-journey-choice]').forEach(button=>button.addEventListener('click',()=>
  $('#journeyLink span').textContent=button.dataset.linkLabel;
 }));
 const outcomes={
- admitted:['Native route','Explicit result','Admitted execution','One admitted route','Source, preparation, execution, and output remain connected by route evidence.'],
- unsupported:['Admission gate','Diagnostic','No external execution','An explicit stop','Unsupported work stops at the admission boundary. A diagnostic replaces execution, not an unreported engine.']
+ admitted:['ShardLoom','Result','Supported execution','Executed by ShardLoom','The engine checks the input and requested operation, computes the result, and reports what it did.'],
+ unsupported:['Capability check','Explanation','Execution not performed','An actionable diagnostic','Unsupported requests stop with the problem and recovery guidance. ShardLoom does not delegate them to another engine.']
 };
 $$('[data-outcome]').forEach(button=>button.addEventListener('click',()=>{
  const outcome=button.dataset.outcome;
@@ -574,15 +574,15 @@ $$('[data-outcome]').forEach(button=>button.addEventListener('click',()=>{
  ['routeGate','routeOutcome','routeOutcomeDetail','outcomeLabel','outcomeDescription'].forEach((id,i)=>$('#'+id).textContent=outcomes[outcome][i]);
 }));
 const timingBoundaries={
- runtime:['hot_runtime','Native query work. A runtime-only measurement is not a claim of complete result delivery.'],
- replay:['full_replay_proof','Native query work plus machine replay and output proof. The declared boundary includes the work needed to verify the result.'],
- publication:['publication_proof','Replay and output proof plus human evidence rendering. Publication work stays visible instead of disappearing from the comparison.']
+ runtime:['Engine execution','The engine computes the answer. Routine query timing excludes separate loading, preparation, validation, and report generation.'],
+ replay:['Loading and preparation','Disclose the original input, stored format, loading procedure, storage size, and setup that was reused. Keep this work separate from query execution.'],
+ publication:['Result validation','Check complete values, schemas, and written outputs. Validation and report generation have their own records outside the engine execution clock.']
 };
 const timingButtons=$$('[data-timing]');
-timingButtons.forEach((button,index)=>button.addEventListener('click',()=>{
+timingButtons.forEach(button=>button.addEventListener('click',()=>{
  const boundary=button.dataset.timing;
  $('.timing-boundaries').dataset.timingBoundary=boundary;
- timingButtons.forEach((b,i)=>{b.setAttribute('aria-pressed',String(b===button));b.dataset.included=String(i<=index);});
+ timingButtons.forEach(b=>{b.setAttribute('aria-pressed',String(b===button));b.dataset.included=String(b===button);});
  $('#timingSurface').textContent=timingBoundaries[boundary][0];
  $('#timingDescription').textContent=timingBoundaries[boundary][1];
 }));

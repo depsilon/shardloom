@@ -3,7 +3,7 @@ const threads = Array.from({ length: 19 }, (_, i) => i);
 ---
 
 <div class="contract-visual" data-route-outcome="admitted">
-  <div class="study-topline"><span>Admission study</span><span>One native contract</span></div>
+  <div class="study-topline"><span>Execution study</span><span>One engine</span></div>
   <div class="admission-drawing">
     <svg viewBox="0 0 720 360" aria-hidden="true" focusable="false">
       <defs>
@@ -35,19 +35,19 @@ const threads = Array.from({ length: 19 }, (_, i) => i);
         <path d="M617 160 640 180 617 200M640 160 617 180 640 200" stroke="#ddbd91" stroke-opacity=".35" fill="none" />
       </g>
     </svg>
-    <div class="admission-labels"><div><strong>Your query</strong><span>Python / SQL / CLI</span></div><div><strong id="routeGate">Native route</strong><span>ShardLoom / Vortex</span></div><div><strong id="routeOutcome">Explicit result</strong><span id="routeOutcomeDetail">Admitted execution</span></div></div>
+    <div class="admission-labels"><div><strong>Your query</strong><span>Python / SQL / CLI</span></div><div><strong id="routeGate">ShardLoom</strong><span>Engine</span></div><div><strong id="routeOutcome">Result</strong><span id="routeOutcomeDetail">Supported execution</span></div></div>
   </div>
-  <div class="study-switch outcome-switch" role="group" aria-label="Native route outcomes">
-    <button type="button" data-outcome="admitted" aria-label="Admitted work outcome" aria-pressed="true">Admitted work</button>
+  <div class="study-switch outcome-switch" role="group" aria-label="Supported and unsupported requests">
+    <button type="button" data-outcome="admitted" aria-label="Supported work outcome" aria-pressed="true">Supported work</button>
     <button type="button" data-outcome="unsupported" aria-label="Unsupported work outcome" aria-pressed="false">Unsupported work</button>
   </div>
   <div class="outcome-detail" aria-live="polite">
-    <span class="mono" id="outcomeLabel">One admitted route</span>
-    <p id="outcomeDescription">Source, preparation, execution, and output remain connected by route evidence.</p>
+    <span class="mono" id="outcomeLabel">Executed by ShardLoom</span>
+    <p id="outcomeDescription">The engine checks the input and requested operation, computes the result, and reports what it did.</p>
   </div>
   <div class="contract-fields">
-    <div><span>fallback_attempted</span><b>false</b></div>
-    <div><span>external_engine_invoked</span><b>false</b></div>
+    <div><span>Execution engine</span><b>ShardLoom</b></div>
+    <div><span>External engines</span><b>Never used</b></div>
   </div>
-  <p class="contract-note">Required execution contract. These fields are not a receipt from a live run.</p>
+  <p class="contract-note">Illustration of the execution policy. Actual reports include execution status and diagnostics.</p>
 </div>

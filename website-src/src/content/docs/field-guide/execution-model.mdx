@@ -1,75 +1,93 @@
 ---
-title: "Execution model"
-description: "How ShardLoom avoids data work and preserves its no-fallback contract."
-sidebar: {"label":"Execution model","order":3}
+title: "How ShardLoom executes queries"
+description: "How the ShardLoom engine plans work, avoids unnecessary data movement, and reports execution."
+sidebar: {"label":"Query execution","order":3}
 ---
 
+SQL and DataFrame operations describe the work. Readers and writers handle
+formats. ShardLoom plans and executes the computation, within its
+[documented operation and type limits](/field-guide/limitations).
 
-ShardLoom is built toward general-purpose data processing: read data, transform or query it,
-and deliver the result. Python, SQL, DataFrame-style calls, and the CLI express work for one
-Vortex-native execution pipeline. The published local engine has
-[specific coverage limits](/field-guide/limitations).
+<span id="one-native-pipeline"></span>
 
-## One native pipeline
+## One engine
 
-**Input adapter → Vortex-native data → ShardLoom execution → output adapter**
+**Input formats → ShardLoom engine → Output formats**
 
-Choose the data source, query, and destination. Input adapters handle format differences;
-the shared engine plans and executes the work. Data already in Vortex preserves its native
-representation. Preparation and reuse are stages in the data lifecycle.
+Choose a source, query, and destination. The engine handles planning, execution,
+resource management, and result delivery across supported interfaces. Loading
+and reuse are stages in the [data lifecycle](/field-guide/execution-routes).
 
-Metadata-first planning, pruning, encoded execution, resource control, and late materialization
-belong inside this pipeline. The engine applies each mechanism where the operation and data
-permit it. There is no separate fast-mode workflow to select.
+ShardLoom uses Vortex's columnar representations, encodings, and file-format
+capabilities within its execution and storage architecture. Vortex is an
+upstream component with its own format and reader contracts. It does not create
+a second product or execution mode for users to select.
 
 ## Avoid work first
 
-The engine tries to answer from metadata, prune irrelevant segments, and compute against encoded
-values before decoding or materializing rows. A dictionary or repeated value can let an operator
-work on fewer values while preserving exact results.
+The engine tries to answer from metadata, skip irrelevant segments, and compute
+against encoded values before decoding or constructing rows. A dictionary or
+repeated value can let an operator process fewer values while preserving an
+exact answer.
 
-Zero-decode means an operation preserves encoded values. Zero-copy means a boundary avoids copying
-buffers. They describe different things, and neither applies to every operation. Execution evidence
-records where reading, decoding, and materialization occur.
+**Zero-decode** means an operation preserves encoded values. **Zero-copy** means
+a boundary avoids copying buffers. These are different properties, neither of
+which applies to every operation. Execution reports identify where reading,
+decoding, copying, and result conversion occurred when those observations are
+available.
 
 ## Broader workloads, the same engine
 
-The architecture supports extending formats, data types, operators, and connectors around the same
-native middle. Completing that support means making whole read → transform → write workflows
-compose and handling larger data with bounded streaming, shared resource accounting, and native
-spill. These are active engineering requirements, with remaining work tracked in the
+Formats, data types, operators, and connectors extend around the same engine.
+Completing support means composing whole read → transform → write workflows
+and handling larger data with bounded streaming, shared resource accounting,
+and engine-managed spill. Remaining work is tracked in the
 [breadth and scale plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-workflow-completion-2026-10-01.md).
 
-ClickBench is one regression and comparison workload. Its queries and schema do not define the
-product's intended scope. Shared optimizations must also work with other schemas and compositions.
+ClickBench is one regression and comparison workload. Its queries and schema do
+not define the product's scope. Shared optimizations must also work with other
+schemas and supported compositions.
 
-## No fallback
+<span id="no-fallback"></span>
 
-Unsupported plans return explicit diagnostics. ShardLoom does not delegate them to Spark,
-DataFusion, DuckDB, Polars, or another query engine.
+## Executed by ShardLoom
 
-Approved upstream Vortex array, compute, scan, source, and sink APIs can supply native operations
-inside ShardLoom's feature and policy boundaries. Vortex integrations with external query engines
-are not execution providers.
+Unsupported plans return explicit diagnostics. ShardLoom does not delegate
+execution to Spark, DataFusion, DuckDB, Polars, or another query engine.
+
+Approved upstream Vortex array, compute, scan, source, and sink APIs can provide
+operations within ShardLoom's feature, policy, and validation boundaries.
+Vortex integrations with external query engines are not execution providers.
 
 ## Inputs and outputs
 
-Compatibility inputs such as CSV or Parquet enter through explicit adapters. Vortex is the native
-middle and the highest-fidelity persistence target. Compatibility outputs translate results and
-report metadata loss; choosing an output format does not choose another execution engine.
+Supported CSV, Parquet, and other inputs enter through readers. Format conversion
+has real costs; using the same engine does not make all formats equally expensive
+to read or write.
 
-See [data lifecycle](/field-guide/execution-routes) for preparation and reuse, and
-[runtime and I/O](/field-guide/runtime-and-io) for supported formats and limits.
+Vortex is the highest-fidelity persistence target. Other output formats have
+explicit type and metadata limits. A Vortex file written by ShardLoom is a
+Vortex file; additional dataset metadata and any required reader extensions
+must be documented separately.
 
-## Execution evidence
+See [reading and writing data](/field-guide/runtime-and-io) for supported
+formats and limits.
 
-Admitted execution reports `fallback_attempted=false` and `external_engine_invoked=false`.
-Certificates describe the source, work, output, and materialization boundaries. Where
-included, sink digests and replay checks support result verification.
+<span id="execution-evidence"></span>
 
-`claim_gate_status` describes the scope of the evidence. A local smoke test, a capability report,
-and a reproducible benchmark answer different questions. A certificate alone does not establish
-production readiness or performance superiority.
+## Execution reports
 
-The [compute flow](/field-guide/compute-flow) illustrates how the pipeline adapts to a query.
-Read [benchmark methodology](/field-guide/benchmark-methodology) before comparing timings.
+Reports describe source identity, computation, result conversion, and output.
+They distinguish planned operations from performed work and retain exact
+diagnostic classifications. Available checks, such as output digests and
+reopened-result comparisons, support validation.
+
+The structured report preserves machine identifiers including
+`fallback_attempted=false` and `external_engine_invoked=false`. Detailed
+[report identifiers](/field-guide/reference#execution-report-identifiers)
+belong in the reference. A local execution report, capability listing, and
+reproducible benchmark each establish different facts.
+
+Follow the [query walkthroughs](/field-guide/compute-flow) to see how work varies
+with a query, and read [performance and benchmarks](/field-guide/benchmark-methodology)
+before comparing measurements.

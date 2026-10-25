@@ -119,9 +119,9 @@ fn completed_report_lanes_are_not_left_unchecked_in_global_review() {
 fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     let pyproject = read_repo_file("python/pyproject.toml");
     assert!(pyproject.contains("name = \"shardloom\""));
-    assert!(
-        pyproject.contains("Pre-release Python client for ShardLoom, a Vortex-first no-fallback evidence-certified local compute engine")
-    );
+    assert!(pyproject.contains(
+        "Python API for ShardLoom, a unified data processing engine (technical preview)."
+    ));
     for keyword in [
         "analytics",
         "columnar",
@@ -149,7 +149,7 @@ fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
     assert!(pyproject.contains("dependencies = []"));
 
     let readme = read_repo_file("python/README.md");
-    assert!(readme.contains("Vortex-native"));
+    assert!(readme.contains("Use SQL or lazy DataFrames in Python with the ShardLoom engine."));
     for required in [
         "https://shardloom.io/field-guide/",
         "https://shardloom.io/field-guide/reference",
@@ -169,7 +169,7 @@ fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
 fn cargo_metadata_marks_current_workspace_crates_internal() {
     let workspace = read_repo_file("Cargo.toml");
     for expected in [
-        "description = \"Pre-release Vortex-first no-fallback local compute engine",
+        "description = \"Unified data processing engine for SQL and DataFrame workflows (technical preview).\"",
         "homepage = \"https://shardloom.io\"",
         "documentation = \"https://github.com/depsilon/shardloom/tree/main/docs\"",
         "readme = \"README.md\"",
@@ -4121,7 +4121,7 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
     }
     for required in [
         "siteNav",
-        "ShardLoom is a published technical preview for local Vortex-native compute",
+        "ShardLoom is a unified data processing engine, available as a technical preview for supported local workflows.",
         "/assets/site.css",
         "Brand",
     ] {
@@ -4179,15 +4179,16 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
         "ShardLoom",
-        "MAKE<span class=\"luminous\">LESS WORK.</span>",
+        "ONE ENGINE.<span class=\"luminous\">MANY FORMATS.</span>",
         "The fastest work<br>is work you <span class=\"soft\">never do.</span>",
-        "Vortex isn't another format on a list.",
-        "Capillary<br>work units",
+        "Readers and writers connect your data to the ShardLoom engine.",
+        "Bounded<br>execution tasks",
         "PulseWeave",
-        "Single artifact / internal structure",
+        "Vortex file / internal structure",
         "No secret<br><span class=\"soft\">plan B.</span>",
-        "fallback_attempted",
-        "external_engine_invoked",
+        "Execution engine",
+        "External engines",
+        "Never used",
         "python -m pip install shardloom",
         "Interactive architectural illustrations, not runtime telemetry or benchmark claims.",
         "View on GitHub",
@@ -4205,9 +4206,9 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
         );
     }
     for required in [
-        "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
+        "ShardLoom is a unified data processing engine.",
         "Get started",
-        "Execution model",
+        "How ShardLoom executes queries",
         "Data lifecycle",
         "id=\"read-the-evidence\"",
         "/field-guide/reference",
@@ -4266,7 +4267,7 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
     for required in [
         "shardloom-compute-flow",
         "Explore a query example",
-        "One native pipeline",
+        "One engine",
         "Metadata count",
         "Ordered top-K",
         "Late payload gathering",
@@ -4436,13 +4437,13 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
 
     let website_index = read_repo_file("website/field-guide/index.html");
     for required in [
-        "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
+        "ShardLoom is a unified data processing engine.",
         "Get started",
         "Install and run",
         "Python",
-        "Benchmarks",
+        "Performance and benchmarks",
         "Support and limitations",
-        "Execution model",
+        "How ShardLoom executes queries",
         "Data lifecycle",
     ] {
         assert!(
@@ -4463,10 +4464,13 @@ fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
 
     let redirects = read_repo_file("website/_redirects");
     for (slug, destination) in [
-        ("prepared-vortex", "execution-routes#prepare-once"),
-        ("native-vortex", "execution-routes#native-vortex"),
+        ("prepared-vortex", "reference#execution-report-identifiers"),
+        ("native-vortex", "reference#execution-report-identifiers"),
         ("no-fallback", "execution-model#no-fallback"),
-        ("claim-gate-status", "execution-model#execution-evidence"),
+        (
+            "claim-gate-status",
+            "reference#execution-report-identifiers",
+        ),
     ] {
         assert!(redirects.contains(&format!(
             "/field-guide/{slug} /field-guide/{destination} 301"

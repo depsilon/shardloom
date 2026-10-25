@@ -10,7 +10,7 @@ import { sqlExample, expectedRows } from '../../../data/quickstart.mjs';
 <GuideVersion />
 
 SQL is a language for declaring ShardLoom work. It uses the same context resource
-policy, native execution and result delivery as DataFrame expressions.
+settings, ShardLoom execution, and result delivery as DataFrame expressions.
 
 ## Query a local file
 
@@ -22,7 +22,7 @@ This self-contained program creates the same fixture as the
 
 ## Statements and expressions
 
-The implemented SELECT-query subset includes admitted projections, filters,
+The implemented SELECT-query subset includes supported projections, filters,
 aggregates, grouping/HAVING, joins, ordering, sets, windows and subqueries.
 Literal SELECT, VALUES and generated-range inputs provide source-free forms.
 Each family has type and shape restrictions; this is not a claim of full SQL
@@ -33,7 +33,7 @@ inspection to check a particular expression; inspection is not query execution.
 The [published parser/binder reference](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/sql-parser-binder-readiness.md),
 [typed expression contract](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-typed-expressions-2026-10-03.md),
 and [scalar-subquery semantics](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/native-scalar-subqueries-2026-10-05.md)
-describe the admitted forms and deterministic rejections.
+describe supported forms and deterministic rejections.
 
 COUNT, SUM, AVG, MIN, MAX and exact COUNT DISTINCT retain their type/NULL
 semantics. Decimal arithmetic binds exact output metadata before execution.
@@ -42,7 +42,8 @@ ascending/descending ordering. Unsupported expressions fail without another engi
 
 ## Deliver the result
 
-The SQL plan supports collection, admitted batch iteration, and named writers.
+The SQL plan supports collection, supported batch iteration, and named writers.
 Use the [same result contract](/field-guide/python-surface#consume-results) as
-DataFrame plans. Parameters, identifiers and paths must follow the supported
-binding contract; the example interpolates only its own generated local path.
+DataFrame plans. The example interpolates only its own generated local path.
+Named value parameters and query-local DataFrame bindings are planned additions;
+they are not part of the current `ctx.sql(...)` signature.

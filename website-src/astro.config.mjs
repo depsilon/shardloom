@@ -12,7 +12,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "ShardLoom",
-      description: "Install ShardLoom, run local queries, and understand Vortex-native execution.",
+      description: "Install ShardLoom, use SQL and DataFrames, read and write data, and understand how the engine works.",
       favicon: "/assets/logo/shardloom-mark.svg",
       customCss: ["./src/styles/starlight.css"],
       components: {
@@ -57,7 +57,7 @@ export default defineConfig({
         {
           label: "Understand the engine",
           items: [
-            { slug: "field-guide/execution-model" },
+            { slug: "field-guide/execution-model", label: "Query execution" },
             { slug: "field-guide/compute-flow" },
             { slug: "field-guide/execution-routes" },
           ],
@@ -75,7 +75,7 @@ export default defineConfig({
             { slug: "field-guide/limitations" },
             { slug: "field-guide/troubleshooting" },
             { slug: "field-guide/development" },
-            { slug: "field-guide/benchmark-methodology" },
+            { slug: "field-guide/benchmark-methodology", label: "Performance and benchmarks" },
           ],
         },
         {

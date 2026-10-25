@@ -12,10 +12,10 @@ import GuideVersion from '../../../components/GuideVersion.astro';
 | [Python and DataFrames](/field-guide/python-surface) | Context, lazy plans, result schema/values, batches, reuse and conversions. |
 | [SQL](/field-guide/sql) | Statements, expressions, NULL/type semantics and installed-engine inspection. |
 | [CLI](/field-guide/cli) | Running, preparing and inspecting work with stable JSON envelopes. |
-| [Operations, types and formats](/field-guide/runtime-and-io) | Supported input and output boundaries and fidelity. |
-| [Resources](/field-guide/resources) | Explicit grants, parallelism, spill, lifetime and cancellation. |
+| [Reading and writing data](/field-guide/runtime-and-io) | Supported input and output boundaries and fidelity. |
+| [Memory and parallelism](/field-guide/resources) | Memory reservations, parallelism, spill, lifetime, and cancellation. |
 | [Errors and troubleshooting](/field-guide/troubleshooting) | Stable diagnostics and recovery actions. |
-| [Native/Rust integration](/field-guide/embedding) | Typed embedding and retained-owner contracts. |
+| [Embedding ShardLoom](/field-guide/embedding) | Typed embedding and retained-owner contracts. |
 
 The [source API index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md)
 and [machine-readable inventory](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.json)
@@ -24,3 +24,34 @@ their revision and audience; they do not redefine this release's availability.
 For the installed engine, `shardloom command-metadata --format json` exposes its
 machine-readable command inventory, and `shardloom help COMMAND` describes a
 specific command without executing it.
+
+## Execution report identifiers
+
+Ordinary usage describes data, queries, and results. Structured reports retain
+more specific identifiers for applications and diagnostic tools:
+
+| Identifier | What it identifies |
+| --- | --- |
+| `SourceState` | Source identity, schema, fingerprint, reader status, and related validation details. |
+| `VortexPreparedState` | Prepared source data and the state needed to execute against its Vortex representation. |
+| `prepared_vortex` | Execution from prepared Vortex state; it does not mean arbitrary source files were queried without import. |
+| `native_vortex` | Execution from existing Vortex input or supported retained Vortex state. |
+| `compatibility_import_certified` | An import and validation classification with its documented source, write, reopen, execution, and result checks. |
+| `public_workflow_preparation_included` | Preparation included in the plan; this field alone does not prove that preparation occurred or was reused. |
+| `claim_gate_status` | The scope of an evidence record; successful local execution does not establish production readiness or a comparative performance claim. |
+| `fallback_attempted`, `external_engine_invoked` | Explicit execution-policy facts. Their being false does not, on its own, establish that the requested query completed. |
+
+These labels are not a menu of faster and slower product modes. Source loading
+and query preparation are distinct stages; see the [data lifecycle](/field-guide/execution-routes).
+The [technical taxonomy](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md)
+defines the full internal contracts. Existing API class names, diagnostic codes,
+JSON field names, and historical benchmark records retain their exact meanings.
+
+## Read an error
+
+Use the diagnostic's problem description and `suggested_next_step` to decide
+what to correct. Keep its `code`, `severity`, and `category` for programmatic
+handling. Diagnostics may include a more specific `reason` and feature identity.
+A warning can accompany an error; do not assume the first diagnostic is the
+cause of failure. The [troubleshooting guide](/field-guide/troubleshooting)
+lists recovery actions for common failures.

@@ -1749,11 +1749,11 @@ fn command_description(command: &str) -> &'static str {
         "help" => "Show command help",
         "command-metadata" => "Inspect command metadata or generate completion",
         "status" => "Show engine status",
-        "run" => "Execute a declared workload",
-        "prepare" => "Prepare input as native Vortex",
-        "route" => "Inspect a workload declaration",
-        "vortex-prepare" => "Prepare a local file as native Vortex",
-        "input-adapters" => "List input adapters",
+        "run" => "Execute a query or data workflow",
+        "prepare" => "Load or reuse source data in a Vortex file",
+        "route" => "Inspect how a query or data workflow would run",
+        "vortex-prepare" => "Load a local input into a Vortex file",
+        "input-adapters" => "Inspect input formats and reader availability",
         "input-plan" => "Inspect input requirements",
         "capabilities" => "Inspect installed capabilities",
         "doctor" => "Check installation/configuration",
@@ -1766,10 +1766,11 @@ fn command_description(command: &str) -> &'static str {
 
 fn command_help_text(command_name: &str, descriptor: CommandDescriptor) -> String {
     format!(
-        "command: {}\naudience: {}\nusage: {command_name} {} [--format text|json]\nfamily: {}\nsupport_state: {}\nside_effect_level: {}\nfeature_gate_status: {}\ninput_contract: {}\noutput_contract: {}\nowning_phase_item: {}\nevidence_fields: {COMMAND_EVIDENCE_FIELDS}\nclaim_boundary: {CLAIM_BOUNDARY}\nfallback_boundary: {FALLBACK_BOUNDARY}",
+        "{}\n\nusage: {command_name} {} [--format text|json]\n\nCommand details:\ncommand: {}\naudience: {}\nfamily: {}\nsupport_state: {}\nside_effect_level: {}\nfeature_gate_status: {}\ninput_contract: {}\noutput_contract: {}\nowning_phase_item: {}\nevidence_fields: {COMMAND_EVIDENCE_FIELDS}\nclaim_boundary: {CLAIM_BOUNDARY}\nfallback_boundary: {FALLBACK_BOUNDARY}",
+        command_description(descriptor.command),
+        descriptor.usage_fragment(),
         descriptor.command,
         descriptor.audience(),
-        descriptor.usage_fragment(),
         descriptor.family(),
         descriptor.support_state(),
         descriptor.side_effect_level(),
@@ -2120,6 +2121,7 @@ mod tests {
     fn help_text_is_registry_backed_and_command_specific() {
         let descriptor = lookup("vortex-prepare").expect("registered command");
         let help = command_help_text("shardloom", descriptor);
+        assert!(help.starts_with("Load a local input into a Vortex file\n\nusage:"));
         assert!(
             help.contains("usage: shardloom vortex-prepare <local-source-path> <target.vortex>")
         );

@@ -100,7 +100,7 @@ REQUIRED_DRY_RUN_TRUE_FIELDS = (
 
 PYPROJECT_REQUIRED_MARKERS = (
     'name = "shardloom"',
-    "Pre-release Python client",
+    "Python API for ShardLoom, a unified data processing engine (technical preview).",
     '"Development Status :: 2 - Pre-Alpha"',
     'license = "Apache-2.0"',
     'requires-python = ">=3.10"',
@@ -108,7 +108,7 @@ PYPROJECT_REQUIRED_MARKERS = (
 
 PKG_INFO_REQUIRED_MARKERS = (
     "Name: shardloom",
-    "Summary: Pre-release Python client",
+    "Summary: Python API for ShardLoom, a unified data processing engine (technical preview).",
     "Classifier: Development Status :: 2 - Pre-Alpha",
     "License-Expression: Apache-2.0",
     "https://shardloom.io/field-guide/limitations",

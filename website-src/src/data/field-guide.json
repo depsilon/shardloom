@@ -4,7 +4,7 @@
     "title": "What is ShardLoom?",
     "category": "Start Here",
     "status": "runtime_supported",
-    "summary": "A published technical-preview engine for local Vortex-native compute, reusable preparation, and explicit no-fallback execution.",
+    "summary": "A unified data processing engine for SQL and DataFrame workflows, with familiar interfaces and supported input and output formats.",
     "route": "overview",
     "evidence_fields": [
       "claim_gate_status",
@@ -96,7 +96,7 @@
       "docs/getting-started/certified-local-workload.md",
       "docs/benchmarks/local-taxonomy-benchmark.md"
     ],
-    "redirect": "/field-guide/execution-routes#cold-and-warm-runs"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "internal-local-source-smoke",
@@ -187,7 +187,7 @@
       "docs/architecture/universal-input-contract.md",
       "docs/use-cases/use-case-index.yml"
     ],
-    "redirect": "/field-guide/execution-routes#source-admission"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "source-adapter-status",
@@ -299,7 +299,7 @@
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
     ],
-    "redirect": "/field-guide/execution-routes#prepare-once"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "prepared-state-reuse",
@@ -343,7 +343,7 @@
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/benchmarks/local-taxonomy-benchmark.md"
     ],
-    "redirect": "/field-guide/execution-routes#prepare-once"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "native-vortex",
@@ -365,7 +365,7 @@
       "docs/architecture/compute-engine-flow-reference.md",
       "benchmarks/traditional_analytics/README.md"
     ],
-    "redirect": "/field-guide/execution-routes#native-vortex"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "source-backed-scan",
@@ -410,7 +410,7 @@
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
     ],
-    "redirect": "/field-guide/execution-model#execution-evidence"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "native-io-certificate",
@@ -436,7 +436,7 @@
       "docs/getting-started/certified-local-workload.md",
       "docs/use-cases/use-case-index.yml"
     ],
-    "redirect": "/field-guide/execution-model#execution-evidence"
+    "redirect": "/field-guide/reference#execution-report-identifiers"
   },
   {
     "slug": "materialization-boundary",

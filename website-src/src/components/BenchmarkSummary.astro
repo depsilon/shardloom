@@ -6,9 +6,23 @@ if (evidence.full43_calls !== 43 || !Number.isFinite(seconds) || seconds <= 0 ||
   throw new Error("Benchmark summary requires complete, non-comparative Full43 evidence");
 }
 ---
-<p><strong>{seconds.toFixed(3)} s Full43 engine time</strong> in the recorded October 18, 2026
-  development run: {evidence.full43_calls} queries, one execution each, with
-  complete values and schemas verified. This is one regression observation,
-  not a matched speedup or a measurement of the published package.</p>
+<p><strong>ShardLoom: {seconds.toFixed(3)} seconds</strong> of engine execution across the {evidence.full43_calls}-query
+  ClickBench workload, one execution per query, recorded on
+  October 18, 2026. The source Parquet data had already been loaded into Vortex;
+  loading was separate, and operating-system cache state was not controlled.</p>
+<p>Complete values and schemas were verified. This development-build observation is
+  not an official ClickBench cold or warm score, a comparative speedup, or a
+  measurement of the published package. The evidence retains loading and storage details.</p>
+<details>
+  <summary>Recorded configuration</summary>
+  <dl>
+    <dt>System and interface</dt><dd>ShardLoom, SQL through the CLI.</dd>
+    <dt>Hardware and operating system</dt><dd>macOS 27 ARM64; 10 logical CPUs and 16 GiB physical memory.</dd>
+    <dt>Resources</dt><dd>24 GiB query memory allocation and maximum parallelism 12. The allocation is not a whole-process memory ceiling.</dd>
+    <dt>Source and stored data</dt><dd>99,997,497 rows imported from Parquet into Vortex before the query pass; 15,713,610,513 bytes of stored Vortex data.</dd>
+    <dt>Build</dt><dd>Development revision {evidence.source_commit.slice(0, 12)}, with the Vortex 0.85.0 provider used by that recorded build.</dd>
+    <dt>Measurement</dt><dd>One execution of each of 43 queries. Engine execution time; loading, separate validation, and report generation excluded. Operating-system cache uncontrolled.</dd>
+  </dl>
+</details>
 <p>Source <a href={`https://github.com/depsilon/shardloom/tree/${evidence.source_commit}`}><code>{evidence.source_commit.slice(0, 12)}</code></a> ·
   <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md">method, complete results and reproducible evidence</a>.</p>

@@ -37,10 +37,10 @@ about:
   license_file:
     - LICENSE
     - THIRDPARTY.yml
-  summary: Standalone ShardLoom CLI for Vortex-native no-fallback local compute.
+  summary: ShardLoom command-line interface for local data processing.
   description: |
-    Platform-specific ShardLoom CLI binary package for evidence-certified local
-    Vortex workflows. This package is not a fallback engine wrapper and does
+    Platform-specific ShardLoom CLI binary package for supported local queries
+    and data workflows. This package is not a fallback engine wrapper and does
     not depend on Spark, DataFusion, DuckDB, Polars, pandas, Dask, or Velox for
     runtime execution.
   doc_url: https://github.com/depsilon/shardloom/tree/main/docs

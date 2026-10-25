@@ -243,6 +243,13 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "no_fallback_policy",
     ),
     (
+        "shardloom executes supported requests and rejects unsupported ones with actionable",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "unsupported work returns an actionable diagnostic without external execution",
+        "no_fallback_policy",
+    ),
+    (
         "unsupported work is never delegated to pandas",
         "policy_rejected",
         "not_applicable_policy_diagnostic",

@@ -365,13 +365,42 @@ impl Diagnostic {
 
     #[must_use]
     pub fn to_human_text(&self) -> String {
-        format!(
-            "[{severity}] {code} ({category}): {message}",
-            severity = self.severity.as_str(),
-            code = self.code.as_str(),
-            category = self.category.as_str(),
-            message = self.message
-        )
+        // These constructor summaries classify a problem; their reason holds
+        // the actual input/configuration error. Keep the structured fields intact.
+        let message = if matches!(
+            self.message.as_str(),
+            "Invalid input provided." | "Configuration error."
+        ) {
+            self.reason
+                .as_deref()
+                .filter(|reason| !reason.trim().is_empty())
+                .unwrap_or(&self.message)
+        } else {
+            &self.message
+        };
+        self.human_text_with_message(message)
+    }
+
+    pub(crate) fn human_text_with_message(&self, message: &str) -> String {
+        let mut lines = vec![message.to_string()];
+        if let Some(reason) = self.reason.as_deref()
+            && !reason.trim().is_empty()
+            && reason != message
+        {
+            lines.push(reason.to_string());
+        }
+        if let Some(next_step) = self.suggested_next_step.as_deref()
+            && !next_step.trim().is_empty()
+        {
+            lines.push(format!("Next step: {next_step}"));
+        }
+        lines.push(format!(
+            "Diagnostic: {} ({}; {})",
+            self.code.as_str(),
+            self.severity.as_str(),
+            self.category.as_str(),
+        ));
+        lines.join("\n")
     }
 
     #[must_use]
@@ -440,6 +469,38 @@ mod tests {
         let text = diagnostic.to_human_text();
         assert!(text.contains("SL_NO_FALLBACK_EXECUTION"));
         assert!(text.contains("No fallback will be attempted."));
+    }
+
+    #[test]
+    fn human_text_leads_with_specific_problem_and_recovery_without_mutating_fields() {
+        let diagnostic = Diagnostic::invalid_input(
+            "source_generation",
+            "The input file changed after it was opened.",
+            "Reopen the source before running another query.",
+        );
+        let original_json = diagnostic.to_json();
+        assert_eq!(
+            diagnostic.to_human_text(),
+            "The input file changed after it was opened.\nNext step: Reopen the source before running another query.\nDiagnostic: SL_INVALID_INPUT (error; invalid_input)"
+        );
+        assert_eq!(diagnostic.message, "Invalid input provided.");
+        assert_eq!(diagnostic.to_json(), original_json);
+        assert!(!diagnostic.fallback.attempted);
+    }
+
+    #[test]
+    fn human_text_keeps_specific_messages_and_does_not_invent_recovery() {
+        let diagnostic = Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedSql,
+            "example_expression",
+            "This expression is not supported for the requested types.",
+            None,
+        );
+        let text = diagnostic.to_human_text();
+        assert!(text.starts_with("This expression is not supported for the requested types."));
+        assert!(text.contains(diagnostic.reason.as_deref().unwrap()));
+        assert!(text.ends_with("Diagnostic: SL_UNSUPPORTED_SQL (error; unsupported_feature)"));
+        assert!(!text.contains("Next step:"));
     }
 
     #[test]

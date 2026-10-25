@@ -8,16 +8,17 @@ establishes one public DataFrame concept, documented as lazy, and one ordinary
 keeping newly proposed composition/catalog/parameter capabilities explicitly
 pending until their implementation immediately after ingestion.
 
-Status: accepted October 24 maintainer direction, queued after
-[user-surface execution parity](native-user-surface-execution-parity-2026-10-24.md)
-and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
-then [warm source reuse](native-warm-source-reuse-2026-10-24.md), before
-[full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md),
-then the [connected programming model](native-connected-programming-model-2026-10-24.md),
-then [universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
-then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
-This records the naming decision and implementation scope; public copy and
-interfaces have not yet been changed by this handoff. RFCs 0010/0012, the
+Status: implemented and locally validated October 25; PR integration remains
+pending. The coordinated pass follows accepted
+[user-surface work](native-user-surface-execution-parity-2026-10-24.md),
+[provider refresh](native-vortex-provider-refresh-2026-10-24.md) and the finite
+[warm-source decision](native-warm-source-reuse-2026-10-24.md).
+[Full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md)
+is next after integration, followed by the
+[connected programming model](native-connected-programming-model-2026-10-24.md),
+[universal I/O](native-universal-io-performance-coverage-2026-10-24.md) and
+[rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
+RFCs 0010/0012, the
 [canonical terminology](canonical-terminology.md) and existing workflow,
 resource, no-fallback and Vortex input/output contracts govern the pass.
 CG-1 through CG-23 remain independent evidence gates.
@@ -147,7 +148,8 @@ presentation mapping where needed.
 
 ## Source-grounded implementation inventory
 
-The October 24 source review confirms these current targets:
+The October 24 source review identified these targets, now addressed by the
+October 25 pass:
 
 - [README](../../README.md): substrate-led opening, runtime badge and
   differentiators including "One Vortex-native middle", artifact intelligence,
@@ -195,4 +197,67 @@ public behavior or contract; run required workspace/native checks when runtime
 code changes. A source terminology scan is a completeness aid, not proof that
 every remaining technical occurrence should be removed. No benchmark rerun is
 needed solely for presentation changes. Publishing packages or creating releases
-is outside this queued pass.
+is outside this pass.
+
+## October 25 local acceptance
+
+README, package descriptions, the website and field guide now lead with
+**ShardLoom — a unified data processing engine**. Navigation teaches user
+tasks, interfaces, formats and resources; architecture pages retain Vortex
+credit, fidelity limits and subsystem explanations. The lifecycle guide
+separates lazy reads, explicit loading, query preparation, execution and result
+consumption. Detailed route/state names have moved to the reference dictionary.
+Benchmark presentation uses **ShardLoom**, with setup and measurement boundaries
+beside the numbers. Historical benchmark packets and observations are unchanged.
+
+CLI workflow reports derive their input, preparation, execution and output
+labels from existing observations. Plans, missing facts and contradictory
+completion flags cannot establish completed work; requested output becomes
+reported output only with completion evidence. Handler-specific values remain
+in the detailed text. Rust diagnostics and Python command exceptions lead with
+the error and recovery step, followed by the stable code and classification.
+Warnings cannot conceal the primary error. JSON identifiers, diagnostic
+categories, fallback facts and schemas remain unchanged; `human_text` is the
+intentional presentation change.
+
+The compatibility inventory deliberately retains callable names, signatures,
+exports, stubs and CLI command identifiers. Python context/query changes are
+docstrings only, verified by comparing syntax trees with docstrings removed.
+The generated user-surface reference is refreshed and checked. Consolidating
+SQL/DataFrame wrappers belongs to the subsequent connected-programming item;
+the guide marks proposed capabilities as pending. Dependency and package
+versions are unchanged.
+
+Validation on the final implementation:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --all -- --check` | Pass |
+| `cargo clippy --offline --locked --workspace --all-targets -- -D warnings` | Pass |
+| `cargo test --offline --locked --workspace --all-targets` | 3,256 passed; zero failed or ignored |
+| CLI library/binary, preparation, public-memory, workflow-route and resident-worker tests with `release-user-surfaces` | 1,117 passed; zero failed or ignored |
+| Strict native CLI/Vortex lint and fresh CLI build | Pass |
+| Full Python discovery | 790 tests; 26 existing opt-in/environment skips; no failures |
+| Focused human Python errors | Six passed |
+| Generated API reference, Python exports, API/schema stability and public status checks | Pass |
+| Website check/build | 29 checked Astro files with zero diagnostics; seven search-policy tests and 20 built pages |
+| Website links, readiness and static assets | Ten link tests and both validators pass |
+| Fresh CLI observations | Help, side-effect-free plan, first preparation, reused preparation, complete count result, committed ORC output and invalid-input diagnostic verified |
+| Maintained paid-orders quickstart | Three tests pass without skips against the retained accepted 0.7.0 provider wheel, including native and process transports |
+
+The retained-wheel run validates the unchanged example, not newly rebuilt
+Python bindings. The default Python skips are not represented as native
+integration coverage. Desktop/mobile rendered review covers navigation,
+search, diagnostic anchors, keyboard tabs, motion control and 31 interactive
+caption states, with no horizontal overflow. Reduced-motion handling was
+inspected in source but not emulated in the browser.
+
+Local receipts and complete logs are retained under
+`/Users/dylan/LocalData/shardloom/public-naming-20261025`, including source/log
+hash verification, screenshots and the CLI observations. Earlier failed copy
+assertions and the corrected smoke-harness exit-code expectation remain
+recorded. A standalone release-boundary invocation fails on pre-existing
+generated package metadata and absent release-rehearsal/channel reports; that
+complete release pipeline remains a CI check, not local release acceptance.
+No benchmark is rerun for the naming change. This acceptance neither
+closes CG-1 through CG-23 nor publishes a package or release.

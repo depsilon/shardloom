@@ -1,28 +1,30 @@
 ---
-title: "Operations, types and formats"
-description: "Choose an input or writer and understand its exact type and publication boundary."
-sidebar: {label: "Reading and writing"}
+title: "Reading and writing data"
+description: "Choose readers and writers, and understand supported operations, types, and metadata."
+sidebar: {label: "Reading and writing data"}
 ---
 
 import GuideVersion from '../../../components/GuideVersion.astro';
 
 <GuideVersion />
 
-Python, SQL and the CLI describe work for the same native engine. File formats
-are readers and writers around that engine. Start with the
+SQL and DataFrame operations in Python, and queries from the CLI, use the same
+ShardLoom engine. Readers and writers connect file formats to that engine. Start with the
 [write-and-reopen example](/field-guide/start-local-proof#write-and-reopen).
 
-## Native execution
+<span id="native-execution"></span>
 
-Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, ordering,
-joins, sets, windows and subqueries use native operators. Exact metadata,
+## Supported operations
+
+Supported filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, ordering,
+joins, sets, windows and subqueries execute in ShardLoom. Exact metadata,
 segment pruning and encoded kernels avoid work where the data and expression
 permit it. Coverage depends on types and options, not just an operator's name.
 
 | Task | Scope and semantic detail |
 | --- | --- |
 | Filter, project, group, join, order | Shared typed binding and NULL semantics. SQL `NULLS FIRST`/`NULLS LAST` and Python `sort(..., nulls="first"/"last")` place nulls independently of ascending order. |
-| DISTINCT, duplicate selection/masks, tail, sampling, replacement, melt, rolling | Admitted scalar and static nested shapes compose with relational stages. Sampling weights, casts, rolling aggregates and nested arithmetic have operation-specific restrictions. |
+| DISTINCT, duplicate selection/masks, tail, sampling, replacement, melt, rolling | Supported scalar and static nested shapes compose with relational stages. Sampling weights, casts, rolling aggregates and nested arithmetic have operation-specific restrictions. |
 | Pivot and pivot table | Output columns bind from observed values during execution. `pivot()` and `pivot_table(aggfunc="first")` use first-unique semantics and reject conflicting cells; SQL's explicit first selects the first row, including NULL. |
 | Nested keys | List, FixedSizeList and Struct keys require matching recursive schemas, field names/order, widths and logical metadata, except nullability. |
 | Typed expressions | Explicit casts, scoped binary/calendar functions and exact decimal arithmetic. Decimal key precision/scale must match; explicit downscaling requires zero discarded digits. |
@@ -50,27 +52,27 @@ their matching features. Network and catalog protocols are not implicit readers.
 
 | Boundary | Formats or types | Practical restriction |
 | --- | --- | --- |
-| Native files | Vortex | Highest-fidelity input and persistence; file/schema validation still applies. |
-| Text input | CSV, JSON, JSONL/NDJSON | Parsing and schema rules apply; compatibility input prepares a native representation. |
+| Vortex files | Vortex | Highest-fidelity input and persistence; file/schema validation still applies. |
+| Text input | CSV, JSON, JSONL/NDJSON | Parsing and schema rules apply; source loading prepares a Vortex representation. |
 | Columnar/structured files | Parquet, Arrow IPC/Feather, Avro, ORC | The file's schema must be representable by the adapter. |
 | Typed memory | Exact-width integers, finite Float32/64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free microsecond timestamps | Use explicit schemas for rich types; Decimal128 precision is 1–38 and scale is 0–precision. |
 | Nested values | Static List, FixedSizeList and ordered Struct | Recursive field and child-buffer admission applies. General Variant/extension types and nested arithmetic are not implied. |
 
 ## Write results
 
-Choose `write_vortex` for native persistence. The same plan can use
+Choose `write_vortex` to retain the most information in a Vortex file. The same plan can use
 `write_parquet`, `write_arrow_ipc`, `write_avro`, `write_orc`, `write_csv`,
 `write_json` or `write_jsonl` when its schema is representable. Complete writers
-can deliver admitted results larger than small-result collection using native
+can deliver supported results larger than small-result collection using columnar
 batches; they do not require a Python row tuple.
 
 | Writer | Fidelity boundary |
 | --- | --- |
-| Vortex | Preserves admitted native arrays, dtype and validity; derives output statistics from the actual result. |
+| Vortex | Preserves supported Vortex arrays, data types, and validity; derives output statistics from the actual result. |
 | Parquet, Arrow IPC, Avro | Preserve representable logical schemas; exact adapter restrictions apply. |
-| JSON and JSONL | Use explicit encodings for binary, decimal and temporal values; native metadata is not preserved. |
-| CSV | Nested values become quoted JSON text cells; logical dtype and native metadata are not preserved. |
-| ORC | Rejects nested, decimal and temporal output; admitted binary/scalar types retain their writer contract. |
+| JSON and JSONL | Use explicit encodings for binary, decimal and temporal values; Vortex-specific metadata is not preserved. |
+| CSV | Nested values become quoted JSON text cells; logical data types and Vortex-specific metadata are not preserved. |
+| ORC | Rejects nested, decimal and temporal output; supported binary/scalar types retain their writer contract. |
 
 Use a new destination. Do not assume overwrite or atomic publication across
 multiple files. A failed write must not be reported as a completed output; retain
@@ -82,14 +84,14 @@ and [current limitations](/field-guide/limitations#known-issues).
 
 Prepared files are reused only after identity checks. Saved results can be
 reopened by another process; result statistics describe the result's values,
-not metadata blindly copied from the old source. Native in-process results keep
-their array owners and credits through admitted chaining and output.
-See [keeping results native](/field-guide/python-surface#keep-results-native) and
+not metadata blindly copied from the old source. In-process results retain
+engine-owned arrays and memory reservations through supported chaining and output.
+See [reusing columnar results](/field-guide/python-surface#keep-results-native) and
 the [data lifecycle](/field-guide/execution-routes).
 
 ## Resources and recovery
 
 Memory, parallelism and authorized spill are caller policies. Follow
-[resources and cancellation](/field-guide/resources) for allocation, lifetime,
+[memory and parallelism](/field-guide/resources) for allocation, lifetime,
 spill ownership and failure handling. Adding a writer or batch interface does
 not make all operator state spillable or bound the whole Python process.

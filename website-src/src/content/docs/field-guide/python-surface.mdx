@@ -1,6 +1,6 @@
 ---
-title: "Work with data in Python"
-description: "Configure a context, build a plan, consume results, and reuse native data."
+title: "Python and DataFrames"
+description: "Use lazy DataFrames and SQL through one context, then collect, iterate, or write the result."
 sidebar: {label: "Python and DataFrames"}
 ---
 
@@ -9,7 +9,8 @@ import GuideVersion from '../../../components/GuideVersion.astro';
 <GuideVersion />
 
 Use `sl.context(...)` to configure your execution resources and backend, then
-declare inputs and build a SQL or DataFrame plan. Start with the complete,
+declare inputs and describe SQL or DataFrame work. DataFrames are lazy: building
+operations does not execute the query. Start with the complete,
 copyable [paid-orders example](/field-guide/start-local-proof).
 
 ## Run a local query
@@ -34,13 +35,13 @@ not a query execution backend. Resource validation happens before data access.
 
 | Intent | Published 0.7.0 operation | Result |
 | --- | --- | --- |
-| Collect a small complete result | `plan.collect()` | `Result` with data and execution details; retained native owner when using native transport. |
+| Collect a small complete result | `plan.collect()` | `Result` with data and execution details; engine-owned columnar data when using native transport. |
 | Read schema | `result.schema` | Ordered names and logical types, including empty results. |
 | Convert to Python values | `result.to_rows()` | Complete tuple of row mappings; allocates Python objects explicitly. |
 | Export columnar data | `result.to_arrow()` | Arrow table; requires optional PyArrow and may convert encoded buffers. |
 | Export to pandas or NumPy | `result.to_pandas()`, `result.to_numpy()` | Explicit optional integration with its documented type conversion. |
-| Deliver larger admitted results | `plan.iter_batches()` or a writer | Bounded delivery rather than an arbitrary-sized Python tuple. |
-| Inspect execution | `result.details` | Typed execution envelope with diagnostics, source identity and native execution evidence. |
+| Deliver larger supported results | `plan.iter_batches()` or a writer | Bounded delivery rather than an arbitrary-sized Python tuple. |
+| Inspect execution | `result.details` | Typed execution envelope with diagnostics, source identity and execution details. |
 
 Small computed-result collection is limited to **65,536 rows and 8 MiB** in this
 release. `result_rows` is the wire-oriented row representation; `to_rows()`
@@ -64,25 +65,27 @@ with plan.iter_batches(batch_rows=1024) as batches:
     assert batches.report is not None
 ```
 
-Here `plan` is an admitted native or typed-input plan and `consume` is your own
-batch consumer. Prepare compatibility files to Vortex before
+Here `plan` is a supported Vortex or typed-input plan and `consume` is your own
+batch consumer. Load other file inputs into Vortex before
 batch consumption. Python batch pipes require Linux or macOS; the Windows
 CLI-backed package supports collection and writers instead. A batch is provisional until the input is fully drained and
 the final report succeeds: a later producer error invalidates completion.
 Closing early cancels delivery and does not certify unobserved input.
 
-Use `ctx.from_batches(producer, schema=..., streaming=True)` for admitted finite
+Use `ctx.from_batches(producer, schema=..., streaming=True)` for supported finite
 streaming producers. The subprocess protocol uses at most 2,048 row mappings and
-8 MiB per frame. Native columnar intake and output preserve admitted array owners;
+8 MiB per frame. In-process columnar intake and output preserve supported array owners;
 process transport serializes buffers. Operator state and consumer retention have
 separate memory obligations. See [resources and cancellation](/field-guide/resources).
 
 ## Reuse and export
 
-Preparation reuses a native artifact only while its source, schema, and artifact
-identities still match. Each query has fresh execution state. Reuse is not a cache
-of query answers. `ctx.prepare(...)` and `ctx.session(...)` expose advanced reuse
-and preparation controls; ordinary reads use the same preparation machinery.
+Source preparation can reuse a loaded data file while its source, schema, and
+file identities still match. Each execution computes a fresh answer.
+`ctx.prepare(...)` prepares source data, while `ctx.session(...)` exposes advanced
+session and reuse controls. Ordinary reads use the same preparation machinery
+when execution requires it. See the [data lifecycle](/field-guide/execution-routes)
+for the distinction between loading data and preparing a query.
 
 The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
 `write_vortex` followed by `read_vortex`. Other named writers are
@@ -90,19 +93,21 @@ The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
 `write_json`, and `write_jsonl`. Read their
 [fidelity and publication limits](/field-guide/runtime-and-io#write-results).
 
-## Keep results native
+<span id="keep-results-native"></span>
+
+## Reuse columnar results
 
 On Linux/macOS native installations, contexts select native transport by default
 unless an explicit CLI configuration selects process execution. A collected
-result retains its native owner. Pass it to `ctx.from_result(result)` for
-subsequent native work without an Arrow export.
-Same-owner admission shares ownership; cross-owner transfer may copy encoded
-buffers under the receiving allocation. Do not convert to rows merely to chain work.
+result retains engine-owned columnar data. Pass it to `ctx.from_result(result)`
+for subsequent supported work without an Arrow export.
+Reuse under the same owner shares the data; transfer to another owner may copy
+encoded buffers under the receiving memory allocation. Do not convert to rows merely to chain work.
 
 `ctx.from_vortex_ipc(array_message, dtype_message=...)` accepts complete immutable
 messages for the pinned provider within a combined 64 MiB intake limit. Its
 [encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
-lists the accepted schemas and encodings. Native file inputs use `read_vortex`.
+lists the accepted schemas and encodings. For Vortex files, use `read_vortex`.
 
 Use `with sl.context(...) as ctx:` or call `ctx.close()` when finished. Completed
 native results keep their independent owner after the context closes.
@@ -112,7 +117,7 @@ Closing or cancelling active work has distinct semantics; see
 ## Next steps
 
 - [SQL](/field-guide/sql) uses the same context and result semantics.
-- [Resources](/field-guide/resources) covers grants, spill and cancellation.
+- [Memory and parallelism](/field-guide/resources) covers reservations, spill, and cancellation.
 - [Reference](/field-guide/reference) links application APIs and diagnostics.
 - [Embedding](/field-guide/embedding) covers typed native and Rust integration.
 - [Capabilities and known issues](/field-guide/limitations) identify version limits.

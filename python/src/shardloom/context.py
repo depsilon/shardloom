@@ -10332,7 +10332,7 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
-        """Run an admitted public workflow through the shared route facade."""
+        """Execute a supported query or data workflow with the ShardLoom engine."""
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
@@ -10369,7 +10369,10 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
-        """Prepare an admitted public workflow input through the shared route facade."""
+        """Load or reuse source data in a Vortex file for subsequent execution.
+
+        This prepares source data; it does not prepare or execute a query.
+        """
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
@@ -11344,7 +11347,7 @@ class ShardLoomContext:
         *,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy CSV compatibility source using this context's client."""
+        """Declare a lazy CSV source using this context's execution settings."""
 
         return read_csv(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
@@ -11354,7 +11357,7 @@ class ShardLoomContext:
         *,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy JSON/NDJSON compatibility source using this context's client."""
+        """Declare a lazy JSON/NDJSON source using this context's execution settings."""
 
         return read_json(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
@@ -11364,7 +11367,7 @@ class ShardLoomContext:
         *,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy Parquet compatibility source using this context's client."""
+        """Declare a lazy Parquet source using this context's execution settings."""
 
         return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
@@ -11374,7 +11377,7 @@ class ShardLoomContext:
         *,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy Arrow IPC compatibility source using this context's client."""
+        """Declare a lazy Arrow IPC source using this context's execution settings."""
 
         return read_arrow_ipc(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
@@ -11384,7 +11387,7 @@ class ShardLoomContext:
         *,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy Avro compatibility source using this context's client."""
+        """Declare a lazy Avro source using this context's execution settings."""
 
         return read_avro(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
@@ -11394,7 +11397,7 @@ class ShardLoomContext:
         *,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy ORC compatibility source using this context's client."""
+        """Declare a lazy ORC source using this context's execution settings."""
 
         return read_orc(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
@@ -11413,7 +11416,7 @@ class ShardLoomContext:
         reuse: bool = True,
         check: bool = True,
     ) -> VortexIngestSmokeReport:
-        """Prepare one local compatibility input to a caller-selected Vortex artifact."""
+        """Load a local input file into a Vortex file at the selected destination."""
 
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,

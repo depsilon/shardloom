@@ -1,6 +1,6 @@
 ---
 title: "Install and query your first data"
-description: "Install ShardLoom, select resources, return paid orders, and write a native Vortex file."
+description: "Install ShardLoom, set memory and parallelism, query paid orders, and write a Vortex file."
 sidebar: {label: "Install and run"}
 ---
 
@@ -73,7 +73,7 @@ input and resources and returns the same complete values shown above.
 
 <Code code={snippets.sql} lang="python" />
 
-SQL and DataFrame expressions describe work for ShardLoom's native execution.
+SQL and DataFrame expressions describe work for the same ShardLoom engine.
 Supported statements and expressions are listed in the [SQL reference](/field-guide/sql).
 
 ## Write and reopen
@@ -93,7 +93,7 @@ have explicit type and fidelity contracts. Cleanup removes this example's tempor
   <code>result.details</code> contains the typed execution envelope;
   <code>result.fallback_attempted</code> and <code>result.external_engine_invoked</code>
   are false. Inspection does not rerun the query.</p>
-  <p>See <a href="/field-guide/execution-model#execution-evidence">execution evidence</a>
+  <p>See <a href="/field-guide/execution-model#execution-evidence">execution reports</a>
   and <a href={release.evidenceUrl}>published artifact verification</a>.</p>
 </details>
 
