@@ -37,6 +37,16 @@ allocation provenance moves behind this ownership correction. Selective
 first-use input belongs to universal I/O and is not a prerequisite for the
 full-ingest work.
 
+The October 25 [warm-source implementation](native-warm-source-reuse-2026-10-24.md#final-finite-decision)
+reduces actual file opens but fails its frozen benefit/control gates and is
+removed. Its fixed-width dictionary hook records no insertions or hits in the
+measured workload. FSST compressor/symbol state, ALP-RD dictionary storage and
+variable-width scalar/statistics owners remain outside its proved allocation
+boundary. Carry those exact provenance gaps into this package before proposing
+a materially different retention design; do not re-enable the rejected cache
+or presume that an encoding ID proves full ownership. Public naming still
+precedes this package.
+
 ## Current source and provider boundary
 
 - [`ingest_arrow_ownership.rs`](../../shardloom-vortex/src/ingest_arrow_ownership.rs)

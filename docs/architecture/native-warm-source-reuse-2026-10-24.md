@@ -2,7 +2,132 @@
 
 # Warm execution and reusable native source state
 
-Status: accepted October 24 maintainer handoff, queued after
+Status: implemented, measured, rejected and removed on October 25. The finite
+pre-ingestion investigation is complete. Both the 93-call baseline and the
+93-call candidate pass complete independent results and exact schemas. Only
+one of four physical families passes the frozen benefit gate, and one first-use
+control fails. No experimental cache, provider hook, reclamation API,
+diagnostic-field change or candidate test remains in the runtime.
+
+The [portable packet](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/manifest.json)
+preserves both cohorts, the earlier 129-call characterization, validation
+failures and repairs, the final candidate patch, exact removal receipt and
+build/input identities. Its
+[replay tool](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/verify_packet.py)
+checks saved values and scores without executing a query or archived code.
+Public naming is next. The existing ingestion ownership package owns the
+remaining allocation-provenance prerequisite; broader source reuse is not
+declared complete. CG-1 through CG-23 remain independent.
+
+## Final finite decision
+
+The candidate uses the accepted Vortex 0.90.0 provider and the same
+99,997,497-row input generation. Each revision runs 49 isolated process groups:
+three fresh-process samples per selected query, three same-plan calls, three
+equivalent-new-plan calls and four related-query triples. Queries are Q1,
+Q19, Q17, Q23, Q28, Q29, Q34, Q35 and Q20. All 93 calls complete fresh native
+execution and export all result rows. Every group closes with zero reserved
+memory. Other task-owned jobs remain idle during execution. Input hashing
+precedes queries; OS cache is uncontrolled and no cache reset occurs.
+
+Before candidate execution, the protocol freezes physical families, equal
+query weighting, medians, controls and attribution. Warm samples pool calls
+two and three from same-plan and equivalent-new-plan groups. Each query's
+reduction is `1 - candidate_median / baseline_median`; a family uses the median
+of its query reductions. Related samples use calls two and three of the related
+groups. Acceptance requires at least 5% benefit in two distinct nonmetadata
+families, including related-query benefit in one of those same families, with
+observed source-work reduction.
+
+These percentages describe the frozen **complete-call diagnostic** gate.
+They are not engine times, Full43 scores or statistical-significance claims.
+Positive values mean a reduction; negative values mean an increase.
+
+| Physical family | Warm reduction | Related-query reduction | Warm gate |
+| --- | ---: | ---: | --- |
+| String heavy-hitter/top-k, Q19/Q23/Q34/Q35 | 2.06% | 8.57% | Fail |
+| Numeric/UTF-8 heavy-hitter/top-k, Q17 | -3.15% | 1.61% | Fail |
+| Transformed dictionary aggregate, Q28/Q29 | -2.11% | 2.06% | Fail |
+| Selective integer projection, Q20 | 14.30% | 13.16% | Pass |
+
+Controls allow an increase of at most the larger of 10% and 100 microseconds.
+Q28's fresh-process median increases 18.52% and fails; the other 18 controls
+pass. This fails the predeclared criterion without establishing the cause of
+variation. No observations are discarded, gates relaxed or unchanged candidate
+rerun.
+
+Equivalent-new-plan source opens fall from 27 to 9 and related-query opens
+from 12 to 4. Same-plan and fresh-process counts remain 9 and 27 respectively.
+Total opens fall from 75 to 49 while both revisions complete 93 executions.
+The candidate records **zero dictionary insertions and zero dictionary hits**
+in this workload. Fixture tests prove eligible numeric-domain reuse, not its
+activation in these measured queries. Baseline dictionary counters were absent
+and remain unavailable, not zero.
+
+**Reject and remove the candidate.** Correct answers and fewer opens do not
+override failed benefit/control gates. Broader variable-width retention is
+deferred until complete backing-allocation and metadata ownership can be
+proved in the ingestion package. It is not an accepted cache waiting to be
+enabled. The agreed stopping rule closes this finite implementation attempt
+and preserves the next public-naming item before ingestion.
+
+## Verification and restoration
+
+The final candidate passes strict native workspace linting, a matched release
+CLI/library build, 107 focused resident-session tests (seven existing opt-in
+tests ignored), all 53 targeted cases that failed the earlier broad run, and
+142 installed-wheel integration tests without skips. Coverage includes changed
+generation/schema/dictionary, pressure/shrink, churn, cancellation, incomplete
+publication, concurrent consumers, independent statistics, optional admission
+refusal and surviving results. License/provenance checks cover all three
+changed vendor crates. Earlier compile, lint and broad-test failures remain
+recorded. The final candidate does not rerun the full native suite or advance
+to public-workflow, fresh-ingest or Full43 acceptance after its failed gates.
+Focused correctness is not broad acceptance.
+
+The compact patch reconstructs all 63 changed/added files against
+`82d9732eb7652671a01b0f223cf62c63f01ffe47`; every reconstructed hash is checked
+through a private Git index. Removal restores 58 tracked implementation, test,
+vendor and license files byte-for-byte and removes exactly four added source
+files. This design document remains for the final update. The restored runtime
+is identical to merged provider PR #1601 at
+`3c3e2f14d8fe1b517fa53472a544d76452f6395a`. Unrelated user work is untouched.
+
+After restoration, `cargo fmt --all -- --check`,
+`cargo clippy --offline --locked --workspace --all-targets -- -D warnings`
+and `cargo test --offline --locked --workspace --all-targets` all pass.
+The default suite reports 3,246 passed, zero failed and zero ignored. Source
+identities remain unchanged through these checks. The package-license check
+also passes against the restored vendor tree. Portable replay checks all 315
+saved executions and 3,285 complete rows, 19 validation receipts, exact source
+restoration and ten deliberately corrupted evidence cases. It does not rerun
+query execution or reinterpret the candidate's failed acceptance decision.
+
+## Earlier accepted-runtime characterization
+
+Before implementation, the separately requested adjacent-triple profile runs
+43 queries three times on the accepted provider runtime: one fresh session per
+query and three newly constructed plans. All 129 executions, 1,143 result rows
+and schemas pass; all 43 sessions release memory. It records 129 source opens,
+so it does not demonstrate cross-plan source reuse.
+
+The engine totals are **50.525565878 seconds** for first-use calls and
+**46.299759122 seconds** for the selected later calls. Selection follows the
+frozen client-response rule: select the faster second or third call per query
+and take the engine time from that same call. This is a sum of selected calls,
+not one contiguous run, a true-cold result or a candidate speedup. All clocks
+and all three observations remain together. These earlier numbers must not
+be attributed to the rejected implementation. The accepted ordinary single-pass
+Full43 remains **49.625514041 engine seconds**. No new whole-engine performance
+or competitive claim follows.
+
+## Original handoff and measured candidate design
+
+The remaining sections preserve the accepted scope and the design that was
+actually implemented and measured. Present-tense candidate descriptions below
+describe that archived implementation, not functionality remaining in the tree.
+
+Original status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and the subsequent [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 before [full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md),
@@ -89,6 +214,75 @@ established by this review.
   rejected codec-preparation mechanism also remains rejected.
 
 ## First package: useful ordinary context lifetime
+
+### October 25 implementation candidate
+
+The maintainer explicitly asks to implement and finish this package after the
+first characterization; the baseline alone does not close it. The candidate
+shares validated file preparation across independent plans in one native owner.
+It retains the held generation, footer, parsed layout children and metadata,
+without storing a prepared plan or a runtime back-pointer in the optional cache.
+Eight recent file owners bound source churn. New plans may reopen a changed
+generation; already prepared plans keep their existing deterministic invalidation.
+
+The selected V1 extension retains only complete, unfiltered numeric/Boolean
+dictionary value domains from the admitted native file provider. It uses an exact live layout
+allocation inside one file-generation owner, retaining that allocation with the
+entry to prevent address reuse. It keeps the existing native backing owners;
+there is no copied serialized representation or payload revalidation. Checked
+metadata construction preserves the existing value/slot invariants. Each
+source's optional table has at most 64 entries. Once full, new domains are
+declined until reclamation; a long sequential scan cannot replace the entire
+working set before the next scan reaches it. A logical-size
+hint and current reserved-memory headroom restrict retention; logical sizes do
+not replace the real backing-allocation credits. The table and bounded array
+metadata have their own credits and are released on pressure, including when an
+active plan retains the source. Optional control reservations happen after the
+required source has opened; refusal leaves the ordinary execution path available.
+
+Every operation constructs fresh readers, expression-evaluation caches, masks,
+selections, array statistics and result state. A private source template preserves
+only statistics present before query evaluation. A cache hit shares payload
+buffers and builds separately admitted metadata for that call; query-computed
+statistics cannot reach the template or the next call. Full dictionary source
+domains can be reused by different predicates and measures. Canonicalization failures, expression results,
+query answers and pending reads are ineligible. A retained file has an unbound
+segment source: only an admitted operation may supply a cancellable I/O owner.
+Ordinary source replacement clears provider reader context; ShardLoom reattaches
+it only within the validated generation boundary. V2 remains unselected.
+
+The memory pool offers bounded weak reclamation hooks. It drops optional
+references before a reservation is refused and before reducing a configurable
+grant. Live consumers retain their own credits and remain valid. Reclamation
+does not wait for consumers, replay a query or revoke an active owner. Session
+close disables further retention and releases optional state without destroying
+completed results. No new source-size limit or external execution path is added.
+
+Vortex-first provider decision: wrap the existing `VortexFile`,
+`LayoutReaderContext`, `DictReader` and native allocation owners. The existing
+`with_segment_source` reset is preserved because it owns cancellation and I/O
+cleanup. File/source opens and dictionary hits are observable independently of
+completed executions. The candidate still requires focused lifecycle tests,
+independent complete-result comparisons, the frozen benefit/control gates and
+broad integration checks; implementation and counters are not acceptance or a
+performance claim.
+
+Reports distinguish actual provider opens (`resident_source_opens` and Python's
+`prepared_source_opens`) from cumulative source preparations, which include
+validated source-cache reuse. The existing Boolean that observed new plan
+preparation is named `resident_source_preparation_performed_this_call`; it no
+longer claims a physical footer open. Dictionary hits and cumulative insertions
+are separate from completed query executions and the current retained-file
+count. This deliberate report-field correction updates the existing consumers;
+historical evidence retains its original schema and meaning.
+
+The acceptance review excludes ALP-RD's separately reconstructed dictionary,
+FSST's padded symbol/compressor state, variable-width scalar/statistics owners,
+unknown encodings and mutable evaluation wrappers from this candidate. Their
+allocation provenance is not established merely by a native encoding ID.
+Variable-width and broader source representation retention remain conditional
+on the ingestion ownership package. The candidate neither copies a serialized
+cache representation nor relaxes external-input validation.
 
 Trace and validate three distinct patterns in one ordinary context:
 

@@ -1,0 +1,122 @@
+{
+  "status": "passed",
+  "scope": "saved complete values, schemas, fresh completion, original gates, source restoration and validation; no engine execution",
+  "packet_identity": {
+    "manifest_sha256": "27fb7734f7d2c7c5df46cbd781f96156ab504432b6e24017c27d9fdc2b6e8902",
+    "verifier_sha256": "95f79b52ad59c55cfa848f96fa3e1ded44cd7bd0905c17e6a031eb2c79e94e5a",
+    "archive_sha256": "e8fff54c7e470ffc82ccfde9da40355b90e204bb9b8dbaf8f38410bfdf57a911"
+  },
+  "baseline": {
+    "calls": 93,
+    "groups": 49,
+    "complete_rows": 1071,
+    "actual_source_opens": 75,
+    "dictionary_hits": null,
+    "dictionary_insertions": null
+  },
+  "candidate": {
+    "calls": 93,
+    "groups": 49,
+    "complete_rows": 1071,
+    "actual_source_opens": 49,
+    "dictionary_hits": 0,
+    "dictionary_insertions": 0
+  },
+  "decision": {
+    "status": "rejected_by_frozen_gates",
+    "qualifying_families": [
+      "selective_integer_projection"
+    ],
+    "failed_controls": [
+      {
+        "query": 28,
+        "mode": "fresh"
+      }
+    ]
+  },
+  "earlier_accepted_runtime_triplets": {
+    "queries": 43,
+    "calls": 129,
+    "complete_rows": 1143,
+    "actual_source_opens": 129,
+    "first_use_engine_seconds": 50.525565878,
+    "selected_later_engine_seconds": 46.299759122
+  },
+  "sources": {
+    "preserved_files": 63,
+    "restored_files": 58,
+    "removed_files": 4,
+    "current_runtime_files_checked": 2139,
+    "candidate_reconstructed": true
+  },
+  "validation": {
+    "receipts": 19,
+    "failed_history": [
+      "warm-native-clippy-r1",
+      "warm-native-clippy-r2",
+      "warm-native-tests-r1",
+      "warm-native-tests-r2",
+      "warm-native-tests-r3",
+      "warm-session-tests-r1",
+      "warm-session-tests-r2",
+      "warm-session-tests-r3",
+      "warm-session-tests-r5"
+    ],
+    "candidate_focused_tests": 107,
+    "candidate_regression_tests": 53,
+    "installed_tests": 142,
+    "restored_default_tests": 3246
+  },
+  "corruption_controls": [
+    {
+      "case": "missing_call",
+      "rejected": true,
+      "reason": "ordered call coverage differs"
+    },
+    {
+      "case": "duplicate_call",
+      "rejected": true,
+      "reason": "ordered call coverage differs"
+    },
+    {
+      "case": "wrong_value",
+      "rejected": true,
+      "reason": "independent complete values differ"
+    },
+    {
+      "case": "wrong_schema",
+      "rejected": true,
+      "reason": "invalid native result schema: a native dtype must contain one variant"
+    },
+    {
+      "case": "no_execution",
+      "rejected": true,
+      "reason": "each call must complete exactly one fresh execution"
+    },
+    {
+      "case": "wrong_open",
+      "rejected": true,
+      "reason": "source open counter differs"
+    },
+    {
+      "case": "wrong_engine",
+      "rejected": true,
+      "reason": "native report engine clock differs"
+    },
+    {
+      "case": "retained_memory",
+      "rejected": true,
+      "reason": "retained state after close"
+    },
+    {
+      "case": "forged_acceptance",
+      "rejected": true,
+      "reason": "saved gate outcome differs"
+    },
+    {
+      "case": "changed_frozen_rule",
+      "rejected": true,
+      "reason": "frozen scoring rule changed"
+    }
+  ]
+}

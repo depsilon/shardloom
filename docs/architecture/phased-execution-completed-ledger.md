@@ -17,6 +17,51 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Finite warm-source reuse investigation` — the
+  [October 25 decision](native-warm-source-reuse-2026-10-24.md#final-finite-decision)
+  closes the implemented source-owner candidate under its original gates.
+  Both 93-call cohorts pass complete independent results and exact schemas.
+  Source opens fall from 75 to 49, but only one of four families passes the
+  benefit gate and Q28 fails a first-use control. The candidate is rejected
+  and every runtime/provider/report change is removed.
+  - [x] Strict native lint, 107 focused ownership/lifecycle tests, 53 repaired
+    regression cases and 142 installed-wheel tests pass. Earlier broad-test
+    failures remain preserved; final broad candidate acceptance is not claimed.
+  - [x] The compact patch reconstructs all 63 candidate files. Removal restores
+    58 tracked files and removes four additions. The resulting runtime matches
+    provider merge `3c3e2f14`; formatting, strict default lint and all 3,246
+    default workspace tests pass after restoration.
+  - [x] The [portable packet](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/README.md)
+    preserves both cohorts, the earlier 129-call accepted-runtime profile,
+    all validation failures and 19 final/history receipts. Replay checks 315
+    complete executions, 3,285 rows and ten corruption controls without
+    executing engine queries. Earlier accepted-runtime timings are not
+    candidate gains or ordinary single-pass Full43.
+  - Broader variable-width reuse remains dependent on the existing ingestion
+    allocation-provenance item. Public naming is next. The finite investigation
+    closes without an accepted cache, new benchmark claim, CG-gate closure or
+    package publication.
+
+- [x] `Controlled Vortex provider refresh` — [PR #1601](https://github.com/depsilon/shardloom/pull/1601)
+  merges at `3c3e2f14d8fe1b517fa53472a544d76452f6395a` after all 44 checks pass.
+  The [acceptance](native-vortex-provider-refresh-2026-10-24.md) records Vortex
+  0.90.0, one Arrow/Parquet 59.3.1 graph and ORC 0.9.0, with eight bounded
+  patches retaining semantic and allocation obligations.
+  - Native/default tests, strict lint, formatting, all-feature/minimal and
+    Rust 1.96.0 checks pass. The installed wheel passes 140 native integration
+    tests without skips; public r2 passes 5,930 cases across 39 families.
+  - Recovered modular proof covers 1,408 records across 18 cohorts. Fresh
+    ingest produces 99,997,497 rows. One isolated Full43 executes all 43 queries
+    once and validates all 381 independent rows at **49.625514041 engine
+    seconds**. This establishes no causal speedup over earlier observations.
+  - Portable replay preserves failures and interruptions and rejects eight
+    corruption controls. Verified retirement removes completed generated
+    artifacts while preserving current inputs, accepted output/runtime and
+    compact results. No runtime fallback or package publication is introduced.
+  - The [consolidated dependency follow-up](dependency-intake-2026-10-25.md)
+    retains new bot proposals #1598/#1599/#1600/#1602 in the active queue after
+    closure; it does not claim their unapplied updates are validated.
+
 - [x] `Native user-surface correction and correctness acceptance` — the
   [October 24 acceptance](../benchmarks/native-surface-parity-2026-10-24.md)
   binds the final source patch above `16ff752d` to matched CLI/library builds.
