@@ -50,5 +50,15 @@ assembly observations, without changing engine or test results.
 
 Separate runs with uncontrolled host/cache state establish no causal speedup.
 The Mac package proof does not establish Linux ABI compatibility or authorize
-publication. Clean-checkout verification and generated-file retirement are
-recorded separately at closeout.
+publication.
+
+The [clean-checkout proof](clean-checkout.json) replays the same packet at
+`a6e8293a` with isolated Python imports and no checkout changes; all 2,858
+build-relevant files match the tested runtime. The [cleanup receipt](cleanup.json)
+and exact [compressed inventory](cleanup-inventory.json.gz) record retirement
+of 7,702 generated regular files and three environment links after closed-handle
+checks. This includes superseded runtime/wheel copies, the byte-identical prior
+Vortex artifact, completed package environments and the verification checkout.
+All 497 retired raw log copies are preserved byte-for-byte in the packet.
+The original Parquet, latest Vortex output, final combined CLI/library and
+installed-tested wheel remain. No payload backup or storage-limit change occurs.

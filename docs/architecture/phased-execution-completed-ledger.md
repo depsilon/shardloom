@@ -36,7 +36,11 @@ phase plan first.
     speedup follows from these separate passes.
   - The [portable packet](../benchmarks/evidence/native-ingest-ownership-2026-10-25/README.md)
     replays 735 evidence files and rejects 21 corruption controls without
-    native execution. Earlier failures and the failed ingestion gate remain.
+    native execution. Clean-checkout replay at `a6e8293a` preserves the tree
+    and all 2,858 runtime source identities. Verified retirement removes
+    7,702 generated regular files and three environment links; current data,
+    combined runtime/wheel and complete compact results remain. Earlier
+    failures and the failed ingestion gate remain.
     GitHub integration is pending; package publication and CG gates remain
     independent. The active plan owns the following work-elimination package.
 

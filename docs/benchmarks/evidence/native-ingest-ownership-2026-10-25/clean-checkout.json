@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "source_commit": "a6e8293a934b6ac9871b9394ea8129727d8dbc3f",
+  "runtime_source_commit": "23807cb70e13ba2981140a895798e9aff99fb9da",
+  "checkout": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/clean-checkout-r1",
+  "shared_git_objects": true,
+  "clean_before_and_after": true,
+  "isolated_python_imports": true,
+  "runtime_source_files_unchanged": 2858,
+  "packet_files": {
+    "manifest.json": {
+      "bytes": 314707,
+      "sha256": "e9d940b3c098f8194c1bfb10628b5adf41181336b693498f657cb3b282c7092c"
+    },
+    "evidence.tar.xz": {
+      "bytes": 3345108,
+      "sha256": "e8a42ab2bfe9748ef8635e1b99764ae4d7df3c476968ea7876cb9da04e23ea93"
+    },
+    "verify.py": {
+      "bytes": 45515,
+      "sha256": "c019525e4098febca4a334bc623f8a7482e7c33c88469b2b8b8f0b935c6c2f55"
+    },
+    "replay.json": {
+      "bytes": 2833,
+      "sha256": "380acccb9c0c42e774d5eea8516ff340c7f0350de2393cad5dc161b5f94697c6"
+    }
+  },
+  "replay_matches_recorded_result": true,
+  "archived_files": 735,
+  "corruption_controls_rejected": 21,
+  "native_execution_performed": false
+}
