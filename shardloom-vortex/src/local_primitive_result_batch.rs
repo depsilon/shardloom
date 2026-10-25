@@ -9,17 +9,17 @@ use std::borrow::Cow;
 use shardloom_core::{Result, ShardLoomError, StatValue};
 use vortex::{
     array::{
-        ArrayRef, IntoArray as _,
+        ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{DecimalArray, ExtensionArray, PrimitiveArray, StructArray, VarBinArray},
         dtype::{DType, DecimalDType, FieldNames, PType},
-        memory::{HostAllocatorRef, WritableHostBuffer},
+        memory::{HostAllocatorRef, HostMemorySessionExt as _, WritableHostBuffer},
         validity::Validity,
     },
     buffer::{Alignment, BitBuffer, Buffer, ByteBuffer},
 };
 
 use super::vortex_error;
-use crate::owned_buffers::bool_array_with_retained_buffer;
+use crate::owned_buffers::{bool_array_with_retained_buffer, retain_empty_array_credit};
 
 #[path = "local_primitive_variant_result.rs"]
 mod variant;
@@ -624,7 +624,7 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
         }
     }
     let validity = validity
-        .map(|buffer| finish_validity(buffer.freeze(), retained))
+        .map(|buffer| finish_validity(buffer.freeze(), retained, allocator))
         .transpose()?
         .unwrap_or(Validity::NonNullable);
     if (if PREFIX { observed_text_end } else { text_end }) != text_bytes
@@ -640,12 +640,21 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
         data.freeze(),
         validity,
         text_data.map(WritableHostBuffer::freeze),
+        allocator,
     )
 }
 
-fn finish_validity(buffer: ByteBuffer, rows: usize) -> Result<Validity> {
-    bool_array_with_retained_buffer(BitBuffer::new(buffer, rows), Validity::NonNullable)
-        .map(|array| Validity::Array(array.into_array()))
+fn finish_validity(
+    buffer: ByteBuffer,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+) -> Result<Validity> {
+    let array =
+        bool_array_with_retained_buffer(BitBuffer::new(buffer, rows), Validity::NonNullable)
+            .map_err(vortex_error)?
+            .into_array();
+    retain_empty_array_credit(array, allocator)
+        .map(Validity::Array)
         .map_err(vortex_error)
 }
 
@@ -655,8 +664,9 @@ fn finish_column(
     data: ByteBuffer,
     validity: Validity,
     variable: Option<ByteBuffer>,
+    allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
-    match dtype {
+    let array = match dtype {
         DType::Bool(_) => bool_array_with_retained_buffer(BitBuffer::new(data, rows), validity)
             .map(vortex::array::IntoArray::into_array)
             .map_err(vortex_error),
@@ -668,12 +678,16 @@ fn finish_column(
         }
         DType::Extension(extension) => ExtensionArray::try_new(
             extension.clone(),
-            primitive(
-                crate::native_payload_schema::temporal_storage(dtype)
-                    .ok_or_else(|| failed("unsupported temporal output dtype"))?,
-                data,
-                validity,
-            )?,
+            retain_empty_array_credit(
+                primitive(
+                    crate::native_payload_schema::temporal_storage(dtype)
+                        .ok_or_else(|| failed("unsupported temporal output dtype"))?,
+                    data,
+                    validity,
+                )?,
+                allocator,
+            )
+            .map_err(vortex_error)?,
         )
         .map(vortex::array::IntoArray::into_array)
         .map_err(vortex_error),
@@ -683,11 +697,15 @@ fn finish_column(
             variable.expect("variable buffer allocated"),
             dtype.clone(),
             validity,
+            &mut vortex::array::array_session()
+                .with_host_allocator(allocator.clone())
+                .create_execution_ctx(),
         )
         .map(vortex::array::IntoArray::into_array)
         .map_err(vortex_error),
         _ => Err(failed("output dtype changed during construction")),
-    }
+    }?;
+    retain_empty_array_credit(array, allocator).map_err(vortex_error)
 }
 
 #[allow(clippy::cast_possible_truncation)]

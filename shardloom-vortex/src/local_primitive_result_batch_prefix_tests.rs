@@ -2,10 +2,8 @@ use super::*;
 use crate::resident_session::ResidentVortexSession;
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::{
-    VortexSessionExecute as _,
     dtype::Nullability,
     extension::datetime::{Date, TimeUnit, Timestamp},
-    memory::MemorySessionExt as _,
 };
 
 #[test]
@@ -77,7 +75,7 @@ fn native_result_prefix_matches_complete_values_and_visitation_for_every_flat_fa
     let memory = session.memory().clone();
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
-            let allocator = context.native_session().allocator();
+            let allocator = context.native_session().host_allocator();
             for (dtype, values) in cases {
                 let empty = build_column_prefix(&dtype, 0, 0, &allocator, |_| unreachable!())?;
                 assert!(empty.is_empty());
@@ -145,7 +143,7 @@ fn native_result_prefix_preserves_discarded_value_errors_and_releases_buffers() 
     let memory = session.memory().clone();
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
-            let allocator = context.native_session().allocator();
+            let allocator = context.native_session().host_allocator();
             for (dtype, invalid) in cases {
                 let complete =
                     build_column(&dtype, 1, &allocator, |_| Ok(invalid.clone())).unwrap_err();

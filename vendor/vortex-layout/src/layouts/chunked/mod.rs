@@ -14,7 +14,7 @@ use vortex_array::EmptyMetadata;
 use vortex_array::dtype::DType;
 use vortex_array::memory::HostAllocatorRef;
 use vortex_array::memory::HostMemoryReservation;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -95,7 +95,7 @@ impl VTable for Chunked {
         args: &LayoutDeserializeArgs<'_>,
         _metadata: &EmptyMetadata,
     ) -> VortexResult<Self::LayoutData> {
-        let chunk_offsets = chunk_offsets(args.children, Some(args.session.allocator()))?;
+        let chunk_offsets = chunk_offsets(args.children, Some(args.session.host_allocator()))?;
         if chunk_offsets.last().copied() != Some(args.row_count) {
             vortex_bail!("Chunked child row counts do not add up to parent row count");
         }
@@ -163,7 +163,7 @@ impl Layout<Chunked> {
         children: Arc<dyn LayoutChildren>,
         session: &VortexSession,
     ) -> VortexResult<Self> {
-        let offsets = chunk_offsets(children.as_ref(), Some(session.allocator()))?;
+        let offsets = chunk_offsets(children.as_ref(), Some(session.host_allocator()))?;
         if offsets.last().copied() != Some(row_count) {
             vortex_bail!("Chunked child row counts do not add up to parent row count");
         }

@@ -16,21 +16,22 @@ use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
-        Array, ArrayParts, ArrayRef, IntoArray as _, VTable,
-        arrays::{Constant, ConstantArray, SharedArray, Slice, SliceArray},
+        Array, ArrayDeserialization, ArrayParts, ArrayRef, ArraySlots, IntoArray as _, VTable,
+        arrays::{Constant, ConstantArray, Slice, SliceArray},
         buffer::BufferHandle,
         dtype::DType,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         serde::ArrayChildren,
         session::ArraySessionExt as _,
     },
     buffer::{Buffer, ByteBuffer},
     encodings::{
         alp::{ALP, ALPRD, ALPRDArrayExt as _, ALPRDData},
-        fastlanes::BitPacked,
+        fastlanes::{BitPacked, FoR},
         sparse::{Sparse, SparseData, SparseExt as _},
     },
     error::{VortexResult, vortex_err},
+    layout::arrays::shared::Shared,
 };
 
 #[path = "resident_memory_encoded_values.rs"]
@@ -117,7 +118,7 @@ impl Plan {
             "vortex.shared" => Kind::Shared,
             "vortex.alprd" => Kind::AlpRd,
             "vortex.zstd" => Kind::Zstd,
-            "vortex.alp" | "fastlanes.bitpacked" => Kind::Parts,
+            "vortex.alp" | "fastlanes.bitpacked.v2" | "fastlanes.for.v2" => Kind::Parts,
             "vortex.null"
             | "vortex.bool"
             | "vortex.primitive"
@@ -136,7 +137,6 @@ impl Plan {
             | "vortex.zigzag"
             | "vortex.fsst"
             | "vortex.bytebool"
-            | "fastlanes.for"
             | "fastlanes.rle"
             | "fastlanes.delta"
             | "vortex.masked" => Kind::Serialized,
@@ -313,7 +313,7 @@ fn buffer_identity(input: &ByteBuffer) -> (usize, usize, usize) {
     (
         input.as_slice().as_ptr() as usize,
         input.len(),
-        *input.alignment(),
+        input.alignment().as_usize(),
     )
 }
 
@@ -424,7 +424,7 @@ impl Copier<'_, '_> {
         let mut output = self
             .context
             .native_session()
-            .allocator()
+            .host_allocator()
             .allocate(input.len(), input.alignment())
             .map_err(native_error)?;
         for (source, destination) in input
@@ -476,7 +476,13 @@ impl Copier<'_, '_> {
                 let data = SparseData::try_new_from_patches(sparse.patches(), fill)
                     .map_err(native_error)?;
                 finish_parts(
-                    ArrayParts::new(Sparse, dtype.clone(), input.len(), data),
+                    ArrayParts::new(
+                        Sparse,
+                        dtype.clone(),
+                        input.len(),
+                        data,
+                        ArraySlots::default(),
+                    ),
                     dtype,
                     input,
                     children,
@@ -495,7 +501,13 @@ impl Copier<'_, '_> {
                     alprd.left_parts_patches(),
                 );
                 finish_parts(
-                    ArrayParts::new(ALPRD, dtype.clone(), input.len(), data),
+                    ArrayParts::new(
+                        ALPRD,
+                        dtype.clone(),
+                        input.len(),
+                        data,
+                        ArraySlots::default(),
+                    ),
                     dtype,
                     input,
                     children,
@@ -516,8 +528,8 @@ impl Copier<'_, '_> {
                     .cloned()
                     .ok_or_else(|| memory_error("native shared transfer omitted its child"))?;
                 // Source caches can own foreign canonical arrays or errors.
-                // Retain the copied encoded child with a fresh receiving cache.
-                SharedArray::new(child).into_array()
+                // Preserve the copied child with a fresh receiving cache.
+                Shared::new(child).into_array()
             }
             Kind::Serialized | Kind::Parts | Kind::Zstd => {
                 let (output, buffer_bytes) = self.copy_buffered_node(node, dtype, children)?;
@@ -562,7 +574,7 @@ impl Copier<'_, '_> {
             let parts = vortex_zstd::Zstd::with_buffers_in(
                 input.as_::<vortex_zstd::Zstd>(),
                 &buffers,
-                &self.context.native_session().allocator(),
+                &self.context.native_session().host_allocator(),
             )
             .map_err(native_error)?;
             finish_parts(parts, dtype, input, children)?
@@ -572,6 +584,11 @@ impl Copier<'_, '_> {
             if input.is::<ALP>() {
                 let parts = ALP
                     .with_buffers(input.as_::<ALP>(), &buffers)
+                    .map_err(native_error)?;
+                finish_parts(parts, dtype, input, children)?
+            } else if input.is::<FoR>() {
+                let parts = FoR
+                    .with_buffers(input.as_::<FoR>(), &buffers)
                     .map_err(native_error)?;
                 finish_parts(parts, dtype, input, children)?
             } else {
@@ -588,24 +605,51 @@ impl Copier<'_, '_> {
                 .registry()
                 .get(&input.encoding_id())
                 .ok_or_else(|| memory_error("native transfer provider is not registered"))?;
-            let metadata = plugin
+            let serialized = plugin
                 .serialize(input, self.context.native_session())
                 .map_err(native_error)?
                 .ok_or_else(|| {
                     memory_error("admitted native transfer provider omitted serialization")
                 })?;
-            if metadata.capacity() as u64 > node.metadata_limit {
+            if serialized.metadata.capacity() as u64 > node.metadata_limit {
                 return Err(memory_error(
                     "native transfer metadata exceeded its pinned provider bound",
                 ));
             }
+            // A wire serializer may replace or reorder physical parts in 0.90.
+            // This transfer preserves the admitted physical graph; never pair
+            // rewritten metadata with copied buffers from a different graph.
+            if serialized.buffers.len() != source_buffers.len()
+                || serialized
+                    .buffers
+                    .iter()
+                    .zip(&source_buffers)
+                    .any(|(wire, source)| {
+                        source
+                            .as_host_opt()
+                            .is_none_or(|host| buffer_identity(wire) != buffer_identity(host))
+                    })
+                || serialized.children.len() != input.nchildren()
+                || serialized
+                    .children
+                    .iter()
+                    .zip(input.children_iter())
+                    .any(|(wire, source)| !ArrayRef::ptr_eq(wire, source))
+            {
+                return Err(memory_error(
+                    "native transfer serializer changed the physical graph",
+                ));
+            }
             plugin
                 .deserialize(
-                    &dtype,
-                    input.len(),
-                    &metadata,
-                    &buffers,
-                    &CheckedChildren(&children),
+                    ArrayDeserialization::new(
+                        serialized.serialized_id,
+                        &dtype,
+                        input.len(),
+                        &serialized.metadata,
+                        &buffers,
+                        &CheckedChildren(&children),
+                    ),
                     self.context.native_session(),
                 )
                 .map_err(native_error)?

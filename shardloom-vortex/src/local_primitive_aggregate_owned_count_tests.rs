@@ -271,7 +271,7 @@ fn owned_count_finalizer_visits_actual_compact_and_general_states_without_json()
                 &array,
                 &[KEY.into(), COUNT.into()],
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap(),

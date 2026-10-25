@@ -30,12 +30,12 @@ fn encoded_transfer_zstd_metadata_uses_receiving_credit_and_releases_the_source(
         let producer = ResidentVortexSession::new(64 << 20, 1).unwrap();
         let source_memory = producer.shared_memory_pool();
         let source = owned_source(&producer, dictionary);
-        let source_column = source.nth_child(0).unwrap();
+        let source_column = source.nth_child(0).unwrap().clone();
         let expected = scalars(&source_column.slice(5..9).unwrap());
         let receiving = ResidentVortexSession::new(64 << 20, 1).unwrap();
         let receiving_memory = receiving.shared_memory_pool();
         let copied = copy(&source, &receiving);
-        let output = copied.arrays.values[0].0.nth_child(0).unwrap();
+        let output = copied.arrays.values[0].0.nth_child(0).unwrap().clone();
         assert_ne!(
             source_column.as_::<Zstd>().frame_metadata().as_ptr(),
             output.as_::<Zstd>().frame_metadata().as_ptr()
@@ -49,8 +49,14 @@ fn encoded_transfer_zstd_metadata_uses_receiving_credit_and_releases_the_source(
             .iter()
             .map(|buffer| {
                 let host = buffer.as_host();
-                u64::try_from(host.len() + *host.alignment().max(Alignment::DEFAULT_ALIGNMENT))
-                    .unwrap()
+                u64::try_from(
+                    host.len()
+                        + host
+                            .alignment()
+                            .max(Alignment::DEFAULT_ALIGNMENT)
+                            .as_usize(),
+                )
+                .unwrap()
             })
             .sum();
         let root_credit =

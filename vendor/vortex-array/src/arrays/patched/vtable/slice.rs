@@ -67,6 +67,7 @@ mod tests {
     use crate::Canonical;
     use crate::IntoArray;
     use crate::VortexSessionExecute;
+    use crate::array_session;
     use crate::arrays::Patched;
     use crate::arrays::PrimitiveArray;
     use crate::assert_arrays_eq;
@@ -75,12 +76,13 @@ mod tests {
 
     #[test]
     fn test_reduce() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let values = buffer![0u16; 512].into_array();
         let patch_indices = buffer![1u32, 8, 30].into_array();
         let patch_values = buffer![u16::MAX; 3].into_array();
-        let patches = Patches::new(512, 0, patch_indices, patch_values, None)?;
+        let patches = Patches::new(512, 0, patch_indices, patch_values, None, &mut ctx)?;
 
-        let mut ctx = crate::array_session().create_execution_ctx();
+        let mut ctx = array_session().create_execution_ctx();
 
         let patched_array = Patched::from_array_and_patches(values, &patches, &mut ctx)?;
 
@@ -116,6 +118,12 @@ mod tests {
         #[case] patch_values: Buffer<T>,
         #[case] range: Range<usize>,
     ) {
+        let mut expected = inner.to_vec();
+        for (&index, &value) in patch_indices.iter().zip(patch_values.iter()) {
+            expected[index as usize] = value;
+        }
+        let expected = PrimitiveArray::from_iter(expected[range.clone()].iter().copied());
+
         // Create patched array.
         let patches = Patches::new(
             inner.len(),
@@ -123,42 +131,31 @@ mod tests {
             patch_indices.into_array(),
             patch_values.into_array(),
             None,
+            &mut array_session().create_execution_ctx(),
         )
         .unwrap();
 
-        let mut ctx = crate::array_session().create_execution_ctx();
+        let mut ctx = array_session().create_execution_ctx();
 
         let patched_array = Patched::from_array_and_patches(inner.into_array(), &patches, &mut ctx)
             .unwrap()
             .into_array();
 
-        // Verify that applying slice first yields same result as applying slice at end.
-        let slice_first = patched_array
-            .slice(range.clone())
-            .unwrap()
-            .execute::<Canonical>(&mut ctx)
-            .unwrap()
-            .into_array();
+        let slice_first = patched_array.slice(range).unwrap();
 
-        let slice_last = patched_array
-            .execute::<Canonical>(&mut ctx)
-            .unwrap()
-            .into_primitive()
-            .slice(range)
-            .unwrap();
-
-        assert_arrays_eq!(slice_first, slice_last, &mut ctx);
+        assert_arrays_eq!(slice_first, &expected, &mut ctx);
     }
 
     #[test]
     fn test_stacked_slices() {
+        let mut ctx = array_session().create_execution_ctx();
         let values = PrimitiveArray::from_iter(0u64..10_000).into_array();
 
         let patched_indices = buffer![1u32, 2, 1024, 2048, 3072, 3088].into_array();
         let patched_values = buffer![0u64, 1, 2, 3, 4, 5].into_array();
 
-        let patches = Patches::new(10_000, 0, patched_indices, patched_values, None).unwrap();
-        let mut ctx = crate::array_session().create_execution_ctx();
+        let patches =
+            Patches::new(10_000, 0, patched_indices, patched_values, None, &mut ctx).unwrap();
 
         let patched_array = Patched::from_array_and_patches(values, &patches, &mut ctx)
             .unwrap()
@@ -168,10 +165,7 @@ mod tests {
             .slice(1024..5000)
             .unwrap()
             .slice(1..2065)
-            .unwrap()
-            .execute::<Canonical>(&mut ctx)
-            .unwrap()
-            .into_array();
+            .unwrap();
 
         let mut expected = BufferMut::from_iter(1025u64..=3088);
         expected[1023] = 3;
@@ -180,6 +174,6 @@ mod tests {
 
         let expected = expected.into_array();
 
-        assert_arrays_eq!(expected, sliced, &mut ctx);
+        assert_arrays_eq!(sliced, expected, &mut ctx);
     }
 }

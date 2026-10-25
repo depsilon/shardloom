@@ -9,7 +9,7 @@ use vortex::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{BoolArray, PrimitiveArray, StructArray},
         dtype::{FieldName, FieldNames},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     buffer::{Alignment, ByteBuffer},
@@ -56,18 +56,18 @@ fn write_fixture_metadata(array: &ArrayRef, metadata: &[(&str, usize)]) -> (Vec<
 }
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    VortexSession::default().with_allocator(Arc::new(
+    VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ))
 }
 
 fn charge(len: usize, alignment: Alignment) -> u64 {
-    u64::try_from(len + *alignment.max(Alignment::DEFAULT_ALIGNMENT)).unwrap()
+    u64::try_from(len + alignment.max(Alignment::DEFAULT_ALIGNMENT).as_usize()).unwrap()
 }
 
 fn owned_bytes(session: &VortexSession, bytes: &[u8]) -> ByteBuffer {
     let mut buffer = session
-        .allocator()
+        .host_allocator()
         .allocate(bytes.len(), Alignment::none())
         .unwrap();
     buffer.as_mut_slice().copy_from_slice(bytes);
@@ -204,7 +204,7 @@ fn native_file_metadata_layout_copy_has_independent_exact_admission_and_owner() 
     let postscript_len = usize::from(u16::from_le_bytes(
         bytes[eof + 2..eof + 4].try_into().unwrap(),
     ));
-    let postscript = flatbuffers::root::<vortex::flatbuffers::footer::Postscript<'_>>(
+    let postscript = flatbuffers::root::<vortex::file::flatbuffers::footer::Postscript<'_>>(
         &bytes[eof - postscript_len..eof],
     )
     .unwrap();
@@ -524,7 +524,7 @@ fn native_file_metadata_malformed_schema_and_layout_release_copied_storage() {
     let postscript_len = usize::from(u16::from_le_bytes(
         bytes[eof + 2..eof + 4].try_into().unwrap(),
     ));
-    let postscript = flatbuffers::root::<vortex::flatbuffers::footer::Postscript<'_>>(
+    let postscript = flatbuffers::root::<vortex::file::flatbuffers::footer::Postscript<'_>>(
         &bytes[eof - postscript_len..eof],
     )
     .unwrap();
@@ -784,11 +784,11 @@ fn native_file_metadata_review_default_open_skips_optional_alignment_copy() {
     let data_alignment = footer
         .segment_map()
         .iter()
-        .map(|segment| *segment.alignment)
+        .map(|segment| segment.alignment.as_usize())
         .max()
         .unwrap();
     let metadata = footer.metadata_segment("aligned-metadata").unwrap();
-    assert!(data_alignment < *metadata.alignment);
+    assert!(data_alignment < metadata.alignment.as_usize());
     let shifted = shifted_file_buffer(&bytes, data_alignment);
     for segment in footer.segment_map().iter() {
         assert!(

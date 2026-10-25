@@ -6,36 +6,39 @@ use std::fmt::Formatter;
 
 use itertools::Itertools;
 use prost::Message;
+use vortex_error::VortexError;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
-use vortex_proto::expr::FieldNames as ProtoFieldNames;
-use vortex_proto::expr::SelectOpts;
-use vortex_proto::expr::select_opts::Opts;
 use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
+use vortex_utils::aliases::hash_set::HashSet;
 
 use crate::ArrayRef;
 use crate::ExecutionCtx;
 use crate::IntoArray;
+use crate::arrays::Constant;
+use crate::arrays::ConstantArray;
 use crate::arrays::StructArray;
 use crate::arrays::struct_::StructArrayExt;
 use crate::dtype::DType;
 use crate::dtype::FieldName;
 use crate::dtype::FieldNames;
+use crate::expr::BoundExpression;
 use crate::expr::display::ExprDisplay;
-use crate::expr::expression::Expression;
 use crate::expr::field::DisplayFieldNames;
-use crate::expr::get_item;
-use crate::expr::pack;
+use crate::proto::expr::FieldNames as ProtoFieldNames;
+use crate::proto::expr::SelectOpts;
+use crate::proto::expr::select_opts::Opts;
 use crate::scalar_fn::Arity;
 use crate::scalar_fn::ChildName;
 use crate::scalar_fn::ExecutionArgs;
 use crate::scalar_fn::ScalarFnId;
 use crate::scalar_fn::ScalarFnVTable;
-use crate::scalar_fn::SimplifyCtx;
+use crate::scalar_fn::ScalarFnVTableExt;
 use crate::scalar_fn::fns::pack::Pack;
+use crate::scalar_fn::fns::pack::PackOptions;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FieldSelection {
@@ -149,7 +152,19 @@ impl ScalarFnVTable for Select {
         args: &dyn ExecutionArgs,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<ArrayRef> {
-        let child = args.get(0)?.execute::<StructArray>(ctx)?;
+        let child = args.get(0)?;
+        if let Some(constant) = child.as_opt::<Constant>() {
+            let child_struct_dtype = child
+                .dtype()
+                .as_struct_fields_opt()
+                .ok_or_else(|| vortex_err!("Select child not a struct dtype"))?;
+            let included = selection.normalize_to_included_fields(child_struct_dtype.names())?;
+            let scalar = constant.scalar().as_struct().project(included.as_ref())?;
+
+            return Ok(ConstantArray::new(scalar, child.len()).into_array());
+        }
+
+        let child = child.execute::<StructArray>(ctx)?;
 
         let result = match selection {
             FieldSelection::Include(f) => child.project(f.as_ref()),
@@ -170,11 +185,10 @@ impl ScalarFnVTable for Select {
     fn simplify(
         &self,
         selection: &FieldSelection,
-        expr: &Expression,
-        ctx: &dyn SimplifyCtx,
-    ) -> VortexResult<Option<Expression>> {
+        expr: &BoundExpression,
+    ) -> VortexResult<Option<BoundExpression>> {
         let child_struct = expr.child(0);
-        let struct_dtype = ctx.return_dtype(child_struct)?;
+        let struct_dtype = child_struct.dtype();
         let struct_nullability = struct_dtype.nullability();
 
         let struct_fields = struct_dtype.as_struct_fields_opt().ok_or_else(|| {
@@ -201,33 +215,56 @@ impl ScalarFnVTable for Select {
         //  special-casing for pack, but not for select. We will fix this up when we revisit the
         //  layout APIs.
         if included_fields.is_empty() {
-            let empty: Vec<(FieldName, Expression)> = vec![];
-            return Ok(Some(pack(empty, struct_nullability)));
+            return Ok(Some(Pack.try_new_bound_expr(
+                PackOptions {
+                    names: FieldNames::empty(),
+                    nullability: struct_nullability,
+                },
+                [],
+            )?));
         }
 
-        // We cannot always convert a `select` into a `pack(get_item(f1), get_item(f2), ...)`.
-        // This is because `get_item` does a validity intersection of the struct validity with its
-        // fields, which is not the same as just "masking" out the unwanted fields (a selection).
+        // We cannot always convert a `select` into a projection of its child fields. This is
+        // because reading a field does a validity intersection of the struct validity with the
+        // field, which is not the same as just "masking" out the unwanted fields (a selection).
         //
         // We can, however, make this simplification when the child of the `select` is already a
-        // `pack` and we know that `get_item` will do no validity intersections.
-        let child_is_pack = child_struct.is::<Pack>();
-
-        // `get_item` only performs validity intersection when the struct is nullable but the field
-        // is not. This would change the semantics of a `select`, so we can only simplify when this
-        // won't happen.
+        // `pack` and we know that reading a field will do no validity intersections.
+        //
+        // The intersection only happens when the struct is nullable but the field is not. That
+        // would change the semantics of a `select`, so we can only simplify when it won't happen.
         let would_intersect_validity =
             struct_nullability.is_nullable() && !all_included_fields_are_nullable;
 
-        if child_is_pack && !would_intersect_validity {
-            let pack_expr = pack(
-                included_fields
-                    .into_iter()
-                    .map(|name| (name.clone(), get_item(name, child_struct.clone()))),
-                struct_nullability,
-            );
+        if let Some(child_pack) = child_struct.as_opt::<Pack>()
+            && !would_intersect_validity
+        {
+            // Take the field expressions straight out of the child `pack` rather than wrap the
+            // `pack` in `get_item`. The guard above proves the two are equivalent here, and the
+            // optimizer visits children before their parent, so a `get_item` introduced now
+            // would never be simplified away.
+            let fields: Vec<BoundExpression> = included_fields
+                .iter()
+                .map(|name| {
+                    let idx = child_pack.names.find(name).ok_or_else(|| {
+                        vortex_err!(
+                            "Cannot find field {} in pack fields {:?}",
+                            name,
+                            child_pack.names
+                        )
+                    })?;
 
-            return Ok(Some(pack_expr));
+                    Ok(child_struct.child(idx).clone())
+                })
+                .try_collect::<_, _, VortexError>()?;
+
+            return Ok(Some(Pack.try_new_bound_expr(
+                PackOptions {
+                    names: included_fields,
+                    nullability: struct_nullability,
+                },
+                fields,
+            )?));
         }
 
         Ok(None)
@@ -272,12 +309,11 @@ impl FieldSelection {
         &self,
         available_fields: &FieldNames,
     ) -> VortexResult<FieldNames> {
+        // Hash the available fields so that wide selections stay linear.
+        let available: HashSet<&FieldName> = available_fields.iter().collect();
+
         // Check that all of the field names exist in the available fields.
-        if self
-            .field_names()
-            .iter()
-            .any(|f| !available_fields.iter().contains(f))
-        {
+        if self.field_names().iter().any(|f| !available.contains(f)) {
             vortex_bail!(
                 "Select fields {:?} must be a subset of child fields {:?}",
                 self,
@@ -287,11 +323,14 @@ impl FieldSelection {
 
         match self {
             FieldSelection::Include(fields) => Ok(fields.clone()),
-            FieldSelection::Exclude(exc_fields) => Ok(available_fields
-                .iter()
-                .filter(|f| !exc_fields.iter().contains(f))
-                .cloned()
-                .collect()),
+            FieldSelection::Exclude(exc_fields) => {
+                let excluded: HashSet<&FieldName> = exc_fields.iter().collect();
+                Ok(available_fields
+                    .iter()
+                    .filter(|f| !excluded.contains(f))
+                    .cloned()
+                    .collect())
+            }
         }
     }
 }
@@ -308,11 +347,16 @@ impl Display for FieldSelection {
 #[cfg(test)]
 mod tests {
     use vortex_buffer::buffer;
+    use vortex_error::VortexResult;
 
+    use crate::ArrayRef;
     use crate::IntoArray;
     use crate::VortexSessionExecute;
     use crate::array_session;
-    use crate::arrays::struct_::StructArrayExt;
+    use crate::arrays::Constant;
+    use crate::arrays::ConstantArray;
+    use crate::arrays::ScalarFnArray;
+    use crate::assert_arrays_eq;
     use crate::dtype::DType;
     use crate::dtype::FieldName;
     use crate::dtype::FieldNames;
@@ -324,6 +368,9 @@ mod tests {
     use crate::expr::select;
     use crate::expr::select_exclude;
     use crate::expr::test_harness;
+    use crate::scalar::Scalar;
+    use crate::scalar_fn::ScalarFnVTableExt;
+    use crate::scalar_fn::fns::select::FieldSelection;
     use crate::scalar_fn::fns::select::Select;
     use crate::scalar_fn::fns::select::StructArray;
 
@@ -340,14 +387,14 @@ mod tests {
         let mut ctx = array_session().create_execution_ctx();
         let st = test_array();
         let select = select(vec![FieldName::from("a")], root());
-        let selected = st
-            .into_array()
-            .apply(&select)
-            .unwrap()
-            .execute::<StructArray>(&mut ctx)
-            .unwrap();
-        let selected_names = selected.names().clone();
+        let selected = st.into_array().apply(&select).unwrap();
+        let selected_names = selected.dtype().as_struct_fields().names();
         assert_eq!(selected_names.as_ref(), &["a"]);
+        assert_arrays_eq!(
+            selected,
+            StructArray::from_fields(&[("a", buffer![0i32, 1, 2].into_array())]).unwrap(),
+            &mut ctx
+        );
     }
 
     #[test]
@@ -355,14 +402,14 @@ mod tests {
         let mut ctx = array_session().create_execution_ctx();
         let st = test_array();
         let select = select_exclude(vec![FieldName::from("a")], root());
-        let selected = st
-            .into_array()
-            .apply(&select)
-            .unwrap()
-            .execute::<StructArray>(&mut ctx)
-            .unwrap();
-        let selected_names = selected.names().clone();
+        let selected = st.into_array().apply(&select).unwrap();
+        let selected_names = selected.dtype().as_struct_fields().names();
         assert_eq!(selected_names.as_ref(), &["b"]);
+        assert_arrays_eq!(
+            selected,
+            StructArray::from_fields(&[("b", buffer![4i32, 5, 6].into_array())]).unwrap(),
+            &mut ctx
+        );
     }
 
     #[test]
@@ -414,18 +461,54 @@ mod tests {
     #[test]
     fn test_as_include_names() {
         let field_names = FieldNames::from(["a", "b", "c"]);
-        let include = select(["a"], root());
-        let exclude = select_exclude(["b", "c"], root());
-        assert_eq!(
-            &include
-                .as_::<Select>()
-                .normalize_to_included_fields(&field_names)
-                .unwrap(),
-            &exclude
-                .as_::<Select>()
-                .normalize_to_included_fields(&field_names)
-                .unwrap()
+        for expr in [select(["a"], root()), select_exclude(["b", "c"], root())] {
+            assert_eq!(
+                expr.as_::<Select>()
+                    .normalize_to_included_fields(&field_names)
+                    .unwrap(),
+                FieldNames::from(["a"])
+            );
+        }
+    }
+
+    #[test]
+    fn execute_constant_struct_stays_constant() -> VortexResult<()> {
+        let field_count = 128usize;
+        let names = (0..field_count)
+            .map(|idx| FieldName::from(format!("f{idx}")))
+            .collect::<Vec<_>>();
+        let dtypes = vec![I32.into(); field_count];
+        let fields = StructFields::new(FieldNames::from(names), dtypes);
+        let scalar = Scalar::struct_(
+            DType::Struct(fields, Nullability::NonNullable),
+            (0..128).map(Scalar::from),
         );
+        let array = ConstantArray::new(scalar, 1_000_000).into_array();
+        let mut ctx = array_session().create_execution_ctx();
+
+        let item: ArrayRef = ScalarFnArray::try_new(
+            Select.bind(FieldSelection::Include(FieldNames::from(["f97", "f3"]))),
+            vec![array],
+        )?
+        .into_array()
+        .execute(&mut ctx)?;
+
+        let constant = item.as_::<Constant>();
+        assert_eq!(constant.len(), 1_000_000);
+        assert_eq!(
+            constant.scalar(),
+            &Scalar::struct_(
+                DType::Struct(
+                    StructFields::new(
+                        FieldNames::from(["f97", "f3"]),
+                        vec![I32.into(), I32.into()],
+                    ),
+                    Nullability::NonNullable,
+                ),
+                [Scalar::from(97), Scalar::from(3)],
+            )
+        );
+        Ok(())
     }
 
     #[test]
@@ -436,9 +519,9 @@ mod tests {
         );
         let e = select(["a", "b"], root());
 
-        let result = e.optimize_recursive(&dtype).unwrap();
+        let result = e.bind(&dtype).unwrap().optimize_recursive().unwrap();
 
-        assert!(result.return_dtype(&dtype).unwrap().is_nullable());
+        assert_eq!(result.dtype(), &dtype);
     }
 
     #[test]
@@ -454,12 +537,16 @@ mod tests {
         );
         let e = select_exclude(["c"], root());
 
-        let result = e.optimize_recursive(&dtype).unwrap();
+        let result = e.bind(&dtype).unwrap().optimize_recursive().unwrap();
 
         // Should exclude "c" and include "a" and "b"
-        let result_dtype = result.return_dtype(&dtype).unwrap();
+        let result_dtype = result.dtype();
         assert!(result_dtype.is_nullable());
         let fields = result_dtype.as_struct_fields_opt().unwrap();
         assert_eq!(fields.names().as_ref(), &["a", "b"]);
+        assert_eq!(
+            result_dtype,
+            &DType::struct_([("a", I32), ("b", I32)], Nullable)
+        );
     }
 }

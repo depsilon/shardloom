@@ -227,7 +227,7 @@ fn selected_provider_errors_propagate_and_rejected_text_is_not_executed() {
         array::VortexSessionExecute as _,
         encodings::zstd::{Zstd, ZstdData},
     };
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let text = VarBinViewArray::from_iter_str((0..512).map(|n| format!("text-{n}")));
     let data = ZstdData::from_var_bin_view_without_dict(&text, 0, 1024, &mut ctx).unwrap();
     let mut parts = data.into_parts(Validity::NonNullable);

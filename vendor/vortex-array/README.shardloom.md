@@ -1,6 +1,14 @@
 # Vortex timestamp, statistics and ownership patches
 
-## Native text validation handoff candidate
+## Provider refresh and native text validation
+
+The October 24 refresh rebases these retained contracts onto the published
+0.90.0 provider. Its upstream `BufferAllocator` hooks do not provide the
+fallible refusal and external-heap ownership contract required by the existing
+ShardLoom callers. `host_memory.rs` keeps that explicit boundary alongside the
+upstream allocator; it does not replace every upstream allocation. Typed mutable
+access is limited to a sealed set of plain numeric/view representations and
+checks the actual pointer alignment before creating a slice.
 
 Safe `VarBinViewArrayExt::utf8_slice_at` and `utf8_buffer_at` reuse a private
 receipt from reviewed checked construction, deserialization or length-to-view
@@ -11,10 +19,11 @@ replacement preserve an existing receipt only for unchanged UTF-8 values.
 The two string conversions reuse immutable native ownership inside this pinned
 provider; no workspace unsafe code, new dependency or serialized field is added.
 The [implementation contract](../../docs/architecture/native-text-validity-2026-10-17.md)
-requires release-mode malformed-input checks and complete query comparisons.
-Retention and a performance gain remain unproven.
+records the accepted combined implementation and its bounded comparison. The
+0.90 port must pass new validation; that earlier measurement is not a performance
+claim for this provider version.
 
-The combined candidate adds a safe length-prefixed text builder. It constructs
+The retained implementation includes a safe length-prefixed text builder. It constructs
 only a requested contiguous range's views, normalizes consumed length headers
 inside the exclusive decompression allocation, then freezes both allocations.
 The checked constructor validates the selected immutable heap once, checks each
@@ -23,7 +32,7 @@ independently. Original payload ownership and full allocator credit are retained
 malformed framing and selected text fail explicitly. Canonical Vortex Zstd text
 uses this builder without changing compressed source bytes or serialization.
 
-This is the Apache-2.0 `vortex-array` 0.85.0 published source with a focused
+This is the Apache-2.0 `vortex-array` 0.90.0 published source with a focused
 correction for timezone-free microsecond timestamp scalars. Vortex's timestamp
 extension uses Int64 storage, but the original scalar validator constructs a
 calendar span that can panic on valid storage values. Its display path repeats
@@ -66,8 +75,8 @@ requires lifetime, allocation, footprint and complete-lifecycle regression proof
 
 Other temporal units and timezone policy are unchanged. The extension identity,
 metadata serialization, comparison rules, native arrays and file format are
-unchanged. There is no Arrow intermediate, new query engine, unchecked scalar
-construction or dependency-version change. Ordinary calendar operations can
+unchanged by this timestamp correction. There is no Arrow intermediate, new query
+engine or unchecked scalar construction in that correction. Ordinary calendar operations can
 retain their own narrower domains; scalar storage admission is not a claim
 that all calendar functions support every Int64 timestamp.
 
@@ -89,13 +98,11 @@ the existing writer tests. The full acceptance contract is
 External readers built with the unpatched provider can still inherit its calendar
 restriction; this patch does not certify them.
 
-The full upstream library test suite also needs `goldenfiles/dict.metadata`,
-which the registry archive omits. That fixture is copied from the recorded
-upstream Git revision after verifying its Git object identity and confirming
-that the associated test source is byte-identical to the published crate.
-Its separate URL, hashes and size are recorded as supplemental test provenance.
-The same provenance section records the pinned upstream `clippy.toml` used by
-standalone provider checks. The retained-owner helper accepts an optional
+The provider provenance separately records the matching upstream test support
+omitted from the published archive, with its Git and content identities. It also
+records the original pinned upstream `clippy.toml` and the local removal of its
+obsolete `legacy_session` prohibition for standalone provider checks. The
+retained-owner helper accepts an optional
 reference, and the primitive constant check uses typed fixed-width chunks;
 these preserve their existing behavior while satisfying current lint rules.
 
@@ -103,6 +110,12 @@ Remove this patch when an approved upstream release preserves the full storage
 domain and passes scalar, compression, statistics, pruning, writer, resource,
 package and complete-workflow checks. Keep the existing feature gates and shared
 resource owners when changing the provider.
+
+In 0.90, conversion from nullable contiguous text validates only observable
+values and sanitizes null views before raw access. An invalid byte in an unused
+null range is not a rejected UTF-8 value. Invalid visible bytes still fail checked
+construction. The new row-function fixtures exercise deferred execution errors
+without creating an invalid value through an unchecked constructor.
 
 ## External memory reservations
 

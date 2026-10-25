@@ -1,6 +1,57 @@
 # Vortex Upstream Dependency Review
 
+## October 24, 2026 post-integration candidate snapshot
+
+The current candidate follows the [controlled provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md)
+and supersedes the pre-integration dependency state recorded in the intake section below.
+The root graph now pins Vortex 0.90.0, the Arrow family and Parquet 59.3.1, ORC 0.9.0,
+and PyO3 runtime 0.29.3. The separate `pyo3-build-config` 0.30.1 build helper is used
+only by `shardloom-python/build.rs` for `add_extension_module_link_args()`.
+
+Vortex manifest requirement: `=0.90.0`.
+`Cargo.lock` records the upstream Vortex crate family at `0.90.0`.
+
+The local DateTimeParts patch is removed: all 16 Rust source files match the exact
+0.90.0 archive, the registry identity is reviewed, and 87 upstream plus four native
+temporal tests pass. Eight path patches remain at 0.90.0: array, buffer, file, FSST,
+IO, layout, RunEnd and Zstd; IO retains its newly isolated fallible-allocation change.
+The new `vortex-buffer` patch preserves explicit empty `Bytes` and Arrow owners across
+clones, typed conversions and Arrow import/export; ordinary empty slices still detach.
+Its local contract is recorded in [the buffer provider note](../../vendor/vortex-buffer/README.shardloom.md).
+`arrow-pyarrow` 59.3.1 now resolves from the registry instead of the former workspace
+path patch. The unused vendor directory is retired after installed-package capsule
+and ownership regressions pass.
+
+The buffer provider standalone run passed 933 unit tests and 17 doctests, and its strict
+provider lint passed. Final matched-build validation passes 6,072 native workspace tests
+across 118 binaries (35 existing opt-in ignored) and 3,246 default workspace tests;
+native strict lint and formatting pass. The final receipts are
+`test-workspace-native-090-r5`, `clippy-workspace-native-090-r7`,
+`test-workspace-default-090-r3` and `fmt-workspace-090-r3`. Exact final
+all-feature, MSRV and no-default checks also pass in the three `-090-r2` receipts
+`check-workspace-all-features`, `check-msrv-native` and `check-msrv-no-default`.
+The installed Python wheel passes all 140 native integration tests with no skips,
+including malformed capsule names and retained owners, and verifies installation and
+removal. The public suite passes 5,930 cases across 39 families; semantic replay
+validates 5,639 actual/expected value files and 56 nested plus 81 case JSONL archives.
+The recovered modular matrix accepts 1,408 records in 18 cohorts (704 native and 704
+independent-oracle). Fresh ingest produces 99,997,497 rows through the minimal digest
+path; no independent full 100-million-row readback is claimed. One isolated Full43
+executes each query once and validates 381 complete rows with exact schema continuity.
+Its 49.625514041 engine seconds versus the prior 48.701809680 observation do not
+support a causal speedup or regression claim. The [acceptance report](../benchmarks/native-vortex-provider-refresh-2026-10-24.md)
+records final evidence and limits. Local runtime/UAT acceptance is complete; the
+portable replay passes with eight corruption controls; PR, CI, review and merge remain pending.
+The root registry identity count is 437 after `vortex-buffer` moved to a local path.
+The verified notice manifest contains 437 registry packages, eight vendored providers,
+827 file records and 248 distinct texts. These version changes
+do not by themselves enable rich types, V2 scans, optional encodings, connectors,
+external engines or performance claims.
+
 ## October 24, 2026 controlled 0.90 intake
+
+This dated section preserves the pre-integration intake snapshot; the current candidate
+status is summarized above.
 
 The [provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md)
 is queued immediately after surface parity. The workspace still resolves
@@ -408,35 +459,45 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Current support snapshot
 
-- Upstream Vortex remains optional and isolated in `shardloom-vortex`.
-- The tracked workspace dependency is `vortex = 0.85`; `shardloom-vortex` inherits it while keeping
-  the dependency optional and feature-gated.
-- Vortex `0.85.0` is the current optional dependency family after the provider-capability
-  update recorded in `docs/architecture/vortex-public-api-inventory.md` and
-  `docs/dependencies/vortex-dependency-footprint.md`.
-- Vortex `0.75.0` remains historical intake material in this review and
-  `docs/architecture/vortex-public-api-inventory.md`.
-- Vortex `0.74.0` remains historical intake material in this review and
-  `docs/architecture/vortex-public-api-inventory.md`.
-- Vortex `0.73.0` remains historical intake material in this review and
-  `docs/architecture/vortex-public-api-inventory.md`.
-- Vortex `0.72.0` remains historical intake material in this review and
-  `docs/architecture/vortex-public-api-inventory.md`.
-- Vortex `0.71.0` remains historical intake material in
-  `docs/dependencies/vortex-0.71-upstream-intake.md`.
-- Approved historical metadata/footer fixture IO and approved local primitive
-  scan paths are recorded in `docs/architecture/phased-execution-plan.md`.
-- Vortex-native array, compute, scan, source, and sink APIs may be future native
-  providers only when feature-gated, version-recorded, policy-admitted, and
-  certificate-backed.
+- Upstream Vortex 0.90.0 remains an optional provider isolated in `shardloom-vortex` and
+  gated by the existing features. The root workspace pins the Arrow family and Parquet
+  to 59.3.1 and ORC to 0.9.0.
+- Eight local path patches remain: `vortex-array`, `vortex-buffer`, `vortex-file`,
+  `vortex-fsst`, `vortex-io`, `vortex-layout`, `vortex-runend` and `vortex-zstd`, all at 0.90.0.
+  `vortex-datetime-parts` resolves from the 0.90.0 registry archive after its local
+  patch was removed.
+- `arrow-pyarrow` 59.3.1 resolves from the registry; the unused `vendor/arrow-pyarrow`
+  directory is retired after installed capsule and ownership proof. PyO3 runtime remains 0.29.3;
+  `pyo3-build-config` 0.30.1 is a separate build helper.
+- Final matched-build validation passes 6,072 native workspace tests across 118 binaries
+  (35 existing opt-in ignored), 3,246 default workspace tests, native strict lint and
+  formatting. Exact final all-feature, MSRV and no-default checks pass. The installed
+  Python wheel passes all 140 native integration tests without skips. Public validation
+  passes 5,930 cases across 39 families, with 5,639 actual/expected value files and 137
+  JSONL archives checked. The recovered modular matrix accepts 1,408 records across
+  18 cohorts. Fresh ingest produces 99,997,497 rows through the minimal digest path;
+  no independent full 100-million-row readback is claimed. One isolated Full43 completes
+  43 queries once with 381 complete rows and exact schema continuity at 49.625514041
+  engine seconds; the prior 48.701809680 observation does not establish causal change.
+  See the [acceptance report](../benchmarks/native-vortex-provider-refresh-2026-10-24.md).
+  Local runtime/UAT and portable replay acceptance are complete; PR, CI, review
+  and merge remain pending. The verified notice manifest
+  covers 437 registry packages and eight vendored providers: 827 file records reference
+  248 distinct texts.
+- The default build and feature gates remain controlling boundaries. A version update
+  does not admit rich types, V2 scans, optional encodings, connectors, external engines,
+  performance claims or new runtime support.
+- Vortex-native APIs may be admitted only when feature-gated, version-recorded,
+  policy-admitted and certificate-backed. External query-engine integrations remain
+  baseline/reference/oracle surfaces and cannot execute unsupported ShardLoom work.
 - Future upstream release intake is governed by
-  `docs/dependencies/vortex-upstream-release-intake-runbook.md`.
-- Vortex DataFusion, DuckDB, Spark, Trino, and similar integrations remain
-  baseline/reference/oracle surfaces only; they must not execute unsupported
-  ShardLoom residual work.
-- Fallback execution remains disabled.
+  `docs/dependencies/vortex-upstream-release-intake-runbook.md`; older dated sections
+  below remain historical records.
 
 ## Vortex 0.76 Dependabot Closeout And 0.85 Intake Direction
+
+Historical intake snapshot; its released-latest and Arrow-58 statements describe the earlier
+0.85 review and are superseded for current dependency status by the October 24 candidate above.
 
 - Dependabot PR <https://github.com/depsilon/shardloom/pull/1379> was closed without merging.
 - Crates.io reports `vortex 0.76.0` and `vortex-zstd 0.76.0` as yanked. They must not be used as
@@ -456,6 +517,9 @@ executable support from older PR-specific sections that say "this PR" or
 - Vortex query-engine integrations remain prohibited as ShardLoom runtime helpers.
 
 ## Vortex 0.85 provider-capability update
+
+Historical 0.85 migration record. The current dependency state is summarized in the October 24
+candidate snapshot above; version-specific migration evidence below remains unchanged.
 
 - Dependabot PR <https://github.com/depsilon/shardloom/pull/1379> and the follow-on Vortex bump
   signal were reviewed as one upstream provider intake instead of merged directly.

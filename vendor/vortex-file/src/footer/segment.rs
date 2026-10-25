@@ -8,13 +8,13 @@ use std::ops::Deref;
 use std::ops::Range;
 use std::sync::Arc;
 
+use crate::flatbuffers::footer as fb;
 use vortex_array::memory::HostMemoryReservation;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_buffer::Alignment;
 use vortex_error::VortexError;
 use vortex_error::VortexResult;
 use vortex_error::vortex_err;
-use vortex_flatbuffers::footer as fb;
 use vortex_session::VortexSession;
 
 /// An immutable segment table whose clones retain its storage owner.
@@ -57,7 +57,7 @@ impl SegmentMap {
         if count == 0 {
             return Ok(Self::default());
         }
-        let reservation = session.allocator().reserve_external(layout.size())?;
+        let reservation = session.host_allocator().reserve_external(layout.size())?;
         let mut values = Vec::with_capacity(count);
         for index in 0..count {
             values.push(segment(index)?);

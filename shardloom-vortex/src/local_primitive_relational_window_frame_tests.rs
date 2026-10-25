@@ -567,6 +567,9 @@ fn native_window_frames_nested_selection_extrema_distinct_and_decimal_totals() {
         PrimitiveArray::from_iter([0u64, 2, 2, 2]).into_array(),
         PrimitiveArray::from_iter([2u64, 0, 0, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

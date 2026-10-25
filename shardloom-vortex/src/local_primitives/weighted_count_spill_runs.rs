@@ -65,6 +65,7 @@ pub(super) fn array<'a>(
     rows: impl ExactSizeIterator<Item = (u64, &'a [u8], u64)>,
     signature: u8,
     copies: &Copies,
+    ctx: &mut ExecutionCtx,
 ) -> Result<ArrayRef> {
     let count = rows.len();
     let mut input = reserved_vec(count)?;
@@ -99,6 +100,7 @@ pub(super) fn array<'a>(
         Buffer::from(payload),
         DType::Utf8(Nullability::NonNullable),
         Validity::NonNullable,
+        ctx,
     )
     .map_err(vortex_error)?;
     Ok(StructArray::new(
@@ -120,6 +122,7 @@ pub(super) fn blocks<'a>(
     block_rows: usize,
     signature: u8,
     copies: &'a Copies,
+    session: &'a VortexSession,
 ) -> impl Iterator<Item = Result<ArrayRef>> + 'a {
     let mut failed_once = false;
     std::iter::from_fn(move || {
@@ -152,6 +155,7 @@ pub(super) fn blocks<'a>(
                 .map(|row| (row.number, row.text.as_slice(), row.weight)),
             signature,
             copies,
+            &mut session.create_execution_ctx(),
         );
         if result.is_err() {
             failed_once = true;

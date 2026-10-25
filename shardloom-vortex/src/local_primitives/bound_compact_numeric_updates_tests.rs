@@ -41,7 +41,7 @@ fn accessor<T: NativePType>(values: Vec<T>) -> AggregateDirectColumnAccessor {
         "measure",
         &PrimitiveArray::new(values, Validity::NonNullable).into_array(),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
         ),
     )
     .unwrap()
@@ -73,7 +73,7 @@ fn compact_binding_matches_original_widths_validity_and_row_order() {
             "nullable",
             &PrimitiveArray::from_option_iter([Some(5_i32), None, Some(-2), Some(8)]).into_array(),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap(),
@@ -109,7 +109,7 @@ fn compact_binding_rebinds_owners_and_preserves_empty_and_all_null_measures() {
                 "nulls",
                 &PrimitiveArray::from_option_iter([None::<u32>, None, None]).into_array(),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap(),
@@ -120,7 +120,7 @@ fn compact_binding_rebinds_owners_and_preserves_empty_and_all_null_measures() {
                 "changed",
                 &PrimitiveArray::from_option_iter([Some(1.25_f64), None, Some(2.5)]).into_array(),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap(),
@@ -185,7 +185,7 @@ fn compact_bound_count_column_counts_nonfinite_values_but_skips_nulls() {
         "counted",
         &PrimitiveArray::from_option_iter([Some(f64::NAN), None, Some(f64::INFINITY)]).into_array(),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
         ),
     )
     .unwrap()];
@@ -222,7 +222,7 @@ fn compact_binding_rejects_unsupported_shapes_and_mismatched_owner_lengths() {
                 "text",
                 &VarBinViewArray::from_iter_str(["seven"]).into_array(),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap(),
@@ -288,7 +288,7 @@ fn compact_bound_group_updates_preserve_selection_source_order_limit_and_having(
                             "amount",
                             &PrimitiveArray::from_option_iter(values).into_array(),
                             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                                vortex::array::legacy_session(),
+                                &vortex::array::array_session(),
                             ),
                         )
                         .unwrap(),

@@ -96,7 +96,7 @@ fn accessors(rows: &[Row]) -> Vec<AggregateDirectColumnAccessor> {
                 &columns()[index],
                 array,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap()

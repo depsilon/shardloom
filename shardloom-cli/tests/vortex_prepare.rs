@@ -221,6 +221,15 @@ type StructuredVortexIngestCase = (
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn assert_inferred_adapter_evidence(stdout: &str, expected: ExpectedAdapterEvidence<'_>) {
+    let envelope: serde_json::Value = serde_json::from_str(stdout).expect("prepare envelope");
+    let mut keys = std::collections::BTreeSet::new();
+    for entry in envelope["fields"].as_array().expect("prepare fields") {
+        let key = entry["key"].as_str().expect("field key");
+        assert!(
+            keys.insert(key),
+            "duplicate preparation report field: {key}"
+        );
+    }
     assert!(stdout.contains(&field("source_format", expected.source_format)));
     assert!(stdout.contains(&field("source_format_inferred", "true")));
     assert!(stdout.contains(&field("source_format_inference_kind", "path_extension")));

@@ -2,22 +2,39 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
 use vortex_error::VortexResult;
+use vortex_error::vortex_err;
 
 use crate::ExecutionCtx;
 use crate::array::ArrayView;
 use crate::array::OperationsVTable;
+use crate::array::ProbeState;
 use crate::arrays::Chunked;
 use crate::arrays::chunked::ChunkedArrayExt;
+use crate::arrays::chunked::ChunkedSlots;
 use crate::scalar::Scalar;
 
 impl OperationsVTable<Chunked> for Chunked {
+    type ProbeState = ();
+
+    fn probe_scalar(
+        state: &mut ProbeState<'_, Chunked>,
+        index: usize,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<Scalar> {
+        let (chunk_index, chunk_offset) = state.array().find_chunk_idx(index)?;
+        let slot = ChunkedSlots::CHUNKS_OFFSET + chunk_index;
+        state
+            .slot(slot)?
+            .ok_or_else(|| vortex_err!("Chunked chunk slot {slot} is missing"))?
+            .execute_scalar(chunk_offset, ctx)
+    }
+
     fn scalar_at(
         array: ArrayView<'_, Chunked>,
         index: usize,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<Scalar> {
-        let (chunk_index, chunk_offset) = array.find_chunk_idx(index)?;
-        array.chunk(chunk_index).execute_scalar(chunk_offset, ctx)
+        Self::probe_scalar(&mut ProbeState::once(array), index, ctx)
     }
 }
 
@@ -38,6 +55,7 @@ mod tests {
     use crate::dtype::DType;
     use crate::dtype::Nullability;
     use crate::dtype::PType;
+    use crate::scalar::Scalar;
 
     fn chunked_array() -> ChunkedArray {
         ChunkedArray::try_new(
@@ -72,7 +90,11 @@ mod tests {
         let chunked = ChunkedArray::try_new(vec![], PType::U32.into()).unwrap();
         let sliced = chunked.slice(0..0).unwrap();
 
-        assert!(sliced.is_empty());
+        assert_arrays_eq!(
+            sliced,
+            PrimitiveArray::empty::<u32>(Nullability::NonNullable),
+            &mut array_session().create_execution_ctx()
+        );
     }
 
     #[test]
@@ -89,6 +111,12 @@ mod tests {
             DType::Primitive(PType::U64, Nullability::NonNullable),
         )
         .unwrap();
+        for (index, value) in [1u64, 2].into_iter().enumerate() {
+            assert_eq!(
+                array.execute_scalar(index, &mut ctx).unwrap(),
+                Scalar::from(value)
+            );
+        }
         assert_arrays_eq!(array, PrimitiveArray::from_iter([1u64, 2]), &mut ctx);
     }
 
@@ -105,6 +133,12 @@ mod tests {
             DType::Primitive(PType::U64, Nullability::NonNullable),
         )
         .unwrap();
+        for (index, value) in [1u64, 2, 3, 4].into_iter().enumerate() {
+            assert_eq!(
+                array.execute_scalar(index, &mut ctx).unwrap(),
+                Scalar::from(value)
+            );
+        }
         assert_arrays_eq!(array, PrimitiveArray::from_iter([1u64, 2, 3, 4]), &mut ctx);
     }
 
@@ -121,6 +155,12 @@ mod tests {
             DType::Primitive(PType::U64, Nullability::NonNullable),
         )
         .unwrap();
+        for (index, value) in [1u64, 2, 3, 4].into_iter().enumerate() {
+            assert_eq!(
+                array.execute_scalar(index, &mut ctx).unwrap(),
+                Scalar::from(value)
+            );
+        }
         assert_arrays_eq!(array, PrimitiveArray::from_iter([1u64, 2, 3, 4]), &mut ctx);
     }
 }

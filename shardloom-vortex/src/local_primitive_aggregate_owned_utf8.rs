@@ -8,7 +8,10 @@ use super::{
     failed, vortex_error,
 };
 use vortex::{
-    array::{IntoArray as _, arrays::VarBinArray},
+    array::{
+        IntoArray as _, VortexSessionExecute as _, arrays::VarBinArray,
+        memory::HostMemorySessionExt as _,
+    },
     buffer::Alignment,
 };
 
@@ -140,6 +143,9 @@ impl OwnedAggregateFinalizer {
             data.freeze(),
             DType::Utf8(Nullability::NonNullable),
             Validity::NonNullable,
+            &mut vortex::array::array_session()
+                .with_host_allocator(self.allocator.clone())
+                .create_execution_ctx(),
         )
         .map_err(vortex_error)?
         .into_array();

@@ -8,9 +8,13 @@ and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then [warm source reuse](native-warm-source-reuse-2026-10-24.md),
 then [public naming](shardloom-public-naming-2026-10-24.md),
 then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md)
-and [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
-The current grouped optimization campaign, its Full43 and optimization PR come
-first. The handoff reviews main `06653efb` and #1594 `e1af0d68`; it is a source
+and the [connected programming model](native-connected-programming-model-2026-10-24.md).
+The subsequent October 24 ordering decision places I/O immediately after
+connected programming and before [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
+Implement current-type adapter coverage here; the rich-data package extends these
+adapters when it admits additional logical types.
+Grouped optimization and surface parity are completed foundations. The original
+handoff reviews main `06653efb` and #1594 `e1af0d68`; it is a source
 review and proposal, not new benchmark evidence or completed implementation.
 Recheck current source and pinned providers when this work begins.
 The refresh evaluates per-consumer Arrow compaction and the optional

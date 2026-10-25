@@ -15,7 +15,7 @@ use vortex::{
         ArrayRef, IntoArray as _,
         arrays::{DictArray, PrimitiveArray, StructArray},
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     session::{SessionExt as _, VortexSession},
@@ -98,7 +98,7 @@ fn exact_distinct_order_admission_matches_native_integer_ties_and_rejects_other_
             false,
             false,
             policy.resource_envelope(),
-            Some(vortex::array::legacy_session()),
+            Some(&vortex::array::array_session()),
         )
         .unwrap();
         let memory = LiveMemoryPool::new(4 << 20).unwrap();
@@ -157,7 +157,7 @@ fn exact_distinct_workers_renamed_reordered_complete_values_and_exact_pressure_s
                 false,
                 false,
                 policy.resource_envelope,
-                Some(vortex::array::legacy_session()),
+                Some(&vortex::array::array_session()),
             )
             .unwrap();
             let base = 1_u64 << 61;
@@ -247,7 +247,7 @@ fn exact_distinct_workers_retry_untouched_arrays_once_and_never_retry_corruption
         let memory = LiveMemoryPool::new(4 << 20).unwrap();
         let calls = Arc::new(AtomicUsize::new(0));
         let session = VortexSession::default()
-            .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+            .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 memory.clone(),
             )))
             .with_some(super::super::ProviderFault {
@@ -257,7 +257,7 @@ fn exact_distinct_workers_retry_untouched_arrays_once_and_never_retry_corruption
                 repeat,
             });
         assert!(
-            vortex::array::legacy_session()
+            vortex::array::array_session()
                 .get_opt::<super::super::ProviderFault>()
                 .is_none()
         );

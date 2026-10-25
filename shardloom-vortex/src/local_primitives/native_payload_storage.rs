@@ -114,7 +114,7 @@ pub(in crate::local_primitives) fn decimal_key(
         return Ok(decimal.into_owned());
     }
     let allocator = crate::owned_buffers::with_credit(
-        execution.allocator(),
+        execution.host_allocator(),
         memory.reserve(super::metadata_bytes(source.dtype())?)?,
     );
     let array = decimal_with(
@@ -226,6 +226,7 @@ fn decimal_with(
     };
     output
         .map(vortex::array::IntoArray::into_array)
+        .and_then(|array| crate::owned_buffers::retain_empty_array_credit(array, allocator))
         .map_err(vortex_error)
 }
 

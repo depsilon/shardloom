@@ -73,7 +73,7 @@ fn spec(kind: Kind) -> Spec {
 type Pair = (Option<u64>, Option<u64>);
 
 fn pairs(array: &ArrayRef) -> Vec<Pair> {
-    let mut execution = vortex::array::legacy_session().create_execution_ctx();
+    let mut execution = vortex::array::array_session().create_execution_ctx();
     let fields = array.dtype().as_struct_fields_opt().unwrap();
     let columns = fields
         .names()
@@ -356,7 +356,7 @@ fn ordered_join_direct_null_roots_preserve_outer_rows_and_retained_child_credits
     let sliced = child.slice(0..1).unwrap();
     drop((held, child, session));
     assert!(memory.snapshot().reserved_bytes > 0);
-    let mut execution = vortex::array::legacy_session().create_execution_ctx();
+    let mut execution = vortex::array::array_session().create_execution_ctx();
     assert!(matches!(
         result_batch::scalar_value(&sliced, 0, &mut execution).unwrap(),
         result_batch::Value::UInt(20)

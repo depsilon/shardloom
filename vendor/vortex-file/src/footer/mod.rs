@@ -30,17 +30,18 @@ pub(crate) use metadata::MetadataSegments;
 pub use segment::*;
 use vortex_array::ArrayId;
 use vortex_array::dtype::DType;
+use vortex_array::flatbuffers::FlatBuffer;
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
-use vortex_flatbuffers::FlatBuffer;
-use vortex_flatbuffers::footer as fb;
 use vortex_layout::LayoutEncodingId;
 use vortex_layout::LayoutRef;
 use vortex_layout::layout_from_flatbuffer_with_options;
 use vortex_session::VortexSession;
 use vortex_session::registry::ReadContext;
+
+use crate::flatbuffers::footer as fb;
 
 use crate::segments::SourceSegments;
 
@@ -62,6 +63,9 @@ pub struct Footer {
     segments: SegmentMap,
     statistics: Option<FileStatistics>,
     metadata: MetadataSegments,
+    // Largest checked end across both owned tables; cached validation does not
+    // rescan or concatenate segment storage on each open.
+    segments_end: Option<u64>,
     // The specific arrays used within the file, in the order they were registered.
     array_read_ctx: ReadContext,
     // The approximate size of the footer in bytes, used for caching and memory management.
@@ -81,6 +85,7 @@ impl Footer {
     ) -> Self {
         Self {
             root_layout,
+            segments_end: segments_end(&segments),
             segments: segments.into(),
             statistics,
             metadata: MetadataSegments::default(),
@@ -155,6 +160,7 @@ impl Footer {
 
         Ok(Self {
             root_layout,
+            segments_end: segments_end_with_metadata(&segments, &metadata),
             segments,
             statistics,
             metadata,
@@ -194,6 +200,7 @@ impl Footer {
     }
 
     pub(crate) fn with_metadata_segments(mut self, metadata: MetadataSegments) -> Self {
+        self.segments_end = segments_end_with_metadata(&self.segments, &metadata);
         self.metadata = metadata;
         self
     }
@@ -231,7 +238,15 @@ impl Footer {
 
     /// Validate that every segment declared in the footer lies within a file of `file_size` bytes.
     pub(crate) fn validate_file_size(&self, file_size: u64) -> VortexResult<()> {
-        validate_segments_within_file(&self.segments, file_size)
+        if self.segments_end.is_some_and(|end| end <= file_size) {
+            return Ok(());
+        }
+        // Walk the segments only to name the offending one in the error.
+        validate_segments_within_file(&self.segments, file_size)?;
+        for (_, segment) in self.metadata.iter() {
+            validate_segments_within_file(std::slice::from_ref(segment), file_size)?;
+        }
+        Ok(())
     }
 
     /// Returns a serializer for this footer.
@@ -243,6 +258,23 @@ impl Footer {
     pub fn deserializer(eof_buffer: ByteBuffer, session: VortexSession) -> FooterDeserializer {
         FooterDeserializer::new(eof_buffer, session)
     }
+}
+
+fn segments_end_with_metadata(
+    segments: &[SegmentSpec],
+    metadata: &MetadataSegments,
+) -> Option<u64> {
+    metadata
+        .iter()
+        .try_fold(segments_end(segments)?, |end, (_, segment)| {
+            Some(end.max(segment.offset.checked_add(u64::from(segment.length))?))
+        })
+}
+
+fn segments_end(segments: &[SegmentSpec]) -> Option<u64> {
+    segments.iter().try_fold(0u64, |end, segment| {
+        Some(end.max(segment.offset.checked_add(u64::from(segment.length))?))
+    })
 }
 
 /// Validate that every segment declared in the footer lies within a file of `file_size` bytes.
@@ -270,7 +302,11 @@ fn validate_segments_within_file(segments: &[SegmentSpec], file_size: u64) -> Vo
 
 #[cfg(test)]
 mod tests {
+    use vortex_array::dtype::Nullability;
+    use vortex_array::dtype::PType;
     use vortex_buffer::Alignment;
+    use vortex_layout::layouts::flat::FlatLayout;
+    use vortex_layout::segments::SegmentId;
 
     use super::*;
 
@@ -280,6 +316,26 @@ mod tests {
             length,
             alignment: Alignment::none(),
         }
+    }
+
+    fn footer_with_metadata_segment(metadata: SegmentSpec) -> Footer {
+        let layout = FlatLayout::new(
+            1,
+            DType::Primitive(PType::I32, Nullability::NonNullable),
+            SegmentId::from(0),
+            ReadContext::new([]),
+        )
+        .into_layout();
+        Footer::new(
+            layout,
+            Arc::from([segment(0, 100)]),
+            None,
+            ReadContext::new([]),
+        )
+        .with_metadata_segments(MetadataSegments::from_unchecked(vec![(
+            "some.key".to_string(),
+            metadata,
+        )]))
     }
 
     #[test]
@@ -299,5 +355,45 @@ mod tests {
     fn rejects_segment_offset_length_overflow() {
         let err = validate_segments_within_file(&[segment(u64::MAX, 1)], u64::MAX).unwrap_err();
         assert!(err.to_string().contains("past the end"), "{err}");
+    }
+
+    #[test]
+    fn segments_end_covers_overlapping_segments() {
+        // Valid files never overlap segments, but a malformed footer may declare an earlier
+        // segment that ends after a later one, and the end must cover it so that file size
+        // validation still rejects it.
+        assert_eq!(
+            segments_end(&[segment(0, 300), segment(100, 50)]),
+            Some(300)
+        );
+        assert_eq!(segments_end(&[]), Some(0));
+        assert_eq!(segments_end(&[segment(0, 1), segment(u64::MAX, 1)]), None);
+    }
+
+    #[test]
+    fn cached_segment_end_includes_metadata_and_rejects_overflow() {
+        let segments: Arc<[SegmentSpec]> = Arc::from([segment(0, 10), segment(10, 20)]);
+        let metadata = MetadataSegments::from_unchecked(vec![("key".to_string(), segment(30, 5))]);
+        assert_eq!(segments_end_with_metadata(&segments, &metadata), Some(35));
+        assert_eq!(
+            segments_end_with_metadata(&segments, &MetadataSegments::default()),
+            Some(30)
+        );
+        let overflow = MetadataSegments::from_unchecked(vec![("key".into(), segment(u64::MAX, 1))]);
+        assert_eq!(segments_end_with_metadata(&segments, &overflow), None);
+    }
+
+    #[test]
+    fn rejects_metadata_segment_extending_past_end_of_file() {
+        let err = footer_with_metadata_segment(segment(100, 51))
+            .validate_file_size(150)
+            .unwrap_err();
+        assert!(err.to_string().contains("past the end"), "{err}");
+    }
+
+    #[test]
+    fn accepts_metadata_segment_within_file() -> VortexResult<()> {
+        footer_with_metadata_segment(segment(100, 50)).validate_file_size(150)?;
+        Ok(())
     }
 }

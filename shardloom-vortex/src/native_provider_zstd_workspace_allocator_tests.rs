@@ -75,7 +75,7 @@ fn native_zstd_checks_actual_workspace_slices_before_ffi() {
                 target,
                 fault,
             });
-            let session = VortexSession::default().with_allocator(allocator);
+            let session = VortexSession::default().with_host_allocator(allocator);
             install(&session, memory.clone());
             let error = input
                 .execute::<PrimitiveArray>(&mut session.create_execution_ctx())
@@ -175,7 +175,7 @@ fn native_zstd_every_nullable_allocation_failure_releases_previous_owners() {
                 calls: AtomicUsize::new(0),
                 target,
             });
-            let session = VortexSession::default().with_allocator(allocator.clone());
+            let session = VortexSession::default().with_host_allocator(allocator.clone());
             install(&session, memory.clone());
             let error = input
                 .clone()
@@ -210,7 +210,7 @@ fn native_zstd_overlapping_calls_share_one_grant_and_release_independent_context
     let first_input = input.clone();
     let first_memory = memory.clone();
     let first = std::thread::spawn(move || {
-        let session = VortexSession::default().with_allocator(allocator);
+        let session = VortexSession::default().with_host_allocator(allocator);
         install(&session, first_memory);
         first_input.execute::<PrimitiveArray>(&mut session.create_execution_ctx())
     });

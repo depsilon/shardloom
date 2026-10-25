@@ -1,7 +1,7 @@
 //! Recursive type and byte admission at the explicit Arrow output boundary.
 
 use crate::local_primitives::{usize_to_u64, vortex_error};
-use arrow_schema::{DataType, Field};
+use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use shardloom_core::{Result, ShardLoomError};
 use std::sync::Arc;
 use vortex::array::{
@@ -9,7 +9,9 @@ use vortex::array::{
     arrays::fixed_size_list::{FixedSizeListArrayExt as _, FixedSizeListArraySlotsExt as _},
     arrays::listview::{ListViewArrayExt as _, ListViewArraySlotsExt as _},
     arrays::struct_::StructArrayExt as _,
-    arrays::{FixedSizeListArray, ListViewArray, StructArray, VarBin, VarBinViewArray},
+    arrays::{
+        FixedSizeListArray, ListViewArray, Struct, StructArray, VarBin, VarBinView, VarBinViewArray,
+    },
     dtype::{DType, PType},
 };
 
@@ -89,6 +91,66 @@ pub(crate) fn field_count(dtype: &DType) -> usize {
         DType::List(element, _) | DType::FixedSizeList(element, _, _) => field_count(element),
         _ => 0,
     }
+}
+
+/// A private immediate-consumer representation. Parquet accepts view and offset
+/// text as the same logical column and persists the writer's declared schema.
+/// Only already-canonical top-level views are eligible; nested fields and
+/// contiguous `VarBin` columns keep their existing representation.
+///
+/// Native owners remain alive for the batch's synchronous write/flush. Their
+/// allocations are still charged by the source owner; this bound covers the
+/// Arrow-visible regions and table overhead, not unique allocation capacity.
+/// Sparse views that would retain disproportionate payload keep compact export.
+pub(crate) fn immediate_parquet_target(
+    array: &ArrayRef,
+    schema: &SchemaRef,
+    expanded: u64,
+    byte_limit: u64,
+) -> Result<Option<(SchemaRef, u64)>> {
+    let Some(structure) = array.as_opt::<Struct>() else {
+        return Ok(None);
+    };
+    let mut fields = schema.fields().to_vec();
+    let mut admitted = expanded;
+    let mut changed = false;
+    for (field, child) in fields.iter_mut().zip(structure.iter_unmasked_fields()) {
+        let Some(text) = child.as_opt::<VarBinView>() else {
+            continue;
+        };
+        let dtype = match field.data_type() {
+            DataType::Utf8 => DataType::Utf8View,
+            DataType::Binary => DataType::BinaryView,
+            _ => continue,
+        };
+        // Count every table entry even when buffers alias. Include views,
+        // validity and a conservative fixed allowance per Arrow buffer entry.
+        let mut retained = usize_to_u64(text.views_handle().len())?
+            .checked_add(usize_to_u64(child.len().div_ceil(8))?)
+            .and_then(|n| n.checked_add(512))
+            .ok_or_else(|| error("Arrow view size overflow"))?;
+        for buffer in text.data_buffers().iter() {
+            retained = retained
+                .checked_add(usize_to_u64(buffer.len())?)
+                .and_then(|n| n.checked_add(256))
+                .ok_or_else(|| error("Arrow view buffer size overflow"))?;
+        }
+        let Some(next) = admitted.checked_add(retained) else {
+            continue;
+        };
+        if retained > expanded.saturating_mul(2) || next > byte_limit {
+            continue;
+        }
+        *field = Arc::new(field.as_ref().clone().with_data_type(dtype));
+        admitted = next;
+        changed = true;
+    }
+    Ok(changed.then(|| {
+        (
+            Arc::new(Schema::new_with_metadata(fields, schema.metadata().clone())),
+            admitted,
+        )
+    }))
 }
 
 /// The pinned Avro reader attaches record names to nested Arrow fields. They
@@ -190,6 +252,7 @@ pub(crate) fn canonical(
                 list.offsets().clone(),
                 list.sizes().clone(),
                 list.listview_validity(),
+                ctx,
             )
             .map(IntoArray::into_array)
             .map_err(vortex_error)
@@ -286,6 +349,10 @@ fn error(message: &str) -> ShardLoomError {
         "native columnar compatibility sink: {message}; no fallback execution was attempted"
     ))
 }
+
+#[cfg(test)]
+#[path = "native_arrow_immediate_tests.rs"]
+mod immediate_tests;
 
 #[cfg(test)]
 mod tests {

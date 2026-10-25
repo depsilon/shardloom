@@ -10,7 +10,7 @@ use vortex::array::{
 fn key(array: &ArrayRef, memory: &LiveMemoryPool) -> KeyColumn {
     KeyColumn::new(
         array,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
+        &mut vortex::array::array_session().create_execution_ctx(),
         memory,
         &CancellationToken::default(),
     )
@@ -198,7 +198,7 @@ fn native_typed_keys_temporal_domains_keep_full_ranges_and_logical_identity() {
 
 #[test]
 fn native_typed_keys_admission_precedes_work_and_releases_failed_reservations() {
-    let mut context = vortex::array::legacy_session().create_execution_ctx();
+    let mut context = vortex::array::array_session().create_execution_ctx();
     let cancellation = CancellationToken::default();
     let memory = LiveMemoryPool::new(15).unwrap();
     let binary = VarBinArray::from(vec![Some(&b"\xff"[..]), Some(&b""[..])]).into_array();

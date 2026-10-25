@@ -56,7 +56,7 @@ fn independent_integer_average_preserves_cancellation_nulls_selection_and_fusion
         .into_iter()
         .map(|value| value.map_or(StatValue::Null, StatValue::Int64))
         .collect::<Vec<_>>()];
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let (accessor, _) = aggregate_column_accessor_with_work("amount", &array).unwrap();
     for fused in [false, true] {
         for (selection, count, sum) in [
@@ -106,7 +106,7 @@ fn independent_integer_average_preserves_cancellation_nulls_selection_and_fusion
 
 #[test]
 fn independent_integer_average_covers_run_end_and_compact_groups() {
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let runend = vortex::encodings::runend::RunEnd::try_new(
         PrimitiveArray::from_iter([1_u32, 17, 18]).into_array(),
         PrimitiveArray::from_iter([1_000_000_000_000_000_000_i64, 1, -1_000_000_000_000_000_000])

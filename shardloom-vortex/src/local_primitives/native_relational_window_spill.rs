@@ -15,7 +15,7 @@ use crate::{
 use shardloom_core::Result;
 use vortex::array::{
     ArrayRef, VortexSessionExecute as _, arrays::PrimitiveArray, dtype::DType,
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 #[path = "native_relational_window_bounds.rs"]
@@ -417,7 +417,7 @@ fn result_column(
             result_batch::build_column(
                 dtype,
                 values.len(),
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |row| {
                     Ok(Value::Int(
                         i64::try_from(values[row]).map_err(vortex_error)?,

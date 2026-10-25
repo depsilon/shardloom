@@ -80,7 +80,12 @@ fn map_array_from_rows(
 ) -> VortexResult<MapArray> {
     let rows = rows.into_iter().collect::<Vec<_>>();
     let dtype = DType::Map(map_dtype.clone(), nullability);
-    let mut builder = MapBuilder::<u64, u64>::with_capacity(map_dtype, nullability, rows.len());
+    let mut builder = MapBuilder::<u64, u64>::with_capacity_in(
+        map_dtype,
+        nullability,
+        rows.len(),
+        vortex_buffer::BufferAllocatorRef::static_ref(),
+    );
 
     for row in rows {
         let scalar = match row {
@@ -112,6 +117,7 @@ fn sample_array() -> VortexResult<MapArray> {
 
 #[test]
 fn constructs_map_with_listview_entries() -> VortexResult<()> {
+    let mut ctx = array_session().create_execution_ctx();
     let MapDataParts { map_dtype, entries } = sample_array()?.into_data_parts();
     let array = MapArray::try_new(map_dtype.clone(), entries)?;
 
@@ -120,30 +126,17 @@ fn constructs_map_with_listview_entries() -> VortexResult<()> {
         &DType::Map(map_dtype.clone(), Nullability::Nullable)
     );
     assert!(array.keys_sorted());
-    assert_eq!(array.entry_count_at(0), 3);
-    assert_eq!(array.entry_count_at(1), 0);
-    assert_eq!(array.entries_at(0)?.dtype(), &map_dtype.entries_dtype());
-
-    let mut ctx = array_session().create_execution_ctx();
+    assert_eq!(array.entry_count_at(0, &mut ctx), 3);
+    assert_eq!(array.entry_count_at(1, &mut ctx), 0);
     assert_eq!(
-        array
-            .map_validity()
-            .execute_mask(array.len(), &mut ctx)?
-            .true_count(),
-        2
+        array.entries_at(0, &mut ctx)?.dtype(),
+        &map_dtype.entries_dtype()
     );
 
-    Ok(())
-}
-
-#[test]
-fn accepts_duplicate_and_unsorted_keys() -> VortexResult<()> {
-    let array = sample_array()?;
     let mut ctx = array_session().create_execution_ctx();
-
     assert_eq!(
-        array.execute_scalar(0, &mut ctx)?,
-        sample_scalar(array.dtype().clone())?
+        array.map_validity().execute_mask(array.len(), &mut ctx)?,
+        Mask::from_iter([true, true, false])
     );
 
     Ok(())
@@ -151,6 +144,7 @@ fn accepts_duplicate_and_unsorted_keys() -> VortexResult<()> {
 
 #[test]
 fn rejects_malformed_entry_storage() -> VortexResult<()> {
+    let mut ctx = array_session().create_execution_ctx();
     let map_dtype = map_dtype()?;
     let offsets = PrimitiveArray::from_iter([0u64]).into_array();
     let sizes = PrimitiveArray::from_iter([1u64]).into_array();
@@ -159,6 +153,7 @@ fn rejects_malformed_entry_storage() -> VortexResult<()> {
         offsets,
         sizes,
         Validity::NonNullable,
+        &mut ctx,
     )?;
     assert!(MapArray::try_new(map_dtype.clone(), non_struct_entries).is_err());
 
@@ -169,6 +164,7 @@ fn rejects_malformed_entry_storage() -> VortexResult<()> {
         PrimitiveArray::from_iter([0u64]).into_array(),
         PrimitiveArray::from_iter([1u64]).into_array(),
         Validity::NonNullable,
+        &mut ctx,
     )?;
     assert!(MapArray::try_new(map_dtype.clone(), null_entries).is_err());
 
@@ -178,8 +174,6 @@ fn rejects_malformed_entry_storage() -> VortexResult<()> {
         DType::Map(map_dtype, Nullability::NonNullable),
         entries.len(),
         MapData,
-    )
-    .with_slots(
         MapSlots {
             entries: entries.into_array(),
         }
@@ -222,7 +216,12 @@ fn scalar_access_preserves_variable_entry_counts_and_utf8_pairs() -> VortexResul
         false,
     )?;
     let dtype = DType::Map(map_dtype.clone(), Nullability::Nullable);
-    let mut builder = MapBuilder::<u64, u64>::with_capacity(map_dtype, Nullability::Nullable, 4);
+    let mut builder = MapBuilder::<u64, u64>::with_capacity_in(
+        map_dtype,
+        Nullability::Nullable,
+        4,
+        vortex_buffer::BufferAllocatorRef::static_ref(),
+    );
     let rows = [
         Some(vec![
             (
@@ -270,10 +269,10 @@ fn scalar_access_preserves_variable_entry_counts_and_utf8_pairs() -> VortexResul
     let array = builder.finish_into_map();
     let mut ctx = array_session().create_execution_ctx();
 
-    assert_eq!(array.entry_count_at(0), 2);
-    assert_eq!(array.entry_count_at(1), 1);
-    assert_eq!(array.entry_count_at(2), 0);
-    assert_eq!(array.entry_count_at(3), 3);
+    assert_eq!(array.entry_count_at(0, &mut ctx), 2);
+    assert_eq!(array.entry_count_at(1, &mut ctx), 1);
+    assert_eq!(array.entry_count_at(2, &mut ctx), 0);
+    assert_eq!(array.entry_count_at(3, &mut ctx), 3);
     for (index, expected) in expected.into_iter().enumerate() {
         assert_eq!(array.execute_scalar(index, &mut ctx)?, expected);
     }
@@ -644,10 +643,11 @@ fn filter_preserves_duplicate_map_keys() -> VortexResult<()> {
 #[test]
 fn builder_appends_existing_map_arrays() -> VortexResult<()> {
     let source = sample_array()?;
-    let mut builder = MapBuilder::<u64, u64>::with_capacity(
+    let mut builder = MapBuilder::<u64, u64>::with_capacity_in(
         source.map_dtype().clone(),
         source.dtype().nullability(),
         0,
+        vortex_buffer::BufferAllocatorRef::static_ref(),
     );
     let mut ctx = array_session().create_execution_ctx();
     builder.append_map_array(source.as_view(), &mut ctx)?;
@@ -655,6 +655,15 @@ fn builder_appends_existing_map_arrays() -> VortexResult<()> {
     let array = builder.finish_into_map();
 
     assert_eq!(array.len(), 6);
+    assert_eq!(array.dtype(), source.dtype());
+    let expected = [
+        sample_scalar(source.dtype().clone())?,
+        Scalar::try_map(source.dtype().clone(), [])?,
+        Scalar::null(source.dtype().clone()),
+    ];
+    for index in 0..6 {
+        assert_eq!(array.execute_scalar(index, &mut ctx)?, expected[index % 3]);
+    }
     assert_eq!(
         array.execute_scalar(0, &mut ctx)?,
         source.execute_scalar(0, &mut ctx)?
@@ -674,18 +683,38 @@ fn canonicalizes_empty_constant_and_chunked_maps() -> VortexResult<()> {
     let dtype = DType::Map(map_dtype, Nullability::Nullable);
     let empty = Canonical::empty(&dtype);
     assert!(empty.as_map().is_empty());
+    assert_eq!(empty.as_map().dtype(), &dtype);
 
     let mut ctx = array_session().create_execution_ctx();
     let constant = ConstantArray::new(sample_scalar(dtype.clone())?, 2)
         .into_array()
         .execute::<Canonical>(&mut ctx)?;
     assert_eq!(constant.as_map().len(), 2);
+    assert_eq!(constant.as_map().dtype(), &dtype);
+    for index in 0..2 {
+        assert_eq!(
+            constant.as_map().execute_scalar(index, &mut ctx)?,
+            sample_scalar(dtype.clone())?
+        );
+    }
 
     let first = sample_array()?.into_array();
     let second = sample_array()?.into_array();
-    let chunked = ChunkedArray::try_new(vec![first, second], dtype)?.into_array();
+    let chunked = ChunkedArray::try_new(vec![first, second], dtype.clone())?.into_array();
     let canonical = chunked.execute::<Canonical>(&mut ctx)?;
     assert_eq!(canonical.as_map().len(), 6);
+    assert_eq!(canonical.as_map().dtype(), &dtype);
+    let expected = [
+        sample_scalar(dtype.clone())?,
+        Scalar::try_map(dtype.clone(), [])?,
+        Scalar::null(dtype),
+    ];
+    for index in 0..6 {
+        assert_eq!(
+            canonical.as_map().execute_scalar(index, &mut ctx)?,
+            expected[index % 3]
+        );
+    }
 
     Ok(())
 }
@@ -709,6 +738,8 @@ fn serde_roundtrip_uses_registered_map_vtable() -> VortexResult<()> {
     let decoded =
         serialized.decode(&dtype, len, &ReadContext::new(array_ctx.to_ids()), &session)?;
     assert!(decoded.is::<Map>());
+    assert_eq!(decoded.dtype(), &dtype);
+    assert_eq!(decoded.len(), len);
 
     let mut ctx = session.create_execution_ctx();
     for index in 0..len {

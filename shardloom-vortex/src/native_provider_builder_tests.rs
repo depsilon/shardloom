@@ -10,7 +10,7 @@ use vortex::{
         Canonical, VortexSessionExecute as _,
         arrays::{BoolArray, ChunkedArray, ConstantArray, DecimalArray, bool::BoolArrayExt as _},
         dtype::{DecimalDType, DecimalType, Nullability, PType, i256},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
     buffer::{BitBuffer, buffer},
     encodings::{
@@ -20,7 +20,7 @@ use vortex::{
 };
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     install(&session, memory.clone());

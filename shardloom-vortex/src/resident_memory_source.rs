@@ -15,7 +15,7 @@ use vortex::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{BoolArray, PrimitiveArray, StructArray, VarBinArray},
         dtype::{DType, FieldNames, Nullability},
-        memory::HostAllocatorRef,
+        memory::{HostAllocatorRef, HostMemorySessionExt as _},
         validity::Validity,
     },
     buffer::{Alignment, BitBuffer, Buffer, ByteBuffer},
@@ -538,8 +538,8 @@ impl ResidentMemorySource {
         let filter = filter
             .map(|filter| {
                 filter
-                    .optimize_recursive(self.dtype())
-                    .and_then(|filter| filter.bind(self.dtype()))
+                    .bind(self.dtype())
+                    .and_then(|bound| bound.optimize_recursive())
                     .map_err(native_error)
             })
             .transpose()?;
@@ -1004,6 +1004,9 @@ fn build_column(
                 bytes.freeze(),
                 DType::Utf8(Nullability::Nullable),
                 validity,
+                &mut vortex::array::array_session()
+                    .with_host_allocator(allocator.clone())
+                    .create_execution_ctx(),
             )
             .map(vortex::array::IntoArray::into_array)
             .map_err(native_error)

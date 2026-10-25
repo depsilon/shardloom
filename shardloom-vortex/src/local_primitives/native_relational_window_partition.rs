@@ -17,7 +17,7 @@ use crate::local_primitives::{
     vortex_error,
 };
 use vortex::array::{
-    VortexSessionExecute as _, arrays::PrimitiveArray, memory::MemorySessionExt as _,
+    VortexSessionExecute as _, arrays::PrimitiveArray, memory::HostMemorySessionExt as _,
 };
 
 pub(super) struct Peers<'a, 's> {
@@ -367,7 +367,7 @@ fn assemble(
                 result_batch::build_column(
                     &kind.dtype(),
                     values.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         if !valid.value(row) {
                             return Ok(Value::Null);

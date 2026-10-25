@@ -8,7 +8,7 @@ use vortex::{
     VortexSessionDefault as _,
     array::{
         dtype::{DType, FieldMask, Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
     flatbuffers::{FlatBuffer, WriteFlatBufferExt as _},
     layout::{
@@ -36,7 +36,7 @@ impl vortex::array::memory::HostAllocator for BufferOnlyAllocator {
 
 #[test]
 fn native_structural_metadata_custom_allocator_refuses_unadmitted_nonempty_storage() {
-    let consumer = VortexSession::default().with_allocator(Arc::new(BufferOnlyAllocator));
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(BufferOnlyAllocator));
     let fixture = chunked((0..8).map(flat).collect());
     let (buffer, context) = serialized(&fixture);
     let error = reopen(buffer, &context, &consumer).unwrap_err();
@@ -132,7 +132,7 @@ fn dtype() -> DType {
 }
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    VortexSession::default().with_allocator(Arc::new(
+    VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ))
 }
@@ -163,7 +163,7 @@ impl vortex::array::memory::HostAllocator for RecordingAllocator {
 
 fn recording_session(memory: &LiveMemoryPool) -> (VortexSession, Arc<Mutex<Vec<usize>>>) {
     let requests = Arc::new(Mutex::new(Vec::new()));
-    let consumer = VortexSession::default().with_allocator(Arc::new(RecordingAllocator {
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(RecordingAllocator {
         inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         requests: Arc::clone(&requests),
     }));
@@ -1009,7 +1009,7 @@ fn native_structural_metadata_factory_shape_and_size_errors_precede_admission() 
 
 #[test]
 fn native_structural_metadata_factory_empty_and_custom_allocator_boundaries() {
-    let consumer = VortexSession::default().with_allocator(Arc::new(BufferOnlyAllocator));
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(BufferOnlyAllocator));
     let empty = LazyReaderChildren::try_new_with_metadata(
         Arc::new(UnmaterializedChildren(0)),
         0,

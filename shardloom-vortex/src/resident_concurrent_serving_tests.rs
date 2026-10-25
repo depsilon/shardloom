@@ -590,7 +590,7 @@ fn ordinary_failed_operation_drives_cancelled_provider_completion_before_return(
                     .io_scope()
                     .map(|scope| scope.admit(4096))
                     .transpose()?;
-                let allocator = context.native_session().allocator();
+                let allocator = context.native_session().host_allocator();
                 let (entered, entry) = futures::channel::oneshot::channel();
                 let task = context.runtime().handle().spawn(async move {
                     let completion = io_ownership::ReadCompletion {

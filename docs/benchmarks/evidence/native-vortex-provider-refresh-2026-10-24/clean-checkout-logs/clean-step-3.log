@@ -1,0 +1,11 @@
+test_case_level_values_archive_is_required_and_checked (test_native_provider_refresh_evidence.NativeProviderEvidenceTests.test_case_level_values_archive_is_required_and_checked) ... ok
+test_complete_values_compare_actual_to_expected (test_native_provider_refresh_evidence.NativeProviderEvidenceTests.test_complete_values_compare_actual_to_expected) ... ok
+test_current_source_rejects_changed_and_missing_tracked_files (test_native_provider_refresh_evidence.NativeProviderEvidenceTests.test_current_source_rejects_changed_and_missing_tracked_files) ... ok
+test_generated_standalone_locks_are_not_committed_runtime_sources (test_native_provider_refresh_evidence.NativeProviderEvidenceTests.test_generated_standalone_locks_are_not_committed_runtime_sources) ... ok
+test_preparation_uses_its_own_report_namespace_and_rejects_bad_evidence (test_native_provider_refresh_evidence.NativeProviderEvidenceTests.test_preparation_uses_its_own_report_namespace_and_rejects_bad_evidence) ... ok
+test_strict_json_rejects_duplicate_keys_and_nonfinite_values (test_native_provider_refresh_evidence.NativeProviderEvidenceTests.test_strict_json_rejects_duplicate_keys_and_nonfinite_values) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.011s
+
+OK

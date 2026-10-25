@@ -19,7 +19,7 @@ use vortex::array::{
     arrays::{ChunkedArray, FixedSizeListArray, ListArray, PrimitiveArray, StructArray},
     builtins::ArrayBuiltins as _,
     dtype::{DType, Nullability, PType},
-    memory::{HostAllocatorRef, MemorySessionExt as _},
+    memory::{HostAllocatorRef, HostMemorySessionExt as _},
     validity::Validity,
 };
 
@@ -194,7 +194,7 @@ fn take_admitted(
         ));
     }
     let allocator =
-        crate::owned_buffers::with_credit(context.native_session().allocator(), metadata);
+        crate::owned_buffers::with_credit(context.native_session().host_allocator(), metadata);
     let mut execution = context.native_session().create_execution_ctx();
     let mut rows = ReservedVec::new(context.memory())?;
     rows.reserve(indices.len())?;
@@ -251,7 +251,7 @@ fn defaults_admitted(
     metadata: MemoryLease,
 ) -> Result<ArrayRef> {
     let allocator =
-        crate::owned_buffers::with_credit(context.native_session().allocator(), metadata);
+        crate::owned_buffers::with_credit(context.native_session().host_allocator(), metadata);
     let mut indices = ReservedVec::new(context.memory())?;
     indices.reserve(rows)?;
     indices.values.resize(rows, None);
@@ -510,6 +510,7 @@ fn copy_struct(
     let (children, _ownership) = children.into_parts();
     StructArray::try_new(fields.names().clone(), children, rows.len(), validity)
         .map(IntoArray::into_array)
+        .and_then(|array| crate::owned_buffers::retain_empty_array_credit(array, allocator))
         .map_err(vortex_error)
 }
 
@@ -582,8 +583,13 @@ fn copy_list(
             allocator,
             |row| Ok(Value::UInt(offsets.values[row] as u64)),
         )?;
-        ListArray::try_new(child, offsets, validity)
-            .map(IntoArray::into_array)
-            .map_err(vortex_error)
+        ListArray::try_new(
+            child,
+            offsets,
+            validity,
+            &mut context.native_session().create_execution_ctx(),
+        )
+        .map(IntoArray::into_array)
+        .map_err(vortex_error)
     }
 }

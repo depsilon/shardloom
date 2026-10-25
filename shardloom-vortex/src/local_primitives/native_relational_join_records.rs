@@ -14,7 +14,7 @@ use vortex::array::{
     ArrayRef, IntoArray as _, VortexSessionExecute as _,
     arrays::StructArray,
     dtype::{FieldName, Nullability},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 pub(super) const HASH: &str = "hash";
@@ -109,7 +109,7 @@ impl Layout {
         columns.values.push(result_batch::build_column(
             &records::u64_type().as_nullable(),
             rows,
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -128,7 +128,7 @@ impl Layout {
             result_batch::build_column(
                 &self.payload_dtype,
                 rows,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |_| Ok(Value::Bool(false)),
             )?
         } else {

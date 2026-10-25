@@ -8,7 +8,7 @@ use vortex::{
         IntoArray as _,
         arrays::{ConstantArray, DictArray, StructArray, VarBinViewArray},
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
 };
 
@@ -49,7 +49,7 @@ fn run(
     let columns = vec!["renamed_key".to_owned()];
     let mut states = GroupedAggregateStates::new(request, limit, &columns, false, false).unwrap();
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     let mut jobs = CountWorkers::admit(
@@ -220,7 +220,7 @@ fn coordinator_chunked_logical_projection_and_nullable_admission_remain_exact() 
                 &chunk,
                 &columns,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap();
@@ -344,7 +344,7 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
             chunk(strings(&rows))
         });
         let memory = LiveMemoryPool::new(1 << 20).unwrap();
-        let session = VortexSession::default().with_allocator(Arc::new(
+        let session = VortexSession::default().with_host_allocator(Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
         let mut jobs = CountWorkers::admit(
@@ -390,7 +390,7 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
                 &columns,
                 None,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap();

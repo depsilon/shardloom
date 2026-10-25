@@ -1,6 +1,6 @@
 # ShardLoom file metadata ownership patch
 
-This directory contains the reviewed Apache-2.0 `vortex-file` 0.85.0 registry
+This directory contains the reviewed Apache-2.0 `vortex-file` 0.90.0 registry
 source. `upstream-provenance.json` records the authoritative archive, all
 original member hashes, license and dirty upstream revision. The workspace
 lockfile owns production dependency resolution; the archive's crate-local
@@ -18,8 +18,22 @@ without substituting unbounded storage. The original infallible `prefix_data`
 operation remains a documented raw compatibility surface; file opens call the
 new fallible `try_prefix_data` operation.
 
-File/array/layout identities, serialization, provider version and dependency
-versions are unchanged. `publish = false` prevents publishing this local patch.
+The refresh also makes the V2 segment-location table and plan cache in
+`src/file.rs` lazy. Ordinary cached V1 opens and scans do not allocate that
+unused copy of the admitted segment table. Clones share initialization; source
+replacement resets source-dependent plans while retaining already initialized
+immutable locations. Tests cover complete V1/V2 results, cold clones, metadata
+locations and replacement sources. This preserves the upstream V2 API without
+admitting it as a ShardLoom execution provider or claiming resource coverage for
+its explicit-use allocations.
+
+The October 24 refresh ports the existing ownership changes to the new
+serialization/context APIs and connects file reads to the reviewed fallible
+`vortex-io` constructors. Writer edition enforcement remains enabled; the pinned
+facade defaults to frozen `core:2026.08.3`, without preview or the optional Zstd
+buffer edition. Historical-file compatibility is not an acceptance requirement;
+fresh native files must pass complete write/reopen checks.
+`publish = false` prevents publishing this local patch.
 No external query engine or execution fallback is introduced.
 
 The owning contract is

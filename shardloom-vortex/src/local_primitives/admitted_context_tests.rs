@@ -13,7 +13,7 @@ use vortex::{
             BoolArray, ChunkedArray, DictArray, FixedSizeListArray, ListViewArray, PrimitiveArray,
             StructArray, VarBinViewArray,
         },
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     buffer::BitBuffer,
@@ -23,7 +23,7 @@ use vortex::{
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
     let session = VortexSession::default()
-        .with_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
+        .with_host_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
     crate::native_provider_memory::install(&session, memory.clone());
     session
 }
@@ -454,6 +454,9 @@ fn admitted_context_fsst_predicate_and_mask_keep_encoded_offsets_owner() {
         codes.bytes().clone(),
         codes.dtype().clone(),
         codes.validity().unwrap(),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     );
     let encoded = FSST::try_new_with_symbol_table(
         fsst.dtype().clone(),
@@ -541,7 +544,16 @@ fn list_fixture(encoded_part: &str) -> ArrayRef {
     } else {
         Validity::NonNullable
     };
-    ListViewArray::new(values, offsets, sizes, validity).into_array()
+    ListViewArray::new(
+        values,
+        offsets,
+        sizes,
+        validity,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
+    )
+    .into_array()
 }
 
 fn assert_list_admission(input: &ArrayRef, parent_nullable: bool) {
@@ -602,6 +614,9 @@ fn admitted_context_null_and_empty_lists_do_not_decode_unused_offsets() {
             compressed(&PrimitiveArray::from_iter(vec![0u32; count])),
             compressed(&PrimitiveArray::from_iter(vec![1u32; count])),
             Validity::AllInvalid,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .into_array();
         assert_eq!(

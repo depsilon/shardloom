@@ -91,7 +91,13 @@ pub(super) fn stream_options(
     // Only this branch installs preservation: the child is always wrapped in
     // a bounded source-batch layout below. Unbounded array writers retain their
     // original strategy and cannot multiply outstanding dictionary owners.
-    let child = context.strategy_for_decision(decision, timing, &memory.session, true, dtype);
+    let child = LocalVortexWriteContext::strategy_for_decision(
+        decision,
+        timing,
+        &memory.session,
+        true,
+        dtype,
+    );
     if requested == StreamFooterLayout::ColumnAddressable
         && ColumnAddressableLayout::admits_dtype(dtype, bounds)
     {

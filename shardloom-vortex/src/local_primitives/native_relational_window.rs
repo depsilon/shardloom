@@ -23,7 +23,7 @@ use vortex::array::{
     ArrayRef,
     arrays::StructArray,
     dtype::{DType, FieldNames},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
 
@@ -367,7 +367,7 @@ impl<'a> Window<'a> {
                 (_, Values::Integer(values)) => result_batch::build_column(
                     dtype,
                     range.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         Ok(result_batch::Value::Int(
                             i64::try_from(values.values[range.start + row])
@@ -378,19 +378,19 @@ impl<'a> Window<'a> {
                 (_, Values::Fraction(values)) => result_batch::build_column(
                     dtype,
                     range.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| Ok(result_batch::Value::Float(values.values[range.start + row])),
                 )?,
                 (_, Values::Count(values)) => result_batch::build_column(
                     dtype,
                     range.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| Ok(result_batch::Value::UInt(values.values[range.start + row])),
                 )?,
                 (_, Values::NullableFraction(values)) => result_batch::build_column(
                     dtype,
                     range.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         Ok(values.values[range.start + row]
                             .map_or(result_batch::Value::Null, result_batch::Value::Float))
@@ -403,7 +403,7 @@ impl<'a> Window<'a> {
                     result_batch::build_column(
                         dtype,
                         range.len(),
-                        &context.native_session().allocator(),
+                        &context.native_session().host_allocator(),
                         |row| {
                             Ok(values.values[range.start + row]
                                 .map_or(result_batch::Value::Null, |value| {

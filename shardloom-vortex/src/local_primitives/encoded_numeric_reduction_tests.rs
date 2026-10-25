@@ -93,7 +93,7 @@ fn check(encoded: &ArrayRef, selection: Option<&[usize]>, functions: &[&str], of
 
 #[test]
 fn encoded_numeric_reduction_all_widths_match_native_values_and_selected_duplicates() {
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     macro_rules! integer {
         ($ty:ty) => {{
             let values = PrimitiveArray::from_option_iter([
@@ -160,7 +160,7 @@ fn encoded_numeric_reduction_all_widths_match_native_values_and_selected_duplica
 #[test]
 fn encoded_numeric_reduction_wide_fusion_preserves_offsets_and_mixed_measures() {
     let columns = vec!["measure".to_owned()];
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let array = RunEnd::try_new(
         PrimitiveArray::new(vec![3_u32, 7, 9, 15], Validity::NonNullable).into_array(),
         PrimitiveArray::from_option_iter([Some(1e16_f64), Some(1.0), None, Some(-1e16)])
@@ -257,7 +257,7 @@ fn encoded_numeric_reduction_constants_preserve_null_empty_and_floating_order() 
 
 #[test]
 fn encoded_numeric_reduction_sliced_runs_clip_boundaries_and_keep_row_order() {
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let runs = RunEnd::try_new(
         PrimitiveArray::new(vec![2_u64, 7, 9, 20], Validity::NonNullable).into_array(),
         PrimitiveArray::from_option_iter([Some(1_i32), Some(9), None, Some(-5)]).into_array(),
@@ -313,7 +313,7 @@ fn encoded_numeric_reduction_complete_multi_column_states_include_count_all() {
         VortexSimpleAggregateMeasure::new("count", None, "rows".into()),
     ]);
     let mut actual = SimpleAggregateStates::new(&request, &columns).unwrap();
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let mut work = NativeNumericAccessorWork::default();
     assert!(
         actual
@@ -341,7 +341,7 @@ fn encoded_numeric_reduction_complete_multi_column_states_include_count_all() {
 #[test]
 fn encoded_numeric_reduction_avoids_large_logical_expansion() {
     let columns = vec!["value".to_owned()];
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let array = RunEnd::try_new(
         PrimitiveArray::new(vec![50_000_000_u64, 100_000_000], Validity::NonNullable).into_array(),
         PrimitiveArray::new(vec![u64::MAX, 7], Validity::NonNullable).into_array(),
@@ -368,7 +368,7 @@ fn encoded_numeric_reduction_avoids_large_logical_expansion() {
 #[test]
 fn encoded_numeric_reduction_rejects_bad_selection_and_propagates_numeric_errors() {
     let columns = vec!["value".to_owned()];
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let array = ConstantArray::new(1_u8, 3).into_array();
     let mut actual = states(&["count"], &columns);
     assert!(
@@ -419,7 +419,7 @@ fn encoded_numeric_reduction_rejects_bad_selection_and_propagates_numeric_errors
 #[test]
 fn encoded_numeric_reduction_unadmitted_shapes_leave_state_and_work_unchanged() {
     let columns = vec!["value".to_owned()];
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let array = PrimitiveArray::new(vec![1_u64, 2, 3], Validity::NonNullable).into_array();
     let mut actual = states(&["sum"], &columns);
     let mut work = NativeNumericAccessorWork::default();
@@ -543,7 +543,7 @@ fn encoded_numeric_reduction_public_native_file_preserves_complete_values() {
 #[ignore = "manual release-mode scalar-consumer benchmark; emits paired complete-value evidence"]
 fn encoded_numeric_reduction_measured_native_scalar_consumers() {
     let columns = vec!["measure".to_owned()];
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let rows = 8_000_000_u32;
     let array = RunEnd::try_new(
         PrimitiveArray::new(vec![rows / 2, rows], Validity::NonNullable).into_array(),

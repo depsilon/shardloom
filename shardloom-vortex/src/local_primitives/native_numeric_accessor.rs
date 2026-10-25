@@ -265,7 +265,7 @@ impl vortex::session::VortexSessionVar for QueryContextProbe {}
 fn observe_test_query_context(ctx: &ExecutionCtx) -> Result<()> {
     use vortex::session::SessionExt as _;
     if let Some(probe) = ctx.session().get_opt::<QueryContextProbe>() {
-        if !std::sync::Arc::ptr_eq(&ctx.allocator(), &probe.allocator) {
+        if !std::sync::Arc::ptr_eq(&ctx.host_allocator(), &probe.allocator) {
             return Err(failed("test configured allocator identity mismatch"));
         }
         probe

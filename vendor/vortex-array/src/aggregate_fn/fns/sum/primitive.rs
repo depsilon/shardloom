@@ -21,7 +21,7 @@ use crate::match_each_native_ptype;
 /// than 64 bits cannot overflow the 64-bit accumulator: `2^16 * (2^32 - 1) < 2^64`.
 const SUM_CHUNK: usize = 1 << 16;
 
-pub(super) fn accumulate_primitive(
+pub(crate) fn accumulate_primitive(
     inner: &mut SumState,
     p: &PrimitiveArray,
     ctx: &mut ExecutionCtx,
@@ -59,14 +59,14 @@ fn accumulate_primitive_all(
                 Ok(false)
             }
         ),
-        SumState::Decimal { .. } => vortex_panic!("decimal sum state with primitive input"),
+        SumState::Decimal(_) => vortex_panic!("decimal sum state with primitive input"),
     }
 }
 
 /// Sum the values of a float slice into an `f64` accumulator. When `skip_nans` is set, NaN values
 /// are skipped to match the scalar `sum` semantics; otherwise any NaN poisons the accumulator to
 /// NaN. Floats cannot overflow the accumulator, so this never reports saturation.
-pub(super) fn sum_float_all<T: NativePType>(acc: &mut f64, slice: &[T], skip_nans: bool) {
+pub(crate) fn sum_float_all<T: NativePType>(acc: &mut f64, slice: &[T], skip_nans: bool) {
     if skip_nans {
         for &v in slice {
             if !v.is_nan() {
@@ -84,7 +84,7 @@ pub(super) fn sum_float_all<T: NativePType>(acc: &mut f64, slice: &[T], skip_nan
 /// chunks of [`SUM_CHUNK`] with a single checked add per chunk, which lets the inner loop vectorize
 /// to packed widening adds. `u64` input keeps a per-element checked add since a chunk of `u64`s
 /// could itself overflow. Returns `true` on overflow.
-pub(super) fn sum_unsigned_all<T>(acc: &mut u64, slice: &[T]) -> bool
+pub(crate) fn sum_unsigned_all<T>(acc: &mut u64, slice: &[T]) -> bool
 where
     T: NativePType + AsPrimitive<u64>,
 {
@@ -106,7 +106,7 @@ where
 }
 
 /// Signed counterpart of [`sum_unsigned_all`].
-pub(super) fn sum_signed_all<T>(acc: &mut i64, slice: &[T]) -> bool
+pub(crate) fn sum_signed_all<T>(acc: &mut i64, slice: &[T]) -> bool
 where
     T: NativePType + AsPrimitive<i64>,
 {
@@ -174,7 +174,7 @@ fn accumulate_primitive_valid(
                 Ok(false)
             }
         ),
-        SumState::Decimal { .. } => vortex_panic!("decimal sum state with primitive input"),
+        SumState::Decimal(_) => vortex_panic!("decimal sum state with primitive input"),
     }
 }
 
@@ -374,11 +374,10 @@ mod tests {
     }
 
     #[test]
-    fn sum_not_skipping_shortcircuits_on_exact_nan_count_stat() -> VortexResult<()> {
-        // The array has no NaNs; a planted exact NaNCount stat proves the NaN poisoning came
-        // from the stat rather than a scan.
-        let arr =
-            PrimitiveArray::new(buffer![1.0f64, 2.0, 3.0], Validity::NonNullable).into_array();
+    fn sum_not_skipping_with_exact_nan_count_stat() -> VortexResult<()> {
+        // The exact NaN count agrees with the batch; including NaNs must poison the sum.
+        let arr = PrimitiveArray::new(buffer![1.0f64, 2.0, 3.0, f64::NAN], Validity::NonNullable)
+            .into_array();
         arr.statistics()
             .set(Stat::NaNCount, Precision::Exact(ScalarValue::from(1u64)));
         let result = sum_with_options(&arr, NumericalAggregateOpts::include_nans())?;
@@ -387,16 +386,16 @@ mod tests {
     }
 
     #[test]
-    fn sum_not_skipping_uses_cached_sum_when_nan_free() -> VortexResult<()> {
-        // With an exact NaNCount of zero, the planted exact Sum stat is usable as-is.
+    fn sum_not_skipping_with_exact_sum_when_nan_free() -> VortexResult<()> {
+        // With an exact NaNCount of zero, the exact Sum stat is usable as-is.
         let arr =
             PrimitiveArray::new(buffer![1.0f64, 2.0, 3.0], Validity::NonNullable).into_array();
         arr.statistics()
             .set(Stat::NaNCount, Precision::Exact(ScalarValue::from(0u64)));
         arr.statistics()
-            .set(Stat::Sum, Precision::Exact(ScalarValue::from(42.0f64)));
+            .set(Stat::Sum, Precision::Exact(ScalarValue::from(6.0f64)));
         let result = sum_with_options(&arr, NumericalAggregateOpts::include_nans())?;
-        assert_eq!(result.as_primitive().typed_value::<f64>(), Some(42.0));
+        assert_eq!(result.as_primitive().typed_value::<f64>(), Some(6.0));
         Ok(())
     }
 

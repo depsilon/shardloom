@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the ShardLoom contributors
+// ShardLoom regression tests, updated for Vortex 0.90 on 2026-10-24.
 
 //! Receiving metadata ownership through real native array escape paths.
 
@@ -99,7 +100,7 @@ fn retained_child_owner_survives_parent_release() {
     let parent = StructArray::from_fields(&[("value", child)])
         .unwrap()
         .into_array();
-    let escaped = parent.nth_child(0).unwrap();
+    let escaped = parent.nth_child(0).unwrap().clone();
     drop(parent);
     assert!(escaped.is::<Constant>());
     assert!(weak.upgrade().is_some());

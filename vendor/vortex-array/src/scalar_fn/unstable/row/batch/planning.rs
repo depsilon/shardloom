@@ -33,8 +33,7 @@ impl RowFnExecutionArgs {
             vortex_ensure_eq!(
                 input.len(),
                 row_count,
-                "the {id} input {index} must have {row_count} rows, got {}",
-                input.len(),
+                "the {id} input {index} has the wrong row count",
             );
         }
 
@@ -55,8 +54,7 @@ impl RowFnExecutionArgs {
             arg_dtypes,
             validity,
             result_dtype,
-            output_dtype: plan.output_dtype,
-            policy: plan.policy,
+            plan,
         })
     }
 
@@ -66,12 +64,6 @@ impl RowFnExecutionArgs {
         arrays: &'b [ArrayRef],
         row_count: usize,
     ) -> BorrowedRowFnArgs<'b> {
-        BorrowedRowFnArgs::new(
-            arrays,
-            row_count,
-            &self.arg_dtypes,
-            &self.output_dtype,
-            self.policy,
-        )
+        BorrowedRowFnArgs::new(arrays, row_count, &self.arg_dtypes, &self.plan)
     }
 }

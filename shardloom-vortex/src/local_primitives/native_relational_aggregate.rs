@@ -32,7 +32,7 @@ use vortex::{
         ArrayRef, IntoArray as _,
         arrays::StructArray,
         dtype::{DType, DecimalDType, FieldNames, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     buffer::Alignment,
@@ -477,7 +477,7 @@ impl<'a> Aggregate<'a> {
                 columns.values.push(result_batch::build_column(
                     &measure.dtype,
                     end - start,
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         if row.is_multiple_of(1024) {
                             context.check_cancelled()?;
@@ -761,7 +761,7 @@ fn owned_extreme(value: Cell, context: &NativeExecutionContext<'_>) -> Result<Ce
     };
     let mut owned = context
         .native_session()
-        .allocator()
+        .host_allocator()
         .allocate(bytes.len(), Alignment::new(1))
         .map_err(vortex_error)?;
     owned.as_mut_slice().copy_from_slice(bytes.as_slice());
@@ -862,6 +862,9 @@ mod ownership_tests {
                 PrimitiveArray::from_iter([offset]).into_array(),
                 PrimitiveArray::from_iter([1u64]).into_array(),
                 Validity::NonNullable,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    &vortex::array::array_session(),
+                ),
             )
             .unwrap()
             .into_array()
@@ -880,7 +883,7 @@ mod ownership_tests {
                 let values = result_batch::build_column(
                     &DType::Binary(vortex::array::dtype::Nullability::NonNullable),
                     2,
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| {
                         Ok(Value::Binary(Cow::Borrowed(if row == 0 {
                             &huge
@@ -925,7 +928,7 @@ mod ownership_tests {
         let selected = state.as_ref().unwrap().array.clone();
         drop((state, session));
         assert!(memory.snapshot().reserved_bytes > 0);
-        let mut execution = vortex::array::legacy_session().create_execution_ctx();
+        let mut execution = vortex::array::array_session().create_execution_ctx();
         assert_eq!(
             selected
                 .execute_scalar(0, &mut execution)

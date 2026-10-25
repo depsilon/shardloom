@@ -219,7 +219,7 @@ fn clickbench_zstd_size_admission_screen() {
     }
     let report = json!({
         "schema_version":"shardloom.native_zstd_size_screen.v1",
-        "source":source,"provider":"Vortex 0.85.0 native Zstd and native file writer/scan",
+        "source":source,"provider":"Vortex 0.90.0 native Zstd and native file writer/scan",
         "columns":prepared.columns,"row_groups":ROW_GROUPS,"batches_per_region":BATCHES_PER_REGION,
         "rows_per_batch":BATCH_ROWS,"profiles":PROFILES.map(Profile::name),
         "limits":{"admitted_memory_bytes":MEMORY_LIMIT_BYTES,"column_file_bytes":COLUMN_FILE_LIMIT_BYTES,

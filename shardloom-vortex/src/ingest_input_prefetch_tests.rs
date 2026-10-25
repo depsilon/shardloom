@@ -497,7 +497,7 @@ fn next_input_error_waits_for_prior_child_completion() {
 }
 
 fn native_array_credit() -> u64 {
-    u64::try_from(std::mem::size_of::<u64>() + *Alignment::DEFAULT_ALIGNMENT).unwrap()
+    u64::try_from(std::mem::size_of::<u64>() + Alignment::DEFAULT_ALIGNMENT.as_usize()).unwrap()
 }
 
 #[test]

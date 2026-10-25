@@ -21,7 +21,7 @@ use crate::local_primitives::{
 use std::ops::Range;
 use vortex::array::{
     dtype::{DType, Nullability, PType},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 const VALUE: &str = "value";
@@ -198,7 +198,7 @@ impl Events<'_, '_> {
         columns.values.push(result_batch::build_column(
             &self.spec.fields[1].1,
             rows,
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| Ok(Value::Int(self.buffer.values[row].1)),
         )?);
         self.order.build(

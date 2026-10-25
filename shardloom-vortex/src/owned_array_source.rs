@@ -21,6 +21,7 @@ use std::{
 use vortex::{
     array::{
         ArrayRef, MaskFuture, VortexSessionExecute as _,
+        builtins::ArrayBuiltins as _,
         dtype::{DType, FieldMask},
     },
     error::{VortexResult, vortex_err},
@@ -240,8 +241,8 @@ impl LayoutReader for Reader {
             let mask = mask.await?;
             let selected = array.filter(mask.clone())?.apply_bound(&expr)?;
             let evaluated = selected
-                .null_as_false()
-                .execute(&mut session.create_execution_ctx())?;
+                .fill_null(false)?
+                .execute::<Mask>(&mut session.create_execution_ctx())?;
             let result = mask.intersect_by_rank(&evaluated);
             drop(owner);
             Ok(result)

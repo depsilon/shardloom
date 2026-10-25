@@ -12,7 +12,16 @@ record what was inspected, but it does not authorize new Vortex IO or mark CG-1/
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
-## Current status snapshot
+## Historical status snapshot
+
+The entries below record earlier provider admissions. The [October 24 refresh](native-vortex-provider-refresh-2026-10-24.md)
+now resolves Vortex 0.90.0 and has completed local runtime/UAT acceptance. The
+[acceptance report](../benchmarks/native-vortex-provider-refresh-2026-10-24.md)
+records current proof: 6,072 native tests, 3,246 default tests, the 140-test
+installed wheel, public and modular results, fresh-ingest digest path, and one
+isolated Full43. The portable replay passes with eight corruption controls; PR, CI, review
+and merge are pending. Use the active phase plan for queue placement and current
+runtime support; the historical entries below are not admission for new callers.
 
 - Approved historical metadata/footer path: feature-gated local metadata/footer fixture open.
 - Approved local primitive scan paths: feature-gated local `.vortex` primitive paths for `CountAll`,
@@ -100,7 +109,9 @@ phase note. They are not active queue state and do not override `phased-executio
   broad reader wiring, writes, Arrow-default execution, GPU/device execution,
   vector/geospatial/media execution, and external query-engine integration execution.
 - Historical upstream 0.75 intake: Vortex `0.75.0` remains historical dependency intake material
-  superseded by the `0.85` snapshot below. Historical API notes do not admit current runtime
+  superseded by the historical `0.85` snapshot below. Current provider status and sequencing are
+  recorded in the [controlled 0.90 refresh](native-vortex-provider-refresh-2026-10-24.md).
+  Historical API notes do not admit current runtime
   behavior without provider admission, certificates, no-fallback evidence, and tests.
 - TurboQuant posture: upstream Vortex exposes TurboQuant as a vector quantization extension family,
   but ShardLoom now exposes only a blocked capability row for
@@ -159,13 +170,18 @@ Native file scans with ordered row-index selection fetch selected sort payloads
 without reevaluating predicates or ordering. Existing Vortex writers persist the
 completed native arrays. Arrow conversion remains a compatibility-output boundary.
 
-Pinned source inspection of `vortex-array-0.85.0/src/builders/mod.rs:451-457`
+Historical 0.85 source inspection at the October 1 review of
+`vortex-array-0.85.0/src/builders/mod.rs:451-457`
 shows that `builder_with_capacity_in` discards its supplied allocator before
 calling `builder_with_capacity`. ShardLoom therefore constructs these final
 columns using its reserved host allocator and native array constructors. Value,
 offset and validity buffer credits survive native clones and slices. This scoped
 decision does not assert that every upstream builder or provider allocation is
 accounted, and does not introduce another array representation or dependency.
+The current 0.90 builder API passes the allocator into supported typed builders;
+see the [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md).
+That API shape does not establish complete allocation accounting for metadata,
+codec heaps or external owners; verify each ownership boundary separately.
 
 ## Inventory Rules
 
@@ -179,7 +195,12 @@ accounted, and does not introduce another array representation or dependency.
 - Re-validate upstream public API shapes before any generalized encoded-data execution path.
 - Promote any new executable API usage into `phased-execution-plan.md` before implementation.
 
-## Dependency Snapshot
+## Historical Dependency Snapshot (Vortex 0.85 intake)
+
+This records the earlier dependency review. For current versions and provider
+scope, use the [October 24 provider refresh](native-vortex-provider-refresh-2026-10-24.md)
+and [dependency review](../dependencies/vortex-upstream-review.md).
+
 - Crate: `vortex`
 - Version: `0.85`
 - License: Apache-2.0 (per dependency review)
@@ -202,6 +223,11 @@ and exact tagged/published source were reviewed against current adapter callers.
 PERF owners below are existing obligations to which later adoption belongs;
 they do not create parallel implementations or close those obligations.
 
+This October 3, 2026 table records the 0.87 intake's then-current callers and
+0.85 baseline. It is historical evidence, not the current 0.90 API/caller
+inventory. Recheck a row against the [provider refresh](native-vortex-provider-refresh-2026-10-24.md)
+before adopting its disposition.
+
 | Surface | Current ShardLoom evidence | Disposition and adoption requirement |
 | --- | --- | --- |
 | Context allocation, allocator-aware builders and RowFn output ownership | `owned_buffers.rs` supplies typed refusal and final-owner credit; `local_primitive_result_batch.rs` constructs owned columns. No direct RowFn caller was found. | `blocked_until_vortex_or_shardloom_evidence`; PERF-03/07/11. Preserve fallible denial and ownership before replacing current construction. Correct allocator propagation alone is insufficient. |
@@ -220,7 +246,11 @@ they do not create parallel implementations or close those obligations.
 | Upstream DataFusion/DuckDB/Spark benchmark or integration work | External engines remain comparison oracles only. | `baseline_only` / `not_applicable`. No runtime integration or fallback admission. |
 | CUDA, C/C++/JNI/FFI, upstream Python packaging, CI and documentation-only changes | These are not the admitted Rust CPU provider surface. | `not_applicable` to this upgrade's runtime adoption; device work remains separately gated. Upstream Python behavior does not establish behavior of ShardLoom's own SDK. |
 
-## Upstream Vortex 0.85 Provider-Capability Update
+## Historical Upstream Vortex 0.85 Provider-Capability Update
+
+This is the 0.85 capability and dependency review. Its manifest statements and
+adoption map describe that earlier intake; use the [controlled 0.90 refresh](native-vortex-provider-refresh-2026-10-24.md)
+for current provider/API scope and sequencing.
 
 This section records the workspace-managed `vortex = "0.85"` / `vortex-zstd = "0.85"` dependency
 compatibility update. It does not authorize Vortex query-engine integrations, broad runtime support,

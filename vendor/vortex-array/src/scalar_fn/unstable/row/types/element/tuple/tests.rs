@@ -25,11 +25,13 @@ use crate::dtype::DType;
 use crate::dtype::Nullability;
 use crate::extension::datetime::TimeUnit;
 use crate::extension::datetime::Timestamp;
+use crate::scalar::Scalar;
 use crate::scalar_fn::VecExecutionArgs;
 use crate::scalar_fn::unstable::row::InputElement;
 use crate::validity::Validity;
 
 static DECODE_CALLS: AtomicUsize = AtomicUsize::new(0);
+static CONSTANT_DECODE_LEN: AtomicUsize = AtomicUsize::new(0);
 
 macro_rules! i64_test_element {
     ($element:ident, $decode_infallible:literal $(, $can_decode:item)?) => {
@@ -38,6 +40,7 @@ macro_rules! i64_test_element {
         // SAFETY: the view and unchecked access delegate to the `i64` implementation.
         unsafe impl InputElement for $element {
             type Column = Buffer<i64>;
+            type Constant = i64;
             type View<'a> = &'a [i64];
             type Elem<'a> = i64;
 
@@ -53,10 +56,22 @@ macro_rules! i64_test_element {
                 <i64 as InputElement>::decode(array, ctx)
             }
 
+            fn decode_constant(
+                array: ArrayRef,
+                ctx: &mut ExecutionCtx,
+            ) -> VortexResult<Self::Constant> {
+                CONSTANT_DECODE_LEN.store(array.len(), Ordering::Relaxed);
+                <i64 as InputElement>::decode_constant(array, ctx)
+            }
+
             $($can_decode)?
 
             fn get(column: &Self::Column, index: usize) -> i64 {
                 <i64 as InputElement>::get(column, index)
+            }
+
+            fn get_constant(constant: &Self::Constant) -> i64 {
+                *constant
             }
 
             fn view(column: &Self::Column) -> Self::View<'_> {
@@ -114,10 +129,26 @@ fn test_null_tolerant_decline_precedes_decoding() -> VortexResult<()> {
 }
 
 #[test]
+fn test_batch_constant_uses_constant_decoder() -> VortexResult<()> {
+    DECODE_CALLS.store(0, Ordering::Relaxed);
+    CONSTANT_DECODE_LEN.store(0, Ordering::Relaxed);
+    let args = VecExecutionArgs::new(vec![ConstantArray::new(7_i64, 3).into_array()], 3);
+    let mut ctx = array_session().create_execution_ctx();
+
+    let columns = <(DecodeProbe,)>::decode(&args, &mut ctx)?;
+
+    assert_eq!(DECODE_CALLS.load(Ordering::Relaxed), 0);
+    assert_eq!(CONSTANT_DECODE_LEN.load(Ordering::Relaxed), 3);
+    assert_eq!(<(DecodeProbe,)>::const_values(&columns), (Some(7),));
+    Ok(())
+}
+
+#[test]
 fn test_batch_const_unwraps_filtered_masked_constant() -> VortexResult<()> {
+    let mut ctx = array_session().create_execution_ctx();
     let child = ConstantArray::new(7_i64, 3).into_array();
-    let masked =
-        MaskedArray::try_new(child, Validity::from_iter([true, false, true]))?.into_array();
+    let masked = MaskedArray::try_new(child, Validity::from_iter([true, false, true]), &mut ctx)?
+        .into_array();
     let filtered = masked.filter(Mask::from_iter([true, true, false]))?;
 
     let Some(const_array) = batch_const(&filtered) else {
@@ -125,6 +156,7 @@ fn test_batch_const_unwraps_filtered_masked_constant() -> VortexResult<()> {
     };
 
     assert!(const_array.is::<Constant>());
+    assert_eq!(const_array.as_::<Constant>().scalar(), &Scalar::from(7_i64));
     Ok(())
 }
 
@@ -140,5 +172,11 @@ fn test_batch_const_preserves_filtered_extension() -> VortexResult<()> {
     };
 
     assert_eq!(const_array.dtype(), extension.dtype());
+    let mut ctx = array_session().create_execution_ctx();
+    let scalar = const_array.execute_scalar(0, &mut ctx)?;
+    assert_eq!(
+        scalar.as_extension().to_storage_scalar(),
+        Scalar::from(7_i64)
+    );
     Ok(())
 }

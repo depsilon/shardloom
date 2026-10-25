@@ -81,9 +81,7 @@ fn dictionary_preservation_signed_arrow_codes_keep_values_nulls_and_unsigned_con
         .filter(|id| *id != Dict.id())
         .collect();
     let compressor = DictionaryCodes {
-        compressor: BtrBlocksCompressorBuilder::default()
-            .retain_allowed_encodings(&allowed)
-            .build(),
+        compressor: super::super::numeric_encoding::restricted_compressor(&session, &allowed),
         timings: timing.clone(),
     };
     let (array, _) = input(4096, false);

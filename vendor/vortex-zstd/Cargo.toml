@@ -8,14 +8,13 @@
 # If you are reading this file be aware that the original Cargo.toml
 # will likely look very different (and much more reasonable).
 # See Cargo.toml.orig for the original contents.
-# Modified by ShardLoom on 2026-10-06: disable publication of this local patch.
 
 [package]
+publish = false
 edition = "2024"
 rust-version = "1.95"
 name = "vortex-zstd"
-version = "0.85.0"
-publish = false
+version = "0.90.0"
 authors = ["Vortex Authors <hello@vortex.dev>"]
 build = false
 include = [
@@ -32,7 +31,6 @@ autoexamples = false
 autotests = false
 autobenches = false
 description = "Vortex zstd compression array encoding"
-homepage = "https://github.com/spiraldb/vortex"
 readme = "README.md"
 keywords = ["vortex"]
 categories = [
@@ -41,13 +39,10 @@ categories = [
     "compression",
 ]
 license = "Apache-2.0"
-repository = "https://github.com/spiraldb/vortex"
+repository = "https://github.com/vortex-data/vortex"
 
 [package.metadata.docs.rs]
 all-features = true
-
-[features]
-unstable_encodings = []
 
 [lib]
 name = "vortex_zstd"
@@ -63,23 +58,27 @@ version = "0.2.19"
 version = "0.14"
 
 [dependencies.vortex-array]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-buffer]
-version = "0.85.0"
+version = "0.90.0"
+default-features = false
+
+[dependencies.vortex-edition]
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-error]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-mask]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-session]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.zstd]
@@ -87,17 +86,20 @@ version = "0.13.3"
 features = ["zdict_builder"]
 default-features = false
 
-# The audited static decoder APIs use the already locked Zstandard 1.5.7.
+# Reviewed existing static decoder/compressor workspace allocation boundary.
 [dependencies.zstd-sys]
 version = "=2.0.16"
 features = ["experimental"]
 default-features = false
 
+[dev-dependencies.parking_lot]
+version = "0.12.5"
+
 [dev-dependencies.rstest]
 version = "0.26.1"
 
 [dev-dependencies.vortex-array]
-version = "0.85.0"
+version = "0.90.0"
 features = ["_test-harness"]
 default-features = false
 
@@ -121,6 +123,7 @@ get_unwrap = "deny"
 host_endian_bytes = "deny"
 if_then_some_else_none = "deny"
 inconsistent_struct_constructor = "deny"
+inline_always = "deny"
 manual_assert = "deny"
 manual_is_variant_and = "deny"
 many_single_char_names = "deny"
@@ -139,6 +142,8 @@ repeat_vec_with_capacity = "deny"
 reserve_after_initialization = "deny"
 same_name_method = "deny"
 tests_outside_test_module = "deny"
+todo = "deny"
+unimplemented = "deny"
 unwrap_in_result = "deny"
 unwrap_used = "deny"
 use_debug = "deny"

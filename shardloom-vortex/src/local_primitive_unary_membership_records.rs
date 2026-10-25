@@ -19,7 +19,7 @@ use std::borrow::Cow;
 use vortex::array::{
     ArrayRef,
     dtype::{DType, Nullability},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 const LAST: usize = 4;
@@ -361,7 +361,7 @@ impl<'p, 's> Identities<'p, 's> {
         columns.values.push(result_batch::build_column(
             &self.spec.fields[0].1,
             self.pending.values.len(),
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| {
                 context.check_cancelled()?;
                 Ok(Value::Text(Cow::Borrowed(

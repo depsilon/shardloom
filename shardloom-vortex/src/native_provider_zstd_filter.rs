@@ -87,7 +87,9 @@ pub(super) fn prepare(
     if !(2..=64).contains(&data.frame_metadata().len()) {
         return Ok(None);
     }
-    let mut indices = ctx.allocator().allocate_typed::<usize>(mask.true_count())?;
+    let mut indices = ctx
+        .host_allocator()
+        .allocate_typed::<usize>(mask.true_count())?;
     let selected = indices.as_mut_slice_typed::<usize>()?;
     let mut source_indices = bits.set_indices().peekable();
     // Eligibility bounds this list independently of row count. The original
@@ -140,7 +142,7 @@ pub(super) fn prepare(
     if frame_count >= touched || selected.is_empty() || kept_rows > array.len() {
         return Ok(None);
     }
-    let data = data.select_frames_in(&frame_indices[..frame_count], &ctx.allocator())?;
+    let data = data.select_frames_in(&frame_indices[..frame_count], &ctx.host_allocator())?;
     vortex_ensure!(
         data.len() == kept_rows,
         "Zstd selected frame length changed"

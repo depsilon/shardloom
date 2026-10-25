@@ -127,20 +127,17 @@ CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/v
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
   --features vortex-array/table-display --lib -- -D warnings
 cp Cargo.lock vendor/vortex-layout/Cargo.lock
-cargo test --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- --test-threads=2
-CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-layout/Cargo.toml \
-  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-  --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- -D warnings
+cargo test --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib --tests -- -D warnings
 cp Cargo.lock vendor/vortex-file/Cargo.lock
-cargo test --manifest-path vendor/vortex-file/Cargo.toml \
-  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-  --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' \
-  --features tokio,vortex-array/table-display \
-  --lib -- --test-threads=2
-CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-file/Cargo.toml \
-  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-  --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' \
-  --features tokio,vortex-array/table-display --lib -- -D warnings
+cargo test --manifest-path vendor/vortex-file/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' --features tokio,vortex-array/table-display --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-file/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' --features tokio,vortex-array/table-display --lib --tests -- -D warnings
+cp Cargo.lock vendor/vortex-io/Cargo.lock
+cargo test --manifest-path vendor/vortex-io/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features object_store --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-io/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features object_store --lib --tests -- -D warnings
+cp Cargo.lock vendor/vortex-buffer/Cargo.lock
+cargo test --manifest-path vendor/vortex-buffer/Cargo.toml --all-features
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --locked --manifest-path vendor/vortex-buffer/Cargo.toml --all-features --all-targets -- -D warnings
 cp Cargo.lock vendor/vortex-zstd/Cargo.lock
 cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \

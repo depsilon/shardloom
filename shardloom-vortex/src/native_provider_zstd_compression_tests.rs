@@ -41,7 +41,7 @@ impl HostAllocator for AdmissionAllocator {
     fn allocate(&self, bytes: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
         self.record(Request::Buffer {
             bytes,
-            alignment: *alignment,
+            alignment: alignment.as_usize(),
         })?;
         self.inner.allocate(bytes, alignment)
     }
@@ -62,7 +62,7 @@ fn admission_session(
         requests: Mutex::new(Vec::new()),
         fail_at,
     });
-    let session = VortexSession::default().with_allocator(allocator.clone());
+    let session = VortexSession::default().with_host_allocator(allocator.clone());
     install(&session, memory.clone());
     (session, allocator)
 }
@@ -234,11 +234,12 @@ fn native_zstd_compression_rejects_a_short_training_partition_before_foreign_adm
         Validity::NonNullable,
     );
     assert_eq!(
-        *values
+        values
             .buffer_handle()
             .try_to_host_sync()
             .unwrap()
-            .alignment(),
+            .alignment()
+            .as_usize(),
         1
     );
     let memory = LiveMemoryPool::new(64 << 20).unwrap();
@@ -281,7 +282,7 @@ impl HostAllocator for BufferOnlyAllocator {
 
 #[test]
 fn native_zstd_compression_unknown_allocator_cannot_bypass_foreign_admission() {
-    let session = VortexSession::default().with_allocator(Arc::new(BufferOnlyAllocator));
+    let session = VortexSession::default().with_host_allocator(Arc::new(BufferOnlyAllocator));
     let error = ZstdData::from_primitive_without_dict(
         &PrimitiveArray::from_iter([17i64]),
         0,

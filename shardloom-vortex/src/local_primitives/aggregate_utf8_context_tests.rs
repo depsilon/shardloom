@@ -10,7 +10,7 @@ use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{DictArray, PrimitiveArray, VarBinViewArray},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     encodings::zstd::Zstd,
@@ -20,7 +20,7 @@ use vortex::{
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
     let session = VortexSession::default()
-        .with_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
+        .with_host_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
     crate::native_provider_memory::install(&session, memory.clone());
     session
 }

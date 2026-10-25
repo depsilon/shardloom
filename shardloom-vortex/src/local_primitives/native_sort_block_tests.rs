@@ -95,7 +95,7 @@ fn native_sort_block_matches_complete_sort_across_epochs_ties_offsets_and_source
                             &native,
                             &names(),
                             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                                vortex::array::legacy_session(),
+                                &vortex::array::array_session(),
                             ),
                         )
                         .unwrap();
@@ -130,7 +130,7 @@ fn native_sort_block_matches_complete_sort_across_epochs_ties_offsets_and_source
                                 50,
                                 hidden_id,
                                 &mut actual,
-                                &mut vortex::array::legacy_session().create_execution_ctx(),
+                                &mut vortex::array::array_session().create_execution_ctx(),
                             )
                             .unwrap()
                             .expect("native admission"),
@@ -196,7 +196,7 @@ fn native_sort_block_explicit_null_order_survives_cutoff_and_stable_ties() {
                         0,
                         None,
                         &mut actual,
-                        &mut vortex::array::legacy_session().create_execution_ctx(),
+                        &mut vortex::array::array_session().create_execution_ctx(),
                     )
                     .unwrap()
                     .unwrap(),
@@ -249,7 +249,7 @@ fn native_sort_block_explicit_null_order_preserves_borrowed_utf8_cutoff() {
                 0,
                 None,
                 &mut actual,
-                &mut vortex::array::legacy_session().create_execution_ctx(),
+                &mut vortex::array::array_session().create_execution_ctx(),
             )
             .unwrap()
             .unwrap();
@@ -293,7 +293,7 @@ fn native_sort_block_preserves_nullable_parent_and_narrow_unsigned_extrema() {
         0,
         None,
         &mut rows,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
+        &mut vortex::array::array_session().create_execution_ctx(),
     )
     .unwrap()
     .unwrap();
@@ -313,7 +313,7 @@ fn native_sort_block_does_not_reinterpret_float_nan_all_ties_or_invalid_indices(
     let native = PrimitiveArray::new(vec![f64::NAN, 0.0], Validity::NonNullable).into_array();
     let integer = PrimitiveArray::new(vec![1_i64, 0], Validity::NonNullable).into_array();
     let mut rows = Vec::new();
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let names = ["n".to_owned()];
     let order = [crate::VortexAggregateOrderExpr::new("n", false)];
     for (array, tie) in [
@@ -406,7 +406,7 @@ fn native_sort_block_rejects_malformed_utf8_before_sort_and_normalizes_null_payl
     use vortex::array::dtype::Nullability;
     for malformed in [&[0xff_u8][..], &b"long external malformed value\xff"[..]] {
         let binary = VarBinViewArray::from_iter_bin([malformed, &b"valid"[..]]);
-        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+        let mut ctx = vortex::array::array_session().create_execution_ctx();
         // Safe construction rejects malformed text before any sort consumer,
         // even when that row would lose to an existing top-k candidate.
         let error = VarBinViewArray::try_new_handle_in(
@@ -414,7 +414,7 @@ fn native_sort_block_rejects_malformed_utf8_before_sort_and_normalizes_null_payl
             binary.data_buffers().iter().cloned(),
             DType::Utf8(Nullability::NonNullable),
             Validity::NonNullable,
-            &ctx.allocator(),
+            &ctx.host_allocator(),
         )
         .unwrap_err();
         assert!(error.to_string().contains("utf-8 validation"));
@@ -474,7 +474,7 @@ fn native_sort_block_rejects_malformed_utf8_before_sort_and_normalizes_null_payl
             0,
             None,
             &mut candidates,
-            &mut vortex::array::legacy_session().create_execution_ctx(),
+            &mut vortex::array::array_session().create_execution_ctx(),
         )
         .unwrap()
         .unwrap();
@@ -525,7 +525,7 @@ fn native_sort_borrows_sliced_inline_and_external_views_but_retains_independent_
                 BinaryView::new_inlined(values[5].as_bytes()),
                 BinaryView::new_inlined(values[6].as_bytes()),
             ]);
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+            let mut ctx = vortex::array::array_session().create_execution_ctx();
             let source = VarBinViewArray::try_new(
                 views,
                 buffers.into(),

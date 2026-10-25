@@ -1,0 +1,138 @@
+...............................................................F.....FFFF.F.................................................................................................
+======================================================================
+FAIL: test_pre_5j_dependency_freshness_accepts_current_dependabot_prs (python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_accepts_current_dependabot_prs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_release_scripts.py", line 5175, in test_pre_5j_dependency_freshness_accepts_current_dependabot_prs
+    self.assertEqual(report["status"], "passed", report["blockers"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'blocked' != 'passed'
+- blocked
++ passed
+ : ['PR #1223: docs/dependencies/vortex-upstream-review.md missing marker: vortex = =0.90.0', 'PR #1223: docs/dependencies/vortex-upstream-review.md missing marker: `Cargo.lock` records the upstream Vortex crate family at `0.90.0`']
+
+======================================================================
+FAIL: test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions (python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions) (dependency='serde_json', version='1.0.151')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_release_scripts.py", line 5213, in test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions
+    self.assertEqual(sorted(blocked), sorted((historical_pr, patch_pr)))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [1151, 1223, 1570] != [1151, 1570]
+
+First differing element 1:
+1223
+1570
+
+First list contains 1 additional elements.
+First extra element 2:
+1570
+
+- [1151, 1223, 1570]
+?        ------
+
++ [1151, 1570]
+
+======================================================================
+FAIL: test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions (python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions) (dependency='serde_json', version='999.0.0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_release_scripts.py", line 5213, in test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions
+    self.assertEqual(sorted(blocked), sorted((historical_pr, patch_pr)))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [1151, 1223, 1570] != [1151, 1570]
+
+First differing element 1:
+1223
+1570
+
+First list contains 1 additional elements.
+First extra element 2:
+1570
+
+- [1151, 1223, 1570]
+?        ------
+
++ [1151, 1570]
+
+======================================================================
+FAIL: test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions (python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions) (dependency='sha2', version='0.11.0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_release_scripts.py", line 5213, in test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions
+    self.assertEqual(sorted(blocked), sorted((historical_pr, patch_pr)))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [1152, 1223, 1569] != [1152, 1569]
+
+First differing element 1:
+1223
+1569
+
+First list contains 1 additional elements.
+First extra element 2:
+1569
+
+- [1152, 1223, 1569]
+?        ------
+
++ [1152, 1569]
+
+======================================================================
+FAIL: test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions (python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions) (dependency='sha2', version='999.0.0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_release_scripts.py", line 5213, in test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions
+    self.assertEqual(sorted(blocked), sorted((historical_pr, patch_pr)))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [1152, 1223, 1569] != [1152, 1569]
+
+First differing element 1:
+1223
+1569
+
+First list contains 1 additional elements.
+First extra element 2:
+1569
+
+- [1152, 1223, 1569]
+?        ------
+
++ [1152, 1569]
+
+======================================================================
+FAIL: test_pre_5j_dependency_freshness_without_live_check_keeps_benchmark_blocked (python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_without_live_check_keeps_benchmark_blocked)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_release_scripts.py", line 6075, in test_pre_5j_dependency_freshness_without_live_check_keeps_benchmark_blocked
+    self.assertEqual(report["status"], "passed", report["blockers"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'blocked' != 'passed'
+- blocked
++ passed
+ : ['PR #1223: docs/dependencies/vortex-upstream-review.md missing marker: vortex = =0.90.0', 'PR #1223: docs/dependencies/vortex-upstream-review.md missing marker: `Cargo.lock` records the upstream Vortex crate family at `0.90.0`']
+
+----------------------------------------------------------------------
+Ran 169 tests in 3.165s
+
+FAILED (failures=6)
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpkmlyomr0/target/registry-proof.json
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpers2wbt3/target/registry-proof.json
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpw3c4uuds/target/registry-proof.json
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpxjda4fui/target/release-dry-run-proof/transcript.json
+{
+  "command": "python scripts/run_python_test_shard.py --shard release_scripts",
+  "elapsed_seconds": 3.166,
+  "error_count": 0,
+  "external_engine_invoked": false,
+  "failure_count": 6,
+  "fallback_attempted": false,
+  "module_count": 1,
+  "modules": [
+    "python.tests.test_release_scripts"
+  ],
+  "schema_version": "shardloom.python_test_shard_evidence.v1",
+  "shard_id": "release_scripts",
+  "skipped_count": 0,
+  "status": "failed",
+  "test_count": 169
+}

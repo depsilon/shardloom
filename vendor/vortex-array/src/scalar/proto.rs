@@ -14,16 +14,16 @@ use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
-use vortex_proto::scalar as pb;
-use vortex_proto::scalar::ListValue;
-use vortex_proto::scalar::UnionValue as PbUnionValue;
-use vortex_proto::scalar::scalar_value::Kind;
 use vortex_session::VortexSession;
 
 use crate::dtype::DType;
 use crate::dtype::PType;
 use crate::dtype::half::f16;
 use crate::dtype::i256;
+use crate::proto::scalar as pb;
+use crate::proto::scalar::ListValue;
+use crate::proto::scalar::UnionValue as PbUnionValue;
+use crate::proto::scalar::scalar_value::Kind;
 use crate::scalar::DecimalValue;
 use crate::scalar::PValue;
 use crate::scalar::Scalar;
@@ -459,10 +459,9 @@ fn list_from_proto(
             .collect::<VortexResult<Vec<_>>>()?,
         DType::Struct(fields, _) => {
             vortex_ensure_eq!(
-                v.values.len(), fields.nfields(),
-                Serde: "expected {} struct fields in ListValue, got {}",
+                v.values.len(),
                 fields.nfields(),
-                v.values.len()
+                Serde: "ListValue has the wrong number of struct fields"
             );
 
             v.values
@@ -534,7 +533,6 @@ mod tests {
     use vortex_buffer::BufferString;
     use vortex_error::VortexError;
     use vortex_error::vortex_panic;
-    use vortex_proto::scalar as pb;
     use vortex_session::VortexSession;
 
     use super::*;
@@ -544,6 +542,7 @@ mod tests {
     use crate::dtype::PType;
     use crate::dtype::UnionVariants;
     use crate::dtype::half::f16;
+    use crate::proto::scalar as pb;
     use crate::scalar::DecimalValue;
     use crate::scalar::Scalar;
     use crate::scalar::ScalarValue;
@@ -553,10 +552,9 @@ mod tests {
     }
 
     fn round_trip(scalar: Scalar) {
-        assert_eq!(
-            scalar,
-            Scalar::from_proto(&pb::Scalar::from(&scalar), &session()).unwrap(),
-        );
+        let decoded = Scalar::from_proto(&pb::Scalar::from(&scalar), &session()).unwrap();
+        assert_eq!(decoded.dtype(), scalar.dtype());
+        assert_eq!(decoded, scalar);
     }
 
     #[test]
@@ -1055,8 +1053,7 @@ mod tests {
             );
         }
 
-        // Test cases where type changes but value is preserved.
-        // Unsigned integers consolidate to U64.
+        // The wire format widens integers; decoding must restore their original widths.
         let unsigned_cases = vec![
             (
                 "u8",
@@ -1084,6 +1081,7 @@ mod tests {
 
             match read_back.as_ref() {
                 Some(ScalarValue::Primitive(pv)) => {
+                    assert_eq!(pv.ptype(), dtype.as_ptype(), "{name} primitive width");
                     let v = match pv {
                         PValue::U8(v) => *v as u64,
                         PValue::U16(v) => *v as u64,
@@ -1100,7 +1098,7 @@ mod tests {
             }
         }
 
-        // Signed integers consolidate to I64.
+        // Signed integers must also recover their original widths.
         let signed_cases = vec![
             (
                 "i8",
@@ -1128,6 +1126,7 @@ mod tests {
 
             match read_back.as_ref() {
                 Some(ScalarValue::Primitive(pv)) => {
+                    assert_eq!(pv.ptype(), dtype.as_ptype(), "{name} primitive width");
                     let v = match pv {
                         PValue::I8(v) => *v as i64,
                         PValue::I16(v) => *v as i64,

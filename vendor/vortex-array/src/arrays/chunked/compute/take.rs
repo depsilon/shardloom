@@ -4,10 +4,11 @@
 use itertools::Itertools;
 use num_traits::AsPrimitive;
 use vortex_buffer::Buffer;
+use vortex_buffer::BufferAllocatorRef;
 use vortex_buffer::BufferMut;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_mask::Mask;
 
@@ -29,7 +30,7 @@ use crate::arrays::piecewise_sequence::constant_unsigned_usize;
 use crate::arrays::piecewise_sequence::maybe_contiguous_slices;
 use crate::arrays::primitive::PrimitiveArrayExt;
 use crate::builders::ArrayBuilder;
-use crate::builders::builder_with_capacity;
+use crate::builders::builder_with_capacity_in;
 use crate::builtins::ArrayBuiltins;
 use crate::dtype::DType;
 use crate::dtype::PType;
@@ -46,11 +47,11 @@ enum ChunkFlattener {
 }
 
 impl ChunkFlattener {
-    fn new(dtype: &DType, capacity: usize) -> Self {
+    fn new(dtype: &DType, capacity: usize, allocator: &BufferAllocatorRef) -> Self {
         if dtype.is_nested() {
             Self::Chunks(Vec::new())
         } else {
-            Self::Builder(builder_with_capacity(dtype, capacity))
+            Self::Builder(builder_with_capacity_in(dtype, capacity, allocator))
         }
     }
 
@@ -102,7 +103,7 @@ fn take_chunked_via_sort(
 
     let chunk_offsets = array.chunk_offset_values();
     let nchunks = array.nchunks();
-    let mut flattener = ChunkFlattener::new(array.dtype(), pairs.len());
+    let mut flattener = ChunkFlattener::new(array.dtype(), pairs.len(), ctx.allocator());
     let mut final_take = BufferMut::<u64>::zeroed(n);
     let mut cursor = 0usize;
     let mut dedup_idx = 0u64;
@@ -227,7 +228,8 @@ fn take_chunked(
         buckets[chunk_idx].push((local_index, original_position));
     }
 
-    let mut flattener = ChunkFlattener::new(array.dtype(), indices_mask.true_count());
+    let mut flattener =
+        ChunkFlattener::new(array.dtype(), indices_mask.true_count(), ctx.allocator());
     let mut final_take =
         (!monotonic || indices.dtype().is_nullable()).then(|| BufferMut::<u64>::zeroed(n));
     let mut grouped_position = 0u64;
@@ -476,9 +478,10 @@ fn take_piecewise_chunked(
         }
     }
 
-    vortex_ensure!(
-        total_len == output_len,
-        "PiecewiseSequenceArray expanded length {total_len} does not match declared length {output_len}"
+    vortex_ensure_eq!(
+        total_len,
+        output_len,
+        "PiecewiseSequenceArray expanded length does not match declared length",
     );
 
     // Chunks visited in order: the per-chunk gathers already concatenate into the result.
@@ -504,7 +507,7 @@ fn take_piecewise_chunked(
     // the flattened result in output order.
     let mut bases = vec![0usize; nchunks];
     let mut running = 0usize;
-    let mut flattener = ChunkFlattener::new(array.dtype(), output_len);
+    let mut flattener = ChunkFlattener::new(array.dtype(), output_len, ctx.allocator());
     for (chunk_idx, plan) in plans.into_iter().enumerate() {
         if plan.starts.is_empty() {
             continue;
@@ -792,14 +795,16 @@ mod tests {
         let fsl = FixedSizeListArray::try_new(elements, 3, Validity::NonNullable, 6)?;
 
         let indices = buffer![4u64, 0, 2, 5, 1, 4].into_array();
-        let result = fsl.take(indices.clone())?;
+        let result = fsl.take(indices)?;
         let expected = FixedSizeListArray::try_new(
-            PrimitiveArray::from_iter(0i32..18).into_array(),
+            PrimitiveArray::from_iter([
+                12i32, 13, 14, 0, 1, 2, 6, 7, 8, 15, 16, 17, 3, 4, 5, 12, 13, 14,
+            ])
+            .into_array(),
             3,
             Validity::NonNullable,
             6,
-        )?
-        .take(indices)?;
+        )?;
 
         assert_arrays_eq!(result, expected, &mut ctx);
         Ok(())
@@ -843,14 +848,13 @@ mod tests {
         let arr = ChunkedArray::try_new(vec![c0.into_array(), c1.into_array()], dtype)?;
 
         let indices = buffer![4u64, 0, 3, 3, 1].into_array();
-        let result = arr.take(indices.clone())?;
+        let result = arr.take(indices)?;
         let expected = FixedSizeListArray::try_new(
-            PrimitiveArray::from_iter(0i32..10).into_array(),
+            PrimitiveArray::from_iter([8i32, 9, 0, 1, 6, 7, 6, 7, 2, 3]).into_array(),
             2,
             Validity::NonNullable,
             5,
-        )?
-        .take(indices)?;
+        )?;
 
         assert_arrays_eq!(result, expected, &mut ctx);
         Ok(())
@@ -876,14 +880,13 @@ mod tests {
 
         let indices =
             PrimitiveArray::from_option_iter([Some(4u64), None, Some(0), Some(1)]).into_array();
-        let result = arr.take(indices.clone())?;
+        let result = arr.take(indices)?;
         let expected = FixedSizeListArray::try_new(
-            PrimitiveArray::from_iter(0i32..10).into_array(),
+            PrimitiveArray::from_iter([8i32, 9, 0, 0, 0, 1, 0, 0]).into_array(),
             2,
-            Validity::Array(bitbuffer![1 0 1 1 1].into_array()),
-            5,
-        )?
-        .take(indices)?;
+            Validity::Array(bitbuffer![1 0 1 0].into_array()),
+            4,
+        )?;
 
         assert_arrays_eq!(result, expected, &mut ctx);
         Ok(())
@@ -911,14 +914,13 @@ mod tests {
         let arr = ChunkedArray::try_new(vec![c0.into_array(), nested.into_array()], dtype)?;
 
         let indices = buffer![4u64, 0, 3, 1].into_array();
-        let result = arr.take(indices.clone())?;
+        let result = arr.take(indices)?;
         let expected = FixedSizeListArray::try_new(
-            PrimitiveArray::from_iter(0i32..10).into_array(),
+            PrimitiveArray::from_iter([8i32, 9, 0, 1, 6, 7, 2, 3]).into_array(),
             2,
             Validity::NonNullable,
-            5,
-        )?
-        .take(indices)?;
+            4,
+        )?;
 
         assert_arrays_eq!(result, expected, &mut ctx);
         Ok(())
@@ -939,14 +941,13 @@ mod tests {
         let arr = ChunkedArray::try_new(vec![c0.into_array(), c1], dtype)?;
 
         let indices = buffer![4u64, 0, 3, 1].into_array();
-        let result = arr.take(indices.clone())?;
+        let result = arr.take(indices)?;
         let expected = FixedSizeListArray::try_new(
-            PrimitiveArray::from_iter(0i32..10).into_array(),
+            PrimitiveArray::from_iter([0i32, 0, 0, 1, 0, 0, 2, 3]).into_array(),
             2,
-            Validity::Array(bitbuffer![1 1 1 0 0].into_array()),
-            5,
-        )?
-        .take(indices)?;
+            Validity::Array(bitbuffer![0 1 0 1].into_array()),
+            4,
+        )?;
 
         assert_arrays_eq!(result, expected, &mut ctx);
         Ok(())
@@ -978,19 +979,27 @@ mod tests {
 
         // A monotonic run crossing the chunk boundary.
         let indices = contiguous_pieces(&[1], &[3])?;
-        assert_arrays_eq!(
-            arr.take(indices.clone())?,
-            reference.take(indices)?,
-            &mut ctx
-        );
+        let result = arr.take(indices.clone())?;
+        assert_arrays_eq!(&result, reference.take(indices)?, &mut ctx);
+        let expected = FixedSizeListArray::try_new(
+            PrimitiveArray::from_iter([2i32, 3, 4, 5, 6, 7]).into_array(),
+            2,
+            Validity::NonNullable,
+            3,
+        )?;
+        assert_arrays_eq!(result, expected, &mut ctx);
 
         // Out-of-order pieces forcing the reorder take.
         let indices = contiguous_pieces(&[3, 0], &[2, 2])?;
-        assert_arrays_eq!(
-            arr.take(indices.clone())?,
-            reference.take(indices)?,
-            &mut ctx
-        );
+        let result = arr.take(indices.clone())?;
+        assert_arrays_eq!(&result, reference.take(indices)?, &mut ctx);
+        let expected = FixedSizeListArray::try_new(
+            PrimitiveArray::from_iter([6i32, 7, 8, 9, 0, 1, 2, 3]).into_array(),
+            2,
+            Validity::NonNullable,
+            4,
+        )?;
+        assert_arrays_eq!(result, expected, &mut ctx);
         Ok(())
     }
 
@@ -1261,6 +1270,11 @@ mod tests {
 
         // Verify every element.
         let result = result.execute::<PrimitiveArray>(&mut ctx)?;
+        assert_eq!(
+            result.dtype(),
+            &DType::Primitive(PType::I32, Nullability::NonNullable)
+        );
+        assert_eq!(result.len(), indices.len());
         let result_vals = result.as_slice::<i32>();
         for (pos, &idx) in indices.iter().enumerate() {
             assert_eq!(

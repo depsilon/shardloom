@@ -25,6 +25,7 @@ use vortex::{
             Slice, StructArray, VarBinViewArray, slice::SliceArraySlotsExt as _,
             struct_::StructArrayExt as _,
         },
+        builtins::ArrayBuiltins as _,
         dtype::{DType, FieldMask, Nullability},
         validity::Validity,
     },
@@ -109,9 +110,7 @@ pub(super) fn admit(
     {
         return Ok(None);
     }
-    let projection = projection
-        .optimize_recursive(file.dtype())?
-        .bind(file.dtype())?;
+    let projection = projection.bind(file.dtype())?.optimize_recursive()?;
     let text_projection = select([column.as_str()], root()).bind(file.dtype())?;
     let other_columns = plan
         .projected_columns
@@ -124,12 +123,8 @@ pub(super) fn admit(
     } else {
         Some(select(other_columns, root()).bind(file.dtype())?)
     };
-    let projected_filter = filter
-        .optimize_recursive(text_projection.dtype())?
-        .bind(text_projection.dtype())?;
-    let filter = filter
-        .optimize_recursive(file.dtype())?
-        .bind(file.dtype())?;
+    let projected_filter = filter.bind(text_projection.dtype())?.optimize_recursive()?;
+    let filter = filter.bind(file.dtype())?.optimize_recursive()?;
     let credit = crate::owned_buffers::reserve(memory, REGISTRY_METADATA_BYTES)?;
     let stats = Arc::new(Stats::default());
     let reader = Reader {
@@ -329,8 +324,8 @@ impl LayoutReader for Reader {
             let selected = prepared
                 .clone()
                 .apply_bound(&projected_filter)?
-                .null_as_false()
-                .execute(&mut ctx)?;
+                .fill_null(false)?
+                .execute::<Mask>(&mut ctx)?;
             let output_mask = mask.intersect_by_rank(&selected);
             let output = if selected.all_true() {
                 prepared

@@ -50,7 +50,7 @@ fn partial(numeric: &ArrayRef, text: &ArrayRef, memory: &LiveMemoryPool) -> Comp
     compound_count_partial::count(
         numeric,
         text,
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &worker(),
         &mut lease,
     )
@@ -169,7 +169,7 @@ fn compound_empty_sliced_and_underreserved_inputs_preserve_ownership() {
     let error = compound_count_partial::count(
         &integers(&[1]),
         &strings(&["x"]),
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &worker(),
         &mut lease,
     )
@@ -208,7 +208,7 @@ fn compound_complete_keys_preserve_global_winner_skew_collisions_and_workers() {
                     let mut partial = compound_count_partial::count(
                         &numeric,
                         &text,
-                        vortex::array::legacy_session().create_execution_ctx(),
+                        vortex::array::array_session().create_execution_ctx(),
                         worker,
                         lease,
                     )?;
@@ -376,7 +376,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 false,
                 false,
                 policy.resource_envelope,
-                Some(vortex::array::legacy_session()),
+                Some(&vortex::array::array_session()),
             )
             .unwrap();
             let memory = LiveMemoryPool::new(8 << 20).unwrap();
@@ -395,7 +395,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 chunks[0].dtype(),
                 &columns,
                 policy,
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
                 &memory,
             )
             .unwrap()
@@ -463,7 +463,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             array.dtype(),
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
             &memory
         )
         .unwrap()
@@ -486,7 +486,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             parent_nullable.dtype(),
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
             &memory,
         )
         .unwrap()
@@ -500,7 +500,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
         compound_count_partial::count(
             &integers(&[1, 2]),
             &strings(&["x", "y"]),
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(cancel),
             &mut lease
         )
@@ -517,7 +517,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
         let partial = compound_count_partial::count(
             &integers(&[1, 2]),
             &strings(&["x", "y"]),
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             worker,
             lease,
         )?;
@@ -536,7 +536,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
 fn compound_typed_provider_denial_retries_untouched_chunk_once_after_release() {
     use vortex::{
         VortexSessionDefault as _,
-        array::memory::MemorySessionExt as _,
+        array::memory::HostMemorySessionExt as _,
         session::{SessionExt as _, VortexSession},
     };
     for (corruption, repeat) in [(false, false), (true, false), (false, true)] {
@@ -547,7 +547,7 @@ fn compound_typed_provider_denial_retries_untouched_chunk_once_after_release() {
         // Session clones share their variable store. Configure a fresh store so
         // a concurrently executing test cannot observe this fault or allocator.
         let session = VortexSession::default()
-            .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+            .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 memory.clone(),
             )))
             .with_some(compound_count_partial::ProviderFault {
@@ -557,7 +557,7 @@ fn compound_typed_provider_denial_retries_untouched_chunk_once_after_release() {
                 repeat,
             });
         assert!(
-            vortex::array::legacy_session()
+            vortex::array::array_session()
                 .get_opt::<compound_count_partial::ProviderFault>()
                 .is_none()
         );
@@ -663,7 +663,7 @@ fn compound_initial_reservation_race_hands_off_untouched_chunk_exactly_once() {
             chunks[0].dtype(),
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
             &memory,
         )
         .unwrap()

@@ -14,7 +14,7 @@ use vortex::array::{
     IntoArray as _, VortexSessionExecute as _,
     arrays::{PrimitiveArray, StructArray},
     dtype::{DType, FieldNames, Nullability, PType},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
 
@@ -94,7 +94,7 @@ fn ordered_join_hash_collisions_still_compare_exact_keys_and_pack_across_blocks(
             columns.values.push(result_batch::build_column(
                 &private::u64_type().as_nullable(),
                 41,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |row| {
                     Ok(if key(u32::try_from(row).unwrap()).is_some() {
                         Value::UInt(hash)

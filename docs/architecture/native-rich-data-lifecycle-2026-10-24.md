@@ -2,13 +2,14 @@
 
 # Vectors, tensors and binary objects through ordinary data workflows
 
-Status: accepted October 24 maintainer addition, immediately after
-[full-ingest ownership and preparation](native-ingest-ownership-preparation-2026-10-24.md)
-and before [universal I/O](native-universal-io-performance-coverage-2026-10-24.md).
-Surface parity, the [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
-warm source reuse and public naming retain their preceding positions.
-The [connected programming model](native-connected-programming-model-2026-10-24.md)
-follows universal I/O. The subsequent
+Status: accepted October 24 maintainer addition, following
+[full-ingest ownership and preparation](native-ingest-ownership-preparation-2026-10-24.md),
+then the [connected programming model](native-connected-programming-model-2026-10-24.md),
+then [universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
+under the subsequent October 24 ordering decision. Rich-data lifecycle support
+immediately follows universal I/O. Surface parity, the
+[controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
+warm source reuse and public naming retain their preceding positions. The subsequent
 [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
 adds statistics, temporal fidelity, broader numeric semantics and batch functions.
 The later [AI-data package](native-ai-data-workflows-2026-10-24.md) connects these
@@ -193,9 +194,9 @@ its referenced bytes can disappear before the result is consumed.
 Vortex remains the highest-fidelity persistence target. Capable columnar adapters
 must retain admitted logical identity and metadata deliberately. CSV/JSON and
 other limited targets need explicit reversible representations/schema companions
-or requested, reported metadata loss. Coordinate that adapter coverage with
-the following universal-I/O package; implement the necessary native and Arrow
-round trips here instead of waiting for every format family. Read/write/spill
+or requested, reported metadata loss. Extend the preceding universal-I/O package
+with mappings for newly admitted rich types; implement the necessary native and
+Arrow round trips here instead of waiting for every format family. Read/write/spill
 capabilities and arithmetic capabilities must be reported separately and only
 after executable proof. A report-only checklist cannot close this package.
 

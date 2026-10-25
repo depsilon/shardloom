@@ -48,6 +48,16 @@ The latest accepted CLI, native library and installed-tested wheel remain,
 along with the original Parquet and current Vortex input. The compact packet
 retains complete results and failures; no payload backup or limit change occurs.
 
+The [October 24 provider-refresh cleanup](../benchmarks/evidence/native-vortex-provider-refresh-2026-10-24/cleanup.json)
+retires 49,949 generated regular files and six environment symlinks after
+clean-checkout replay and exact identity/closed-handle checks. It removes
+completed test outputs, superseded runtimes and wheel, package environments,
+duplicate packet staging and the temporary verification clone. The original
+Parquet, accepted `fresh-input-r2/vortex/hits.vortex`, current provider runtime
+and installed-tested wheel remain. All reports and 262 unarchived helper,
+fixture and diagnostic files are preserved; compact results retain failed
+and interrupted observations. No payload backup or threshold change occurs.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in

@@ -1,7 +1,7 @@
 use super::*;
 use crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout;
 use shardloom_exec::live_memory::LiveMemoryPool;
-use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use vortex::{
     VortexSessionDefault as _,
     array::{IntoArray as _, arrays::PrimitiveArray, dtype::PType, validity::Validity},
@@ -20,33 +20,36 @@ enum Failure {
 
 #[derive(Default)]
 struct SinkState {
-    bytes: Cell<usize>,
-    failed: Cell<bool>,
-    retried_interrupt: Cell<bool>,
+    bytes: AtomicUsize,
+    failed: AtomicBool,
+    retried_interrupt: AtomicBool,
 }
 
 struct Sink {
-    state: Rc<SinkState>,
+    state: Arc<SinkState>,
     failure: Failure,
     after: usize,
 }
 
 impl io::Write for Sink {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        assert!(!self.state.failed.get(), "failed sink was accessed again");
+        assert!(
+            !self.state.failed.load(Ordering::Relaxed),
+            "failed sink was accessed again"
+        );
         if matches!(self.failure, Failure::Interrupted)
-            && !self.state.retried_interrupt.replace(true)
+            && !self.state.retried_interrupt.swap(true, Ordering::Relaxed)
         {
             return Err(io::Error::from(io::ErrorKind::Interrupted));
         }
-        if self.state.bytes.get() >= self.after {
+        if self.state.bytes.load(Ordering::Relaxed) >= self.after {
             match self.failure {
                 Failure::Write => {
-                    self.state.failed.set(true);
+                    self.state.failed.store(true, Ordering::Relaxed);
                     return Err(io::Error::other("injected native sink failure"));
                 }
                 Failure::Zero => {
-                    self.state.failed.set(true);
+                    self.state.failed.store(true, Ordering::Relaxed);
                     return Ok(0);
                 }
                 _ => {}
@@ -55,14 +58,17 @@ impl io::Write for Sink {
         // Deliberately short writes prove real accepted bytes are kept while
         // only the pending remainder is discarded after the first error.
         let count = bytes.len().min(7);
-        self.state.bytes.set(self.state.bytes.get() + count);
+        self.state.bytes.fetch_add(count, Ordering::Relaxed);
         Ok(count)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        assert!(!self.state.failed.get(), "failed sink was flushed again");
+        assert!(
+            !self.state.failed.load(Ordering::Relaxed),
+            "failed sink was flushed again"
+        );
         if matches!(self.failure, Failure::Flush) {
-            self.state.failed.set(true);
+            self.state.failed.store(true, Ordering::Relaxed);
             Err(io::Error::other("injected native flush failure"))
         } else {
             Ok(())
@@ -82,6 +88,73 @@ fn array(memory: &LiveMemoryPool) -> ArrayRef {
 }
 
 #[test]
+fn native_writer_pins_frozen_core_edition_and_rejects_opt_in_buffer_encoding() {
+    use vortex::{
+        array::{VortexSessionExecute as _, iter::ArrayIteratorExt as _},
+        editions::{CORE_2026_08_3, EditionSessionExt as _},
+        encodings::zstd::ZstdBuffers,
+        file::OpenOptionsSessionExt as _,
+    };
+
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    assert_eq!(session.enabled_editions().editions(), [CORE_2026_08_3]);
+    assert!(!session.editions().find(&CORE_2026_08_3).unwrap().is_draft());
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let input = array(&memory);
+    let mut bytes = Vec::new();
+    let mut writer = NativeWriter::new(
+        &session,
+        &runtime,
+        &mut bytes,
+        input.dtype().clone(),
+        SequentialNativeFlatLayout::strategy(1),
+    );
+    writer.push(input.clone()).unwrap();
+    let summary = writer.finish().unwrap();
+    assert_eq!(summary.row_count(), 2048);
+    let file = session.open_options().open_buffer(bytes).unwrap();
+    let readback = file
+        .scan()
+        .unwrap()
+        .into_array_iter(&runtime)
+        .unwrap()
+        .read_all()
+        .unwrap();
+    let mut ctx = session.create_execution_ctx();
+    let values = readback.execute::<PrimitiveArray>(&mut ctx).unwrap();
+    assert_eq!(values.as_slice::<i32>(), &(0..2048).collect::<Vec<_>>());
+    drop((values, ctx, file, summary));
+
+    // The optional codec is registered but its draft wire edition is not enabled.
+    // Construct a small fixture without changing the real writer's policy.
+    let rejected = ZstdBuffers::compress(&input, 1, &session)
+        .unwrap()
+        .into_array();
+    let mut incomplete = Vec::new();
+    let mut writer = NativeWriter::new(
+        &session,
+        &runtime,
+        &mut incomplete,
+        rejected.dtype().clone(),
+        SequentialNativeFlatLayout::strategy(1),
+    );
+    let error = match writer.push(rejected) {
+        Ok(()) => writer
+            .finish()
+            .err()
+            .expect("draft encoding must be rejected"),
+        Err(error) => {
+            drop(writer);
+            error
+        }
+    };
+    assert!(error.to_string().contains("vortex.zstd_buffers"), "{error}");
+    drop(input);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn native_writer_sink_failures_join_pending_payloads_and_stop_producer_demand() {
     for workers in [0, 1] {
         let runtime = CurrentThreadRuntime::new();
@@ -91,13 +164,13 @@ fn native_writer_sink_failures_join_pending_payloads_and_stop_producer_demand() 
         for failure in [Failure::Write, Failure::Zero, Failure::Flush] {
             for after in [0, 9, 16_413] {
                 let memory = LiveMemoryPool::new(1 << 20).unwrap();
-                let state = Rc::new(SinkState::default());
+                let state = Arc::new(SinkState::default());
                 let dtype = array(&memory).dtype().clone();
                 let mut writer = NativeWriter::new(
                     &session,
                     &runtime,
                     Sink {
-                        state: Rc::clone(&state),
+                        state: Arc::clone(&state),
                         failure,
                         after,
                     },
@@ -106,7 +179,10 @@ fn native_writer_sink_failures_join_pending_payloads_and_stop_producer_demand() 
                 );
                 let mut result = Ok(());
                 for _ in 0..8 {
-                    assert!(!state.failed.get(), "producer demanded after sink failure");
+                    assert!(
+                        !state.failed.load(Ordering::Relaxed),
+                        "producer demanded after sink failure"
+                    );
                     result = writer.push(array(&memory));
                     if result.is_err() {
                         // A failed push has already drained its accepted prefix.
@@ -144,7 +220,7 @@ fn native_writer_sink_failures_join_pending_payloads_and_stop_producer_demand() 
                     }
                     _ => unreachable!(),
                 }
-                assert!(state.failed.get());
+                assert!(state.failed.load(Ordering::Relaxed));
                 assert_eq!(
                     memory.snapshot().reserved_bytes,
                     0,
@@ -166,13 +242,13 @@ fn native_writer_producer_drop_layout_denial_and_interrupted_writes_release_owne
         (Failure::None, 8, true),
     ] {
         let memory = LiveMemoryPool::new(1 << 20).unwrap();
-        let state = Rc::new(SinkState::default());
+        let state = Arc::new(SinkState::default());
         let dtype = array(&memory).dtype().clone();
         let mut writer = NativeWriter::new(
             &session,
             &runtime,
             Sink {
-                state: Rc::clone(&state),
+                state: Arc::clone(&state),
                 failure,
                 after: 9,
             },
@@ -189,7 +265,7 @@ fn native_writer_producer_drop_layout_denial_and_interrupted_writes_release_owne
                 assert!(result.unwrap_err().to_string().contains("chunk count"));
             } else {
                 assert_eq!(result.unwrap(), 8192);
-                assert!(state.retried_interrupt.get());
+                assert!(state.retried_interrupt.load(Ordering::Relaxed));
             }
         }
         assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -279,6 +355,9 @@ fn persisted_writer_retains_only_statistics_credit_until_footer_release() {
                     bytes,
                     dtype.clone(),
                     Validity::NonNullable,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                        &vortex::array::array_session(),
+                    ),
                 )
                 .into_array(),
             )
@@ -318,7 +397,7 @@ fn persisted_writer_failures_and_abandonment_release_statistics_credit() {
             &session,
             &runtime,
             Sink {
-                state: Rc::new(SinkState::default()),
+                state: Arc::new(SinkState::default()),
                 failure,
                 after: 9,
             },

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use rstest::rstest;
 use vortex_buffer::BitBuffer;
@@ -37,12 +38,13 @@ use crate::dtype::PType;
 use crate::extension::datetime::TimeUnit;
 use crate::extension::datetime::Timestamp;
 use crate::extension::datetime::TimestampOptions;
+use crate::memory::MemorySessionExt;
+use crate::memory::test_allocator::counting_allocator;
 use crate::scalar::DecimalValue;
 use crate::scalar::Scalar;
 use crate::scalar_fn::fns::binary::scalar_cmp;
 use crate::scalar_fn::fns::operators::CompareOperator;
 use crate::scalar_fn::fns::operators::Operator;
-use crate::test_harness::to_int_indices;
 use crate::validity::Validity;
 
 #[test]
@@ -57,20 +59,23 @@ fn test_bool_basic_comparisons() {
         .clone()
         .into_array()
         .binary(arr.clone().into_array(), Operator::Eq)
-        .unwrap()
-        .execute::<BoolArray>(ctx)
-        .vortex_expect("must be a bool array");
-    assert_eq!(to_int_indices(matches, ctx).unwrap(), [1u64, 2, 3, 4]);
+        .unwrap();
+    assert_arrays_eq!(
+        matches,
+        BoolArray::from_iter([None, Some(true), Some(true), Some(true), Some(true)]),
+        ctx
+    );
 
     let matches = arr
         .clone()
         .into_array()
         .binary(arr.clone().into_array(), Operator::NotEq)
-        .unwrap()
-        .execute::<BoolArray>(ctx)
-        .vortex_expect("must be a bool array");
-    let empty: [u64; 0] = [];
-    assert_eq!(to_int_indices(matches, ctx).unwrap(), empty);
+        .unwrap();
+    assert_arrays_eq!(
+        matches,
+        BoolArray::from_iter([None, Some(false), Some(false), Some(false), Some(false)]),
+        ctx
+    );
 
     let other = BoolArray::new(
         BitBuffer::from_iter([false, false, false, true, true]),
@@ -81,36 +86,44 @@ fn test_bool_basic_comparisons() {
         .clone()
         .into_array()
         .binary(other.clone().into_array(), Operator::Lte)
-        .unwrap()
-        .execute::<BoolArray>(ctx)
-        .vortex_expect("must be a bool array");
-    assert_eq!(to_int_indices(matches, ctx).unwrap(), [2u64, 3, 4]);
+        .unwrap();
+    assert_arrays_eq!(
+        matches,
+        BoolArray::from_iter([None, Some(false), Some(true), Some(true), Some(true)]),
+        ctx
+    );
 
     let matches = arr
         .clone()
         .into_array()
         .binary(other.clone().into_array(), Operator::Lt)
-        .unwrap()
-        .execute::<BoolArray>(ctx)
-        .vortex_expect("must be a bool array");
-    assert_eq!(to_int_indices(matches, ctx).unwrap(), [4u64]);
+        .unwrap();
+    assert_arrays_eq!(
+        matches,
+        BoolArray::from_iter([None, Some(false), Some(false), Some(false), Some(true)]),
+        ctx
+    );
 
     let matches = other
         .clone()
         .into_array()
         .binary(arr.clone().into_array(), Operator::Gte)
-        .unwrap()
-        .execute::<BoolArray>(ctx)
-        .vortex_expect("must be a bool array");
-    assert_eq!(to_int_indices(matches, ctx).unwrap(), [2u64, 3, 4]);
+        .unwrap();
+    assert_arrays_eq!(
+        matches,
+        BoolArray::from_iter([None, Some(false), Some(true), Some(true), Some(true)]),
+        ctx
+    );
 
     let matches = other
         .into_array()
         .binary(arr.into_array(), Operator::Gt)
-        .unwrap()
-        .execute::<BoolArray>(ctx)
-        .vortex_expect("must be a bool array");
-    assert_eq!(to_int_indices(matches, ctx).unwrap(), [4u64]);
+        .unwrap();
+    assert_arrays_eq!(
+        matches,
+        BoolArray::from_iter([None, Some(false), Some(false), Some(false), Some(true)]),
+        ctx
+    );
 }
 
 #[test]
@@ -127,6 +140,11 @@ fn constant_compare() {
         .execute_scalar(0, &mut array_session().create_execution_ctx())
         .unwrap();
     assert_eq!(scalar.as_bool().value(), Some(false));
+    assert_arrays_eq!(
+        result,
+        BoolArray::from_iter([false; 10]),
+        &mut array_session().create_execution_ctx()
+    );
 }
 
 #[rstest]
@@ -150,6 +168,7 @@ fn test_list_array_comparison() {
         values1.into_array(),
         offsets1.into_array(),
         Validity::NonNullable,
+        &mut ctx,
     )
     .unwrap();
 
@@ -159,6 +178,7 @@ fn test_list_array_comparison() {
         values2.into_array(),
         offsets2.into_array(),
         Validity::NonNullable,
+        &mut ctx,
     )
     .unwrap();
 
@@ -195,6 +215,7 @@ fn test_list_array_constant_comparison() {
         values.into_array(),
         offsets.into_array(),
         Validity::NonNullable,
+        &mut ctx,
     )
     .unwrap();
 
@@ -343,6 +364,7 @@ fn test_empty_list() {
         buffer![0i32, 0i32, 0i32].into_array(),
         buffer![0i32, 0i32, 0i32].into_array(),
         Validity::AllValid,
+        ctx,
     );
 
     let result = list
@@ -353,10 +375,26 @@ fn test_empty_list() {
     assert!(result.execute_scalar(0, ctx).unwrap().is_valid());
     assert!(result.execute_scalar(1, ctx).unwrap().is_valid());
     assert!(result.execute_scalar(2, ctx).unwrap().is_valid());
+    assert_arrays_eq!(result, BoolArray::from_iter([Some(true); 3]), ctx);
 }
 
 fn execute_compare_test(lhs: ArrayRef, rhs: ArrayRef, op: Operator) -> ArrayRef {
     lhs.binary(rhs, op).unwrap()
+}
+
+#[test]
+fn comparison_uses_execution_allocator() -> VortexResult<()> {
+    let (allocator, allocations) = counting_allocator();
+    let mut ctx = array_session()
+        .with_allocator(allocator)
+        .create_execution_ctx();
+    let result = buffer![1i32, 2, 3]
+        .into_array()
+        .binary(buffer![1i32, 0, 3].into_array(), Operator::Eq)?
+        .execute::<BoolArray>(&mut ctx)?;
+    drop(result);
+    assert_ne!(allocations.load(Ordering::Relaxed), 0);
+    Ok(())
 }
 
 #[rstest]
@@ -709,7 +747,12 @@ fn map_array(
     let rows = rows.into_iter().collect::<Vec<_>>();
     let dtype = map_dtype(nullability)?;
     let map_dtype = dtype.as_map_opt().vortex_expect("map dtype").clone();
-    let mut builder = MapBuilder::<u64, u64>::with_capacity(map_dtype, nullability, rows.len());
+    let mut builder = MapBuilder::<u64, u64>::with_capacity_in(
+        map_dtype,
+        nullability,
+        rows.len(),
+        vortex_buffer::BufferAllocatorRef::static_ref(),
+    );
     for row in rows {
         let scalar = match row {
             Some(entries) => map_scalar(nullability, entries)?,
@@ -779,9 +822,7 @@ fn map_compare_nulls() -> VortexResult<()> {
         [None, Some(vec![]), Some(vec![]), Some(vec![(1, Some("a"))])],
     )?;
 
-    let result = execute_compare_test(lhs, rhs, Operator::Eq)
-        .execute::<BoolArray>(&mut ctx)
-        .vortex_expect("bool array");
+    let result = execute_compare_test(lhs, rhs, Operator::Eq);
     let expected = BoolArray::from_iter([None, None, Some(true), Some(true)]);
     assert_arrays_eq!(result, expected, &mut ctx);
 
@@ -858,5 +899,100 @@ fn struct_of_map_compare() -> VortexResult<()> {
     let result = execute_compare_test(lhs, rhs, Operator::Lt);
     assert_arrays_eq!(result, BoolArray::from_iter([false, true]), &mut ctx);
 
+    Ok(())
+}
+
+#[rstest]
+fn byte_comparisons_across_bitmap_words(
+    #[values(PType::I8, PType::U8)] ptype: PType,
+    #[values(0, 1, 63, 64, 65, 129)] len: usize,
+    #[values(
+        CompareOperator::Eq,
+        CompareOperator::NotEq,
+        CompareOperator::Lt,
+        CompareOperator::Lte,
+        CompareOperator::Gt,
+        CompareOperator::Gte
+    )]
+    op: CompareOperator,
+) -> VortexResult<()> {
+    let mut ctx = array_session().create_execution_ctx();
+    let value_for_type = |value: Option<i16>| {
+        value.map(|value| {
+            if ptype.is_unsigned_int() {
+                value.abs()
+            } else {
+                value
+            }
+        })
+    };
+    let left: Vec<_> = [Some(-128i16), Some(-1), None, Some(127), Some(42), Some(2)]
+        .into_iter()
+        .cycle()
+        .take(len)
+        .map(value_for_type)
+        .collect();
+    let right: Vec<_> = [
+        Some(-1i16),
+        Some(-128),
+        Some(127),
+        None,
+        Some(42),
+        Some(3),
+        Some(100),
+    ]
+    .into_iter()
+    .cycle()
+    .take(len)
+    .map(value_for_type)
+    .collect();
+    let dtype = DType::Primitive(ptype, Nullability::Nullable);
+    let lhs = PrimitiveArray::from_option_iter(left.iter().copied())
+        .into_array()
+        .cast(dtype.clone())?
+        .execute::<PrimitiveArray>(&mut ctx)?
+        .into_array();
+    let rhs = PrimitiveArray::from_option_iter(right.iter().copied())
+        .into_array()
+        .cast(dtype.clone())?
+        .execute::<PrimitiveArray>(&mut ctx)?
+        .into_array();
+    let predicate = |a: i16, b: i16| match op {
+        CompareOperator::Eq => a == b,
+        CompareOperator::NotEq => a != b,
+        CompareOperator::Lt => a < b,
+        CompareOperator::Lte => a <= b,
+        CompareOperator::Gt => a > b,
+        CompareOperator::Gte => a >= b,
+    };
+    let expected = BoolArray::from_iter(
+        left.iter()
+            .zip(&right)
+            .map(|(a, b)| a.zip(*b).map(|(a, b)| predicate(a, b))),
+    );
+    assert_arrays_eq!(lhs.binary(rhs, op.into())?, expected, &mut ctx);
+
+    let constant = ConstantArray::new(
+        Scalar::primitive(42u8, Nullability::Nullable).cast(&dtype)?,
+        len,
+    )
+    .into_array();
+    for swapped in [false, true] {
+        let actual = if swapped {
+            constant.binary(lhs.clone(), op.into())?
+        } else {
+            lhs.binary(constant.clone(), op.into())?
+        };
+        let expected = BoolArray::from_iter(left.iter().map(|value| {
+            value.map(|value| {
+                if swapped {
+                    predicate(42, value)
+                } else {
+                    predicate(value, 42)
+                }
+            })
+        }));
+        assert_arrays_eq!(actual, expected, &mut ctx);
+    }
     Ok(())
 }

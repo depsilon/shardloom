@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
-use std::sync::Arc;
-
 use vortex_error::VortexExpect;
-use vortex_mask::MaskValues;
+use vortex_mask::MaskValuesRef;
 
 use crate::arrays::BoolArray;
 use crate::arrays::bool::BoolArrayExt;
 use crate::arrays::filter::execute::bitbuffer;
 use crate::arrays::filter::execute::filter_validity;
 
-pub fn filter_bool(array: &BoolArray, mask: &Arc<MaskValues>) -> BoolArray {
+pub fn filter_bool(array: &BoolArray, mask: &MaskValuesRef) -> BoolArray {
     let validity = array
         .validity()
-        .vortex_expect("bool validity should be derivable");
+        .vortex_expect("validity is derivable for a valid BoolArray");
     let filtered_validity = filter_validity(validity, mask);
 
     let bit_buffer = array.to_bit_buffer();
@@ -24,35 +22,14 @@ pub fn filter_bool(array: &BoolArray, mask: &Arc<MaskValues>) -> BoolArray {
 }
 
 #[cfg(test)]
-mod test {
-    use itertools::Itertools;
+mod tests {
     use rstest::rstest;
-    use vortex_mask::Mask;
 
     use crate::IntoArray;
     use crate::VortexSessionExecute;
     use crate::array_session;
     use crate::arrays::filter::execute::bool::BoolArray;
     use crate::compute::conformance::filter::test_filter_conformance;
-
-    #[test]
-    fn filter_bool_test() {
-        let mut ctx = array_session().create_execution_ctx();
-        let arr = BoolArray::from_iter([true, true, false]);
-        let mask = Mask::from_iter([true, false, true]);
-
-        let filtered = arr
-            .filter(mask)
-            .unwrap()
-            .execute::<BoolArray>(&mut ctx)
-            .unwrap();
-        assert_eq!(2, filtered.len());
-
-        assert_eq!(
-            vec![true, false],
-            filtered.into_bit_buffer().iter().collect_vec()
-        )
-    }
 
     #[rstest]
     #[case(BoolArray::from_iter([true, false, true, true, false]))]

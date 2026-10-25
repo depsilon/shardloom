@@ -9,7 +9,7 @@ use vortex::array::{
 fn prepare(array: &ArrayRef, memory: &LiveMemoryPool, purpose: Preparation) -> Result<KeyColumn> {
     KeyColumn::prepare(
         array,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
+        &mut vortex::array::array_session().create_execution_ctx(),
         memory,
         &CancellationToken::default(),
         purpose,
@@ -91,7 +91,7 @@ fn value_preparation_keeps_hash_admission_cancellation_and_empty_null_contracts(
     }
     let cancellation = CancellationToken::default();
     cancellation.cancel();
-    let mut context = vortex::array::legacy_session().create_execution_ctx();
+    let mut context = vortex::array::array_session().create_execution_ctx();
     assert!(KeyColumn::values(&source, &mut context, &memory, &cancellation).is_err());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
@@ -103,15 +103,13 @@ fn value_preparation_rejects_unreferenced_malformed_utf8_domain_values() {
     // to pass the existing complete-domain UTF-8 check for either purpose.
     let binary = VarBinArray::from(vec![&b"good"[..], &b"\xff"[..]]);
     let slots = binary.slots().iter().cloned().collect();
-    let domain = VarBinArray::try_from_parts(
-        ArrayParts::new(
-            VarBin,
-            DType::Utf8(Nullability::NonNullable),
-            2,
-            binary.into_data(),
-        )
-        .with_slots(slots),
-    )
+    let domain = VarBinArray::try_from_parts(ArrayParts::new(
+        VarBin,
+        DType::Utf8(Nullability::NonNullable),
+        2,
+        binary.into_data(),
+        slots,
+    ))
     .unwrap()
     .into_array();
     let dictionary = DictArray::try_new(PrimitiveArray::from_iter([0u8]).into_array(), domain)
@@ -191,6 +189,9 @@ fn value_preparation_validates_every_observed_nested_child_but_skips_null_parent
         PrimitiveArray::from_iter([0u64, 0]).into_array(),
         PrimitiveArray::from_iter([1u64, 2]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

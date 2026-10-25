@@ -48,8 +48,8 @@ impl AggregateScanSource<'_> {
     }
 
     pub(super) fn bind(self, expr: &Expression) -> Result<BoundExpression> {
-        expr.optimize_recursive(self.dtype())
-            .and_then(|expr| expr.bind(self.dtype()))
+        expr.bind(self.dtype())
+            .and_then(|expr| expr.optimize_recursive())
             .map_err(vortex_error)
     }
 

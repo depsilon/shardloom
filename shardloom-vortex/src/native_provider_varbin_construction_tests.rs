@@ -16,13 +16,13 @@ use vortex::{
         },
         builders::VarBinViewBuilder,
         dtype::{Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
     buffer::{Buffer, ByteBuffer},
 };
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    VortexSession::default().with_allocator(Arc::new(
+    VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ))
 }
@@ -72,6 +72,7 @@ fn native_varbin_safe_builders_validate_utf8_per_value_and_refund() {
                     })
             })
         }) {
+            let all_invalid = matches!(&validity, Validity::AllInvalid);
             let dtype = if binary {
                 DType::Binary(validity.nullability())
             } else {
@@ -83,7 +84,14 @@ fn native_varbin_safe_builders_validate_utf8_per_value_and_refund() {
             } else {
                 build_views_in(max, bytes.clone(), &lengths, dtype, validity, &mut ctx)
             };
-            if binary {
+            if all_invalid {
+                let output = result.unwrap();
+                for row in 0..output.len() {
+                    assert!(output.execute_scalar(row, &mut ctx).unwrap().is_null());
+                    assert!(output.bytes_at(row).is_empty());
+                }
+                drop(output);
+            } else if binary {
                 let output = result.unwrap();
                 for (row, range) in offsets.windows(2).enumerate() {
                     assert_eq!(
@@ -114,7 +122,7 @@ fn native_varbin_builder_exact_finalization_overlap_and_terminal_refund() {
         let mut builder = VarBinViewBuilder::with_admitted_buffers(
             input.dtype().clone(),
             input.len(),
-            &session.allocator(),
+            &session.host_allocator(),
         )
         .unwrap();
         builder
@@ -152,7 +160,7 @@ fn native_varbin_builder_failed_growth_keeps_contents_and_can_retry() {
     let mut builder = VarBinViewBuilder::with_admitted_buffers(
         input.dtype().clone(),
         2 * input.len(),
-        &session.allocator(),
+        &session.host_allocator(),
     )
     .unwrap();
     builder.append_array(&input, &mut ctx).unwrap();
@@ -186,7 +194,7 @@ fn native_varbin_builder_rejects_dtype_before_allocation() {
     let result = VarBinViewBuilder::with_admitted_buffers(
         DType::Primitive(PType::I64, Nullability::NonNullable),
         3,
-        &session.allocator(),
+        &session.host_allocator(),
     );
     assert!(
         result
@@ -199,7 +207,7 @@ fn native_varbin_builder_rejects_dtype_before_allocation() {
     let result = VarBinViewBuilder::with_admitted_buffers(
         DType::Utf8(Nullability::NonNullable),
         usize::MAX / 16,
-        &session.allocator(),
+        &session.host_allocator(),
     );
     assert!(
         result
@@ -230,7 +238,7 @@ fn native_varbin_builder_many_nullable_utf8_and_binary_leaves() {
         let mut builder = VarBinViewBuilder::with_admitted_buffers(
             input.dtype().clone(),
             33 * input.len(),
-            &session.allocator(),
+            &session.host_allocator(),
         )
         .unwrap();
         for _ in 0..33 {

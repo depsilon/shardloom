@@ -790,6 +790,45 @@ class NativeBindingTests(unittest.TestCase):
         )
         self.assertEqual(empty_source.row_count, 0)
 
+    def test_arrow_import_rejects_malformed_capsule_names(self):
+        import ctypes
+
+        session = self.session(64 << 20, 2)
+        self.addCleanup(session.close)
+        capsule_new = ctypes.pythonapi.PyCapsule_New
+        capsule_new.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
+        capsule_new.restype = ctypes.py_object
+        expected_error = (
+            "Expected __arrow_c_stream__ to return a arrow_array_stream capsule."
+        )
+
+        for capsule_name in (None, b"wrong_stream", b"\xff"):
+            with self.subTest(capsule_name=capsule_name):
+                backing = ctypes.create_string_buffer(b"live payload")
+                # PyCapsule keeps the name pointer, not a Python reference to the bytes.
+                # Keep both the backing memory and the name alive across repeated calls.
+                name_bytes = capsule_name
+                capsule = capsule_new(
+                    ctypes.cast(backing, ctypes.c_void_p), name_bytes, None
+                )
+
+                class Producer:
+                    def __arrow_c_stream__(self, requested_schema=None):
+                        return capsule
+
+                producer = Producer()
+                for _ in range(2):
+                    reserved_before = session.snapshot()["reserved_bytes"]
+                    with self.assertRaises(TypeError) as raised:
+                        session.from_arrow(producer)
+                    self.assertEqual(str(raised.exception), expected_error)
+                    self.assertEqual(
+                        session.snapshot()["reserved_bytes"], reserved_before
+                    )
+
+        later = session.from_range("after_malformed_capsules", 0, 1, 1)
+        self.assertEqual(later.row_count, 1)
+
     def test_resource_override_admits_before_producer_and_does_not_replace_session_default(self):
         pa = self.arrow()
         session = self.session(32 << 20, 2)

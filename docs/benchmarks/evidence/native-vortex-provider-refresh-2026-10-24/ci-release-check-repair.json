@@ -1,0 +1,40 @@
+{
+  "status": "local_correction_passed_remote_recheck_pending",
+  "pull_request": 1601,
+  "failed_head": "f163808a4dd472eb9379088012384928f9263cc4",
+  "run_id": 40146917978,
+  "job_id": 121030125921,
+  "failed_check": "Python test shard (release_scripts)",
+  "failure_count": 6,
+  "cause": "The controlled provider review omitted the current manifest-requirement and resolved-lock version markers; the old marker rendered an exact Cargo pin as vortex = =0.90.0.",
+  "correction": "Record the exact manifest requirement and lock version in the current provider review, and use a dedicated manifest-requirement label in the gate. Missing either review marker still blocks admission.",
+  "local_reproducer": {
+    "tests": 169,
+    "failures": 6
+  },
+  "local_corrected": {
+    "tests": 170,
+    "failures": 0,
+    "skipped": 0,
+    "missing_version_evidence_controls": 2
+  },
+  "files": [
+    {
+      "path": "ci-release-scripts-remote-r1.log",
+      "bytes": 34793,
+      "sha256": "933720bd03ff1de7c257f216f43548e91779089a15cd502dc67c5c43534d5bb1"
+    },
+    {
+      "path": "ci-release-scripts-local-r1.log",
+      "bytes": 7070,
+      "sha256": "7a3772ab99ec736d619e97d1cdfa51ac2afa5ccfc18b8108af4a4ebd5a252ab5"
+    },
+    {
+      "path": "ci-release-scripts-local-r2.log",
+      "bytes": 1100,
+      "sha256": "daa2974897e8e9baa5fa7de1be05c2b48ea8ecd43124852f09b954c009ee3c9b"
+    }
+  ],
+  "runtime_source_changed": false,
+  "native_benchmarks_repeated": false
+}

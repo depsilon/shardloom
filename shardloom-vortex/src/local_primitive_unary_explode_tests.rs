@@ -11,6 +11,9 @@ fn list(values: ArrayRef, offsets: &[u64], sizes: &[u64], valid: &[bool]) -> Arr
         PrimitiveArray::new(offsets.to_vec(), Validity::NonNullable).into_array(),
         PrimitiveArray::new(sizes.to_vec(), Validity::NonNullable).into_array(),
         Validity::from_iter(valid.iter().copied()),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array()

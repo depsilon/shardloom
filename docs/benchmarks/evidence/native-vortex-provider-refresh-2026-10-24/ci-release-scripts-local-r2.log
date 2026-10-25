@@ -1,0 +1,26 @@
+..........................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 170 tests in 3.100s
+
+OK
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpk_ujlorx/target/registry-proof.json
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpyzx_p90s/target/registry-proof.json
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmp9atsc2ro/target/registry-proof.json
+/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpndvem6h7/target/release-dry-run-proof/transcript.json
+{
+  "command": "python scripts/run_python_test_shard.py --shard release_scripts",
+  "elapsed_seconds": 3.1,
+  "error_count": 0,
+  "external_engine_invoked": false,
+  "failure_count": 0,
+  "fallback_attempted": false,
+  "module_count": 1,
+  "modules": [
+    "python.tests.test_release_scripts"
+  ],
+  "schema_version": "shardloom.python_test_shard_evidence.v1",
+  "shard_id": "release_scripts",
+  "skipped_count": 0,
+  "status": "passed",
+  "test_count": 170
+}

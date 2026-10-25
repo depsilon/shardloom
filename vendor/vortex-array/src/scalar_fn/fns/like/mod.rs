@@ -12,10 +12,11 @@ pub use kernel::*;
 use pattern::LikePattern;
 use prost::Message;
 use vortex_buffer::BitBuffer;
+use vortex_buffer::BitBufferMut;
+use vortex_buffer::BufferAllocatorRef;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
-use vortex_proto::expr as pb;
 use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
 
@@ -28,11 +29,11 @@ use crate::arrays::ConstantArray;
 use crate::arrays::ScalarFnArray;
 use crate::arrays::VarBinViewArray;
 use crate::arrays::varbinview::BinaryView;
+use crate::arrays::varbinview::ResolvedViews;
 use crate::dtype::DType;
 use crate::dtype::Nullability;
-use crate::expr::Expression;
-use crate::expr::and;
 use crate::expr::display::ExprDisplay;
+use crate::proto::expr as pb;
 use crate::scalar::Scalar;
 use crate::scalar_fn::Arity;
 use crate::scalar_fn::ChildName;
@@ -76,7 +77,7 @@ impl Like {
         pattern: ArrayRef,
         options: LikeOptions,
     ) -> VortexResult<ScalarFnArray> {
-        ScalarFnArray::try_new(Like.bind(options), vec![input, pattern])
+        ScalarFnArray::try_new(Like.bind(options), [input, pattern])
     }
 }
 
@@ -171,17 +172,6 @@ impl ScalarFnVTable for Like {
         execute_like(&child, &pattern, *options, ctx)
     }
 
-    fn validity(
-        &self,
-        _options: &Self::Options,
-        expression: &Expression,
-    ) -> VortexResult<Option<Expression>> {
-        tracing::warn!("Computing validity for LIKE expression");
-        let child_validity = expression.child(0).validity()?;
-        let pattern_validity = expression.child(1).validity()?;
-        Ok(Some(and(child_validity, pattern_validity)))
-    }
-
     fn is_strict(&self, _instance: &Self::Options) -> bool {
         true
     }
@@ -224,17 +214,17 @@ pub(crate) fn execute_like(
             );
         };
         let values = array.clone().execute::<VarBinViewArray>(ctx)?;
-        let haystack = ResolvedViews::new(&values);
+        let haystack = values.resolved_views();
         // The ASCII case-insensitive fast paths are only sound when the haystack is pure
         // ASCII; see `LikePattern::compile`.
         let ascii_haystack =
-            options.case_insensitive && pattern_str.as_str().is_ascii() && haystack.is_ascii();
+            options.case_insensitive && pattern_str.as_str().is_ascii() && is_ascii(&haystack);
         let compiled = LikePattern::compile(
             pattern_str.as_str(),
             options.case_insensitive,
             ascii_haystack,
         )?;
-        let bits = eval_pattern(&haystack, &compiled, options.negated);
+        let bits = eval_pattern(&haystack, &compiled, options.negated, ctx.allocator());
         let validity = values.validity()?.union_nullability(nullability);
         return Ok(BoolArray::new(bits, validity).into_array());
     }
@@ -242,14 +232,14 @@ pub(crate) fn execute_like(
     // Per-row patterns: compile each pattern individually.
     let values = array.clone().execute::<VarBinViewArray>(ctx)?;
     let patterns = pattern.clone().execute::<VarBinViewArray>(ctx)?;
-    let haystack = ResolvedViews::new(&values);
-    let pattern_views = ResolvedViews::new(&patterns);
-    let ascii_haystack = options.case_insensitive && haystack.is_ascii();
+    let haystack = values.resolved_views();
+    let pattern_views = patterns.resolved_views();
+    let ascii_haystack = options.case_insensitive && is_ascii(&haystack);
 
-    let mut bits = Vec::with_capacity(len);
     // Reuse the previous row's compiled pattern while the pattern bytes repeat, so runs of
     // identical patterns (the common case for non-constant pattern children) compile once.
     let mut cached: Option<(&[u8], LikePattern)> = None;
+    let mut bits = BitBufferMut::with_capacity_in(len, ctx.allocator().clone());
     for i in 0..len {
         let pattern_bytes = pattern_views.bytes(i);
         let compiled = match &cached {
@@ -265,74 +255,13 @@ pub(crate) fn execute_like(
                 &cached.insert((pattern_bytes, compiled)).1
             }
         };
-        bits.push(compiled.matches(haystack.bytes(i)) != options.negated);
+        bits.append(compiled.matches(haystack.bytes(i)) != options.negated);
     }
     let validity = values
         .validity()?
         .and(patterns.validity()?)?
         .union_nullability(nullability);
-    Ok(BoolArray::new(BitBuffer::from_iter(bits), validity).into_array())
-}
-
-/// Resolved views over a canonical [`VarBinViewArray`]: the view structs plus borrowed slices
-/// of every data buffer, supporting cheap per-element byte access.
-struct ResolvedViews<'a> {
-    views: &'a [BinaryView],
-    buffers: Vec<&'a [u8]>,
-}
-
-impl<'a> ResolvedViews<'a> {
-    fn new(array: &'a VarBinViewArray) -> Self {
-        Self {
-            views: array.views(),
-            buffers: (0..array.data_buffers().len())
-                .map(|idx| array.buffer(idx).as_slice())
-                .collect(),
-        }
-    }
-
-    #[inline]
-    fn bytes(&self, index: usize) -> &'a [u8] {
-        let view = &self.views[index];
-        if view.is_inlined() {
-            view.as_inlined().value()
-        } else {
-            let view = view.as_view();
-            &self.buffers[view.buffer_index as usize][view.as_range()]
-        }
-    }
-
-    /// Whether every value (including values under a null) is pure ASCII.
-    fn is_ascii(&self) -> bool {
-        (0..self.views.len()).all(|i| self.bytes(i).is_ascii())
-    }
-
-    /// The last `suffix_len` bytes of `view`, which must belong to this array.
-    ///
-    /// # Safety
-    ///
-    /// `suffix_len` must be at most `view.len()`. Buffer bounds are guaranteed by
-    /// [`VarBinViewArray::validate`], which checks every view against its data buffer at
-    /// construction.
-    #[inline]
-    unsafe fn suffix_bytes_unchecked(&self, view: &'a BinaryView, suffix_len: usize) -> &'a [u8] {
-        let len = view.len() as usize;
-        if view.is_inlined() {
-            // SAFETY: inlined values hold `len <= 12` value bytes, and the caller
-            // guarantees `suffix_len <= len`.
-            unsafe { view.as_inlined().value().get_unchecked(len - suffix_len..) }
-        } else {
-            let view = view.as_view();
-            let end = view.offset as usize + len;
-            // SAFETY: validated views reference `buffer_index < buffers.len()` and bytes
-            // `offset..offset + len` within that buffer.
-            unsafe {
-                self.buffers
-                    .get_unchecked(view.buffer_index as usize)
-                    .get_unchecked(end - suffix_len..end)
-            }
-        }
-    }
+    Ok(BoolArray::new(bits.freeze(), validity).into_array())
 }
 
 /// Evaluate `pattern` against every element of `haystack`.
@@ -340,27 +269,38 @@ impl<'a> ResolvedViews<'a> {
 /// The equality, prefix, and suffix patterns exploit the view layout: a view stores the value
 /// length and its first four bytes inline, which settles most elements without touching the
 /// data buffers (values of up to 12 bytes are stored entirely inline).
-fn eval_pattern(haystack: &ResolvedViews<'_>, pattern: &LikePattern, negated: bool) -> BitBuffer {
-    let len = haystack.views.len();
+fn eval_pattern(
+    haystack: &ResolvedViews<'_>,
+    pattern: &LikePattern,
+    negated: bool,
+    allocator: &BufferAllocatorRef,
+) -> BitBuffer {
+    let len = haystack.len();
     match pattern {
         LikePattern::Eq(needle) if needle.len() <= BinaryView::MAX_INLINED_SIZE => {
             // The needle fits in a view, so equality is a single 16-byte comparison: a view
             // of a different length or prefix can never share the same bit pattern.
             let needle_view = BinaryView::new_inlined(needle).as_u128();
-            BitBuffer::collect_bool(len, |i| {
-                (haystack.views[i].as_u128() == needle_view) != negated
-            })
+            BitBuffer::collect_bool_in(
+                len,
+                |i| (haystack.views()[i].as_u128() == needle_view) != negated,
+                allocator.clone(),
+            )
         }
         LikePattern::Eq(needle) => {
             // Compare the view head (length plus 4-byte prefix) first; only views that agree
             // on both dereference their data buffer for the remaining bytes.
-            let needle_head = needle_head(needle);
-            BitBuffer::collect_bool(len, |i| {
-                let view = &haystack.views[i];
-                let matched =
-                    view_head(view) == needle_head && haystack.bytes(i)[4..] == needle[4..];
-                matched != negated
-            })
+            let needle_head = BinaryView::head_of(needle);
+            BitBuffer::collect_bool_in(
+                len,
+                |i| {
+                    let view = &haystack.views()[i];
+                    let matched =
+                        view.head() == needle_head && haystack.bytes(i)[4..] == needle[4..];
+                    matched != negated
+                },
+                allocator.clone(),
+            )
         }
         LikePattern::StartsWith(needle) => {
             // A branch-free masked comparison of the view's inline 4-byte prefix rejects
@@ -368,52 +308,105 @@ fn eval_pattern(haystack: &ResolvedViews<'_>, pattern: &LikePattern, negated: bo
             // prefix matches compare the remaining needle bytes.
             let needle_len = needle.len();
             let prefix_len = needle_len.min(4);
-            let needle_prefix = u32::from_le_bytes({
-                let mut padded = [0u8; 4];
-                padded[..prefix_len].copy_from_slice(&needle[..prefix_len]);
-                padded
-            });
+            // Raw prefix bytes, unswapped: this is a masked equality, not an ordering.
+            let needle_prefix = u32::from_le_bytes(BinaryView::prefix_of(needle));
             let prefix_mask = if prefix_len == 4 {
                 u32::MAX
             } else {
                 (1u32 << (8 * prefix_len)) - 1
             };
-            BitBuffer::collect_bool(len, |i| {
-                let view = &haystack.views[i];
-                let matched = view.len() as usize >= needle_len
-                    && (view_prefix(view) & prefix_mask) == needle_prefix
-                    && (needle_len <= 4 || haystack.bytes(i)[4..needle_len] == needle[4..]);
-                matched != negated
-            })
+            BitBuffer::collect_bool_in(
+                len,
+                |i| {
+                    let view = &haystack.views()[i];
+                    let matched = view.len() as usize >= needle_len
+                        && (u32::from_le_bytes(view.prefix()) & prefix_mask) == needle_prefix
+                        && (needle_len <= 4 || haystack.bytes(i)[4..needle_len] == needle[4..]);
+                    matched != negated
+                },
+                allocator.clone(),
+            )
         }
         LikePattern::EndsWith(needle) => {
             // Inlined values compare their suffix inside the view struct without touching the
             // data buffers; reference views slice exactly the suffix out of their buffer.
             let needle_len = needle.len();
-            BitBuffer::collect_bool(len, |i| {
-                // SAFETY: `i` is below the array length, and the suffix length is only read
-                // once the view is known to be at least `needle_len` long.
-                let matched = unsafe {
-                    let view = haystack.views.get_unchecked(i);
-                    view.len() as usize >= needle_len
-                        && bytes_eq(haystack.suffix_bytes_unchecked(view, needle_len), needle)
-                };
-                matched != negated
-            })
+            BitBuffer::collect_bool_in(
+                len,
+                |i| {
+                    // SAFETY: `i` is below the array length, and the suffix length is only read
+                    // once the view is known to be at least `needle_len` long.
+                    let matched = unsafe {
+                        let view = haystack.views().get_unchecked(i);
+                        view.len() as usize >= needle_len
+                            && bytes_eq(suffix_bytes_unchecked(haystack, view, needle_len), needle)
+                    };
+                    matched != negated
+                },
+                allocator.clone(),
+            )
         }
-        LikePattern::IEqAscii(needle) => BitBuffer::collect_bool(len, |i| {
-            let view = &haystack.views[i];
-            let matched = view.len() as usize == needle.len()
-                && haystack.bytes(i).eq_ignore_ascii_case(needle);
-            matched != negated
-        }),
-        LikePattern::Contains(finder, needle_len) => BitBuffer::collect_bool(len, |i| {
-            let view = &haystack.views[i];
-            let matched =
-                view.len() as usize >= *needle_len && finder.find(haystack.bytes(i)).is_some();
-            matched != negated
-        }),
-        _ => BitBuffer::collect_bool(len, |i| pattern.matches(haystack.bytes(i)) != negated),
+        LikePattern::IEqAscii(needle) => BitBuffer::collect_bool_in(
+            len,
+            |i| {
+                let view = &haystack.views()[i];
+                let matched = view.len() as usize == needle.len()
+                    && haystack.bytes(i).eq_ignore_ascii_case(needle);
+                matched != negated
+            },
+            allocator.clone(),
+        ),
+        LikePattern::Contains(finder, needle_len) => BitBuffer::collect_bool_in(
+            len,
+            |i| {
+                let view = &haystack.views()[i];
+                let matched =
+                    view.len() as usize >= *needle_len && finder.find(haystack.bytes(i)).is_some();
+                matched != negated
+            },
+            allocator.clone(),
+        ),
+        _ => BitBuffer::collect_bool_in(
+            len,
+            |i| pattern.matches(haystack.bytes(i)) != negated,
+            allocator.clone(),
+        ),
+    }
+}
+
+/// Whether every value in `haystack` is ASCII. Validity is not consulted.
+fn is_ascii(haystack: &ResolvedViews<'_>) -> bool {
+    haystack
+        .views()
+        .iter()
+        .all(|view| haystack.view_bytes(view).is_ascii())
+}
+
+/// The last `suffix_len` bytes of `view`, which must belong to `haystack`.
+///
+/// # Safety
+///
+/// `suffix_len` must be at most `view.len()`.
+#[inline]
+unsafe fn suffix_bytes_unchecked<'a>(
+    haystack: &ResolvedViews<'a>,
+    view: &'a BinaryView,
+    suffix_len: usize,
+) -> &'a [u8] {
+    let len = view.len() as usize;
+    if view.is_inlined() {
+        // SAFETY: caller guarantees suffix_len <= len.
+        unsafe { view.as_inlined().value().get_unchecked(len - suffix_len..) }
+    } else {
+        let view = view.as_view();
+        let end = view.offset as usize + len;
+        // SAFETY: the array validated this view's buffer index and range on construction.
+        unsafe {
+            haystack
+                .buffers()
+                .get_unchecked(view.buffer_index as usize)
+                .get_unchecked(end - suffix_len..end)
+        }
     }
 }
 
@@ -424,28 +417,6 @@ fn eval_pattern(haystack: &ResolvedViews<'_>, pattern: &LikePattern, negated: bo
 #[inline]
 fn bytes_eq(lhs: &[u8], rhs: &[u8]) -> bool {
     lhs.len() == rhs.len() && std::iter::zip(lhs, rhs).all(|(l, r)| l == r)
-}
-
-/// The leading 8 bytes of a view: the `u32` length plus the first 4 bytes of the value
-/// (zero-padded for values shorter than 4 bytes).
-#[inline]
-#[expect(clippy::cast_possible_truncation, reason = "intentional bit slicing")]
-fn view_head(view: &BinaryView) -> u64 {
-    view.as_u128() as u64
-}
-
-/// The view head a needle of more than 4 bytes would have: its length plus first 4 bytes.
-fn needle_head(needle: &[u8]) -> u64 {
-    let prefix: [u8; 4] = [needle[0], needle[1], needle[2], needle[3]];
-    (needle.len() as u64) | (u64::from(u32::from_le_bytes(prefix)) << 32)
-}
-
-/// The first 4 value bytes stored inline in any view (zero-padded for values shorter than
-/// 4 bytes), as a raw little-endian `u32` in memory order.
-#[inline]
-#[expect(clippy::cast_possible_truncation, reason = "intentional bit slicing")]
-fn view_prefix(view: &BinaryView) -> u32 {
-    (view.as_u128() >> 32) as u32
 }
 
 /// Variants of the LIKE filter that we know how to turn into a stats pruning predicate.
@@ -513,13 +484,16 @@ mod tests {
     use crate::expr::get_item;
     use crate::expr::like;
     use crate::expr::lit;
-    use crate::expr::not;
     use crate::expr::not_ilike;
     use crate::expr::root;
     use crate::scalar::Scalar;
     use crate::scalar_fn::fns::like::Like;
     use crate::scalar_fn::fns::like::LikeOptions;
     use crate::scalar_fn::fns::like::LikeVariant;
+    use crate::scalar_fn::fns::like::is_ascii;
+    use crate::scalar_fn::fns::like::suffix_bytes_unchecked;
+
+    const LONG: &str = "a value far too long to live inside its own view";
 
     fn run_like(
         array: crate::ArrayRef,
@@ -715,18 +689,6 @@ mod tests {
     }
 
     #[test]
-    fn invert_booleans() {
-        let not_expr = not(root());
-        let bools = BoolArray::from_iter([false, true, false, false, true, true]);
-        let mut ctx = array_session().create_execution_ctx();
-        assert_arrays_eq!(
-            bools.into_array().apply(&not_expr).unwrap(),
-            BoolArray::from_iter([true, false, true, true, false, false]),
-            &mut ctx
-        );
-    }
-
-    #[test]
     fn dtype() {
         let dtype = DType::Utf8(Nullability::NonNullable);
         let like_expr = like(root(), lit("%test%"));
@@ -813,5 +775,29 @@ mod tests {
         assert_eq!(LikeVariant::from_str("%suffix"), None);
         assert_eq!(LikeVariant::from_str(r"%\%%"), None);
         assert_eq!(LikeVariant::from_str("_pattern"), None);
+    }
+
+    #[test]
+    fn suffix_bytes_are_value_suffixes() {
+        let array = VarBinViewArray::from_iter_str(["short", LONG, "another long value here"]);
+        let haystack = array.resolved_views();
+        for (index, view) in haystack.views().iter().enumerate() {
+            let value = haystack.bytes(index);
+            for suffix_len in 0..=value.len() {
+                // SAFETY: suffix_len <= value.len(), which is view.len().
+                let suffix = unsafe { suffix_bytes_unchecked(&haystack, view, suffix_len) };
+                assert_eq!(suffix, &value[value.len() - suffix_len..]);
+            }
+        }
+    }
+
+    #[rstest]
+    #[case::inlined(["short", "tiny"], true)]
+    #[case::referenced([LONG, "another long value here"], true)]
+    #[case::inlined_non_ascii(["short", "é"], false)]
+    #[case::referenced_non_ascii([LONG, "a long value ending in é"], false)]
+    fn detects_ascii(#[case] values: [&str; 2], #[case] expected: bool) {
+        let array = VarBinViewArray::from_iter_str(values);
+        assert_eq!(is_ascii(&array.resolved_views()), expected);
     }
 }

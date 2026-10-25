@@ -1,51 +1,87 @@
 {
   "provider": "vortex-runend",
-  "version": "0.85.0",
+  "version": "0.90.0",
   "license": "Apache-2.0",
-  "registry_archive_sha256": "ce88ac5b091d96177e51c7bb84dcf8f11e0573edeaff804f15d81f3052cd51bb",
-  "upstream_git_sha": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
-  "upstream_vcs_dirty": true,
-  "source_of_truth": "published registry archive, not an assumed clean Git tree",
+  "registry_archive_sha256": "2828cdf7c3096227136ca26b93c1ec5b55c4b74f45a2bff0ea98ec334adf2bd1",
+  "registry_archive_file_count": 31,
+  "registry_archive_uncompressed_bytes": 242236,
   "original_files_sha256": {
-    ".cargo_vcs_info.json": "5a6ac712c5cd465f18b4f9a0510e06218464ec06f5f91358c227815ea2bcee9b",
-    "Cargo.lock": "89c73938c4a676d505a4024aa1a111199a98623db4b0020ed261040c80d2e152",
-    "Cargo.toml": "8f9fc8b78e4f4482e5d404c35dde8ceeec59c715de809b68ef2bed33161db381",
-    "Cargo.toml.orig": "ac1f414c8315fe76feb2c67f71af70df53ae8be9ea3f956974e6b40db7fa5e9e",
-    "README.md": "c2f9ab30dd59ac68d30b19b8402f5c8a3dfdc4dd8dba6921722a77ebf4ac54c0",
+    ".cargo_vcs_info.json": "b800afab188d2007c418caf42a3c3201799b342587a8d9804571371b641eebe4",
+    "Cargo.lock": "f7f57652ffb8110013f2533764c80d51ab77a82061ee492ad53f23e41f24fec9",
+    "Cargo.toml": "3c3182655f4fdc2b1141aa9bc1b8ac34474b8e1216d015821d0a308ce321a941",
+    "Cargo.toml.orig": "ef123315691c5b6c42d4dd079213c5104c7e9fc269de705bad09d2cd40021a2f",
+    "README.md": "cd899987b96ab2c72c73b619e0a456553b01ab35776f177a8eeb52a3fcc8110e",
     "src/arbitrary.rs": "c5524c0bf2b9f7623d889fbc3361198afbc79e7e14f689b18194db2905a812a0",
-    "src/array.rs": "3d8ad9751e0b9ce81186b0da32801be45dde7b3935fc964eedc1f7fc7d63adb6",
-    "src/compress.rs": "490ffb58d1cc4c43bd558084999eeee11e283625549a7eae5b99b7b67f8ffe63",
-    "src/compute/cast.rs": "2ed0ae259e57df74e7d6c62ed9c9b38a6eabcf089d78cad3c29a090863e2e552",
+    "src/array.rs": "771149d1b2df930d8e793db5ec4a2499dafe86735c7583a667df2adb36fa4eb5",
+    "src/compress.rs": "3a4a07e23a696afdbb3f1d2865002b90d4092c5e5275c0d4622272373bf665cd",
+    "src/compute/cast.rs": "7e3db6c604f8ceef25b81a81854432eca2aa429892b3ae239ac40a0025314cdf",
     "src/compute/compare.rs": "a239115a1f106e9bbc5e212a12ce0b3f687a9433e66586d96e7f05e23b548c85",
     "src/compute/fill_null.rs": "07a42d771c16b51afe008a8a6d61d60183e4c4e8b634a4b2172a2a4a88c65a16",
-    "src/compute/filter.rs": "b549bfb8b5a2438c314e9fd269f5e6a0a3f7d9c8fd5d7b9df27627be5c111be1",
+    "src/compute/filter.rs": "6e95dc15a56d42bf3fcc89bc0f7383ffc7483b56c25fb4fc16d3fc3e9a25408a",
     "src/compute/is_constant.rs": "4a376d0d52f90b87dcda47abc7afaf4c1352a59afe5e8b5702cb7c429e8cd398",
     "src/compute/is_sorted.rs": "ae6b6beaad73e4924f5b13a1cf8a0ddb542544cc60d103f0c729faa4f5498ed2",
     "src/compute/min_max.rs": "45a7e649b7b5ea9c4a9422b627fd9ab9616a1adf78af084a6f213e7e279d5f55",
-    "src/compute/mod.rs": "e56ab5247a2139d52a7a7e63b29a293efa584df65ef7bd425db8811d40ee7fec",
-    "src/compute/take.rs": "bc5be9d9e5d44893a6fc159f19f84105ddb76726fa5373d96c1b9dc60fabcb65",
-    "src/compute/take_from.rs": "47719bb31906ab7d1bdc6b5863aedfd24906b1426814460f4acb2c28825a8502",
-    "src/decompress_bool.rs": "5519f1d25bd7ad841e5283ec4099c87e516705102ceaa97b1110c98606580d3a",
+    "src/compute/mod.rs": "dba55174f8dcf7c61e538573de041c32ba355a1e1510960ba33eb6f05e1e9bbf",
+    "src/compute/sum/kernel.rs": "079e00a6e09ce845982b64a1ba83245e7cd379421bbcacd225df810773488f26",
+    "src/compute/sum/mod.rs": "25e2ae7a7bf9a29e226b1024445d68f0e6c79209abdc077fc703d5553e7561ef",
+    "src/compute/sum/runs.rs": "9bdffeb415a740573ca61901f0762a3b768e857bc7c1524683e5d4afe2af1762",
+    "src/compute/sum/tests.rs": "343be18c0cc7acf30f130441c7db7051f56962a7eb3ab2319e0e9c7d6c135d87",
+    "src/compute/take.rs": "eafbaf095efbf03b6ffc6f86564521754f9fb6347f23405ccf1082d294141b0c",
+    "src/compute/take_from.rs": "e5fbb1850adfa4d0758624aece44834b2ddd79db1846688e7d0b6093baa7d6b1",
+    "src/decompress_bool.rs": "9acfc04cf3f176a646fbfd3e99fa96f38e8e794dc1bdb8c8f19781b6afa97c6c",
     "src/iter.rs": "5261009721ae79d7a0fc8adca4a89e5897141672f8f70eee76fd2f8becb904d2",
     "src/kernel.rs": "8f096f53927ee42d25e785fc087c946076de50c8bd7846c2fa85963f632ed7ab",
-    "src/lib.rs": "239c3dda01bed0dd911ddb515c856c411eaf5b493e557052e9629cf8b172361e",
-    "src/ops.rs": "be72d72e25a66818783ee400f49de1176b0c620cb28fe156abd5ee3ed677c83b",
+    "src/lib.rs": "a02bfa810763b6f4baf29844c13c2d90a97b49a15ac1edd8452e54a10eb9b6d7",
+    "src/ops.rs": "7e4d76363171758f6ac9218f662f490e6ecd1607277da68931a1b33eb3fa329f",
+    "src/probe.rs": "7595426a7c6ae43705e74ebdfe80eb1ab6724de824e1a8b88934a320f64b670b",
+    "src/probe/tests.rs": "671d7006100cd05480eb9ad166ad4b643a4d4db1833ac74164f67099b37936e9",
     "src/rules.rs": "f5b0874e0a4b8810c4b07b697f3f9e6af15afddefb5a0ee22c4dde1aeff43947",
-    "src/trace_tests.rs": "b4a5266f9b27c4898a4a6417bc9edf65b6228ecfdc5de0d44353ce0f17756b39"
+    "src/trace_tests.rs": "7242e52b8e8e65554e44fcdd4ad0cecde61494cb35080e3615b3cc61773851da"
   },
-  "omitted_original_files": {
-    "Cargo.lock": "workspace Cargo.lock controls dependency resolution"
+  "vcs_info": {
+    "git": {
+      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/runend"
   },
-  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+  "source_of_truth": "https://static.crates.io/crates/vortex-runend/vortex-runend-0.90.0.crate",
+  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "migration_status": "ported_retained_local_invariants",
+  "predecessor": {
+    "source_commit": "3628a81bef597a4a3d833d93470ffae1b1cc7587",
+    "version": "0.85.0",
+    "registry_archive_sha256": "ce88ac5b091d96177e51c7bb84dcf8f11e0573edeaff804f15d81f3052cd51bb",
+    "provenance_path": "vendor/vortex-runend/upstream-provenance.json"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "b409dd238dcbe22b4a17031c78aadf01feb6f9427202646fcfecf98a34b132dc",
+    "src/compress.rs": "bff65da001ebfae4bbb6d2c879732ab70456fc6ab239ea444a47bb61605e7d09"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "1ebe9ee5e6fb1e02587d9bf6ce26b864b785c41971895206b0528e3a8333aab3",
+    "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "1ebe9ee5e6fb1e02587d9bf6ce26b864b785c41971895206b0528e3a8333aab3"
+  },
   "supplemental_test_files": {
     "goldenfiles/runend.metadata": {
-      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/encodings/runend/goldenfiles/runend.metadata",
+      "provider": "vortex-runend",
+      "path": "goldenfiles/runend.metadata",
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/encodings/runend/goldenfiles/runend.metadata",
       "git_blob_sha1": "17785041a8123a014d1987344b87fad6a256bd04",
       "sha256": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
       "bytes": 24,
-      "reason": "The registry archive omits the golden fixture required by its unchanged library test. The pinned Git revision's src/lib.rs is byte-identical to the published source."
+      "test_source": "src/lib.rs",
+      "test_source_matches_published_archive": true,
+      "test_source_sha256": "a02bfa810763b6f4baf29844c13c2d90a97b49a15ac1edd8452e54a10eb9b6d7",
+      "test_source_published_archive_sha256": "a02bfa810763b6f4baf29844c13c2d90a97b49a15ac1edd8452e54a10eb9b6d7",
+      "test_source_current_sha256": "a02bfa810763b6f4baf29844c13c2d90a97b49a15ac1edd8452e54a10eb9b6d7",
+      "retained_test_module": null
     }
-  },
-  "local_changes": "String/binary RunEnd expansion reconstructs views and validity through the original VarBinView array's owner-preserving helper, sharing its data-buffer table and reservation. Existing RunEnd decoding and value semantics remain authoritative. No new encoding, wire format, dependency version or unsafe boundary is introduced. The normalized manifest adds publish=false; README.shardloom.md and reviewed license/provenance records are included."
+  }
 }

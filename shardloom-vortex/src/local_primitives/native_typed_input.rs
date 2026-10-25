@@ -4,10 +4,10 @@ use serde_json::Value as Json;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::{
-    ArrayRef,
+    ArrayRef, VortexSessionExecute as _,
     arrays::{FixedSizeListArray, ListArray, StructArray},
     dtype::{DType, Nullability, PType},
-    memory::HostAllocatorRef,
+    memory::{HostAllocatorRef, HostMemorySessionExt as _},
     validity::Validity,
 };
 
@@ -141,9 +141,16 @@ fn construct(
                     allocator,
                     |row| Ok(Value::UInt(offsets.values[row] as u64)),
                 )?;
-                ListArray::try_new(child, offsets, validity)
-                    .map(vortex::array::IntoArray::into_array)
-                    .map_err(vortex_error)
+                ListArray::try_new(
+                    child,
+                    offsets,
+                    validity,
+                    &mut vortex::array::array_session()
+                        .with_host_allocator(allocator.clone())
+                        .create_execution_ctx(),
+                )
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(vortex_error)
             }
         }
         _ => {

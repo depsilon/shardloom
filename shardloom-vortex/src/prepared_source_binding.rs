@@ -359,7 +359,7 @@ pub fn local_preparation_identity_controlled(
 ) -> Result<LocalPreparationIdentity> {
     use vortex::{
         VortexSessionDefault as _,
-        array::memory::MemorySessionExt as _,
+        array::memory::HostMemorySessionExt as _,
         file::OpenOptionsSessionExt as _,
         io::{runtime::BlockingRuntime as _, session::RuntimeSessionExt as _},
     };
@@ -379,7 +379,7 @@ pub fn local_preparation_identity_controlled(
     let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
     let session = vortex::session::VortexSession::default()
         .with_handle(runtime.handle())
-        .with_allocator(std::sync::Arc::new(
+        .with_host_allocator(std::sync::Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
     let file = runtime

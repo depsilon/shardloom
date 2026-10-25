@@ -7,6 +7,9 @@ use std::{collections::BTreeMap, sync::Arc};
 #[allow(clippy::too_many_lines)] // The same complete-value fixture covers both public front doors.
 fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy_route() {
     const ROWS: usize = 16_384;
+    // Distinct 128-byte keys exceed the 1-MiB spill arena even when an upstream
+    // dictionary combines duplicate source rows into weighted records first.
+    const GROUPS: usize = 12_288;
     struct Cleanup(std::path::PathBuf);
     impl Drop for Cleanup {
         fn drop(&mut self) {
@@ -20,7 +23,7 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
     let source = root.join("categories.vortex");
     let ipc = root.join("source.arrow");
     let values = (0..ROWS)
-        .map(|index| format!("{:08}{}", index % 8192, "x".repeat(120)))
+        .map(|index| format!("{:08}{}", index % GROUPS, "x".repeat(120)))
         .collect::<Vec<_>>();
     let schema = Arc::new(Schema::new(vec![Field::new(
         "category",
@@ -147,7 +150,10 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
             )
         };
         let runs_written = spill_field("runs_written").parse::<u64>().unwrap();
-        assert!(runs_written >= 2);
+        assert!(
+            runs_written >= 2,
+            "{surface}: expected multiple native runs, got {runs_written}"
+        );
         let written = super::complete_result::field_value(
             &envelope,
             "execution_resource_observed_spill_bytes",

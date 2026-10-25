@@ -16,7 +16,7 @@ fn counted(keys: Vec<i64>, text: &[String], memory: &LiveMemoryPool) -> Compound
     let mut partial = compound_count_partial::count(
         &numeric,
         &text,
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )

@@ -10,7 +10,7 @@ use vortex::{
         arrays::PrimitiveArray,
         dtype::DType,
         memory::{
-            DefaultHostAllocator, HostAllocator, HostMemoryReservation, MemorySessionExt as _,
+            DefaultHostAllocator, HostAllocator, HostMemoryReservation, HostMemorySessionExt as _,
             WritableHostBuffer,
         },
     },
@@ -45,7 +45,7 @@ impl HostAllocator for MetadataAllocator {
 
 fn session(memory: &LiveMemoryPool) -> (VortexSession, Arc<Mutex<Vec<usize>>>) {
     let requests = Arc::new(Mutex::new(Vec::new()));
-    let consumer = VortexSession::default().with_allocator(Arc::new(MetadataAllocator {
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(MetadataAllocator {
         tables: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         requests: Arc::clone(&requests),
     }));
@@ -269,7 +269,7 @@ fn native_metadata_locators_map_denial_retries_without_reallocating_parsed_names
     let expected = u64::try_from(metadata + segments).unwrap();
     let memory = LiveMemoryPool::new(expected).unwrap();
     let (consumer, requests) = session(&memory);
-    let peer = consumer.allocator().reserve_external(1).unwrap();
+    let peer = consumer.host_allocator().reserve_external(1).unwrap();
     let mut parser = Footer::deserializer(bytes.clone(), consumer.clone())
         .with_dtype(dtype)
         .with_size(u64::try_from(bytes.len()).unwrap());
@@ -524,7 +524,7 @@ fn replace_metadata_postscript(
     bytes: &ByteBuffer,
     entries: &[(&str, SegmentSpec, u8)],
 ) -> ByteBuffer {
-    use vortex::flatbuffers::footer as fb;
+    use vortex::file::flatbuffers::footer as fb;
 
     fn copy_segment<'a>(
         builder: &mut flatbuffers::FlatBufferBuilder<'a>,

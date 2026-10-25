@@ -6324,18 +6324,6 @@ impl VortexIngestReport {
                     .to_string(),
             ),
             (
-                "source_read_metadata_scout_millis".to_string(),
-                self.source.source_metadata_scout_millis.to_string(),
-            ),
-            (
-                "source_read_byte_acquisition_millis".to_string(),
-                self.source.source_byte_acquisition_millis.to_string(),
-            ),
-            (
-                "source_read_full_body_millis".to_string(),
-                self.source.source_full_body_millis.to_string(),
-            ),
-            (
                 "source_read_buffer_carry_status".to_string(),
                 self.source.source_read_buffer_carry_status().to_string(),
             ),

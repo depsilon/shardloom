@@ -225,15 +225,13 @@ fn decode_fsst(
         codes_offsets: offsets.into_array(),
         codes_validity: array.codes_validity().cloned(),
     };
-    let input = Array::<FSST>::try_from_parts(
-        ArrayParts::new(
-            FSST,
-            array.dtype().clone(),
-            array.len(),
-            array.data().clone(),
-        )
-        .with_slots(slots.into_slots()),
-    )?;
+    let input = Array::<FSST>::try_from_parts(ArrayParts::new(
+        FSST,
+        array.dtype().clone(),
+        array.len(),
+        array.data().clone(),
+        slots.into_slots(),
+    ))?;
     let (decoded, step) = FSST::execute(input, ctx)?.into_parts();
     vortex_ensure!(
         matches!(step, ExecutionStep::Done),
@@ -256,7 +254,7 @@ fn decode_fsst(
         output,
         BufferHandle::new_host(views),
         buffers,
-        &ctx.allocator(),
+        &ctx.host_allocator(),
     )?)?;
     retained.statistics().inherit_from(array.statistics());
     Ok(retained.into_array())
@@ -305,40 +303,17 @@ fn integer_workspace(array: &ArrayRef, depth: usize) -> VortexResult<IntegerWork
     if let Some(primitive) = array.as_opt::<Primitive>() {
         return Ok(IntegerWorkspace {
             bytes: 0,
-            alignment: *primitive.data().buffer_handle().as_host().alignment(),
+            alignment: primitive
+                .data()
+                .buffer_handle()
+                .as_host()
+                .alignment()
+                .as_usize(),
         });
     }
-    let rows = if let Some(delta) = array.as_opt::<Delta>() {
-        // A sliced Delta still allocates its complete padded child extent.
-        delta.deltas().len()
-    } else if let Some(rle) = array.as_opt::<RLE>() {
-        // rle_decompress retains all touched 1024-value chunks behind a slice.
-        let end = rle
-            .offset()
-            .checked_add(array.len())
-            .ok_or_else(size_overflow)?;
-        let chunks = end.div_ceil(1024) - rle.offset() / 1024;
-        chunks.checked_mul(1024).ok_or_else(size_overflow)?
-    } else if array.is::<Constant>()
-        || array.is::<BitPacked>()
-        || array.is::<FoR>()
-        || array.is::<ZigZag>()
-        || array.is::<Dict>()
-        || array.is::<Sparse>()
-        || array.is::<RunEnd>()
-        || array.is::<Sequence>()
-        || array.is::<Filter>()
-        || array.is::<Slice>()
-    {
-        array.len()
-    } else {
-        vortex_bail!(
-            "native FSST metadata decoder {} has no admitted allocation bound",
-            array.encoding_id()
-        );
-    };
+    let rows = integer_decode_rows(array)?;
     let mut bytes = 0;
-    let mut alignment = *Alignment::DEFAULT_ALIGNMENT;
+    let mut alignment = Alignment::DEFAULT_ALIGNMENT.as_usize();
     for child in array.slots().iter().flatten() {
         let child = integer_workspace(child, depth + 1)?;
         bytes = add(bytes, child.bytes)?;
@@ -351,7 +326,9 @@ fn integer_workspace(array: &ArrayRef, depth: usize) -> VortexResult<IntegerWork
         // its empty replacement overlaps the decoded output until drop.
         bytes = add(bytes, capacity(0)?)?;
     }
-    if (array.is::<Dict>() || array.is::<Filter>()) && alignment > *Alignment::DEFAULT_ALIGNMENT {
+    if (array.is::<Dict>() || array.is::<Filter>())
+        && alignment > Alignment::DEFAULT_ALIGNMENT.as_usize()
+    {
         // Fixed-width take first gathers at the preferred alignment, then may
         // copy to the source's stronger alignment while the first buffer lives.
         bytes = add(bytes, capacity(output)?)?;
@@ -380,6 +357,38 @@ fn integer_workspace(array: &ArrayRef, depth: usize) -> VortexResult<IntegerWork
     Ok(IntegerWorkspace { bytes, alignment })
 }
 
+fn integer_decode_rows(array: &ArrayRef) -> VortexResult<usize> {
+    if let Some(delta) = array.as_opt::<Delta>() {
+        // A sliced Delta still allocates its complete padded child extent.
+        Ok(delta.deltas().len())
+    } else if let Some(rle) = array.as_opt::<RLE>() {
+        // rle_decompress retains all touched 1024-value chunks behind a slice.
+        let end = rle
+            .offset()
+            .checked_add(array.len())
+            .ok_or_else(size_overflow)?;
+        let chunks = end.div_ceil(1024) - rle.offset() / 1024;
+        chunks.checked_mul(1024).ok_or_else(size_overflow)
+    } else if array.is::<Constant>()
+        || array.is::<BitPacked>()
+        || array.is::<FoR>()
+        || array.is::<ZigZag>()
+        || array.is::<Dict>()
+        || array.is::<Sparse>()
+        || array.is::<RunEnd>()
+        || array.is::<Sequence>()
+        || array.is::<Filter>()
+        || array.is::<Slice>()
+    {
+        Ok(array.len())
+    } else {
+        vortex_bail!(
+            "native FSST metadata decoder {} has no admitted allocation bound",
+            array.encoding_id()
+        );
+    }
+}
+
 /// FSST take fills null selected lengths with zero. Admit its native nullable
 /// primitive/dictionary/masked intermediate, including the index fill and both bitmap
 /// negation / copy-on-write overlaps. Other nullable decoder trees stay explicit.
@@ -405,8 +414,13 @@ fn nullable_integer_workspace(
         return Ok((
             IntegerWorkspace {
                 bytes: 0,
-                alignment: (*primitive.data().buffer_handle().as_host().alignment())
-                    .max(*Alignment::DEFAULT_ALIGNMENT),
+                alignment: primitive
+                    .data()
+                    .buffer_handle()
+                    .as_host()
+                    .alignment()
+                    .as_usize()
+                    .max(Alignment::DEFAULT_ALIGNMENT.as_usize()),
             },
             primitive_validity_copy_bytes(array)?,
         ));
@@ -415,14 +429,14 @@ fn nullable_integer_workspace(
         return Ok((
             IntegerWorkspace {
                 bytes: capacity(mul(array.len(), array.dtype().as_ptype().byte_width())?)?,
-                alignment: *Alignment::DEFAULT_ALIGNMENT,
+                alignment: Alignment::DEFAULT_ALIGNMENT.as_usize(),
             },
             0,
         ));
     }
     if let Some(masked) = array.as_opt::<Masked>() {
         let (mut input, _) = nullable_integer_workspace(masked.child(), depth + 1)?;
-        input.alignment = input.alignment.max(*Alignment::DEFAULT_ALIGNMENT);
+        input.alignment = input.alignment.max(Alignment::DEFAULT_ALIGNMENT.as_usize());
         // Masked requires an all-valid child. Replacing its validity on a
         // canonical primitive borrows both buffers; only the later null fill
         // copies/inverts the outer bitmap, including retained slice overhang.
@@ -437,14 +451,18 @@ fn nullable_integer_workspace(
     let codes = dict.codes();
     let (code_workspace, bitmap) = nullable_integer_workspace(codes, depth + 1)?;
     let values = integer_workspace(dict.values(), depth + 1)?;
-    let code_alignment = code_workspace.alignment.max(*Alignment::DEFAULT_ALIGNMENT);
-    let alignment = values.alignment.max(*Alignment::DEFAULT_ALIGNMENT);
+    let code_alignment = code_workspace
+        .alignment
+        .max(Alignment::DEFAULT_ALIGNMENT.as_usize());
+    let alignment = values
+        .alignment
+        .max(Alignment::DEFAULT_ALIGNMENT.as_usize());
     let output = mul(array.len(), array.dtype().as_ptype().byte_width())?;
     let mut bytes = add(
         add(values.bytes, code_workspace.bytes)?,
         aligned_capacity(output, alignment)?,
     )?;
-    if alignment > *Alignment::DEFAULT_ALIGNMENT {
+    if alignment > Alignment::DEFAULT_ALIGNMENT.as_usize() {
         bytes = add(bytes, capacity(output)?)?;
     }
     // Fixed-width take fills null codes before gathering. The original codes
@@ -579,15 +597,13 @@ fn decode_integer_encoding<V: ArrayVTable>(
                 .transpose()
         })
         .collect::<VortexResult<ArraySlots>>()?;
-    Array::<V>::try_from_parts(
-        ArrayParts::new(
-            vtable,
-            array.dtype().clone(),
-            array.len(),
-            array.data().clone(),
-        )
-        .with_slots(slots),
-    )?
+    Array::<V>::try_from_parts(ArrayParts::new(
+        vtable,
+        array.dtype().clone(),
+        array.len(),
+        array.data().clone(),
+        slots,
+    ))?
     .into_array()
     .execute::<PrimitiveArray>(ctx)
 }
@@ -704,7 +720,7 @@ fn mul(a: usize, b: usize) -> VortexResult<u64> {
         .ok_or_else(size_overflow)
 }
 fn capacity(bytes: u64) -> VortexResult<u64> {
-    aligned_capacity(bytes, *Alignment::DEFAULT_ALIGNMENT)
+    aligned_capacity(bytes, Alignment::DEFAULT_ALIGNMENT.as_usize())
 }
 fn aligned_capacity(bytes: u64, alignment: usize) -> VortexResult<u64> {
     usize::try_from(bytes)

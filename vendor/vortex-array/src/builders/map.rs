@@ -4,8 +4,9 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use vortex_buffer::BufferAllocatorRef;
 use vortex_error::VortexResult;
-use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 
 use crate::ArrayRef;
 use crate::Canonical;
@@ -39,17 +40,44 @@ pub struct MapBuilder<O: OffsetBuilderPType, S: OffsetBuilderPType> {
 
 impl<O: OffsetBuilderPType, S: OffsetBuilderPType> MapBuilder<O, S> {
     /// Creates a map builder with the default capacity.
+    #[deprecated(note = "use `new_in` with an explicit allocator")]
     pub fn new(map_dtype: MapDType, nullability: Nullability) -> Self {
-        Self::with_capacity(map_dtype, nullability, DEFAULT_BUILDER_CAPACITY)
+        Self::new_in(map_dtype, nullability, BufferAllocatorRef::static_ref())
+    }
+
+    /// Creates a map builder with the default capacity using `allocator`.
+    pub fn new_in(
+        map_dtype: MapDType,
+        nullability: Nullability,
+        allocator: &BufferAllocatorRef,
+    ) -> Self {
+        Self::with_capacity_in(map_dtype, nullability, DEFAULT_BUILDER_CAPACITY, allocator)
     }
 
     /// Creates a map builder with space for `capacity` map rows.
+    #[deprecated(note = "use `with_capacity_in` with an explicit allocator")]
     pub fn with_capacity(map_dtype: MapDType, nullability: Nullability, capacity: usize) -> Self {
-        let entries_builder = ListViewBuilder::with_capacity(
+        Self::with_capacity_in(
+            map_dtype,
+            nullability,
+            capacity,
+            BufferAllocatorRef::static_ref(),
+        )
+    }
+
+    /// Creates a map builder with space for `capacity` rows using `allocator`.
+    pub fn with_capacity_in(
+        map_dtype: MapDType,
+        nullability: Nullability,
+        capacity: usize,
+        allocator: &BufferAllocatorRef,
+    ) -> Self {
+        let entries_builder = ListViewBuilder::with_capacity_in(
             Arc::new(map_dtype.entries_dtype()),
             nullability,
             capacity.saturating_mul(2),
             capacity,
+            allocator,
         );
         let dtype = DType::Map(map_dtype.clone(), nullability);
         Self {
@@ -61,11 +89,10 @@ impl<O: OffsetBuilderPType, S: OffsetBuilderPType> MapBuilder<O, S> {
 
     /// Appends one map scalar.
     pub fn append_value(&mut self, value: MapScalar<'_>) -> VortexResult<()> {
-        vortex_ensure!(
-            value.dtype() == &self.dtype,
-            "MapBuilder expected map scalar with dtype {}, got {}",
-            self.dtype,
-            value.dtype()
+        vortex_ensure_eq!(
+            value.dtype(),
+            &self.dtype,
+            "MapBuilder received a map scalar with the wrong dtype"
         );
 
         if value.is_null() {
@@ -96,11 +123,10 @@ impl<O: OffsetBuilderPType, S: OffsetBuilderPType> MapBuilder<O, S> {
         array: ArrayView<'_, Map>,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<()> {
-        vortex_ensure!(
-            array.dtype() == self.dtype(),
-            "MapBuilder expected map array with dtype {}, got {}",
+        vortex_ensure_eq!(
+            array.dtype(),
             self.dtype(),
-            array.dtype()
+            "MapBuilder received a map array with the wrong dtype"
         );
         self.entries_builder
             .append_listview_array(array.entries().as_::<ListView>(), ctx)
@@ -133,11 +159,10 @@ impl<O: OffsetBuilderPType, S: OffsetBuilderPType> ArrayBuilder for MapBuilder<O
     }
 
     fn append_scalar(&mut self, scalar: &Scalar) -> VortexResult<()> {
-        vortex_ensure!(
-            scalar.dtype() == self.dtype(),
-            "MapBuilder expected scalar with dtype {}, got {}",
+        vortex_ensure_eq!(
+            scalar.dtype(),
             self.dtype(),
-            scalar.dtype()
+            "MapBuilder received a scalar with the wrong dtype"
         );
         self.append_value(scalar.as_map())
     }

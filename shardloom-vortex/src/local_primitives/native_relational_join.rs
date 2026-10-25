@@ -19,7 +19,7 @@ use vortex::array::{
     ArrayRef, IntoArray as _,
     arrays::StructArray,
     dtype::{DType, FieldNames},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
 
@@ -351,7 +351,7 @@ impl Spec {
                     _ => result_batch::build_column(
                         dtype,
                         rows,
-                        &context.native_session().allocator(),
+                        &context.native_session().host_allocator(),
                         |_| Ok(result_batch::Value::Null),
                     )?,
                 },

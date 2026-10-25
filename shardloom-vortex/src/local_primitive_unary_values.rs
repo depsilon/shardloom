@@ -461,7 +461,7 @@ pub(super) fn retained_batch<'a>(
     row: impl Fn(usize) -> Result<&'a OwnedRow>,
     column: impl Fn(usize) -> usize,
 ) -> Result<ArrayRef> {
-    use vortex::array::memory::MemorySessionExt as _;
+    use vortex::array::memory::HostMemorySessionExt as _;
     let mut arrays = ReservedVec::new(context.memory())?;
     arrays.reserve(fields.len())?;
     for (index, (_, dtype)) in fields.iter().enumerate() {
@@ -479,7 +479,7 @@ pub(super) fn retained_batch<'a>(
             result_batch::build_column(
                 dtype,
                 rows,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |index| {
                     if index.is_multiple_of(1024) {
                         context.check_cancelled()?;

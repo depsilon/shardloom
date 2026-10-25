@@ -40,7 +40,7 @@ pub(super) fn write<I, W>(
 ) -> VortexResult<WriteSummary>
 where
     I: ArrayIterator + Stream<Item = VortexResult<ArrayRef>> + Unpin + Send + 'static,
-    W: Write + Unpin,
+    W: Write + Unpin + Send,
 {
     let dtype = input.dtype().clone();
     let owner = InputOwner(Arc::new(Mutex::new(Some(input))));

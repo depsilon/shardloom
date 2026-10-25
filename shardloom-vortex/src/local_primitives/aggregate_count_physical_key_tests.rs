@@ -12,7 +12,7 @@ use vortex::{
         IntoArray as _,
         arrays::{ConstantArray, DictArray, StructArray},
         dtype::FieldNames,
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
     },
 };
 
@@ -65,7 +65,7 @@ fn execute(
         GroupedAggregateStates::new(request, Some(limit), &columns, false, false).unwrap();
     assert_eq!(states.group_key_indices.len(), 1);
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     let mut jobs = CountWorkers::admit(

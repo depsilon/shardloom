@@ -1,14 +1,14 @@
 use super::*;
 use crate::local_primitives::result_batch;
 use std::borrow::Cow;
-use vortex::array::memory::MemorySessionExt as _;
+use vortex::array::memory::HostMemorySessionExt as _;
 
 fn large_unused_children(context: &NativeExecutionContext<'_>) -> ArrayRef {
     let huge = vec![255u8; 2 << 20];
     let values = result_batch::build_column(
         &DType::Binary(Nullability::NonNullable),
         2,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             Ok(Value::Binary(Cow::Borrowed(if row == 0 {
                 &huge
@@ -23,6 +23,9 @@ fn large_unused_children(context: &NativeExecutionContext<'_>) -> ArrayRef {
         PrimitiveArray::from_iter([1u64; 3]).into_array(),
         PrimitiveArray::from_iter([1u64; 3]).into_array(),
         Validity::NonNullable,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -99,6 +102,9 @@ fn one_large_value(text: &str) -> ArrayRef {
             PrimitiveArray::from_iter([0u64]).into_array(),
             PrimitiveArray::from_iter([1u64]).into_array(),
             Validity::NonNullable,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap()
         .into_array(),

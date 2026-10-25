@@ -171,7 +171,7 @@ fn native_builder_lifecycle_cost_screen() {
                     LiveMemoryPool::new(GRANT).unwrap(),
                     LiveMemoryPool::new(GRANT).unwrap(),
                 ];
-                let baseline = VortexSession::default().with_allocator(Arc::new(
+                let baseline = VortexSession::default().with_host_allocator(Arc::new(
                     crate::owned_buffers::ReservedHostAllocator::new(pools[0].clone()),
                 ));
                 let admitted = session(&pools[1]);

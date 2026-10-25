@@ -19,7 +19,7 @@ use shardloom_exec::live_memory::MemoryLease;
 use vortex::array::{
     ArrayRef,
     dtype::{DType, Nullability},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 const KIND: &str = "kind";
@@ -277,7 +277,7 @@ impl Layout {
                         result_batch::build_column(
                             &column.dtype,
                             rows,
-                            &context.native_session().allocator(),
+                            &context.native_session().host_allocator(),
                             |row| {
                                 if row.is_multiple_of(1024) {
                                     context.check_cancelled()?;

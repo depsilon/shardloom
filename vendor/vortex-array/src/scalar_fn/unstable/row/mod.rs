@@ -17,7 +17,9 @@
 //! only for valid rows without changing row positions.
 //!
 //! Prepared visits move work derived from constant operands outside the hot loop. Deferred visits
-//! reduce compact failure evidence without constructing errors in that loop.
+//! reduce compact failure evidence without constructing errors in that loop. Eligible kernels
+//! first evaluate all payloads. If the reduced evidence reports an error for a partially valid
+//! batch, execution retries only valid rows.
 
 mod execute;
 
@@ -29,13 +31,21 @@ pub use row_fn::RowFn;
 mod types;
 pub use types::ElementTuple;
 pub use types::FailureEvidence;
+pub use types::FillDefault;
+pub use types::FixedSizeListSink;
 pub use types::IndexedElementTuple;
 pub use types::InitializedElement;
+pub use types::InitializedRow;
 pub use types::InputElement;
+pub use types::OutputBuffer;
 pub use types::OutputElement;
 pub use types::OutputSink;
+pub use types::Preinitialized;
 pub use types::SinkResult;
 pub use types::UninitElementSink;
+pub use types::Utf8Column;
+pub use types::Utf8Sink;
+pub use types::Utf8Writer;
 pub use types::ViewLen;
 
 mod visitor;

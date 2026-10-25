@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use futures::executor::block_on;
 use vortex_array::dtype::DType;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_array::session::ArraySessionExt;
 use vortex_buffer::Alignment;
 use vortex_buffer::ByteBuffer;
@@ -86,7 +86,7 @@ pub struct VortexOpenOptions {
 
 /// Extension trait for constructing [`VortexOpenOptions`] from a session.
 pub trait OpenOptionsSessionExt:
-    ArraySessionExt + LayoutSessionExt + RuntimeSessionExt + MemorySessionExt
+    ArraySessionExt + LayoutSessionExt + RuntimeSessionExt + HostMemorySessionExt
 {
     /// Create a new [`VortexOpenOptions`] using the provided session to open a file.
     fn open_options(&self) -> VortexOpenOptions {
@@ -104,7 +104,7 @@ pub trait OpenOptionsSessionExt:
         }
     }
 }
-impl<S: ArraySessionExt + LayoutSessionExt + RuntimeSessionExt + MemorySessionExt>
+impl<S: ArraySessionExt + LayoutSessionExt + RuntimeSessionExt + HostMemorySessionExt>
     OpenOptionsSessionExt for S
 {
 }
@@ -125,10 +125,12 @@ impl VortexOpenOptions {
         self
     }
 
-    /// Cache the file's [`LayoutReader`](vortex_layout::LayoutReader) between scans.
+    /// Cache the file's [`LayoutReader`](vortex_layout::LayoutReader) and V2
+    /// [`ScanCache`](vortex_layout::scan::v2::ScanCache) between scans.
     ///
-    /// This avoids rebuilding the reader tree for repeated scans of the same [`VortexFile`], at the
-    /// cost of keeping reader state alive for the lifetime of the file handle.
+    /// This avoids rebuilding the reader tree or lowered scan plan, and re-reading dictionary
+    /// values, for repeated scans of the same [`VortexFile`], at the cost of keeping that state
+    /// alive for the lifetime of the file handle.
     pub fn with_layout_reader_cache(mut self) -> Self {
         self.cache_layout_reader = true;
         self
@@ -236,8 +238,10 @@ impl VortexOpenOptions {
     pub async fn open_path(self, path: impl AsRef<std::path::Path>) -> VortexResult<VortexFile> {
         use vortex_io::std_file::FileReadAt;
         let handle = self.session.handle();
-        let allocator = self.session.allocator();
-        let source = Arc::new(FileReadAt::open_with_allocator(path, handle, allocator)?);
+        let allocator = self.session.host_allocator();
+        let source = Arc::new(FileReadAt::open_with_host_allocator(
+            path, handle, allocator,
+        )?);
         self.open(source).await
     }
 
@@ -270,7 +274,7 @@ impl VortexOpenOptions {
         let segment_source: Arc<dyn SegmentSource> = Arc::new(BufferSegmentSource::new(
             buffer,
             footer.segment_specs_with_metadata(),
-            opts.session.allocator(),
+            opts.session.host_allocator(),
         ));
         let metadata = if include_metadata {
             block_on(resolve_metadata(
@@ -325,6 +329,16 @@ impl VortexOpenOptions {
             )?;
             (footer, initial_segments)
         };
+
+        // With a segment cache, also store the segments that the footer read covered, so that a
+        // later open given this footer finds them there, instead of reading them again. Keep them
+        // in the initial map too: the cache can evict them, or not admit them at all, and the
+        // buffers are shared, not copied.
+        if self.segment_cache.is_some() {
+            for (id, buffer) in &initial_segments {
+                segment_cache.put(*id, buffer.clone()).await?;
+            }
+        }
 
         let segment_cache = Arc::new(InstrumentedSegmentCache::new(
             InitialReadSegmentCache {
@@ -466,7 +480,7 @@ impl VortexOpenOptions {
                 buffer.ensure_aligned(segment.alignment)
             } else {
                 let mut copy = session
-                    .allocator()
+                    .host_allocator()
                     .allocate(buffer.len(), segment.alignment)?;
                 copy.as_mut_slice().copy_from_slice(&buffer);
                 copy.freeze()
@@ -491,7 +505,7 @@ async fn resolve_metadata(
             let id = u32::try_from(first_metadata_id + index).map(SegmentId::from);
             let key = key.to_string();
             let alignment = locator.alignment;
-            let allocator = session.allocator();
+            let allocator = session.host_allocator();
             let segment_source = Arc::clone(&segment_source);
             async move {
                 let handle = segment_source.request(id?).await?;
@@ -522,8 +536,8 @@ impl VortexOpenOptions {
         use vortex_io::object_store::ObjectStoreReadAt;
 
         let handle = self.session.handle();
-        let allocator = self.session.allocator();
-        let source = Arc::new(ObjectStoreReadAt::new_with_allocator(
+        let allocator = self.session.host_allocator();
+        let source = Arc::new(ObjectStoreReadAt::new_with_host_allocator(
             Arc::clone(object_store),
             path,
             handle,
@@ -545,7 +559,7 @@ mod tests {
     use vortex_array::memory::DefaultHostAllocator;
     use vortex_array::memory::HostAllocator;
     use vortex_array::memory::HostMemoryReservation;
-    use vortex_array::memory::MemorySessionExt;
+    use vortex_array::memory::HostMemorySessionExt;
     use vortex_array::memory::WritableHostBuffer;
     use vortex_buffer::Alignment;
     use vortex_buffer::Buffer;
@@ -826,7 +840,7 @@ mod tests {
 
         let allocations = Arc::new(AtomicUsize::new(0));
         let external_reservations = Arc::new(AtomicUsize::new(0));
-        let session = session.with_allocator(Arc::new(CountingAllocator {
+        let session = session.with_host_allocator(Arc::new(CountingAllocator {
             allocations: Arc::clone(&allocations),
             external_reservations: Arc::clone(&external_reservations),
         }));

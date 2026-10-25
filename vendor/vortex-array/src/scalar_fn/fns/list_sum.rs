@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
-use vortex_buffer::BitBuffer;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
-use vortex_mask::AllOr;
 use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
 
@@ -16,30 +14,23 @@ use crate::ExecutionCtx;
 use crate::IntoArray;
 use crate::aggregate_fn::AggregateFnVTable;
 use crate::aggregate_fn::DynGroupedAccumulator;
-use crate::aggregate_fn::GroupRanges;
 use crate::aggregate_fn::GroupedAccumulator;
-use crate::aggregate_fn::GroupedArray;
 use crate::aggregate_fn::NumericalAggregateOpts;
-use crate::aggregate_fn::fns::sum::Sum;
-use crate::arrays::BoolArray;
+use crate::aggregate_fn::fns::sum_v2::SumV2;
 use crate::arrays::ConstantArray;
-use crate::arrays::FixedSizeList;
-use crate::arrays::ListView;
-use crate::builtins::ArrayBuiltins;
 use crate::dtype::DType;
 use crate::scalar_fn::Arity;
 use crate::scalar_fn::ChildName;
 use crate::scalar_fn::ExecutionArgs;
 use crate::scalar_fn::ScalarFnId;
 use crate::scalar_fn::ScalarFnVTable;
-use crate::validity::Validity;
 
 /// Sum of the elements in each list of a `List` or `FixedSizeList` typed array.
 ///
 /// Follows SQL `SUM` semantics per list, matching DuckDB's `list_sum`: null lists, empty
 /// lists, and lists whose elements are all null yield a null sum; null elements are skipped.
-/// Integer and decimal overflow yields a null sum value, matching [`Sum`]. The result dtype
-/// follows [`Sum`]'s widening rules and is always nullable.
+/// Integer and decimal overflow yields a null sum value, matching [`SumV2`]. The result dtype
+/// follows [`SumV2`]'s widening rules and is always nullable.
 ///
 /// NaN handling for float elements is controlled by [`NumericalAggregateOpts`]: with
 /// `skip_nans` (the default) NaN values contribute nothing, otherwise any NaN poisons the
@@ -83,7 +74,8 @@ impl ScalarFnVTable for ListSum {
             DType::List(elem, _) | DType::FixedSizeList(elem, ..) => elem.as_ref(),
             other => vortex_bail!("list_sum() requires List or FixedSizeList, got {other}"),
         };
-        Sum.return_dtype(options, elem_dtype)
+        SumV2
+            .return_dtype(options, elem_dtype)
             .ok_or_else(|| vortex_err!("list_sum() cannot sum elements of type {elem_dtype}"))
     }
 
@@ -100,7 +92,6 @@ impl ScalarFnVTable for ListSum {
             other => vortex_bail!("list_sum() requires List or FixedSizeList, got {other}"),
         };
 
-        // `mask_empty_lists` needs access to list elements validity and sizes
         let columnar = input.execute::<Columnar>(ctx)?;
 
         match columnar {
@@ -133,61 +124,15 @@ impl ScalarFnVTable for ListSum {
 }
 
 /// Sum each list of a canonical `array` into one value per list.
-///
-/// Note that we need to nullify sums produced by empty or all-null lists,
-/// since grouped sum kernels default to 0 for these.
 fn list_sum_impl(
     canonical: ArrayRef,
     elem_dtype: DType,
     options: &NumericalAggregateOpts,
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<ArrayRef> {
-    let mut acc = GroupedAccumulator::try_new(Sum, *options, elem_dtype)?;
+    let mut acc = GroupedAccumulator::try_new(SumV2, *options, elem_dtype)?;
     acc.accumulate_list(&canonical, ctx)?;
-    let sums = acc.finish()?;
-
-    let grouped: GroupedArray = if let Some(fsl) = canonical.as_opt::<FixedSizeList>() {
-        fsl.into_owned().into()
-    } else if let Some(lv) = canonical.as_opt::<ListView>() {
-        lv.into_owned().into()
-    } else {
-        let dtype = canonical.dtype();
-        vortex_bail!("list_sum() requires List or FixedSizeList but got {dtype}")
-    };
-
-    mask_empty_lists(grouped, sums, ctx)
-}
-
-/// Applies a mask to `sums` that nullifies entries produced by lists without at least
-/// one valid element. This is necessary because the grouped `Sum` aggregate only produces
-/// nulls for null lists and sums that overflow.
-fn mask_empty_lists(
-    grouped: GroupedArray,
-    sums: ArrayRef,
-    ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrayRef> {
-    let elements = grouped.elements();
-    let elem_mask = elements.validity()?.execute_mask(elements.len(), ctx)?;
-    let ranges = grouped.group_ranges(ctx)?;
-
-    let has_valid_element: BitBuffer = match elem_mask.bit_buffer() {
-        AllOr::All => match &ranges {
-            // fixed-size lists of non-zero width cannot have empty lists.
-            GroupRanges::FixedSizeList { size, .. } if *size > 0 => return Ok(sums),
-            GroupRanges::FixedSizeList { len, .. } => BitBuffer::full(false, *len),
-            GroupRanges::ListView { ranges } => ranges.iter().map(|&(_, size)| size > 0).collect(),
-        },
-        AllOr::None => BitBuffer::full(false, ranges.len()),
-        AllOr::Some(bits) => ranges
-            .iter()
-            .map(|(offset, size)| size > 0 && bits.count_range(offset, offset + size) > 0)
-            .collect(),
-    };
-    if has_valid_element.true_count() == has_valid_element.len() {
-        return Ok(sums);
-    }
-
-    sums.mask(BoolArray::new(has_valid_element, Validity::NonNullable).into_array())
+    acc.finish()
 }
 
 #[cfg(test)]
@@ -198,7 +143,6 @@ mod tests {
     use rstest::rstest;
     use vortex_buffer::buffer;
     use vortex_error::VortexResult;
-    use vortex_proto::expr as pb;
 
     use crate::ArrayRef;
     use crate::IntoArray;
@@ -220,6 +164,7 @@ mod tests {
     use crate::expr::list_sum_opts;
     use crate::expr::proto::ExprSerializeProtoExt;
     use crate::expr::root;
+    use crate::proto::expr as pb;
     use crate::scalar::Scalar;
     use crate::scalar_fn::ScalarFnVTable;
     use crate::scalar_fn::fns::list_sum::ListSum;
@@ -242,8 +187,10 @@ mod tests {
     #[case(buffer![0u32, 2, 5, 5, 7].into_array())]
     #[case(buffer![0u64, 2, 5, 5, 7].into_array())]
     fn test_list_sum(#[case] offsets: ArrayRef) -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = create_list_elements();
-        let list = ListArray::try_new(elements, offsets, Validity::NonNullable)?.into_array();
+        let list =
+            ListArray::try_new(elements, offsets, Validity::NonNullable, &mut ctx)?.into_array();
         let result = list.apply(&list_sum(root()))?;
         let mut ctx = array_session().create_execution_ctx();
         // [1, 2] = 3; [3, 4, 5] = 12; [] = null; [6, null] = 6 (nulls skipped).
@@ -255,11 +202,13 @@ mod tests {
 
     #[test]
     fn test_nullable_list_sum() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = create_list_elements();
         let list = ListArray::try_new(
             elements,
             buffer![0u32, 2, 5, 5, 7].into_array(),
             Validity::Array(BoolArray::from_iter([true, false, true, false]).into_array()),
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -273,11 +222,13 @@ mod tests {
 
     #[test]
     fn test_all_null_elements_sum_to_null() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = PrimitiveArray::from_option_iter::<i32, _>([None, None, Some(1)]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32, 2, 3].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -290,11 +241,13 @@ mod tests {
 
     #[test]
     fn test_overflow_sums_to_null() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = PrimitiveArray::from_iter([i64::MAX, 1, 1, 2]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32, 2, 4].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -307,11 +260,13 @@ mod tests {
 
     #[test]
     fn test_unsigned_widening() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = PrimitiveArray::from_iter([1u8, 2, 3]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32, 3].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -324,11 +279,13 @@ mod tests {
 
     #[test]
     fn test_bool_elements() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = BoolArray::from_iter([true, true, false, true]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32, 3, 4].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -341,11 +298,13 @@ mod tests {
 
     #[test]
     fn test_nan_skipped_by_default() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = PrimitiveArray::from_iter([1.0f64, f64::NAN, 2.0]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32, 3].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -358,6 +317,7 @@ mod tests {
 
     #[test]
     fn test_all_nan_list_sums_to_zero() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         // NaN elements are *valid*: with the default `skip_nans` they contribute nothing, but
         // the list still has valid elements, so the sum is `0.0` rather than null (unlike an
         // all-null list).
@@ -366,6 +326,7 @@ mod tests {
             elements.into_array(),
             buffer![0u32, 2].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
@@ -378,11 +339,13 @@ mod tests {
 
     #[test]
     fn test_nan_poisons_with_include_nans() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = PrimitiveArray::from_iter([1.0f64, f64::NAN, 2.0]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32, 3].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum_opts(
@@ -399,6 +362,7 @@ mod tests {
 
     #[test]
     fn test_listview_sum() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = create_list_elements();
         // Overlapping and out-of-order views over the shared elements.
         let lv = ListViewArray::new(
@@ -406,6 +370,7 @@ mod tests {
             buffer![5u32, 0, 4, 1].into_array(),
             buffer![2u32, 3, 0, 2].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )
         .into_array();
         let result = lv.apply(&list_sum(root()))?;
@@ -451,11 +416,13 @@ mod tests {
 
     #[test]
     fn test_list_sum_take() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = create_list_elements();
         let list = ListArray::try_new(
             elements,
             buffer![0u32, 2, 5, 5, 7].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let taken = list.take(buffer![3u64, 0, 2].into_array())?;
@@ -469,11 +436,13 @@ mod tests {
 
     #[test]
     fn test_list_sum_slice() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = create_list_elements();
         let list = ListArray::try_new(
             elements,
             buffer![0u32, 2, 5, 5, 7].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let sliced = list.slice(1..4)?;
@@ -487,28 +456,35 @@ mod tests {
 
     #[test]
     fn test_empty_array() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = PrimitiveArray::from_iter([0i32; 0]);
         let list = ListArray::try_new(
             elements.into_array(),
             buffer![0u32].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let result = list.apply(&list_sum(root()))?;
 
         let mut ctx = array_session().create_execution_ctx();
-        let result = result.execute::<PrimitiveArray>(&mut ctx)?;
-        assert_eq!(result.len(), 0);
+        assert_arrays_eq!(
+            result,
+            PrimitiveArray::from_option_iter::<i64, _>([]),
+            &mut ctx
+        );
         Ok(())
     }
 
     #[test]
     fn test_constant_list_sum() -> VortexResult<()> {
+        let mut ctx = array_session().create_execution_ctx();
         let elements = create_list_elements();
         let list = ListArray::try_new(
             elements,
             buffer![0u32, 2, 5, 5, 7].into_array(),
             Validity::NonNullable,
+            &mut ctx,
         )?
         .into_array();
         let mut ctx = array_session().create_execution_ctx();
@@ -533,6 +509,11 @@ mod tests {
         let mut ctx = array_session().create_execution_ctx();
         assert!(!result.is_valid(0, &mut ctx)?);
         assert!(!result.is_valid(1, &mut ctx)?);
+        assert_arrays_eq!(
+            result,
+            PrimitiveArray::from_option_iter([None::<i64>, None]),
+            &mut ctx
+        );
         Ok(())
     }
 

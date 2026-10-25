@@ -48,10 +48,11 @@ fn write_bytes(
     bytes
 }
 
-fn original_probe(allowed: &HashSet<ArrayId>) -> Arc<dyn CompressorPlugin> {
-    let compressor = BtrBlocksCompressorBuilder::default()
-        .retain_allowed_encodings(allowed)
-        .build();
+fn original_probe(
+    session: &VortexSession,
+    allowed: &HashSet<ArrayId>,
+) -> Arc<dyn CompressorPlugin> {
+    let compressor = restricted_compressor(session, allowed);
     Arc::new(move |chunk: &ArrayRef, ctx: &mut ExecutionCtx| compressor.compress(chunk, ctx))
 }
 
@@ -92,8 +93,8 @@ fn omitted_primitive_probe_preserves_dictionary_decisions_and_existing_encoded_r
     let session = VortexSession::default();
     let timings = IngestStageTimings::default();
     let allowed = HashSet::new();
-    let original = original_probe(&allowed);
-    let candidate = measured_probe(&allowed, timings.clone());
+    let original = original_probe(&session, &allowed);
+    let candidate = measured_probe(&session, &allowed, timings.clone());
     let mut ctx = session.create_execution_ctx();
     for input in primitive_probe_inputs() {
         let expected = original.compress_chunk(&input, &mut ctx).unwrap();
@@ -119,7 +120,7 @@ fn omitted_primitive_probe_preserves_dictionary_decisions_and_existing_encoded_r
         Validity::NonNullable,
     )
     .into_array();
-    let dictionary = measured_probe(&dictionary_allowed, timings.clone())
+    let dictionary = measured_probe(&session, &dictionary_allowed, timings.clone())
         .compress_chunk(&input, &mut ctx)
         .unwrap();
     assert!(dictionary.is::<Dict>());
@@ -202,13 +203,17 @@ fn omitted_primitive_probe_keeps_persisted_bytes_statistics_and_complete_values(
     {
         let expected = write_bytes(
             &old_input,
-            strategy(original_probe(&allowed)),
+            strategy(original_probe(&session, &allowed)),
             &session,
             &runtime,
         );
         let actual = write_bytes(
             &new_input,
-            strategy(measured_probe(&allowed, IngestStageTimings::default())),
+            strategy(measured_probe(
+                &session,
+                &allowed,
+                IngestStageTimings::default(),
+            )),
             &session,
             &runtime,
         );
@@ -252,7 +257,7 @@ fn pinned_dictionary_probe_discards_a_non_dict_result_but_storage_adapter_retain
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(runtime.handle());
     let probe_encodings =
-        vortex::array::legacy_session().enabled_component_ids(ComponentKind::Array);
+        vortex::array::array_session().enabled_component_ids(ComponentKind::Array);
     assert_eq!(probe_encodings, [] as [vortex::session::registry::Id; 0]);
     assert!(
         session
@@ -281,7 +286,7 @@ fn pinned_dictionary_probe_discards_a_non_dict_result_but_storage_adapter_retain
             flat,
             fallback,
             DictLayoutOptions::default(),
-            original_probe(&probe_encodings.iter().copied().collect()),
+            original_probe(&session, &probe_encodings.iter().copied().collect()),
         );
         let file = write(&array, Arc::new(strategy), &session, &runtime);
         round_trip(&array, &file, &runtime);
@@ -381,6 +386,51 @@ fn post_coalescing_numeric_codec_preserves_exact_nulls_extrema_and_admitted_enco
             > 0
     );
     assert_eq!(fields["vortex_ingest_numeric_probe_calls"], "0");
+}
+
+#[test]
+fn numeric_preservation_checks_actual_wire_form_for_versioned_encodings() {
+    use vortex::encodings::fastlanes::BitPackedData;
+
+    let session = VortexSession::default();
+    let mut ctx = session.create_execution_ctx();
+    let codec = NumericCompressor::new(IngestStageTimings::default(), &session);
+    let input = PrimitiveArray::from_iter(
+        (0..2048u32).map(|row| if row < 1024 { row % 8 } else { row % 16 }),
+    )
+    .into_array();
+    let global = BitPackedData::encode(&input, 4, &mut ctx)
+        .unwrap()
+        .into_array();
+    let blocked = BitPackedData::encode_blocked(&input, &[3, 4], &mut ctx)
+        .unwrap()
+        .into_array();
+    assert_eq!(global.encoding_id(), blocked.encoding_id());
+    let global_wire = session
+        .array_serialize(&global)
+        .unwrap()
+        .unwrap()
+        .serialized_id;
+    let blocked_wire = session
+        .array_serialize(&blocked)
+        .unwrap()
+        .unwrap()
+        .serialized_id;
+    assert_ne!(global_wire, blocked_wire);
+    assert!(codec.allowed.contains(&global_wire));
+    assert!(!codec.allowed.contains(&blocked_wire));
+    assert!(ArrayRef::ptr_eq(
+        &global,
+        &codec.compress_chunk(&global, &mut ctx).unwrap()
+    ));
+    let rewritten = codec.compress_chunk(&blocked, &mut ctx).unwrap();
+    assert!(!ArrayRef::ptr_eq(&blocked, &rewritten));
+    assert!(codec.can_preserve(&rewritten, &session).unwrap() || rewritten.is::<Primitive>());
+    let decoded = rewritten.execute::<PrimitiveArray>(&mut ctx).unwrap();
+    assert_eq!(
+        decoded.as_slice::<u32>(),
+        input.as_::<Primitive>().as_slice::<u32>()
+    );
 }
 
 #[test]

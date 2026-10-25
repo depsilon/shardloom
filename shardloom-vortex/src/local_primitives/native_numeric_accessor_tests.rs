@@ -40,7 +40,7 @@ fn exact(array: &ArrayRef, expected: &[StatValue]) {
 
 #[test]
 fn native_numeric_accessor_preserves_for_bitpacked_sparse_and_runend_exact_values() {
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let base = 1_i64 << 60;
     let for_array = FoRData::encode(
         PrimitiveArray::from_option_iter([Some(i64::MIN), None, Some(i64::MAX), Some(base + 3)]),
@@ -78,6 +78,9 @@ fn native_numeric_accessor_preserves_for_bitpacked_sparse_and_runend_exact_value
         PrimitiveArray::new(vec![u64::MAX, (1_u64 << 60) + 7], Validity::NonNullable).into_array(),
         5,
         Scalar::from(0_u64),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -281,7 +284,7 @@ fn native_numeric_owner_all_widths_keep_payload_identity_and_sliced_validity() {
             .into_array()
             .slice(1..5)
             .unwrap();
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+            let mut ctx = vortex::array::array_session().create_execution_ctx();
             let before = input.clone().execute::<PrimitiveArray>(&mut ctx).unwrap();
             let pointer = before.as_slice::<$ty>().as_ptr();
             let (accessor, work) =
@@ -1018,7 +1021,7 @@ fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explici
     use std::sync::Arc;
     use vortex::{
         VortexSessionDefault as _,
-        array::memory::{HostAllocator as _, MemorySessionExt as _},
+        array::memory::{HostAllocator as _, HostMemorySessionExt as _},
         buffer::{Alignment, Buffer},
         session::VortexSession,
     };
@@ -1033,7 +1036,7 @@ fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explici
     )
     .into_array();
     let retained = memory.snapshot().reserved_bytes;
-    let session = VortexSession::default().with_allocator(Arc::new(allocator));
+    let session = VortexSession::default().with_host_allocator(Arc::new(allocator));
     let mut ctx = session.create_execution_ctx();
     let (accessor, work) = aggregate_column_accessor_in_context("owned", &input, &mut ctx).unwrap();
     assert_eq!(work.calls, 0);
@@ -1051,7 +1054,7 @@ fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explici
 
     let denied_memory = LiveMemoryPool::new(1).unwrap();
     let denied_session = VortexSession::default()
-        .with_allocator(Arc::new(ReservedHostAllocator::new(denied_memory.clone())));
+        .with_host_allocator(Arc::new(ReservedHostAllocator::new(denied_memory.clone())));
     let mut denied_ctx = denied_session.create_execution_ctx();
     // Pinned Chunked calls builder_with_capacity_in, whose implementation
     // discards the allocator and uses the default builder. This upgrade-sensitive
@@ -1080,7 +1083,7 @@ fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explici
 fn native_numeric_owner_propagates_real_corrupt_zstd_payload_error() {
     use crate::local_primitives::aggregate_column_accessor_in_context;
     use vortex::encodings::zstd::{Zstd, ZstdData};
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let primitive = PrimitiveArray::new((0..512_i64).collect::<Vec<_>>(), Validity::NonNullable);
     let data = ZstdData::from_primitive_without_dict(&primitive, 0, 1024, &mut ctx).unwrap();
     let mut parts = data.into_parts(Validity::NonNullable);
@@ -1227,7 +1230,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     // the real malformed-codec test above covers native error propagation.
     let denied_memory = shardloom_exec::live_memory::LiveMemoryPool::new(1).unwrap();
     let assert_query_denied = |request: &VortexQueryPrimitiveRequest| {
-        use vortex::{array::memory::MemorySessionExt as _, file::OpenOptionsSessionExt as _};
+        use vortex::{array::memory::HostMemorySessionExt as _, file::OpenOptionsSessionExt as _};
         let file = runtime
             .block_on(session.open_options().open_path(&path.0))
             .unwrap();
@@ -1237,7 +1240,7 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
         let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let denied_session = VortexSession::default()
             .with_handle(runtime.handle())
-            .with_allocator(std::sync::Arc::clone(&allocator))
+            .with_host_allocator(std::sync::Arc::clone(&allocator))
             .with_some(super::QueryContextProbe {
                 allocator,
                 calls: std::sync::Arc::clone(&calls),

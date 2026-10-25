@@ -60,7 +60,7 @@ pub fn build_views_from_length_prefixed_in(
         mask.true_count() == range.len(),
         "Length-prefixed text value count differs from output validity"
     );
-    let allocator = ctx.allocator();
+    let allocator = ctx.host_allocator();
     let mut storage = allocator.allocate_typed::<BinaryView>(rows)?;
     let views = storage.as_mut_slice_typed::<BinaryView>()?;
     let all_valid = mask.all_true();
@@ -132,9 +132,7 @@ pub fn build_views_from_length_prefixed_in(
     );
     let data = VarBinViewData::try_new_utf8_buffer_in(views, heap, validity.clone(), &allocator)?;
     let slots = VarBinViewData::make_slots(&validity, rows);
-    VarBinViewArray::try_from_parts(
-        ArrayParts::new(VarBinView, dtype, rows, data).with_slots(slots),
-    )
+    VarBinViewArray::try_from_parts(ArrayParts::new(VarBinView, dtype, rows, data, slots))
 }
 
 #[cfg(test)]

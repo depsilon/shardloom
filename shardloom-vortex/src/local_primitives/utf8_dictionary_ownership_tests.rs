@@ -25,7 +25,7 @@ fn source_dictionary_distinct_consumers_reuse_lazy_independent_promotions() {
         "renamed",
         &input,
         &mut native_numeric_accessor::Utf8AccessorWork::default(),
-        &mut vortex::array::legacy_session().create_execution_ctx(),
+        &mut vortex::array::array_session().create_execution_ctx(),
     )
     .unwrap()
     .unwrap();
@@ -173,7 +173,7 @@ fn charged_utf8_source(values: &[String]) -> (VarBinViewArray, LiveMemoryPool) {
         buffers.into(),
         DType::Utf8(Nullability::NonNullable),
         Validity::NonNullable,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
+        &mut vortex::array::array_session().create_execution_ctx(),
     )
     .unwrap();
     (source, memory)
@@ -372,7 +372,7 @@ fn check_dense_chunk_extrema_promotions(seed_better_extrema: bool) {
                 "renamed",
                 &input,
                 &mut native_numeric_accessor::Utf8AccessorWork::default(),
-                &mut vortex::array::legacy_session().create_execution_ctx(),
+                &mut vortex::array::array_session().create_execution_ctx(),
             )
             .unwrap()
             .unwrap();
@@ -714,7 +714,7 @@ fn borrowed_native_strings_match_provider_for_sliced_inline_and_multiple_buffers
         BinaryView::make_view(first.as_bytes(), 0, 3),
         BinaryView::new_inlined(expected[6].as_bytes()),
     ]);
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let source = VarBinViewArray::try_new(
         views,
         buffers.into(),
@@ -763,7 +763,7 @@ fn borrowed_native_strings_match_provider_for_sliced_inline_and_multiple_buffers
             .unwrap();
         let partial = string_count_partial::count_string_chunk(
             &input,
-            vortex::array::legacy_session().create_execution_ctx(),
+            vortex::array::array_session().create_execution_ctx(),
             &aggregate_chunk_jobs::ChunkWorkerContext::Inline(
                 shardloom_exec::compute_pool::CancellationToken::default(),
             ),
@@ -817,7 +817,7 @@ fn source_dictionary_credits_release_after_accessor_not_persistent_keys() {
         .iter()
         .map(|buffer| copy(buffer.as_host(), Alignment::of::<u8>()))
         .collect::<Vec<_>>();
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let mut ctx = vortex::array::array_session().create_execution_ctx();
     let source = VarBinViewArray::try_new(
         Buffer::from_byte_buffer(views),
         buffers.into(),
@@ -867,7 +867,7 @@ fn source_dictionary_credits_release_after_accessor_not_persistent_keys() {
     drop(source);
     drop(input);
     assert_eq!(memory.snapshot().reserved_bytes, retained);
-    let full_budget_payload = 4096 - *Alignment::DEFAULT_ALIGNMENT;
+    let full_budget_payload = 4096 - Alignment::DEFAULT_ALIGNMENT.as_usize();
     assert!(
         allocator
             .allocate(full_budget_payload, Alignment::of::<u8>())

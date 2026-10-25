@@ -41,12 +41,12 @@ fn encoded_transfer_varbin_tables_use_receiving_credit_and_report_it_once() {
         let producer = ResidentVortexSession::new(1 << 20, 1).unwrap();
         let source_memory = producer.shared_memory_pool();
         let source = owned_source(&producer, binary);
-        let source_column = source.nth_child(0).unwrap();
-        let expected = scalars(&source_column);
+        let source_column = source.nth_child(0).unwrap().clone();
+        let expected = detached_varbin_scalars(&source_column);
         let receiving = ResidentVortexSession::new(1 << 20, 1).unwrap();
         let receiving_memory = receiving.shared_memory_pool();
         let copied = copy(&source, &receiving);
-        let output = copied.arrays.values[0].0.nth_child(0).unwrap();
+        let output = copied.arrays.values[0].0.nth_child(0).unwrap().clone();
         let source_table = source_column.as_::<VarBinView>();
         let output_table = output.as_::<VarBinView>();
         assert!(!Arc::ptr_eq(
@@ -60,12 +60,15 @@ fn encoded_transfer_varbin_tables_use_receiving_credit_and_report_it_once() {
         // Shared payloads are copied once; each node's views/validity is distinct.
         let mut payloads = BTreeSet::new();
         let mut payload_credit = 0u64;
-        for node in [&source_column, &source_column.nth_child(0).unwrap()] {
+        for node in [&source_column, source_column.nth_child(0).unwrap()] {
             for buffer in node.buffer_handles() {
                 let host = buffer.as_host();
                 if payloads.insert(buffer_identity(host)) {
-                    payload_credit +=
-                        (host.len() + *host.alignment().max(Alignment::DEFAULT_ALIGNMENT)) as u64;
+                    payload_credit += (host.len()
+                        + host
+                            .alignment()
+                            .max(Alignment::DEFAULT_ALIGNMENT)
+                            .as_usize()) as u64;
                 }
             }
         }
@@ -97,8 +100,8 @@ fn encoded_transfer_varbin_tables_use_receiving_credit_and_report_it_once() {
 fn encoded_transfer_varbin_exact_grants_and_denial_preserve_source() {
     let producer = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let source = owned_source(&producer, true);
-    let column = source.nth_child(0).unwrap();
-    let expected = scalars(&column);
+    let column = source.nth_child(0).unwrap().clone();
+    let expected = detached_varbin_scalars(&column);
     let source_bytes = producer.snapshot().memory.reserved_bytes;
     let probe = ResidentVortexSession::new(1 << 20, 1).unwrap();
     drop(copy(&source, &probe));
@@ -117,7 +120,7 @@ fn encoded_transfer_varbin_exact_grants_and_denial_preserve_source() {
         if budget == peak {
             let copied = result.unwrap().unwrap();
             assert_eq!(
-                scalars(&copied.arrays.values[0].0.nth_child(0).unwrap()),
+                scalars(copied.arrays.values[0].0.nth_child(0).unwrap()),
                 expected
             );
             assert_eq!(receiving.snapshot().memory.peak_reserved_bytes, peak);

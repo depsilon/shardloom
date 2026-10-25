@@ -14,7 +14,7 @@ use std::{
 use vortex::{
     VortexSessionDefault as _,
     array::{
-        IntoArray as _, VortexSessionExecute as _,
+        IntoArray as _,
         arrays::{DictArray, PrimitiveArray, VarBinViewArray},
         validity::Validity,
     },
@@ -523,7 +523,13 @@ fn weighted_count_spill_native_corruption_signature_order_and_weight_are_rejecte
             };
             let signature = if corruption == 4 { 2 } else { 0 };
             let spec = spill.spec(2, 1).unwrap();
-            let array = runs::array(rows.into_iter(), signature, &spill.copies).unwrap();
+            let array = runs::array(
+                rows.into_iter(),
+                signature,
+                &spill.copies,
+                &mut session.create_execution_ctx(),
+            )
+            .unwrap();
             let native = spill
                 .store
                 .as_mut()
@@ -568,12 +574,14 @@ fn weighted_count_spill_borrowed_predecessor_checks_order_across_native_blocks()
             std::iter::repeat_n((0, b"m".as_slice(), 1), spec.block_rows),
             order.signature(),
             &spill.copies,
+            &mut session.create_execution_ctx(),
         )
         .unwrap();
         let last = runs::array(
             [(0, b"a".as_slice(), 1)].into_iter(),
             order.signature(),
             &spill.copies,
+            &mut session.create_execution_ctx(),
         )
         .unwrap();
         let native = spill

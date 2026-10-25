@@ -1,6 +1,6 @@
 # Vortex RunEnd buffer-table patch
 
-This is the Apache-2.0 `vortex-runend` 0.85.0 published source. String and binary
+This is the Apache-2.0 `vortex-runend` 0.90.0 published source. String and binary
 expansion rebuilds views and validity through the original VarBinView array,
 preserving its shared data-buffer table and allocator reservation. The existing
 RunEnd decode loops, value semantics and native serialization are retained.

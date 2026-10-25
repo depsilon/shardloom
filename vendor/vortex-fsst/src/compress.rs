@@ -27,6 +27,7 @@ use vortex_array::dtype::DType;
 use vortex_array::dtype::IntegerPType;
 use vortex_array::dtype::OffsetBuilderPType;
 use vortex_array::match_each_integer_ptype;
+use vortex_buffer::BufferAllocatorRef;
 use vortex_buffer::BufferMut;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
@@ -206,6 +207,7 @@ where
         DType::Binary(strings.dtype().nullability()),
         strings.len(),
         compressor,
+        ctx.allocator(),
     );
     let views = strings.views();
     let buffers = strings.data_buffers();
@@ -243,6 +245,7 @@ where
         DType::Binary(strings.dtype().nullability()),
         strings.len(),
         compressor,
+        ctx.allocator(),
     );
     let bytes = strings.bytes().as_slice();
     match_each_integer_ptype!(offsets.ptype(), |I| {
@@ -288,11 +291,16 @@ struct FsstSink<'c, O: OffsetBuilderPType + 'static> {
 }
 
 impl<'c, O: OffsetBuilderPType + 'static> FsstSink<'c, O> {
-    fn with_capacity(dtype: DType, len: usize, compressor: &'c Compressor) -> Self {
+    fn with_capacity(
+        dtype: DType,
+        len: usize,
+        compressor: &'c Compressor,
+        allocator: &BufferAllocatorRef,
+    ) -> Self {
         Self {
             buffer: Vec::with_capacity(DEFAULT_BUFFER_LEN),
-            builder: VarBinBuilder::<O>::with_capacity(dtype, len),
-            uncompressed_lengths: BufferMut::with_capacity(len),
+            builder: VarBinBuilder::<O>::with_capacity_in(dtype, len, allocator),
+            uncompressed_lengths: BufferMut::with_capacity_in(len, allocator.clone()),
             compressor,
         }
     }
@@ -358,12 +366,12 @@ mod tests {
     use crate::array::FSSTArrayExt;
 
     /// Regression for #7833: the i32-vs-i64 codes-offsets decision must cross at
-    /// `i32::MAX` against the worst-case bound `2 * total + 7 * non_null`.
+    /// `i32::MAX` against the worst-case bound `2 * total`.
     #[test]
     fn offset_width_boundary() {
         let m = i32::MAX as usize;
-        assert!(fsst_output_fits_in_i32_offsets(m / 2 - 7));
         assert!(fsst_output_fits_in_i32_offsets(m / 2));
+        assert!(!fsst_output_fits_in_i32_offsets(m / 2 + 1));
         assert!(fsst_output_fits_in_i32_offsets(0));
         assert!(!fsst_output_fits_in_i32_offsets(usize::MAX));
     }

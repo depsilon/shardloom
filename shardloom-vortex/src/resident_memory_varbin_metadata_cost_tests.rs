@@ -186,6 +186,7 @@ fn verify(array: ArrayRef, fixture: &Fixture, ctx: &mut ExecutionCtx) {
     let values = array
         .nth_child(0)
         .unwrap()
+        .clone()
         .execute::<VarBinViewArray>(ctx)
         .unwrap();
     assert_eq!(values.dtype(), &fixture.dtype);

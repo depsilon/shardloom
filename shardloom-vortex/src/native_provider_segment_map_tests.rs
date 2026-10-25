@@ -10,7 +10,7 @@ use vortex::{
         arrays::PrimitiveArray,
         dtype::{DType, Nullability, PType},
         memory::{
-            DefaultHostAllocator, HostAllocator, HostMemoryReservation, MemorySessionExt as _,
+            DefaultHostAllocator, HostAllocator, HostMemoryReservation, HostMemorySessionExt as _,
             WritableHostBuffer,
         },
     },
@@ -53,7 +53,7 @@ fn dtype() -> DType {
 
 fn session(memory: &LiveMemoryPool) -> (VortexSession, Arc<Mutex<Vec<usize>>>) {
     let requests = Arc::new(Mutex::new(Vec::new()));
-    let session = VortexSession::default().with_allocator(Arc::new(TableAllocator {
+    let session = VortexSession::default().with_host_allocator(Arc::new(TableAllocator {
         tables: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         requests: Arc::clone(&requests),
     }));
@@ -170,7 +170,7 @@ impl HostAllocator for BufferOnlyAllocator {
 
 #[test]
 fn native_segment_map_empty_and_custom_allocator_boundaries() {
-    let consumer = VortexSession::default().with_allocator(Arc::new(BufferOnlyAllocator));
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(BufferOnlyAllocator));
     let empty = SegmentMap::try_from_fn(0, |_| panic!("empty table producer"), &consumer).unwrap();
     assert!(empty.is_empty());
     assert!(
@@ -269,7 +269,7 @@ fn native_segment_map_partial_parse_failure_releases_its_reservation() {
             width,
             |index| {
                 calls += 1;
-                let serialized = vortex::flatbuffers::footer::SegmentSpec::new(
+                let serialized = vortex::file::flatbuffers::footer::SegmentSpec::new(
                     u64::try_from(index).unwrap(),
                     0,
                     if index == 2 { bad_alignment } else { 0 },

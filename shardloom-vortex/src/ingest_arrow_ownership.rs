@@ -50,7 +50,7 @@ fn array_copy_allocation_bytes(array: &ArrayRef) -> Result<u64> {
 fn buffer_copy_allocation_bytes(length: usize) -> Result<u64> {
     length
         .max(1)
-        .checked_add(*Alignment::DEFAULT_ALIGNMENT)
+        .checked_add(Alignment::DEFAULT_ALIGNMENT.as_usize())
         .and_then(|bytes| u64::try_from(bytes).ok())
         .ok_or_else(|| ownership_error("Arrow copy allocation overflow"))
 }
@@ -80,7 +80,7 @@ fn copy_array(array: &ArrayRef, allocator: &dyn HostAllocator) -> Result<ArrayRe
     // arrow-array/bytes dependency surfaces, without a new direct dependency.
     let mut buffers = data.buffers().to_vec();
     for buffer in &mut buffers {
-        // Pinned Arrow 58.3 exposes the custom owner's visible byte length as
+        // Pinned Arrow 59.3 exposes the custom owner's visible byte length as
         // capacity, so neither capacity nor pointer identity proves ownership.
         // Copy every referenced region. Empty typed buffers still need an
         // aligned pointer: retain a one-byte allocation behind an empty slice.
@@ -386,7 +386,7 @@ mod tests {
         );
         assert_eq!(
             memory.snapshot().reserved_bytes,
-            1 + *Alignment::DEFAULT_ALIGNMENT as u64
+            1 + Alignment::DEFAULT_ALIGNMENT.as_usize() as u64
         );
         drop(copied);
         assert_eq!(memory.snapshot().reserved_bytes, 0);

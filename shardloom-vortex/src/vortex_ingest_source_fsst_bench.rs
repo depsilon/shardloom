@@ -150,7 +150,7 @@ fn clickbench_fsst_predicate_admission_screen() {
             "cases":cases,"reserved_bytes_after_region":0}));
     }
     let result = json!({"schema_version":"shardloom.r6b_fsst_admission.v1","source":source,
-        "provider":"Vortex 0.85.0 native FSST compression, Flat persistence, explicit LikeKernel and native scan",
+        "provider":"Vortex 0.90.0 native FSST compression, Flat persistence, explicit LikeKernel and native scan",
         "metadata_preparation_micros":reader.preparation_elapsed_micros,
         "columns":SELECTED,"row_groups":ROW_GROUPS,"rows_per_region":INPUT_BATCH_ROWS,
         "limits":{"credited_memory_bytes":MEMORY_LIMIT_BYTES,"artifact_bytes_each":COLUMN_FILE_LIMIT_BYTES,"stdout_bytes":MAX_STDOUT_BYTES},

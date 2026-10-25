@@ -6,7 +6,7 @@ use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
-        Array, ArrayRef, ArrayVTable, ArrayView, IntoArray as _,
+        Array, ArrayRef, ArrayVTable, ArrayView, IntoArray as _, VortexSessionExecute as _,
         arrays::{Bool, Primitive, PrimitiveArray, Slice, VarBin, VarBinArray},
         buffer::BufferHandle,
         dtype::{DType, NativePType, Nullability},
@@ -140,9 +140,20 @@ impl OwnedMemoryColumn {
         let offsets =
             PrimitiveArray::new(admit_vec(session, offsets)?, Validity::NonNullable).into_array();
         let bytes = admit_vec(session, bytes)?.into_byte_buffer();
-        let array = VarBinArray::try_new(offsets, bytes, DType::Utf8(nullable), validity)
-            .map_err(native_error)?
-            .into_array();
+        let array = session.with_native_execution_context(
+            &shardloom_exec::compute_pool::CancellationToken::default(),
+            |context| {
+                VarBinArray::try_new(
+                    offsets,
+                    bytes,
+                    DType::Utf8(nullable),
+                    validity,
+                    &mut context.native_session().create_execution_ctx(),
+                )
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(native_error)
+            },
+        )?;
         Self::new(session, name, array)
     }
 

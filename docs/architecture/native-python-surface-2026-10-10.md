@@ -155,7 +155,7 @@ installed-wheel matrix; public distribution and untested platforms retain
 separate requirements. The linked hosted receipt governs that finite scope.
 
 The published 58.x adapter still requires PyO3 0.28. The reviewed
-[`vendor/arrow-pyarrow`](../../vendor/arrow-pyarrow/README.shardloom.md) patch
+[`vendor/arrow-pyarrow`](https://github.com/depsilon/shardloom/blob/a22760ecb8eaa6b34204a63dfa434be30a1258f1/vendor/arrow-pyarrow/README.shardloom.md) patch
 backports Apache's [PyO3 update](https://github.com/apache/arrow-rs/pull/10134)
 onto the exact 58.3.0 registry source: only the dependency requirement and an
 explicit invalid-UTF-8 capsule-name error conversion change. The existing

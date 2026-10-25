@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright the Vortex contributors
+
+//! Uninitialized single-element output for row kernels.
+//!
+//! [`UninitElementSink`] exposes one uninitialized slot per output row. [`InitializedElement`]
+//! proves that a successful callback wrote its slot before the sink publishes the output.
+
+use std::mem::MaybeUninit;
+
+use vortex_buffer::BufferAllocatorRef;
+use vortex_error::VortexResult;
+
+use super::OutputSink;
+use crate::ArrayRef;
+use crate::dtype::DType;
+use crate::scalar_fn::unstable::row::FillDefault;
+use crate::scalar_fn::unstable::row::OutputBuffer;
+use crate::scalar_fn::unstable::row::OutputElement;
+use crate::scalar_fn::unstable::row::ViewLen;
+
+/// Proof that one uninitialized element row was initialized.
+///
+/// The private field prevents safe construction without calling [`write`](Self::write):
+///
+/// ```compile_fail,E0423
+/// use vortex_array::scalar_fn::unstable::row::InitializedElement;
+///
+/// let _evidence = InitializedElement(());
+/// ```
+#[must_use = "return this token from the row closure to prove that it initialized the output"]
+pub struct InitializedElement(
+    /// Private so constructing initialization evidence requires an unsafe operation.
+    (),
+);
+
+impl InitializedElement {
+    /// Write `value` into an uninitialized row and return its proof token.
+    ///
+    /// # Safety
+    ///
+    /// - `row` must be the [`UninitElementSink`] slot supplied to the current callback.
+    /// - On success, that callback must return this token and preserve the slot's initialization
+    ///   until it returns.
+    ///
+    /// Violating these requirements can cause undefined behavior.
+    #[inline]
+    pub unsafe fn write<T>(row: &mut MaybeUninit<T>, value: T) -> Self {
+        row.write(value);
+
+        Self(())
+    }
+}
+
+/// An element sink that leaves dense output uninitialized before the row loop.
+///
+/// The row closure must return the [`InitializedElement`] from [`InitializedElement::write`] on
+/// success. The token is zero-sized, so the proof adds no runtime row state.
+///
+/// When execution omits invalid rows, it initializes placeholders first. Errors and unwinds are
+/// safe because [`OutputBuffer`] permits abandoning partially initialized storage. The `T: Copy`
+/// bound means that initialized elements require no destruction.
+pub struct UninitElementSink<T: OutputElement> {
+    /// Spare storage written in increasing row order.
+    values: T::Buffer,
+    /// Allocator for any physical conversion when the sink finishes.
+    allocator: BufferAllocatorRef,
+    /// The number of slots exposed to the row loop and initialized before finishing.
+    row_count: usize,
+}
+
+/// A loop-local view of the uninitialized row slots of an [`UninitElementSink`].
+///
+/// This wrapper carries the [`FillDefault`] behavior a raw `MaybeUninit` slice cannot: coherence
+/// with the initialized-slice blanket rules that implementation out, and filling with
+/// `MaybeUninit::uninit()` would be wrong anyway. Filling writes `T::default()` into every slot.
+pub struct UninitElementRows<'a, T>(&'a mut [MaybeUninit<T>]);
+
+impl<T> ViewLen for UninitElementRows<'_, T> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<T: Copy + Default> FillDefault for UninitElementRows<'_, T> {
+    fn fill_default(&mut self) {
+        for slot in self.0.iter_mut() {
+            slot.write(T::default());
+        }
+    }
+}
+
+// SAFETY: the row slice covers exactly the reserved spare-capacity range, so each accepted index
+// names one distinct slot. Safe code cannot construct `InitializedElement`. Its unsafe constructor
+// writes the supplied slot and requires the caller to return that exact evidence. The default
+// skipped-row initializer fills every slot with `T::default()` through
+// `UninitElementRows::fill_default` before masked traversal. `OutputBuffer` preserves initialized
+// slots across row views and permits abandoning partially initialized storage.
+unsafe impl<T: OutputElement + Copy + Default> OutputSink for UninitElementSink<T> {
+    type Params = ();
+    type Rows<'a> = UninitElementRows<'a, T>;
+    type Row<'a> = &'a mut MaybeUninit<T>;
+    type WriteToken = InitializedElement;
+
+    fn storage_dtype(_params: &Self::Params) -> DType {
+        T::element_dtype()
+    }
+
+    fn with_capacity(
+        rows: usize,
+        _params: &Self::Params,
+        allocator: &BufferAllocatorRef,
+    ) -> VortexResult<Self> {
+        Ok(Self {
+            values: T::with_capacity(rows, allocator),
+            allocator: allocator.clone(),
+            row_count: rows,
+        })
+    }
+
+    fn rows(&mut self) -> Self::Rows<'_> {
+        UninitElementRows(&mut self.values.slots()[..self.row_count])
+    }
+
+    unsafe fn row_unchecked<'a>(rows: &'a mut Self::Rows<'_>, index: usize) -> Self::Row<'a> {
+        // SAFETY: required by this method's contract.
+        unsafe { rows.0.get_unchecked_mut(index) }
+    }
+
+    unsafe fn finish(self) -> VortexResult<ArrayRef> {
+        // SAFETY: the caller guarantees every exposed slot was initialized.
+        Ok(unsafe { self.values.finish(self.row_count, &self.allocator) })
+    }
+}

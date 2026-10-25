@@ -42,7 +42,7 @@ where
         "measure",
         &array,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
         ),
     )
     .unwrap()
@@ -122,7 +122,7 @@ fn bound_numeric_updates_match_nullable_and_floating_row_semantics() {
         "nullable",
         &nullable_i32,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            vortex::array::legacy_session(),
+            &vortex::array::array_session(),
         ),
     )
     .unwrap();
@@ -158,7 +158,7 @@ fn bound_numeric_updates_rebinding_observes_new_contents_width_and_validity() {
             "changed_validity",
             &PrimitiveArray::from_option_iter([Some(10_i64), None, Some(30)]).into_array(),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap(),
@@ -337,7 +337,7 @@ fn bound_numeric_updates_empty_and_all_null_keep_exact_counts() {
             "empty_or_null",
             &array,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                vortex::array::legacy_session(),
+                &vortex::array::array_session(),
             ),
         )
         .unwrap()];
@@ -437,7 +437,7 @@ fn bound_numeric_updates_preserve_pair_preunion_and_every_ordinary_contribution(
                 "amount",
                 &PrimitiveArray::from_option_iter(values).into_array(),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    vortex::array::legacy_session(),
+                    &vortex::array::array_session(),
                 ),
             )
             .unwrap(),

@@ -4,7 +4,7 @@
 //! non-dictionary compressed result. This adapter uses upstream compression on
 //! the actual emitted chunks, after the last canonicalizing repartition.
 
-use std::{collections::BTreeSet, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 use futures::future::BoxFuture;
 use vortex::utils::aliases::hash_set::HashSet;
@@ -13,8 +13,9 @@ use vortex::{
         ArrayId, ArrayRef, ExecutionCtx, VTable as _,
         arrays::{Dict, Primitive},
         dtype::DType,
+        session::ArraySessionExt as _,
     },
-    compressor::{BtrBlocksCompressor, BtrBlocksCompressorBuilder},
+    compressor::{BtrBlocksCompressor, BtrBlocksCompressorBuilder, CompressionSessionExt as _},
     editions::{ComponentKind, EditionSessionExt as _},
     error::VortexResult,
     layout::{
@@ -27,6 +28,7 @@ use vortex::{
 };
 
 use super::{IngestStageTimings, Stage};
+use vortex_compressor::scheme::SchemeExt as _;
 
 /// Keeps text, validity, dictionary codes/values, and statistics on their
 /// existing routes. Only the non-Dict primitive data fallback enters this node.
@@ -82,7 +84,7 @@ impl LayoutStrategy for NumericDataStrategy {
 
 struct NumericCompressor {
     compressor: BtrBlocksCompressor,
-    allowed: BTreeSet<String>,
+    allowed: HashSet<ArrayId>,
     timings: IngestStageTimings,
 }
 
@@ -103,22 +105,37 @@ impl NumericCompressor {
             .copied()
             .collect();
         Self {
-            compressor: BtrBlocksCompressorBuilder::default()
-                .retain_allowed_encodings(&compression_allowed)
-                .build(),
-            allowed: allowed.iter().map(ToString::to_string).collect(),
+            compressor: restricted_compressor(session, &compression_allowed),
+            allowed: allowed.into_iter().collect(),
             timings,
         }
+    }
+
+    fn can_preserve(&self, chunk: &ArrayRef, session: &VortexSession) -> VortexResult<bool> {
+        if chunk.is::<Primitive>() {
+            return Ok(false);
+        }
+        let mut pending = vec![chunk.clone()];
+        while let Some(array) = pending.pop() {
+            // A physical encoding can have several wire forms. Ask its
+            // serializer for this array's actual form and children; admitting
+            // any registered variant would silently admit newer file layouts.
+            let Some(serialized) = session.array_serialize(&array)? else {
+                return Ok(false);
+            };
+            if !self.allowed.contains(&serialized.serialized_id) {
+                return Ok(false);
+            }
+            pending.extend(serialized.children);
+        }
+        Ok(true)
     }
 }
 
 impl CompressorPlugin for NumericCompressor {
     fn compress_chunk(&self, chunk: &ArrayRef, ctx: &mut ExecutionCtx) -> VortexResult<ArrayRef> {
         let start = Instant::now();
-        let preserve = !chunk.is::<Primitive>()
-            && chunk.depth_first_traversal().all(|array| {
-                array.is_canonical() || self.allowed.contains(&array.encoding_id().to_string())
-            });
+        let preserve = self.can_preserve(chunk, ctx.session())?;
         let result = if preserve {
             Ok(chunk.clone())
         } else {
@@ -139,14 +156,36 @@ impl CompressorPlugin for NumericCompressor {
     }
 }
 
+/// Retain the previous caller-specific output restriction in addition to the
+/// provider's registered-scheme and writer-edition checks.
+pub(super) fn restricted_compressor(
+    session: &VortexSession,
+    allowed_encodings: &HashSet<ArrayId>,
+) -> BtrBlocksCompressor {
+    let excluded = session
+        .compression()
+        .schemes()
+        .iter()
+        .filter(|scheme| {
+            scheme
+                .produced_encodings()
+                .iter()
+                .any(|id| !allowed_encodings.contains(id))
+        })
+        .map(|scheme| scheme.id())
+        .collect::<Vec<_>>();
+    BtrBlocksCompressorBuilder::from_session(session)
+        .exclude_schemes(excluded)
+        .build()
+}
+
 pub(super) fn measured_probe(
+    session: &VortexSession,
     allowed_encodings: &HashSet<ArrayId>,
     timings: IngestStageTimings,
 ) -> Arc<dyn CompressorPlugin> {
     let dictionary_admitted = allowed_encodings.contains(&Dict.id());
-    let compressor = BtrBlocksCompressorBuilder::default()
-        .retain_allowed_encodings(allowed_encodings)
-        .build();
+    let compressor = restricted_compressor(session, allowed_encodings);
     Arc::new(move |chunk: &ArrayRef, ctx: &mut ExecutionCtx| {
         // DictStrategy uses only the root Dict decision and discards every
         // other compressed result. With Dict excluded, probing a canonical

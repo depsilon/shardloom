@@ -20,7 +20,7 @@ use vortex::array::{
     ArrayRef, IntoArray as _, VortexSessionExecute as _,
     arrays::StructArray,
     dtype::{DType, DecimalDType, FieldName, Nullability, PType},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 
 pub(super) const DATA: &str = "data";
@@ -250,7 +250,7 @@ impl Layout {
             result_batch::build_column(
                 &self.payload_dtype,
                 rows,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |_| Ok(Value::Bool(false)),
             )?
         } else {
@@ -401,7 +401,7 @@ impl<'p, 's> Values<'p, 's> {
         columns.values.push(result_batch::build_column(
             &self.layout.kind.dtype(),
             count,
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| self.layout.kind.value(&self.buffer.values[row]),
         )?);
         self.order.build(

@@ -8,7 +8,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use vortex_array::memory::HostMemoryReservation;
-use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::HostMemorySessionExt;
 use vortex_error::VortexError;
 use vortex_error::VortexResult;
 use vortex_error::vortex_err;
@@ -62,7 +62,7 @@ impl MetadataSegments {
                 .ok_or_else(|| vortex_err!("Metadata name allocation size overflow"))?;
             keys[index] = value;
         }
-        let reservation = session.allocator().reserve_external(bytes)?;
+        let reservation = session.host_allocator().reserve_external(bytes)?;
         let mut entries = Vec::with_capacity(count);
         for (index, key) in keys[..count].iter().enumerate() {
             let segment = segment(index)?;
@@ -214,7 +214,7 @@ mod tests {
     fn session(limit: usize) -> (VortexSession, Arc<AtomicUsize>, Arc<Mutex<Vec<usize>>>) {
         let live = Arc::new(AtomicUsize::new(0));
         let requests = Arc::new(Mutex::new(Vec::new()));
-        let session = VortexSession::empty().with_allocator(Arc::new(Tables {
+        let session = VortexSession::empty().with_host_allocator(Arc::new(Tables {
             limit,
             live: Arc::clone(&live),
             requests: Arc::clone(&requests),
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn empty_metadata_makes_no_callbacks_or_allocator_request() {
-        let consumer = VortexSession::empty().with_allocator(Arc::new(BuffersOnly));
+        let consumer = VortexSession::empty().with_host_allocator(Arc::new(BuffersOnly));
         let entries = MetadataSegments::try_from_fn(
             0,
             |_| panic!("empty key"),

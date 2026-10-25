@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: scope async_trait's generated-future lint compatibility.
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use async_trait::async_trait;
-use futures::StreamExt;
 use vortex_array::ArrayContext;
-use vortex_array::ArrayId;
 use vortex_array::aggregate_fn::AggregateFnId;
-use vortex_array::normalize::NormalizeOptions;
-use vortex_array::normalize::Operation;
 use vortex_error::VortexResult;
 use vortex_session::VortexSession;
 use vortex_utils::aliases::hash_set::HashSet;
@@ -20,8 +17,6 @@ use crate::LayoutRef;
 use crate::segments::SegmentSinkRef;
 use crate::sequence::SendableSequentialStream;
 use crate::sequence::SequencePointer;
-use crate::sequence::SequentialStreamAdapter;
-use crate::sequence::SequentialStreamExt;
 
 /// A shared counter of the bytes that layout strategies are holding but have not yet emitted.
 ///
@@ -81,6 +76,7 @@ impl Drop for BufferedBytesReservation {
 pub struct LayoutWriterContext {
     array_ctx: ArrayContext,
     allowed_aggregates: Option<Arc<HashSet<AggregateFnId>>>,
+    nullable_ancestor: bool,
     buffered_bytes: BufferedBytesTracker,
 }
 
@@ -90,6 +86,7 @@ impl LayoutWriterContext {
         Self {
             array_ctx,
             allowed_aggregates: None,
+            nullable_ancestor: false,
             buffered_bytes: BufferedBytesTracker::new(),
         }
     }
@@ -111,6 +108,23 @@ impl LayoutWriterContext {
         self.allowed_aggregates
             .as_ref()
             .is_none_or(|allowed| allowed.contains(aggregate))
+    }
+
+    /// Marks this write as nested under a nullable container, such as a field of a nullable
+    /// struct.
+    ///
+    /// Container writers store their children unmasked: a field holds a value even in rows where
+    /// the containing struct is null, and the struct's validity is written separately. Statistics
+    /// computed over such a child therefore see values the logical column does not contain, so
+    /// writers that record statistics must omit them rather than record inexact values.
+    pub fn with_nullable_ancestor(mut self) -> Self {
+        self.nullable_ancestor = true;
+        self
+    }
+
+    /// Returns whether a nullable container above this write may hide some of its values.
+    pub fn has_nullable_ancestor(&self) -> bool {
+        self.nullable_ancestor
     }
 
     /// Replaces the buffered bytes tracker, so callers can observe the counter from outside the
@@ -170,8 +184,15 @@ pub trait LayoutStrategy: 'static + Send + Sync {
     /// with a sequence pointer that indicates its position in the overall array. By passing
     /// around these pointers (essentially vector clocks), the writer can support concurrent
     /// and parallel processing while maintaining a deterministic order of data in the file.
-    /// The `ctx` parameter carries both array serialization state and writer-scoped accounting
-    /// through every child strategy.
+    ///
+    /// # Writer context
+    ///
+    /// The `ctx` parameter carries array serialization state and writer-scoped accounting, and
+    /// also facts about the position of this write in the layout tree, such as the aggregates the
+    /// write may record and whether a nullable container above it hides some of its values. Those
+    /// facts only reach a child because its parent passed them on, so **strategies must hand the
+    /// `ctx` they received, or a clone of it, to every child they write**. Building a fresh
+    /// [`LayoutWriterContext`] inside a strategy silently discards them.
     ///
     /// The `eof` parameter is a guaranteed to be greater than all sequence pointers in the stream.
     ///
@@ -201,59 +222,6 @@ pub trait LayoutStrategy: 'static + Send + Sync {
         eof: SequencePointer,
         session: &VortexSession,
     ) -> VortexResult<LayoutRef>;
-}
-
-/// A layout strategy wrapper that rejects arrays containing encodings outside an allow-list.
-///
-/// Canonical encodings are always permitted. Every chunk is recursively validated before it is
-/// passed to the wrapped strategy.
-#[derive(Clone)]
-pub struct LayoutStrategyEncodingValidator {
-    child: Arc<dyn LayoutStrategy>,
-    allowed_encodings: Arc<HashSet<ArrayId>>,
-}
-
-impl LayoutStrategyEncodingValidator {
-    /// Creates a validator around `child` using the supplied encoding allow-list.
-    pub fn new<S: LayoutStrategy>(child: S, allowed_encodings: HashSet<ArrayId>) -> Self {
-        Self {
-            child: Arc::new(child),
-            allowed_encodings: Arc::new(allowed_encodings),
-        }
-    }
-}
-
-#[async_trait]
-impl LayoutStrategy for LayoutStrategyEncodingValidator {
-    async fn write_stream(
-        &self,
-        ctx: LayoutWriterContext,
-        segment_sink: SegmentSinkRef,
-        stream: SendableSequentialStream,
-        eof: SequencePointer,
-        session: &VortexSession,
-    ) -> VortexResult<LayoutRef> {
-        let dtype = stream.dtype().clone();
-        let allowed_encodings = Arc::clone(&self.allowed_encodings);
-        let stream = stream.map(move |chunk| {
-            let (sequence_id, chunk) = chunk?;
-            let chunk = chunk.normalize(&mut NormalizeOptions {
-                allowed: &allowed_encodings,
-                operation: Operation::Error,
-            })?;
-            Ok((sequence_id, chunk))
-        });
-
-        self.child
-            .write_stream(
-                ctx,
-                segment_sink,
-                SequentialStreamAdapter::new(dtype, stream).sendable(),
-                eof,
-                session,
-            )
-            .await
-    }
 }
 
 #[async_trait]

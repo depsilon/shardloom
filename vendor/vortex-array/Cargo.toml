@@ -14,7 +14,7 @@ publish = false
 edition = "2024"
 rust-version = "1.95"
 name = "vortex-array"
-version = "0.85.0"
+version = "0.90.0"
 authors = ["Vortex Authors <hello@vortex.dev>"]
 build = false
 include = [
@@ -31,7 +31,6 @@ autoexamples = false
 autotests = false
 autobenches = false
 description = "Vortex in memory columnar data format"
-homepage = "https://github.com/spiraldb/vortex"
 readme = "README.md"
 keywords = ["vortex"]
 categories = [
@@ -40,10 +39,13 @@ categories = [
     "compression",
 ]
 license = "Apache-2.0"
-repository = "https://github.com/spiraldb/vortex"
+repository = "https://github.com/vortex-data/vortex"
 
 [package.metadata.docs.rs]
 all-features = true
+
+[package.metadata.cargo-shear]
+ignored = ["prost-types"]
 
 [features]
 _test-harness = [
@@ -73,23 +75,17 @@ path = "src/lib.rs"
 version = "1.3.2"
 optional = true
 
-[dependencies.arc-swap]
-version = "1.9"
-
 [dependencies.arcref]
 version = "0.2.0"
 
 [dependencies.arrow-buffer]
-version = "58.3"
-
-[dependencies.async-lock]
-version = "3.4"
+version = "59.2"
 
 [dependencies.bytes]
 version = "1.11.1"
 
 [dependencies.cfg-if]
-version = "1.0.1"
+version = "1.0.4"
 
 [dependencies.cudarc]
 version = "0.19.0"
@@ -98,6 +94,12 @@ optional = true
 
 [dependencies.enum-iterator]
 version = "2.0.0"
+
+[dependencies.fearless_simd]
+version = "1.0.0"
+
+[dependencies.fearless_simd_macros]
+version = "0.1.0"
 
 [dependencies.flatbuffers]
 version = "25.2.10"
@@ -136,7 +138,7 @@ version = "0.14.0"
 version = "0.2.28"
 
 [dependencies.memchr]
-version = "2.8.0"
+version = "2.8.1"
 
 [dependencies.num-traits]
 version = "0.2.19"
@@ -161,6 +163,9 @@ features = ["arbitrary"]
 optional = true
 
 [dependencies.prost]
+version = "0.14"
+
+[dependencies.prost-types]
 version = "0.14"
 
 [dependencies.rand]
@@ -210,54 +215,37 @@ default-features = false
 version = "0.1.41"
 default-features = false
 
-[dependencies.uuid]
-version = "1.23"
-
 [dependencies.vortex-array-macros]
-version = "0.85.0"
+version = "0.90.0"
 
 [dependencies.vortex-buffer]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-compute]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-error]
-version = "0.85.0"
+version = "0.90.0"
 features = ["flatbuffers"]
 default-features = false
 
-[dependencies.vortex-flatbuffers]
-version = "0.85.0"
-features = [
-    "array",
-    "dtype",
-]
-default-features = false
-
 [dependencies.vortex-mask]
-version = "0.85.0"
-default-features = false
-
-[dependencies.vortex-proto]
-version = "0.85.0"
-features = [
-    "dtype",
-    "expr",
-    "scalar",
-]
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-session]
-version = "0.85.0"
+version = "0.90.0"
 default-features = false
 
 [dependencies.vortex-utils]
-version = "0.85.0"
+version = "0.90.0"
 features = ["dyn-traits"]
 default-features = false
+
+[dev-dependencies.allocator-api2]
+version = "0.2.21"
 
 [dev-dependencies.divan]
 version = "5.0.0"
@@ -309,6 +297,7 @@ get_unwrap = "deny"
 host_endian_bytes = "deny"
 if_then_some_else_none = "deny"
 inconsistent_struct_constructor = "deny"
+inline_always = "deny"
 manual_assert = "deny"
 manual_is_variant_and = "deny"
 many_single_char_names = "deny"
@@ -327,6 +316,8 @@ repeat_vec_with_capacity = "deny"
 reserve_after_initialization = "deny"
 same_name_method = "deny"
 tests_outside_test_module = "deny"
+todo = "deny"
+unimplemented = "deny"
 unwrap_in_result = "deny"
 unwrap_used = "deny"
 use_debug = "deny"

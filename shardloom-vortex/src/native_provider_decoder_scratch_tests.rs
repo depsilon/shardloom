@@ -5,7 +5,7 @@ use vortex::{
         Canonical, VortexSessionExecute as _,
         arrays::{ChunkedArray, ConstantArray, DecimalArray, DictArray, slice::SliceKernel as _},
         dtype::{DecimalDType, Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         patches::Patches,
         scalar::Scalar,
     },
@@ -18,7 +18,7 @@ use vortex::{
 };
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     install(&session, memory.clone());
@@ -131,6 +131,9 @@ fn native_decoder_direct_bitpacked_and_patched_append_need_no_full_child_buffer(
         buffer![1u32, 1027, 2050].into_array(),
         buffer![-91i32, 71_337, i32::MAX].into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     let patched = Patched::from_array_and_patches(encoded, &patches, &mut ctx)
@@ -259,6 +262,9 @@ fn native_decoder_sparse_shift_and_dense_fill_are_both_reserved() {
         buffer![7u64, 11, 15].into_array(),
         buffer![3i32, -17, 91].into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     let sparse = Sparse::try_new_from_patches(patches, 0i32.into())
@@ -279,6 +285,9 @@ fn native_decoder_alp_patches_and_alprd_parts_reserve_cow_overlap() {
         buffer![1u32, 8].into_array(),
         buffer![-0.125f64, 91.25].into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     let alp = ALP::try_new(
@@ -307,6 +316,9 @@ fn native_decoder_alp_patches_and_alprd_parts_reserve_cow_overlap() {
         buffer![1u32, 2].into_array(),
         Buffer::copy_from(&left[1..]).into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     let rd = ALPRD::try_new(
@@ -606,6 +618,9 @@ fn native_decoder_sparse_boolean_and_decimal_fill_keep_physical_widths_explicit(
         buffer![1u32, 8].into_array(),
         BoolArray::new(BitBuffer::new_set(2), Validity::NonNullable).into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     check_case(
@@ -635,6 +650,9 @@ fn native_decoder_sparse_boolean_and_decimal_fill_keep_physical_widths_explicit(
         buffer![1u32, 8].into_array(),
         ConstantArray::new(scalar, 2).into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     check_case(
@@ -667,6 +685,9 @@ fn native_decoder_composed_children_include_canonical_finish_and_cow() {
         buffer![1u32].into_array(),
         buffer![777i32].into_array(),
         None,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap();
     let patched = Patched::from_array_and_patches(packed, &patches, &mut ctx)
@@ -788,7 +809,10 @@ impl vortex::array::buffer::DeviceBuffer for UnreadableDevice {
         self: Arc<Self>,
         alignment: Alignment,
     ) -> VortexResult<Arc<dyn vortex::array::buffer::DeviceBuffer>> {
-        vortex_ensure!(*alignment <= 256, "test device alignment exceeded");
+        vortex_ensure!(
+            alignment.as_usize() <= 256,
+            "test device alignment exceeded"
+        );
         Ok(self)
     }
 }

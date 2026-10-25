@@ -11,7 +11,7 @@ use vortex::{
         ArrayContext, EmptyMetadata, IntoArray as _,
         arrays::PrimitiveArray,
         dtype::{DType, Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         stream::ArrayStreamAdapter,
     },
     buffer::ByteBuffer,
@@ -40,7 +40,7 @@ fn dtype() -> DType {
 }
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    VortexSession::default().with_allocator(Arc::new(
+    VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ))
 }
@@ -278,7 +278,7 @@ impl vortex::array::memory::HostAllocator for BufferOnlyAllocator {
 
 #[test]
 fn native_chunked_offsets_custom_allocator_and_empty_writer_constructor() {
-    let consumer = VortexSession::default().with_allocator(Arc::new(BufferOnlyAllocator));
+    let consumer = VortexSession::default().with_host_allocator(Arc::new(BufferOnlyAllocator));
     let empty = MetadataOnlyChildren::new(Vec::new());
     let layout = ChunkedLayout::try_new(0, dtype(), empty.to_arc(), &consumer).unwrap();
     assert_eq!(layout.nchildren(), 0);

@@ -14,7 +14,7 @@ use vortex::{
         builtins::ArrayBuiltins as _,
         dtype::Nullability,
         memory::{
-            DefaultHostAllocator, HostAllocator, HostAllocatorRef, MemorySessionExt as _,
+            DefaultHostAllocator, HostAllocator, HostAllocatorRef, HostMemorySessionExt as _,
             WritableHostBuffer,
         },
     },
@@ -24,7 +24,7 @@ use vortex::{
 };
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    let session = VortexSession::default().with_allocator(Arc::new(
+    let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
     ));
     install(&session, memory.clone());
@@ -45,7 +45,7 @@ fn admit(input: &VarBinViewArray, session: &VortexSession) -> VortexResult<VarBi
         input.data_buffers().iter().cloned(),
         input.dtype().clone(),
         input.validity()?,
-        &session.allocator(),
+        &session.host_allocator(),
     )
 }
 
@@ -183,15 +183,13 @@ fn assert_parts_validate_changed_value_type() {
                 )
                 .unwrap();
             let table = memory.snapshot().reserved_bytes;
-            let changed = VarBinViewArray::try_from_parts(
-                ArrayParts::new(
-                    VarBinView,
-                    DType::Utf8(Nullability::Nullable),
-                    source.len(),
-                    source.data().clone(),
-                )
-                .with_slots(source.slots().iter().cloned().collect()),
-            );
+            let changed = VarBinViewArray::try_from_parts(ArrayParts::new(
+                VarBinView,
+                DType::Utf8(Nullability::Nullable),
+                source.len(),
+                source.data().clone(),
+                source.slots().iter().cloned().collect(),
+            ));
             assert_eq!(changed.is_ok(), std::str::from_utf8(bytes).is_ok());
             if let Ok(changed) = changed {
                 assert_eq!(changed.bytes_at(0), source.bytes_at(0));
@@ -237,7 +235,7 @@ fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund(
                 input.data_buffers().iter().cloned(),
                 dtype.clone(),
                 validity.clone(),
-                &session.allocator(),
+                &session.host_allocator(),
             );
             if data.is_ok() {
                 accepted.push((case, "admitted data", validity.clone()));
@@ -249,7 +247,7 @@ fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund(
                 input.data_buffers().iter().cloned(),
                 dtype.clone(),
                 validity.clone(),
-                &session.allocator(),
+                &session.host_allocator(),
             );
             if array.is_ok() {
                 accepted.push((case, "admitted array", validity.clone()));
@@ -285,7 +283,7 @@ fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund(
                 [BufferHandle::new_host(ByteBuffer::copy_from(payload))].into_iter(),
                 DType::Utf8(Nullability::NonNullable),
                 Validity::NonNullable,
-                &session.allocator(),
+                &session.host_allocator(),
             );
             if corrupt_value {
                 assert!(result.unwrap_err().to_string().contains("utf-8"));
@@ -336,7 +334,7 @@ fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserv
                     source.as_view(),
                     BufferHandle::new_host(Buffer::copy_from(changed).into_byte_buffer()),
                     source.data_buffers().iter().cloned(),
-                    &session.allocator(),
+                    &session.host_allocator(),
                 )
                 .is_err(),
                 "buffer replacement accepted {case}"
@@ -367,7 +365,7 @@ fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserv
                     source.as_view(),
                     source.views_handle().clone(),
                     std::iter::once(BufferHandle::new_host(ByteBuffer::from(bytes))),
-                    &session.allocator(),
+                    &session.host_allocator(),
                 )
                 .is_err()
             );
@@ -378,7 +376,7 @@ fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserv
                 source.as_view(),
                 source.views_handle().clone(),
                 std::iter::empty(),
-                &session.allocator(),
+                &session.host_allocator(),
             )
             .is_err()
         );
@@ -391,7 +389,7 @@ fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserv
                 source.as_view(),
                 source.views_handle().clone(),
                 std::iter::once(BufferHandle::new_host(ByteBuffer::from(bytes))),
-                &session.allocator(),
+                &session.host_allocator(),
             )
             .unwrap(),
         )
@@ -600,7 +598,7 @@ fn native_varbin_table_replacement_uses_original_allocator_and_a_distinct_table(
                 source.as_view(),
                 BufferHandle::new_host(views),
                 std::iter::once(BufferHandle::new_host(payload)),
-                &receiving_session.allocator(),
+                &receiving_session.host_allocator(),
             )
             .unwrap(),
         )
@@ -619,7 +617,7 @@ fn native_varbin_table_replacement_uses_original_allocator_and_a_distinct_table(
             source.as_view(),
             replacement.views_handle().clone(),
             replacement.data_buffers().iter().cloned(),
-            &receiving_session.allocator(),
+            &receiving_session.host_allocator(),
         )
         .err()
         .unwrap();
@@ -659,11 +657,17 @@ fn native_varbin_table_mask_and_runend_expansion_share_owner_and_values() {
         .unwrap()
         .execute::<VarBinViewArray>(&mut ctx)
         .unwrap();
-    let masked = MaskedArray::try_new(output.clone().into_array(), Validity::Array(bitmap))
-        .unwrap()
-        .into_array()
-        .execute::<VarBinViewArray>(&mut ctx)
-        .unwrap();
+    let masked = MaskedArray::try_new(
+        output.clone().into_array(),
+        Validity::Array(bitmap),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
+    )
+    .unwrap()
+    .into_array()
+    .execute::<VarBinViewArray>(&mut ctx)
+    .unwrap();
     for result in [&mask, &masked] {
         assert_eq!(Arc::as_ptr(result.data_buffers()), identity);
         let valid = result
@@ -872,7 +876,7 @@ fn native_varbin_table_rejects_misreported_iterator_length_and_refunds() {
             MisreportedTable(buffers.into_iter()),
             input.dtype().clone(),
             Validity::NonNullable,
-            &session.allocator(),
+            &session.host_allocator(),
         );
         assert!(result.is_err());
         assert_eq!(
@@ -907,7 +911,7 @@ fn native_varbin_table_capacity_overflow_precedes_allocation() {
         OverflowingTable,
         input.dtype().clone(),
         Validity::NonNullable,
-        &session.allocator(),
+        &session.host_allocator(),
     )
     .unwrap_err();
     assert!(error.to_string().contains("metadata capacity overflow"));

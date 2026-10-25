@@ -235,7 +235,7 @@ fn compact_local_selection_output_retains_payload_and_indices_after_owner_drop()
             let column = result_batch::build_column(
                 &DType::Primitive(PType::I64, Nullability::Nullable),
                 4,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 |row| {
                     Ok(match row {
                         0 => result_batch::Value::Int(11),
@@ -288,6 +288,9 @@ fn compact_local_selection_nested_sliced_bases_preserve_duplicates_and_validity(
         PrimitiveArray::from_iter([0u64, 2, 2, 2]).into_array(),
         PrimitiveArray::from_iter([2u64, 0, 0, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();

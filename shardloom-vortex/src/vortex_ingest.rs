@@ -139,7 +139,7 @@ impl NativeIngestMemory {
         runtime: Option<&crate::ingest_runtime::IngestRuntime>,
     ) -> Self {
         use vortex::{
-            VortexSessionDefault as _, array::memory::MemorySessionExt as _,
+            VortexSessionDefault as _, array::memory::HostMemorySessionExt as _,
             io::runtime::BlockingRuntime as _, io::session::RuntimeSessionExt as _,
         };
         let limit_bytes = pool.snapshot().limit_bytes;
@@ -151,7 +151,7 @@ impl NativeIngestMemory {
         // allocator admission. Session clones must not mutate another artifact.
         let session = vortex::session::VortexSession::default()
             .with_handle(handle)
-            .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+            .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 pool.clone(),
             )));
         Self {
@@ -12086,6 +12086,10 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
 mod stage_tests;
 
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_referenced_cost_tests.rs"]
+mod referenced_cost_tests;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_cpu_lane_tests.rs"]
 mod cpu_lane_tests;
 
@@ -13431,10 +13435,11 @@ fn empty_columnar_decimal128_to_vortex_array(
             "local vortex_ingest column '{column}' has unsupported decimal128 scale {scale_u8}; no fallback execution was attempted"
         ))
     })?;
-    let mut builder = vortex::array::builders::DecimalBuilder::with_capacity::<i128>(
+    let mut builder = vortex::array::builders::DecimalBuilder::with_capacity_in::<i128>(
         0,
         DecimalDType::new(precision, scale_i8),
         Nullability::Nullable,
+        &vortex::buffer::BufferAllocatorRef::statically_allocated(),
     );
     Ok(builder.finish_into_decimal().into_array())
 }
@@ -13919,10 +13924,11 @@ fn scalar_decimal128_to_vortex_array(
     } else {
         Nullability::NonNullable
     };
-    let mut builder = vortex::array::builders::DecimalBuilder::with_capacity::<i128>(
+    let mut builder = vortex::array::builders::DecimalBuilder::with_capacity_in::<i128>(
         rows.len(),
         vortex::array::dtype::DecimalDType::new(precision, scale_i8),
         nullability,
+        &vortex::buffer::BufferAllocatorRef::statically_allocated(),
     );
     for row in rows {
         match &row[column_index].1 {
@@ -14151,14 +14157,14 @@ impl LocalVortexWriteContext {
         writer_context_reuse_status: impl Into<String>,
         memory: &LiveMemoryPool,
     ) -> Result<LocalVortexWriteResult> {
-        use vortex::array::memory::MemorySessionExt as _;
+        use vortex::array::memory::HostMemorySessionExt as _;
         let _writer_memory = memory
             .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
         let _file_statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
             array.dtype(),
             memory,
         )?;
-        let writer_session = self.session.clone().with_allocator(Arc::new(
+        let writer_session = self.session.clone().with_host_allocator(Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
@@ -14189,7 +14195,7 @@ impl LocalVortexWriteContext {
             &mut writer_coalescing_policy_status,
             &mut writer_compression_policy,
         );
-        let write_options = self.write_options_for_session(
+        let write_options = Self::write_options_for_session(
             layout_write_decision,
             &writer_stage_timing,
             array.dtype(),
@@ -14463,7 +14469,7 @@ impl LocalVortexWriteContext {
         writer_stage_timing: &VortexWriterStageTiming,
         dtype: &vortex::array::dtype::DType,
     ) -> vortex::file::VortexWriteOptions {
-        self.write_options_for_session(
+        Self::write_options_for_session(
             layout_write_decision,
             writer_stage_timing,
             dtype,
@@ -14472,7 +14478,6 @@ impl LocalVortexWriteContext {
     }
 
     fn write_options_for_session(
-        &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
         dtype: &vortex::array::dtype::DType,
@@ -14486,7 +14491,7 @@ impl LocalVortexWriteContext {
         if vortex_layout_write_strategy_applies(layout_write_decision)
             || nested_layout::has_fields(dtype)
         {
-            options.with_strategy(self.strategy_for_decision(
+            options.with_strategy(Self::strategy_for_decision(
                 layout_write_decision,
                 writer_stage_timing,
                 writer_session,
@@ -14499,7 +14504,6 @@ impl LocalVortexWriteContext {
     }
 
     fn strategy_for_decision(
-        &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
         writer_session: &vortex::session::VortexSession,
@@ -14513,7 +14517,7 @@ impl LocalVortexWriteContext {
             return writer;
         }
         let nested_fields = nested_layout::field_writers(dtype, writer_session);
-        let mut builder = WriteStrategyBuilder::default();
+        let mut builder = WriteStrategyBuilder::from_session(writer_session);
         for (field, writer) in &nested_fields {
             builder = builder.with_field_writer(field.clone(), Arc::clone(writer));
         }
@@ -14538,7 +14542,8 @@ impl LocalVortexWriteContext {
                 builder
                     .with_row_block_size(row_block_size)
                     .with_btrblocks_builder(
-                        BtrBlocksCompressorBuilder::default().only_cuda_compatible(),
+                        BtrBlocksCompressorBuilder::from_session(writer_session)
+                            .only_cuda_compatible(),
                     )
                     .build()
             } else if vortex_writer_uses_large_source_text(layout_write_decision) {
@@ -14559,15 +14564,7 @@ impl LocalVortexWriteContext {
                 builder.with_row_block_size(row_block_size).build()
             }
         } else {
-            use vortex::editions::{ComponentKind, EditionSessionExt as _};
-            builder
-                .with_allow_encodings(
-                    self.session
-                        .enabled_component_ids(ComponentKind::Array)
-                        .into_iter()
-                        .collect(),
-                )
-                .build()
+            builder.build()
         }
     }
 }
@@ -14731,7 +14728,6 @@ fn large_source_fast_load_table_strategy_with_dictionaries(
 ) -> vortex::layout::layouts::table::TableStrategy {
     use std::num::NonZeroUsize;
 
-    use vortex::editions::EditionSessionExt as _;
     use vortex::layout::layouts::buffered::BufferedStrategy;
     use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
     use vortex::layout::layouts::collect::CollectStrategy;
@@ -14745,27 +14741,17 @@ fn large_source_fast_load_table_strategy_with_dictionaries(
         NonZeroUsize::new(row_block_len).expect("row_block_len is clamped to at least one");
     let stats_concurrency = NonZeroUsize::new(stats_concurrency.max(1))
         .expect("stats_concurrency is clamped to at least one");
-    // Preserve the original probe decision policy. The legacy array-only session
-    // has no editions in 0.85, so this set is empty and the probe only supplies
-    // built-in canonical/constant decisions. The probe adapter can omit work
-    // for canonical primitives when Dict is excluded without changing its
-    // layout decision. Enabling full text probing here would be a separate
-    // physical-design experiment.
-    let probe_encodings = vortex::array::legacy_session()
-        .enabled_component_ids(vortex::editions::ComponentKind::Array)
-        .into_iter()
-        .collect();
-    let probe_compressor =
-        numeric_encoding::measured_probe(&probe_encodings, writer_stage_timing.stages.clone());
-    let allowed_encodings =
-        writer_session.enabled_component_ids(vortex::editions::ComponentKind::Array);
-    let flat_base: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
-        std::sync::Arc::new(FlatLayoutStrategy::default());
+    // Preserve the accepted probe's empty encoding allow-list explicitly.
+    // Its native canonical/constant decision does not enable dictionary probes.
+    let probe_encodings = vortex::utils::aliases::hash_set::HashSet::default();
+    let probe_compressor = numeric_encoding::measured_probe(
+        writer_session,
+        &probe_encodings,
+        writer_stage_timing.stages.clone(),
+    );
+    // Wire-ID validation now belongs to the file writer's ArrayContext.
     let flat: std::sync::Arc<dyn vortex::layout::LayoutStrategy> =
-        std::sync::Arc::new(vortex::layout::LayoutStrategyEncodingValidator::new(
-            flat_base,
-            allowed_encodings.into_iter().collect(),
-        ));
+        std::sync::Arc::new(FlatLayoutStrategy::default());
     let chunked = ChunkedLayoutStrategy::new(std::sync::Arc::clone(&flat));
     let buffered = BufferedStrategy::new(
         chunked,
@@ -15512,7 +15498,7 @@ fn read_prepared_vortex_artifact_layout_inventory_with_memory(
     memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
 ) -> Result<VortexPreparedOlapLayoutInventory> {
     use vortex::VortexSessionDefault as _;
-    use vortex::array::memory::MemorySessionExt as _;
+    use vortex::array::memory::HostMemorySessionExt as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
     use vortex::io::runtime::single::SingleThreadRuntime;
@@ -15522,7 +15508,7 @@ fn read_prepared_vortex_artifact_layout_inventory_with_memory(
     let runtime = SingleThreadRuntime::default();
     let mut session = VortexSession::default().with_handle(runtime.handle());
     if let Some(memory) = memory {
-        session = session.with_allocator(Arc::new(
+        session = session.with_host_allocator(Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
     }

@@ -40,24 +40,28 @@ and [`status surfaces`](../../shardloom-cli/src/status_capabilities.rs) still
 describe vector/tensor execution and TurboQuant blockers. Extend real shared
 providers and retire blockers only with executable evidence.
 
-The workspace pins Vortex 0.85.0. The supplied upstream review identifies
+Historical 0.85 source review: the supplied upstream review identifies
 concrete Vector/FixedShapeTensor types, vector scalar functions and a brute-force
 similarity-expression helper. Verify their exact crate/version, features,
 registration, null/shape/precision behavior and callable path before choosing
 reuse. Upstream development source, a published 0.74.0 TurboQuant package and
-current Python documentation are distinct evidence; none certifies the pinned
-ShardLoom interface. The installed 0.85.0 preview edition lists tensor/vector
-type and function IDs, but those edition declarations alone are not callable
-implementation proof. Its scan `StrictSortedBuffer` requires strictly increasing
+current Python documentation are distinct evidence; none certifies a ShardLoom
+interface. The installed 0.85.0 preview edition lists tensor/vector type and
+function IDs, but those edition declarations alone are not callable
+implementation proof. In 0.90 the preview declaration is empty; that does not
+establish the availability or absence of separate optional provider APIs. Check
+the exact 0.90 crates, features, registration and callable paths when this
+package starts. Its scan `StrictSortedBuffer` requires strictly increasing
 indices, reinforcing the indexed adapter's reorder/duplicate-restoration contract.
 A cosine-threshold full-scan helper is not a top-K operator
 or ANN index. Keep upstream providers inside approved `shardloom-vortex`
 boundaries with dependency/license review and native certificates.
 
-The later [controlled 0.90 refresh](native-vortex-provider-refresh-2026-10-24.md)
-now precedes warm reuse and the intervening packages. Its admitted selective
-reads, export choices and rich-type providers replace the older intake
-assumptions when implemented. Retain this package's logical result identity,
+The [controlled 0.90 refresh](native-vortex-provider-refresh-2026-10-24.md)
+provides the current provider baseline and records specific activated paths.
+Verify each type and function against its own admission evidence when this
+package starts; the refresh does not establish vector/tensor or rich-type
+admission. Retain this package's logical result identity,
 arbitrary sample-order/duplicate restoration, epoch and ownership contracts;
 upgrading the scanner does not implement those consumer semantics by itself.
 

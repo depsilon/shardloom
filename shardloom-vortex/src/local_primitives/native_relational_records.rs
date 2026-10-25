@@ -19,7 +19,7 @@ use vortex::{
         ArrayRef, IntoArray as _,
         arrays::{Primitive, PrimitiveArray, StructArray},
         dtype::{DType, FieldNames, Nullability, PType},
-        memory::MemorySessionExt as _,
+        memory::HostMemorySessionExt as _,
         validity::Validity,
     },
     buffer::Buffer,
@@ -61,7 +61,7 @@ pub(super) fn unsigned(
     result_batch::build_column(
         &u64_type(),
         rows,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -87,7 +87,7 @@ pub(super) fn preserved_column<'a>(
             return result_batch::build_column(
                 dtype,
                 rows,
-                &context.native_session().allocator(),
+                &context.native_session().host_allocator(),
                 value,
             );
         }
@@ -95,7 +95,7 @@ pub(super) fn preserved_column<'a>(
     let bits = result_batch::build_column(
         &storage,
         rows,
-        &context.native_session().allocator(),
+        &context.native_session().host_allocator(),
         |row| {
             context.check_cancelled()?;
             match value(row)? {

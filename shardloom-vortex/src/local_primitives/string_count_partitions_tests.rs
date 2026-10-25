@@ -18,7 +18,7 @@ fn partial(array: &ArrayRef, memory: &LiveMemoryPool) -> StringCountPartial {
         .unwrap();
     string_count_partial::count_string_chunk(
         array,
-        vortex::array::legacy_session().create_execution_ctx(),
+        vortex::array::array_session().create_execution_ctx(),
         &ChunkWorkerContext::Inline(CancellationToken::default()),
         &mut lease,
     )
@@ -443,7 +443,7 @@ fn complete_keys_find_winner_outside_every_chunk_topk_at_all_worker_counts() {
                 move |worker, lease| {
                     let partial = string_count_partial::count_string_chunk(
                         &array,
-                        vortex::array::legacy_session().create_execution_ctx(),
+                        vortex::array::array_session().create_execution_ctx(),
                         worker,
                         lease,
                     )?;
@@ -861,7 +861,7 @@ fn concurrent_block_limits_replay_all_weights_and_keep_counts_after_release() {
                     move |worker, lease| {
                         let partial = string_count_partial::count_string_chunk(
                             &array,
-                            vortex::array::legacy_session().create_execution_ctx(),
+                            vortex::array::array_session().create_execution_ctx(),
                             worker,
                             lease,
                         )?;

@@ -7,7 +7,7 @@ use super::{
 use crate::local_primitives::result_batch;
 use vortex::array::{
     dtype::{Nullability, PType},
-    memory::MemorySessionExt as _,
+    memory::HostMemorySessionExt as _,
 };
 use vortex::mask::{AllOr, Mask};
 
@@ -134,7 +134,7 @@ fn select_compact_batch(
         let indices = result_batch::build_column(
             &dtype,
             rows.len(),
-            &context.native_session().allocator(),
+            &context.native_session().host_allocator(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;

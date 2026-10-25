@@ -140,6 +140,76 @@ fn native_payload_record_admission_preserves_wide_values_empty_children_and_nest
     assert_eq!(session.memory().snapshot().reserved_bytes, 0);
 }
 
+#[test]
+fn empty_native_payload_children_retain_schema_after_parent_and_session_drop() {
+    use vortex::array::{
+        dtype::StructFields,
+        extension::datetime::{Date, TimeUnit, Timestamp},
+    };
+
+    fn paths(array: &ArrayRef, path: &[usize], output: &mut Vec<Vec<usize>>) {
+        output.push(path.to_vec());
+        for (index, child) in array.children().into_iter().enumerate() {
+            let mut next = path.to_vec();
+            next.push(index);
+            paths(&child, &next, output);
+        }
+    }
+
+    let nullable = Nullability::Nullable;
+    let leaf = DType::Primitive(PType::I64, nullable);
+    let fields = StructFields::new(FieldNames::from(["value"]), vec![leaf.clone()]);
+    let cases = [
+        DType::Bool(nullable),
+        leaf.clone(),
+        DType::Decimal(DecimalDType::new(38, 6), nullable),
+        DType::Utf8(nullable),
+        DType::Binary(nullable),
+        DType::Extension(Date::new(TimeUnit::Days, nullable).erased()),
+        DType::Extension(Timestamp::new(TimeUnit::Microseconds, nullable).erased()),
+        DType::List(std::sync::Arc::new(leaf.clone()), nullable),
+        DType::FixedSizeList(std::sync::Arc::new(leaf), 2, nullable),
+        DType::Struct(fields, nullable),
+    ];
+    for dtype in cases {
+        let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+        let output = session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                defaults(&dtype, 0, context)
+            })
+            .unwrap();
+        let mut child_paths = Vec::new();
+        paths(&output, &[], &mut child_paths);
+        drop(output);
+        assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+        drop(session);
+        for path in child_paths {
+            let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+            let memory = session.memory().clone();
+            let child = session
+                .with_native_execution_context(&CancellationToken::default(), |context| {
+                    let mut child = defaults(&dtype, 0, context)?;
+                    for index in &path {
+                        child = child.children().swap_remove(*index);
+                    }
+                    if child.is_empty() {
+                        child = child.slice(0..0).map_err(vortex_error)?;
+                    }
+                    Ok(child)
+                })
+                .unwrap();
+            let alias = child.clone();
+            drop((session, child));
+            assert!(
+                memory.snapshot().reserved_bytes >= metadata_bytes(&dtype).unwrap(),
+                "{dtype}: child path {path:?} released schema credit early"
+            );
+            drop(alias);
+            assert_eq!(memory.snapshot().reserved_bytes, 0, "{dtype}: {path:?}");
+        }
+    }
+}
+
 fn measures(rows: usize) -> ArrayRef {
     let decimal = DecimalDType::new(2, 0);
     StructArray::try_new(
@@ -189,6 +259,9 @@ fn native_payload_scalar_counter_covers_nested_values_and_preserves_raw_storage(
                         PrimitiveArray::from_iter([1_i64, 2, 999, 3, 4]).into_array(),
                         PrimitiveArray::from_iter([0_u64, 2, 3, 5]).into_array(),
                         Validity::from_iter([true, false, true]),
+                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                            &vortex::array::array_session(),
+                        ),
                     )
                     .map_err(vortex_error)?
                     .into_array(),
@@ -322,9 +395,15 @@ fn private_window_payload_preserves_wide_decimal_limbs_through_native_selection_
     )
     .unwrap()
     .into_array();
-    let masked = MaskedArray::try_new(source, Validity::from_iter([true, true, false, true, true]))
-        .unwrap()
-        .into_array();
+    let masked = MaskedArray::try_new(
+        source,
+        Validity::from_iter([true, true, false, true, true]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
+    )
+    .unwrap()
+    .into_array();
     let dictionary = DictArray::try_new(
         PrimitiveArray::from_iter([4u8, 0, 3, 1, 2]).into_array(),
         masked,
@@ -424,6 +503,9 @@ fn private_window_payload_keeps_valid_nested_float_bits_and_masks_null_list_chil
         PrimitiveArray::from_iter(F32_BITS.map(f32::from_bits)).into_array(),
         PrimitiveArray::from_iter([0u64, 2, 8]).into_array(),
         Validity::from_iter([true, false]),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            &vortex::array::array_session(),
+        ),
     )
     .unwrap()
     .into_array();
@@ -470,6 +552,9 @@ fn private_window_payload_masks_nested_parents_and_releases_denied_copies() {
             PrimitiveArray::from_iter([f32::from_bits(F32_BITS[0]), -0.0]).into_array(),
             PrimitiveArray::from_iter([0u64, 1, 2]).into_array(),
             Validity::from_iter([false, true]),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                &vortex::array::array_session(),
+            ),
         )
         .unwrap()
         .into_array();

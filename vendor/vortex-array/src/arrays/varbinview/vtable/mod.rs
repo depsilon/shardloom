@@ -11,6 +11,7 @@ use vortex_buffer::Buffer;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
+use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_error::vortex_panic;
 use vortex_session::VortexSession;
@@ -41,7 +42,7 @@ use crate::hash::ArrayHash;
 use crate::match_each_varbin_builder;
 use crate::memory::DefaultHostAllocator;
 use crate::memory::HostAllocatorRef;
-use crate::memory::MemorySessionExt;
+use crate::memory::HostMemorySessionExt;
 use crate::serde::ArrayChildren;
 use crate::validity::Validity;
 mod kernel;
@@ -109,8 +110,13 @@ impl VarBinView {
         } else {
             VarBinViewData::from_admitted_handles(views, buffers, owner, dtype.clone(), validity)?
         };
-        Ok(ArrayParts::new(Self, dtype, array.len(), data)
-            .with_slots(array.slots().iter().cloned().collect()))
+        Ok(ArrayParts::new(
+            Self,
+            dtype,
+            array.len(),
+            data,
+            array.slots().iter().cloned().collect(),
+        ))
     }
 }
 
@@ -157,17 +163,11 @@ impl VTable for VarBinView {
         len: usize,
         slots: &[Option<ArrayRef>],
     ) -> VortexResult<()> {
-        vortex_ensure!(
-            slots.len() == VarBinViewSlots::COUNT,
-            "VarBinViewArray expected {} slots, found {}",
-            VarBinViewSlots::COUNT,
-            slots.len()
-        );
-        vortex_ensure!(
-            data.len() == len,
-            "VarBinViewArray length {} does not match outer length {}",
+        vortex_ensure_eq!(slots.len(), VarBinViewSlots::COUNT);
+        vortex_ensure_eq!(
             data.len(),
-            len
+            len,
+            "VarBinViewArray length does not match outer length",
         );
         vortex_ensure!(
             matches!(dtype, DType::Binary(_) | DType::Utf8(_)),
@@ -277,7 +277,7 @@ impl VTable for VarBinView {
             );
         }
         VarBinViewData::check_view_layout(views_handle)?;
-        let allocator = session.allocator();
+        let allocator = session.host_allocator();
 
         // Device contents remain opaque; the checked constructor still validates
         // every available host view and every known payload-buffer extent.
@@ -290,7 +290,13 @@ impl VTable for VarBinView {
                 &allocator,
             )?;
             let slots = VarBinViewData::make_slots(&validity, len);
-            return Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots));
+            return Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ));
         }
 
         // The temporary host-only validation list is independent of the final
@@ -319,7 +325,13 @@ impl VTable for VarBinView {
             )?
         };
         let slots = VarBinViewData::make_slots(&validity, len);
-        Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots))
+        Ok(ArrayParts::new(
+            self.clone(),
+            dtype.clone(),
+            len,
+            data,
+            slots,
+        ))
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

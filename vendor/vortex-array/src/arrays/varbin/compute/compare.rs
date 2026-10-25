@@ -153,6 +153,7 @@ fn collect_lane_bits<P: IntegerPType>(
 ///
 /// Offsets at null positions are not validated, so an out-of-bounds or inverted range is
 /// possible there; such lanes answer `false`, and validity masks them out of the result anyway.
+#[allow(clippy::inline_always)]
 #[inline(always)]
 fn value_eq(bytes: &[u8], start: usize, end: usize, constant: &[u8]) -> bool {
     // A lane can only match when its length equals the constant's, so lanes of a different
@@ -164,6 +165,7 @@ fn value_eq(bytes: &[u8], start: usize, end: usize, constant: &[u8]) -> bool {
 
 /// Order `bytes[start..end]` against `constant`, treating the unvalidated garbage ranges that
 /// can appear at null positions as empty; validity masks those lanes out of the result anyway.
+#[allow(clippy::inline_always)]
 #[inline(always)]
 fn value_cmp(bytes: &[u8], start: usize, end: usize, constant: &[u8]) -> Ordering {
     bytes.get(start..end).unwrap_or_default().cmp(constant)
@@ -171,7 +173,6 @@ fn value_cmp(bytes: &[u8], start: usize, end: usize, constant: &[u8]) -> Orderin
 
 #[cfg(test)]
 mod test {
-    use vortex_buffer::BitBuffer;
     use vortex_buffer::ByteBuffer;
 
     use crate::IntoArray;
@@ -181,7 +182,7 @@ mod test {
     use crate::arrays::ConstantArray;
     use crate::arrays::VarBinArray;
     use crate::arrays::VarBinViewArray;
-    use crate::arrays::bool::BoolArrayExt;
+    use crate::assert_arrays_eq;
     use crate::builtins::ArrayBuiltins;
     use crate::dtype::DType;
     use crate::dtype::Nullability;
@@ -205,23 +206,12 @@ mod test {
                 .into_array(),
                 Operator::Eq,
             )
-            .unwrap()
-            .execute::<BoolArray>(&mut ctx)
             .unwrap();
 
-        assert_eq!(
-            &result
-                .as_ref()
-                .validity()
-                .unwrap()
-                .execute_mask(result.as_ref().len(), &mut ctx)
-                .unwrap()
-                .to_bit_buffer(),
-            &BitBuffer::from_iter([true, false, true])
-        );
-        assert_eq!(
-            result.to_bit_buffer(),
-            BitBuffer::from_iter([true, false, false])
+        assert_arrays_eq!(
+            result,
+            BoolArray::from_iter([Some(true), None, Some(false)]),
+            &mut ctx
         );
     }
 
@@ -239,23 +229,12 @@ mod test {
         let result = array
             .into_array()
             .binary(vbv.into_array(), Operator::Eq)
-            .unwrap()
-            .execute::<BoolArray>(&mut ctx)
             .unwrap();
 
-        assert_eq!(
-            result
-                .as_ref()
-                .validity()
-                .unwrap()
-                .execute_mask(result.as_ref().len(), &mut ctx)
-                .unwrap()
-                .to_bit_buffer(),
-            BitBuffer::from_iter([false, false, true])
-        );
-        assert_eq!(
-            result.to_bit_buffer(),
-            BitBuffer::from_iter([false, true, true])
+        assert_arrays_eq!(
+            result,
+            BoolArray::from_iter([None, None, Some(true)]),
+            &mut ctx
         );
     }
 }
@@ -284,12 +263,14 @@ mod tests {
 
         let const_ = ConstantArray::new(Scalar::utf8("", Nullability::Nullable), 1);
 
-        assert_eq!(
-            arr.into_array()
-                .binary(const_.into_array(), Operator::Eq)
-                .unwrap()
-                .dtype(),
-            &DType::Bool(Nullability::Nullable)
+        let result = arr
+            .into_array()
+            .binary(const_.into_array(), Operator::Eq)
+            .unwrap();
+        assert_arrays_eq!(
+            result,
+            BoolArray::from_iter([Some(false)]),
+            &mut array_session().create_execution_ctx()
         );
     }
 
@@ -301,8 +282,11 @@ mod tests {
     #[test]
     fn varbin_i64_offsets_compare_constant() {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder =
-            VarBinBuilder::<i64>::with_capacity(DType::Utf8(Nullability::NonNullable), 3);
+        let mut builder = VarBinBuilder::<i64>::with_capacity_in(
+            DType::Utf8(Nullability::NonNullable),
+            3,
+            vortex_buffer::BufferAllocatorRef::static_ref(),
+        );
         builder.append_value(b"abc");
         builder.append_value(b"xyz");
         builder.append_value(b"abc");
@@ -323,8 +307,11 @@ mod tests {
     #[test]
     fn varbin_i64_offsets_compare_constant_binary() {
         let mut ctx = array_session().create_execution_ctx();
-        let mut builder =
-            VarBinBuilder::<i64>::with_capacity(DType::Binary(Nullability::NonNullable), 3);
+        let mut builder = VarBinBuilder::<i64>::with_capacity_in(
+            DType::Binary(Nullability::NonNullable),
+            3,
+            vortex_buffer::BufferAllocatorRef::static_ref(),
+        );
         builder.append_value(b"abc");
         builder.append_value(b"xyz");
         builder.append_value(b"abc");

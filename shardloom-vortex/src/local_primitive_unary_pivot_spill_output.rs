@@ -10,7 +10,7 @@ use crate::local_primitives::{
     result_batch,
 };
 use std::borrow::Cow;
-use vortex::array::{ArrayRef, memory::MemorySessionExt as _};
+use vortex::array::{ArrayRef, memory::HostMemorySessionExt as _};
 
 impl Completed {
     pub(in crate::local_primitives::prepared_unary::pivot) fn emit(
@@ -224,7 +224,7 @@ impl Completed {
                 result_batch::build_column(
                     dtype,
                     indices.len(),
-                    &context.native_session().allocator(),
+                    &context.native_session().host_allocator(),
                     |row| self.value(access, indices[row], column, plan, projection, context),
                 )?
             };

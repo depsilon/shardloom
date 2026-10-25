@@ -6,7 +6,38 @@ This document records ShardLoom's current JSON and digest dependency posture for
 `shardloom-vortex` features. It is a dependency-review ledger only; it does not authorize new
 runtime behavior, package publication, performance claims, or fallback execution.
 
+## October 24, 2026 current candidate
+
+The current candidate pins PyO3 runtime to 0.29.3 and uses the independent
+`pyo3-build-config` 0.30.1 build helper only from `shardloom-python/build.rs` to call
+`add_extension_module_link_args()`. The root dependency graph now aligns Vortex 0.90.0,
+Arrow 59.3.1, Parquet 59.3.1 and ORC 0.9.0. This updates the compatibility-candidate
+status recorded in the October 19 intake; its JSON/digest versions remain
+locked at `serde_json` 1.0.154 and `sha2` 0.11.1. See the
+[structured-format dependency review](structured-format-dependency-review.md) and
+[controlled Vortex provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md).
+
+Dependabot PR [1568](https://github.com/depsilon/shardloom/pull/1568) supplies the separate
+build helper version included here; the PyO3 runtime stays at 0.29.3 for the Arrow/Python
+bridge. PR 1568 was closed on October 24 for consolidation into this active
+provider-refresh work; the replacement still requires full acceptance.
+
+The broader migration remains bounded by existing feature and no-fallback policies;
+dependency versions alone do not admit richer types, V2 scans, optional encodings,
+connectors, external engines or performance claims.
+
+Native workspace tests passed 6,071 tests across 118 binaries with zero failures and 35
+ignored, and native strict workspace lint passed (`test-workspace-native-090-r4`,
+`clippy-workspace-native-090-r5`). Provider rechecks and all-feature, minimal,
+Rust 1.96.0 and default workspace checks pass (`remaining-validation-summary-r1`).
+Installed Python/CLI proof passes 140 native integration tests without skips, including
+capsule and ownership regressions. Fresh full UAT and isolated Full43 acceptance
+remain pending; these checks do not complete the provider-refresh acceptance.
+
 ## October 19, 2026 patch intake
+
+This section preserves the compatibility-candidate state at the October 19 intake; the later
+current candidate is summarized above.
 
 The conditional-investigation checkpoint consolidates Dependabot
 [#1570](https://github.com/depsilon/shardloom/pull/1570) and
