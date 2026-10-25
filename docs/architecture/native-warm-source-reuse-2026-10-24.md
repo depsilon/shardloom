@@ -21,9 +21,11 @@ independent gates; this does not create another engine mode or phase ID.
 
 The later provider-refresh instruction takes precedence over the original
 immediate-after-parity placement. Recheck the source-owner design against the
-admitted 0.90 scan provider before adding infrastructure. Existing V1 reader
-cache reuse is real; retained V2 scan state is an additional integration seam,
-not proof that current sources lack dictionary reuse. The refresh owns version
+admitted 0.90 scan provider before adding infrastructure. V1 can reuse readers
+and dictionary state through a retained reader tree; production file execution
+also creates operation-scoped source wrappers that reset that tree. Trace the
+selected path before claiming cross-operation reuse. Retained V2 scan state is
+an additional integration seam. The refresh owns version
 compatibility; this package owns cross-plan source lifetime and fresh execution.
 
 | Work | Relative scope | Queue decision |
@@ -66,7 +68,11 @@ established by this review.
   selected path before treating any particular reopen as a demonstrated defect.
 - [`PreparedVortexSource`](../../shardloom-vortex/src/resident_session.rs)
   shares an owner containing the Vortex file, validated generation and runtime;
-  file preparation enables the pinned layout-reader cache. A direct call to
+  file preparation enables the pinned layout-reader cache.
+  [`NativeExecutionContext::file_view`](../../shardloom-vortex/src/resident_execution_context.rs)
+  retains its parsed footer and held descriptor but replaces the segment source
+  for each file-backed operation, resetting cached reader/plan state. In-memory
+  sources retain the existing handle. A direct call to
   `prepare_file_with_cancellation` captures and opens a source again. The explicit
   compressed-segment reuse path closes its cache at the end of each admitted
   operation, including returned errors; it is not general cross-query block retention.
@@ -111,9 +117,11 @@ than implementing or measuring those twice.
 
 Select one expensive immutable owner that is currently produced, dropped and
 rebuilt across calls. Prefer small structural metadata, dictionaries/value
-domains or encoded chunks before expanded decoded blocks. Recheck pinned Vortex
-0.85 provider, repeated-scan, buffer and allocator APIs; existing repeated scans
-alone do not establish cross-query ownership. Extend admitted native provider
+domains or encoded chunks before expanded decoded blocks. Use the [controlled
+0.90 provider refresh](native-vortex-provider-refresh-2026-10-24.md) as the API
+baseline for any selected repeated-scan, buffer or allocator candidate; existing
+repeated scans alone do not establish cross-query ownership. Extend admitted
+native provider
 boundaries without introducing query-engine integrations.
 
 Keeping an already validated, already accounted owner is materially different

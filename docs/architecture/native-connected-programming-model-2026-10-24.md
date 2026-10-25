@@ -7,17 +7,18 @@ Status: accepted October 24 maintainer addition, following the active
 [provider-refresh](native-vortex-provider-refresh-2026-10-24.md),
 [warm-source reuse](native-warm-source-reuse-2026-10-24.md),
 [public naming](shardloom-public-naming-2026-10-24.md),
-[ingestion](native-ingest-ownership-preparation-2026-10-24.md),
-[rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md) and
-[universal I/O](native-universal-io-performance-coverage-2026-10-24.md) packages.
+and [ingestion](native-ingest-ownership-preparation-2026-10-24.md) packages.
+The subsequent October 24 ordering decision places this package immediately
+after ingestion, followed by [universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
+then [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
 The subsequent [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
 request extends this package's SQL scope and follows it with statistics,
-temporal/value semantics and explicit batch functions. It does not reorder the
-preceding packages or close CG-1 through CG-23.
+temporal/value semantics and explicit batch functions after the I/O and rich-data
+packages. CG-1 through CG-23 remain independent certification gates.
 The following [AI-data package](native-ai-data-workflows-2026-10-24.md) consumes
 these same plans, results and explicit application-function boundaries for
 model-ready batches, feature preparation, retrieval and agent access.
-Current parity implementation continues first. RFC 0033's CG-21 workflow
+RFC 0033's CG-21 workflow
 contract, RFC 0044's shared native execution, and the existing SQL/expression,
 resource, extension and remote-API RFCs remain governing boundaries.
 

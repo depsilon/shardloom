@@ -7,7 +7,26 @@ feature-gated local structured-format bridge and parsing helpers. It is a depend
 only; it does not authorize broad adapter support, external execution fallback, package
 publication, performance claims, or production readiness.
 
+## October 24, 2026 current candidate
+
+The root dependency graph now aligns Vortex 0.90.0 with the Arrow family and Parquet 59.3.1;
+`orc-rust` is 0.9.0. The Arrow/Parquet bridge remains feature-gated, and this graph update does
+not admit new formats, runtime capabilities or external-engine execution. `arrow-pyarrow` 59.3.1
+resolves from the registry rather than the former workspace path patch; its unused vendor
+directory is retired after installed capsule and ownership proof. See the
+[controlled Vortex provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md).
+
+Dependabot PR [1582](https://github.com/depsilon/shardloom/pull/1582) was reviewed as a
+candidate set: `arrow-array`, `arrow-avro`, `arrow-flight` and `arrow-schema` 60 would split
+the aligned graph and are not included. Parquet 59.3.1 and ORC 0.9.0 are integrated in this
+candidate. PR 1582 was closed on October 24 for consolidation into this active
+provider-refresh work, whose full acceptance remains pending;
+the October 17 entry below retains PR 1513's historical review state.
+
 ## 2026-10-17 Arrow 60 / Parquet 59.3.1 Review Deferral
+
+This section preserves the graph and deferral state at the October 17 review; the later candidate
+is summarized in the current support snapshot below.
 
 - Dependabot PR <https://github.com/depsilon/shardloom/pull/1513> remains open and is explicitly
   deferred pending this batch's disposition. No dependency or Cargo manifest changes are included
@@ -33,17 +52,30 @@ publication, performance claims, or production readiness.
   feature matrix compiles. This is a compatibility deferral, not a finding that the proposed
   versions are unsuitable in general.
 
-## Current support snapshot
+## Current support snapshot (October 24, 2026)
 
 - The local structured-format bridge remains feature-gated behind `universal-format-io` and
-  benchmark-specific Vortex feature gates.
-- `orc-rust 0.8.0` remains unchanged and still brings the Arrow 58 stack transitively for ORC.
-- ShardLoom's direct Arrow and Parquet bridge dependencies remain on Arrow 58.3 / Parquet 58.3
-  because the current Vortex 0.85 provider boundary and ORC lane still expose Arrow 58-compatible
-  types in ShardLoom's feature-complete local structured-format path.
-- `regex` remains a ShardLoom-owned parsing/validation helper, not an execution provider.
+  benchmark-specific Vortex features.
+- The current candidate uses Vortex 0.90.0, Arrow 59.3.1, Parquet 59.3.1 and `orc-rust` 0.9.0;
+  the selected dependency versions do not by themselves broaden format support.
+- `arrow-pyarrow` 59.3.1 resolves from the registry instead of a workspace path patch. The
+  unused `vendor/arrow-pyarrow` directory is retired after installed capsule and ownership proof.
+- PR 1582's Arrow 60 subset (`arrow-array`, `arrow-avro`, `arrow-flight` and `arrow-schema`)
+  remains excluded because it would split the selected Arrow graph. Its Parquet 59.3.1 and
+  ORC 0.9.0 candidates are integrated. PR 1582 is closed for consolidation; the
+  provider-refresh replacement remains in acceptance.
+- Native workspace tests passed 6,071 tests across 118 binaries with zero failures and 35
+  ignored, and native strict workspace lint passed (`test-workspace-native-090-r4`,
+  `clippy-workspace-native-090-r5`). Provider rechecks and all-feature, minimal,
+  Rust 1.96.0 and default workspace checks pass (`remaining-validation-summary-r1`).
+  Installed Python/CLI proof passes 140 native integration tests without skips, including
+  malformed capsule names and owner lifetimes. Fresh full UAT remains pending.
+- `regex` remains a ShardLoom-owned parsing and validation helper, not an execution provider.
 - No Spark, DataFusion, DuckDB, Polars, Velox, pandas, Dask, Ray, Trino, Vortex query-engine
-  integration, or other fallback execution dependency is introduced.
+  integration or other fallback execution dependency is introduced.
+
+The October 17 and August 29 sections below preserve their dated review decisions and graph
+observations; they are not the current dependency snapshot.
 
 ## 2026-08-29 Dependency Intake Closeout
 

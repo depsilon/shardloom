@@ -1,0 +1,30 @@
+{
+  "status": "final_replay_passed",
+  "attempts": [
+    {
+      "status": "failed",
+      "scope": "portable evidence verifier development; no engine execution",
+      "error": "missing or unsafe execution evidence: public_workflow_fallback_attempted",
+      "cause": "Public vortex-prepare receipts use a different evidence namespace from public SQL routes; the initial replay wrongly required SQL route markers.",
+      "repair": "Keep successful native envelope/no-fallback and unique report-field checks, and parse the explicit preparation namespace separately.",
+      "completed_before_failure": [
+        "archive contents",
+        "exact source binding",
+        "138 validation receipts",
+        "wheel integration",
+        "both complete public suites"
+      ]
+    },
+    {
+      "status": "passed",
+      "result": "replay.json",
+      "corruption_controls_rejected": 8
+    }
+  ],
+  "focused_tests": {
+    "status": "passed",
+    "tests": 6,
+    "invocation": "python -B -m unittest discover -s python/tests -p test_native_provider_refresh_evidence.py -v"
+  },
+  "engine_or_build_execution_performed": false
+}

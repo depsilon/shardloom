@@ -7,10 +7,12 @@ Status: accepted October 24 maintainer handoff, queued after
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then the [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
 then [public naming and terminology](shardloom-public-naming-2026-10-24.md),
-and immediately before [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
-then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md).
+and immediately before the [connected programming model](native-connected-programming-model-2026-10-24.md),
+then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md),
+then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
+under the subsequent October 24 ordering decision.
 This records scope and source review, not an implemented optimization or new
-ingestion measurement. The grouped-preparation campaign is complete in #1595.
+ingestion measurement. The grouped-preparation campaign from closed #1595 is included in merged #1596.
 The existing RFC 0044 resource contract and PERF-02/03/06/09 owners apply;
 CG-1 through CG-23 remain independent gates.
 
@@ -65,10 +67,11 @@ full-ingest work.
   avoids an extra blanket statistics pass, and compresses numeric output after
   final canonicalizing repartition. Preserve these completed corrections.
 
-Vortex-first direction: the inventory above describes the current 0.85 path.
-The provider refresh now precedes this package; recheck allocator propagation
-and referenced-byte compression/coalescing estimates against the admitted
-replacement before choosing a new ownership mechanism. Logical referenced
+Vortex-first direction: the inventory above records the pre-refresh 0.85 path
+and is historical. Use the [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md)
+as the current 0.90 API baseline; re-evaluate allocator propagation and
+referenced-byte compression/coalescing estimates through the actual Parquet
+import path before choosing a new ownership mechanism. Logical referenced
 bytes guide compression/layout decisions; retained allocations still require
 their full memory charge. Trace both through the real Parquet import path.
 Use the admitted session allocator, native buffer owners, Arrow conversion,

@@ -1,22 +1,53 @@
 # Vortex Dependency Footprint
 
 ## Purpose
-ShardLoom is auditing the upstream Vortex dependency graph before deeper integration so default
-builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
+This ledger records ShardLoom's upstream Vortex dependency footprint and preserves prior
+version-specific reviews. The current candidate remains feature-gated and does not itself
+broaden runtime support.
 
-## Current state
-- Current workspace-managed dependency: optional umbrella `vortex = 0.85`, inherited by
-  `shardloom-vortex` with `workspace = true` and kept optional at the crate boundary.
-- Latest upstream intake note: `vortex = 0.85.0` was reviewed in
-  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.75`, `0.74`, `0.73`,
-  `0.72`, and detailed `0.71` release-note intake sections remain historical background.
-- Umbrella `vortex` crate is still used for upstream opt-in builds.
-- Default build (`default = []`) does not enable upstream Vortex.
-- Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
-  claim-gated; the version bump does not broaden runtime support.
-- Fallback execution engines are not present.
+## Current state (October 24, 2026 candidate)
+
+- The optional upstream Vortex umbrella is pinned to 0.90.0 in the workspace and inherited
+  by `shardloom-vortex`; the dependency remains feature-gated.
+- Eight 0.90.0 packages remain local path patches: `vortex-array`, `vortex-buffer`,
+  `vortex-file`, `vortex-fsst`, `vortex-io`, `vortex-layout`, `vortex-runend` and
+  `vortex-zstd`.
+  `vortex-datetime-parts` now resolves from its reviewed 0.90.0 registry archive.
+- The new `vortex-buffer` patch preserves explicit empty `Bytes` and Arrow owners through
+  cloning, typed conversions and Arrow import/export; ordinary empty slices still detach.
+  See [`vendor/vortex-buffer/README.shardloom.md`](../../vendor/vortex-buffer/README.shardloom.md).
+- The workspace uses Arrow 59.3.1 and Parquet 59.3.1 with ORC 0.9.0. `arrow-pyarrow`
+  59.3.1 resolves from the registry after its workspace path patch was removed; the unused
+  `vendor/arrow-pyarrow` directory is retired after installed capsule and ownership proof.
+- PyO3 runtime remains 0.29.3. The independent `pyo3-build-config` 0.30.1 build helper
+  is called only by `shardloom-python/build.rs` to add extension-module link arguments.
+- Final matched-build validation passes 6,072 native workspace tests across 118 binaries
+  (35 existing opt-in ignored), 3,246 default workspace tests, native strict lint and
+  formatting. Exact final all-feature, MSRV and no-default checks pass. The installed
+  Python wheel passes all 140 native integration tests without skips. Public validation
+  passes 5,930 cases across 39 families; semantic replay validates 5,639 actual/expected
+  value files and 137 JSONL archives. The recovered modular matrix accepts 1,408 records
+  across 18 cohorts. Fresh ingest produces 99,997,497 rows through the minimal digest
+  path; no independent full 100-million-row readback is claimed. One isolated Full43
+  completes each of 43 queries once with 381 complete rows and exact schema continuity
+  at 49.625514041 engine seconds; the prior 48.701809680 observation supports no causal
+  speedup or regression claim. See the [acceptance report](../benchmarks/native-vortex-provider-refresh-2026-10-24.md).
+  Local runtime/UAT and portable replay acceptance are complete; PR, CI, review
+  and merge remain pending. The verified notice manifest
+  contains 437 registry packages, eight vendored providers, 827 file records and
+  248 distinct texts.
+- New versions do not automatically enable rich types, V2 scans, optional encodings,
+  connectors, external engines or performance claims. The no-fallback boundary and
+  existing feature gates remain in force.
+
+See the [controlled provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md)
+for migration scope and remaining acceptance work.
 
 ## Vortex 0.85 provider-capability update
+
+Historical review; superseded for current dependency status by the October 24, 2026
+candidate state above. The package/version and compatibility notes below remain as
+historical evidence.
 
 `VORTEX-UPSTREAM-CAPABILITY-INTAKE-1` incorporates the safe part of the Vortex dependency intake:
 the optional upstream Vortex provider family moves from `0.75.0` to `0.85.0`, while the structured

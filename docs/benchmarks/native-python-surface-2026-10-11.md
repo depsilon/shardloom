@@ -70,7 +70,7 @@ record's `load_verified=false` predates installation; the separate successful
 The conservative notice bundle covers 386 registry versions and two vendored
 packages across 729 manifest records and 206 texts. It is not a linked-component
 SBOM. PyO3 0.29.3 replaces the rejected vulnerable intake; the reviewed
-[Arrow adapter patch](../../vendor/arrow-pyarrow/README.shardloom.md) preserves
+[Arrow adapter patch](https://github.com/depsilon/shardloom/blob/a22760ecb8eaa6b34204a63dfa434be30a1258f1/vendor/arrow-pyarrow/README.shardloom.md) preserves
 the single Arrow 58.3.0 graph. The strict dependency audit passes for this graph.
 
 The [source-install guide](../getting-started/source-checkout-install.md#optional-native-python-binding)

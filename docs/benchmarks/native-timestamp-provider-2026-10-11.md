@@ -58,7 +58,7 @@ Two reviewed Apache-2.0 provider patches retain Vortex 0.85.0 and its format:
   avoid a narrower calendar constructor for the already admitted storage domain.
   In-calendar formatting is unchanged; values beyond that calendar render as
   exact epoch microseconds.
-- [Encoded comparison validity](../../vendor/vortex-datetime-parts/README.shardloom.md)
+- [Encoded comparison validity](https://github.com/depsilon/shardloom/blob/3628a81bef597a4a3d833d93470ffae1b1cc7587/vendor/vortex-datetime-parts/README.shardloom.md)
   preserves timestamp nulls when combining days, seconds and subseconds. The
   existing native component comparisons remain in use.
 
