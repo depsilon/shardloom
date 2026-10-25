@@ -26,6 +26,12 @@ branch unchanged. Replay uses the hash-bound result helpers in this checkout;
 it does not execute archived helpers or native query code, load native libraries,
 read the original dataset, contact a service, or rerun timing observations.
 
+The recorded [replay](replay.json) and [clean-checkout proof](clean-checkout.json)
+bind the final manifest, verifier and archive hashes. The clean checkout at
+`abe9121dab801ad8f2932a6e31bfb6f880bb9581` uses shared Git objects and passes
+the same full replay with isolated Python imports; its files and index remain
+unchanged. It needs neither the historical dataset nor the retired runtime.
+
 Coverage includes 93 baseline and 93 candidate calls, plus the earlier 129-call
 accepted-runtime characterization: 315 complete executions and 3,285 result
 rows in total. It checks exact call identities, independent values, native
@@ -52,3 +58,12 @@ The runtime sources can be regenerated from Git plus the preserved patch.
 Executables, compiler caches, installation environments and source datasets
 are intentionally excluded; build/protocol/install records retain their exact
 identities. Cleanup records separately identify retired generated artifacts.
+
+The [cleanup receipt](cleanup.json) binds the compressed exact-path inventory
+in `cleanup-inventory.json.gz`. It records 7,692 regular files and three
+environment links retired after 13 closed-handle checks. Rejected runtime
+copies, the candidate wheel/environment and the temporary verification clone
+are regenerable; all 564 retired raw log copies match archived members.
+Current inputs and the accepted provider CLI/library/wheel remain. Other
+compiler outputs are retained for the next active naming build, with the
+three exact rejected release binaries removed.

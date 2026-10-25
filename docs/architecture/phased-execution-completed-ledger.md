@@ -37,6 +37,10 @@ phase plan first.
     complete executions, 3,285 rows and ten corruption controls without
     executing engine queries. Earlier accepted-runtime timings are not
     candidate gains or ordinary single-pass Full43.
+  - [x] Clean-checkout replay at `abe9121d` passes and leaves the tree unchanged.
+    Verified retirement removes 7,692 generated files and three environment
+    links, preserving current inputs, accepted runtime/wheel and compact
+    complete results. No payload backup or storage-limit change occurs.
   - Broader variable-width reuse remains dependent on the existing ingestion
     allocation-provenance item. Public naming is next. The finite investigation
     closes without an accepted cache, new benchmark claim, CG-gate closure or

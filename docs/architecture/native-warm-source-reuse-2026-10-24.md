@@ -102,6 +102,18 @@ also passes against the restored vendor tree. Portable replay checks all 315
 saved executions and 3,285 complete rows, 19 validation receipts, exact source
 restoration and ten deliberately corrupted evidence cases. It does not rerun
 query execution or reinterpret the candidate's failed acceptance decision.
+The [clean-checkout replay](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/clean-checkout.json)
+at `abe9121d` passes the same checks and leaves the checkout unchanged.
+
+The [retirement receipt](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/cleanup.json)
+records removal of 7,692 regular files and three environment links after exact
+identity and closed-handle checks: rejected binaries and wheel, completed
+package/environment and verification checkout, plus 564 log copies whose
+complete bytes are preserved in the portable packet. The current accepted
+provider CLI/library/wheel, original Parquet and accepted Vortex input remain.
+Other compiler outputs are retained for the next active naming build, with
+three exact rejected release binaries removed. No rollback payload backup or
+storage-limit change is made.
 
 ## Earlier accepted-runtime characterization
 

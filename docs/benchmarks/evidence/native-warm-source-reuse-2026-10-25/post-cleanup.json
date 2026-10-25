@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "replay_after_cleanup_matches_recorded_result": true,
+  "retired_entries_confirmed_absent": 7695,
+  "packet_identity": {
+    "manifest_sha256": "27fb7734f7d2c7c5df46cbd781f96156ab504432b6e24017c27d9fdc2b6e8902",
+    "verifier_sha256": "95f79b52ad59c55cfa848f96fa3e1ded44cd7bd0905c17e6a031eb2c79e94e5a",
+    "archive_sha256": "e8fff54c7e470ffc82ccfde9da40355b90e204bb9b8dbaf8f38410bfdf57a911"
+  },
+  "cleanup_sha256": "1e3bcb2ec5b9ea9a20c912945bf6c7c2aa6e74c44d0c447376fff9c0b8ed136c",
+  "result_sha256": "47604431f927767ebc97e04a3048b078e76eb1adb5751c18c80841b0392235cf",
+  "log_sha256": "47604431f927767ebc97e04a3048b078e76eb1adb5751c18c80841b0392235cf",
+  "engine_queries_executed": 0
+}
