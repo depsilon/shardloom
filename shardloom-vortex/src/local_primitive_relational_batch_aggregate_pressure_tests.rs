@@ -6,6 +6,49 @@ const ROWS: usize = 133_137;
 const GRANT: u64 = 16 << 20;
 const INPUT_ROWS: usize = 1024;
 
+// Opt-in test-harness attribution; ordinary CI does not read clocks per batch.
+struct FixtureTiming {
+    started: Option<std::time::Instant>,
+    input: Cell<std::time::Duration>,
+    expected: Cell<std::time::Duration>,
+    validation: Cell<std::time::Duration>,
+}
+
+impl FixtureTiming {
+    fn new() -> Self {
+        Self {
+            started: std::env::var_os("SHARDLOOM_CI_FIXTURE_TIMING")
+                .is_some()
+                .then(std::time::Instant::now),
+            input: Cell::default(),
+            expected: Cell::default(),
+            validation: Cell::default(),
+        }
+    }
+
+    fn measure<T>(&self, phase: &Cell<std::time::Duration>, operation: impl FnOnce() -> T) -> T {
+        let started = self.started.map(|_| std::time::Instant::now());
+        let result = operation();
+        if let Some(started) = started {
+            phase.set(phase.get() + started.elapsed());
+        }
+        result
+    }
+
+    fn report(&self, phase: &str, grouped: bool, succeeded: bool) {
+        if let Some(started) = self.started {
+            eprintln!(
+                "{}",
+                json!({"ci_fixture_timing": {"phase":phase,"grouped":grouped,"succeeded":succeeded,
+                "elapsed_seconds":started.elapsed().as_secs_f64(),
+                "input_callback_seconds":self.input.get().as_secs_f64(),
+                "expected_value_seconds":self.expected.get().as_secs_f64(),
+                "validation_callback_seconds":self.validation.get().as_secs_f64()}})
+            );
+        }
+    }
+}
+
 fn key(ordinal: usize) -> usize {
     ordinal * 17 % ROWS
 }
@@ -59,7 +102,9 @@ fn execute(
     prepared: &PreparedVortexRelational,
     grouped: bool,
     validate: bool,
+    phase: &str,
 ) -> Result<ExecutedVortexRelational> {
+    let timing = FixtureTiming::new();
     let mut cursor = 0;
     let ended = Cell::new(false);
     let mut prior: Option<Weak<MemoryLease>> = None;
@@ -73,7 +118,7 @@ fn execute(
             ended.set(true);
             return Ok(None);
         }
-        let batch = input(session, cursor)?;
+        let batch = timing.measure(&timing.input, || input(session, cursor))?;
         cursor = (cursor + INPUT_ROWS).min(ROWS);
         prior = Some(batch.batch_release_witness()?);
         Ok(Some(batch))
@@ -83,15 +128,17 @@ fn execute(
     let mut count = 0_u64;
     let mut min = i64::MAX;
     let mut max = i64::MIN;
-    for ordinal in 0..ROWS {
-        if let Some(value) = number(key(ordinal)) {
-            sum += f64::from(u32::try_from(value).unwrap());
-            count += 1;
-            min = min.min(value);
-            max = max.max(value);
+    timing.measure(&timing.expected, || {
+        for ordinal in 0..ROWS {
+            if let Some(value) = number(key(ordinal)) {
+                sum += f64::from(u32::try_from(value).unwrap());
+                count += 1;
+                min = min.min(value);
+                max = max.max(value);
+            }
         }
-    }
-    let result = prepared.with_batch_input(&mut producer)?.for_each_batch(&CancellationToken::default(),|array,context| {
+    });
+    let result = prepared.with_batch_input(&mut producer)?.for_each_batch(&CancellationToken::default(),|array,context| timing.measure(&timing.validation, || {
         assert!(ended.get());
         if validate {
             for row in values(&array,context)? {
@@ -107,7 +154,9 @@ fn execute(
             }
         }
         Ok(())
-    })?;
+    }));
+    timing.report(phase, grouped, result.is_ok());
+    let result = result?;
     assert_eq!(delivered, if grouped { ROWS } else { 1 });
     assert_eq!(cursor, ROWS);
     let input = result.input.as_ref().unwrap();
@@ -124,7 +173,7 @@ fn ordered_aggregate_pressure_large_groups_and_single_group_distinct_complete_wi
         let plan = plan(grouped);
         let denied = prepared(&plan, &fixture, false, GRANT);
         let baseline = denied.snapshot().memory.reserved_bytes;
-        let error = execute(&denied, grouped, false)
+        let error = execute(&denied, grouped, false, "denied")
             .err()
             .expect("constrained resident aggregate must deny");
         assert!(error.to_string().contains("reservation denied"), "{error}");
@@ -134,7 +183,7 @@ fn ordered_aggregate_pressure_large_groups_and_single_group_distinct_complete_wi
 
         let ample = prepared(&plan, &fixture, false, 256 << 20);
         let baseline = ample.snapshot().memory.reserved_bytes;
-        let result = execute(&ample, grouped, true).unwrap();
+        let result = execute(&ample, grouped, true, "ample").unwrap();
         assert_eq!(result.ordered_aggregate_stages, 0);
         assert!(result.spill.is_none());
         let input_bytes = result.input.as_ref().unwrap().input_logical_bytes;
@@ -145,7 +194,7 @@ fn ordered_aggregate_pressure_large_groups_and_single_group_distinct_complete_wi
 
         let spilled = prepared(&plan, &fixture, true, GRANT);
         let baseline = spilled.snapshot().memory.reserved_bytes;
-        let result = execute(&spilled, grouped, true).unwrap();
+        let result = execute(&spilled, grouped, true, "spilled").unwrap();
         let spill = result.spill.as_ref().unwrap();
         assert!(spill.runs_written > 3 && spill.merge_passes > 1);
         assert!(spill.owned_cleanup_completed);

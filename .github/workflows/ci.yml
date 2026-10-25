@@ -21,6 +21,9 @@ env:
 jobs:
   ci-work-shaping:
     name: CI work shaping plan
+    outputs:
+      selected_jobs: ${{ steps.execution.outputs.selected_jobs }}
+      full_validation: ${{ steps.execution.outputs.full_validation }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
@@ -37,10 +40,10 @@ jobs:
         run: |
           mkdir -p target
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" > target/ci-work-shaping-changed-files.txt
+            git diff --no-renames --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" > target/ci-work-shaping-changed-files.txt
             echo "SHARDLOOM_CI_WORK_SHAPING_MODE=pull_request" >> "$GITHUB_ENV"
           elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > target/ci-work-shaping-changed-files.txt
+            git diff --no-renames --name-only "${{ github.event.before }}" "${{ github.sha }}" > target/ci-work-shaping-changed-files.txt
             echo "SHARDLOOM_CI_WORK_SHAPING_MODE=merge" >> "$GITHUB_ENV"
           else
             git ls-files > target/ci-work-shaping-changed-files.txt
@@ -52,6 +55,15 @@ jobs:
             --mode "$SHARDLOOM_CI_WORK_SHAPING_MODE" \
             --changed-paths-file target/ci-work-shaping-changed-files.txt \
             --format json > target/ci-work-shaping-plan.json
+      - name: Apply conservative execution selection
+        id: execution
+        env:
+          CI_BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_REVISION: ${{ github.sha }}
+        run: |
+          python scripts/ci_execution_plan.py plan --plan target/ci-work-shaping-plan.json \
+            --base "$CI_BASE_REVISION" --revision "$CI_HEAD_REVISION" \
+            --mode "$SHARDLOOM_CI_WORK_SHAPING_MODE" --output target/ci-execution-plan.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
@@ -59,6 +71,7 @@ jobs:
           path: |
             target/ci-work-shaping-plan.json
             target/ci-work-shaping-changed-files.txt
+            target/ci-execution-plan.json
           if-no-files-found: ignore
           retention-days: 14
 
@@ -89,6 +102,7 @@ jobs:
   rust-feature-matrix:
     name: Rust feature matrix (${{ matrix.lane }})
     runs-on: ubuntu-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'rust-feature-matrix') }}
     strategy:
       fail-fast: false
       matrix:
@@ -109,66 +123,22 @@ jobs:
             command: cargo check -p shardloom-vortex --features vortex-encoded-read-spike
           - lane: release_user_surfaces
             command: cargo check -p shardloom-vortex --features release-user-surfaces
-          - lane: native_vortex_tests
+          - lane: native_vortex_observation
             command: |
-              cargo test -p shardloom-vortex --lib --features release-user-surfaces
-              cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation output_window_observation::tests
-              cargo test -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation credit_window::tests
-              cp Cargo.lock vendor/vortex-array/Cargo.lock
-              cargo test --manifest-path vendor/vortex-array/Cargo.toml \
-                --features _test-harness,table-display \
-                --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-array/Cargo.toml \
-                --features _test-harness,table-display --lib -- -D warnings
-              cp Cargo.lock vendor/vortex-fsst/Cargo.lock
-              cargo test --manifest-path vendor/vortex-fsst/Cargo.toml \
-                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features vortex-array/table-display \
-                --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-fsst/Cargo.toml \
-                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features vortex-array/table-display --lib -- -D warnings
-              cp Cargo.lock vendor/vortex-runend/Cargo.lock
-              cargo test --manifest-path vendor/vortex-runend/Cargo.toml \
-                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features vortex-array/table-display \
-                --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-runend/Cargo.toml \
-                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features vortex-array/table-display --lib -- -D warnings
-              cp Cargo.lock vendor/vortex-layout/Cargo.lock
-              cargo test --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib --tests -- -D warnings
-              cp Cargo.lock vendor/vortex-file/Cargo.lock
-              cargo test --manifest-path vendor/vortex-file/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' --features tokio,vortex-array/table-display --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-file/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --config 'patch.crates-io.vortex-io.path="vendor/vortex-io"' --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' --features tokio,vortex-array/table-display --lib --tests -- -D warnings
-              cp Cargo.lock vendor/vortex-io/Cargo.lock
-              cargo test --manifest-path vendor/vortex-io/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features object_store --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-io/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features object_store --lib --tests -- -D warnings
-              cp Cargo.lock vendor/vortex-buffer/Cargo.lock
-              cargo test --manifest-path vendor/vortex-buffer/Cargo.toml --all-features
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --locked --manifest-path vendor/vortex-buffer/Cargo.toml --all-features --all-targets -- -D warnings
-              cp Cargo.lock vendor/vortex-zstd/Cargo.lock
-              cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
-                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features vortex-array/table-display \
-                --lib -- --test-threads=2
-              CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-zstd/Cargo.toml \
-                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features vortex-array/table-display --lib -- -D warnings
+              cargo test --locked -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation output_window_observation::tests
+              cargo test --locked -p shardloom-vortex --lib --features release-user-surfaces,output-window-observation credit_window::tests
           - lane: synthetic_spill_resources
             command: |
               cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1
               cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1
               cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1
-          - lane: native_public_surface_tests
-            command: cargo test -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
           - lane: preparation_resource_profile
             command: cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write
           - lane: native_release_clippy
             command: cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
           - lane: packaging_deployment
             command: cargo test -p shardloom-contract-tests --test conda_packaging_recipes
+    needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
@@ -180,9 +150,173 @@ jobs:
       - name: Run feature lane
         run: ${{ matrix.command }}
 
+  native-test-build:
+    name: Build checked optimized native tests
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-test-build') }}
+    needs: [ci-work-shaping]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+        with:
+          key: native-test-ci-native-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+      - name: Build one native test executable and complete inventory
+        run: |
+          python scripts/ci_build_artifact.py build --product native-tests --directory "$RUNNER_TEMP/ci-native-tests"
+          python scripts/ci_native_tests.py prepare --bundle "$RUNNER_TEMP/ci-native-tests"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        with:
+          name: native-test-executable
+          path: ${{ runner.temp }}/ci-native-tests
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 14
+
+  native-test-partitions:
+    name: Native test partition (${{ matrix.partition }})
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-test-partitions') }}
+    needs: [ci-work-shaping, native-test-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-test-executable
+          path: target/ci-native-tests
+      - name: Execute assigned tests with original Rust harness
+        run: python scripts/ci_native_tests.py run --bundle target/ci-native-tests --partition ${{ matrix.partition }} --output target/ci-native-results/${{ matrix.partition }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-test-partition-${{ matrix.partition }}
+          path: target/ci-native-results/${{ matrix.partition }}
+          if-no-files-found: error
+          retention-days: 14
+
+  patched-provider-tests:
+    name: Patched Vortex providers (${{ matrix.group }})
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'patched-provider-tests') }}
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/providers
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [arrays, io, buffer]
+    needs: [ci-work-shaping]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target/providers
+          key: providers-${{ matrix.group }}-${{ hashFiles('.github/provider-locks/*.lock', 'vendor/*/Cargo.toml') }}
+      - name: Test and lint exact patched-provider configurations
+        run: python scripts/ci_provider_tests.py --group ${{ matrix.group }} --output target/provider-evidence/${{ matrix.group }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        if: always()
+        with:
+          name: provider-evidence-${{ matrix.group }}
+          path: target/provider-evidence/${{ matrix.group }}
+          if-no-files-found: error
+          retention-days: 14
+
+  native-tests:
+    name: Rust feature matrix (native_vortex_tests)
+    runs-on: ubuntu-24.04
+    if: ${{ always() && needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-tests') }}
+    needs: [ci-work-shaping, native-test-build, native-test-partitions, patched-provider-tests, rust-feature-matrix]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Reject failed or missing native producers
+        env:
+          NATIVE_NEEDS: ${{ toJSON(needs) }}
+        run: python -c 'import json,os; assert all(row["result"] == "success" for row in json.loads(os.environ["NATIVE_NEEDS"]).values())'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-test-executable
+          path: target/ci-native-tests
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          pattern: native-test-partition-*
+          path: target/ci-native-results
+      - name: Prove complete native test ownership and results
+        run: python scripts/ci_native_tests.py aggregate --bundle target/ci-native-tests --output target/ci-native-results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        with:
+          name: native-test-coverage
+          path: target/ci-native-results/coverage.json
+          if-no-files-found: error
+          retention-days: 14
+
+  native-cli-build-debug:
+    name: Rust feature matrix (native_public_surface_tests)
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-cli-build-debug') }}
+    needs: [ci-work-shaping]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+        with:
+          key: native-cli-debug-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+      - name: Preserve ordinary debug native public-surface tests
+        run: cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
+      - name: Build and seal exact CLI configuration
+        run: python scripts/ci_build_artifact.py build --product cli-debug --directory "$RUNNER_TEMP/ci-cli-debug"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        with:
+          name: native-cli-debug-linux
+          path: ${{ runner.temp }}/ci-cli-debug
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 14
+
+  native-cli-build-release:
+    name: Native release CLI build
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-cli-build-release') }}
+    needs: [ci-work-shaping]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+        with:
+          key: native-cli-release-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+      - name: Build and seal exact CLI configuration
+        run: python scripts/ci_build_artifact.py build --product cli-release --directory "$RUNNER_TEMP/ci-cli-release"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        with:
+          name: native-cli-release-linux
+          path: ${{ runner.temp }}/ci-cli-release
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 14
+
   rust-msrv:
     name: Rust MSRV validation
     runs-on: ubuntu-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'rust-msrv') }}
+    needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - name: Derive workspace version env
@@ -282,6 +416,7 @@ jobs:
   python-compatibility-matrix:
     name: Python compatibility (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-compatibility-matrix') }}
     strategy:
       fail-fast: false
       matrix:
@@ -304,6 +439,7 @@ jobs:
           - lane: py311_windows
             os: windows-latest
             python-version: "3.11"
+    needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
@@ -346,23 +482,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  python-native-wheel:
-    name: Native Python wheel (${{ matrix.lane }})
-    runs-on: ${{ matrix.os }}
+  native-package-build-linux:
+    name: Build native Python package (linux)
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-package-build-linux') }}
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - lane: py310_ubuntu
-            os: ubuntu-24.04
-            python-version: "3.10"
-          - lane: py313_ubuntu
-            os: ubuntu-24.04
-            python-version: "3.13"
-          - lane: py313_macos
-            os: macos-latest
-            python-version: "3.13"
+    needs: [ci-work-shaping, native-cli-build-release]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
@@ -370,85 +495,188 @@ jobs:
           toolchain: stable
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
-          key: native-python-${{ matrix.lane }}
-      - name: Reserve fresh native wheel directory outside the build cache
-        run: |
-          python - <<'PY'
-          import os, tempfile
-          root = tempfile.mkdtemp(prefix="native-python-", dir=os.environ["RUNNER_TEMP"])
-          with open(os.environ["GITHUB_ENV"], "a") as output:
-              output.write("SHARDLOOM_NATIVE_WHEEL_ROOT=" + root + "\n")
-          PY
+          key: native-package-linux-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Install pinned native wheel build tooling
+        run: python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-cli-release-linux
+          path: target/ci-cli-release
+      - name: Build ordinary wheel and separate observation extension
+        run: python scripts/ci_native_package.py build --output "$RUNNER_TEMP/native-package" --cli-bundle target/ci-cli-release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-package-linux
+          path: |
+            ${{ runner.temp }}/native-package/manifest.json
+            ${{ runner.temp }}/native-package/cli
+            ${{ runner.temp }}/native-package/extension
+            ${{ runner.temp }}/native-package/observation
+            ${{ runner.temp }}/native-package/wheel-build/report.json
+            ${{ runner.temp }}/native-package/wheel-build/dist/*.whl
+            ${{ runner.temp }}/native-package/wheel-build/*.log
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 14
+
+  native-package-build-macos:
+    name: Build native Python package (macos)
+    runs-on: macos-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-package-build-macos') }}
+    timeout-minutes: 60
+    needs: [ci-work-shaping]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+        with:
+          key: native-package-macos-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+      - name: Install pinned native wheel build tooling
+        run: python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
+      - name: Build ordinary wheel and separate observation extension
+        run: python scripts/ci_native_package.py build --output "$RUNNER_TEMP/native-package"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-package-macos
+          path: |
+            ${{ runner.temp }}/native-package/manifest.json
+            ${{ runner.temp }}/native-package/cli
+            ${{ runner.temp }}/native-package/extension
+            ${{ runner.temp }}/native-package/observation
+            ${{ runner.temp }}/native-package/wheel-build/report.json
+            ${{ runner.temp }}/native-package/wheel-build/dist/*.whl
+            ${{ runner.temp }}/native-package/wheel-build/*.log
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 14
+
+  python-native-wheel-linux:
+    name: Native Python wheel (${{ matrix.lane }})
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-native-wheel-linux') }}
+    timeout-minutes: 60
+    needs: [ci-work-shaping, native-package-build-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: py310_ubuntu
+            python-version: "3.10"
+          - lane: py313_ubuntu
+            python-version: "3.13"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
+        with:
+          python-version: "${{ matrix.python-version }}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-package-linux
+          path: ${{ runner.temp }}/native-package
+      - name: Install pinned native wheel proof tooling
         run: python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
       - name: Download pinned optional Arrow consumer
         run: |
-          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
+          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$RUNNER_TEMP/native-wheelhouse"
       - name: Native packaging integrity tests
         run: python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
       - name: Native dependency notice tests
         run: python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v
-      - name: Resolve Cargo artifact directory
-        run: |
-          python - <<'PY'
-          import json, os, subprocess
-          metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"]))
-          with open(os.environ["GITHUB_ENV"], "a") as output:
-              output.write("SHARDLOOM_NATIVE_CARGO_TARGET=" + metadata["target_directory"] + "\n")
-          PY
-      - name: Build bundled native CLI
-        run: cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
-      - name: Build optional native Python extension
-        run: python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release > "$SHARDLOOM_NATIVE_WHEEL_ROOT/build.json"
-      - name: Prove native wheel installation and complete binding tests
-        run: python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse" --audit-linux
-      - name: Build opt-in output-window diagnostics
-        env:
-          PYO3_BUILD_EXTENSION_MODULE: "1"
-        run: |
-          PYO3_PYTHON="$(command -v python)" cargo build --locked --release -p shardloom-python --features release-user-surfaces,output-window-observation --lib --message-format=json > "$SHARDLOOM_NATIVE_WHEEL_ROOT/output-window-build.jsonl"
-      - name: Verify actual queue acknowledgments and retained owners
-        run: |
-          "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof/venv/bin/python" -I - <<'PY'
-          import json, os, pathlib, sys, unittest
-          root = pathlib.Path.cwd()
-          output = pathlib.Path(os.environ["SHARDLOOM_NATIVE_WHEEL_ROOT"])
-          sys.path[:0] = [str(root / "scripts"), str(root / "python/src")]
-          from build_native_python import native_artifact, stage_library
-          messages = [json.loads(line) for line in (output / "output-window-build.jsonl").read_text().splitlines()]
-          artifacts = [row for row in messages if row.get("reason") == "compiler-artifact" and row.get("target", {}).get("name") == "_native"]
-          assert len(artifacts) == 1 and "output-window-observation" in artifacts[0]["features"]
-          library = stage_library(native_artifact(messages), output / "output-window-extension")
-          os.environ.update(SHARDLOOM_NATIVE_TEST_LIBRARY=str(library), SHARDLOOM_REQUIRE_NATIVE_PYTHON="1", SHARDLOOM_REQUIRE_OUTPUT_WINDOW_OBSERVATION="1")
-          suite = unittest.defaultTestLoader.discover(str(root / "python/tests"), pattern="test_native_output_window_observation.py")
-          expected = suite.countTestCases()
-          assert expected == 13
-          result = unittest.TextTestRunner(verbosity=2).run(suite)
-          passed = result.wasSuccessful() and result.testsRun == expected and not result.skipped
-          (output / "output-window-tests.json").write_text(json.dumps({"status": "passed" if passed else "failed", "tests": result.testsRun, "failures": len(result.failures), "errors": len(result.errors), "skipped": len(result.skipped)}, indent=2) + "\n")
-          raise SystemExit(0 if passed else 1)
-          PY
+      - name: Prove exact wheel installation, all bindings and observation feature
+        run: python scripts/ci_native_package.py test --package "$RUNNER_TEMP/native-package" --output "$RUNNER_TEMP/native-proof" --wheelhouse "$RUNNER_TEMP/native-wheelhouse"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: native-python-wheel-${{ matrix.lane }}
           path: |
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/build.json
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/report.json
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/*.log
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/dist/*.whl
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/output-window-build.jsonl
-            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/output-window-tests.json
+            ${{ runner.temp }}/native-proof/ci-package-proof.json
+            ${{ runner.temp }}/native-proof/proof/report.json
+            ${{ runner.temp }}/native-proof/proof/integration.json
+            ${{ runner.temp }}/native-proof/proof/*.log
+            ${{ runner.temp }}/native-proof/output-window-tests.json
+            ${{ runner.temp }}/native-proof/output-window-tests.log
+          if-no-files-found: error
+          retention-days: 14
+
+  python-native-wheel-macos:
+    name: Native Python wheel (py313_macos)
+    runs-on: macos-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-native-wheel-macos') }}
+    timeout-minutes: 60
+    needs: [ci-work-shaping, native-package-build-macos]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-package-macos
+          path: ${{ runner.temp }}/native-package
+      - name: Install pinned native wheel proof tooling
+        run: python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
+      - name: Download pinned optional Arrow consumer
+        run: |
+          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$RUNNER_TEMP/native-wheelhouse"
+      - name: Native packaging integrity tests
+        run: python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
+      - name: Native dependency notice tests
+        run: python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v
+      - name: Prove exact wheel installation, all bindings and observation feature
+        run: python scripts/ci_native_package.py test --package "$RUNNER_TEMP/native-package" --output "$RUNNER_TEMP/native-proof" --wheelhouse "$RUNNER_TEMP/native-wheelhouse"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-python-wheel-py313_macos
+          path: |
+            ${{ runner.temp }}/native-proof/ci-package-proof.json
+            ${{ runner.temp }}/native-proof/proof/report.json
+            ${{ runner.temp }}/native-proof/proof/integration.json
+            ${{ runner.temp }}/native-proof/proof/*.log
+            ${{ runner.temp }}/native-proof/output-window-tests.json
+            ${{ runner.temp }}/native-proof/output-window-tests.log
+          if-no-files-found: error
+          retention-days: 14
+
+  python-native-wheel:
+    name: Native Python wheel acceptance
+    runs-on: ubuntu-24.04
+    if: ${{ always() && needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-native-wheel') }}
+    needs: [ci-work-shaping, python-native-wheel-linux, python-native-wheel-macos]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - name: Require every platform and interpreter proof
+        env:
+          PACKAGE_NEEDS: ${{ toJSON(needs) }}
+        run: python -c 'import json,os; assert all(row["result"] == "success" for row in json.loads(os.environ["PACKAGE_NEEDS"]).values())'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          pattern: native-python-wheel-py*
+          path: target/native-package-results
+      - name: Verify platform coverage and identical Linux wheel reuse
+        run: python scripts/ci_native_package.py aggregate --reports target/native-package-results --output target/ci-native-package-coverage.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        with:
+          name: native-python-wheel-coverage
+          path: target/ci-native-package-coverage.json
           if-no-files-found: error
           retention-days: 14
 
   python-package:
     name: Python and package smoke
     runs-on: ubuntu-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-package') }}
+    needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
@@ -479,6 +707,8 @@ jobs:
   dependency-security:
     name: Dependency and security gates
     runs-on: ubuntu-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'dependency-security') }}
+    needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
@@ -516,6 +746,8 @@ jobs:
   release-runtime-core:
     name: Release runtime core evidence
     runs-on: ubuntu-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'release-runtime-core') }}
+    needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
@@ -549,7 +781,9 @@ jobs:
   release-package-governance:
     name: Release package and governance evidence
     runs-on: ubuntu-latest
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'release-package-governance') }}
     needs:
+      - ci-work-shaping
       - dependency-security
       - python-package
     steps:
@@ -594,12 +828,19 @@ jobs:
 
   release-user-surface:
     name: Release user-surface evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'release-user-surface') }}
     needs:
+      - ci-work-shaping
       - python-package
       - release-runtime-core
+      - native-cli-build-debug
+      - native-cli-build-release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.11"
@@ -621,10 +862,18 @@ jobs:
           test -f target/release-dry-run-proof/transcript.json
           test -f target/golden-workflow-report.json
           test -d target/golden-workflows
-      - name: Build debug user-surface example binary
-        run: cargo build -q -p shardloom-cli --features release-user-surfaces
-      - name: Build portable release user-surface example binary
-        run: cargo build --release -q -p shardloom-cli --features release-user-surfaces
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-cli-debug-linux
+          path: target/ci-cli-debug
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: native-cli-release-linux
+          path: target/ci-cli-release
+      - name: Verify and restore distinct debug and release products
+        run: |
+          python scripts/ci_build_artifact.py verify --product cli-debug --directory target/ci-cli-debug --restore target/debug/shardloom --replace-existing
+          python scripts/ci_build_artifact.py verify --product cli-release --directory target/ci-cli-release --restore target/release/shardloom --replace-existing
       - name: Python user-surface completion gate
         run: python scripts/check_python_user_surface_completion.py
       - name: SQL/Python/DataFrame parity gate
@@ -679,69 +928,111 @@ jobs:
     if: ${{ always() }}
     needs:
       - ci-work-shaping
-      - ci-gate-matrix
-      - dependency-security
+      - rust-baseline
+      - rust-feature-matrix
+      - native-test-build
+      - native-test-partitions
+      - patched-provider-tests
+      - native-tests
+      - native-cli-build-debug
+      - native-cli-build-release
+      - rust-msrv
+      - python-test-shards
       - python-tests
-      - python-package
+      - python-compatibility-matrix
+      - native-package-build-linux
+      - native-package-build-macos
+      - python-native-wheel-linux
+      - python-native-wheel-macos
       - python-native-wheel
+      - python-package
+      - dependency-security
       - release-runtime-core
       - release-package-governance
       - release-user-surface
       - website-docs
+      - ci-gate-matrix
     steps:
-      - name: Require native Python wheel acceptance
-        if: ${{ needs.python-native-wheel.result != 'success' }}
-        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
+      - name: Load authoritative execution plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
+        with:
+          name: ci-work-shaping-evidence
+          path: target/downloads/ci-execution-plan
+      - name: Require every selected job and deliberate omission
+        env:
+          CI_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: python scripts/ci_execution_plan.py summary --plan target/downloads/ci-execution-plan/ci-execution-plan.json --output target/ci-execution-summary.json
+      - name: Preserve execution summary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ci-execution-summary
+          path: |
+            target/ci-execution-summary.json
+            target/downloads/ci-execution-plan
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         with:
           python-version: "3.11"
       - name: Reuse CI gate matrix evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: ci-gate-matrix-report
           path: target/downloads/ci-gate-matrix-report
       - name: Reuse CI work shaping evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: ci-work-shaping-evidence
           path: target/downloads/ci-work-shaping-evidence
       - name: Reuse dependency/security evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: dependency-security-evidence
           path: target/downloads/dependency-security-evidence
       - name: Reuse local package smoke evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
       - name: Reuse Python test evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: python-test-evidence
           path: target/downloads/python-test-evidence
       - name: Reuse runtime core evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-runtime-core-evidence
           path: target/downloads/release-runtime-core-evidence
       - name: Reuse package/governance evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-package-governance-evidence
           path: target/downloads/release-package-governance-evidence
       - name: Reuse user-surface evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-user-surface-evidence
           path: target/downloads/release-user-surface-evidence
       - name: Reuse website/docs evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: website-docs-evidence
           path: target/downloads/website-docs-evidence
       - name: Merge downloaded release evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: |
           python scripts/merge_release_evidence_artifacts.py \
             --artifact target/downloads/ci-gate-matrix-report \
@@ -754,6 +1045,7 @@ jobs:
             --artifact target/downloads/release-user-surface-evidence \
             --artifact target/downloads/website-docs-evidence
       - name: Verify downloaded release evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: |
           test -f target/ci-gate-matrix-report.json
           test -f target/ci-work-shaping-plan.json
@@ -789,28 +1081,38 @@ jobs:
           test -f target/public-status-docs-report.json
           test -f target/website-readiness-report.json
       - name: Final release rehearsal
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/final_release_rehearsal.py --allow-blocked
       - name: Production usability gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_production_usability_gate.py
       - name: V1 API/schema stability gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_v1_api_schema_stability.py
       - name: V1 correctness/conformance gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_v1_correctness_conformance.py
       - name: V1 security/CI hardening gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_v1_security_ci_hardening.py
       - name: Verify v1 security/CI hardening evidence
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: test -f target/v1-security-ci-hardening-report.json
       - name: V1 release boundary firewall
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_v1_release_boundary.py
       - name: Production certification gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_production_certification_gate.py
       - name: Hard release readiness gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         continue-on-error: true
         run: python scripts/check_release_readiness.py
       - name: Finished product readiness gate
+        if: ${{ needs.ci-work-shaping.outputs.full_validation == 'true' }}
         run: python scripts/check_finished_product_readiness.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
-        if: always()
+        if: ${{ always() && needs.ci-work-shaping.outputs.full_validation == 'true' }}
         with:
           name: release-readiness-evidence
           path: |
@@ -914,6 +1216,8 @@ jobs:
           python-version: "3.11"
       - name: Validate CI gate matrix
         run: python scripts/check_ci_gate_matrix.py
+      - name: Check CI execution and artifact failure handling
+        run: python -B -m unittest discover -s scripts -p 'test_ci_*.py' -v
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:

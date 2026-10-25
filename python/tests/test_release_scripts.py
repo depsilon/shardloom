@@ -6237,47 +6237,30 @@ jobs:
                     rejected["blockers"],
                 )
 
-    def test_native_wheel_ci_attempts_do_not_reuse_cached_proofs(self) -> None:
+    def test_native_wheel_ci_consumers_prove_fresh_installations_outside_build_cache(self) -> None:
         module = self._load_script_module(
             "check_ci_gate_matrix.py", "check_ci_gate_matrix_native_paths_for_test"
         )
         workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         doc = (REPO_ROOT / "docs/release/ci-gate-matrix.md").read_text(encoding="utf-8")
-        lane = next(lane for lane in module.REQUIRED_LANES
-                    if lane.lane_id == "native_python_wheel")
-        accepted = module.lane_status(lane, workflow, doc)
-        self.assertEqual(accepted["status"], "passed", accepted["blockers"])
-        job = module.workflow_job_section(workflow, lane.job_id)
-        allocator = re.search(r"python - <<'PY'\n(.*?)\n\s*PY\n", job, re.DOTALL)
-        self.assertIsNotNone(allocator)
-        script = textwrap.dedent(allocator.group(1))
-
-        with tempfile.TemporaryDirectory(prefix="native wheel ci ") as directory:
-            root = Path(directory).resolve()
-            cached = root / "target/native-python-proof/report.json"
-            cached.parent.mkdir(parents=True)
-            cached.write_text("stale cached proof", encoding="utf-8")
-            temporary = root / "runner temporary"
-            temporary.mkdir()
-            attempts = []
-            for attempt in range(2):
-                env_file = root / f"environment-{attempt}"
-                subprocess.run(
-                    [sys.executable, "-c", script], cwd=root, check=True,
-                    env={**os.environ, "RUNNER_TEMP": str(temporary),
-                         "GITHUB_ENV": str(env_file)},
-                )
-                values = dict(line.split("=", 1)
-                              for line in env_file.read_text().splitlines())
-                output = Path(values["SHARDLOOM_NATIVE_WHEEL_ROOT"]).resolve()
-                self.assertEqual(output.parent, temporary)
-                self.assertNotIn(output, attempts)
-                self.assertFalse((output / "proof").exists())
-                (output / "proof").mkdir()
-                (output / "proof/report.json").write_text(str(attempt))
-                attempts.append(output)
-            self.assertEqual(cached.read_text(), "stale cached proof")
-            self.assertEqual((attempts[0] / "proof/report.json").read_text(), "0")
+        for lane_id in ("native_package_proof_linux", "native_package_proof_macos"):
+            with self.subTest(lane=lane_id):
+                lane = next(lane for lane in module.REQUIRED_LANES if lane.lane_id == lane_id)
+                accepted = module.lane_status(lane, workflow, doc)
+                self.assertEqual(accepted["status"], "passed", accepted["blockers"])
+                job = module.workflow_job_section(workflow, lane.job_id)
+                self.assertIn('scripts/ci_native_package.py test', job)
+                self.assertIn('--output "$RUNNER_TEMP/native-proof"', job)
+                self.assertIn('--wheelhouse "$RUNNER_TEMP/native-wheelhouse"', job)
+                self.assertIn('path: ${{ runner.temp }}/native-package', job)
+                self.assertNotIn('Swatinem/rust-cache', job)
+                self.assertNotIn('cargo build', job)
+                self.assertNotIn('target/native-python-proof', job)
+        # Consumers must fail instead of reusing an existing proof directory.
+        # Behavioral collision and stale-package cases live in test_ci_native_package.
+        helper = (REPO_ROOT / "scripts/ci_native_package.py").read_text()
+        self.assertIn('if output.exists() or output.is_symlink():', helper)
+        self.assertIn('native package proof output must be new', helper)
 
     def test_focused_check_runner_scopes_rust_filters_to_exact_targets(self) -> None:
         module = self._load_script_module(

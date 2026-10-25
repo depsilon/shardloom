@@ -215,7 +215,7 @@ fn replacement_reader_with_parquet_metadata_cannot_claim_transfer() {
 #[test]
 fn controlled_reader_cancellation_and_source_change_preserve_existing_output() {
     use std::io::Write as _;
-    for change_source in [false, true] {
+    for (change_source, prevalidate_change) in [(false, false), (true, false), (true, true)] {
         let fixture = Fixture::new(if change_source {
             "changed"
         } else {
@@ -241,10 +241,23 @@ fn controlled_reader_cancellation_and_source_change_preserve_existing_output() {
                 .unwrap()
                 .write_all(b"changed")
                 .unwrap();
+            if prevalidate_change {
+                assert!(source.source_identities[0].validate().is_err());
+                // Model a reader winning the detection race. All later owners
+                // must reject the already-invalidated generation as well.
+                assert!(
+                    source.source_identities[0]
+                        .validate()
+                        .unwrap_err()
+                        .to_string()
+                        .contains("prepared source generation invalidated")
+                );
+            }
         } else {
             cancellation.cancel();
         }
         let memory = LiveMemoryPool::new(32 << 20).unwrap();
+        let identity = Arc::downgrade(&source.source_identities[0]);
         let error = write_flat_columnar_vortex_prepared_state_streaming_controlled(
             VortexPreparedStateColumnarStreamWriteRequest::new(&output, source, resources(4))
                 .shared_native_memory_pool(memory.clone())
@@ -252,12 +265,28 @@ fn controlled_reader_cancellation_and_source_change_preserve_existing_output() {
             &cancellation,
         )
         .unwrap_err();
-        assert!(if change_source {
-            error.to_string().contains("changed")
+        let diagnostic = error.to_string();
+        if change_source {
+            assert!(matches!(error, ShardLoomError::InvalidOperation(_)));
+            assert!(diagnostic.contains("prepared source"), "{diagnostic}");
+            if prevalidate_change {
+                assert!(
+                    diagnostic.contains("generation invalidated"),
+                    "{diagnostic}"
+                );
+            } else {
+                assert!(
+                    diagnostic.contains("changed") || diagnostic.contains("generation invalidated"),
+                    "{diagnostic}"
+                );
+            }
+            assert!(diagnostic.contains("no fallback execution was attempted"));
         } else {
-            error.to_string().contains("cancel")
-        });
+            assert!(diagnostic.contains("cancel"), "{diagnostic}");
+        }
         assert_eq!(fs::read(output).unwrap(), b"existing complete output");
         assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert!(identity.upgrade().is_none());
+        assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 2);
     }
 }

@@ -251,6 +251,26 @@ the ledger.
 
 Current autonomous execution order:
 
+**October 25 priority override:** complete PR #1605 with the
+[CI performance and coverage-preservation batch](../release/ci-performance-2026-10-25.md)
+before resuming engine optimization below. After its final native check exposed
+a source-generation test assertion race, the maintainer explicitly authorized
+folding the CI revision and regression correction into #1605 and rerunning it.
+This supersedes the earlier freeze/separate-PR instruction. It extends existing
+release/CI work under RFC 0024 without changing the CG-1 through CG-23 gates.
+
+- [ ] Complete the CI performance batch in PR #1605.
+  - Execution checklist:
+    - [x] Evaluate optimized native tests with debug assertions and overflow checks.
+    - [x] Verify complete duration-balanced test partitions and independent provider validation.
+    - [x] Reuse identical CLI and wheel artifacts with configuration identities.
+    - [x] Make provider dependency resolution and cache scopes reproducible.
+    - [x] Activate conservative job selection and an always-running result summary.
+    - [ ] Measure total required-PR completion and runner consumption, review coverage and record acceptance.
+  - ShardLoom technique review: existing metadata-first CI work shaping and capillary
+    change families select validation; configuration-bound evidence reuse avoids
+    duplicate builds. No engine/runtime optimization or benchmark rerun is implied.
+
 The October 18 [public documentation and API consolidation](public-documentation-api-acceptance-2026-10-18.md)
 is implemented and locally validated under PERF-10/07/11/12 with PERF-03 resource
 admission preserved. Its API is included in the published v0.7.0 packages.
