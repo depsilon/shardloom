@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "retired_files": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/baseline-runtime/shardloom-join-count-release",
+      "sha256": "49e60bea5cc2a12f0bc4cae4fa0123c9f0e5db68b08f8570518a46ccb9427cea",
+      "bytes": 99084144,
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/baseline-runtime/shardloom-join-count-observe",
+      "sha256": "a4ec9c65e7286c40a4d2a951a945b8dde33db38e4f23548f875d03077860c980",
+      "bytes": 135863280,
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/candidate-runtime-r1/shardloom-join-count-release",
+      "sha256": "5dac8ca17fecaea1dea8551d75b91b94e53860f1e788143fcb8427679eeb4734",
+      "bytes": 99197104,
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/candidate-runtime-r1/shardloom-join-count-observe",
+      "sha256": "06dfdde19a4dd629545adbce66267adf3553e093b22482042a6edabd49428733",
+      "bytes": 136024480,
+      "open_handles": false
+    }
+  ],
+  "retired_bytes": 470169008,
+  "basis": "completed finite comparison; compact packet independently replays full inputs, results, failures, clocks and source overlays",
+  "packet_sha256": "ad59a8981259214a9c7324f25748a947dc150b86b221f8d83864ae7d1fa3e6c0",
+  "accepted_runtime_preserved": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/combined-runtime-r1",
+  "compiler_cache_retained_for_active_work": true,
+  "backups_created": false
+}

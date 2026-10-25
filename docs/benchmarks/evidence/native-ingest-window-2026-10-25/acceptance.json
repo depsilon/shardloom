@@ -1,0 +1,93 @@
+{
+  "status": "passed",
+  "scope": "one isolated latest-main baseline observation;not_a_speedup_claim",
+  "engine_seconds": 49.303,
+  "engine_clock_fields": [
+    "prepare_once_millis",
+    "prepared_olap_publication_millis"
+  ],
+  "engine_clock_scope": "sum_of_sequential_native_preparation_and_prepared_artifact_publication;excludes_process_startup_report_serialization_and_external_UAT_checks",
+  "engine_clock_precision": "each_existing_span_is_truncated_to_integer_milliseconds",
+  "previous_same_clock_seconds": 49.781,
+  "change_fraction": -0.009602057009702514,
+  "rows": 99997497,
+  "columns": 112,
+  "batches": 3120,
+  "output": {
+    "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/outputs/current-main-r1/hits.vortex",
+    "bytes": 15715228660,
+    "sha256": "95a393d153a8c2e1ffeb5084b2656ac61465c6ef9dad435d032365844f1ac057",
+    "generation": [
+      16777233,
+      129425061,
+      15715228660,
+      1792957865678301341,
+      1792957865682470401
+    ]
+  },
+  "byte_identical_to_independently_validated_accepted_artifact": true,
+  "accepted_reference_artifact": {
+    "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/outputs/candidate-screen-r1/hits.vortex",
+    "bytes": 15715228660,
+    "sha256": "95a393d153a8c2e1ffeb5084b2656ac61465c6ef9dad435d032365844f1ac057",
+    "generation": [
+      16777233,
+      127766127,
+      15715228660,
+      1792921883239515944,
+      1792921883240006403
+    ]
+  },
+  "input": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "bytes": 14779976446,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "generation": [
+      16777233,
+      84833233,
+      14779976446,
+      1788461344802364826,
+      1788612069108841600
+    ]
+  },
+  "peak_reserved_bytes": 6525414393,
+  "denied_reservations": 0,
+  "process_cleanup_verified": true,
+  "engine_code": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-cli/src/sql_local_source_runtime.rs",
+    "bytes": 411886,
+    "sha256": "fcb8906c517f6c693fd69b06fbe33ff5ce750270fdeed4e9e673a9537ed0c2f7"
+  },
+  "prior_correctness_packet_manifest": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-ingest-ownership-2026-10-25/manifest.json",
+    "bytes": 314707,
+    "sha256": "e9d940b3c098f8194c1bfb10628b5adf41181336b693498f657cb3b282c7092c"
+  },
+  "members": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/current-main-r1.driver.json",
+      "bytes": 5433,
+      "sha256": "91aa89cab56f8fd790843cc48f77ef9542c1d3714d2bbc138b4d38a0962bfd82"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/current-main-build-r1.json",
+      "bytes": 534492,
+      "sha256": "0ba6a4c0f692b12d482a7edea3d18e2dbec329f801fb11a7905f8842e67e2bc8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/logs/ingest_cli_uat_gated_20261025T195023Z/prepare_summary.json",
+      "bytes": 1848,
+      "sha256": "362acf07d5c5c84c03e2327029ef93b2529563cd41185a787eaaa0d3691f08e3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/logs/ingest_cli_uat_gated_20261025T195023Z/stdout.json",
+      "bytes": 195931,
+      "sha256": "b1bdde20ec9d28bdbf5f57806ed5a66924328969939889f6994c338b2eae3f09"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025/verify_current_ingest_r1.py",
+      "bytes": 6281,
+      "sha256": "c9909adbd6fb303fb82d2b123cb8407d36b775ddf8cf51df00144ef89169d87c"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "ignored": 32,
+  "partitions": 4,
+  "passed": 3295,
+  "schema_version": "shardloom.ci_native_coverage.v1",
+  "status": "passed",
+  "summed_partition_seconds": 846.360233923,
+  "tests": 3327
+}

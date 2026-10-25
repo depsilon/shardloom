@@ -2,7 +2,8 @@
 
 # Reduce full-ingest preparation and ownership-transfer work
 
-Status: active October 25 after naming PR #1604 merges at `3239ade0`.
+Status: accepted and merged October 25 in PR #1605 at
+`167ac248ba662ae7967a7801995e9b160b17bae5`.
 This work follows
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
@@ -25,8 +26,8 @@ implementation passes 23 focused ownership, actual-reader and timing tests,
 and strict workspace/native lint pass; 32 existing opt-in native tests remain
 ignored. The complete-ingest screen fails its frozen speed gate; the maintainer
 retains the 61.2% copying reduction explicitly. Complete value/layout checks and
-one isolated subsequent Full43 pass. Final combined dependency/package/CI
-integration remains active. The grouped-preparation campaign
+one isolated subsequent Full43 pass. Combined dependency/package validation and
+the final 57-check CI acceptance are complete. The grouped-preparation campaign
 from closed #1595 is included in merged #1596.
 The existing RFC 0044 resource contract and PERF-02/03/06/09 owners apply;
 CG-1 through CG-23 remain independent gates.
@@ -163,8 +164,9 @@ now binds the retained ownership implementation and reviewed dependency updates:
 9,364 passing default/native test executions, 140 installed-wheel tests without
 skips, and a final isolated Full43 of 46.973255495 engine seconds. The original
 ingestion speed gate remains failed. The portable packet preserves complete
-readback, earlier failures and both source/build identities; integration of
-PR #1605 is separate from local acceptance.
+readback, earlier failures and both source/build identities. The separate
+[remote acceptance](../release/ci-performance-2026-10-25.md#completed-remote-acceptance)
+records #1605's reviewed merge and all 57 passing checks.
 
 Use an opaque ingest source that privately retains the actual ShardLoom-opened
 Parquet reader and its ownership policy. The existing public flat source has a

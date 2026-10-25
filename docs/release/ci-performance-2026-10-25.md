@@ -1,6 +1,7 @@
 # CI performance and coverage preservation
 
-Status: locally validated; full remote coverage and CI comparison pending.
+Status: accepted and merged in PR #1605 on October 25 at
+`167ac248ba662ae7967a7801995e9b160b17bae5`.
 
 The October 25 maintainer instruction places this CI change before further
 engine optimization. After #1605's final native check exposed a regression-test
@@ -84,8 +85,8 @@ Initial local macOS/arm64 evidence with Rust 1.99.0:
 
 The local suite contains the additions already present in #1605. Local build and
 partition observations are not a cross-host speedup comparison against the
-GitHub baseline. Remote full-run completion, platform coverage and consumption
-remain acceptance work. Native partitions each use one libtest thread; the old
+GitHub baseline. The completed remote acceptance is recorded below.
+Native partitions each use one libtest thread; the old
 native job used the harness default. This scheduling change is recorded
 separately from profile optimization.
 
@@ -127,9 +128,50 @@ final summary depends on exactly the other 25 jobs.
 Local ordinary debug checks omit debug symbols for storage, retaining assertions
 and checked arithmetic. The `ci-native` executable independently verifies its
 explicit debug level 1 and optimization level 2 from Cargo compiler metadata.
-The new GitHub run must establish Linux artifact transfer, identical-wheel proof
-across both Python interpreters, remaining platform coverage and total CI cost.
-These CI/test changes do not require another Full43 engine observation.
+The completed GitHub run establishes Linux artifact transfer, identical-wheel
+proof across both Python interpreters, remaining platform coverage and total CI
+cost. These CI/test changes do not require another Full43 engine observation.
+
+## Completed remote acceptance
+
+The [CI run](https://github.com/depsilon/shardloom/actions/runs/40198905498)
+and [CodeQL run](https://github.com/depsilon/shardloom/actions/runs/40198905526)
+pass at head `c9affef41210aa7dcc913cc18c6db6678978127b`, without retries.
+All 57 checks succeed. The final summary selects all 26 job groups, omits none,
+and verifies all 25 preceding job outcomes. Matrix expansion and aggregation
+increase the check count without repeating the complete native suite.
+
+| Complete observation | Successful #1604 baseline | Accepted #1605 revision |
+| --- | ---: | ---: |
+| All checks complete after workflow creation | 6,918 seconds (1h 55m 18s) | 2,425 seconds (40m 25s) |
+| Actual CI/CodeQL runner jobs | 42 | 55 |
+| Summed runner execution | 19,709 seconds | 14,536 seconds |
+
+Observed elapsed completion is 64.9% shorter and runner execution is 26.2%
+lower. These are two completed runs, including builds, artifact transfer and
+verification. They are not repeated statistical evidence, weighted billing or
+an isolated causal measurement of profile optimization. The native-test, debug
+CLI and release CLI producers report cold caches. Preserve the failed earlier
+#1605 run separately.
+
+Remote native coverage verifies all 3,327 names exactly once: 3,295 pass and
+the original 32 remain ignored. Linux Python 3.10 and 3.13 consume the identical
+wheel SHA-256 `125c63c85221cd5f975fb7f9690a5386cb0110e01253b32630f3a98ed6a304d9`;
+each passes 140 binding and 13 observation tests without skips. macOS verifies
+the same test counts against its separate arm64 products. Windows, ordinary
+debug checks and all provider configurations also pass. The automated review
+reports no findings at the reviewed head, and #1605 merges without a source
+revision after acceptance.
+
+The [remote evidence packet](evidence/ci-performance-2026-10-25/manifest.json)
+retains the successful baseline, complete final job/check snapshot, computed
+comparison and coverage artifacts. The provider artifacts identify GitHub's
+synthetic merge checkout `edb791cb05eb16f107643314c1cd96a5e9fb9e08`, distinct
+from the PR head. The packet also retains the guarded local retirement result:
+temporary binaries, package environments and completed compiler outputs are
+removed after closed-handle and generation checks; current inputs, accepted
+runtime/wheel and compact results remain. No engine-performance or publication
+claim follows.
 
 ## Fixture-cost attribution
 

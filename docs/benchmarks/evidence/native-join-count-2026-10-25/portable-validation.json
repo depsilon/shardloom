@@ -1,0 +1,242 @@
+{
+  "status": "passed",
+  "engine_executions": 0,
+  "packet_sha256": "ad59a8981259214a9c7324f25748a947dc150b86b221f8d83864ae7d1fa3e6c0",
+  "verifier_sha256": "d6d649f58347441e25a8a86e54a159b449ad670910219900b513ca030fac303f",
+  "validator_sha256": "965e6b4d94c9633b388ec50eb594f1546be2cfcf8be27fe05014b6e849f596e3",
+  "checks": [
+    {
+      "name": "isolated_copy_with_original_reads_denied",
+      "outcome": "passed"
+    },
+    {
+      "name": "missing_archived_member",
+      "outcome": "rejected",
+      "diagnostic": "frozen packet member coverage"
+    },
+    {
+      "name": "archive_traversal_name",
+      "outcome": "rejected",
+      "diagnostic": "invalid or duplicate file identity"
+    },
+    {
+      "name": "corrupt_archive",
+      "outcome": "rejected",
+      "diagnostic": "archive SHA256"
+    },
+    {
+      "name": "missing_measurement",
+      "outcome": "rejected",
+      "diagnostic": "complete fixed schedule"
+    },
+    {
+      "name": "changed_second_cohort_time",
+      "outcome": "rejected",
+      "diagnostic": "recomputed timing medians"
+    },
+    {
+      "name": "wrong_complete_value",
+      "outcome": "rejected",
+      "diagnostic": "independent complete values"
+    },
+    {
+      "name": "wrong_schema",
+      "outcome": "rejected",
+      "diagnostic": "authoritative output schema"
+    },
+    {
+      "name": "wrong_literal_input",
+      "outcome": "rejected",
+      "diagnostic": "frozen numeric inputs"
+    },
+    {
+      "name": "materialized_pairs",
+      "outcome": "rejected",
+      "diagnostic": "constructed pair count"
+    },
+    {
+      "name": "wrong_key_retention",
+      "outcome": "rejected",
+      "diagnostic": "retained build rows"
+    },
+    {
+      "name": "incomplete_build",
+      "outcome": "rejected",
+      "diagnostic": "observed counted state"
+    },
+    {
+      "name": "wrong_multiplicity",
+      "outcome": "rejected",
+      "diagnostic": "observed counted state"
+    },
+    {
+      "name": "remaining_owner",
+      "outcome": "rejected",
+      "diagnostic": "record cleanup"
+    },
+    {
+      "name": "oversized_memory",
+      "outcome": "rejected",
+      "diagnostic": "native reservation grant"
+    },
+    {
+      "name": "external_fallback",
+      "outcome": "rejected",
+      "diagnostic": "no-fallback certificate"
+    },
+    {
+      "name": "extra_workers",
+      "outcome": "rejected",
+      "diagnostic": "reported runtime: admitted_max_parallelism"
+    },
+    {
+      "name": "instrumented_release_record",
+      "outcome": "rejected",
+      "diagnostic": "instrumentation isolation"
+    },
+    {
+      "name": "false_public_counter",
+      "outcome": "rejected",
+      "diagnostic": "certificate unique key count"
+    }
+  ],
+  "portable_result": {
+    "status": "passed",
+    "scope": "mechanism_comparison_only",
+    "release_calls": 84,
+    "observation_calls": 14,
+    "native_tests_passed": 3312,
+    "native_tests_ignored": 33,
+    "timing_gate_passed": true,
+    "package_acceptance_complete": false,
+    "engine_comparisons": [
+      {
+        "case": "duplicate_numeric",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 91584543,
+          "candidate": 1479416
+        },
+        "passed": true
+      },
+      {
+        "case": "composite_text",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 43243376,
+          "candidate": 1183208
+        },
+        "passed": true
+      },
+      {
+        "case": "skew",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 53092291,
+          "candidate": 289958
+        },
+        "passed": true
+      },
+      {
+        "case": "unique_match",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 3677209,
+          "candidate": 2647168
+        },
+        "passed": true
+      },
+      {
+        "case": "unique_no_match",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 1671250,
+          "candidate": 1688540
+        },
+        "passed": true
+      },
+      {
+        "case": "tiny",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 141458,
+          "candidate": 130958
+        },
+        "passed": true
+      },
+      {
+        "case": "ineligible_count_column",
+        "cohort": 1,
+        "engine_medians_ns": {
+          "baseline": 1104541,
+          "candidate": 1111417
+        },
+        "passed": true
+      },
+      {
+        "case": "duplicate_numeric",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 90817042,
+          "candidate": 1170750
+        },
+        "passed": true
+      },
+      {
+        "case": "composite_text",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 42983417,
+          "candidate": 1188833
+        },
+        "passed": true
+      },
+      {
+        "case": "skew",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 52727540,
+          "candidate": 285333
+        },
+        "passed": true
+      },
+      {
+        "case": "unique_match",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 3697208,
+          "candidate": 2687334
+        },
+        "passed": true
+      },
+      {
+        "case": "unique_no_match",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 1671292,
+          "candidate": 1692125
+        },
+        "passed": true
+      },
+      {
+        "case": "tiny",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 146958,
+          "candidate": 130167
+        },
+        "passed": true
+      },
+      {
+        "case": "ineligible_count_column",
+        "cohort": 2,
+        "engine_medians_ns": {
+          "baseline": 1113999,
+          "candidate": 1106625
+        },
+        "passed": true
+      }
+    ]
+  },
+  "temporary_fixture_payloads_retired": true
+}

@@ -1,0 +1,90 @@
+{
+  "schema_version": "shardloom.ingest_window_baseline_packet.v1",
+  "status": "verified_byte_for_byte_compaction",
+  "decision": "no_item16_runtime_change;maintainer_advances_1.0.0_train",
+  "archive": {
+    "path": "packet.tar.xz",
+    "bytes": 152208,
+    "sha256": "fe2b2ae0ca552ddf7031194b3d0168633fe62af7a040e6c69f5c75bd56002046"
+  },
+  "files": [
+    {
+      "path": "current-main-build-r1.json",
+      "bytes": 534492,
+      "sha256": "0ba6a4c0f692b12d482a7edea3d18e2dbec329f801fb11a7905f8842e67e2bc8"
+    },
+    {
+      "path": "current-main-r1-acceptance.json",
+      "bytes": 3684,
+      "sha256": "5847a9e761596f706d2838faa0382f3dc9ce5a23a954cdbc4361cf52724aca87"
+    },
+    {
+      "path": "current-main-r1.driver.json",
+      "bytes": 5433,
+      "sha256": "91aa89cab56f8fd790843cc48f77ef9542c1d3714d2bbc138b4d38a0962bfd82"
+    },
+    {
+      "path": "current-main-r1.driver.log",
+      "bytes": 2320,
+      "sha256": "c310fabb528647a7c31bbcc713205343371086d34b34fd38a05e1ace7b9d0111"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/native.pid",
+      "bytes": 5,
+      "sha256": "caf31b33995500bcb04e9f8d47173b648f4be01dfa0d8ab09d909aaecf6c31e7"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/native_timing.json",
+      "bytes": 619,
+      "sha256": "2e6b0ec357072b9a9f2bc715cbb7d04ca6b9be2dfdc67267d43b628d9f3298ad"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/prepare.cmd.txt",
+      "bytes": 386,
+      "sha256": "9a7fbc9267a130e27d6e91f198a6805a8d1c0d16efdb275d3a2a5c00c7b3ee8d"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/prepare_summary.json",
+      "bytes": 1848,
+      "sha256": "362acf07d5c5c84c03e2327029ef93b2529563cd41185a787eaaa0d3691f08e3"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/progress.jsonl",
+      "bytes": 245,
+      "sha256": "53c7091aa835f6fb56d3c5565d3f52fdbe67e8739226293ca4dfa17141e49ced"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/stdout.json",
+      "bytes": 195931,
+      "sha256": "b1bdde20ec9d28bdbf5f57806ed5a66924328969939889f6994c338b2eae3f09"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/storage.json",
+      "bytes": 224,
+      "sha256": "c7368a6648d5c8e61b540f2d77bb8228dc84736a93924a1207f64f10bd4ef371"
+    },
+    {
+      "path": "logs/ingest_cli_uat_gated_20261025T195023Z/storage_error.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "run_current_ingest_r1.py",
+      "bytes": 9435,
+      "sha256": "29db1c49ebea8d3e575bfb69eb00ab0dd8f8fac229be2a78eef229d0fe35571d"
+    },
+    {
+      "path": "verify_current_ingest_r1.py",
+      "bytes": 6281,
+      "sha256": "c9909adbd6fb303fb82d2b123cb8407d36b775ddf8cf51df00144ef89169d87c"
+    }
+  ],
+  "source_root": "/Users/dylan/LocalData/shardloom/ingest-representation-20261025",
+  "independent_readback_bridge": "byte_identical_to_accepted_ingest_ownership_artifact",
+  "new_value_by_value_readback": false
+}

@@ -2,12 +2,13 @@
 
 # Consolidated dependency follow-up after provider refresh
 
-Status: applied and locally accepted in combined PR #1605; GitHub integration pending.
+Status: accepted and merged in combined PR #1605 at
+`167ac248ba662ae7967a7801995e9b160b17bae5` after all 57 checks passed.
 The maintainer requests that all category and
 dependency PRs be merged or closed, with needed dependency work retained in the
 active queue. Provider PR #1601 is merged. The four new bot PRs below are closed
 and consolidated here. Public naming PR #1604 is now merged; full-ingest
-ownership/preparation is the active implementation item. The October 25
+ownership/preparation is accepted in the same merge. The October 25
 maintainer first places this maintenance immediately after ingestion, then
 explicitly combines both in PR #1605. Complete the combined validation and merge
 before [complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md),
@@ -92,8 +93,9 @@ Execution checklist:
   action changes, then update all accepted pins in one coherent batch.
 - [x] Run formatting, strict workspace lint/tests, native provider and MSRV
   checks, installed-package proof and affected workflow validation.
-- [ ] Merge the combined PR #1605 after checks and review; move its
-  outcome to the completed ledger. Recheck for additional bot PRs at closeout.
+- [x] Merge the combined PR #1605 after checks and review; record its outcome
+  in the completed ledger. The [CI acceptance](../release/ci-performance-2026-10-25.md#completed-remote-acceptance)
+  binds the final 57 passing checks and unchanged reviewed head.
 
 Arrow 60 stays blocked outside the executable checklist until the coherent
 provider/format/Python prerequisite is satisfied. The next outcome is a

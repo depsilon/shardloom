@@ -2,7 +2,18 @@
 
 # Ingest representation reuse, batch geometry and shared CPU scheduling
 
-Status: requested October 25, queued after consolidated dependency maintenance
+Status: item 16 closed without a runtime change on October 25. After current-main
+ingestion and source review, the maintainer requests proceeding through the
+version bump train if no worthwhile new change is established. No new candidate
+has passed a benefit gate. The [decision](../benchmarks/native-ingest-window-decision-2026-10-25.md)
+preserves the 49.303-second ingestion observation, the unchanged runtime's
+47.889862794-second Full43 and the limits of this investigation. Existing
+representation and scheduling policies remain. The **1.0.0 version train is
+active**, followed by connected programming and universal I/O. The remaining
+handoff below records the original investigation scope, not unfinished release
+requirements or an exhaustive optimality claim.
+
+Originally requested after consolidated dependency maintenance
 and before connected programming. The maintainer subsequently combines
 ownership/preparation and dependency maintenance in PR #1605, then inserts
 [complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md)
@@ -163,6 +174,12 @@ query. A retained coherent change receives one isolated standard Full43 pass;
 routine query reports use engine time only.
 
 The outcome may be a justified implementation or a finite negative decision.
+The maintainer explicitly requires a speed check toward the end so the whole
+item can be dropped if it fails: retain the frozen before/after complete-ingest
+benefit/control evidence, then run one isolated Full43 on the proposed final
+runtime and compare the same engine clock with the accepted baseline. Preserve
+all observations and report before/after values and percentage differences.
+Proceed to the 1.0.0 version bump after either decision.
 Keep the controls internal: users specify resources, and the engine admits and
 schedules work. Native Vortex, explicit side effects, safe ownership and no
 external query-engine fallback remain mandatory.

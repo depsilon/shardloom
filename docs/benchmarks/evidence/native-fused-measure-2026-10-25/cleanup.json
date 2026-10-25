@@ -1,0 +1,139 @@
+{
+  "status": "passed",
+  "retired_files": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-baseline-runtime-r1/shardloom-fused-measure-release",
+      "sha256": "869922408b7a328e52f72826e82c5c95bc627f14cb0eeb26d04724ee8dfbcdf0",
+      "bytes": 99268160,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-baseline-runtime-r1/shardloom-fused-measure-observe",
+      "sha256": "2112e0fb437af29d58d59eb1515807cb340df1ad08e42ba00979f070bf074fd7",
+      "bytes": 136525296,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-candidate-runtime-r1/shardloom-fused-measure-release",
+      "sha256": "075b72c5243dfbd1be2c8bcc491fc8ee517b4fa95906592bb4c6b9d2b47be17c",
+      "bytes": 99378640,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-candidate-runtime-r1/shardloom-fused-measure-observe",
+      "sha256": "3299090c8867ef80aaefec129171e053a929a220d3df8f47c71b927c9ebf221e",
+      "bytes": 136652784,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-baseline-runtime-r2/shardloom-fused-measure-release",
+      "sha256": "4c02c828cbf6da65a0de1a947900ec9c65d40b9c4da5831f1582b0781ff9c9e7",
+      "bytes": 99287632,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-baseline-runtime-r2/shardloom-fused-measure-observe",
+      "sha256": "3a122c247cd72a99f535d32cb0d5444a4a554fd33e0d95df8c5133cac2646aec",
+      "bytes": 136506720,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-candidate-runtime-r2/shardloom-fused-measure-observe",
+      "sha256": "3f01de4cd481738c0fe626f56c7225cd9f5dfa048c72b5a20bfc5ba9badbaaca",
+      "bytes": 136448304,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-candidate-runtime-r3/shardloom-fused-measure-release",
+      "sha256": "27923ab8a0ffa1ca301c6cfb5e435c9908c536935ebaf1d8b4a44cb708535850",
+      "bytes": 99398784,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-candidate-runtime-r3/shardloom-fused-measure-observe",
+      "sha256": "29149768aea1399d91415700161fa569297d0db0103aedf64fbf555a6131eacb",
+      "bytes": 136583424,
+      "kind": "comparison_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-json-repro-r1",
+      "sha256": "39c9efbaf6b4f11ef73cb9215dddc7b1b08781ad9a579f161b06c79be429c313",
+      "bytes": 722120,
+      "kind": "diagnostic_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-encoding-repro-r1",
+      "sha256": "593f6407c6028340a1eaa418223118dd73991c19d1bdca79df6ddcc58a88ccf6",
+      "bytes": 64842624,
+      "kind": "diagnostic_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-encoding-repro-r2",
+      "sha256": "ca69e51a1ed4840aa23fb5ff9fb119cff21011a985b8926a07fbe4fd5e026fb6",
+      "bytes": 64893488,
+      "kind": "diagnostic_executable",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-inputs-r1/dictionary_dense.vortex",
+      "sha256": "176b4dda1b2079f57d3274d5ae2edbb20974d6066b736409a21ebf2150a504f2",
+      "bytes": 4238592,
+      "kind": "finite_native_fixture",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-inputs-r1/dictionary_skew.vortex",
+      "sha256": "807b1762cf2ae6ae42a36239ca6c8ab423298ebb6cf2db30062f01457a3e00c5",
+      "bytes": 4238592,
+      "kind": "finite_native_fixture",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-inputs-r1/dictionary_sparse.vortex",
+      "sha256": "52e82682685d8ab9aa4cf7501f38bfdc20f843a377a7b79cd656d22cf7e12910",
+      "bytes": 4238592,
+      "kind": "finite_native_fixture",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-inputs-r1/ineligible_i64.vortex",
+      "sha256": "ea50b106e6129c974ea6eca8ca35a8cc9811c4d5c9ee2ee8815858c64ea1d4b6",
+      "bytes": 1322952,
+      "kind": "finite_native_fixture",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-inputs-r1/plain_high_cardinality.vortex",
+      "sha256": "62c2888f29c946d9bf5527a0bf286ce2aa3505362160f463ee6d4c8e3a4d5f12",
+      "bytes": 2882420,
+      "kind": "finite_native_fixture",
+      "open_handles": false
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/workflow-work-elimination-20261025/fused-measure-inputs-r1/tiny.vortex",
+      "sha256": "567b3f0dd3fa7cae3731a9515260cbf67dbcf2ced0ae79f6b3ff33b9aeda68ab",
+      "bytes": 2592,
+      "kind": "finite_native_fixture",
+      "open_handles": false
+    }
+  ],
+  "packet_sha256": "019822c727f37fbeb5de2f765cf12a024988f4dd9c8cd3c6d5fa96766b5a30f7",
+  "driver_sha256": "55efc525c5f786d73e2db9127ca9d87cbfea18ed07bb2b1fca700f77f1b19d1d",
+  "basis": "completed finite comparison; independently replayed packet retains complete values, failures, clocks, native input witnesses, source overlays and regeneration harness",
+  "accepted_runtime_preserved": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/combined-runtime-r1",
+  "compiler_cache_retained_for_active_work": true,
+  "accepted_benchmark_source_inputs_preserved": true,
+  "backups_created": false,
+  "retired_bytes": 1227431716
+}

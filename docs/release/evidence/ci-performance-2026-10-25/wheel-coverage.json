@@ -1,0 +1,86 @@
+{
+  "proofs": {
+    "native-python-wheel-py310_ubuntu": {
+      "architecture": "x86_64",
+      "binding_tests": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 140
+      },
+      "observation_extension_sha256": "5e0051e9be51711e9b5057d350a80fb130c9c706124a85140f497be7cfabb0c2",
+      "observation_tests": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 13
+      },
+      "ordinary_extension_sha256": "813b185a4c21496229abd237d6770650211987b688c38be03a184707a48c3dd8",
+      "os": "Linux",
+      "package_manifest_sha256": "06e085ba01f3d0ee4a2ccde22adc435e3c1517fe9dc760c60a15a0341aff1395",
+      "python": "3.10.22 (main, Oct  1 2026, 14:30:20) [GCC 13.3.0]",
+      "python_version": "3.10",
+      "source_revision": "edb791cb05eb16f107643314c1cd96a5e9fb9e08",
+      "status": "passed",
+      "wheel_sha256": "125c63c85221cd5f975fb7f9690a5386cb0110e01253b32630f3a98ed6a304d9"
+    },
+    "native-python-wheel-py313_macos": {
+      "architecture": "arm64",
+      "binding_tests": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 140
+      },
+      "observation_extension_sha256": "5f967e9e06721e2a43a4eec27f4657cbd7184c75c21dde700673ef0cf6ce95a9",
+      "observation_tests": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 13
+      },
+      "ordinary_extension_sha256": "67a8a72dc236321b5b443bcdcac5864611a8bc135726bdfb18723b207bcf7e43",
+      "os": "Darwin",
+      "package_manifest_sha256": "95db5d240fde54630f53082b1903cc6fd52b69d1130b299aaff94b827c1c0f81",
+      "python": "3.13.16 (v3.13.16:cbc944f4bc5, Sep 30 2026, 16:01:51) [Clang 21.0.0 (clang-2100.1.1.101)]",
+      "python_version": "3.13",
+      "source_revision": "edb791cb05eb16f107643314c1cd96a5e9fb9e08",
+      "status": "passed",
+      "wheel_sha256": "65d7b3948d8c956229e72d57a30682431830654ea41eb80b5460a7d863bddf9c"
+    },
+    "native-python-wheel-py313_ubuntu": {
+      "architecture": "x86_64",
+      "binding_tests": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 140
+      },
+      "observation_extension_sha256": "5e0051e9be51711e9b5057d350a80fb130c9c706124a85140f497be7cfabb0c2",
+      "observation_tests": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "status": "passed",
+        "tests": 13
+      },
+      "ordinary_extension_sha256": "813b185a4c21496229abd237d6770650211987b688c38be03a184707a48c3dd8",
+      "os": "Linux",
+      "package_manifest_sha256": "06e085ba01f3d0ee4a2ccde22adc435e3c1517fe9dc760c60a15a0341aff1395",
+      "python": "3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]",
+      "python_version": "3.13",
+      "source_revision": "edb791cb05eb16f107643314c1cd96a5e9fb9e08",
+      "status": "passed",
+      "wheel_sha256": "125c63c85221cd5f975fb7f9690a5386cb0110e01253b32630f3a98ed6a304d9"
+    }
+  },
+  "revision": "edb791cb05eb16f107643314c1cd96a5e9fb9e08",
+  "same_linux_wheel": true,
+  "schema_version": "shardloom.ci_native_package_coverage.v1",
+  "status": "passed"
+}

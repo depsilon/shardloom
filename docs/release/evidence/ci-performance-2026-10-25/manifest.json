@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "status": "accepted",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1605",
+  "reviewed_head": "c9affef41210aa7dcc913cc18c6db6678978127b",
+  "merge_revision": "167ac248ba662ae7967a7801995e9b160b17bae5",
+  "artifact_checkout_revision": "edb791cb05eb16f107643314c1cd96a5e9fb9e08",
+  "workflow_urls": [
+    "https://github.com/depsilon/shardloom/actions/runs/40198905498",
+    "https://github.com/depsilon/shardloom/actions/runs/40198905526"
+  ],
+  "verification": {
+    "all_checks_pass": true,
+    "check_count": 57,
+    "unique_actual_jobs": 55,
+    "recomputed_runner_seconds": 14536.0,
+    "recomputed_completion_seconds": 2425.0
+  },
+  "files": {
+    "comparison.json": {
+      "bytes": 875,
+      "sha256": "74d72ddbfb0c11a287e5946c597e10bf035bdf4e72e85dca4b0ee4148943da80"
+    },
+    "baseline.json": {
+      "bytes": 13707,
+      "sha256": "2d22491d5df1894bede524ea7fde39941d3b0bfca8b365d5d5b9a7e71b0e96a4"
+    },
+    "execution-summary.json": {
+      "bytes": 1930,
+      "sha256": "acd9a78a1058358fd82ac63c935f24c5c2c792f218cc1dd858a7bc8dbf21f299"
+    },
+    "native-coverage.json": {
+      "bytes": 196,
+      "sha256": "6e3e4b96b00b578271f5796978ffb42ab5bd05f06628807410920aa29a58a565"
+    },
+    "wheel-coverage.json": {
+      "bytes": 3227,
+      "sha256": "c9d2cff3f5786292206521f65ea22d002cf5d9e7c7a87412036313d2fc5ea2a9"
+    },
+    "local-retirement.json": {
+      "bytes": 1136,
+      "sha256": "89211ed827827ae4821568a8861b32283f1fc7256aaca8f5f64cb976e4638861"
+    },
+    "final-github-snapshot.json.gz": {
+      "bytes": 23787,
+      "sha256": "a3ceb13e068ec360ee2254afcf44fc6c3ac447d5c71a9baf34810f296e323e73",
+      "uncompressed_bytes": 581465,
+      "uncompressed_sha256": "0e015b0977989e56705ef689c68bad1fc4db822a5cb946ec24862b7e4b15913e"
+    }
+  },
+  "scope": "Completed CI observations; preserves original native ignores, ordinary debug and platform coverage; no engine benchmark rerun, profile-only causal claim or weighted billing estimate."
+}
