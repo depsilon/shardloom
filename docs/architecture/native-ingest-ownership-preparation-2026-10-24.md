@@ -15,8 +15,12 @@ after this package, followed by the
 then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
 under the subsequent October 24 ordering decision.
-Attribution and complete-readback tools are validated; ingestion measurement
-and ownership optimization remain pending. The grouped-preparation campaign
+Attribution and complete-readback tools are validated; the first complete
+control passes and selects controlled-reader ownership transfer. The candidate
+implementation passes 23 focused ownership, actual-reader and timing tests,
+3,256 default workspace tests and 3,295 native Vortex library tests. Formatting
+and strict workspace/native lint pass; 32 existing opt-in native tests remain
+ignored. Complete-ingest benefit acceptance remains pending. The grouped-preparation campaign
 from closed #1595 is included in merged #1596.
 The existing RFC 0044 resource contract and PERF-02/03/06/09 owners apply;
 CG-1 through CG-23 remain independent gates.
@@ -53,6 +57,9 @@ or presume that an encoding ID proves full ownership. Public naming still
 precedes this package.
 
 ## Current source and provider boundary
+
+The baseline below describes the observation-only control. The selected
+controlled-reader candidate is specified separately below and remains gated.
 
 - [`ingest_arrow_ownership.rs`](../../shardloom-vortex/src/ingest_arrow_ownership.rs)
   copies every referenced value, validity and child-buffer region into the
@@ -109,7 +116,7 @@ duplicate. The new `compare_parquet_native_artifact` example extends the
 existing bounded native artifact comparator with direct pinned Parquet decoding
 and independent references for all seven derived fields. It is a read-only
 correctness boundary, with no external query engine or production ingest helper.
-No full-ingest measurement or ownership optimization has yet been accepted.
+The first complete control now passes; no ownership optimization is accepted.
 
 The preliminary complete readback now validates the existing accepted file:
 99,997,497 rows across all 105 source and seven derived fields, with independent
@@ -121,9 +128,10 @@ coverage. Source generations and final credit/task release pass. The
 keeps this later proof separate from original provider-refresh acceptance.
 
 The provider check uses pinned Arrow 59.3.1 buffer/data APIs and Vortex 0.90
-session, allocator, Arrow, prepared scan and file providers. `arrow-buffer`
-becomes an optional direct dependency at its already locked Apache-2.0 version
-to retain typed observation owners; it adds no package or version to the graph.
+session, allocator, Arrow, prepared scan and file providers. `arrow-buffer` and
+`arrow-data` become optional direct dependencies at their already locked
+Apache-2.0 version for typed owners and dtype layout validation; they add no
+package or version to the graph.
 Possible transfer still requires complete allocator ownership, alignment and
 lifetime proof. Public generic Arrow intake remains a validated-copy boundary.
 
@@ -136,7 +144,63 @@ tests ignored. Workspace and native strict lint plus formatting pass. The
 reference-memory regression checks the separate Parquet retained-byte boundary
 after accounting for the existing native conversion allowance. Earlier failed
 fixture and oversized-batch observations remain recorded. This establishes the
-control and readback tools; a first complete ingestion observation is still next.
+control and readback tools. The first complete observation subsequently passes
+all-value readback and physical inventory with byte-identical accepted output.
+Its 115,652,962,945 copied bytes and zero repeated regions select controlled
+reader transfer under the frozen materiality rule.
+
+### Selected internal-transfer contract
+
+Use an opaque ingest source that privately retains the actual ShardLoom-opened
+Parquet reader and its ownership policy. The existing public flat source has a
+replaceable reader, so a mutable Boolean, metadata label or pointer receipt
+cannot establish provenance. An existing flat/custom source converts only to
+the validated-copy policy. The opaque source exposes read-only metadata and
+specific existing derived-column/prefetch operations, with no arbitrary reader
+replacement. Keep existing request/source call patterns through a defaulted
+source type and additive controlled-reader constructor.
+
+Consume batches through projection and drop the original array references
+before checking each backing buffer. Pinned Arrow's `Buffer::into_mutable`
+requires a unique owner, zero allocation pointer offset and standard allocator
+layout. Only after that proof may its full allocation capacity become the
+native reservation charge. Require the actual Arrow dtype's Rust alignment,
+a nonempty buffer and a capacity no larger than the existing copy charge.
+Logical-offset, shared, opaque and oversized owners keep validated copies.
+Immutably freeze the admitted owner and retain its reservation until the last
+buffer/array clone drops; release storage before its credit.
+
+Use existing Vortex host reservations and Arrow conversion, with unchanged
+layout, validation, cancellation and publication. Preserve copied-byte fields
+and add transferred-region/byte/full-charge observations. The observer may
+retain the transferred immutable owner only after unique-ownership proof;
+cloning before that check would prevent every transfer. Generic external Arrow
+and custom-reader import continue to copy even for ordinary unique allocations.
+Adversarial checks cover independent validity offsets, source/session drop,
+shared children, excessive capacity, opaque owners, empty/alignment cases,
+partial reservation denial and cancellation before complete-ingest timing.
+
+### Remaining preparation and probe attribution
+
+The complete control records one stream-shape validation and conversion per
+source batch: 3,120 of each. Shape/type validation remains distinct from
+replacement-array ownership validation. Existing adjacent derived outputs
+already share traversal: URL/Referer length and domain pairs, and EventTime
+minute and truncated-minute pairs. The traced source-state summaries consume
+schema/source metadata; this audit finds no additional full-row derived-summary
+pass to remove. The derived-metadata timer alone does not establish duplication.
+
+Each of the 28 selected text fields reaches canonicalization and compaction
+once per source batch. Compaction changes the retained representation; equal
+logical values do not make the two operations duplicates. Their observed work
+spans provide no material new preparation candidate in this control. Actual
+numeric probe calls remain zero. Numeric compression runs after the final
+canonicalizing repartition, so an earlier chunk's encoded result cannot replace
+it without new equivalence proof. Preserve these paths and the accepted recipe;
+the finite candidate remains the demonstrated ownership boundary. Selective
+first-use normalization stays in the queued universal-I/O package.
+
+### Ordered work
 
 1. **Attribute copy work and select one ownership correction.** Trace actual
    bytes copied, repeated visible regions and retained allocations in the

@@ -566,7 +566,7 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
             .collect::<BTreeMap<_, _>>();
         assert_eq!(
             evidence["vortex_shared_native_memory_scope"],
-            "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references;workspace_writer_buffer;reopen_footer"
+            "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;admitted_controlled_reader_allocations;prefetch_admission;native_host_allocator;root_layout_references;workspace_writer_buffer;reopen_footer"
         );
         assert!(
             evidence["vortex_shared_native_memory_exclusions"]
@@ -574,7 +574,7 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
         );
         assert!(
             evidence["vortex_opaque_arrow_owner_policy"]
-                .starts_with("all_imported_arrow_buffers_copy")
+                .starts_with("opaque_and_external_arrow_buffers_copy")
         );
         let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
         let session = vortex::session::VortexSession::default().with_handle(runtime.handle());

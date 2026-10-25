@@ -16,7 +16,7 @@ const STAGE_NAMES: [&str; 13] = [
     "stream_arrow_ownership",
 ];
 
-/// Exact copied-region and allocation charges for one Arrow batch admission.
+/// Exact copied/transferred regions and allocation charges for one batch admission.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ArrowOwnershipCounts {
     pub(crate) buffer_regions: u64,
@@ -24,6 +24,9 @@ pub(crate) struct ArrowOwnershipCounts {
     pub(crate) copied_allocation_bytes: u64,
     pub(crate) repeated_buffer_regions: u64,
     pub(crate) repeated_buffer_bytes: u64,
+    pub(crate) transferred_buffer_regions: u64,
+    pub(crate) transferred_buffer_bytes: u64,
+    pub(crate) transferred_allocation_bytes: u64,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -53,12 +56,15 @@ impl VortexIngestStageReport {
         let mut fields = vec![
             ("vortex_ingest_stage_time_scope".into(), "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall".into()),
             ("vortex_ingest_stage_byte_scope".into(), "provider_stage_bytes_are_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured;stream_arrow_ownership_input_bytes_are_actual_copied_regions;output_bytes_are_full_new_copy_allocation_charges_including_alignment".into()),
-            ("vortex_ingest_ownership_scope".into(), "copies_include_values_validity_and_children;full_new_copy_charges_include_alignment;repeated_regions_are_exact_held_pointer_and_length_within_one_batch;original_owners_and_provider_allocations_excluded;observer_map_metadata_not_allocator_charged;ownership_work_includes_observation_allocation_copy_and_validation_not_pure_memcpy".into()),
+            ("vortex_ingest_ownership_scope".into(), "copies_include_values_validity_and_children;full_new_copy_charges_include_alignment;controlled_parquet_transfer_requires_unique_standard_allocation_zero_pointer_offset_typed_alignment_and_full_retained_credit;generic_external_owners_keep_copies;repeated_regions_are_exact_held_pointer_and_length_within_one_batch;unadmitted_original_owners_and_provider_allocations_excluded;observer_map_metadata_not_allocator_charged;ownership_work_includes_observation_allocation_copy_transfer_and_validation_not_pure_memcpy".into()),
             ("vortex_ingest_ownership_buffer_regions".into(), self.ownership_counts.buffer_regions.to_string()),
             ("vortex_ingest_ownership_copied_buffer_bytes".into(), self.ownership_counts.copied_buffer_bytes.to_string()),
             ("vortex_ingest_ownership_copied_allocation_bytes".into(), self.ownership_counts.copied_allocation_bytes.to_string()),
             ("vortex_ingest_ownership_repeated_buffer_regions".into(), self.ownership_counts.repeated_buffer_regions.to_string()),
             ("vortex_ingest_ownership_repeated_buffer_bytes".into(), self.ownership_counts.repeated_buffer_bytes.to_string()),
+            ("vortex_ingest_ownership_transferred_buffer_regions".into(), self.ownership_counts.transferred_buffer_regions.to_string()),
+            ("vortex_ingest_ownership_transferred_buffer_bytes".into(), self.ownership_counts.transferred_buffer_bytes.to_string()),
+            ("vortex_ingest_ownership_transferred_allocation_bytes".into(), self.ownership_counts.transferred_allocation_bytes.to_string()),
             ("vortex_ingest_stage_coverage".into(), "stream_validation_projection_conversion_and_nested_ownership_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec".into()),
             ("vortex_ingest_numeric_codec_scope".into(), "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused".into()),
             ("vortex_ingest_dictionary_probe_scope".into(), "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection".into()),
@@ -238,6 +244,15 @@ mod measured {
             total.repeated_buffer_bytes = total
                 .repeated_buffer_bytes
                 .saturating_add(counts.repeated_buffer_bytes);
+            total.transferred_buffer_regions = total
+                .transferred_buffer_regions
+                .saturating_add(counts.transferred_buffer_regions);
+            total.transferred_buffer_bytes = total
+                .transferred_buffer_bytes
+                .saturating_add(counts.transferred_buffer_bytes);
+            total.transferred_allocation_bytes = total
+                .transferred_allocation_bytes
+                .saturating_add(counts.transferred_allocation_bytes);
         }
         #[cfg(feature = "universal-format-io")]
         pub(crate) fn identity_projection(&self) {
@@ -313,6 +328,9 @@ mod measured {
                 copied_allocation_bytes: 48,
                 repeated_buffer_regions: 1,
                 repeated_buffer_bytes: 8,
+                transferred_buffer_regions: 1,
+                transferred_buffer_bytes: 16,
+                transferred_allocation_bytes: 24,
             },
         );
         clone.record_ownership(
@@ -324,6 +342,7 @@ mod measured {
                 copied_allocation_bytes: 16,
                 repeated_buffer_regions: 2,
                 repeated_buffer_bytes: 6,
+                ..ArrowOwnershipCounts::default()
             },
         );
 
@@ -333,6 +352,9 @@ mod measured {
         assert_eq!(report.ownership_counts.copied_allocation_bytes, 64);
         assert_eq!(report.ownership_counts.repeated_buffer_regions, 3);
         assert_eq!(report.ownership_counts.repeated_buffer_bytes, 14);
+        assert_eq!(report.ownership_counts.transferred_buffer_regions, 1);
+        assert_eq!(report.ownership_counts.transferred_buffer_bytes, 16);
+        assert_eq!(report.ownership_counts.transferred_allocation_bytes, 24);
         assert_eq!(report.spans[12].calls, 2);
         assert_eq!(report.spans[12].rows, 6);
         assert_eq!(report.spans[12].input_bytes, 52);
@@ -355,6 +377,7 @@ mod measured {
                 copied_allocation_bytes: 128,
                 repeated_buffer_regions: 1,
                 repeated_buffer_bytes: 16,
+                ..ArrowOwnershipCounts::default()
             },
         );
 
@@ -384,6 +407,7 @@ mod measured {
                 copied_allocation_bytes: 32,
                 repeated_buffer_regions: 1,
                 repeated_buffer_bytes: 8,
+                ..ArrowOwnershipCounts::default()
             },
         );
         let fields = timings

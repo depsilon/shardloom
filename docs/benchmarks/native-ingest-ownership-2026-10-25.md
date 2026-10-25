@@ -146,3 +146,37 @@ earlier failures are retained under
 `baseline-readback-acceptance-r3.json`. No new ingest or ownership optimization
 is accepted by this preliminary readback, and the frozen performance gates
 above are unchanged.
+
+## Complete observation control and selected mechanism
+
+The first complete control uses immutable source `39210b43` and its matched
+four-tool build. It preserves all copies and passes guarded publication,
+complete direct-Parquet readback and physical inventory. All 99,997,497 rows,
+112 columns and 11,199,719,664 values match. Its 15,715,228,660-byte output has
+the same complete SHA-256 as the accepted provider artifact above. The writer
+recipe is unchanged, including all 28 Zstd source columns. Target-bound
+physical-design digests differ because the output destinations differ.
+
+Attribution observes 483,417 copied buffer regions, 115,652,962,945 copied
+bytes and 115,776,717,698 bytes of copy allocation charges. No repeated exact
+held region is observed. The nested ownership work is 99.3703% of inclusive
+conversion work; these overlapping spans include observation, allocation and
+validation and are not exclusive CPU or pure copy time. The frozen 10% screen
+therefore admits controlled-reader transfer, while the duplicate-removal
+preference does not activate. Actual numeric probe calls are zero.
+
+The full physical inspection covers 876,721 layout nodes, 1,824,506 array nodes
+and 611,520 flat references. Its initial 500,000-reference refusal is preserved;
+the completed read-only retry uses the existing one-million-layout-node
+ceiling, with unchanged segment-byte and array-node limits. Ingestion is not
+rerun for that post-check. Readback source/task credits return to zero. The
+ingest report's 4,096-byte retained metadata snapshot matches the preceding
+accepted ingest and is not described as a zero-after-drop assertion; process
+cleanup is verified.
+
+`control-screen-r1-acceptance.json` under the local evidence root binds all
+26 supporting members, full source/output identities, unique report fields,
+readback, layout, native accounting and diagnostic ingest clocks. Receipt
+assembly preserves its two corrected assertions: target-bound decision digest
+comparison and the inventory's explicit `sha256:` prefix. No candidate benefit
+or new Full43 result is accepted yet; every prospective gate above is unchanged.
