@@ -17,6 +17,33 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Ingest allocation ownership and consolidated dependencies — local acceptance`
+  — [PR #1605](https://github.com/depsilon/shardloom/pull/1605) combines the two
+  categories at the maintainer's explicit request. The
+  [acceptance](../benchmarks/native-ingest-ownership-2026-10-25.md#combined-runtime-acceptance)
+  records 61.236% fewer copied bytes and byte-identical Vortex output. Complete
+  independent readback checks 99,997,497 rows, 112 columns and 11,199,719,664
+  values per artifact. The prospective complete-ingest speed gate fails and
+  remains failed; retention is the maintainer's copying-reduction decision.
+  - The final source `23807cb7` includes Tokio 1.54.1, prost/prost-derive 0.14.4
+    and four reviewed workflow pins. Nine local validation gates pass with
+    9,364 passing test executions and 35 declared exclusions; 140 installed
+    Mac-wheel tests pass without skips. Audits and workflow-contract checks
+    pass with existing warnings preserved and no new waiver.
+  - The final isolated Full43 passes all 43 results, 381 rows and schemas at
+    **46.973255495 engine seconds**. The ownership-only 47.281897502-second
+    and provider 49.625514041-second observations remain distinct; no causal
+    speedup follows from these separate passes.
+  - The [portable packet](../benchmarks/evidence/native-ingest-ownership-2026-10-25/README.md)
+    replays 735 evidence files and rejects 21 corruption controls without
+    native execution. Clean-checkout replay at `a6e8293a` preserves the tree
+    and all 2,858 runtime source identities. Verified retirement removes
+    7,702 generated regular files and three environment links; current data,
+    combined runtime/wheel and complete compact results remain. Earlier
+    failures and the failed ingestion gate remain.
+    GitHub integration is pending; package publication and CG gates remain
+    independent. The active plan owns the following work-elimination package.
+
 - [x] `Public naming and terminology — local acceptance` — the
   [October 25 record](shardloom-public-naming-2026-10-24.md#october-25-local-acceptance)
   covers README, package descriptions, website/field-guide copy, interactive
@@ -32,8 +59,8 @@ phase plan first.
   - The unchanged paid-orders quickstart passes three tests against the retained
     accepted provider wheel; this is not a fresh naming-wheel validation.
     Historical benchmark evidence, dependencies and package versions stay intact.
-  - PR integration is pending. Ingestion ownership/preparation follows it, then
-    connected programming, universal I/O and rich-data lifecycle work. No new
+  - PR #1604 merged at `3239ade0` after all 44 checks passed. Ingestion
+    ownership/preparation follows it; the active plan owns subsequent order. No new
     benchmark, CG closure or publication is claimed.
 
 - [x] `Finite warm-source reuse investigation` — the

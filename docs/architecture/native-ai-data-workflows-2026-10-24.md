@@ -2,9 +2,12 @@
 
 # AI data preparation, delivery and retrieval
 
-Status: accepted October 24 maintainer addition at the back of the active queue,
-after [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
-and before the optional breadth backlog. This is implementation work within the
+Status: accepted October 24 maintainer addition at the back of the active queue.
+The October 25 ordering decision places
+[Foundry integration](native-foundry-integration-2026-10-25.md) after
+[everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
+and immediately before this package. The optional breadth backlog remains
+afterward. This is implementation work within the
 same SQL/DataFrame, storage, resource and execution model. It does not change
 the preceding queue or establish a separate AI engine, released capability,
 performance claim or completion of CG-1 through CG-23.

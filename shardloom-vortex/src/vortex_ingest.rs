@@ -77,7 +77,8 @@ mod text_stats_tests;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::{
-    FlatLocalColumnarSource, FlatLocalColumnarStreamSource, SourceIdentity,
+    FlatLocalColumnarSource, FlatLocalColumnarStreamSource, IngestColumnarStreamSource,
+    SourceIdentity,
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -118,6 +119,7 @@ struct NativeIngestMemory {
     pool: LiveMemoryPool,
     session: vortex::session::VortexSession,
     max_chunks: usize,
+    input_ownership: arrow_ownership::ArrowOwnershipPolicy,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -163,6 +165,7 @@ impl NativeIngestMemory {
                         .unwrap_or(u64::MAX),
             )
             .unwrap_or(usize::MAX),
+            input_ownership: arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
         }
     }
 
@@ -4975,10 +4978,10 @@ pub struct VortexPreparedStateColumnarWriteRequest {
 
 /// Request to stream one flat columnar local source into a Vortex artifact.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-pub struct VortexPreparedStateColumnarStreamWriteRequest {
+pub struct VortexPreparedStateColumnarStreamWriteRequest<S = FlatLocalColumnarStreamSource> {
     pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
-    pub source: FlatLocalColumnarStreamSource,
+    pub source: S,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
     pub layout_write_advisor: Option<VortexLayoutWriteAdvisorReport>,
@@ -5046,13 +5049,13 @@ impl VortexPreparedStateColumnarWriteRequest {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-impl VortexPreparedStateColumnarStreamWriteRequest {
+impl<S> VortexPreparedStateColumnarStreamWriteRequest<S> {
     /// Create a request for a streaming columnar local `VortexPreparedState`
     /// artifact write.
     #[must_use]
     pub fn new(
         target_path: impl Into<PathBuf>,
-        source: FlatLocalColumnarStreamSource,
+        source: S,
         resources: shardloom_core::ExecutionResources,
     ) -> Self {
         Self {
@@ -5069,9 +5072,10 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
         }
     }
 
-    /// Share this budget across copied native input buffers, prefetch admission,
-    /// and provider host allocations. All imported Arrow buffers are copied;
-    /// original source/input owners and allocator-bypassing allocations remain
+    /// Share this budget across admitted native input buffers, prefetch admission,
+    /// and provider host allocations. External inputs retain validated copies;
+    /// controlled Parquet sources can transfer individually proved allocations.
+    /// Unadmitted source owners and allocator-bypassing allocations remain
     /// outside this accounting. Uses bounded per-source-batch subtrees; native
     /// coalescing and dictionary domains do not cross source batches.
     #[must_use]
@@ -9966,7 +9970,8 @@ pub struct VortexPreparedStateWriteReport {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexIngestMemoryOwnershipReport {
     /// Buffered conversion reserves a conservative construction estimate;
-    /// streamed imports instead retain credits on their copied native buffers.
+    /// streamed imports instead retain credits on copied buffers and admitted
+    /// controlled-reader allocations.
     pub buffered_conversion: bool,
     pub limit_bytes: u64,
     pub peak_reserved_bytes: u64,
@@ -9985,7 +9990,7 @@ impl VortexIngestMemoryOwnershipReport {
             ("vortex_shared_native_memory_scope".into(), if self.buffered_conversion {
                 "shared_pool_lifetime_including_other_retained_native_owners;buffered_conversion_estimate;native_host_allocator;workspace_writer_buffer;reopen_footer"
             } else {
-                "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references;workspace_writer_buffer;reopen_footer"
+                "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;admitted_controlled_reader_allocations;prefetch_admission;native_host_allocator;root_layout_references;workspace_writer_buffer;reopen_footer"
             }.into()),
             ("vortex_shared_native_memory_exclusions".into(), "original_source_and_arrow_input_owners_until_conversion;source_reader_internals;codec_and_metadata_allocations_bypassing_host_allocator;process_rss".into()),
             ("vortex_shared_native_memory_limit_bytes".into(), self.limit_bytes.to_string()),
@@ -9996,7 +10001,7 @@ impl VortexIngestMemoryOwnershipReport {
             ("vortex_opaque_arrow_owner_policy".into(), if self.buffered_conversion {
                 "buffered_request_retains_input_owners_until_write_completion;conversion_estimate_reserved_before_build"
             } else {
-                "all_imported_arrow_buffers_copy_referenced_regions_into_admitted_native_storage"
+                "opaque_and_external_arrow_buffers_copy_referenced_regions_into_admitted_native_storage;controlled_parquet_transfers_only_proved_unique_standard_allocations_with_full_credit"
             }.into()),
             ("vortex_native_memory_physical_policy".into(), if self.buffered_conversion {
                 "buffered_array_and_writer_share_one_allocation;construction_estimate_is_not_measured_payload_bytes"
@@ -10559,8 +10564,8 @@ pub fn write_flat_columnar_vortex_prepared_state(
 /// the scoped contract, the target already exists without overwrite
 /// permission, or upstream Vortex write/reopen APIs fail.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-pub fn write_flat_columnar_vortex_prepared_state_streaming(
-    request: VortexPreparedStateColumnarStreamWriteRequest,
+pub fn write_flat_columnar_vortex_prepared_state_streaming<S: Into<IngestColumnarStreamSource>>(
+    request: VortexPreparedStateColumnarStreamWriteRequest<S>,
 ) -> Result<VortexPreparedStateWriteReport> {
     write_flat_columnar_vortex_prepared_state_streaming_controlled(
         request,
@@ -10577,11 +10582,26 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
 /// cancellation before the publication boundary.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
-pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled(
-    request: VortexPreparedStateColumnarStreamWriteRequest,
+pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled<
+    S: Into<IngestColumnarStreamSource>,
+>(
+    request: VortexPreparedStateColumnarStreamWriteRequest<S>,
     cancellation: &CancellationToken,
 ) -> Result<VortexPreparedStateWriteReport> {
     cancellation.check()?;
+    let (source, input_ownership) = request.source.into().into_parts();
+    let request = VortexPreparedStateColumnarStreamWriteRequest {
+        resources: request.resources,
+        target_path: request.target_path,
+        source,
+        allow_overwrite: request.allow_overwrite,
+        certification_level: request.certification_level,
+        layout_write_advisor: request.layout_write_advisor,
+        capillary_prewrite_input: request.capillary_prewrite_input,
+        shared_native_memory_budget_bytes: request.shared_native_memory_budget_bytes,
+        shared_native_memory_pool: request.shared_native_memory_pool,
+        prepared_source_binding: request.prepared_source_binding,
+    };
     validate_declared_ingest_resources(
         request.resources,
         request.capillary_prewrite_input.as_ref(),
@@ -10654,7 +10674,11 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled(
                 .unwrap_or(request.resources.memory_bytes()),
             ingest_runtime.as_ref(),
         )?)
-    };
+    }
+    .map(|mut memory| {
+        memory.input_ownership = input_ownership;
+        memory
+    });
     let prefetch_memory_bytes = native_memory
         .as_ref()
         .map_or(request.resources.memory_bytes() / 4, |memory| {
@@ -10743,14 +10767,13 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled(
     } else {
         underlying_provider_surface
     };
-    let first_array = record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
-        &first_batch,
+    let first_array = owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+        first_batch,
         &source_shape,
         &stream_timing.stages,
         native_memory.as_ref().zip(first_input_lease.as_mut()),
     )?;
     cancellation.check()?;
-    drop(first_batch);
     drop(first_input_lease);
     stream_timing.add_array_convert_elapsed(first_array_convert_start.elapsed());
     let dtype = first_array.dtype().clone();
@@ -11464,8 +11487,8 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
             batch_index,
             &self.stream_timing.stages,
         )
-        .and_then(|()| record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
-            &batch, &self.source_shape, &self.stream_timing.stages,
+        .and_then(|()| owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+            batch, &self.source_shape, &self.stream_timing.stages,
             self.native_memory.as_ref().zip(input_lease.as_mut()),
         ))
         .and_then(|array| {
@@ -11547,8 +11570,8 @@ type PrefetchedVortexArray = Option<(usize, vortex::array::ArrayRef)>;
 
 /// Bounds the entire pre-writer window, including completed out-of-order arrays.
 /// Legacy credits end at writer handoff. The explicitly admitted native-memory
-/// route copies input buffers into allocator-owned storage before completion.
-/// Original source/input owners, upstream codec allocations bypassing the
+/// route admits copied buffers or proved controlled-reader allocations before
+/// completion. Other source/input owners, upstream codec allocations bypassing the
 /// allocator and reader internals are a separate scope.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct StreamingColumnarVortexPrefetch {
@@ -11760,7 +11783,7 @@ impl StreamingColumnarVortexArrayWorker {
             batch
         };
         check_cancelled()?;
-        self.convert_batch(index, &batch, lease)
+        self.convert_batch(index, batch, lease)
             .inspect_err(|error| self.remember_failure(error))
     }
 
@@ -11795,14 +11818,15 @@ impl StreamingColumnarVortexArrayWorker {
     fn convert_batch(
         &self,
         index: usize,
-        batch: &RecordBatch,
+        batch: RecordBatch,
         lease: &mut MemoryLease,
     ) -> Result<PrefetchedVortexArray> {
-        // The owned route copies visible regions into its admitted allocator.
+        // Copy charges also bound admitted controlled-reader transfers, which
+        // are allowed only when their full allocation is no larger.
         // Arrow's backing capacities may count a shared IPC body repeatedly;
         // they do not size these copies or the excluded original reader owners.
         let input_bytes = if self.native_memory.is_some() {
-            arrow_ownership::batch_copy_allocation_bytes(batch)?
+            arrow_ownership::batch_copy_allocation_bytes(&batch)?
         } else {
             u64::try_from(batch.get_array_memory_size()).unwrap_or(u64::MAX)
         };
@@ -11816,14 +11840,14 @@ impl StreamingColumnarVortexArrayWorker {
         }
         let started = Instant::now();
         let result = validate_stream_record_batch_shape_profiled(
-            batch,
+            &batch,
             &self.reader_projection_columns,
             &self.source_shape,
             index,
             &self.stream_timing.stages,
         )
         .and_then(|()| {
-            record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+            owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
                 batch,
                 &self.source_shape,
                 &self.stream_timing.stages,
@@ -11872,6 +11896,10 @@ mod prefetch_tests;
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_owned_tests.rs"]
 mod owned_ingest_tests;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "vortex_ingest_reader_transfer_tests.rs"]
+mod reader_transfer_tests;
 
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_pipeline_pressure_tests.rs"]
@@ -12027,16 +12055,32 @@ fn record_batch_to_vortex_from_arrow_provider_profiled(
     )
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
     batch: &RecordBatch,
     source_shape: &FlatColumnarSourceShape,
     timing: &IngestStageTimings,
     native_memory: Option<(&NativeIngestMemory, &mut MemoryLease)>,
 ) -> Result<vortex::array::ArrayRef> {
+    owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+        batch.clone(),
+        source_shape,
+        timing,
+        native_memory,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+    batch: RecordBatch,
+    source_shape: &FlatColumnarSourceShape,
+    timing: &IngestStageTimings,
+    native_memory: Option<(&NativeIngestMemory, &mut MemoryLease)>,
+) -> Result<vortex::array::ArrayRef> {
     let rows = usize_to_u64(batch.num_rows())?;
     let started = Instant::now();
-    let projected = project_record_batch_for_vortex(batch, source_shape);
+    let projected = project_record_batch_for_vortex(&batch, source_shape);
+    drop(batch);
     timing.record(Stage::Projection, started.elapsed(), rows, 0, 0);
     let (projected, identity) = projected?;
     if identity {
@@ -12053,18 +12097,21 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
                 lease.bytes()
             )));
         }
-        let retained = arrow_ownership::copy_batch(
+        let ownership_started = Instant::now();
+        let (retained, ownership_counts) = arrow_ownership::admit_batch_profiled(
             projected,
             &crate::owned_buffers::ReservedHostAllocator::new(memory.pool.clone()),
+            memory.input_ownership,
         )?;
+        timing.record_ownership(ownership_started.elapsed(), rows, ownership_counts);
         let schema = retained.schema();
         let result = memory
             .session
             .arrow()
             .from_arrow_record_batch(retained, schema.as_ref())
             .map_err(vortex_error);
-        // Copied native input buffers and later allocator buffers hold their
-        // own credits. Original Arrow owners are excluded from this accounting;
+        // Admitted copied/transferred input buffers and later allocator buffers
+        // hold their own credits. Other source owners remain excluded;
         // release the conversion admission headroom, not buffer credits.
         lease.resize(0)?;
         result
@@ -18217,6 +18264,29 @@ mod tests {
         assert_eq!(
             stage_fields["vortex_ingest_stream_arrow_conversion_rows"],
             "3"
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_stream_arrow_ownership_calls"],
+            "2"
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_stream_arrow_ownership_rows"],
+            "3"
+        );
+        assert_eq!(stage_fields["vortex_ingest_ownership_buffer_regions"], "6");
+        // Two numeric value buffers, two UTF-8 offset buffers and all 14 text
+        // bytes cross the real writer's credited-copy boundary.
+        assert_eq!(
+            stage_fields["vortex_ingest_ownership_copied_buffer_bytes"],
+            "58"
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_ownership_copied_allocation_bytes"],
+            (58 + 6 * vortex::buffer::Alignment::DEFAULT_ALIGNMENT.as_usize()).to_string()
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_ownership_repeated_buffer_bytes"],
+            "0"
         );
         assert_eq!(
             stage_fields["vortex_ingest_identity_projection_batches"],

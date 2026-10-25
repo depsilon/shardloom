@@ -8,8 +8,15 @@ Status: accepted October 24 maintainer addition, following the active
 [warm-source reuse](native-warm-source-reuse-2026-10-24.md),
 [public naming](shardloom-public-naming-2026-10-24.md),
 and [ingestion](native-ingest-ownership-preparation-2026-10-24.md) packages.
-The subsequent October 24 ordering decision places this package immediately
-after ingestion, followed by [universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
+The October 25 ordering decision inserts
+[consolidated dependency maintenance](dependency-intake-2026-10-25.md)
+immediately after ingestion. A later instruction combines both in PR #1605
+and inserts [complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md),
+then the [batch/window and shared CPU speed pass](native-ingest-batch-window-scheduling-2026-10-25.md)
+after maintenance. Reuse the earlier package's immutable plan/setup foundation
+and shared execution contracts here; named plans and interface composition
+remain this package's responsibility. This programming package follows the speed pass, then
+[universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
 The subsequent [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
 request extends this package's SQL scope and follows it with statistics,
@@ -23,6 +30,14 @@ contract, RFC 0044's shared native execution, and the existing SQL/expression,
 resource, extension and remote-API RFCs remain governing boundaries.
 
 ## Product contract
+
+Consume the preceding work-elimination package's shared immutable structure,
+admitted aggregate-through-join rewrites and small precompiled execution
+fragments through the same binder. SQL/DataFrame transitions and named-plan
+references must retain encoding, multiplicity, dependency and consumer facts
+needed by those optimizations. Do not rebuild a specialization layer in the
+facade or materialize an intermediate merely to expose a different syntax.
+Prepared structure is not retained mutable aggregate state or an answer cache.
 
 `sl.context(...)` with explicit resources is the ordinary entry point. Read a
 file, build DataFrame expressions, name the plan, use it in SQL, continue with a

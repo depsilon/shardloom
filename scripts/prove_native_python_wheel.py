@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import sys
 import time
@@ -64,11 +65,16 @@ raise SystemExit(0 if passed else 1)
 
 
 def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Path, *,
-          audit_linux: bool = False) -> dict:
+          audit_linux: bool = False, build_only: bool = False,
+          existing_wheel: Path | None = None, build_report: Path | None = None) -> dict:
     if sys.platform not in {"darwin", "linux"}:
         raise ValueError("native wheel proof currently requires macOS or Linux")
     if output.is_symlink() or library.is_symlink() or binary.is_symlink():
         raise ValueError("native wheel proof requires non-symlink artifacts and destination")
+    if (existing_wheel is None) != (build_report is None) or (build_only and existing_wheel):
+        raise ValueError("wheel reuse requires its build report and cannot request another build")
+    if existing_wheel and (existing_wheel.is_symlink() or build_report.is_symlink()):
+        raise ValueError("wheel reuse requires regular artifacts")
     root, library, binary, wheelhouse = (path.resolve(strict=True)
                                         for path in (root, library, binary, wheelhouse))
     output = require_local_path(output.resolve(), Path.home(), sys.platform)
@@ -80,7 +86,9 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
               "python": sys.version, "platform": platform.platform(), "steps": [],
               "build_tools": build_tools,
               "publication_attempted": False, "performance_claim": False,
-              "scope": "current_host_native_wheel_install_and_binding_integration"}
+              "scope": ("current_host_native_wheel_build_integrity" if build_only else
+                        "current_host_native_wheel_install_and_binding_integration"),
+              "installation_performed": False}
     env = dict(os.environ, PYTHONNOUSERSITE="1", PYTHONDONTWRITEBYTECODE="1",
                PIP_DISABLE_PIP_VERSION_CHECK="1", SHARDLOOM_REQUIRE_NATIVE_PYTHON="1")
     for key in ("PYTHONPATH", "PYTHONHOME", "SHARDLOOM_NATIVE_TEST_LIBRARY", "SHARDLOOM_BIN",
@@ -108,24 +116,46 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
                 entry["log_sha256"] = sha(log)
 
     try:
-        staged = output / "package"
-        report["stage"] = stage(root, staged, library, binary)
-        if report["stage"]["wheel_platform_tag"]:
-            env["SHARDLOOM_WHEEL_PLAT_NAME"] = report["stage"]["wheel_platform_tag"]
         needs_linux_audit = audit_linux and sys.platform == "linux"
-        dist = output / ("unaudited" if needs_linux_audit else "dist")
-        run("build", [sys.executable, "-m", "pip", "wheel", "--no-build-isolation",
-                      "--no-deps", "--no-index", "--wheel-dir", dist, staged])
-        wheels = list(dist.glob("*.whl"))
-        if len(wheels) != 1:
-            raise ValueError("native proof requires exactly one built wheel")
-        wheel = wheels[0]
-        report["integrity"] = verify(root, wheel, library, binary)
-        if needs_linux_audit:
-            report["unaudited_integrity"] = report["integrity"]
-            wheel, report["linux_audit"] = audit(wheel, output / "dist", run)
+        if existing_wheel is not None:
+            source_report = json.loads(build_report.read_text())
+            if (source_report.get("schema_version") != "shardloom.native_python_wheel_proof.v1"
+                    or source_report.get("status") not in {"built", "passed"}
+                    or source_report["integrity"]["wheel_sha256"] != sha(existing_wheel)):
+                raise ValueError("reused wheel does not match a successful build report")
+            dist = output / "dist"
+            dist.mkdir()
+            wheel = dist / existing_wheel.name
+            shutil.copyfile(existing_wheel, wheel)
+            report["artifact_reuse"] = {"wheel_sha256": sha(wheel),
+                                        "build_report_sha256": sha(build_report)}
+            if needs_linux_audit:
+                report["linux_audit"] = source_report.get("linux_audit")
             report["integrity"] = verify(root, wheel, library, binary,
-                                         linux_audit=report["linux_audit"])
+                                         linux_audit=report.get("linux_audit"))
+        else:
+            staged = output / "package"
+            report["stage"] = stage(root, staged, library, binary)
+            if report["stage"]["wheel_platform_tag"]:
+                env["SHARDLOOM_WHEEL_PLAT_NAME"] = report["stage"]["wheel_platform_tag"]
+            dist = output / ("unaudited" if needs_linux_audit else "dist")
+            run("build", [sys.executable, "-m", "pip", "wheel", "--no-build-isolation",
+                          "--no-deps", "--no-index", "--wheel-dir", dist, staged])
+            wheels = list(dist.glob("*.whl"))
+            if len(wheels) != 1:
+                raise ValueError("native proof requires exactly one built wheel")
+            wheel = wheels[0]
+            report["integrity"] = verify(root, wheel, library, binary)
+            if needs_linux_audit:
+                report["unaudited_integrity"] = report["integrity"]
+                wheel, report["linux_audit"] = audit(wheel, output / "dist", run)
+                report["integrity"] = verify(root, wheel, library, binary,
+                                             linux_audit=report["linux_audit"])
+        if needs_linux_audit and not report["integrity"]["linux_audit_verified"]:
+            raise ValueError("Linux wheel reuse requires the reviewed compatibility audit")
+        if build_only:
+            report["status"] = "built"
+            return report
         virtualenv = output / "venv"
         run("create_environment", [sys.executable, "-m", "venv", virtualenv])
         python = virtualenv / "bin/python"
@@ -139,6 +169,7 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
                             output / "integration.json"])
         report["integration"] = json.loads((output / "integration.json").read_text())
         report["installed_load"] = json.loads((output / "load.log").read_text())
+        report["installation_performed"] = True
         if sha(wheel) != report["integrity"]["wheel_sha256"]:
             raise ValueError("native wheel changed during installation proof")
         run("uninstall", [python, "-I", "-m", "pip", "uninstall", "--yes", "shardloom"])
@@ -166,9 +197,16 @@ def main() -> int:
     parser.add_argument("--wheelhouse", type=Path, required=True)
     parser.add_argument("--audit-linux", action="store_true",
                         help="Require the reviewed Linux compatibility audit before installation.")
+    parser.add_argument("--build-only", action="store_true",
+                        help="Produce build/integrity evidence; installation remains unproven.")
+    parser.add_argument("--existing-wheel", type=Path,
+                        help="Install this exact previously built wheel without rebuilding it.")
+    parser.add_argument("--build-report", type=Path,
+                        help="Exact build/integrity report required with --existing-wheel.")
     args = parser.parse_args()
     report = prove(args.repo_root, args.output_dir, args.native_library, args.cli_binary, args.wheelhouse,
-                   audit_linux=args.audit_linux)
+                   audit_linux=args.audit_linux, build_only=args.build_only,
+                   existing_wheel=args.existing_wheel, build_report=args.build_report)
     print(json.dumps(report, indent=2))
     return 0
 

@@ -46,6 +46,11 @@ execution.
 - Scope: `.github/workflows/ci.yml` evidence-reuse steps only.
 - Release-note boundary: v8 is an ESM action and its digest-mismatch default is error.
 - ShardLoom does not override the secure digest behavior in this update.
+- The October 25 CI revision has 24 download steps after adding reusable native
+  test, CLI and package products and the mandatory execution summary. Each
+  download resolves to an artifact producer in the same workflow. The existing
+  v8.0.2 pin and digest-mismatch behavior are unchanged; the dependency-freshness
+  inventory tracks the revised count.
 
 ## CI And Security Action Pin Refresh
 

@@ -7,7 +7,10 @@ Status: accepted October 24 maintainer handoff, queued after
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then [warm source reuse](native-warm-source-reuse-2026-10-24.md),
 then [public naming](shardloom-public-naming-2026-10-24.md),
-then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md)
+then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md),
+[consolidated dependency maintenance](dependency-intake-2026-10-25.md),
+[complete-workflow work elimination](native-workflow-work-elimination-2026-10-25.md),
+[ingestion batch/window scheduling](native-ingest-batch-window-scheduling-2026-10-25.md),
 and the [connected programming model](native-connected-programming-model-2026-10-24.md).
 The subsequent October 24 ordering decision places I/O immediately after
 connected programming and before [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
@@ -25,8 +28,18 @@ separate from import ownership and must account for retained backing buffers.
 The later [AI-data package](native-ai-data-workflows-2026-10-24.md) reuses this
 source/publication contract for model batches and search-index generations;
 consumer adapters must not reopen original inputs to bypass ShardLoom plans.
+The queued [Foundry integration](native-foundry-integration-2026-10-25.md)
+consumes these same multi-file, native writer and publication contracts after
+everyday analytical completion and before the AI-data package.
 
 ## Contract and intake
+
+Reuse any source-encoding translation accepted by the preceding ingestion
+item, and carry its representation capabilities through the work-elimination
+package's existing native consumers. Extend proved type/validity/dictionary/
+offset mappings across adapters here; do not assume equal encodings or duplicate
+the earlier mechanism. Output adapters continue to report unavoidable
+normalization and metadata loss.
 
 Format choice determines input/output adaptation around the same native engine.
 Equivalent data, semantics, resources and result requirements receive equally
@@ -42,7 +55,9 @@ a selective one-off operation, while durable native preparation remains valuable
 for repeated broad work. This is an input strategy, not another query engine.
 The #1583 provider-selection and scalar-writer repairs are completed foundations.
 
-Accepted immediate implementation work is explicit multi-output reuse and bulk
+The October 25 work-elimination addition promotes explicit multi-output reuse
+into its earlier execute-once package. Reuse that shared producer contract here;
+do not duplicate its implementation. Immediate I/O work starts with bulk
 writer policy. Rich ORC output, long values, target-aware conversion and streaming
 JSON follow. Selective first-use reading, dataset layouts, variants and enterprise,
 table and transport adapters remain later implementation groups; they must not
@@ -51,9 +66,23 @@ every listed feature is absent or making a format count a completion criterion.
 This explicit queue addition does not make every family a v1 release blocker or
 close independent CG-1 through CG-23 evidence gates.
 
-## First: execute explicit fanout once and improve writer layout
+## Later conditional encoding research
 
-- **One producer for one multi-output request.** The reviewed single-use streaming
+The optional `PERF-09.portfolio` owner now includes exact cross-column
+transforms inspired by [FastLanes multi-column compression](https://ir.cwi.nl/pub/35881/35881.pdf).
+For a proved integer/fixed-scale relation such as `y = a*x + b + residual`,
+preserve exact reconstruction, NULLs, overflow and exceptions; floating data
+requires the original bit/semantic contract, not a real-number approximation.
+First check Vortex's existing encoding/extension surfaces. A useful profile
+must justify dependency reads, bounded dependency graphs, encoder metadata,
+random access and selected reconstruction against independent columns.
+Test narrow reads and uncorrelated data as controls. This remains conditional
+research behind the execution and ingestion opportunities, distinct from the
+rejected structural-text profile, without a new format or broad release promise.
+
+## First: reuse explicit fanout and improve writer layout
+
+- **One producer for one multi-output request, owned by the earlier workflow package.** The reviewed single-use streaming
   path already records/replays one native result. Ordinary non-streaming
   relational `write_many` and primitive per-destination `operation.write(...)`
   callbacks need reconciliation with that mechanism. Extend it to file-backed
@@ -122,6 +151,12 @@ in the pinned ORC reader. Preserve validation and generation identity. A project
 or predicate-specific prepared artifact cannot masquerade as a complete source.
 Choose the input strategy internally; no separate user-facing fast/compatibility
 engine modes are requested.
+
+The earlier workflow work-elimination package owns shared setup/admission for
+appropriate first-use preparation. This I/O package owns the format-specific
+read/pushdown and streaming mechanisms plus their full consumer proof. Develop
+one shared implementation and extend it here instead of creating parallel
+source resolvers or treating the earlier plan as completed adapter coverage.
 
 | Family | Coverage to audit and complete with actual read/write/reopen evidence |
 | --- | --- |

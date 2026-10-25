@@ -44,6 +44,8 @@ upstream-vortex = ["dep:vortex", "dep:bytes"]
 universal-format-io = [
     "dep:bytes",
     "dep:arrow-array",
+    "dep:arrow-buffer",
+    "dep:arrow-data",
     "dep:arrow-avro",
     "dep:arrow-ipc",
     "dep:arrow-schema",
@@ -62,6 +64,8 @@ vortex-encoded-read-spike = ["vortex-file-io", "vortex-encoded-read-executor"]
 [dependencies]
 bytes = { version = "1.11.1", optional = true }
 arrow-array = { workspace = true, optional = true }
+arrow-buffer = { workspace = true, optional = true }
+arrow-data = { workspace = true, optional = true }
 arrow-avro = { workspace = true, optional = true }
 arrow-flight = { workspace = true, optional = true }
 arrow-ipc = { workspace = true, optional = true }
@@ -125,6 +129,10 @@ required-features = ["universal-format-io"]
 
 [[example]]
 name = "compare_native_artifacts"
+required-features = ["vortex-local-primitives", "universal-format-io"]
+
+[[example]]
+name = "compare_parquet_native_artifact"
 required-features = ["vortex-local-primitives", "universal-format-io"]
 
 [[example]]

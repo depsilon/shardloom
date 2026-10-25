@@ -1,9 +1,9 @@
-//! Admission at the Arrow-to-native ingest boundary. Every imported buffer is
-//! copied into the native session allocator: Arrow's public capacity does not
-//! establish the retained allocation size of a custom owner. Original source
-//! owners, reader internals and provider allocations bypassing that allocator
-//! remain outside this scope. Native copies own credits for their full lifetime;
-//! no arbitrary native `ArrayRef` is charged after creation.
+//! Admission at the Arrow-to-native ingest boundary. External buffers keep
+//! validated native copies. A privately retained `ShardLoom` Parquet reader may
+//! transfer a unique standard allocation after complete capacity/alignment proof.
+//! Custom owners' reported capacity never proves retained allocation size.
+//! Reader internals and provider allocations bypassing this boundary remain
+//! outside this scope. Admitted buffers own credits for their full lifetime.
 
 use std::sync::Arc;
 
@@ -11,6 +11,91 @@ use arrow_array::{Array as _, ArrayRef, BooleanArray, RecordBatch, cast::AsArray
 use shardloom_core::{Result, ShardLoomError};
 use vortex::array::memory::HostAllocator;
 use vortex::buffer::Alignment;
+
+use super::stage_timing::ArrowOwnershipCounts;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArrowOwnershipPolicy {
+    #[default]
+    ValidatedCopy,
+    ControlledParquet,
+}
+
+#[derive(Default)]
+struct CopyObservation {
+    counts: ArrowOwnershipCounts,
+    // The values keep every observed region alive until this synchronous batch
+    // admission finishes. Addresses alone can be recycled (including temporary
+    // buffers synthesized by Array::to_data) and cannot identify repeated work.
+    held: std::collections::HashMap<(usize, usize), arrow_buffer::Buffer>,
+}
+
+impl CopyObservation {
+    fn observe(&mut self, buffer: &arrow_buffer::Buffer) -> Result<()> {
+        self.observe_region(buffer, None)
+    }
+
+    fn observe_region(
+        &mut self,
+        buffer: &arrow_buffer::Buffer,
+        transferred_allocation: Option<u64>,
+    ) -> Result<()> {
+        let bytes = u64::try_from(buffer.len())
+            .map_err(|_| ownership_error("Arrow observed buffer length overflow"))?;
+        let charge = buffer_copy_allocation_bytes(buffer.len())?;
+        self.counts.buffer_regions = self
+            .counts
+            .buffer_regions
+            .checked_add(1)
+            .ok_or_else(|| ownership_error("Arrow observed region count overflow"))?;
+        if let Some(allocation) = transferred_allocation {
+            self.counts.transferred_buffer_regions = self
+                .counts
+                .transferred_buffer_regions
+                .checked_add(1)
+                .ok_or_else(|| ownership_error("Arrow transferred region count overflow"))?;
+            self.counts.transferred_buffer_bytes = self
+                .counts
+                .transferred_buffer_bytes
+                .checked_add(bytes)
+                .ok_or_else(|| ownership_error("Arrow transferred bytes overflow"))?;
+            self.counts.transferred_allocation_bytes = self
+                .counts
+                .transferred_allocation_bytes
+                .checked_add(allocation)
+                .ok_or_else(|| ownership_error("Arrow transferred allocation overflow"))?;
+        } else {
+            self.counts.copied_buffer_bytes = self
+                .counts
+                .copied_buffer_bytes
+                .checked_add(bytes)
+                .ok_or_else(|| ownership_error("Arrow observed copied bytes overflow"))?;
+            self.counts.copied_allocation_bytes = self
+                .counts
+                .copied_allocation_bytes
+                .checked_add(charge)
+                .ok_or_else(|| ownership_error("Arrow observed allocation charge overflow"))?;
+        }
+        match self.held.entry((buffer.as_ptr().addr(), buffer.len())) {
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(buffer.clone());
+            }
+            std::collections::hash_map::Entry::Occupied(_) => {
+                self.counts.repeated_buffer_regions = self
+                    .counts
+                    .repeated_buffer_regions
+                    .checked_add(1)
+                    .ok_or_else(|| ownership_error("Arrow repeated region count overflow"))?;
+                self.counts.repeated_buffer_bytes = self
+                    .counts
+                    .repeated_buffer_bytes
+                    .checked_add(bytes)
+                    .ok_or_else(|| ownership_error("Arrow repeated buffer bytes overflow"))?;
+            }
+        }
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 use crate::owned_buffers::ReservedHostAllocator;
@@ -56,15 +141,195 @@ fn buffer_copy_allocation_bytes(length: usize) -> Result<u64> {
 }
 
 pub(crate) fn copy_batch(batch: RecordBatch, allocator: &dyn HostAllocator) -> Result<RecordBatch> {
+    copy_batch_observed(batch, allocator, None)
+}
+
+/// Observe actual copies made by the existing credited allocator, without
+/// changing ownership admission. No original owner survives the returned batch.
+pub(crate) fn copy_batch_profiled(
+    batch: RecordBatch,
+    allocator: &crate::owned_buffers::ReservedHostAllocator,
+) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
+    let mut observation = CopyObservation::default();
+    let retained = copy_batch_observed(batch, allocator, Some(&mut observation))?;
+    Ok((retained, observation.counts))
+}
+
+/// The controlled-reader policy permits a transfer attempt, not unconditional
+/// adoption. Every unsuitable buffer still receives the existing credited copy.
+pub(crate) fn admit_batch_profiled(
+    batch: RecordBatch,
+    allocator: &crate::owned_buffers::ReservedHostAllocator,
+    policy: ArrowOwnershipPolicy,
+) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
+    if policy == ArrowOwnershipPolicy::ValidatedCopy {
+        return copy_batch_profiled(batch, allocator);
+    }
+    let mut observation = CopyObservation::default();
+    let (schema, columns, rows) = batch.into_parts();
+    let columns = columns
+        .into_iter()
+        .map(|array| {
+            let data = array.to_data();
+            // ArrayRef::into_data still clones its underlying buffers. Release
+            // the original Arc before asking Arrow for unique allocation proof.
+            drop(array);
+            admit_array_data(data, allocator, &mut observation).map(arrow_array::make_array)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let retained = RecordBatch::try_new_with_options(
+        schema,
+        columns,
+        &arrow_array::RecordBatchOptions::new().with_row_count(Some(rows)),
+    )
+    .map_err(|error| {
+        ownership_error(&format!("Arrow retained batch validation failed: {error}"))
+    })?;
+    Ok((retained, observation.counts))
+}
+
+fn admit_array_data(
+    data: arrow_data::ArrayData,
+    allocator: &dyn HostAllocator,
+    observation: &mut CopyObservation,
+) -> Result<arrow_data::ArrayData> {
+    let (dtype, length, nulls, offset, buffers, children) = data.into_parts();
+    let layout = arrow_data::layout(&dtype);
+    let buffers = buffers
+        .into_iter()
+        .enumerate()
+        .map(|(index, buffer)| {
+            let alignment = match layout.buffers.get(index) {
+                Some(arrow_data::BufferSpec::FixedWidth { alignment, .. }) => Some(*alignment),
+                Some(arrow_data::BufferSpec::VariableWidth | arrow_data::BufferSpec::BitMap) => {
+                    Some(1)
+                }
+                None if layout.variadic => Some(1),
+                _ => None,
+            };
+            admit_buffer(
+                buffer,
+                alignment.filter(|_| offset == 0),
+                allocator,
+                observation,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let nulls = nulls
+        .map(|nulls| -> Result<_> {
+            let bits = nulls.into_inner();
+            let bit_offset = bits.offset();
+            let bit_length = bits.len();
+            let buffer = admit_buffer(
+                bits.into_inner(),
+                (bit_offset == 0).then_some(1),
+                allocator,
+                observation,
+            )?;
+            Ok(arrow_buffer::NullBuffer::new(
+                arrow_buffer::BooleanBuffer::new(buffer, bit_offset, bit_length),
+            ))
+        })
+        .transpose()?;
+    let children = children
+        .into_iter()
+        .map(|child| admit_array_data(child, allocator, observation))
+        .collect::<Result<Vec<_>>>()?;
+    arrow_data::ArrayData::builder(dtype)
+        .len(length)
+        .offset(offset)
+        .buffers(buffers)
+        .nulls(nulls)
+        .child_data(children)
+        .build()
+        .map_err(|error| {
+            ownership_error(&format!("Arrow retained array validation failed: {error}"))
+        })
+}
+
+fn admit_buffer(
+    buffer: arrow_buffer::Buffer,
+    alignment: Option<usize>,
+    allocator: &dyn HostAllocator,
+    observation: &mut CopyObservation,
+) -> Result<arrow_buffer::Buffer> {
+    let copy_charge = buffer_copy_allocation_bytes(buffer.len())?;
+    let buffer = if !buffer.is_empty()
+        && buffer.ptr_offset() == 0
+        && alignment.is_some_and(|alignment| buffer.as_ptr().addr().is_multiple_of(alignment))
+    {
+        match buffer.into_mutable() {
+            Ok(mutable) => {
+                // Arrow 59.3.1 succeeds only for Arc-unique Standard(Layout)
+                // owners. MutableBuffer capacity is that complete Layout size;
+                // opaque allocations never reach this branch.
+                let capacity = mutable.capacity();
+                let buffer = arrow_buffer::Buffer::from(mutable);
+                let capacity_u64 = u64::try_from(capacity)
+                    .map_err(|_| ownership_error("Arrow standard allocation size overflow"))?;
+                if capacity_u64 <= copy_charge {
+                    let reservation = allocator
+                        .reserve_external(capacity)
+                        .map_err(|error| ownership_error(&error.to_string()))?;
+                    let retained = arrow_buffer::Buffer::from(bytes::Bytes::from_owner(
+                        TransferredArrowOwner {
+                            buffer,
+                            _reservation: reservation,
+                        },
+                    ));
+                    // Retain a clone only after unique ownership has been proved.
+                    // This keeps address identities live without blocking transfer.
+                    observation.observe_region(&retained, Some(capacity_u64))?;
+                    return Ok(retained);
+                }
+                buffer
+            }
+            Err(buffer) => buffer,
+        }
+    } else {
+        buffer
+    };
+    observation.observe(&buffer)?;
+    let length = buffer.len();
+    let mut admitted = allocator
+        .allocate(length.max(1), Alignment::DEFAULT_ALIGNMENT)
+        .map_err(|error| ownership_error(&error.to_string()))?;
+    admitted.as_mut_slice()[..length].copy_from_slice(buffer.as_slice());
+    let retained = arrow_buffer::Buffer::from(bytes::Bytes::from_owner(admitted.freeze()));
+    Ok(if length == 0 {
+        retained.slice_with_length(0, 0)
+    } else {
+        retained
+    })
+}
+
+// Field order releases allocation storage before the last native credit.
+struct TransferredArrowOwner {
+    buffer: arrow_buffer::Buffer,
+    _reservation: vortex::array::memory::HostMemoryReservation,
+}
+
+impl AsRef<[u8]> for TransferredArrowOwner {
+    fn as_ref(&self) -> &[u8] {
+        self.buffer.as_slice()
+    }
+}
+
+fn copy_batch_observed(
+    batch: RecordBatch,
+    allocator: &dyn HostAllocator,
+    mut observation: Option<&mut CopyObservation>,
+) -> Result<RecordBatch> {
     let columns = batch
         .columns()
         .iter()
-        .map(|array| copy_array(array, allocator))
+        .map(|array| copy_array(array, allocator, observation.as_deref_mut()))
         .collect::<Result<Vec<_>>>()?;
     let schema = batch.schema();
     let rows = batch.num_rows();
-    // Only newly admitted copies are retained beyond this boundary. Release
-    // this input batch's owners before validating the replacement batch.
+    // Only newly admitted copies survive this boundary. The optional observer
+    // retains original regions until validation finishes to prevent address
+    // reuse from masquerading as repeated copy work.
     drop(batch);
     RecordBatch::try_new_with_options(
         schema,
@@ -74,10 +339,13 @@ pub(crate) fn copy_batch(batch: RecordBatch, allocator: &dyn HostAllocator) -> R
     .map_err(|error| ownership_error(&format!("Arrow retained batch validation failed: {error}")))
 }
 
-fn copy_array(array: &ArrayRef, allocator: &dyn HostAllocator) -> Result<ArrayRef> {
+fn copy_array(
+    array: &ArrayRef,
+    allocator: &dyn HostAllocator,
+    mut observation: Option<&mut CopyObservation>,
+) -> Result<ArrayRef> {
     let data = array.to_data();
-    // The inferred Arrow Buffer type keeps this bridge on the existing
-    // arrow-array/bytes dependency surfaces, without a new direct dependency.
+    // Preserve the provider's Arrow buffer layout while replacing its owners.
     let mut buffers = data.buffers().to_vec();
     for buffer in &mut buffers {
         // Pinned Arrow 59.3 exposes the custom owner's visible byte length as
@@ -85,6 +353,9 @@ fn copy_array(array: &ArrayRef, allocator: &dyn HostAllocator) -> Result<ArrayRe
         // Copy every referenced region. Empty typed buffers still need an
         // aligned pointer: retain a one-byte allocation behind an empty slice.
         let length = buffer.len();
+        if let Some(observation) = observation.as_deref_mut() {
+            observation.observe(buffer)?;
+        }
         let mut admitted = allocator
             .allocate(length.max(1), Alignment::DEFAULT_ALIGNMENT)
             .map_err(|error| ownership_error(&error.to_string()))?;
@@ -100,7 +371,7 @@ fn copy_array(array: &ArrayRef, allocator: &dyn HostAllocator) -> Result<ArrayRe
             // A BooleanArray round trip preserves independent validity bit
             // offsets, including slices whose value offset differs from it.
             let bits: ArrayRef = Arc::new(BooleanArray::new(nulls.inner().clone(), None));
-            let retained = copy_array(&bits, allocator)?;
+            let retained = copy_array(&bits, allocator, observation.as_deref_mut())?;
             Ok(retained.as_boolean().values().clone().into())
         })
         .transpose()?;
@@ -108,8 +379,12 @@ fn copy_array(array: &ArrayRef, allocator: &dyn HostAllocator) -> Result<ArrayRe
         .child_data()
         .iter()
         .map(|child| {
-            copy_array(&arrow_array::make_array(child.clone()), allocator)
-                .map(|child| child.to_data())
+            copy_array(
+                &arrow_array::make_array(child.clone()),
+                allocator,
+                observation.as_deref_mut(),
+            )
+            .map(|child| child.to_data())
         })
         .collect::<Result<Vec<_>>>()?;
     let data = data
@@ -160,6 +435,10 @@ pub(crate) fn batch_copy_buffer_bytes(batch: &RecordBatch) -> Result<u64> {
             .ok_or_else(|| ownership_error("Arrow copied batch size overflow"))
     })
 }
+
+#[cfg(test)]
+#[path = "ingest_arrow_transfer_tests.rs"]
+mod transfer_tests;
 
 #[cfg(test)]
 mod tests {
@@ -410,5 +689,108 @@ mod tests {
         assert_eq!(native.len(), 0);
         drop(native);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn observed_copies_count_shared_values_and_validity_without_reusing_them() {
+        let shared: ArrayRef = Arc::new(Int64Array::from(vec![Some(7), None, Some(-3)]));
+        let input = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("left", DataType::Int64, true),
+                Field::new("right", DataType::Int64, true),
+            ])),
+            vec![Arc::clone(&shared), shared],
+        )
+        .unwrap();
+        let expected = input.clone();
+        let charge = batch_copy_allocation_bytes(&input).unwrap();
+        let memory = LiveMemoryPool::new(charge).unwrap();
+        let (copied, counts) =
+            copy_batch_profiled(input, &ReservedHostAllocator::new(memory.clone())).unwrap();
+        assert_eq!(copied, expected);
+        assert_eq!(counts.buffer_regions, 4);
+        assert_eq!(counts.repeated_buffer_regions, 2);
+        assert_eq!(counts.copied_buffer_bytes, 2 * (3 * 8 + 1));
+        assert_eq!(counts.repeated_buffer_bytes, 3 * 8 + 1);
+        assert_eq!(counts.copied_allocation_bytes, charge);
+        assert_eq!(memory.snapshot().reserved_bytes, charge);
+        for index in 0..2 {
+            assert_ne!(
+                copied.column(index).to_data().buffers()[0].as_ptr(),
+                expected.column(index).to_data().buffers()[0].as_ptr()
+            );
+        }
+        assert_ne!(
+            copied.column(0).to_data().buffers()[0].as_ptr(),
+            copied.column(1).to_data().buffers()[0].as_ptr()
+        );
+        drop(copied);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn observed_regions_require_the_same_visible_length_and_hold_their_owner() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        struct Owner(Arc<AtomicBool>, [u8; 32]);
+        impl AsRef<[u8]> for Owner {
+            fn as_ref(&self) -> &[u8] {
+                &self.1
+            }
+        }
+        impl Drop for Owner {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let dropped = Arc::new(AtomicBool::new(false));
+        let buffer: arrow_buffer::Buffer =
+            bytes::Bytes::from_owner(Owner(Arc::clone(&dropped), [7; 32])).into();
+        let mut observer = CopyObservation::default();
+        observer.observe(&buffer).unwrap();
+        observer.observe(&buffer.slice_with_length(0, 16)).unwrap();
+        observer.observe(&buffer).unwrap();
+        drop(buffer);
+        assert!(!dropped.load(Ordering::SeqCst));
+        assert_eq!(observer.counts.buffer_regions, 3);
+        assert_eq!(observer.counts.copied_buffer_bytes, 80);
+        assert_eq!(observer.counts.repeated_buffer_regions, 1);
+        assert_eq!(observer.counts.repeated_buffer_bytes, 32);
+        drop(observer);
+        assert!(dropped.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn failed_observed_copy_releases_partial_credits_and_the_hidden_source_owner() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        struct Hidden(Arc<AtomicBool>, Vec<u8>);
+        impl AsRef<[u8]> for Hidden {
+            fn as_ref(&self) -> &[u8] {
+                &self.1[..1]
+            }
+        }
+        impl Drop for Hidden {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let dropped = Arc::new(AtomicBool::new(false));
+        let data = BooleanArray::from(vec![true, false]).to_data();
+        let buffer: arrow_buffer::Buffer =
+            bytes::Bytes::from_owner(Hidden(Arc::clone(&dropped), vec![1; 65536])).into();
+        let array =
+            arrow_array::make_array(data.into_builder().buffers(vec![buffer]).build().unwrap());
+        let input = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("a", DataType::Boolean, false),
+                Field::new("b", DataType::Boolean, false),
+            ])),
+            vec![Arc::clone(&array), array],
+        )
+        .unwrap();
+        let memory = LiveMemoryPool::new(buffer_copy_allocation_bytes(1).unwrap()).unwrap();
+        assert!(copy_batch_profiled(input, &ReservedHostAllocator::new(memory.clone())).is_err());
+        assert!(memory.snapshot().peak_reserved_bytes > 0);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert!(dropped.load(Ordering::SeqCst));
     }
 }

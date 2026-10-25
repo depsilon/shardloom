@@ -8,13 +8,14 @@ establishes one public DataFrame concept, documented as lazy, and one ordinary
 keeping newly proposed composition/catalog/parameter capabilities explicitly
 pending until their implementation immediately after ingestion.
 
-Status: implemented and locally validated October 25; PR integration remains
-pending. The coordinated pass follows accepted
+Status: implemented, validated and merged October 25 in
+[PR #1604](https://github.com/depsilon/shardloom/pull/1604) at `3239ade0`.
+The coordinated pass follows accepted
 [user-surface work](native-user-surface-execution-parity-2026-10-24.md),
 [provider refresh](native-vortex-provider-refresh-2026-10-24.md) and the finite
 [warm-source decision](native-warm-source-reuse-2026-10-24.md).
 [Full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md)
-is next after integration, followed by the
+is now active, followed by the
 [connected programming model](native-connected-programming-model-2026-10-24.md),
 [universal I/O](native-universal-io-performance-coverage-2026-10-24.md) and
 [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
@@ -261,3 +262,17 @@ generated package metadata and absent release-rehearsal/channel reports; that
 complete release pipeline remains a CI check, not local release acceptance.
 No benchmark is rerun for the naming change. This acceptance neither
 closes CG-1 through CG-23 nor publishes a package or release.
+
+## October 25 integration
+
+PR #1604 merges at `3239ade0aee302c95c3aeb772759421830d06731` after all
+44 checks pass on `b42df2870c0786dd8dce03475f7b53b9672aef22`. The final
+review contains no submissions or unresolved threads, and the expected-head
+merge succeeds. The post-merge check finds no open repository PRs. The full CI
+release-readiness and user-surface evidence checks pass; the earlier standalone
+local release-check limitation remains part of the local record.
+
+Full-ingest ownership/preparation proceeds next. Tokio/prost and workflow-pin
+work from closed bot proposals remains in the
+[consolidated dependency queue](dependency-intake-2026-10-25.md); those updates
+are not implied by this naming merge.

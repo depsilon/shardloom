@@ -249,6 +249,11 @@ pub struct FlatLocalColumnarStreamSource {
 }
 
 #[cfg(feature = "vortex-write")]
+mod ingest_source;
+#[cfg(feature = "vortex-write")]
+pub use ingest_source::IngestColumnarStreamSource;
+
+#[cfg(feature = "vortex-write")]
 pub use crate::ingest_runtime::IngestRuntime;
 
 #[cfg(any(test, not(feature = "vortex-write")))]

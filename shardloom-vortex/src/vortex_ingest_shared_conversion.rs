@@ -88,7 +88,7 @@ impl ConversionExecutor {
                             task_cancellation.check()?;
                             let value = match batch {
                                 Some((index, batch)) => context
-                                    .convert_batch(index, &batch, &mut lease)
+                                    .convert_batch(index, batch, &mut lease)
                                     .inspect_err(|error| context.remember_failure(error))?,
                                 None => None,
                             };

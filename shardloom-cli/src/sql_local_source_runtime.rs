@@ -5504,7 +5504,8 @@ fn stream_columnar_vortex_ingest_source(
     source_fingerprint_policy: SourceFingerprintPolicy,
     batch_budget_bytes: u64,
     cancellation: &CancellationToken,
-) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
+) -> Result<shardloom_vortex::universal_format_io::IngestColumnarStreamSource, ShardLoomError> {
+    use shardloom_vortex::universal_format_io::IngestColumnarStreamSource;
     cancellation.check()?;
     if path.is_dir() {
         return stream_columnar_vortex_ingest_partition_source(
@@ -5516,22 +5517,36 @@ fn stream_columnar_vortex_ingest_source(
             source_fingerprint_policy,
             batch_budget_bytes,
             cancellation,
-        );
+        )
+        .map(Into::into);
     }
-    let source = stream_columnar_vortex_ingest_file_source(
-        source_format,
-        path,
-        max_rows,
-        max_parallelism,
-        batch_budget_bytes,
-        cancellation,
-    )?;
-    let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
-    shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
-        source,
-        max_parallelism,
-        cancellation,
-    )
+    let source = if source_format == LocalSourceFormat::Parquet {
+        IngestColumnarStreamSource::parquet(
+            path,
+            max_rows,
+            max_parallelism,
+            Some(batch_budget_bytes.max(1)),
+            cancellation,
+        )?
+    } else {
+        stream_columnar_vortex_ingest_file_source(
+            source_format,
+            path,
+            max_rows,
+            max_parallelism,
+            batch_budget_bytes,
+            cancellation,
+        )?
+        .into()
+    };
+    let source = if columnar_stream_source_prefers_full_embedded_text_metadata(&source) {
+        source.with_embedded_derived_columns()
+    } else if columnar_stream_source_prefers_lean_source_native_embedded_metadata(&source) {
+        source.with_source_native_lean_runtime_embedded_derived_columns()
+    } else {
+        source.with_source_native_embedded_derived_columns()
+    };
+    source.with_prefetch(max_parallelism, cancellation)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

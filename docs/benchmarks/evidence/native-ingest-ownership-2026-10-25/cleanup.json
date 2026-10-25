@@ -1,0 +1,159 @@
+{
+  "status": "passed",
+  "inventory": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-ingest-ownership-2026-10-25/cleanup-inventory.json.gz",
+    "bytes": 522094,
+    "sha256": "f822eae216b0f311799cf657af9db6d4ada2a3f76db4ebf3979a5d5d2905e78d"
+  },
+  "regular_files_removed": 7702,
+  "symlinks_removed": 3,
+  "regular_file_bytes_removed": 20274674634,
+  "archived_raw_log_copies_removed": 497,
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/control-tools-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/control-tools-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/candidate-tools-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/readback-tools-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/package-runtime-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/staged-timing",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/staged-readback-tests",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/wheel-proof-combined-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/wheel-proof-combined-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/packet-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/packet-combined-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/packet-combined-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/packet-combined-r3",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/clean-checkout-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/artifacts-r2/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/artifacts-r2/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/wheel-proof-r2/dist/shardloom-0.7.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/fresh-input-r2/vortex/hits.vortex",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/full43-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/combined-full43-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/validation",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "retained_replacements": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/combined-runtime-r1/shardloom",
+      "bytes": 78296544,
+      "sha256": "bbdb78fd982253b9428ceb76fc52af5d2b163fe9230c57e8e1b13f179a428988"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/combined-runtime-r1/_native.abi3.so",
+      "bytes": 78223312,
+      "sha256": "9b52ac7695b727942445833c2dedb7c750e19b299b59aabc54ad4f054822c2fb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/wheel-proof-combined-r1/dist/shardloom-0.7.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "bytes": 52064693,
+      "sha256": "76b0d379a56a93b0c28f2e9f2a083a89d502b89c12b6a9e9a99a740bc3cd48c2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/ingest-ownership-20261025/outputs/candidate-screen-r1/hits.vortex",
+      "bytes": 15715228660,
+      "sha256": "95a393d153a8c2e1ffeb5084b2656ac61465c6ef9dad435d032365844f1ac057"
+    }
+  ],
+  "original_parquet_retained": true,
+  "cargo_cache_retained_for_next_active_work": true,
+  "portable_replay_passed": true,
+  "clean_checkout_proof": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-ingest-ownership-2026-10-25/clean-checkout.json",
+    "bytes": 1100,
+    "sha256": "06b9d6448b3b99223944d497573497b4abe9d11aeb4c516e1447c746e49550cb"
+  },
+  "all_candidate_paths_absent": true,
+  "no_payload_backup_created": true,
+  "storage_limits_unchanged": true,
+  "free_bytes_before": 77692194816,
+  "free_bytes_after": 98008006656
+}

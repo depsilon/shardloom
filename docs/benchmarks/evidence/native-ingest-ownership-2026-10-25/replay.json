@@ -1,0 +1,90 @@
+{
+  "status": "passed",
+  "complete_ingests": 2,
+  "readback_rows_per_artifact": 99997497,
+  "readback_columns_per_artifact": 112,
+  "readback_values_per_artifact": 11199719664,
+  "copy_reduction_fraction": 0.6123624400066596,
+  "frozen_speed_screen": "failed",
+  "implementation_retention": "explicit_maintainer_decision",
+  "ownership_full43": {
+    "queries": 43,
+    "complete_rows": 381,
+    "engine_seconds": 47.281897502,
+    "previous_engine_seconds": 49.625514041,
+    "causal_speedup_claim": false
+  },
+  "archived_files": 735,
+  "engine_execution_performed": false,
+  "ownership_validation": {
+    "commands": 5,
+    "tests": {
+      "passed": 6551,
+      "failed": 0,
+      "ignored": 32
+    },
+    "frozen_source_revision": "20f0339610133e3e2eb1c80df2d94dedb1c6efe0"
+  },
+  "combined_validation": {
+    "gates": 9,
+    "tests": {
+      "passed": 9364,
+      "failed": 0,
+      "ignored": 35
+    },
+    "source_files": 2858,
+    "excluded_test_scope": "platform-specific and explicit opt-in benchmarks or fixture helpers"
+  },
+  "dependency_validation": {
+    "changed_package_identities": {
+      "tokio": "1.54.1",
+      "prost": "0.14.4",
+      "prost-derive": "0.14.4"
+    },
+    "rust_audits": "passed",
+    "workflow_pin_uses": 29,
+    "workflow_contract_lanes": 16,
+    "audit_warning_scope": "existing paste, anyhow and event-listener warnings retained in raw log; no new waiver"
+  },
+  "combined_runtime": {
+    "source_revision": "23807cb70e13ba2981140a895798e9aff99fb9da",
+    "tested_source_files": 2858,
+    "installed_native_tests": 140,
+    "native_library_sha256": "9b52ac7695b727942445833c2dedb7c750e19b299b59aabc54ad4f054822c2fb",
+    "cli_sha256": "bbdb78fd982253b9428ceb76fc52af5d2b163fe9230c57e8e1b13f179a428988",
+    "wheel_sha256": "76b0d379a56a93b0c28f2e9f2a083a89d502b89c12b6a9e9a99a740bc3cd48c2",
+    "original_inventory_mismatch_preserved_and_resolved": true,
+    "binary_payloads_reexecuted_or_archived": false,
+    "publication_attempted": false
+  },
+  "combined_full43": {
+    "queries": 43,
+    "complete_rows": 381,
+    "engine_seconds": 46.973255495,
+    "previous_engine_seconds": 49.625514041,
+    "causal_speedup_claim": false
+  },
+  "corruption_controls_rejected": [
+    "changed_speed_gate",
+    "truncated_readback",
+    "wrong_column_coverage",
+    "incomplete_value_comparison",
+    "retained_readback_credit",
+    "uninspected_layout",
+    "fallback_execution",
+    "duplicate_json_key",
+    "nonfinite_result_value",
+    "failed_test_log",
+    "false_engine_total",
+    "truncated_query_coverage",
+    "false_speedup_claim",
+    "changed_raw_engine_clock",
+    "duplicate_query_record",
+    "failed_combined_gate",
+    "unreviewed_dependency",
+    "different_tested_runtime_source",
+    "failed_installed_load",
+    "wrong_embedded_cli",
+    "false_combined_engine_total"
+  ]
+}

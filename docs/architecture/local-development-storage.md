@@ -67,6 +67,16 @@ inputs and the accepted provider runtime/wheel remain. Other compiler outputs
 remain for the next active naming build; the three exact rejected release
 binaries are removed. No payload backup or storage-ceiling change occurs.
 
+The [October 25 ingest-ownership cleanup](../benchmarks/evidence/native-ingest-ownership-2026-10-25/cleanup.json)
+retires 7,702 generated regular files and three environment links after portable
+and clean-checkout replay. Superseded tool/runtime/wheel copies, completed
+package environments, the byte-identical previous Vortex output and verification
+checkout are removed. All 497 retired raw log copies remain byte-for-byte in
+the compact packet. The original Parquet, current candidate-produced Vortex,
+final combined CLI/library and installed-tested wheel remain. The existing
+Cargo cache supports the next active implementation; no rollback payload backup
+or storage-ceiling change occurs.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in
