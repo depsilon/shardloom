@@ -2,17 +2,19 @@
 
 # Reduce full-ingest preparation and ownership-transfer work
 
-Status: accepted October 24 maintainer handoff, queued after
+Status: active October 25 after naming PR #1604 merges at `3239ade0`.
+This work follows
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then the [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
-then [public naming and terminology](shardloom-public-naming-2026-10-24.md),
-and immediately before the [connected programming model](native-connected-programming-model-2026-10-24.md),
+and [public naming and terminology](shardloom-public-naming-2026-10-24.md).
+It immediately precedes the [connected programming model](native-connected-programming-model-2026-10-24.md),
 then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
 under the subsequent October 24 ordering decision.
-This records scope and source review, not an implemented optimization or new
-ingestion measurement. The grouped-preparation campaign from closed #1595 is included in merged #1596.
+Attribution and complete-readback tools are validated; ingestion measurement
+and ownership optimization remain pending. The grouped-preparation campaign
+from closed #1595 is included in merged #1596.
 The existing RFC 0044 resource contract and PERF-02/03/06/09 owners apply;
 CG-1 through CG-23 remain independent gates.
 
@@ -92,6 +94,46 @@ all upstream allocations through it. Recheck pinned decoder/buffer APIs before
 choosing an internal transfer design. No query-engine integration is admitted.
 
 ## Finite implementation order
+
+October 25 measurement preparation began while public-naming CI completed.
+PR #1604 is now merged after all 44 checks pass. The observation control keeps
+every validated copy and adds exact copied-region/charge counters and a nested
+ownership work span. The scope includes observation, allocation, copying and
+validation; it is not a pure memory-copy timer. Original owners and observer
+map metadata remain outside native allocation accounting. Holding each observed
+region for the entire batch prevents address reuse from being counted as a
+duplicate. The new `compare_parquet_native_artifact` example extends the
+existing bounded native artifact comparator with direct pinned Parquet decoding
+and independent references for all seven derived fields. It is a read-only
+correctness boundary, with no external query engine or production ingest helper.
+No full-ingest measurement or ownership optimization has yet been accepted.
+
+The preliminary complete readback now validates the existing accepted file:
+99,997,497 rows across all 105 source and seven derived fields, with independent
+derived formulas, exact schema and complete value coverage. Two oversized-batch
+attempts are retained; reducing readback batches to 8,192 rows resolves the
+`Title` retained-capacity limit without raising memory ceilings or reducing
+coverage. Source generations and final credit/task release pass. The
+[measurement record](../benchmarks/native-ingest-ownership-2026-10-25.md#preliminary-complete-readback)
+keeps this later proof separate from original provider-refresh acceptance.
+
+The provider check uses pinned Arrow 59.3.1 buffer/data APIs and Vortex 0.90
+session, allocator, Arrow, prepared scan and file providers. `arrow-buffer`
+becomes an optional direct dependency at its already locked Apache-2.0 version
+to retain typed observation owners; it adds no package or version to the graph.
+Possible transfer still requires complete allocator ownership, alignment and
+lifetime proof. Public generic Arrow intake remains a validated-copy boundary.
+
+The [frozen observation protocol](../benchmarks/native-ingest-ownership-2026-10-25.md)
+defines the copy-work screen, candidate selection, complete-ingest controls,
+independent full readback and isolated query acceptance before measurement.
+Naming integration is complete. Default workspace tests pass 3,256 cases;
+the full native Vortex library suite passes 3,285, with 32 existing opt-in
+tests ignored. Workspace and native strict lint plus formatting pass. The
+reference-memory regression checks the separate Parquet retained-byte boundary
+after accounting for the existing native conversion allowance. Earlier failed
+fixture and oversized-batch observations remain recorded. This establishes the
+control and readback tools; a first complete ingestion observation is still next.
 
 1. **Attribute copy work and select one ownership correction.** Trace actual
    bytes copied, repeated visible regions and retained allocations in the

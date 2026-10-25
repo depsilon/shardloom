@@ -36,6 +36,7 @@ rust-version = "1.96"
 
 [workspace.dependencies]
 arrow-array = "=59.3.1"
+arrow-buffer = "=59.3.1"
 arrow-avro = { version = "=59.3.1", default-features = false, features = ["deflate", "snappy"] }
 arrow-flight = { version = "=59.3.1", default-features = false, features = ["flight-sql", "tls-ring"] }
 arrow-ipc = "=59.3.1"

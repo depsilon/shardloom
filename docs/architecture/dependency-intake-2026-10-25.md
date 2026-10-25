@@ -6,7 +6,9 @@ Status: active maintenance queue. The maintainer requests that all category and
 dependency PRs be merged or closed, with needed dependency work retained in the
 active queue. Provider PR #1601 is merged. The four new bot PRs below are closed
 and consolidated here; closure does not claim that their proposed updates have
-been applied or validated. Public naming remains the next implementation item.
+been applied or validated. Public naming PR #1604 is now merged; full-ingest
+ownership/preparation is the active implementation item. This dependency
+maintenance remains queued before the next release.
 
 | Closed proposal | Current accepted pin | Proposed intake | Disposition |
 | --- | --- | --- | --- |

@@ -3097,6 +3097,7 @@ version = "0.7.0"
 dependencies = [
  "arrow-array",
  "arrow-avro",
+ "arrow-buffer",
  "arrow-flight",
  "arrow-ipc",
  "arrow-schema",

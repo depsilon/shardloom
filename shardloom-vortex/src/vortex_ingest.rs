@@ -12053,10 +12053,12 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
                 lease.bytes()
             )));
         }
-        let retained = arrow_ownership::copy_batch(
+        let ownership_started = Instant::now();
+        let (retained, ownership_counts) = arrow_ownership::copy_batch_profiled(
             projected,
             &crate::owned_buffers::ReservedHostAllocator::new(memory.pool.clone()),
         )?;
+        timing.record_ownership(ownership_started.elapsed(), rows, ownership_counts);
         let schema = retained.schema();
         let result = memory
             .session
@@ -18217,6 +18219,29 @@ mod tests {
         assert_eq!(
             stage_fields["vortex_ingest_stream_arrow_conversion_rows"],
             "3"
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_stream_arrow_ownership_calls"],
+            "2"
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_stream_arrow_ownership_rows"],
+            "3"
+        );
+        assert_eq!(stage_fields["vortex_ingest_ownership_buffer_regions"], "6");
+        // Two numeric value buffers, two UTF-8 offset buffers and all 14 text
+        // bytes cross the real writer's credited-copy boundary.
+        assert_eq!(
+            stage_fields["vortex_ingest_ownership_copied_buffer_bytes"],
+            "58"
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_ownership_copied_allocation_bytes"],
+            (58 + 6 * vortex::buffer::Alignment::DEFAULT_ALIGNMENT.as_usize()).to_string()
+        );
+        assert_eq!(
+            stage_fields["vortex_ingest_ownership_repeated_buffer_bytes"],
+            "0"
         );
         assert_eq!(
             stage_fields["vortex_ingest_identity_projection_batches"],

@@ -5,6 +5,10 @@
 //! prevent provider split vectors from scaling with the complete source, while
 //! independent Arrow cursors tolerate different encodings and batch boundaries.
 
+#[path = "native_artifact_parquet_readback.rs"]
+mod parquet_readback;
+pub use parquet_readback::{ParquetReferenceRecipe, compare_parquet_native_artifact};
+
 use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
 use arrow_array::ArrayRef as ArrowArrayRef;
 use arrow_schema::{DataType, Field};
