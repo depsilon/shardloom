@@ -1,0 +1,95 @@
+{
+  "status": "passed",
+  "source_commit": "4117846158edc7b1ab692ef90dd99ba686c5360c",
+  "frozen_build_base": "a22760ecb8eaa6b34204a63dfa434be30a1258f1",
+  "verifier_sha256": "b8441e075515a3c6bfa8ab58ae4b410a8d8d7a459ecf5da6dbd8717f3bcbc91b",
+  "verification_sources": {
+    "verify_packet.py": "b8441e075515a3c6bfa8ab58ae4b410a8d8d7a459ecf5da6dbd8717f3bcbc91b",
+    "public_replay.py": "0dad700d5ff66ca0501de41e0f4ccd54fb180d818e537be9b15107d75ae667e5"
+  },
+  "packet_manifest_sha256": "bf99431f11d4f3cfee6df9d4584fba31b557a1d3bdc3b35f8f7d8685d3262982",
+  "source_files": 2147,
+  "current_source_checked": true,
+  "validation": {
+    "receipts": 138,
+    "statuses": {
+      "passed": 91,
+      "failed": 47
+    },
+    "final_source_gates": 10,
+    "zero_executed_historical_tests": [
+      "test-fsst-activation-090-r1.json",
+      "test-writer-edition-090-r1.json"
+    ]
+  },
+  "wheel": {
+    "tests": 140,
+    "skipped": 0,
+    "installed_and_removed": true
+  },
+  "public": {
+    "public-r1": {
+      "families": 39,
+      "cases": 5930,
+      "counts": {
+        "compressed_json": 16389,
+        "complete_value_files": 5639,
+        "compared_rows": 73811,
+        "retained_value_archives": 56,
+        "retained_archive_rows": 327712,
+        "fixture_declarations": 39,
+        "case_value_archives": 81,
+        "case_archive_rows": 3078167,
+        "successful_envelopes": 7815,
+        "refused_envelopes": 336,
+        "other_json": 2542
+      }
+    },
+    "public-r2": {
+      "families": 39,
+      "cases": 5930,
+      "counts": {
+        "compressed_json": 16389,
+        "complete_value_files": 5639,
+        "compared_rows": 73811,
+        "retained_value_archives": 56,
+        "retained_archive_rows": 327712,
+        "fixture_declarations": 39,
+        "case_value_archives": 81,
+        "case_archive_rows": 3078167,
+        "successful_envelopes": 7815,
+        "refused_envelopes": 336,
+        "other_json": 2542
+      }
+    }
+  },
+  "modular": {
+    "records": 1408,
+    "native_records": 704,
+    "independent_records": 704,
+    "cohorts": 18,
+    "command_values_checked": 1780
+  },
+  "fresh_ingest_rows": 99997497,
+  "full43": {
+    "queries": 43,
+    "rows": 381,
+    "exact_schema_continuity": 43,
+    "engine_seconds": 49.625514041,
+    "previous_engine_seconds": 48.701809680000004
+  },
+  "corruption_controls_rejected": [
+    "final_gate_source_mismatch",
+    "wheel_skipped_test",
+    "omitted_full43_result",
+    "substituted_engine_clock",
+    "expanded_ingest_readback_claim",
+    "modular_changed_complete_value",
+    "modular_changed_sql_declaration",
+    "missing_case_level_rows_archive"
+  ],
+  "execution_scope": "saved complete values and identity replay; no engine, build or archived code execution",
+  "bulk_payloads_rehashed": false,
+  "historical_failed_runs_reclassified": false,
+  "public_inventory_stale_coverage_annotations_used": false
+}

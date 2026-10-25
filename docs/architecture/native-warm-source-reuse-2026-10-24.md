@@ -6,8 +6,9 @@ Status: accepted October 24 maintainer handoff, queued after
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and the subsequent [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 before [full-ingest ownership/preparation](native-ingest-ownership-preparation-2026-10-24.md),
-then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md)
-and [universal I/O](native-universal-io-performance-coverage-2026-10-24.md).
+then [connected programming](native-connected-programming-model-2026-10-24.md),
+[universal I/O](native-universal-io-performance-coverage-2026-10-24.md)
+and [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
 The subsequent [public-naming pass](shardloom-public-naming-2026-10-24.md)
 also precedes ingestion and uses this package's settled lifecycle terminology.
 This is source review and a finite implementation/measurement scope, not an
@@ -187,8 +188,9 @@ combining independently selected minima into one claimed run.
 No machine-wide cache reset, artificial pacing or uncontrolled repeat-until-fast
 loop is requested. Label the first call first-use/uncontrolled. Full-file
 integrity hashing can populate OS pages; a separately authorized true-cold
-experiment must place hashing before its designated reset. The current
-**49.503497253-engine-second Full43** is fresh-process with uncontrolled OS cache,
+experiment must place hashing before its designated reset. The provider refresh's current
+**49.625514041-engine-second Full43** is fresh-process with uncontrolled OS cache,
 neither a true-cold measurement nor retained-runtime warm characterization.
-The earlier 48.693636581 observation has the same distinction. Do not project
-competitors' cold-to-warm ratios onto either number.
+The earlier grouped-preparation 49.503497253 and 48.693636581 observations have
+the same distinction. Do not project competitors' cold-to-warm ratios onto
+these numbers.

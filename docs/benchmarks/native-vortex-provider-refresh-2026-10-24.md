@@ -117,6 +117,13 @@ python -B docs/benchmarks/evidence/native-vortex-provider-refresh-2026-10-24/ver
 
 Use `--check-current-source` when checking this provider runtime revision.
 
+A [clean checkout](evidence/native-vortex-provider-refresh-2026-10-24/clean-checkout.json)
+of evidence commit `f7b1e566` passes the complete replay with current-source
+verification, all eight corruption controls and the six focused regressions.
+All eight generated standalone-provider lockfiles are absent in that checkout.
+The proof requires neither those ignored files nor the original local output
+directories.
+
 The authoritative local acceptance records are `provider-validation-primary-r5.json`,
 `public-reference-primary-verification-r4.json`,
 `artifacts-r2/build-summary.json`, `public-transcript-verification-r3.json`,

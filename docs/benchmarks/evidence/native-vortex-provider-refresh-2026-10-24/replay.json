@@ -2,6 +2,12 @@
   "status": "passed",
   "source_commit": "4117846158edc7b1ab692ef90dd99ba686c5360c",
   "frozen_build_base": "a22760ecb8eaa6b34204a63dfa434be30a1258f1",
+  "verifier_sha256": "b8441e075515a3c6bfa8ab58ae4b410a8d8d7a459ecf5da6dbd8717f3bcbc91b",
+  "verification_sources": {
+    "verify_packet.py": "b8441e075515a3c6bfa8ab58ae4b410a8d8d7a459ecf5da6dbd8717f3bcbc91b",
+    "public_replay.py": "0dad700d5ff66ca0501de41e0f4ccd54fb180d818e537be9b15107d75ae667e5"
+  },
+  "packet_manifest_sha256": "bf99431f11d4f3cfee6df9d4584fba31b557a1d3bdc3b35f8f7d8685d3262982",
   "source_files": 2147,
   "current_source_checked": true,
   "validation": {

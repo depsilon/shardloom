@@ -17,8 +17,15 @@
     },
     {
       "status": "passed",
-      "result": "replay.json",
+      "result": "provider-packet-replay-r2.json (historical local replay)",
       "corruption_controls_rejected": 8
+    },
+    {
+      "status": "passed",
+      "result": "replay.json",
+      "clean_checkout": "clean-checkout.json",
+      "corruption_controls_rejected": 8,
+      "strict_numeric_overflow_regression_included": true
     }
   ],
   "focused_tests": {

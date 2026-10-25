@@ -1,0 +1,100 @@
+{
+  "status": "passed",
+  "checkout": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/clean-replay-source-r1",
+  "source_commit": "f7b1e566132c8a24c9cbd9f4ff8e6223ff7422e4",
+  "generated_standalone_test_lockfiles_absent": [
+    "vendor/vortex-array/Cargo.lock",
+    "vendor/vortex-buffer/Cargo.lock",
+    "vendor/vortex-file/Cargo.lock",
+    "vendor/vortex-fsst/Cargo.lock",
+    "vendor/vortex-io/Cargo.lock",
+    "vendor/vortex-layout/Cargo.lock",
+    "vendor/vortex-runend/Cargo.lock",
+    "vendor/vortex-zstd/Cargo.lock"
+  ],
+  "steps": [
+    {
+      "argv": [
+        "git",
+        "clone",
+        "--shared",
+        "--no-checkout",
+        "--quiet",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/clean-replay-source-r1"
+      ],
+      "returncode": 0,
+      "log": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/packet-validation/clean-step-1.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/clean-replay-source-r1",
+        "checkout",
+        "--detach",
+        "--quiet",
+        "f7b1e566132c8a24c9cbd9f4ff8e6223ff7422e4"
+      ],
+      "returncode": 0,
+      "log": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/packet-validation/clean-step-2.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_native_provider_refresh_evidence.py",
+        "-v"
+      ],
+      "returncode": 0,
+      "log": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/packet-validation/clean-step-3.log",
+      "log_sha256": "3bda7d2f6fc30f2d3ead6223e18861483964bb373c7491d48ee82644554f7bc0"
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "docs/benchmarks/evidence/native-vortex-provider-refresh-2026-10-24/verify_packet.py",
+        "--check-current-source",
+        "--self-test",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/provider-packet-replay-r3.json"
+      ],
+      "returncode": 0,
+      "log": "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/packet-validation/clean-step-4.log",
+      "log_sha256": "2c608d8c5ab5d443f3964a44936c3eadd006477584b79ea6167f2f924558012e"
+    }
+  ],
+  "native_engine_execution_performed": false,
+  "replay": "replay.json",
+  "portable_logs": [
+    {
+      "path": "clean-checkout-logs/clean-step-1.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "clean-checkout-logs/clean-step-2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "clean-checkout-logs/clean-step-3.log",
+      "bytes": 1276,
+      "sha256": "3bda7d2f6fc30f2d3ead6223e18861483964bb373c7491d48ee82644554f7bc0"
+    },
+    {
+      "path": "clean-checkout-logs/clean-step-4.log",
+      "bytes": 2893,
+      "sha256": "2c608d8c5ab5d443f3964a44936c3eadd006477584b79ea6167f2f924558012e"
+    }
+  ]
+}
