@@ -58,6 +58,15 @@ and installed-tested wheel remain. All reports and 262 unarchived helper,
 fixture and diagnostic files are preserved; compact results retain failed
 and interrupted observations. No payload backup or threshold change occurs.
 
+The [October 25 warm-source retirement](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/cleanup.json)
+removes 7,692 generated regular files and three environment links after complete
+portable and clean-checkout replay. The rejected runtime/wheel, completed
+package/environment and temporary verification clone are retired; 564 raw log
+copies are preserved byte-for-byte in the verified compact packet. Current
+inputs and the accepted provider runtime/wheel remain. Other compiler outputs
+remain for the next active naming build; the three exact rejected release
+binaries are removed. No payload backup or storage-ceiling change occurs.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in

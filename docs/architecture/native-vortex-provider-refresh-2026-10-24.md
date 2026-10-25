@@ -13,7 +13,9 @@ minimal and Rust 1.96.0 checks pass. Installed Python/CLI proof passes all 140 n
 integration tests with no skips. Fresh ingestion and isolated Full43 acceptance
 now pass on the final matched build; the local runtime/UAT acceptance is complete.
 Portable replay passes, including eight corruption controls. The provider
-category PR, CI, review and merge remain pending. No performance improvement is established. RFC 0044 and the existing allocation, native I/O,
+category PR [#1601](https://github.com/depsilon/shardloom/pull/1601) is merged at
+`3c3e2f14d8fe1b517fa53472a544d76452f6395a` after all 44 checks pass and review is
+checked at head `82d9732e`. No performance improvement is established. RFC 0044 and the existing allocation, native I/O,
 expression, fidelity and no-fallback contracts remain authoritative. CG-1
 through CG-23 remain independent; this adds no implementation phase ID.
 
