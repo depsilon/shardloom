@@ -5,6 +5,13 @@
 Status: Priority 9 local proof and report-schema posture. This document does not invoke Foundry,
 publish packages, create tags, add secrets, or authorize Foundry compute as ShardLoom execution.
 
+The October 25 [implementation handoff](../architecture/native-foundry-integration-2026-10-25.md)
+queues a real installed-package transform, scalable dataset adapter and
+incremental/managed-Iceberg support after everyday analytics and before AI
+workflows. Current local proof remains unchanged until those platform checks
+pass. Foundry may host the same ShardLoom engine without becoming its query
+execution provider.
+
 ## Scope
 
 Foundry is an optional integration pack. It must make ShardLoom easier to install, import, run,
@@ -78,13 +85,19 @@ These names are report contracts until real platform integration exists.
 
 ## No-Fallback Boundary
 
-All Foundry surfaces must preserve:
+The existing local proof reports:
 
 ```text
 fallback_attempted=false
 external_engine_invoked=false
 foundry_compute_invoked=false unless explicitly labeled external boundary
 ```
+
+For actual deployment, report Foundry as the execution host and ShardLoom as
+the compute engine. Preserve `fallback_attempted=false` and no external engine
+execution, while recording real platform calls and transactions truthfully.
+Define compatible report semantics before changing invocation fields; the
+historical false values above do not prohibit Foundry-hosted native execution.
 
 Virtual tables and external compute are governed handles, baselines, or migration/oracle references.
 ShardLoom-native execution requires staged/native data plus execution and Native I/O certificates.

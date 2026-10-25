@@ -27,6 +27,15 @@ proof-of-use outside the repo.
 
 Accepted as Foundry integration and availability intake material.
 
+The October 25 maintainer request queues
+[three working integration deliverables](../architecture/native-foundry-integration-2026-10-25.md)
+after everyday analytical completion and before AI data workflows: installed
+native package and actual Foundry proof, scalable dataset I/O, then incremental
+and managed-Iceberg integration. These attach to the existing owners below.
+Foundry hosting ShardLoom is compatible with standalone native computation;
+historical local fixtures' false Foundry-invocation fields are not a deployment
+prohibition. No real-enrollment acceptance is claimed by this addition.
+
 This RFC does not add runtime behavior, dependencies, package publication,
 release tags, container images, Foundry transforms, Foundry Artifact Repository
 publication, Compute Modules, external compute execution, virtual-table native

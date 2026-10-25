@@ -7,7 +7,8 @@ Status: accepted October 24 maintainer handoff, queued after
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then [warm source reuse](native-warm-source-reuse-2026-10-24.md),
 then [public naming](shardloom-public-naming-2026-10-24.md),
-then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md)
+then [full-ingest ownership/preparation work](native-ingest-ownership-preparation-2026-10-24.md),
+[consolidated dependency maintenance](dependency-intake-2026-10-25.md),
 and the [connected programming model](native-connected-programming-model-2026-10-24.md).
 The subsequent October 24 ordering decision places I/O immediately after
 connected programming and before [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md).
@@ -25,6 +26,9 @@ separate from import ownership and must account for retained backing buffers.
 The later [AI-data package](native-ai-data-workflows-2026-10-24.md) reuses this
 source/publication contract for model batches and search-index generations;
 consumer adapters must not reopen original inputs to bypass ShardLoom plans.
+The queued [Foundry integration](native-foundry-integration-2026-10-25.md)
+consumes these same multi-file, native writer and publication contracts after
+everyday analytical completion and before the AI-data package.
 
 ## Contract and intake
 

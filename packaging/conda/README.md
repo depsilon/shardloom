@@ -5,6 +5,12 @@ readiness. They document the intended package split and can be used for future
 local packaging experiments, but they do not publish packages or create a
 conda-forge feedstock.
 
+The October 25 [Foundry integration handoff](../../docs/architecture/native-foundry-integration-2026-10-25.md)
+queues replacement of this older CLI-wrapper delivery with the current native
+Python runtime and actual target-environment installation/execution proof.
+These version-0.1.0 local recipes are not evidence that current native ShardLoom
+is available through Conda or compatible with a Foundry Linux environment.
+
 Package split:
 
 - `shardloom-cli`: platform-specific Rust CLI binary package.

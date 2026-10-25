@@ -8,8 +8,10 @@ Status: accepted October 24 maintainer addition, following the active
 [warm-source reuse](native-warm-source-reuse-2026-10-24.md),
 [public naming](shardloom-public-naming-2026-10-24.md),
 and [ingestion](native-ingest-ownership-preparation-2026-10-24.md) packages.
-The subsequent October 24 ordering decision places this package immediately
-after ingestion, followed by [universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
+The October 25 ordering decision inserts
+[consolidated dependency maintenance](dependency-intake-2026-10-25.md)
+immediately after ingestion. This package follows that maintenance, then
+[universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
 The subsequent [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
 request extends this package's SQL scope and follows it with statistics,

@@ -8,7 +8,10 @@ This work follows
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then the [warm execution/source-reuse package](native-warm-source-reuse-2026-10-24.md),
 and [public naming and terminology](shardloom-public-naming-2026-10-24.md).
-It immediately precedes the [connected programming model](native-connected-programming-model-2026-10-24.md),
+The October 25 ordering decision places
+[consolidated dependency maintenance](dependency-intake-2026-10-25.md) directly
+after this package, followed by the
+[connected programming model](native-connected-programming-model-2026-10-24.md),
 then [universal I/O performance and coverage](native-universal-io-performance-coverage-2026-10-24.md),
 then [rich-data lifecycle support](native-rich-data-lifecycle-2026-10-24.md),
 under the subsequent October 24 ordering decision.

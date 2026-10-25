@@ -7,8 +7,10 @@ dependency PRs be merged or closed, with needed dependency work retained in the
 active queue. Provider PR #1601 is merged. The four new bot PRs below are closed
 and consolidated here; closure does not claim that their proposed updates have
 been applied or validated. Public naming PR #1604 is now merged; full-ingest
-ownership/preparation is the active implementation item. This dependency
-maintenance remains queued before the next release.
+ownership/preparation is the active implementation item. The October 25
+maintainer ordering decision places this consolidated maintenance immediately
+after that ingestion item and before connected programming. Complete it as
+the next cohesive queue unit, not merely at the next release deadline.
 
 | Closed proposal | Current accepted pin | Proposed intake | Disposition |
 | --- | --- | --- | --- |
@@ -35,8 +37,8 @@ requires provider, capsule, schema, license/provenance and consumer validation.
 The next dependency intake must review upstream changes and licenses, update
 the graph and generated package-license evidence together, and run relevant
 native/default, MSRV, installed-package and workflow checks. Keep action SHAs
-pinned and preserve the current no-fallback and allocation contracts. Schedule
-this maintenance before the next release; it neither publishes packages nor
+pinned and preserve the current no-fallback and allocation contracts. Execute
+this maintenance directly after ingestion; it neither publishes packages nor
 asserts that any proposal is an urgent security fix. Do not mix these untested
 updates into the frozen warm-source observations.
 
