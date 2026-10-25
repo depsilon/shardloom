@@ -1,9 +1,9 @@
 {
   "release": {
-    "release_tag": "v0.7.0",
-    "source_revision": "7ae9f0e44ddf3c8f09520fe318852cd873db3817",
+    "release_tag": "v1.0.0",
+    "source_revision": "99d62ae3d10117720206463a27527a936623d182",
     "artifact_channel": "pypi",
-    "evidence_ref": "docs/release/v0.7.0-publication-verification.md",
+    "evidence_ref": "docs/release/v1.0.0-publication-verification.md",
     "platforms": [
       {
         "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
@@ -14,13 +14,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "filename": "shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "2de1bcc3e21f35b83d047a8af43cc78a239c5d22640a2fef01638aada0022be8",
-          "size": 49863821,
-          "upload_time_iso_8601": "2026-10-22T09:26:15.175269Z",
-          "url": "https://files.pythonhosted.org/packages/0c/74/ba0901806b1967db1e7c4e81b7ffe71c96be9518ef17e8a17898b41d1a09/shardloom-0.7.0-cp310-abi3-macosx_26_0_arm64.whl"
+          "sha256": "d8ae075a662787db5b963f98f44e3ad092f578efa71defd292cf93e28922fe41",
+          "size": 52065306,
+          "upload_time_iso_8601": "2026-10-25T22:43:36.717462Z",
+          "url": "https://files.pythonhosted.org/packages/37/c9/0ecb360350c3e710f95ebeb96c613711e45fe59e59569c5c57b5b7d3e9f6/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl"
         }
       },
       {
@@ -32,13 +32,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "filename": "shardloom-1.0.0-cp310-abi3-manylinux_2_39_x86_64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "5233162961a8c684dcb47e65b5bfc583bd0ab99ec92b8b1621880c23a5601bb0",
-          "size": 56263189,
-          "upload_time_iso_8601": "2026-10-22T09:26:21.253739Z",
-          "url": "https://files.pythonhosted.org/packages/3f/63/55235cb72a08c4b8094d83ea846687366c0a77edda943a4f3ed08d4cd6c9/shardloom-0.7.0-cp310-abi3-manylinux_2_39_x86_64.whl"
+          "sha256": "3f7f7cda3be0969f5879c5f606a176f9e600daf1203a964aace0ec2ecf46804f",
+          "size": 58758764,
+          "upload_time_iso_8601": "2026-10-25T22:43:39.892608Z",
+          "url": "https://files.pythonhosted.org/packages/97/e9/da6900ef2e2f47ccfd518944e89f315ec0f6c35b9a7433249a9e9c43f3f3/shardloom-1.0.0-cp310-abi3-manylinux_2_39_x86_64.whl"
         }
       },
       {
@@ -49,13 +49,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-0.7.0-cp313-cp313-win_amd64.whl",
+          "filename": "shardloom-1.0.0-cp313-cp313-win_amd64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp313",
-          "sha256": "ceb4701b180b6399d91e23be40e48fdc3105f26910b06e35ea667fffef4c2ec8",
-          "size": 25424850,
-          "upload_time_iso_8601": "2026-10-22T09:26:25.645495Z",
-          "url": "https://files.pythonhosted.org/packages/ed/bb/418e2c9424bedca482ea19bc374f0ea685c29dc84890d1ddb032246cb650/shardloom-0.7.0-cp313-cp313-win_amd64.whl"
+          "sha256": "4a2ed5c0e0e87526bd40edd4e624461a0084e3044ad1431c6ee080ca1bbdb15b",
+          "size": 26514398,
+          "upload_time_iso_8601": "2026-10-25T22:43:42.701049Z",
+          "url": "https://files.pythonhosted.org/packages/d2/89/d43181bb79fbffbb116bb13f0db407da875119b9f875c2a839d60b0ec4eb/shardloom-1.0.0-cp313-cp313-win_amd64.whl"
         }
       }
     ],
@@ -109,10 +109,10 @@
         "reference": "/field-guide/python-surface#keep-results-native"
       }
     ],
-    "version": "0.7.0",
-    "installCommand": "python -m pip install shardloom==0.7.0",
-    "sourceUrl": "https://github.com/depsilon/shardloom/tree/7ae9f0e44ddf3c8f09520fe318852cd873db3817",
-    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v0.7.0-publication-verification.md"
+    "version": "1.0.0",
+    "installCommand": "python -m pip install shardloom==1.0.0",
+    "sourceUrl": "https://github.com/depsilon/shardloom/tree/99d62ae3d10117720206463a27527a936623d182",
+    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v1.0.0-publication-verification.md"
   },
   "examples": {
     "snippets": {

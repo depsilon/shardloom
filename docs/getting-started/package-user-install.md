@@ -15,7 +15,7 @@ Use the [public installation and first data workflow](https://shardloom.io/field
 **Smoke Check:** Follow the first workflow in the [public getting-started guide](https://shardloom.io/field-guide/start-local-proof); for setup issues use [Troubleshooting And Support Bundle](troubleshooting-support.md).
 
 <a id="proof-refs"></a>
-**Proof Refs:** See the detailed [v0.7.0 publication verification](../release/v0.7.0-publication-verification.md).
+**Proof Refs:** See the detailed [v1.0.0 publication verification](../release/v1.0.0-publication-verification.md).
 
 <a id="uninstall-and-upgrade"></a>
 **Uninstall And Upgrade:** Check the [public installation guide](https://shardloom.io/field-guide/start-local-proof) for the current package path.
@@ -23,8 +23,11 @@ Use the [public installation and first data workflow](https://shardloom.io/field
 <a id="blocked-channels"></a>
 **Blocked Channels:** See [current version, platform and support limits](https://shardloom.io/field-guide/limitations).
 
+<a id="v100-distribution-proof"></a><a id="v1-0-0-distribution-proof"></a>
+**v1.0.0 Distribution Proof:** See the detailed [publication verification](../release/v1.0.0-publication-verification.md).
+
 <a id="v070-distribution-proof"></a><a id="v0-7-0-distribution-proof"></a>
-**v0.7.0 Distribution Proof:** See the detailed [publication verification](../release/v0.7.0-publication-verification.md).
+**Historical v0.7.0 Distribution Proof:** See the detailed [publication verification](../release/v0.7.0-publication-verification.md).
 
 <a id="v060-distribution-proof"></a><a id="v0-6-0-distribution-proof"></a>
 **Historical v0.6.0 Distribution Proof:** The [original publication verification](../release/v0.6.0-publication-verification.md) retains the earlier artifact identities.

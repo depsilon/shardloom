@@ -1,0 +1,1413 @@
+{
+  "audit_status": "passed",
+  "blockers": [],
+  "bundled_wheel_cli_used_for_homebrew_proof": false,
+  "channel_id": "homebrew_tap",
+  "clean_install_proof_status": "passed",
+  "cli_version_stdout": "shardloom 1.0.0\n",
+  "complete_workflow_smoke": {
+    "actual_disk_pressure_claimed_by_smoke": false,
+    "analytic_frame_values": [
+      {
+        "first_label": "caf\u00e9",
+        "id": 1,
+        "label": "caf\u00e9",
+        "n": 1
+      },
+      {
+        "first_label": "caf\u00e9",
+        "id": 2,
+        "label": "\u6771\u4eac",
+        "n": 2
+      },
+      {
+        "first_label": "\u6771\u4eac",
+        "id": 3,
+        "label": "na\u00efve",
+        "n": 2
+      },
+      {
+        "first_label": "na\u00efve",
+        "id": 4,
+        "label": "\u96ea",
+        "n": 2
+      }
+    ],
+    "bundled_cli": null,
+    "cli_distribution": "homebrew_source_build",
+    "cli_sha256": "eb9d62a41abdee62087a1b84ce07e48b09020a2609b4d0e8a6d3bdc54d31ad7f",
+    "context_result_proof": {
+      "default_transport": "native",
+      "from_result_values": [
+        {
+          "value": 2
+        },
+        {
+          "value": 3
+        }
+      ],
+      "native_module_origin": "verified_installed_python_wheel",
+      "result_type": "Result",
+      "retained_after_context_close": true,
+      "rows": [
+        {
+          "value": 0
+        },
+        {
+          "value": 1
+        },
+        {
+          "value": 2
+        },
+        {
+          "value": 3
+        }
+      ],
+      "typed_closed_error": true
+    },
+    "correlated_scalar_subquery_values": [
+      {
+        "scalar": null,
+        "value": 0
+      },
+      {
+        "scalar": 1,
+        "value": 1
+      },
+      {
+        "scalar": 2,
+        "value": 2
+      },
+      {
+        "scalar": 3,
+        "value": 3
+      }
+    ],
+    "exact_results": [
+      [
+        {
+          "amount": 15,
+          "id": 2,
+          "label": "\u6771\u4eac"
+        },
+        {
+          "amount": 27,
+          "id": 3,
+          "label": "na\u00efve"
+        }
+      ],
+      [
+        {
+          "amount": 15,
+          "id": 2,
+          "label": "\u6771\u4eac"
+        },
+        {
+          "amount": 27,
+          "id": 3,
+          "label": "na\u00efve"
+        }
+      ],
+      [
+        {
+          "amount": 15,
+          "id": 2,
+          "label": "\u6771\u4eac"
+        },
+        {
+          "amount": 27,
+          "id": 3,
+          "label": "na\u00efve"
+        }
+      ]
+    ],
+    "explicit_homebrew_cli_binding": true,
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "incremental_complete_values": {
+      "sparse_pivot": {
+        "batches": 1,
+        "explicit_spill_policy": true,
+        "final_report_success": true,
+        "owned_workspace_empty": true,
+        "rows": [
+          {
+            "entity": 1,
+            "pivot_a": 7.0,
+            "pivot_b": null
+          },
+          {
+            "entity": 2,
+            "pivot_a": null,
+            "pivot_b": 5.0
+          }
+        ]
+      },
+      "streamed_analytic_window": {
+        "batches": 2,
+        "explicit_spill_policy": true,
+        "final_report_success": true,
+        "owned_workspace_empty": true,
+        "rows": [
+          {
+            "distinct_amounts": 1,
+            "previous_two_total": 3.0,
+            "sequence": 1,
+            "team": "red"
+          },
+          {
+            "distinct_amounts": 1,
+            "previous_two_total": 1.0,
+            "sequence": 2,
+            "team": "blue"
+          },
+          {
+            "distinct_amounts": 2,
+            "previous_two_total": 7.0,
+            "sequence": 3,
+            "team": "red"
+          },
+          {
+            "distinct_amounts": 2,
+            "previous_two_total": 7.0,
+            "sequence": 4,
+            "team": "red"
+          }
+        ]
+      },
+      "streamed_general_aggregate": {
+        "batches": 1,
+        "explicit_spill_policy": true,
+        "final_report_success": true,
+        "owned_workspace_empty": true,
+        "rows": [
+          {
+            "distinct_amounts": 1,
+            "team": "blue",
+            "total": 1.0
+          },
+          {
+            "distinct_amounts": 2,
+            "team": "red",
+            "total": 10.0
+          }
+        ]
+      },
+      "streamed_left_join": {
+        "batches": 3,
+        "explicit_spill_policy": true,
+        "final_report_success": true,
+        "owned_workspace_empty": true,
+        "rows": [
+          {
+            "amount": 3,
+            "customer": "Ada"
+          },
+          {
+            "amount": 5,
+            "customer": null
+          },
+          {
+            "amount": 4,
+            "customer": "Ada"
+          }
+        ]
+      },
+      "vortex_incremental_results": {
+        "batches": 2,
+        "explicit_spill_policy": false,
+        "final_report_success": true,
+        "owned_workspace_empty": true,
+        "rows": [
+          {
+            "amount": 8,
+            "id": 1,
+            "label": "caf\u00e9"
+          },
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "\u6771\u4eac"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "na\u00efve"
+          },
+          {
+            "amount": 27,
+            "id": 4,
+            "label": "\u96ea"
+          }
+        ]
+      }
+    },
+    "native_module_proof": {
+      "execution_provider": "shared_shardloom_native",
+      "explicit_row_export_complete": true,
+      "library": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+      "library_sha256": "697a91fc92528adfb62c359504be519cb2892f94dee39aede55056e6feac30a5",
+      "retained_after_session_close": true,
+      "rows": [
+        {
+          "value": 0
+        },
+        {
+          "value": 1
+        },
+        {
+          "value": 2
+        },
+        {
+          "value": 3
+        }
+      ]
+    },
+    "native_vortex_output_sha256": "ea1f7d7deeca24fed7abfe835406dbcdae1a2669f63b69641ef8c97be915d015",
+    "native_vortex_roundtrip_values": [
+      {
+        "amount": 8,
+        "id": 1,
+        "label": "caf\u00e9"
+      },
+      {
+        "amount": 15,
+        "id": 2,
+        "label": "\u6771\u4eac"
+      },
+      {
+        "amount": 27,
+        "id": 3,
+        "label": "na\u00efve"
+      },
+      {
+        "amount": 27,
+        "id": 4,
+        "label": "\u96ea"
+      }
+    ],
+    "package_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+    "repeated_sql_executions": 2,
+    "typed_unsupported_error": true,
+    "unsupported_blocker": "cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+    "verified_native_cli": "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+    "version": "1.0.0"
+  },
+  "display_name": "Homebrew tap",
+  "environment_safety": {
+    "HOMEBREW_MAKE_JOBS": "2",
+    "HOMEBREW_NO_ANALYTICS": "1",
+    "HOMEBREW_NO_AUTOREMOVE": "1",
+    "HOMEBREW_NO_AUTO_UPDATE": "1",
+    "HOMEBREW_NO_INSTALL_CLEANUP": "1",
+    "HOMEBREW_TEMP": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-temp"
+  },
+  "exact_native_sql_values": [
+    {
+      "amount": 15,
+      "id": 2,
+      "label": "\u6771\u4eac"
+    },
+    {
+      "amount": 27,
+      "id": 3,
+      "label": "na\u00efve"
+    }
+  ],
+  "explicit_homebrew_cli_binding": true,
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "formula_checksum": "44186aa613456082dbc99223099d0732611397c165088d7c1e99a2655bc3acdb",
+  "formula_ref": "https://github.com/depsilon/homebrew-tap/blob/main/Formula/shardloom.rb",
+  "formula_url": "https://github.com/depsilon/shardloom/releases/download/v1.0.0/shardloom-99d62ae3d101-source.tar.gz",
+  "formula_version": "1.0.0",
+  "homebrew_python_native_extension_build_claimed": false,
+  "input_identities": [
+    {
+      "generation": [
+        16777233,
+        89406795,
+        8431,
+        1789246837532150184,
+        1789246837532150184
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    },
+    {
+      "generation": [
+        16777233,
+        129426646,
+        13583,
+        1792959545893710696,
+        1792959545893710696
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-tools/verify_bundled_registry_100.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-tools/verify_bundled_registry_100.py",
+      "sha256": "9229ef56e21f2918c373448dd78c899b6601da1c5465b8b01ad1ab66bcb1af8f"
+    },
+    {
+      "generation": [
+        16777233,
+        129426647,
+        18377,
+        1792959776911073632,
+        1792959776911073632
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-tools/verify_homebrew_100.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-tools/verify_homebrew_100.py",
+      "sha256": "76dfc725a340a9315194975842d6c5fd99915ec71e78527751f43b5dd038cc68"
+    },
+    {
+      "generation": [
+        16777233,
+        86705180,
+        9363,
+        1788629252856820180,
+        1788629252856820180
+      ],
+      "path": "/opt/homebrew/bin/brew",
+      "resolved": "/opt/homebrew/bin/brew",
+      "sha256": "c5f4602536ff56fbf283fd34a670aa1031234f679412c22b458ec8d6f2cba51e"
+    },
+    {
+      "generation": [
+        16777233,
+        129477443,
+        4319,
+        1792963483812204654,
+        1792963483812204654
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-assets-1/github-prerelease-assets/asset-manifest.json",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-assets-1/github-prerelease-assets/asset-manifest.json",
+      "sha256": "41b5dfcf03c7f7bd0905b30caf34d0e1ad4c6107dd6c39b5594b5d882ce6a0b3"
+    },
+    {
+      "generation": [
+        16777233,
+        129477432,
+        33399107,
+        1792963483490702886,
+        1792963483740574821
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-assets-1/github-prerelease-assets/shardloom-99d62ae3d101-source.tar.gz",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-assets-1/github-prerelease-assets/shardloom-99d62ae3d101-source.tar.gz",
+      "sha256": "44186aa613456082dbc99223099d0732611397c165088d7c1e99a2655bc3acdb"
+    },
+    {
+      "generation": [
+        16777233,
+        129477441,
+        26696,
+        1792963483736461230,
+        1792963483811779570
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-assets-1/github-prerelease-assets/supply-chain-release-evidence.json",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-assets-1/github-prerelease-assets/supply-chain-release-evidence.json",
+      "sha256": "027fbb4515f7ee7197d7ff0bf9ad602379abd7874c06b2c83f9fc64295e456d3"
+    },
+    {
+      "generation": [
+        16777233,
+        129490734,
+        532015,
+        1792965247788248427,
+        1792965247788248427
+      ],
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/release/channel-proofs/github-prerelease-v1.0.0-transcript.json",
+      "resolved": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/release/channel-proofs/github-prerelease-v1.0.0-transcript.json",
+      "sha256": "1876084688a18fddf6c9c8c0431be5200d17ec4e2a8e279ec235c3e74e3c737a"
+    },
+    {
+      "generation": [
+        16777233,
+        129494679,
+        41981,
+        1792966562595426805,
+        1792966562595512513
+      ],
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/release/channel-proofs/testpypi-v1.0.0-transcript.json",
+      "resolved": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/release/channel-proofs/testpypi-v1.0.0-transcript.json",
+      "sha256": "1d64a762705d134843bf0d5ffd96b45d9c730de0c253a5265b295b64b87c1c90"
+    },
+    {
+      "generation": [
+        16777233,
+        129498375,
+        42023,
+        1792968263639156862,
+        1792968263639256488
+      ],
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/release/channel-proofs/pypi-v1.0.0-transcript.json",
+      "resolved": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/release/channel-proofs/pypi-v1.0.0-transcript.json",
+      "sha256": "d7c9d75b723177ac258331022b5eee51784599146f814084378457e6d113fe43"
+    },
+    {
+      "generation": [
+        16777233,
+        129496615,
+        52065306,
+        1792968259157498763,
+        1792968259157675471
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/python-registry-100-pypi-1/downloads/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/python-registry-100-pypi-1/downloads/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl",
+      "sha256": "d8ae075a662787db5b963f98f44e3ad092f578efa71defd292cf93e28922fe41"
+    },
+    {
+      "generation": [
+        16777233,
+        26961243,
+        52448,
+        1781600359953371208,
+        1781600359953427500
+      ],
+      "path": "/opt/homebrew/opt/python@3.13/bin/python3.13",
+      "resolved": "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+      "sha256": "4be5bd974c413ea1817a33d091f9470bb8735355d182db7fb852977e266d647e"
+    },
+    {
+      "generation": [
+        16777233,
+        129426644,
+        36027,
+        1792959776910596880,
+        1792959776910596880
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-tools/verify_github_100.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-tools/verify_github_100.py",
+      "sha256": "8138dbdb28ffcea6daeac74f76f0c917f36fdf23b00088788bea09350cfbbead"
+    },
+    {
+      "generation": [
+        16777233,
+        121301176,
+        747,
+        1792968321301241321,
+        1792968321301241321
+      ],
+      "path": "/opt/homebrew/Library/Taps/depsilon/homebrew-tap/Formula/shardloom.rb",
+      "resolved": "/opt/homebrew/Library/Taps/depsilon/homebrew-tap/Formula/shardloom.rb",
+      "sha256": "98fe44ea46a82a51e6fa578cd373a128de90f7e29b9ff5124d7dc658ef7b2442"
+    }
+  ],
+  "install_command": "HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_AUTOREMOVE=1 brew install --build-from-source depsilon/tap/shardloom",
+  "install_transcript_status": "passed",
+  "installation_state": "verified_100_restored",
+  "installed_version": "1.0.0",
+  "linkage_status": "passed",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "prior_installed_version": "0.7.0",
+  "prior_selected_channel_proofs": "passed_github_testpypi_pypi",
+  "proof_directory": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo",
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "python_client_wheel": {
+    "generation": [
+      16777233,
+      129496615,
+      52065306,
+      1792968259157498763,
+      1792968259157675471
+    ],
+    "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/python-registry-100-pypi-1/downloads/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl",
+    "resolved": "/Users/dylan/LocalData/shardloom/release-v1.0.0/python-registry-100-pypi-1/downloads/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl",
+    "sha256": "d8ae075a662787db5b963f98f44e3ad092f578efa71defd292cf93e28922fe41"
+  },
+  "python_native_module_origin": "verified_pypi_client_wheel",
+  "python_native_module_sha256": "697a91fc92528adfb62c359504be519cb2892f94dee39aede55056e6feac30a5",
+  "registry_upload_attempted_by_this_tool": false,
+  "release_tag": "v1.0.0",
+  "restored_installed_version": "1.0.0",
+  "schema_version": "shardloom.homebrew_channel_proof.v1",
+  "secrets_required": false,
+  "shared_smoke_sha256": "9d2edc55b3e67886895155a6ac8abb99e13a4a3e7a1f39a32844b884e1578278",
+  "smoke_check_status": "passed",
+  "smoke_stdout": "{\"schema_version\":\"shardloom.output.v2\",\"command\":\"status\",\"status\":\"success\",\"summary\":\"engine status\",\"human_text\":\"ShardLoom workspace initialized (native Vortex-first execution facade)\\nfallback execution: disabled\",\"fallback\":{\"attempted\":false,\"allowed\":false,\"engine\":null,\"reason\":\"ShardLoom prohibits Spark, DataFusion, DuckDB, Polars, Velox, and other fallback execution engines.\"},\"diagnostics\":[],\"result\":{\"fields\":[{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"}]},\"result_refs\":[],\"artifacts\":[],\"artifact_refs\":[],\"certificates\":[],\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]},\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"status_capabilities\"},{\"key\":\"cli_binary_version\",\"value\":\"1.0.0\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"}]},\"capability_snapshot\":{\"fields\":[]},\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"cli_binary_version\",\"value\":\"1.0.0\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"},{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]}\n",
+  "source_archive_sha256": "44186aa613456082dbc99223099d0732611397c165088d7c1e99a2655bc3acdb",
+  "source_archive_url": "https://github.com/depsilon/shardloom/releases/download/v1.0.0/shardloom-99d62ae3d101-source.tar.gz",
+  "source_commit": "99d62ae3d10117720206463a27527a936623d182",
+  "steps": [
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "formula_identity",
+      "output_bytes": 2780,
+      "output_limit_bytes": 2097152,
+      "pid": 85230,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.403164750081487,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/00-formula_identity.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/00-formula_identity.stdout.txt",
+      "stdout_sha256": "2462c698d391a9c27198357be374321874211f62d008f8f14818ad5b45150f0d",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "--repository",
+        "depsilon/tap"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "tap_repository",
+      "output_bytes": 49,
+      "output_limit_bytes": 2097152,
+      "pid": 85323,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.08972612500656396,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/01-tap_repository.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/01-tap_repository.stdout.txt",
+      "stdout_sha256": "f58f7929859533e44ce6513a0a4aa24ec62f7c9459aeadc20af542af75109bae",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "--version"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "brew_version",
+      "output_bytes": 28,
+      "output_limit_bytes": 4194304,
+      "pid": 85370,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.048416542005725205,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/02-brew_version.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/02-brew_version.stdout.txt",
+      "stdout_sha256": "66376fc4ddeb402bfa2abe3d544dc0f89db398f193f16f2f03edfba01adfe780",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "style",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "brew_style",
+      "output_bytes": 40,
+      "output_limit_bytes": 4194304,
+      "pid": 85392,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 1.9601897910470143,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/03-brew_style.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/03-brew_style.stdout.txt",
+      "stdout_sha256": "c6ea535e9c0443ad0c8811cb9ad1df9b467c5527bcc688991bbfe78ea441db93",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "audit",
+        "--strict",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "brew_audit",
+      "output_bytes": 0,
+      "output_limit_bytes": 4194304,
+      "pid": 85442,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 1.563624875037931,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/04-brew_audit.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/04-brew_audit.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-I",
+        "-m",
+        "venv",
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "create_fresh_client_venv",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 85496,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 1.0567348749609664,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/05-create_fresh_client_venv.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/05-create_fresh_client_venv.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/bin/python",
+        "-I",
+        "-c",
+        "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "verify_clean_client_venv",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 85510,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.03695333399809897,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/06-verify_clean_client_venv.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/06-verify_clean_client_venv.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/bin/python",
+        "-I",
+        "-m",
+        "pip",
+        "--isolated",
+        "install",
+        "--no-index",
+        "--no-cache-dir",
+        "--no-deps",
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/python-registry-100-pypi-1/downloads/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "install_verified_client_wheel",
+      "output_bytes": 225,
+      "output_limit_bytes": 2097152,
+      "pid": 85511,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.49925904197152704,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/07-install_verified_client_wheel.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/07-install_verified_client_wheel.stdout.txt",
+      "stdout_sha256": "cdd6718b3a75ad8b1ab475c5345b72aaa3e569fa11837891ea8ea6af9ab0372f",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_prior_version_identity",
+      "output_bytes": 2780,
+      "output_limit_bytes": 2097152,
+      "pid": 85514,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.34735545807052404,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/08-uninstall_prior_version_identity.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/08-uninstall_prior_version_identity.stdout.txt",
+      "stdout_sha256": "2462c698d391a9c27198357be374321874211f62d008f8f14818ad5b45150f0d",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/Cellar/shardloom/0.7.0/bin/shardloom",
+        "--version"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_prior_version_version",
+      "output_bytes": 16,
+      "output_limit_bytes": 2097152,
+      "pid": 85608,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.4848619590047747,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/09-uninstall_prior_version_version.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/09-uninstall_prior_version_version.stdout.txt",
+      "stdout_sha256": "bd7b6bed1ff4b2e6c74952a947c913eb554c680ea96f01c68eda2e640afe6c07",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_prior_version_recheck",
+      "output_bytes": 2780,
+      "output_limit_bytes": 2097152,
+      "pid": 85612,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.333304165978916,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/10-uninstall_prior_version_recheck.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/10-uninstall_prior_version_recheck.stdout.txt",
+      "stdout_sha256": "2462c698d391a9c27198357be374321874211f62d008f8f14818ad5b45150f0d",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "uninstall",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_prior_version",
+      "output_bytes": 71,
+      "output_limit_bytes": 4194304,
+      "pid": 85705,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.5105092499870807,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/11-uninstall_prior_version.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/11-uninstall_prior_version.stdout.txt",
+      "stdout_sha256": "d815991d2785398b197440aab222bcf8ef3fe644ffaf812f36992bcd367b95dd",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_prior_version_absent",
+      "output_bytes": 2509,
+      "output_limit_bytes": 2097152,
+      "pid": 85809,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.32560750003904104,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/12-uninstall_prior_version_absent.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/12-uninstall_prior_version_absent.stdout.txt",
+      "stdout_sha256": "11645c0ee29cb0b4235aee13f2cbfb8e85e274fae16127066169fc57643093bb",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "install",
+        "--build-from-source",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "clean_source_install",
+      "output_bytes": 438,
+      "output_limit_bytes": 12582912,
+      "pid": 85903,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 338.1723298749421,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/13-clean_source_install.stderr.txt",
+      "stderr_sha256": "6509b5a6a96d219e0049c4c18382942301847bf06f8726e365db4cb78fe36a6e",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/13-clean_source_install.stdout.txt",
+      "stdout_sha256": "bbcc84fe0d546c67649af8fd4c50b95aacfc662992990b2e7c54b6eaf01ac6f6",
+      "timed_out": false,
+      "timeout_seconds": 2100
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "new_install_identity",
+      "output_bytes": 2781,
+      "output_limit_bytes": 2097152,
+      "pid": 87711,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.39083275001030415,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/14-new_install_identity.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/14-new_install_identity.stdout.txt",
+      "stdout_sha256": "0be1813976375a2f1a9094d4e5566cadc0ecd6bc2295661b63fa234ffaf8a25f",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+        "--version"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "cli_version",
+      "output_bytes": 16,
+      "output_limit_bytes": 2097152,
+      "pid": 87805,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.6052720410516486,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/15-cli_version.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/15-cli_version.stdout.txt",
+      "stdout_sha256": "82493ee9837df552cc92c7787fad7dfa5041e29a7efb013c3476e1987546e7db",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+        "status",
+        "--format",
+        "json"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "cli_status_smoke",
+      "output_bytes": 1240,
+      "output_limit_bytes": 2097152,
+      "pid": 87806,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.03384529205504805,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/16-cli_status_smoke.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/16-cli_status_smoke.stdout.txt",
+      "stdout_sha256": "cc66395076b9febc3820b822466ebb4cbe46820936fba082cf03392e18f90c15",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+        "run",
+        "sql",
+        "--input",
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/orders.csv",
+        "--sql",
+        "SELECT id, label, amount FROM '/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/orders.csv' WHERE amount >= 10 LIMIT 2",
+        "--request",
+        "collect",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "1",
+        "--format",
+        "json"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "native_sql_complete_values",
+      "output_bytes": 159879,
+      "output_limit_bytes": 2097152,
+      "pid": 87807,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.03560837509576231,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/17-native_sql_complete_values.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/17-native_sql_complete_values.stdout.txt",
+      "stdout_sha256": "8f119bc47936296cd4b8dc20dca37a78f1b337d909fe4f3f493b69056346a5ec",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "test",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "brew_test",
+      "output_bytes": 164,
+      "output_limit_bytes": 4194304,
+      "pid": 87809,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 1.144050583941862,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/18-brew_test.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/18-brew_test.stdout.txt",
+      "stdout_sha256": "ef16ecb4097918871cda4a8111b552027e09c0ad3db6c09e8309bb6270fe4fa1",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "linkage",
+        "--test",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "brew_linkage",
+      "output_bytes": 0,
+      "output_limit_bytes": 4194304,
+      "pid": 87874,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.23376675008330494,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/19-brew_linkage.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/19-brew_linkage.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/bin/python",
+        "-I",
+        "-c",
+        "\nimport hashlib, importlib.metadata, json, sys\nfrom pathlib import Path\nimport shardloom as sl\nfrom shardloom import ShardLoomClient\nsite = Path(sl.__file__).resolve()\nassert site.is_relative_to(Path(sys.prefix).resolve()) and '/site-packages/' in str(site), site\nassert importlib.metadata.version('shardloom') == '1.0.0'\nassert len(sys.argv) in (2, 3)\nhomebrew_binary = Path(sys.argv[2]).resolve() if len(sys.argv) == 3 else None\nif homebrew_binary is not None:\n    assert homebrew_binary == Path('/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom'), homebrew_binary\nresources = sl.ExecutionResources(1 << 30, 1)\nclient = (ShardLoomClient(binary=homebrew_binary, resources=resources) if homebrew_binary is not None\n          else ShardLoomClient.from_env(resources=resources))\nsmoke = client.smoke_check()\nbinary = Path(smoke.resolved_cli_path).resolve()\nif homebrew_binary is None:\n    assert binary.is_relative_to(site.parent / 'bin'), binary\nelse:\n    assert binary == homebrew_binary, binary\nassert smoke.cli_version == '1.0.0' and not smoke.fallback_attempted\nassert hashlib.sha256(binary.read_bytes()).hexdigest() == sys.argv[1]\nctx = sl.context(client=client)\nsource = Path('orders.csv').resolve()\nsource.write_text('id,label,amount\\n1,caf\\u00e9,8\\n2,\\u6771\\u4eac,15\\n3,na\\u00efve,27\\n4,\\u96ea,27\\n', encoding='utf-8')\nexpected = [{'id': 2, 'label': '\\u6771\\u4eac', 'amount': 15}, {'id': 3, 'label': 'na\\u00efve', 'amount': 27}]\nworkflows = [ctx.read(source).filter(sl.col('amount') >= 10).select('id', 'label', 'amount').limit(2)]\nworkflows += [ctx.sql(f\"SELECT id, label, amount FROM '{source}' WHERE amount >= 10 LIMIT 2\") for _ in range(2)]\nresults = []\nfor workflow in workflows:\n    result = workflow.collect()\n    assert result.runtime_execution and result.status == 'success' and result.output_row_count == 2\n    assert not result.fallback_attempted and not result.external_engine_invoked\n    values = [dict(row) for row in result.result_rows]\n    assert values == expected and all(type(r[k]) is int for r in values for k in ('id', 'amount')), values\n    results.append(values)\nframe = ctx.sql(f\"SELECT id,label,COUNT(*) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS n,FIRST_VALUE(label) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS first_label FROM '{source}' ORDER BY id\").collect()\nassert frame.runtime_execution and frame.status == 'success' and frame.output_row_count == 4\nassert not frame.fallback_attempted and not frame.external_engine_invoked\nframe_values = [dict(row) for row in frame.result_rows]\nassert frame_values == [\n    {'id': 1, 'label': 'caf\\u00e9', 'n': 1, 'first_label': 'caf\\u00e9'},\n    {'id': 2, 'label': '\\u6771\\u4eac', 'n': 2, 'first_label': 'caf\\u00e9'},\n    {'id': 3, 'label': 'na\\u00efve', 'n': 2, 'first_label': '\\u6771\\u4eac'},\n    {'id': 4, 'label': '\\u96ea', 'n': 2, 'first_label': 'na\\u00efve'},\n], frame_values\nassert all(type(row['id']) is int and type(row['n']) is int for row in frame_values)\noutput = Path('orders.vortex').resolve()\nwritten = ctx.read(source).write_vortex(output)\nassert written.runtime_execution and written.status == 'success'\nassert not written.fallback_attempted and not written.external_engine_invoked\nassert output.is_file() and output.stat().st_size > 0\nreopened = ctx.read(output).select('id', 'label', 'amount').collect()\nassert reopened.runtime_execution and reopened.status == 'success' and reopened.output_row_count == 4\nassert not reopened.fallback_attempted and not reopened.external_engine_invoked\nreopened_values = [dict(row) for row in reopened.result_rows]\nassert reopened_values == [\n    {'id': 1, 'label': 'caf\\u00e9', 'amount': 8}, *expected,\n    {'id': 4, 'label': '\\u96ea', 'amount': 27},\n], reopened_values\nscalar = ctx.sql('SELECT value,(SELECT MAX(value) AS best FROM range(1,5) '\n                 'WHERE value<=outer.value) AS scalar FROM range(0,4)').collect()\nassert scalar.runtime_execution and scalar.status == 'success' and scalar.output_row_count == 4\nassert not scalar.fallback_attempted and not scalar.external_engine_invoked\nscalar_values = [dict(row) for row in scalar.result_rows]\nassert scalar_values == [{'value': 0, 'scalar': None}, {'value': 1, 'scalar': 1},\n                         {'value': 2, 'scalar': 2}, {'value': 3, 'scalar': 3}], scalar_values\nworkspace = Path('native-spill').resolve()\nworkspace.mkdir()\nspill = {'workspace': str(workspace), 'quota_bytes': 64 << 20, 'buffer_bytes': 1 << 20}\nbatch_evidence = {}\ndef consume(name, workflow, expected_rows, *, stored=False):\n    rows, indices = [], []\n    with workflow.iter_batches(batch_rows=2, memory_gb=1, max_parallelism=1,\n                               spill=spill if stored else None) as batches:\n        assert batches.report is None\n        for batch in batches:\n            assert batches.report is None\n            indices.append(batch.index)\n            assert len(batch.result_rows) <= 2\n            rows.extend(dict(row) for row in batch.result_rows)\n        report = batches.report\n        assert report is not None and report.envelope.status == 'success'\n        assert report.runtime_execution and not report.fallback_attempted\n        assert not report.external_engine_invoked and not report.envelope.fallback.attempted\n        assert report.envelope.field_bool('result_payload_complete') is True\n        assert report.envelope.field_int('output_row_count') == len(expected_rows)\n        assert report.envelope.field_int('native_result_batches_acknowledged') == len(indices)\n        assert indices == list(range(len(indices))) and rows == expected_rows, (name, rows)\n    assert list(workspace.iterdir()) == [], name\n    batch_evidence[name] = {'rows': rows, 'batches': len(indices), 'final_report_success': True,\n                            'explicit_spill_policy': stored, 'owned_workspace_empty': True}\nconsume('vortex_incremental_results', ctx.read(output).select('id', 'label', 'amount'), reopened_values)\ndef measurements():\n    yield [{'sequence': 1, 'team': 'red', 'amount': 3},\n           {'sequence': 2, 'team': 'blue', 'amount': 1}]\n    yield [{'sequence': 3, 'team': 'red', 'amount': 4},\n           {'sequence': 4, 'team': 'red', 'amount': 3}]\ndef measurement_source():\n    return ctx.from_batches(measurements,\n        schema={'sequence': 'int64', 'team': 'utf8', 'amount': 'int64'}, streaming=True)\nconsume('streamed_general_aggregate', measurement_source().group_by('team').agg(\n    'SUM(amount) AS total', 'COUNT(DISTINCT amount) AS distinct_amounts').sort('team'),\n    [{'team': 'blue', 'total': 1.0, 'distinct_amounts': 1},\n     {'team': 'red', 'total': 10.0, 'distinct_amounts': 2}], stored=True)\ncustomers = ctx.from_rows([{'customer_id': 1, 'customer': 'Ada'}],\n                         schema={'customer_id': 'int64', 'customer': 'utf8'})\ndef orders():\n    yield [{'customer_id': 1, 'amount': 3}, {'customer_id': 2, 'amount': 5}]\n    yield [{'customer_id': 1, 'amount': 4}]\njoined = ctx.from_batches(orders, schema={'customer_id': 'int64', 'amount': 'int64'},\n                         streaming=True).join(customers, on='customer_id', how='left').select(\n                             'f.amount AS amount', 'd.customer AS customer')\nconsume('streamed_left_join', joined, [{'amount': 3, 'customer': 'Ada'},\n        {'amount': 5, 'customer': None}, {'amount': 4, 'customer': 'Ada'}], stored=True)\nwindow = measurement_source().window(\n    'SUM(amount) OVER (PARTITION BY team ORDER BY sequence '\n    'ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS previous_two_total',\n    'COUNT(DISTINCT amount) OVER (PARTITION BY team ORDER BY sequence '\n    'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS distinct_amounts',\n).select('sequence', 'team', 'previous_two_total', 'distinct_amounts')\nconsume('streamed_analytic_window', window, [\n    {'sequence': 1, 'team': 'red', 'previous_two_total': 3.0, 'distinct_amounts': 1},\n    {'sequence': 2, 'team': 'blue', 'previous_two_total': 1.0, 'distinct_amounts': 1},\n    {'sequence': 3, 'team': 'red', 'previous_two_total': 7.0, 'distinct_amounts': 2},\n    {'sequence': 4, 'team': 'red', 'previous_two_total': 7.0, 'distinct_amounts': 2},\n], stored=True)\npivot = ctx.from_rows([\n    {'entity': 1, 'category': 'a', 'amount': 3},\n    {'entity': 2, 'category': 'b', 'amount': 5},\n    {'entity': 1, 'category': 'a', 'amount': 4},\n], schema={'entity': 'int64', 'category': 'utf8', 'amount': 'int64'}).pivot_table(\n    index='entity', columns='category', values='amount', aggfunc='sum')\nconsume('sparse_pivot', pivot, [{'entity': 1, 'pivot_a': 7.0, 'pivot_b': None},\n        {'entity': 2, 'pivot_a': None, 'pivot_b': 5.0}], stored=True)\nfrom shardloom import _native\nfrom shardloom.native import ExecutionResources as NativeResources, Session\nnative_library = Path(_native.__file__).resolve()\nassert native_library.is_relative_to(site.parent) and _native.__version__ == '1.0.0'\nassert _native.execution_provider == 'shared_shardloom_native'\nnative_session = Session(NativeResources(256 << 20, 2))\nnative_result = native_session.sql('SELECT value FROM range(0,4)').collect()\nnative_session.close()\nnative_rows, native_export = native_result.row_export()\nassert native_rows == [{'value': n} for n in range(4)], native_rows\nassert native_export['complete'] is True and native_export['output_rows'] == 4\nnative_proof = {'library': str(native_library),\n                'library_sha256': hashlib.sha256(native_library.read_bytes()).hexdigest(),\n                'execution_provider': _native.execution_provider,\n                'retained_after_session_close': True, 'rows': native_rows,\n                'explicit_row_export_complete': native_export['complete']}\nwith sl.context(resources=resources) as application:\n    assert application.transport == 'native'\n    application_result = application.sql('SELECT value FROM range(0,4)').collect()\n    assert isinstance(application_result, sl.Result)\n    assert [name for name, dtype in application_result.schema] == ['value']\n    assert application_result.details.status == 'success'\n    assert application_result.runtime_execution and not application_result.fallback_attempted\n    assert not application_result.external_engine_invoked\n    closed_plan = application.sql('SELECT value FROM range(0,1)')\nassert application.closed\nwith sl.context(resources=resources) as receiving:\n    chained_result = receiving.from_result(application_result).filter(sl.col('value') >= 2).collect()\n    assert isinstance(chained_result, sl.Result) and chained_result.runtime_execution\n    assert not chained_result.fallback_attempted and not chained_result.external_engine_invoked\napplication_rows = [dict(row) for row in application_result.to_rows()]\nchained_rows = [dict(row) for row in chained_result.to_rows()]\nassert application_rows == [{'value': n} for n in range(4)]\nassert chained_rows == [{'value': 2}, {'value': 3}]\ntry:\n    closed_plan.collect()\nexcept sl.ShardLoomClosedError:\n    pass\nelse:\n    raise AssertionError('closed context unexpectedly executed a retained plan')\ncontext_proof = {'default_transport': application.transport, 'result_type': 'Result',\n                 'retained_after_context_close': True, 'from_result_values': chained_rows,\n                 'rows': application_rows, 'typed_closed_error': True,\n                 'native_module_origin': 'verified_installed_python_wheel'}\nunsupported_plan = ctx.read(source).select('id')\ntry:\n    unsupported_plan.to_pandas()\nexcept sl.ShardLoomCommandError as error:\n    assert error.envelope.status == 'unsupported' and error.envelope.is_error\n    assert not error.envelope.fallback.attempted\nelse:\n    raise AssertionError('unsupported conversion did not raise its typed execution error')\nunsupported = unsupported_plan.to_pandas(check=False)\nassert unsupported.blocker_id == 'cg21.workflow.to_pandas.decoded_dataframe_unsupported'\nassert not unsupported.runtime_execution and not unsupported.fallback_attempted and not unsupported.external_engine_invoked\nprint(json.dumps({'package_path': str(site), 'bundled_cli': str(binary) if homebrew_binary is None else None,\n                  'verified_native_cli': str(binary),\n                  'cli_distribution': 'bundled_wheel' if homebrew_binary is None else 'homebrew_source_build',\n                  'explicit_homebrew_cli_binding': homebrew_binary is not None,\n                  'version': smoke.cli_version,\n                  'cli_sha256': sys.argv[1], 'exact_results': results, 'repeated_sql_executions': 2,\n                  'analytic_frame_values': frame_values, 'native_vortex_roundtrip_values': reopened_values,\n                  'correlated_scalar_subquery_values': scalar_values,\n                  'incremental_complete_values': batch_evidence,\n                  'native_module_proof': native_proof,\n                  'context_result_proof': context_proof,\n                  'typed_unsupported_error': True,\n                  'actual_disk_pressure_claimed_by_smoke': False,\n                  'native_vortex_output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),\n                  'unsupported_blocker': unsupported.blocker_id, 'fallback_attempted': False,\n                  'external_engine_invoked': False}))\nclient.close()\n",
+        "eb9d62a41abdee62087a1b84ce07e48b09020a2609b4d0e8a6d3bdc54d31ad7f",
+        "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "homebrew_complete_workflow_values",
+      "output_bytes": 4129,
+      "output_limit_bytes": 2097152,
+      "pid": 87915,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.9628882500110194,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/20-homebrew_complete_workflow_values.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/20-homebrew_complete_workflow_values.stdout.txt",
+      "stdout_sha256": "3b49281f24fd67806c1eb215c68c1aefdfeaae6adba5d17a8d633c3768282732",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/bin/python",
+        "-I",
+        "-m",
+        "pip",
+        "--isolated",
+        "uninstall",
+        "-y",
+        "shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_client_wheel",
+      "output_bytes": 118,
+      "output_limit_bytes": 2097152,
+      "pid": 87925,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.2960671669570729,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/21-uninstall_verified_client_wheel.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/21-uninstall_verified_client_wheel.stdout.txt",
+      "stdout_sha256": "b2ab698dc010391dd64a2e76718ef168339bf96bcd6d2f14957a08eb4ebef3ca",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/venv/bin/python",
+        "-I",
+        "-c",
+        "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "verify_client_uninstalled",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 87927,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.031953583005815744,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/22-verify_client_uninstalled.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/22-verify_client_uninstalled.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_100_identity",
+      "output_bytes": 2781,
+      "output_limit_bytes": 2097152,
+      "pid": 87928,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.34285200003068894,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/23-uninstall_verified_100_identity.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/23-uninstall_verified_100_identity.stdout.txt",
+      "stdout_sha256": "0be1813976375a2f1a9094d4e5566cadc0ecd6bc2295661b63fa234ffaf8a25f",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+        "--version"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_100_version",
+      "output_bytes": 16,
+      "output_limit_bytes": 2097152,
+      "pid": 88021,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.026362375007010996,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/24-uninstall_verified_100_version.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/24-uninstall_verified_100_version.stdout.txt",
+      "stdout_sha256": "82493ee9837df552cc92c7787fad7dfa5041e29a7efb013c3476e1987546e7db",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_100_recheck",
+      "output_bytes": 2781,
+      "output_limit_bytes": 2097152,
+      "pid": 88023,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.3217016670387238,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/25-uninstall_verified_100_recheck.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/25-uninstall_verified_100_recheck.stdout.txt",
+      "stdout_sha256": "0be1813976375a2f1a9094d4e5566cadc0ecd6bc2295661b63fa234ffaf8a25f",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "uninstall",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_100",
+      "output_bytes": 71,
+      "output_limit_bytes": 4194304,
+      "pid": 88116,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.5066291670082137,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/26-uninstall_verified_100.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/26-uninstall_verified_100.stdout.txt",
+      "stdout_sha256": "2f27eafda18a5ace62c1445b7452687fce363c3ba22341512497061eeac61f99",
+      "timed_out": false,
+      "timeout_seconds": 180
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_100_absent",
+      "output_bytes": 2509,
+      "output_limit_bytes": 2097152,
+      "pid": 88214,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.344825292006135,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/27-uninstall_verified_100_absent.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/27-uninstall_verified_100_absent.stdout.txt",
+      "stdout_sha256": "11645c0ee29cb0b4235aee13f2cbfb8e85e274fae16127066169fc57643093bb",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "install",
+        "--build-from-source",
+        "depsilon/tap/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "restore_requested_install",
+      "output_bytes": 438,
+      "output_limit_bytes": 12582912,
+      "pid": 88307,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 343.844360374962,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/28-restore_requested_install.stderr.txt",
+      "stderr_sha256": "6509b5a6a96d219e0049c4c18382942301847bf06f8726e365db4cb78fe36a6e",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/28-restore_requested_install.stdout.txt",
+      "stdout_sha256": "bbcc84fe0d546c67649af8fd4c50b95aacfc662992990b2e7c54b6eaf01ac6f6",
+      "timed_out": false,
+      "timeout_seconds": 2100
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/brew",
+        "info",
+        "depsilon/tap/shardloom",
+        "--json=v2"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "restored_formula_identity",
+      "output_bytes": 2781,
+      "output_limit_bytes": 2097152,
+      "pid": 89874,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.4377308340044692,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/29-restored_formula_identity.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/29-restored_formula_identity.stdout.txt",
+      "stdout_sha256": "50719392e9ef41d7f6adf06692c352eab748b174decc5b9454b75b3071aec5b1",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+        "--version"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "restored_cli_version",
+      "output_bytes": 16,
+      "output_limit_bytes": 2097152,
+      "pid": 89968,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.5735246669501066,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/30-restored_cli_version.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/homebrew-100-z7yccwwo/30-restored_cli_version.stdout.txt",
+      "stdout_sha256": "82493ee9837df552cc92c7787fad7dfa5041e29a7efb013c3476e1987546e7db",
+      "timed_out": false,
+      "timeout_seconds": 60
+    }
+  ],
+  "style_status": "passed",
+  "tap_commit": "31c740662b563f62de4dad0f9c03d15667a36b28",
+  "tap_publication_verification": {
+    "check_runs": [],
+    "cli_version_stdout": "shardloom 1.0.0\n",
+    "completed_installation_steps": 31,
+    "driver_sha256": "966d7efe1e7bd6512d686567f3ed34846dd6e0e7558d4bbcf46a0d7472795d04",
+    "installed_formula_observation": {
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-homebrew-merged-info-1.json",
+      "sha256": "fec06a9d4791e6b66309142c69212779b31b6ce1e8004d069320d21cff248f85"
+    },
+    "installed_version": "1.0.0",
+    "observed_at": "2026-10-25T23:00:16.106150+00:00",
+    "original_installation_transcript_path": "/Users/dylan/LocalData/shardloom/release-v1.0.0/release-100-homebrew-installation-original-1.json",
+    "original_installation_transcript_sha256": "6e5fc94469b2ce3a6f6c6bccd03be285c57790ae3d45ef8a5194ea413d491861",
+    "published_tap_merge_commit": "71802634c0e359fb7b7ff190fad945b709857497",
+    "published_tree": "667b40415947a1d8850e18fc3ce44cec02c9bc72",
+    "published_tree_equals_tested_tree": true,
+    "pull_request": {
+      "head_sha": "31c740662b563f62de4dad0f9c03d15667a36b28",
+      "merge_commit": "71802634c0e359fb7b7ff190fad945b709857497",
+      "merged_at": "2026-10-25T23:00:04Z",
+      "number": 13,
+      "url": "https://github.com/depsilon/homebrew-tap/pull/13"
+    },
+    "status": "passed",
+    "tested_tap_commit": "31c740662b563f62de4dad0f9c03d15667a36b28",
+    "tested_tree": "667b40415947a1d8850e18fc3ce44cec02c9bc72"
+  },
+  "tap_repository": "https://github.com/depsilon/homebrew-tap",
+  "total_log_limit_bytes": 67108864,
+  "uninstall_authorizations": [
+    {
+      "identities": [
+        {
+          "generation": [
+            16777233,
+            121293198,
+            962,
+            1792663640465088248,
+            1792663640465230790
+          ],
+          "path": "/opt/homebrew/Cellar/shardloom/0.7.0/INSTALL_RECEIPT.json",
+          "resolved": "/opt/homebrew/Cellar/shardloom/0.7.0/INSTALL_RECEIPT.json",
+          "sha256": "028724650068e624a4953ba04c29d3c79f8763c17d98b789965bc8218a171d9d"
+        },
+        {
+          "generation": [
+            16777233,
+            121293184,
+            76404464,
+            1792663639591054104,
+            1792663640445334579
+          ],
+          "path": "/opt/homebrew/Cellar/shardloom/0.7.0/bin/shardloom",
+          "resolved": "/opt/homebrew/Cellar/shardloom/0.7.0/bin/shardloom",
+          "sha256": "cc9a6dbc54525d4f322f6a77055eb8aa8572a3ac31206634ac1014b8d5cd0513"
+        }
+      ],
+      "version": "0.7.0"
+    },
+    {
+      "identities": [
+        {
+          "generation": [
+            16777233,
+            129519910,
+            962,
+            1792968751340293113,
+            1792968751340421738
+          ],
+          "path": "/opt/homebrew/Cellar/shardloom/1.0.0/INSTALL_RECEIPT.json",
+          "resolved": "/opt/homebrew/Cellar/shardloom/1.0.0/INSTALL_RECEIPT.json",
+          "sha256": "4e320eae7e0af7c33120c9fc2fd31d2c4fab152217fdd6ba29008b57d484badf"
+        },
+        {
+          "generation": [
+            16777233,
+            129519896,
+            78344960,
+            1792968750480139558,
+            1792968751311640593
+          ],
+          "path": "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+          "resolved": "/opt/homebrew/Cellar/shardloom/1.0.0/bin/shardloom",
+          "sha256": "eb9d62a41abdee62087a1b84ce07e48b09020a2609b4d0e8a6d3bdc54d31ad7f"
+        }
+      ],
+      "version": "1.0.0"
+    }
+  ],
+  "uninstall_command": "HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_AUTOREMOVE=1 brew uninstall depsilon/tap/shardloom",
+  "uninstall_transcript_status": "passed",
+  "uninstalled_verified_version": "1.0.0",
+  "whole_run_timeout_seconds": 5400
+}

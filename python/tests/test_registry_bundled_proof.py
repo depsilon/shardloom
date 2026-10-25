@@ -51,7 +51,7 @@ class RegistryBundledProofTests(unittest.TestCase):
     def validate(self, proof, channel, version=None):
         version = version or SELECTED_PACKAGE_RELEASE_VERSION
         native_digest = None
-        if version in {"0.6.0", "0.7.0"}:
+        if version in {"0.6.0", "0.7.0", "1.0.0"}:
             provenance = json.loads((ROOT / "docs/release/channel-proofs" /
                                      f"{channel}-v{version}-provenance.json").read_text())
             native_matches = [row["native_library"]["sha256"] for row in provenance["artifact_refs"]
@@ -73,7 +73,7 @@ class RegistryBundledProofTests(unittest.TestCase):
                 self.assertEqual(self.validate(self.proof(channel), channel), [])
 
     def test_preserves_all_historical_installation_proofs(self):
-        for version in ("0.2.4", "0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.4.0", "0.5.1", "0.6.0"):
+        for version in ("0.2.4", "0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.4.0", "0.5.1", "0.6.0", "0.7.0"):
             for channel in ("testpypi", "pypi"):
                 with self.subTest(version=version, channel=channel):
                     proof = self.proof_for_version(channel, version)
@@ -81,8 +81,8 @@ class RegistryBundledProofTests(unittest.TestCase):
 
     def test_rejects_failed_missing_or_unbound_bundled_evidence(self):
         source_field = "source_commit" if SELECTED_PACKAGE_RELEASE_VERSION == "0.2.4" else "release_source_commit"
-        version_field = "version" if SELECTED_PACKAGE_RELEASE_VERSION in {"0.5.1", "0.6.0", "0.7.0"} else "cli_version"
-        cli_field = "bundled_cli" if SELECTED_PACKAGE_RELEASE_VERSION in {"0.5.1", "0.6.0", "0.7.0"} else "resolved_cli_path"
+        version_field = "version" if SELECTED_PACKAGE_RELEASE_VERSION in {"0.5.1", "0.6.0", "0.7.0", "1.0.0"} else "cli_version"
+        cli_field = "bundled_cli" if SELECTED_PACKAGE_RELEASE_VERSION in {"0.5.1", "0.6.0", "0.7.0", "1.0.0"} else "resolved_cli_path"
         mutations = [
             (("proof_status",), "failed", "proof_status must be passed"),
             (("status",), "failed", "status must be passed"),

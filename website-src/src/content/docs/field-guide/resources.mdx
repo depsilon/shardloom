@@ -23,18 +23,18 @@ Environment loading is explicit through `ExecutionResources.from_env()`.
 A memory allocation covers the engine reservations accounted for by the selected operation. It is **not a total-process RSS
 limit**: optional integrations, Python objects retained by your application,
 and unreviewed reader/codec scratch have separate allocation behavior.
-The [resource contract](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/required-execution-resources-2026-10-10.md)
+The [resource contract](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/architecture/required-execution-resources-2026-10-10.md)
 defines inheritance and administrator ceilings.
 
 ## Authorize spill
 
 Spill requires an explicit supported policy, a local workspace and a disk quota.
 Ordering, aggregation, joins, analytic windows and file/resident-memory pivot
-have their own supported strategies. Version 0.7.0 also includes explicitly
+have their own supported strategies. The engine also includes explicitly
 admitted relational membership and sampling population pressure paths.
 Replay permission does not authorize arbitrary state spill.
 
-Use the [native spill reference](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/reference/native-query-spill.md)
+Use the [native spill reference](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/reference/native-query-spill.md)
 for exact policy examples, types and minimum quotas. Quotas must cover overlapping
 inputs, runs and outputs. Unsupported spill configurations fail explicitly.
 

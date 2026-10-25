@@ -2,8 +2,8 @@
 
 # V1 Local Source And Package Release Track
 
-Current selected publication: v0.7.0, after all four channel proofs passed. See
-[publication verification](v0.7.0-publication-verification.md) for exact release,
+Current selected publication: v1.0.0, after all four channel proofs passed. See
+[publication verification](v1.0.0-publication-verification.md) for exact release,
 tag and registry build identities. Earlier release addenda below remain historical.
 Package access is technical-preview only; production and unfinished capability
 gates remain open.
@@ -20,7 +20,7 @@ python scripts\check_v1_local_source_package_release.py
 ```
 
 This page narrows the feasible v1 release after excluding real production environments. Maintainer
-approval and channel proof now exist for the v0.7.0 GitHub pre-release, TestPyPI, PyPI, and
+approval and channel proof now exist for the v1.0.0 GitHub pre-release, TestPyPI, PyPI, and
 Homebrew sequence. This page does not itself publish additional packages, create new tags, create
 new GitHub releases, upload new artifacts, sign artifacts, add secrets, run production services, or
 authorize fallback execution.
@@ -28,7 +28,7 @@ authorize fallback execution.
 Current package publication state:
 
 ```text
-package_channel_status=published_v0.7.0_selected_channels
+package_channel_status=published_v1.0.0_selected_channels
 package_install_commands_visible=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
@@ -52,10 +52,10 @@ object-store/lakehouse, Foundry, or fallback-execution claims.
 | API/schema stability | Stable local v1 machine-readable contract. | `docs/release/v1-api-schema-stability.md`, `docs/release/schemas/v1/*`, `scripts/check_v1_api_schema_stability.py` |
 | Benchmark/public comparison surface | ClickBench handoff publicly; local benchmark artifacts remain separate, claim-gated evidence. | `website-src/src/pages/benchmarks.astro`, `scripts/check_benchmark_publish_doctor.py` |
 | Docs/website/readme | Claim-safe public interpretation layer. | `README.md`, `docs/release/public-status-matrix.md`, `website-src/` |
-| GitHub pre-release | Published v0.7.0 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.7.0-transcript.json` |
-| TestPyPI | Published v0.7.0 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.7.0-transcript.json` |
-| PyPI | Published v0.7.0 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.7.0-transcript.json` |
-| Homebrew tap | Published v0.7.0 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.7.0-transcript.json` |
+| GitHub pre-release | Published v1.0.0 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v1.0.0-transcript.json` |
+| TestPyPI | Published v1.0.0 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v1.0.0-transcript.json` |
+| PyPI | Published v1.0.0 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v1.0.0-transcript.json` |
+| Homebrew tap | Published v1.0.0 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v1.0.0-transcript.json` |
 
 ## Historical v0.2.3 Publication Sequence
 
@@ -92,7 +92,7 @@ the exact tag ref type, target commit, and commit verification state.
 
 ## Runtime Feature-Gate Packaging Note
 
-The selected GitHub, PyPI, and Homebrew channels expose the v0.7.0 package/CLI posture selected by
+The selected GitHub, PyPI, and Homebrew channels expose the v1.0.0 package/CLI posture selected by
 the release build. Release-user packages build the CLI with
 `--features release-user-surfaces`, which enables the modular user-facing runtime capabilities that
 are already part of the release surface. Feature gates remain runtime/build-scope qualifiers and do
@@ -128,7 +128,7 @@ explicit binary argument
 -> deterministic binary-resolution error
 ```
 
-On Linux and macOS, the 0.7.0 `sl.context(...)` default selects the installed native
+On Linux and macOS, the 1.0.0 `sl.context(...)` default selects the installed native
 binding. Windows selects process transport; an explicit transport choice remains available.
 The process client can keep a private local `python-worker` open so repeated
 public-route calls do not relaunch the CLI. Execution remains inside ShardLoom;
@@ -137,7 +137,7 @@ native execution fails explicitly rather than switching engines.
 
 Runtime binary download is rejected for this release track. A verified installation claim for a
 platform requires checksum, SBOM/provenance, clean install/uninstall and no-fallback smoke evidence
-for that exact artifact. The current [publication verification](v0.7.0-publication-verification.md) identifies
+for that exact artifact. The current [publication verification](v1.0.0-publication-verification.md) identifies
 the exact Linux and macOS wheels exercised by installed native tests and uninstall
 checks. Windows has a CLI-backed wheel with build/version smoke, without native
 extension or pressure-parity claims. On POSIX platforms, bundled CLI resources must preserve
