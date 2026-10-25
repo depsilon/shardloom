@@ -8,6 +8,9 @@ The root graph now pins Vortex 0.90.0, the Arrow family and Parquet 59.3.1, ORC 
 and PyO3 runtime 0.29.3. The separate `pyo3-build-config` 0.30.1 build helper is used
 only by `shardloom-python/build.rs` for `add_extension_module_link_args()`.
 
+Vortex manifest requirement: `=0.90.0`.
+`Cargo.lock` records the upstream Vortex crate family at `0.90.0`.
+
 The local DateTimeParts patch is removed: all 16 Rust source files match the exact
 0.90.0 archive, the registry identity is reviewed, and 87 upstream plus four native
 temporal tests pass. Eight path patches remain at 0.90.0: array, buffer, file, FSST,

@@ -69,7 +69,7 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
         "review_doc": "docs/dependencies/vortex-upstream-review.md",
         "review_markers": [
             "Dependabot PR: <https://github.com/depsilon/shardloom/pull/1223>.",
-            "vortex = $CURRENT_VORTEX_MANIFEST_VERSION",
+            "Vortex manifest requirement: `$CURRENT_VORTEX_MANIFEST_VERSION`",
             "`Cargo.lock` records the upstream Vortex crate family at `$CURRENT_VORTEX_LOCK_VERSION`",
             "Vortex query-engine integrations remain prohibited",
         ],

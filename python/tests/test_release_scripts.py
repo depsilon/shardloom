@@ -5182,6 +5182,41 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
+    def test_pre_5j_dependency_freshness_requires_current_vortex_review_versions(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_pre_5j_dependency_freshness.py",
+            "check_pre_5j_dependency_freshness_review_versions_for_test",
+        )
+        review_path = REPO_ROOT / "docs/dependencies/vortex-upstream-review.md"
+        read_text = module.read_text
+        review_text = read_text(review_path)
+        markers = (
+            f"Vortex manifest requirement: `{CURRENT_VORTEX_MANIFEST_VERSION}`",
+            "`Cargo.lock` records the upstream Vortex crate family at "
+            f"`{CURRENT_VORTEX_LOCK_VERSION}`",
+        )
+        for marker in markers:
+            with self.subTest(marker=marker):
+                self.assertIn(marker, review_text)
+                stale_review = review_text.replace(marker, "Unreviewed version")
+                with mock.patch.object(
+                    module,
+                    "read_text",
+                    side_effect=lambda path: (
+                        stale_review if path == review_path else read_text(path)
+                    ),
+                ):
+                    blockers = module.validate_admitted_pr(
+                        REPO_ROOT, 1223, module.ADMITTED_DEPENDABOT_PRS[1223]
+                    )
+                self.assertEqual(
+                    blockers,
+                    [f"PR #1223: docs/dependencies/vortex-upstream-review.md "
+                     f"missing marker: {marker}"],
+                )
+
     def test_pre_5j_dependency_freshness_rejects_unreviewed_patch_versions(self) -> None:
         module = self._load_script_module(
             "check_pre_5j_dependency_freshness.py",
