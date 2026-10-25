@@ -24,7 +24,7 @@ vortex-zstd = { path = "vendor/vortex-zstd" }
 [workspace.package]
 version = "0.7.0"
 edition = "2024"
-description = "Pre-release Vortex-first no-fallback local compute engine with evidence-certified workflows."
+description = "Unified data processing engine for SQL and DataFrame workflows (technical preview)."
 license = "Apache-2.0"
 homepage = "https://shardloom.io"
 repository = "https://github.com/depsilon/shardloom"

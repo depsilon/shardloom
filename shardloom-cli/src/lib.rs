@@ -30,6 +30,7 @@ mod execution_resources;
 mod extension_planning;
 mod fixture_io;
 mod gar_0029_evidence;
+mod human_report;
 mod input_planning;
 mod native_memory_input;
 #[cfg(all(feature = "vortex-local-primitives", unix))]

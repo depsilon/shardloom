@@ -1385,22 +1385,22 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "f45e839d4309bab7ff49a124095f3f28f5b466cd62e4b5253b03d9c429ddf13b",
+    "source_identity": "75ca9afc3a3556496e0155be5bcc89c3f1ff0bc763a77a05ea31627b1bec33f3",
     "source_inputs": {
       "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
       "python/src/shardloom/_exports.py": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
       "python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
       "python/src/shardloom/_version.py": "15c2301be8f0c46290c326511c9c44251d91252f7cdc8b573b2d66e23826a328",
       "python/src/shardloom/client.py": "3415b4ec8e0e4ab5a5022ae9bc773ba0e4868c37cd9309440bbabe1949bbed9a",
-      "python/src/shardloom/context.py": "0393f7df9559928b818c9e68b102623ce62969babdb618a687039884a3b99dbf",
-      "python/src/shardloom/errors.py": "8409187140941c8552541c428b25b5a27c7a75d6c0fd15bbce92c0ef2413cbf5",
+      "python/src/shardloom/context.py": "ae93e62819b4af0b9c771107f4d505ab4a3644d867b34cc6d4d3785712e1c19e",
+      "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
-      "python/src/shardloom/query.py": "e5ca4d11a43faacccbd8fda13fc31d7fdd246929c66bfed200f0639135ea689d",
+      "python/src/shardloom/query.py": "bfc14fe5085f4b68fdf0ae0cdcfe9747d32363d4a2036215bac5f3340bc9d12e",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",
-      "shardloom-cli/src/command_registry.rs": "5528ce05f70e72a10865a633a3efd36ad603d182ecabd68af2369b73e8872156"
+      "shardloom-cli/src/command_registry.rs": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2"
     },
     "python_symbols": [
       {
@@ -3408,7 +3408,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Declare a lazy Arrow IPC compatibility source."
+        "summary": "Declare a lazy Arrow IPC file source without loading data."
       },
       {
         "name": "read_avro",
@@ -3417,7 +3417,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Declare a lazy Avro compatibility source."
+        "summary": "Declare a lazy Avro source without loading data."
       },
       {
         "name": "read_csv",
@@ -3426,7 +3426,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Declare a lazy CSV compatibility source."
+        "summary": "Declare a lazy CSV source; no source data is loaded by this call."
       },
       {
         "name": "read_json",
@@ -3435,7 +3435,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Declare a lazy flat JSON, JSONL, or NDJSON compatibility source."
+        "summary": "Declare a lazy flat JSON, JSONL, or NDJSON source without loading data."
       },
       {
         "name": "read_orc",
@@ -3444,7 +3444,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Declare a lazy ORC compatibility source."
+        "summary": "Declare a lazy ORC source without loading data."
       },
       {
         "name": "read_parquet",
@@ -3453,7 +3453,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Declare a lazy Parquet compatibility source."
+        "summary": "Declare a lazy Parquet source without loading data."
       },
       {
         "name": "read_vortex",
@@ -3674,7 +3674,7 @@
     ],
     "command_registry": {
       "source": "shardloom-cli/src/command_registry.rs",
-      "source_sha256": "5528ce05f70e72a10865a633a3efd36ad603d182ecabd68af2369b73e8872156",
+      "source_sha256": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2",
       "metadata_command": "shardloom command-metadata --format json",
       "registered_commands": [
         "help",

@@ -162,12 +162,37 @@ class ShardLoomCommandError(ShardLoomError, RuntimeError):
         return self.envelope.diagnostics
 
     def __str__(self) -> str:
-        fallback = self.envelope.fallback
-        return (
-            f"ShardLoom command failed with status {self.envelope.status!r} "
-            f"and return code {self.returncode}: {self.envelope.summary}. "
-            f"fallback_attempted={fallback.attempted}"
+        diagnostics = self.envelope.diagnostics
+        diagnostic = next(
+            (item for item in diagnostics if item.severity == "fatal"),
+            next((item for item in diagnostics if item.severity == "error"), None),
         )
+        if diagnostic is None:
+            # A warning does not explain why the command failed. Retain those
+            # diagnostics on the envelope while leading with the failure summary.
+            lines = [self.envelope.summary or "ShardLoom command failed."]
+        else:
+            message = diagnostic.message
+            reason = diagnostic.reason if diagnostic.reason and diagnostic.reason.strip() else None
+            next_step = diagnostic.suggested_next_step
+            if message in {"Invalid input provided.", "Configuration error."}:
+                message = reason or message
+            lines = [message]
+            if reason and reason != message:
+                lines.append(reason)
+            if next_step and next_step.strip():
+                lines.append(f"Next step: {next_step}")
+            lines.append(
+                f"Diagnostic: {diagnostic.code} "
+                f"({diagnostic.severity}; {diagnostic.category})"
+            )
+        # Command arguments and captured stderr can contain credentials. Keep
+        # them on the exception for deliberate inspection, out of its display.
+        lines.append(
+            f"Status: {self.envelope.status}; exit code: {self.returncode}; "
+            f"fallback_attempted={self.envelope.fallback.attempted}"
+        )
+        return "\n".join(lines)
 
 
 def _fallback_payload(fallback: FallbackStatus) -> dict[str, Any]:

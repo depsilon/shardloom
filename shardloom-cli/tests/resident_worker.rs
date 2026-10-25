@@ -573,7 +573,10 @@ fn worker_executes_resident_footer_count_each_call_and_releases_changed_handles(
             field(&result, "public_workflow_fallback_attempted"),
             "false"
         );
-        assert_eq!(result["human_text"], "result summary: 5\n");
+        assert_eq!(
+            result["human_text"],
+            "Input: Vortex\nSource preparation: Not reported\nExecution: ShardLoom\nOutput: Result\n\nExecution details:\nresult summary: 5\n"
+        );
     }
     let changed = worker.count(&path, "3");
     assert_metadata_count_certificate(&changed, "5", "4", "true");

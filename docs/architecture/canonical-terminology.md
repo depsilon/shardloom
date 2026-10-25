@@ -97,7 +97,89 @@ Primary governing references:
 - Foundry integration pack and availability surface:
   `docs/rfcs/0036-foundry-integration-pack-availability-surface.md`
 
+## Public product vocabulary
+
+**ShardLoom** is the product. Its primary description is **A unified data processing engine.**
+The short headline is **One engine. Many formats. Familiar interfaces.**
+
+Read, transform, query, and write data using SQL and DataFrame workflows, with multiple input
+and output formats and one shared execution engine. Ordinary documentation says: use SQL or
+DataFrames in Python, run queries from the command line, or embed ShardLoom in an application.
+Python hosts both SQL and DataFrame interfaces; these are not separate execution products.
+
+The public architecture diagram is **Input formats → ShardLoom engine → Output formats**.
+Explain Vortex's columnar representations, encodings, and file-format capabilities in the
+architecture material. Credit the upstream component without giving the product a blended name.
+Supported operations and formats retain their actual limits; clearer language adds no capability.
+
+| Internal or contextual term | Preferred public wording | Precision to retain |
+| --- | --- | --- |
+| Vortex-native middle; shared middle | ShardLoom engine; the engine | One execution system across supported interfaces |
+| Compatibility input | Input file, source data, or the format name | Actual reader, type, parsing, and conversion limits |
+| Compatibility writer/output | Writer, output-format adapter, or the format name | Conversion cost, metadata loss, and fidelity differences |
+| ShardLoom Vortex | Vortex file written by ShardLoom | Actual file format, producer settings, and any required reader extensions |
+| Persisted intelligence | ShardLoom metadata stored with the dataset | Which metadata exists and which readers understand it |
+| Prepared artifact | Loaded dataset, data file, or reusable prepared data | Durable data and retained query preparation are different things |
+| Source admission | Input validation; resource allocation when that is the actual check | Validation and memory authorization are separate operations |
+| Resource envelope | Memory and parallelism settings | Declared policy is distinct from measured utilization |
+| Memory credits | Accounted memory or memory reservations | Reservations do not establish a total-process RSS ceiling |
+| Capillary work units | Execution tasks or bounded work units | Preserve ownership, input ranges, and task boundaries |
+| Execution certificate | Execution report or validation details | Keep the exact structured evidence contract |
+| Claim gate | Availability, test coverage, or benchmark methodology | Maintainer claim policy remains precise in its own reference |
+| Full43 | 43-query ClickBench workload on first mention | Query count, repetitions, cache conditions, and engine clock |
+| Native result owner | Result; native-backed result when explaining lifetime | Engine-owned columnar data, explicit conversions, and release semantics |
+| No-fallback execution | Executed by ShardLoom | Keep the architectural prohibition and machine policy fields enforced |
+
+Apply this table contextually, not as a global replacement. "Prepared query" and "memory
+reservation" remain precise terms. "Native" is useful when identifying compiled code,
+engine-owned results, the engine's normal loaded storage, or another concrete boundary.
+It is not a general quality adjective. Do not invent a ShardLoom file format, extension,
+or separate storage product to rename an existing upstream format.
+
+Introduce named subsystems by function in architecture material: **Work scheduling — PulseWeave**.
+Navigation, first-run examples, and ordinary benchmark names use descriptive product language.
+
+### Lifecycle verbs
+
+| Verb | Meaning |
+| --- | --- |
+| Read | Declare a source through the normal API; preserve actual lazy behavior. Constructing a lazy query is not ingesting a dataset. |
+| Load or ingest | Perform source processing or import. State the resulting representation and any persisted data. |
+| Prepare a query | Bind and retain eligible query setup, separately from source import. Existing methods named `prepare` that prepare source data must say so. |
+| Execute | Compute a fresh answer using valid input and any eligible retained preparation. |
+| Collect, iterate, or write | Choose result delivery. A terminal operation on a plan executes it; consuming a completed result does not imply rerunning its source. |
+| Reuse | Avoid repeating valid source or query preparation. Identify what was retained; do not imply cached query answers. |
+
+DataFrames are described as lazy. Ordinary Python examples use `sl.context(...)`. Exact current
+wrapper classes remain documented in the API reference; the accepted connected programming-model
+work owns their later consolidation. Public vocabulary must not imply unimplemented composition,
+catalog, parameter, or function support.
+
+### Human reports and benchmark names
+
+Human reports lead with the input, performed or reused source preparation, ShardLoom execution,
+and output when those facts exist. Planned work is not completed work; an absent observation
+does not mean zero, success, or not needed. Errors put the specific problem and available recovery
+action before diagnostic classification. Exact codes, categories, status, policy facts, JSON
+field names, and detailed identifiers remain machine-readable.
+
+Use **ShardLoom** as the ordinary benchmark display name. A qualifier such as **ShardLoom
+(Parquet)**, **ShardLoom (in-memory)**, **ShardLoom (DataFrame)**, or **ShardLoom (tuned)** requires
+a genuinely separate measured configuration. Parquet imported into Vortex before querying is
+the ordinary ShardLoom configuration: disclose Parquet input, the loading procedure, and Vortex
+storage. A direct-Parquet label cannot conceal that import.
+
+Disclose build/version, hardware, interface, loading, stored representation and size, resources,
+cache conditions, output, and measurement boundaries alongside the result. Routine Full43
+summaries use the engine-time sum for one execution of each of the 43 queries. First execution
+and repeated execution in the same session are lifecycle descriptions; cold-cache and warm-cache
+require defined cache conditions. They are not public product modes. Preserve historical packet
+bytes, labels, clocks, and observations; changing presentation does not create an official score.
+
 ## Core principles
+
+The following technical vocabulary remains precise in code, machine contracts, and architecture
+references. Public display wording follows the contextual map above.
 
 - Keep layer-specific types when they model different decisions.
 - Add mapping helpers instead of prematurely merging types.

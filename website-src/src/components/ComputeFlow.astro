@@ -4,36 +4,36 @@ const flows = [
     id: "group", label: "Filter & group", title: "Count matching rows by category",
     query: "Filter a date range → group by category → count",
     stages: [
-      ["Prepare once", "Reuse a validated Vortex artifact, or prepare an admitted local input. Each query starts with fresh execution state.", "Source → Vortex", "full"],
+      ["Use valid source data", "Reuse a validated Vortex file, or load a supported local input. Each query computes a fresh result.", "Source → Vortex", "full"],
       ["Read less", "Exact segment statistics can rule out data outside the filter. Read the columns and segments still needed.", "Segment pruning", "prune"],
       ["Work on the encoding", "Eligible dictionary grouping combines encoded identities and exact counts. Referenced values are decoded only where required.", "Encoded aggregation", "encoded"],
-      ["Return the result", "Resolve the surviving group values and send the complete result to an admitted sink, with execution evidence.", "Late materialization", "result"],
+      ["Return the result", "Resolve the surviving group values and deliver the complete result with execution details.", "Late materialization", "result"],
     ],
-    control: "The native pipeline divides supported work into capillary units. PulseWeave can bound in-flight work within the operator’s resource and evidence policy.",
-    takeaway: "Less source data read. Less repeated text expanded. One native result.",
+    control: "Work scheduling (PulseWeave) divides supported operations into bounded execution tasks. Memory and parallelism settings constrain work in flight.",
+    takeaway: "Less source data read. Less repeated text expanded. One result.",
   },
   {
-    id: "count", label: "Metadata count", title: "Count all rows in a native source",
-    query: "Native Vortex → unfiltered row count",
+    id: "count", label: "Metadata count", title: "Count all rows in a Vortex file",
+    query: "Vortex file → unfiltered row count",
     stages: [
-      ["Validate the source", "Open the admitted native source and check its identity. An unchanged prepared source can reuse retained handles.", "Source identity", "full"],
+      ["Validate the source", "Open the supported Vortex source and check its identity. An unchanged prepared source can reuse retained handles.", "Source identity", "full"],
       ["Answer from metadata", "For an eligible exact row count, use file metadata. No data-column payload needs to be read.", "Metadata only", "result"],
-      ["Skip the scan", "No payload decoding, row materialization, or aggregate worker admission is needed for this metadata-only path.", "Payload work bypassed", "bypass"],
-      ["Return one value", "Return the exact count and evidence identifying the metadata answer. Filters or other measures can require payload work in the same pipeline.", "Exact result", "result"],
+      ["Skip the scan", "This metadata answer needs no column-data decoding, row construction, or aggregation workers.", "Payload work bypassed", "bypass"],
+      ["Return one value", "Return the exact count and evidence identifying the metadata answer. Filters or other measures can require reading column data in the same engine.", "Exact result", "result"],
     ],
-    control: "Metadata-only aggregates avoid payload and worker admission. The reserved metadata lane is an explicit option on the bounded serving policy.",
+    control: "Queries answered from metadata avoid column-data reads and aggregation workers. Serving policies can explicitly reserve capacity for metadata work.",
     takeaway: "The fastest stage is the one the query does not need.",
   },
   {
     id: "topk", label: "Ordered top-K", title: "Find the first K rows in an exact order",
-    query: "Native Vortex → order by admitted keys → limit K",
+    query: "Vortex file → order by supported keys → limit K",
     stages: [
-      ["Start from Vortex", "Use the native input or a validated prepared artifact. The query retains the same source generation through execution.", "Native source", "full"],
-      ["Read the ordering keys", "Inspect the keys required to select winners. Eligible bound proofs can skip segments; other segments must still be considered.", "Key-first scan", "prune"],
-      ["Keep exact winners", "Supported native Top-K paths retain candidate keys and row ordinals instead of materializing every candidate row’s payload.", "Exact selection", "encoded"],
+      ["Start from Vortex", "Use an existing Vortex file or validated loaded data. The source must remain unchanged throughout execution.", "Vortex source", "full"],
+      ["Read the ordering keys", "Inspect the keys required to select winners. Valid key bounds can rule out segments; other segments must still be considered.", "Key-first scan", "prune"],
+      ["Keep exact winners", "Supported top-K operations retain candidate keys and row positions, deferring full values until the winners are known.", "Exact selection", "encoded"],
       ["Gather winning payload", "Fetch the requested values for selected rows, preserve the query’s order, and return the result through a supported output adapter.", "Late payload gathering", "result"],
     ],
-    control: "Worker, memory, and I/O admission bound supported execution. Native spill coverage is operator-specific; unsupported pressure cases return a diagnostic.",
+    control: "Memory, parallelism, and I/O controls bound supported execution. Spill support depends on the operator; unsupported resource requirements return a diagnostic.",
     takeaway: "Decide which rows win before gathering their payload.",
   },
 ];
@@ -54,7 +54,7 @@ const flows = [
   {flows.map((flow) => (
     <section id={`flow-${flow.id}`} class="flow-panel" aria-labelledby={`flow-title-${flow.id}`}>
       <div class="flow-intro">
-        <p class="flow-kicker">One native pipeline · query example</p>
+        <p class="flow-kicker">ShardLoom engine · query example</p>
         <h2 id={`flow-title-${flow.id}`}>{flow.title}</h2>
         <p class="flow-query">{flow.query}</p>
       </div>
@@ -77,7 +77,7 @@ const flows = [
       <p class="flow-takeaway">{flow.takeaway}</p>
     </section>
   ))}
-  <p class="flow-caption">Conceptual illustrations of one native pipeline. Each example shows the work its query needs. The tiles are visual cues, not measured row counts or runtime telemetry. Actual execution depends on the query, types, layout, and enabled features.</p>
+  <p class="flow-caption">Conceptual illustrations of the ShardLoom engine. Each example shows the work its query needs. The tiles are visual cues, not measured row counts or runtime telemetry. Actual execution depends on the query, types, layout, and enabled features.</p>
 </shardloom-compute-flow>
 
 <script>

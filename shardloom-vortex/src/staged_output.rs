@@ -1544,7 +1544,7 @@ mod tests {
             .to_human_text();
         assert!(txt.contains("fallback execution: disabled"));
         assert!(txt.contains("output data written: false"));
-        assert!(txt.contains("[error]"));
+        assert!(txt.contains("bad\nDiagnostic: SL_INVALID_INPUT (error; invalid_input)"));
     }
     #[test]
     fn plan_helper_no_io() {

@@ -2431,7 +2431,7 @@ class Result:
 
     @property
     def details(self) -> OutputEnvelope:
-        """Typed diagnostics, certificates and execution fields from this call."""
+        """Typed execution details, validation reports and diagnostics from this call."""
         return self.envelope
 
     def to_rows(self) -> tuple[Mapping[str, Any], ...]:
@@ -2816,7 +2816,11 @@ class Result:
 
     @property
     def vortex_ingest_performed(self) -> bool:
-        """Whether this native execution performed compatibility input preparation."""
+        """Whether this execution used the source-preparation path.
+
+        Inspect the preparation details to distinguish newly loaded data from
+        reused data; this flag alone does not establish a fresh import.
+        """
 
         return self.envelope.field_bool(
             "public_workflow_preparation_vortex_ingest_performed", False
@@ -2824,7 +2828,7 @@ class Result:
 
     @property
     def prepared_vortex_path(self) -> str | None:
-        """Return the internally prepared Vortex artifact path, when present."""
+        """Return the Vortex file path for prepared source data, when present."""
 
         return self.envelope.field("public_workflow_local_source_prepared_vortex_path")
 
@@ -5411,7 +5415,7 @@ class LazyFrame:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
-        """Run this lazy workflow through the shared public route facade."""
+        """Execute this lazy workflow with the ShardLoom engine."""
 
         normalized_bounded = (
             _workflow_has_limit(self.operations)
@@ -5452,7 +5456,7 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
-        """Prepare this source through the shared public route facade."""
+        """Load or reuse this source in a Vortex file without executing the query."""
 
         return self.client.public_workflow_prepare(
             "dataframe",
@@ -6670,7 +6674,7 @@ class LazyFrame:
         )
 
     def certify(self, *, check: bool = False) -> WorkflowCertificationReport:
-        """Return report-only certificate surfaces for this workflow."""
+        """Return validation reports for this workflow without executing it."""
 
         return WorkflowCertificationReport(
             workflow=self,
@@ -8905,7 +8909,7 @@ def read_csv(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy CSV compatibility source."""
+    """Declare a lazy CSV source; no source data is loaded by this call."""
 
     return _read_source(
         "csv",
@@ -8925,7 +8929,7 @@ def read_json(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy flat JSON, JSONL, or NDJSON compatibility source."""
+    """Declare a lazy flat JSON, JSONL, or NDJSON source without loading data."""
 
     return _read_source(
         "json",
@@ -8945,12 +8949,11 @@ def read_parquet(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy Parquet compatibility source.
+    """Declare a lazy Parquet source without loading data.
 
-    Admitted local Parquet workflows normalize through the same Vortex-prepared
-    middle as other compatibility inputs; binaries built without
-    `universal-format-io` return ShardLoom's deterministic Parquet adapter
-    blocker.
+    On execution, supported local workflows load or reuse Vortex data and run
+    in the ShardLoom engine. A build with `universal-format-io` is required;
+    other builds report that the Parquet reader is unavailable.
     """
 
     return _read_source(
@@ -8971,13 +8974,12 @@ def read_arrow_ipc(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy Arrow IPC compatibility source.
+    """Declare a lazy Arrow IPC file source without loading data.
 
-    Admitted local Arrow IPC workflows normalize through the same
-    Vortex-prepared middle as other compatibility inputs; binaries built
-    without `universal-format-io` return ShardLoom's deterministic Arrow IPC
-    adapter blocker. This is a local file adapter, not an in-memory Arrow table
-    fallback.
+    On execution, supported local workflows load or reuse Vortex data and run
+    in the ShardLoom engine. A build with `universal-format-io` is required;
+    other builds report that the Arrow IPC reader is unavailable. This reader
+    accepts local files, not in-memory Arrow tables.
     """
 
     return _read_source(
@@ -8998,13 +9000,12 @@ def read_avro(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy Avro compatibility source.
+    """Declare a lazy Avro source without loading data.
 
-    Admitted local Avro workflows normalize through the same Vortex-prepared
-    middle as other compatibility inputs; binaries built without
-    `universal-format-io` return ShardLoom's deterministic Avro adapter
-    blocker. This is a local flat scalar file adapter, not broad Avro
-    schema-evolution support.
+    On execution, supported local workflows load or reuse Vortex data and run
+    in the ShardLoom engine. A build with `universal-format-io` is required;
+    other builds report that the Avro reader is unavailable. Supported local
+    files contain flat scalar data; general Avro schema evolution is unsupported.
     """
 
     return _read_source(
@@ -9025,13 +9026,13 @@ def read_orc(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy ORC compatibility source.
+    """Declare a lazy ORC source without loading data.
 
-    Admitted local ORC workflows normalize through the same Vortex-prepared
-    middle as other compatibility inputs; binaries built without
-    `universal-format-io` return ShardLoom's deterministic ORC adapter blocker.
-    This is a local flat scalar file adapter, not broad ORC stripe/statistics
-    runtime support.
+    On execution, supported local workflows load or reuse Vortex data and run
+    in the ShardLoom engine. A build with `universal-format-io` is required;
+    other builds report that the ORC reader is unavailable. Supported local
+    files contain flat scalar data; general ORC stripe/statistics execution
+    is unsupported.
     """
 
     return _read_source(
@@ -9343,9 +9344,9 @@ def calendar(
     """Create a scoped source-free calendar/date dimension for local output.
 
     Dates are generated in Python with an inclusive `start` and exclusive `end`,
-    mirroring `range(start, end)`. The write path still goes through ShardLoom's
-    generated-source local-output command and emits no source Native I/O
-    certificate because no input dataset is read.
+    mirroring `range(start, end)`. ShardLoom writes the generated data to the
+    selected local output. No input dataset is read, so the execution details
+    contain no source-read validation report.
     """
 
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)

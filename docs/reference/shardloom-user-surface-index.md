@@ -39,7 +39,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `f45e839d4309bab7ff49a124095f3f28f5b466cd62e4b5253b03d9c429ddf13b` (SHA-256 of the listed source inputs).
+Source identity: `75ca9afc3a3556496e0155be5bcc89c3f1ff0bc763a77a05ea31627b1bec33f3` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -113,12 +113,12 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`range`](../../python/src/shardloom/query.py) | function | Declare a native integer input with an exclusive end for the shared engine. |
 | [`rank`](../../python/src/shardloom/query.py) | function | Return a scoped `RANK() OVER (...) AS alias` expression. |
 | [`read`](../../python/src/shardloom/query.py) | function | Declare a lazy local source by inferring the adapter from the path extension. |
-| [`read_arrow_ipc`](../../python/src/shardloom/query.py) | function | Declare a lazy Arrow IPC compatibility source. |
-| [`read_avro`](../../python/src/shardloom/query.py) | function | Declare a lazy Avro compatibility source. |
-| [`read_csv`](../../python/src/shardloom/query.py) | function | Declare a lazy CSV compatibility source. |
-| [`read_json`](../../python/src/shardloom/query.py) | function | Declare a lazy flat JSON, JSONL, or NDJSON compatibility source. |
-| [`read_orc`](../../python/src/shardloom/query.py) | function | Declare a lazy ORC compatibility source. |
-| [`read_parquet`](../../python/src/shardloom/query.py) | function | Declare a lazy Parquet compatibility source. |
+| [`read_arrow_ipc`](../../python/src/shardloom/query.py) | function | Declare a lazy Arrow IPC file source without loading data. |
+| [`read_avro`](../../python/src/shardloom/query.py) | function | Declare a lazy Avro source without loading data. |
+| [`read_csv`](../../python/src/shardloom/query.py) | function | Declare a lazy CSV source; no source data is loaded by this call. |
+| [`read_json`](../../python/src/shardloom/query.py) | function | Declare a lazy flat JSON, JSONL, or NDJSON source without loading data. |
+| [`read_orc`](../../python/src/shardloom/query.py) | function | Declare a lazy ORC source without loading data. |
+| [`read_parquet`](../../python/src/shardloom/query.py) | function | Declare a lazy Parquet source without loading data. |
 | [`read_vortex`](../../python/src/shardloom/query.py) | function | Declare a lazy native Vortex source. |
 | [`replace`](../../python/src/shardloom/query.py) | function | Return a scoped `REPLACE(column, needle, replacement)` expression. |
 | [`right`](../../python/src/shardloom/query.py) | function | Return a scoped `RIGHT(column, count)` UTF-8 expression. |

@@ -1,58 +1,106 @@
 ---
 title: "Data lifecycle"
-description: "How input preparation, native execution, reuse, and output fit one pipeline."
+description: "Read, load, prepare, execute, write, and reuse data with ShardLoom."
 sidebar: {"label":"Data lifecycle","order":4}
 ---
 
+A workflow describes data, operations, and a destination. ShardLoom plans and
+executes the supported work. The verbs below distinguish describing a query,
+preparing its input, computing an answer, and consuming the result.
 
-Every supported workflow uses the same native pipeline. This page explains the lifecycle
-behind a read or query: admit the source, prepare its representation where needed, execute,
-and deliver the result. These stages do not require choosing an execution route.
+## Read
 
-## Source admission
+A lazy read declares a source. For example, `ctx.read_csv(path).filter(...)`
+describes input and operations; it does not execute that query or mean the
+dataset has already been imported. A terminal operation such as `collect()`,
+iteration, or a writer starts execution.
 
-The input adapter identifies the format and validates the source, schema, and requested work.
-Unsupported formats or operations return a diagnostic before execution. A recognized file
-extension alone does not establish full format support.
+<span id="source-admission"></span>
 
-## Prepare once
+## Validate the input
 
-An admitted local compatibility input is prepared into Vortex. The engine then executes over
-that native representation. Preparation can be reused when the
-source, schema, and artifact identities match. Generation checks span reuse and execution; detected changes fail explicitly.
-Each query has fresh execution state. Preparation reuse does not cache query answers.
+Readers identify the format and validate the source, schema, and requested work.
+A recognized extension alone does not establish support for every type or
+operation. Input validation and authorization of memory and parallelism are
+separate checks; unsupported work returns an actionable diagnostic.
 
-## Native Vortex
+<span id="prepare-once"></span>
 
-Data already stored as Vortex enters with its existing layout preserved. It uses the same native
-operators and output contracts. Available optimizations still depend on the operation, types,
-encodings, and physical layout.
+## Load and reuse data
 
-## Generated rows
+Loading or ingestion performs actual source processing. A supported local file
+can be imported into Vortex before query execution. Ordinary reads use the
+engine's preparation machinery when execution requires it; advanced source
+preparation APIs can explicitly create a reusable data file.
 
-Generated and in-memory inputs also feed the native middle. Their supported schemas and
-operations are bounded today. A generated source accounts for row construction instead of file
-parsing; it does not introduce a separate compute engine.
+Loaded data is reused only while the source, schema, and file identities still
+match. Generation checks span reuse and execution, and detected changes fail
+explicitly. Reusing data preparation does not cache query answers.
+
+## Prepare a query
+
+Query preparation binds the requested operations and can retain eligible setup
+for later executions. It is distinct from importing a dataset. Retained source
+handles and query setup depend on the operation and session; each execution
+still computes a fresh result.
+
+The existing `ctx.prepare(...)` and DataFrame `prepare(target_vortex_path)`
+methods prepare **source data**. Their names do not mean that a query result has
+been computed or that arbitrary query preparation is reusable.
+
+<span id="native-vortex"></span>
+
+## Read Vortex files
+
+Data already stored in Vortex keeps its existing layout. ShardLoom uses its
+supported operations and output contracts, with optimizations determined by
+the query, types, encodings, and physical layout.
+
+<span id="generated-rows"></span>
+
+## Use generated or in-memory data
+
+Generated and in-memory inputs enter the same engine within their documented
+schema and operation limits. Constructing generated rows is different work from
+parsing a file; it does not select another execution engine.
+
+## Execute
+
+Execution computes the requested answer. A query may be answered from metadata,
+read selected data, or require decoding and intermediate state. Repeating it in
+the same session can reuse valid preparation, but creates fresh execution state.
 
 ## Deliver the result
 
-Supported results remain native through the operator and sink boundaries. Vortex preserves the
-most information. Compatibility writers translate at the output boundary and report metadata loss.
-The [runtime and I/O guide](/field-guide/runtime-and-io) lists current composition and output limits.
+Collect a small complete result, iterate over batches, or write to a supported
+format. Retained results can keep engine-owned columnar data; converting to Python
+rows explicitly creates Python values. Batch delivery is complete only after
+full drain and a successful final report.
 
-## Cold and warm runs
+A Vortex file written by ShardLoom preserves the most information. Other writers
+report their type and metadata limits. The [reading and writing guide](/field-guide/runtime-and-io)
+lists current result, composition, and output restrictions.
 
-A first-use measurement can include source reading, parsing, Vortex construction, persistence,
-query execution, and output verification. A repeated query may reuse preparation and retained
-handles. These measure different amounts of work within the same pipeline.
+<span id="cold-and-warm-runs"></span>
 
-Keep preparation, execution, and result delivery visible when comparing timings. See
-[benchmark methodology](/field-guide/benchmark-methodology) for the measurement contracts.
+## Describe measurement conditions
 
-## Reading diagnostic labels
+Use **first execution** or **repeated execution in the same session** when those
+are the known conditions. Use **cold-cache** or **warm-cache** only when the cache
+conditions are defined. These are measurement descriptions, not product modes.
 
-Reports retain names such as `SourceState`, `VortexPreparedState`, `prepared_vortex`, and
-`native_vortex` to identify source state and evidence boundaries. They describe what happened
-inside the pipeline; they are not a menu of faster or slower execution modes.
-The [repository contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md)
-defines the full diagnostic vocabulary. The [Python guide](/field-guide/python-surface) shows usage.
+Keep loading, query preparation, engine execution, result delivery, and validation
+distinct. The [performance and benchmarks guide](/field-guide/benchmark-methodology)
+explains the measurement record and engine-time comparison clock.
+
+<span id="reading-diagnostic-labels"></span>
+
+## Inspect execution details
+
+Human summaries describe the input, source preparation, execution, and output
+when the report contains those facts. Planned work is not completed work;
+an omitted observation does not establish that no work occurred.
+
+Exact source-state and provider identifiers remain in the
+[diagnostic reference](/field-guide/reference#execution-report-identifiers).
+The [Python guide](/field-guide/python-surface) shows ordinary usage.

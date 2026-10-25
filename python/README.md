@@ -1,6 +1,8 @@
 # ShardLoom Python
 
-ShardLoom Python provides a local, Vortex-native execution engine without external query-engine fallback. Use `sl.context` with explicit memory and parallelism settings to run work.
+Use SQL or lazy DataFrames in Python with the ShardLoom engine. Read, transform,
+query, and write data through familiar interfaces and supported formats. Start
+with `sl.context(...)` and explicit memory and parallelism settings.
 
 <a id="local-use"></a>
 
@@ -55,22 +57,30 @@ Expected values:
 ```
 <!-- END SHARDLOOM QUICKSTART -->
 
-Example resources are caller choices, not defaults. See the [first workflow](https://shardloom.io/field-guide/start-local-proof) for SQL, write, and reopen examples.
+Reading, filtering, and sorting describe the work; `collect()` executes it.
+Example resources are caller choices, not defaults. See the
+[first workflow](https://shardloom.io/field-guide/start-local-proof) for SQL,
+writing results, and reopening a data file.
 
 ## More tasks
 
-- [Python surface](https://shardloom.io/field-guide/python-surface)
-- [Runtime and I/O](https://shardloom.io/field-guide/runtime-and-io)
-- [Resources](https://shardloom.io/field-guide/resources)
+- [Python and DataFrames](https://shardloom.io/field-guide/python-surface)
+- [Reading and writing data](https://shardloom.io/field-guide/runtime-and-io)
+- [Memory and parallelism](https://shardloom.io/field-guide/resources)
 - [Reference](https://shardloom.io/field-guide/reference)
 - [Limitations](https://shardloom.io/field-guide/limitations)
 - [Development](https://shardloom.io/field-guide/development)
 
 <a id="source-only-native-python-api"></a>
 
-## Native Python API
+<a id="native-python-api"></a>
 
-The optional native API supports retained owners through plans and results; Arrow conversion is an explicit export boundary. See the [embedding guide](https://shardloom.io/field-guide/embedding) and [native source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
+## Typed Python embedding
+
+The optional `shardloom.native` API embeds the same engine with typed plans and
+engine-owned columnar results. Arrow export is an explicit conversion. See the
+[embedding guide](https://shardloom.io/field-guide/embedding) and
+[source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
 <a id="package-build-smoke"></a>
 <a id="local-analytics-benchmark"></a>

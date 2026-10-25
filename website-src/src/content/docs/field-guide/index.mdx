@@ -1,19 +1,19 @@
 ---
 title: "Field Guide"
-description: "Read, transform, and write data through one Vortex-native pipeline."
+description: "Read, transform, query, and write data with the ShardLoom engine."
 sidebar: {"label":"Overview","order":0}
 ---
 import GuideVersion from '../../../components/GuideVersion.astro';
 
 <GuideVersion />
 
-Read data, transform or query it, and deliver the result through one Vortex-native pipeline.
-Input and output adapters connect formats to the same engine. Python, SQL, DataFrame-style calls,
-and the CLI provide familiar ways to describe the work.
+ShardLoom is a unified data processing engine. Use SQL or DataFrames in Python,
+run queries from the command line, or embed the engine in an application.
+Readers and writers connect supported formats to the same engine.
 
-ShardLoom is being built for general-purpose data processing. Its published local engine supports
-specific workflows today. Operational hardening is in progress; the guide makes the supported
-coverage and [preview exit criteria](/field-guide/limitations#release-and-readiness) visible.
+The published technical preview supports specific local analytical workflows.
+This guide identifies available operations, types, and platforms, alongside
+[remaining work and release criteria](/field-guide/limitations#release-and-readiness).
 
 ## Get started
 
@@ -21,25 +21,26 @@ coverage and [preview exit criteria](/field-guide/limitations#release-and-readin
 
 ## Work with data
 
-- [Python and DataFrames](/field-guide/python-surface) — configure a context, build plans and consume results.
-- [SQL](/field-guide/sql) and [CLI](/field-guide/cli) — familiar ways to express the same work.
-- [Reading and writing](/field-guide/runtime-and-io) — types, formats, fidelity and publication.
-- [Resources](/field-guide/resources) — memory, parallelism, spill and cancellation.
+- [Python and DataFrames](/field-guide/python-surface) — configure a context, describe a query, and consume results.
+- [SQL](/field-guide/sql) and [CLI](/field-guide/cli) — express and run the same supported work.
+- [Reading and writing data](/field-guide/runtime-and-io) — choose formats and understand types, fidelity, and write behavior.
+- [Memory and parallelism](/field-guide/resources) — choose resource settings and manage spill and cancellation.
 
 ## Understand the engine
 
-- [Execution model](/field-guide/execution-model) — one native pipeline and automatic work avoidance.
-- [Data lifecycle](/field-guide/execution-routes) — source admission, preparation, reuse, and output.
+- [How ShardLoom executes queries](/field-guide/execution-model) — planning, work avoidance, and result handling.
+- [Data lifecycle](/field-guide/execution-routes) — read, load, prepare, execute, write, and reuse.
+- [Query walkthroughs](/field-guide/compute-flow) — follow three examples from source to result.
 
 <span id="read-the-evidence"></span>
 
 ## Reference, versions and help
 
-- [Application reference](/field-guide/reference) — API, command, type and diagnostic contracts.
-- [Troubleshooting](/field-guide/troubleshooting) — installation and workload errors.
-- [Benchmarks](/field-guide/benchmark-methodology) — ClickBench and broader workflow evidence.
-- [Support and limitations](/field-guide/limitations) — what executes today and the breadth and scale still to complete.
-- [Development and migration](/field-guide/development) — 0.7.0 API migration, source builds and contributor tooling.
+- [Application reference](/field-guide/reference) — exact API, command, type, and diagnostic contracts.
+- [Troubleshooting](/field-guide/troubleshooting) — installation and query errors, with recovery steps.
+- [Performance and benchmarks](/field-guide/benchmark-methodology) — results, setup, cache conditions, and measurement boundaries.
+- [Support and limitations](/field-guide/limitations) — what executes today and what remains to complete.
+- [Development and migration](/field-guide/development) — 0.7.0 API migration, source builds, and contributor tooling.
 
-For the architecture diagram, open the [compute flow](/field-guide/compute-flow).
-The [repository](https://github.com/depsilon/shardloom) holds detailed API references and implementation evidence.
+The [repository](https://github.com/depsilon/shardloom) holds detailed API references
+and implementation evidence.

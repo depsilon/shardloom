@@ -267,21 +267,22 @@ for (const required of [
 
 const index = read("index.html");
 assert(
-  index.includes('MAKE<span class="luminous">LESS WORK.</span>'),
-  "home page hero must preserve the parallax source-of-truth headline",
+  index.includes('ONE ENGINE.<span class="luminous">MANY FORMATS.</span>'),
+  "home page hero must show the product headline",
 );
 assert(
   index.includes("The fastest work<br>is work you <span class=\"soft\">never do.</span>"),
   "home page must preserve the work-avoidance scroll chapter",
 );
 for (const required of [
-  "Vortex isn't another format on a list.",
-  "Capillary<br>work units",
+  "Readers and writers connect your data to the ShardLoom engine.",
+  "Bounded<br>execution tasks",
   "PulseWeave",
-  "Single artifact / internal structure",
+  "Vortex file / internal structure",
   "No secret<br><span class=\"soft\">plan B.</span>",
-  "fallback_attempted",
-  "external_engine_invoked",
+  "Execution engine",
+  "External engines",
+  "Never used",
   "python -m pip install shardloom",
   "Interactive architectural illustrations, not runtime telemetry or benchmark claims.",
   'data-scene="orbital"',
@@ -337,9 +338,9 @@ for (const required of [
 
 const fieldGuide = read("field-guide.html");
 for (const required of [
-  "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
+  "ShardLoom is a unified data processing engine.",
   "Get started",
-  "Execution model",
+  "How ShardLoom executes queries",
   "Data lifecycle",
   "Application reference",
 ]) {
@@ -368,7 +369,7 @@ assert(!read("field-guide/development/index.html").includes("data-pagefind-body"
 
 const benchmarkMethodology = read("field-guide/benchmark-methodology/index.html");
 for (const required of [
-  "Benchmarks",
+  "Performance and benchmarks",
   "hot_runtime",
   "publication_proof",
   "external_baseline",

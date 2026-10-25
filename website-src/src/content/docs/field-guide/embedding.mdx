@@ -1,13 +1,13 @@
 ---
-title: "Native and Rust embedding"
-description: "Integrate typed native plans and retained results without making them a second application engine."
+title: "Embedding ShardLoom"
+description: "Embed the ShardLoom engine with typed Python or Rust interfaces and retained columnar results."
 ---
 
 import GuideVersion from '../../../components/GuideVersion.astro';
 
 <GuideVersion />
 
-## Direct native Python
+## Typed Python embedding
 
 `shardloom.native` exposes `Session`, `Source`, typed `Expression` and `Relation`,
 prepared `Plan`, retained `Result`, and stream owners. It is useful when embedding
@@ -18,8 +18,8 @@ Declare explicit `ExecutionResources` when constructing a native session.
 Build plans without executing producers; execute with collect, batch delivery,
 or a writer. A completed result retains its native owner after session close.
 `row_export()` explicitly requests Python objects; Arrow stream export is an
-optional conversion boundary and may allocate. Foreign columnar admission may
-copy into the receiving grant.
+optional conversion boundary and may allocate. Importing columnar data from another owner may
+copy it into the receiving memory allocation.
 
 See the [native module reference](https://github.com/depsilon/shardloom/blob/v0.7.0/python/src/shardloom/native.py)
 and [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
@@ -32,7 +32,7 @@ Workspace crates are unpublished. Build from a checked-out source revision and
 use the repository's crate/API documentation; there is no supported crates.io
 installation command for these internal crates. Vortex provider dependencies
 remain isolated in the adapter boundary, and typed embedding uses ShardLoom's
-resource, planner, provider and certificate contracts.
+resource, planning, provider, and execution-report contracts.
 
 Future public Rust packaging has an existing release-engineering owner. It does
 not authorize publishing the current workspace or using external-engine fallback.

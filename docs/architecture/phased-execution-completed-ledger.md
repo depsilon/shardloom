@@ -17,9 +17,30 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Public naming and terminology — local acceptance` — the
+  [October 25 record](shardloom-public-naming-2026-10-24.md#october-25-local-acceptance)
+  covers README, package descriptions, website/field-guide copy, interactive
+  labels, API/help descriptions, human reports and benchmark display names.
+  Stable callable/command identifiers and machine contracts remain unchanged;
+  human reports distinguish plans, actual preparation/reuse and completed output.
+  - Required default Rust checks pass, with 3,256 tests; selected native CLI
+    suites pass 1,117 tests. Strict native lint and the fresh CLI build pass.
+    Python discovery passes 790 tests with 26 existing opt-in/environment skips.
+  - Generated API/export and website build/link/readiness/static checks pass.
+    Desktop/mobile review covers 31 interactive states, keyboard navigation,
+    search and anchors. Fresh CLI observations verify actual report labels.
+  - The unchanged paid-orders quickstart passes three tests against the retained
+    accepted provider wheel; this is not a fresh naming-wheel validation.
+    Historical benchmark evidence, dependencies and package versions stay intact.
+  - PR integration is pending. Ingestion ownership/preparation follows it, then
+    connected programming, universal I/O and rich-data lifecycle work. No new
+    benchmark, CG closure or publication is claimed.
+
 - [x] `Finite warm-source reuse investigation` — the
   [October 25 decision](native-warm-source-reuse-2026-10-24.md#final-finite-decision)
   closes the implemented source-owner candidate under its original gates.
+  [PR #1603](https://github.com/depsilon/shardloom/pull/1603) merged at
+  `b9b842ef674496fc8519fc154b14d84113604da9` after all 44 checks passed.
   Both 93-call cohorts pass complete independent results and exact schemas.
   Source opens fall from 75 to 49, but only one of four families passes the
   benefit gate and Q28 fails a first-use control. The candidate is rejected
@@ -42,7 +63,8 @@ phase plan first.
     links, preserving current inputs, accepted runtime/wheel and compact
     complete results. No payload backup or storage-limit change occurs.
   - Broader variable-width reuse remains dependent on the existing ingestion
-    allocation-provenance item. Public naming is next. The finite investigation
+    allocation-provenance item. The subsequent naming acceptance is recorded
+    above. The finite investigation
     closes without an accepted cache, new benchmark claim, CG-gate closure or
     package publication.
 

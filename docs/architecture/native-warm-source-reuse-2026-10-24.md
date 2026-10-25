@@ -15,7 +15,10 @@ failures and repairs, the final candidate patch, exact removal receipt and
 build/input identities. Its
 [replay tool](../benchmarks/evidence/native-warm-source-reuse-2026-10-25/verify_packet.py)
 checks saved values and scores without executing a query or archived code.
-Public naming is next. The existing ingestion ownership package owns the
+[PR #1603](https://github.com/depsilon/shardloom/pull/1603) merged at
+`b9b842ef674496fc8519fc154b14d84113604da9` after all 44 checks passed.
+The subsequent [public naming pass](shardloom-public-naming-2026-10-24.md)
+is locally validated and awaiting integration. The existing ingestion ownership package owns the
 remaining allocation-provenance prerequisite; broader source reuse is not
 declared complete. CG-1 through CG-23 remain independent.
 

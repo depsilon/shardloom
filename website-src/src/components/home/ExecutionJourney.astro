@@ -1,17 +1,17 @@
 ---
 import TimingBoundaries from './TimingBoundaries.astro';
 const steps = [
-  { name: 'Source', detail: 'Admit the input', title: 'Start with an admitted source.', description: 'Validate the input, schema, and requested work. A recognized file extension alone does not establish support.', link: '/field-guide/runtime-and-io#local-formats', linkLabel: 'Explore local inputs' },
-  { name: 'Prepare', detail: 'Keep a native middle', title: 'Prepare once. Reuse with proof.', description: 'Compatibility inputs prepare into Vortex. Reuse requires matching source, schema, and artifact identities; it does not cache query answers.', link: '/field-guide/execution-routes#prepare-once', linkLabel: 'Read the reuse contract' },
-  { name: 'Execute', detail: 'Do the required work', title: 'Let the data remove work.', description: 'Metadata, segment pruning, and encoded kernels avoid work where the operation and layout permit it. Native operators share resource policy.', link: '/field-guide/execution-model#avoid-work-first', linkLabel: 'Explore native execution' },
-  { name: 'Deliver', detail: 'Choose the boundary', title: 'Make the destination explicit.', description: 'Keep supported results native, write Vortex, or translate through a compatible writer. Format limits and metadata loss remain visible.', link: '/field-guide/runtime-and-io#write-results', linkLabel: 'Choose an output' },
-  { name: 'Inspect', detail: 'Keep the evidence', title: 'See what actually happened.', description: 'Inspect source, execution, output, and materialization evidence. A local certificate does not establish production readiness or performance superiority.', link: '/field-guide/execution-model#execution-evidence', linkLabel: 'Understand the evidence' },
+  { name: 'Read', detail: 'Declare the source', title: 'Start with your data.', description: 'Choose a supported reader and describe the query. A lazy read declares the source; collection, iteration, or writing starts execution.', link: '/field-guide/runtime-and-io#local-formats', linkLabel: 'Explore local inputs' },
+  { name: 'Prepare', detail: 'Load or reuse data', title: 'Prepare data when needed.', description: 'Supported input files can be loaded into Vortex. Reuse requires matching source, schema, and file identities; it does not cache query answers.', link: '/field-guide/execution-routes#prepare-once', linkLabel: 'Read the reuse contract' },
+  { name: 'Execute', detail: 'Do the required work', title: 'Let the data remove work.', description: 'Metadata, segment pruning, and encoded kernels avoid work where the operation and layout permit it. Engine operations share memory and parallelism settings.', link: '/field-guide/execution-model#avoid-work-first', linkLabel: 'Explore query execution' },
+  { name: 'Deliver', detail: 'Choose the boundary', title: 'Make the destination explicit.', description: 'Keep supported results columnar or write them in a supported format. Type limits and metadata loss remain visible.', link: '/field-guide/runtime-and-io#write-results', linkLabel: 'Choose an output' },
+  { name: 'Inspect', detail: 'Read execution details', title: 'See what actually happened.', description: 'Inspect the input, preparation, computation, conversion, and output. Correctness tests and reproducible benchmarks provide separate validation.', link: '/field-guide/execution-model#execution-evidence', linkLabel: 'Understand execution reports' },
 ];
 ---
 
 <section class="architecture section-anchor" id="architecture" aria-labelledby="architecture-title">
   <div class="wrap">
-    <div class="journey-heading"><div><p class="eyebrow">09 / From end to end</p><h2 id="architecture-title">One route.<br /><span class="soft">Every boundary visible.</span></h2></div><p class="copy">From the source you admit to the result you can inspect. Follow the work through one Vortex-native pipeline.</p></div>
+    <div class="journey-heading"><div><p class="eyebrow">09 / From end to end</p><h2 id="architecture-title">One engine.<br /><span class="soft">Every boundary visible.</span></h2></div><p class="copy">From input data to an inspectable result. Follow reading, preparation, computation, and writing through the ShardLoom engine.</p></div>
     <div class="execution-journey" data-journey-stage="2">
       <div class="journey-drawing" aria-hidden="true">
         <svg viewBox="0 0 1200 270" focusable="false">

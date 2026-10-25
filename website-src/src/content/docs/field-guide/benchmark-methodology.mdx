@@ -1,7 +1,7 @@
 ---
-title: "Benchmarks"
-description: "ClickBench comparisons, current engineering evidence, and how to read a measured result."
-sidebar: {"label":"Benchmarks","order":3}
+title: "Performance and benchmarks"
+description: "Read ShardLoom measurements with their setup, stored format, cache conditions, and engine-time boundary."
+sidebar: {"label":"Performance and benchmarks","order":3}
 ---
 
 
@@ -24,22 +24,38 @@ and [completed ledger](https://github.com/depsilon/shardloom/blob/main/docs/arch
 Each report identifies its own source, workload, machine, repetitions and comparison rule.
 A complete regression suite does not establish a public ClickBench ranking or production readiness.
 
+## Name the system, then describe the configuration
+
+The ordinary system name is **ShardLoom**. If Parquet input is loaded into Vortex
+before the queries run, record Parquet as the source, the import as loading, and
+Vortex as the stored representation. Loading time and resulting storage size
+belong in the method and evidence.
+
+Use a qualifier such as **ShardLoom (Parquet)** only for a genuinely separate
+configuration that queries Parquet directly. Likewise, **in-memory**, **DataFrame**,
+or **tuned** qualifiers require separately measured configurations. These naming
+examples do not assert that those configurations are implemented or submitted.
+
+State the build, hardware, interface, resources, repetitions, cache conditions,
+and result delivery. A first execution is not necessarily cold-cache, and a
+repeated execution is not necessarily a controlled warm-cache measurement.
+
 ## What a timing includes
 
 | Measurement | Read it as |
 | --- | --- |
-| Native engine execution | Prepared native query wall time, including query I/O, decoding, operators, source validation and provider certification. Source preparation, result serialization and the CLI process boundary are excluded. This is elapsed time, not pure CPU time. |
+| Engine execution | Query elapsed time, including query I/O, decoding, operators, source validation and provider certification. Source preparation, result serialization and the CLI process boundary are excluded. This is elapsed time, not pure CPU time. |
 | Result serialization | Synchronous conversion of complete native results into the requested bounded JSON output. It is removed from the engine clock, including when batches are delivered during execution. |
 | Other process work | Complete process time minus engine execution and result serialization. It includes startup, preparation, control/report work and exit; those individual components are not independently timed. |
-| Cold preparation | Source read and parse, Vortex construction, persistence, and the checks included by that runner. Keep this separate from warm queries. |
-| Query over existing Vortex data | Execution against a native or previously prepared artifact. State whether setup, process startup, output, and verification are timed. |
+| Loading and source preparation | Source read and parse, Vortex construction, persistence, and checks included by that runner. Keep this separate from query execution; the word cold alone does not establish a controlled cache state. |
+| Query over existing Vortex data | Execution against an existing Vortex file or previously loaded dataset. State whether setup, process startup, output, and verification are timed. |
 | Fresh-process complete query | A complete invocation and result, with startup and output costs. OS cache can still be warm. |
 | Resident call | A retained local worker or session; state which source handles and lowering are reused. Every query still executes. |
 | Replay/publication proof | Additional validation and evidence work, where the runner includes it. Do not silently fold it into or remove it from runtime. |
 
 The current source runners use this separation for new UAT and optimization runs.
 Routine timing summaries report engine time only: the sum for one execution of
-each of the 43 queries, with per-query engine times when requested. Each Full43
+each of the 43 queries, with per-query engine times when requested. Each complete 43-query
 run also preserves a complete `query-timings.csv` and diagnostic evidence for
 other clocks, resources and preparation/validation stages. Those details remain
 available for explicit investigation. Engine execution is the comparison clock.

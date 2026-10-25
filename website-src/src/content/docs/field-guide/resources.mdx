@@ -1,13 +1,13 @@
 ---
-title: "Resources, spill and cancellation"
-description: "Select explicit execution resources and manage native ownership and completion."
+title: "Memory and parallelism"
+description: "Set memory and parallelism, manage spill, and understand result lifetime and cancellation."
 ---
 
 import GuideVersion from '../../../components/GuideVersion.astro';
 
 <GuideVersion />
 
-## Select resources explicitly
+## Choose memory and parallelism
 
 Supply memory and parallelism together on the context or terminal operation.
 The first workflow selects `memory_bytes=256 << 20, max_parallelism=2` for three
@@ -20,7 +20,7 @@ Missing, malformed, or unauthorized allocations fail before dataset access.
 Terminal overrides must respect configured resource ceilings.
 Environment loading is explicit through `ExecutionResources.from_env()`.
 
-A grant covers admitted engine allocations. It is **not a total-process RSS
+A memory allocation covers the engine reservations accounted for by the selected operation. It is **not a total-process RSS
 limit**: optional integrations, Python objects retained by your application,
 and unreviewed reader/codec scratch have separate allocation behavior.
 The [resource contract](https://github.com/depsilon/shardloom/blob/v0.7.0/docs/architecture/required-execution-resources-2026-10-10.md)
@@ -30,7 +30,7 @@ defines inheritance and administrator ceilings.
 
 Spill requires an explicit supported policy, a local workspace and a disk quota.
 Ordering, aggregation, joins, analytic windows and file/resident-memory pivot
-have their own admitted strategies. Version 0.7.0 also includes explicitly
+have their own supported strategies. Version 0.7.0 also includes explicitly
 admitted relational membership and sampling population pressure paths.
 Replay permission does not authorize arbitrary state spill.
 
@@ -61,7 +61,7 @@ for lifecycle and typed error details.
 
 ## Preparation reuse
 
-Retained source and prepared-plan state reduce repeated setup. Source, schema,
-and artifact identity checks still run where required; changed inputs invalidate
+Retained sources and prepared queries reduce repeated setup. Source, schema,
+and file identity checks still run where required; changed inputs invalidate
 reuse. Every query executes again, and one-shot producers are not silently
 replayed after failure. Keep the selected backend fixed for the context's lifetime.

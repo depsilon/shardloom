@@ -25,10 +25,10 @@ about:
   home: https://shardloom.io
   license: Apache-2.0
   license_file: LICENSE
-  summary: ShardLoom metapackage for the CLI and pure Python wrapper.
+  summary: Install the ShardLoom CLI and Python client together.
   description: |
     One-command install target for ShardLoom's Rust CLI binary and pure Python
-    wrapper for local Vortex-native no-fallback workflows. This metapackage
+    wrapper for local data workflows executed by ShardLoom. This metapackage
     must not add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, or
     another fallback execution engine as a runtime dependency.
   doc_url: https://github.com/depsilon/shardloom/tree/main/docs
