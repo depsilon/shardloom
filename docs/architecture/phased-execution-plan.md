@@ -394,6 +394,13 @@ implementation projects, completed capabilities or a PR forecast.
 
 - [ ] `RELEASE-1.0.0` package the accepted runtime through #1605 and close the
   maintainer-requested selected-channel train before item 17.
+  - V1 scope classification: `required_for_v1` for this explicitly requested
+    release train; this queue identifier adds no engine or capability requirement.
+  - Source: RFC 0024, the selected-channel contract and October 25 authorization.
+  - ShardLoom technique review: preserve dynamic admission, capillary work units,
+    PulseWeave and metadata-first runtime behavior; use timing-surface separation
+    and evidence-tier controls to keep source measurements distinct from package
+    and publication proofs. No new execution mechanism is part of the bump.
   - [x] Close items 15 and 16 with their original observations and exact runtime
     restoration; no dropped candidate enters the release.
   - [x] Synchronize Cargo, Python and website package versions; regenerate API
