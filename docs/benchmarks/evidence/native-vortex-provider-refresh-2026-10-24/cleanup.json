@@ -1,0 +1,67 @@
+{
+  "schema": "shardloom.native_provider_refresh.cleanup.v1",
+  "status": "passed",
+  "argv": [
+    "/opt/homebrew/opt/python@3.13/bin/python3.13",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/cleanup-provider-r1.py",
+    "--delete",
+    "--confirm-token",
+    "DELETE_CLEANUP_PROVIDER_R1"
+  ],
+  "returncode": 0,
+  "inventory": {
+    "path": "cleanup-inventory.json.gz",
+    "bytes": 3959492,
+    "sha256": "ee98f966047e9d2877340b1f2aa8a8fb8855441d3e8d6e263dc8235a66c995f6"
+  },
+  "helper": {
+    "path": "retire_generated_outputs.py",
+    "bytes": 41946,
+    "sha256": "9d34d5cb140ca65d0a77c76f7303dd5d4330b8b720b781b16ae338bb72f66879"
+  },
+  "log": {
+    "path": "cleanup.log",
+    "bytes": 80,
+    "sha256": "bcfcb41aaeeff9e5aa729562b1f4455db5b1d6b352fc1f5d493da328f97ceaa7"
+  },
+  "retired_entries": 49955,
+  "retired_regular_bytes": 8017445980,
+  "retired_symlinks": 6,
+  "remaining_targets": [],
+  "retained_identity_errors": [],
+  "retained_files_rehashed": 291,
+  "retained_archive_identities_verified": 4,
+  "retained_unarchived_public_log_items": 262,
+  "retained_input_generations": {
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet": [
+      16777233,
+      84833233,
+      14779976446,
+      1788461344802364826,
+      1788612069108841600
+    ],
+    "/Users/dylan/LocalData/shardloom/vortex-provider-refresh-20261024/fresh-input-r2/vortex/hits.vortex": [
+      16777233,
+      126911107,
+      15715228660,
+      1792884314959287631,
+      1792884314966305502
+    ]
+  },
+  "runtime_or_benchmark_executed": false,
+  "payload_backups_created": false,
+  "storage_limits_changed": false,
+  "free_bytes_before": 98538684416,
+  "free_bytes_after": 106774736896,
+  "empty_directories_retained": true,
+  "packet_manifest_sha256": "bf99431f11d4f3cfee6df9d4584fba31b557a1d3bdc3b35f8f7d8685d3262982",
+  "packet_replay_sha256": "2c608d8c5ab5d443f3964a44936c3eadd006477584b79ea6167f2f924558012e",
+  "recording_helper": {
+    "path": "record_cleanup.py",
+    "bytes": 4733,
+    "sha256": "755d50b8ba4a73ae53c3cbed31b897aee4d8c8e6dc35848ddaa74a3cd2c4be52"
+  },
+  "closed_handle_checks_repeated_before_unlink": true,
+  "closed_handle_check_count": 21
+}

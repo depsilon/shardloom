@@ -124,6 +124,17 @@ All eight generated standalone-provider lockfiles are absent in that checkout.
 The proof requires neither those ignored files nor the original local output
 directories.
 
+The [cleanup receipt](evidence/native-vortex-provider-refresh-2026-10-24/cleanup.json)
+records retirement of 49,949 generated regular files and six environment
+symlinks after exact inventory, packet matching and repeated closed-handle
+checks. Completed public/matrix outputs, superseded binaries and wheel,
+temporary package environments, packet staging copies and the clean-checkout
+clone are removed. The original Parquet, accepted Vortex input, current runtime,
+tested wheel and all reports remain; 262 unarchived helpers, fixtures and
+diagnostics are explicitly preserved. Post-cleanup checks verify 291 retained
+file identities, all four packet archives and both input generations. No
+payload backup, storage-limit change or benchmark rerun occurs.
+
 The authoritative local acceptance records are `provider-validation-primary-r5.json`,
 `public-reference-primary-verification-r4.json`,
 `artifacts-r2/build-summary.json`, `public-transcript-verification-r3.json`,
