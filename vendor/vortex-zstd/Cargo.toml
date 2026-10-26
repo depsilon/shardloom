@@ -82,13 +82,13 @@ version = "0.90.0"
 default-features = false
 
 [dependencies.zstd]
-version = "0.13.3"
+version = "=0.14.3"
 features = ["zdict_builder"]
 default-features = false
 
 # Reviewed existing static decoder/compressor workspace allocation boundary.
 [dependencies.zstd-sys]
-version = "=2.0.16"
+version = "=2.1.2"
 features = ["experimental"]
 default-features = false
 

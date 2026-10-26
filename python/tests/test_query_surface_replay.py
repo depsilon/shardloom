@@ -58,7 +58,7 @@ def fixture():
             name + '/summary.json': summary, name + '/observations.jsonl': [row],
             name + '/case.job.json': job, name + '/case.stdout.json': outcome,
             name + '/case.stderr.txt': b'failed' if failed else b'',
-            name + '/case.receipt.json': {'returncode': 2 if failed else 0, 'guard_failures': [],
+            name + '/case.receipt.json': {'returncode': 0, 'guard_failures': [],
                 'stdout': path + '.stdout.json', 'stderr': path + '.stderr.txt'}})
     records['reference.json'] = {'status': 'passed', 'case_identity': case_identity, 'reference': result}
     manifest = {'original_evidence_root': base.rstrip('/'), 'external_artifacts': [],
@@ -75,7 +75,8 @@ def freeze(records):
         job['reference_sha256'] = sha(encoded(records['reference.json']))
         receipt = records[name + '/case.receipt.json']
         receipt['job_sha256'] = sha(encoded(job))
-        receipt['stdout_sha256'] = sha(encoded(records[name + '/case.stdout.json']))
+        stdout = records[name + '/case.stdout.json']
+        receipt['stdout_sha256'] = sha(stdout if isinstance(stdout, bytes) else encoded(stdout))
         receipt['stderr_sha256'] = sha(records[name + '/case.stderr.txt'])
         for row in records[name + '/observations.jsonl']:
             row['evidence_sha256'] = receipt['stdout_sha256']
@@ -85,6 +86,97 @@ def freeze(records):
 
 
 class ReplayTests(unittest.TestCase):
+    def failed_worker(self, stdout, returncode, failures, status, *, kind='native'):
+        records, manifest = fixture()
+        records['failure/case.stdout.json'] = stdout
+        records['failure/case.receipt.json'].update(returncode=returncode, guard_failures=failures)
+        row = records['failure/observations.jsonl'][0]
+        row.update(status=status, engine_execution_seconds=None)
+        records['failure/summary.json']['families']['aggregate']['case_surface_outcomes'] = {status: 1}
+        if kind == 'reference':
+            row['stage'] = 'independent_expectation'
+            records['failure/case.job.json'].pop('surface')
+            records['failure/case.job.json']['kind'] = 'reference'
+        elif kind == 'polars':
+            records['failure/case.job.json'].pop('surface')
+            records['failure/case.job.json']['kind'] = 'polars'
+            row.pop('surface')
+            row['comparison'] = {'comparable': False, 'native_over_polars': None,
+                                 'native_minus_polars_seconds': None}
+            records['failure/provenance.json'] = {
+                'comparison_engine_invoked': 'polars_only', 'selected_cases': ['count'],
+                'native_run': '/local/evidence/native', 'native_surface': 'python_sql', 'frozen_files': []}
+            records['failure/summary.json'] = {
+                'selected_cases': 1, 'completed': True, 'posthash_verified': True, 'all_passed': False,
+                'comparisons': [deepcopy(row['comparison'])]}
+        return records, manifest
+
+    def test_supervisor_classification_preserves_empty_truncated_and_unusable_output(self):
+        cases = [
+            (b'', -15, ['native command timeout'], 'timed_out'),
+            (b'{"status":', 2, [], 'crashed'),
+            (b'not json', 0, ['memory budget exceeded'], 'guard_failed'),
+            (b'{"status":"passed"}', 0, ['native command timeout'], 'timed_out'),
+            (b'', 0, ['profiled native command failed'], 'crashed'),
+            (b'', 0, [], 'harness_error'),
+            (b'\xff', 0, [], 'harness_error'),
+            (b'[]', 0, [], 'harness_error'),
+            (b'{"status":"unknown"}', 0, [], 'harness_error'),
+        ]
+        for kind in ('native', 'reference', 'polars'):
+            for stdout, returncode, failures, status in cases:
+                with self.subTest(kind=kind, status=status, stdout=stdout):
+                    records, manifest = self.failed_worker(stdout, returncode, failures, status, kind=kind)
+                    result = verify_runs(freeze(records), manifest)
+                    self.assertEqual(result['runs']['failure']['statuses'], {status: 1})
+                    self.assertEqual((result['checked_complete_results'], result['checked_receipts']), (2, 3))
+                    self.assertEqual(result['executed_queries'], 0)
+
+    def test_supervisor_failure_cannot_erase_receipts_or_change_its_classification(self):
+        for mutation in ('status', 'receipt', 'output', 'stdout_path', 'stderr_path', 'job'):
+            with self.subTest(mutation=mutation):
+                records, manifest = self.failed_worker(b'', -15, ['native command timeout'], 'timed_out')
+                if mutation == 'status':
+                    records['failure/observations.jsonl'][0]['status'] = 'crashed'
+                    records['failure/summary.json']['families']['aggregate']['case_surface_outcomes'] = {'crashed': 1}
+                elif mutation == 'receipt':
+                    records['failure/case.receipt.json']['guard_failures'] = []
+                elif mutation.endswith('_path'):
+                    field = mutation.removesuffix('_path')
+                    records['failure/case.receipt.json'][field] = '/local/evidence/native/case.' + (
+                        'stdout.json' if field == 'stdout' else 'stderr.txt')
+                files = freeze(records)
+                if mutation == 'output':
+                    files['evidence/failure/case.stdout.json'] = b'changed'
+                elif mutation == 'job':
+                    files['evidence/failure/case.job.json'] += b' '
+                with self.assertRaises(ValueError):
+                    verify_runs(files, manifest)
+
+    def test_legacy_reference_failure_remains_bound_to_the_original_receipt(self):
+        records, manifest = self.failed_worker(b'', -15, ['native command timeout'], 'timed_out', kind='reference')
+        files = freeze(records)
+        row = json.loads(files['evidence/failure/observations.jsonl'])
+        del row['evidence_sha256']
+        files['evidence/failure/observations.jsonl'] = encoded(row)
+        result = verify_runs(files, manifest)
+        self.assertEqual(result['runs']['failure']['statuses'], {'timed_out': 1})
+        self.assertIn('failure: legacy reference-failure observation lacks its own stdout hash', result['proof_gaps'])
+
+    def test_interrupted_cohort_keeps_supervisor_failures_and_requires_their_receipts(self):
+        records, manifest = self.failed_worker(b'', -15, ['memory budget exceeded'], 'guard_failed')
+        del records['failure/summary.json']
+        manifest['incomplete_before_summary'] = ['failure']
+        files = freeze(records)
+        result = verify_runs(files, manifest)
+        self.assertEqual(result['runs']['failure'], {
+            'completed': False, 'observations': 1, 'statuses': {'guard_failed': 1},
+            'reason': 'failed_before_summary'})
+        self.assertEqual((result['checked_complete_results'], result['checked_receipts']), (2, 3))
+        del files['evidence/failure/case.receipt.json']
+        with self.assertRaisesRegex(ValueError, 'missing evidence'):
+            verify_runs(files, manifest)
+
     def test_committed_packet_preserves_all_results_and_failed_observations(self):
         directory = ROOT / 'docs/benchmarks/evidence/native-broad-query-2026-10-26'
         if not (directory / 'packet.tar.xz').exists():

@@ -26,8 +26,8 @@ from run_clickbench_query_uat import run_profiled_command
 from query_surface.corpus import aggregate_cells, corpus
 from query_surface.coverage import coverage_record, covering_selection
 from query_surface.datasets import DatasetSpec, GENERATOR_VERSION, LAYOUTS, file_hash, write_dataset
-from query_surface.evidence import generation, identity, preparation_fields, validate_dataset, validate_prepared
-from query_surface.report import STATUSES, markdown, summarize
+from query_surface.evidence import generation, identity, preparation_fields, validate_dataset, validate_prepared, worker_outcome
+from query_surface.report import markdown, summarize
 from query_surface.specification import SURFACES, identifier
 
 
@@ -53,22 +53,7 @@ def worker(job, prefix, timeout, guard):
     write_json(job_path, job)
     receipt = supervise([sys.executable, "-B", str(Path(__file__).with_name("worker.py")), "--job", str(job_path)],
                          prefix, timeout, guard, job_sha256=file_hash(job_path))
-    failures = receipt["guard_failures"]
-    if failures:
-        status = "timed_out" if any("timeout" in value for value in failures) else "guard_failed"
-        if failures == ["profiled native command failed"]:
-            status = "crashed"
-        outcome = {"status": status, "detail": failures}
-    elif receipt["returncode"] != 0:
-        outcome = {"status": "crashed", "detail": f"worker exited {receipt['returncode']}"}
-    else:
-        try:
-            outcome = strict_json(Path(receipt["stdout"]).read_text())
-            if not isinstance(outcome, dict) or outcome.get("status") not in STATUSES:
-                raise ValueError("worker output lacks a classified status")
-        except (ValueError, KeyError, TypeError) as error:
-            outcome = {"status": "harness_error", "detail": str(error)}
-    return outcome, receipt
+    return worker_outcome(receipt, Path(receipt["stdout"]).read_bytes()), receipt
 
 
 def prepare(dataset, manifest, root, logs, args, guard):
@@ -204,7 +189,9 @@ def observe(args):
                 check_generations()
                 if reference["status"] != "passed":
                     record = {"case_id": case.id, "surface": surface, "status": reference["status"],
-                              "stage": "independent_expectation", "evidence": reference_receipt["stdout"]}
+                              "stage": "independent_expectation", "evidence": reference_receipt["stdout"],
+                              "evidence_sha256": reference_receipt["stdout_sha256"],
+                              "detail": reference.get("detail")}
                 else:
                     print(json.dumps({"stage": "query_execution", "case_id": case.id, "surface": surface}), flush=True)
                     job = {**base, "kind": "execute", "sources": prepared["sources"], "surface": surface,

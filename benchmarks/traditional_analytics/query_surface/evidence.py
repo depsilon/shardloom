@@ -6,7 +6,30 @@ from pathlib import Path
 
 from native_workflow_protocol import strict_json
 from .datasets import DatasetSpec, GENERATOR_VERSION, LAYOUTS, SCHEMAS, file_hash
+from .report import STATUSES
 from .semantics import schema_record
+
+
+def worker_outcome(receipt, stdout):
+    """Classify supervision before interpreting possibly incomplete worker output."""
+    failures = receipt["guard_failures"]
+    if (not isinstance(failures, list) or any(not isinstance(value, str) for value in failures)
+            or type(receipt["returncode"]) is not int):
+        raise ValueError("invalid worker supervision receipt")
+    if failures:
+        status = "timed_out" if any("timeout" in value for value in failures) else "guard_failed"
+        if failures == ["profiled native command failed"]:
+            status = "crashed"
+        return {"status": status, "detail": failures}
+    if receipt["returncode"] != 0:
+        return {"status": "crashed", "detail": f"worker exited {receipt['returncode']}"}
+    try:
+        outcome = strict_json(stdout)
+        if not isinstance(outcome, dict) or outcome.get("status") not in STATUSES:
+            raise ValueError("worker output lacks a classified status")
+        return outcome
+    except (ValueError, KeyError, TypeError) as error:
+        return {"status": "harness_error", "detail": str(error)}
 
 
 def generation(path):

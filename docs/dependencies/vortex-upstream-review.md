@@ -1,5 +1,25 @@
 # Vortex Upstream Dependency Review
 
+## October 26, 2026 compression correction
+
+The [compression intake](../architecture/compression-dependency-intake-2026-10-26.md)
+updates only the Rust Zstd dependency chain to `zstd 0.14.3`, `zstd-safe 8.2.0`
+and `zstd-sys 2.1.2+zstd.1.5.7` after four advisories fail the PR #1611 gate.
+Vortex 0.90.0, Arrow/Parquet 59.3.1, ORC 0.9.0 and native libzstd 1.5.7 remain
+unchanged. Exact Apache-2.0 IPC, Parquet and ORC archives become dependency
+patches to admit the fixed wrapper without an Arrow major-version migration.
+IPC and Parquet Rust sources are unchanged. ORC additionally propagates codec
+errors at two existing `Read` boundaries instead of panicking, after the new
+corruption test reproduces that failure. Each import carries archive/member and
+legal provenance. The Vortex Zstd provider retains its existing native allocation and
+frame-validation boundary.
+
+The root notice inventory now contains 436 registry packages, eleven path
+patches, 827 legal-file records and 249 distinct texts. The dependency release
+gate passes without new exceptions; validation and the final CI disposition are
+recorded in the intake. This dated graph correction supersedes the counts below,
+without reinterpreting earlier performance observations or publishing a package.
+
 ## October 24, 2026 post-integration candidate snapshot
 
 The current candidate follows the [controlled provider-refresh plan](../architecture/native-vortex-provider-refresh-2026-10-24.md)

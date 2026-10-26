@@ -44,12 +44,21 @@ development loop; a focused shared-runtime concern can justify using the existin
 isolated Full43 procedure. This program does not authorize routine repeats,
 cache manipulation, artificial pacing or reruns for presentation alone.
 
-## Next investigation: demand-aware Parquet
+## Next investigation: universal source demand, starting with Parquet
 
 The later October 26 maintainer proposal is accepted **after this foundation,
 347-case baseline and its PR are finished**. Reconcile the proposed source
 boundary with the pinned implementation and the saved item-18 branch before
 implementation; do not merge unfinished connector work implicitly.
+
+The maintainer's subsequent clarification makes demand propagation a universal
+planning contract. Start with Parquet as the first adapter, but derive demand in
+the shared planner and carry it through the common source boundary. Each format
+declares the projection, predicate, range and limit work it can safely avoid;
+unsupported pushdown leaves the residual in existing native execution. Source
+capabilities must preserve hidden columns, ordering, global operator semantics,
+validation scope and cancellation. Do not create a Parquet-only execution stack
+or promise equal physical pruning for sequential and random-access formats.
 
 The first milestone is eligible fresh Parquet execution through demanded,
 bounded native batches without requiring a complete durable Vortex artifact.

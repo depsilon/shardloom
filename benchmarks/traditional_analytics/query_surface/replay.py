@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT / "scripts"), str(ROOT / "python/src"), str(Path(__file__).resolve().parents[1])]
 
 from native_workflow_protocol import strict_json
-from query_surface.evidence import no_fallback
+from query_surface.evidence import no_fallback, worker_outcome
 from query_surface.polars_adapter import compare_result as compare_polars_result
 from query_surface.report import STATUSES
 from query_surface.semantics import FloatPolicy, ResultContract, compare, result_from_record, schema_from_record
@@ -142,11 +142,14 @@ def verify_runs(files, manifest):
     for name in run_names:
         base = prefix + name + "/"
         need("/" not in name and name not in {"", ".", ".."}, "invalid run name")
-        if "evidence/" + name + "/summary.json" not in files:
+        summary_present = "evidence/" + name + "/summary.json" in files
+        if not summary_present:
             need(name in manifest["incomplete_before_summary"], "missing run summary")
-            outcomes[name] = {"completed": False, "reason": "failed_before_summary", "observations": 0}
-            continue
-        summary, provenance = read(base + "summary.json"), read(base + "provenance.json")
+            if "evidence/" + name + "/observations.jsonl" not in files:
+                outcomes[name] = {"completed": False, "reason": "failed_before_summary", "observations": 0}
+                continue
+        summary = read(base + "summary.json") if summary_present else None
+        provenance = read(base + "provenance.json")
         native = provenance.get("comparison_engine_invoked") is False
         need(native or provenance.get("comparison_engine_invoked") == "polars_only", "unknown engine cohort")
         identities = (provenance["runtime_and_inputs"] + provenance["harness_sources"] + provenance.get("python_sources", [])
@@ -177,14 +180,21 @@ def verify_runs(files, manifest):
             status[row["status"]] += 1
             case = catalog[case_id]
             need(case["relation"] is not None, "pending case credited as executed")
-            outcome = bounded(row["evidence"], row["evidence_sha256"])
-            need(outcome["status"] == row["status"], "observation outcome erased or changed")
             path = row["evidence"]
             need(path.endswith(".stdout.json"), "invalid observation suffix")
             stem = path.removesuffix(".stdout.json")
             receipt, job = read(stem + ".receipt.json"), read(stem + ".job.json")
+            need(receipt["stdout"] == path and receipt["stderr"] == stem + ".stderr.txt",
+                 "receipt output paths differ from the observation")
             for field in ("stdout", "stderr"):
                 need(sha(raw(receipt[field])) == receipt[field + "_sha256"], "receipt output changed")
+            reference_failure = native and row.get("stage") == "independent_expectation"
+            need(row.get("stage") is None or reference_failure, "unknown observation stage")
+            if "evidence_sha256" in row:
+                need(row["evidence_sha256"] == receipt["stdout_sha256"], "observation output digest differs")
+            else:
+                need(reference_failure, "missing observation output digest")
+                warnings.append(name + ": legacy reference-failure observation lacks its own stdout hash")
             if "job_sha256" in receipt:
                 need(sha(raw(stem + ".job.json")) == receipt["job_sha256"], "receipt job changed")
             else:
@@ -192,7 +202,13 @@ def verify_runs(files, manifest):
             checked_receipts += 1
             need(job["case_id"] == case_id and job["case_identity"] == sha(json.dumps(case, sort_keys=True, allow_nan=False).encode()),
                  "frozen case request differs")
-            need(job.get("surface") == surface if native else job.get("kind") == "polars", "request surface differs")
+            if reference_failure:
+                need(job.get("kind") == "reference" and row["status"] != "passed",
+                     "reference failure is not a failed expectation request")
+            else:
+                need(job.get("surface") == surface if native else job.get("kind") == "polars", "request surface differs")
+            outcome = worker_outcome(receipt, raw(path))
+            need(outcome["status"] == row["status"], "observation outcome erased or changed")
             if row["status"] != "passed":
                 continue
             need(receipt["returncode"] == 0 and not receipt["guard_failures"], "passing result has failed supervision")
@@ -225,20 +241,22 @@ def verify_runs(files, manifest):
                 need(native_row["case_identity"] == outcome["case_identity"], "paired case identity differs")
             checked_results += 1
             results[(name, case_id, surface)] = outcome
-        complete = summary.get("completed_selected_cohort" if native else "completed")
+        complete = summary.get("completed_selected_cohort" if native else "completed") if summary is not None else False
         if complete:
             need(seen == expected_pairs and summary["selected_cases"] == len(selected), "completed cohort is missing cases")
             need(summary.get("source_runtime_posthash_verified" if native else "posthash_verified") is True, "completed cohort lacks final identity checks")
-        if native:
+        if summary is not None and native:
             recorded_status = Counter()
             for group in summary["families"].values():
                 recorded_status.update({status: count for status, count in group["case_surface_outcomes"].items()
                                         if status not in {"proposed", "unexecuted"}})
             need(recorded_status == status, "summary erased or changed an outcome")
-        else:
+        elif summary is not None:
             need(summary["all_passed"] == (status["passed"] == len(observations)), "baseline all-passed claim differs")
             need(summary["comparisons"] == [row["comparison"] for row in observations], "baseline summary clocks differ")
         outcomes[name] = {"completed": complete, "observations": len(observations), "statuses": dict(status)}
+        if summary is None:
+            outcomes[name]["reason"] = "failed_before_summary"
     baseline = manifest["baseline_native_runs"]
     pairs = manifest["baseline_pairs"]
     need(len(baseline) == len(set(baseline)) and set(baseline).issubset(run_names), "invalid native baseline runs")

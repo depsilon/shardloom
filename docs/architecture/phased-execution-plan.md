@@ -267,6 +267,17 @@ regression guard. New findings belong in the next PR. Item 18's unfinished sourc
 supersedes the earlier immediate ordering below without renumbering item IDs,
 restoring dropped mechanisms or changing no-fallback and CG boundaries.
 
+**October 26 CI prerequisite:** the baseline foundation is open in #1611. Its
+existing compression dependencies trigger four upstream advisories, so the
+[compression dependency correction](compression-dependency-intake-2026-10-26.md)
+is included in #1611 under the maintainer's subsequent direction to fix and merge
+that PR before continuing. Remove the affected dependency versions with source,
+ownership, format, package and audit proof; merge only after the checks pass,
+then continue universal source-demand work, starting with Parquet. Keep the
+historical measured observations attributed to their original runtime.
+This does not accept item 18, change the
+Arrow/Vortex major graph, waive an advisory or publish a package.
+
 **October 25 continuation:** PR #1605 is merged as
 `167ac248ba662ae7967a7801995e9b160b17bae5`, including the accepted
 [CI performance and coverage-preservation batch](../release/ci-performance-2026-10-25.md#completed-remote-acceptance).
@@ -498,8 +509,9 @@ visible and independent; this implementation does not automatically close them.
     baseline, followed by shared changes selected from its demonstrated gaps.
     Do not implement per-query or per-interface execution shortcuts.
     Finish the foundation/baseline PR before the maintainer's
-    [demand-aware Parquet investigation](native-broad-query-program-2026-10-26.md#next-investigation-demand-aware-parquet);
-    preserve item-18 source/refresh ownership and defer incremental persistence.
+    [universal source-demand investigation, starting with Parquet](native-broad-query-program-2026-10-26.md#next-investigation-universal-source-demand-starting-with-parquet);
+    use shared planning and adapter capability contracts, preserve item-18
+    source/refresh ownership and defer incremental persistence.
   - Acceptance: complete typed results/errors and native certificates at applicable
     interfaces; measured coverage and resources; visible unsupported/failed cases;
     preserved original observations and existing behavior. Case counts alone do not pass.

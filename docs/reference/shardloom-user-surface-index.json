@@ -1387,10 +1387,10 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "d85c8c74cc8b270b3f0642ef86ce47f5f652733bfac4b320e4ee1637aa99e211",
+    "source_identity": "5353232ef82dbc2c4cb6b2ab9dcf47aea653a156875610431534967dcaaf75bd",
     "source_inputs": {
-      "Cargo.lock": "51de418870e976414807ff74b6be1c9c780b4b0edaba2a63bf3108fa12a1bd01",
-      "Cargo.toml": "390f78f1f66a792221d2159e2e465c10d30683c6a7949e572940493962ec6ecd",
+      "Cargo.lock": "50bf3ecb0186991fdd485b84504688daa55809d4a3248f5704f9a6739154ffb2",
+      "Cargo.toml": "3a69e393d98a223cb408b591a9942546905256985323c86aca74b3b253595f28",
       "docs/release/channel-proofs/pypi-v1.0.0-provenance.json": "0683b7562ba59fb40594d179a29d45c44fa51c564f9a03ecb55aa5b234505eba",
       "docs/release/package-channel-readiness-matrix.json": "a2ad776726a5eb9516e72f8e40d1894c2724e0da6c88b70358ec8fa1ebbfc5d9",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",

@@ -1,0 +1,57 @@
+{
+  "added_files_sha256": {
+    "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+    "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+    "README.shardloom.md": "4e916d3c3f9ef0d93b9b28262d89ae0fa02791c66687dd8ea75952a978455ce3"
+  },
+  "license": "Apache-2.0",
+  "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+  "license_url": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate#LICENSE.txt",
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "4e916d3c3f9ef0d93b9b28262d89ae0fa02791c66687dd8ea75952a978455ce3"
+  },
+  "migration_status": "manifest_only_dependency_pin",
+  "modified_files_sha256": {
+    "Cargo.toml": "e498a06cea2d573f3c66725866baa406c08768efb493ce036098eacf29b7f031"
+  },
+  "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+  "notice_url": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate#NOTICE.txt",
+  "omitted_files": {
+    "Cargo.lock": {
+      "original_sha256": "faebb24371a473cc5dbda850fd2db9185d010dcc52389075003bc94adff5fe38",
+      "reason": "Omitted from committed patch because repository-root Cargo.lock owns dependency resolution. Existing ignored local original copy is preserved byte-for-byte and not included."
+    }
+  },
+  "original_files_sha256": {
+    "Cargo.lock": "faebb24371a473cc5dbda850fd2db9185d010dcc52389075003bc94adff5fe38",
+    "Cargo.toml": "1ae9f044c3b6d692337ca92c2ba00c75f3e5af578362a7188c18a6c0ef7e66e0",
+    "Cargo.toml.orig": "1cc4146170cddb3242a35d4711b9282d621586963eea866bcb4213222fc27e17",
+    "LICENSE.txt": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+    "NOTICE.txt": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+    "README.md": "bbd58fd1c7d2910a2b7887c188d858dc6e56d87742891dc5da407885049f96d8",
+    "benches/ipc_reader.rs": "5b7bd5de02afe36268d99001890f4a8acf228d5869af1be9384e51496c570175",
+    "benches/ipc_writer.rs": "a52b2fec250bdb2901d3de34b12b84813e584804447dd606ac6a462f59f12e71",
+    "src/compression.rs": "250008eac76e3e9b87c0f472ca91f61c97862d023a792ee5e9c9667425581472",
+    "src/convert.rs": "36a1d44d1ece4bfa1347c4483469f21f145e0e2308f249c6fd32c477f939b3fb",
+    "src/gen/File.rs": "a3d6db68ef5c3a661781d7affd0798f00fd8cd579cde216f9cc8ac3be57de019",
+    "src/gen/Message.rs": "34de329442ccc7cf8aa680a68414a2bca87105988ffe78334078c4c8055acb91",
+    "src/gen/Schema.rs": "eb44e418d226cb4901cfc341f3def1738e5c14e175814bff5cc3eb3755bf95b3",
+    "src/gen/SparseTensor.rs": "89aba36f97e7d7d530f4af4ca3b01d066fe5e554a806a97ab557ba47432a1be3",
+    "src/gen/Tensor.rs": "8d1838b259a84f65dd111d90928a7d5399cbcfeb76d0b2d49802b38b18d1700f",
+    "src/gen/mod.rs": "e75e6355f4fe05da56f1601e9dedf9657b020977889f9276103a109f532733ab",
+    "src/lib.rs": "2727eaacc3b26bcf2f6fc145e9f5eb252b502d4c252599fff8f797b05f6e9b7b",
+    "src/reader.rs": "e6cb4dbffbc54f09bbf22196c725304983cb9a54c8f9dffc6b83731d1964a340",
+    "src/reader/stream.rs": "4b185c366e454697dc66d718b4f028fd1d906d403f80b4c2253aa3a5ab2ebc81",
+    "src/tests/delta_dictionary.rs": "2b2ee01196b4d13f7bfe6b5615306537af43db82fe8d4d27d82d40c909b2cc39",
+    "src/tests/mod.rs": "bc41e9df42de9ebd21af2da32306ef2a705e22c4f8731cbcdea2f837b3804029",
+    "src/writer.rs": "af663326b23d00f3bd3b9597dad185f77c9608807fb21a73365ede0e8e9d9623"
+  },
+  "provider": "arrow-ipc",
+  "registry_archive_file_count": 22,
+  "registry_archive_sha256": "8e244f39b82fa7a823e8b5984a0bd988234f9c92c1df79378fb85090e6e4c821",
+  "registry_archive_uncompressed_bytes": 881877,
+  "source_of_truth": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate",
+  "supplemental_test_files": {},
+  "version": "59.3.1"
+}

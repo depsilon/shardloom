@@ -8,10 +8,13 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/vortex-array", "vendor/vortex-buffer", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-ipc", "vendor/orc-rust", "vendor/parquet", "vendor/vortex-array", "vendor/vortex-buffer", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
+arrow-ipc = { path = "vendor/arrow-ipc" }
+orc-rust = { path = "vendor/orc-rust" }
+parquet = { path = "vendor/parquet" }
 vortex-array = { path = "vendor/vortex-array" }
 vortex-buffer = { path = "vendor/vortex-buffer" }
 vortex-file = { path = "vendor/vortex-file" }

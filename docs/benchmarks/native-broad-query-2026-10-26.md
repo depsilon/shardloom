@@ -229,11 +229,18 @@ temporal/numeric/recursive/batch-function requirements, broader layouts/resource
 coverage and evidence-backed performance corrections are not completed by this
 finite baseline. CG-5 and CG-6 are not closed.
 
-The maintainer's later demand-aware Parquet proposal follows completion of this
-foundation/baseline PR. Its investigation must bind metadata and query demand
+The PR's [compression and replay review correction](../architecture/compression-dependency-intake-2026-10-26.md)
+has separate source, test, audit and package evidence. It removes the affected
+compression dependency versions, returns ORC codec errors without panicking,
+and preserves supervisor failures before parsing incomplete worker output.
+The original packet, measured runtime attribution and observations above remain
+unchanged; the correction's replay executes no queries.
+
+The maintainer's later universal source-demand proposal, starting with Parquet,
+follows completion of this foundation/baseline PR. Its investigation must bind metadata and query demand
 before physical preparation, use bounded native batches and existing ownership,
 preserve explicit full-ingestion validation separately from query access, and
 compare fresh complete-workflow cost with already-prepared Vortex and same-source
 Polars. Incremental persistence and background preparation are later stages.
 Existing input/refresh ownership remains with item 18; its unfinished branch is
-preserved. See the [sequenced contract](../architecture/native-broad-query-program-2026-10-26.md#next-investigation-demand-aware-parquet).
+preserved. See the [sequenced contract](../architecture/native-broad-query-program-2026-10-26.md#next-investigation-universal-source-demand-starting-with-parquet).
