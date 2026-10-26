@@ -9437,7 +9437,7 @@ def from_vortex_ipc(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Import one Vortex 0.85 IPC record using the native transport.
+    """Import one IPC record for the pinned Vortex provider using native transport.
 
     Pass complete framed array and dtype messages as immutable bytes. Their
     combined size must not exceed 64 MiB. Intake validates the supported schema

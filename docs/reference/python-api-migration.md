@@ -1,15 +1,18 @@
 # Python API migration: context, results and discovery
 
-This reference describes the published **v0.7.0** API. The
-[publication verification](../release/v0.7.0-publication-verification.md)
+This reference describes the context, result and discovery contracts in published
+**v1.0.0**, introduced in v0.7.0 and retained in 1.0.0. The
+[publication verification](../release/v1.0.0-publication-verification.md)
 records the four selected channel proofs, and the
-[release notes](../release/v0.7.0-release-notes.md) describe included changes
+[release notes](../release/v1.0.0-release-notes.md) describe included changes
 and limits. Exact source inputs and callable signatures are recorded in the generated
 [application reference](shardloom-user-surface-index.json).
+The [0.7.0 release notes](../release/v0.7.0-release-notes.md) retain the original
+migration history; the version-only 1.0.0 bump did not change these interfaces.
 
 ## What changes
 
-| Existing code or behavior | Published 0.7.0 contract | Migration |
+| Existing code or behavior | Current contract, introduced in 0.7.0 | Migration |
 | --- | --- | --- |
 | `sl.context(...)` implicitly used a CLI process | Linux/macOS native installations select in-process execution; Windows selects the CLI | Set `transport="subprocess"` to retain process isolation. Inspect `ctx.transport`. |
 | Context cleanup required `ctx.client.close()` | Contexts support `close()`, `cancel()`, `closed` and `with` | Prefer `with sl.context(...) as ctx:`. Existing client cleanup still works. |
@@ -140,7 +143,7 @@ republishing every maintainer name into application completion.
 
 The legacy result alias and named root lookup remain for the next minor
 release cycle. Removal requires a later announced compatibility change and
-cannot occur in a patch release. Both remain available in v0.7.0; no removal
+cannot occur in a patch release. Both remain available in v1.0.0; no removal
 version is scheduled. The repository uses the canonical result name;
 compatibility tests explicitly exercise the aliases.
 

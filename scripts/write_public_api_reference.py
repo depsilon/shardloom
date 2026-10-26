@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Project public Python exports and executable CLI metadata into references.
 
-Narrative remains in Markdown. This generator owns only marked reference blocks
-and the application/command facts in the existing user-surface JSON inventory.
+Narrative remains in Markdown. This generator owns marked reference blocks,
+application/command facts and the native provider/publication metadata in the
+existing user-surface JSON inventory.
 Use a freshly built CLI with --binary to update command facts. A source-only
 --check verifies the recorded registry identity before using its metadata.
 """
@@ -20,11 +21,14 @@ import re
 import subprocess
 import sys
 
+from release_report_utils import upstream_vortex_lock_version, upstream_vortex_provider_version
+
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = Path("docs/reference/shardloom-user-surface-index.json")
 REFERENCE = INDEX.with_suffix(".md")
 STATUS = Path("docs/status/cli-command-registry.md")
 REGISTRY = Path("shardloom-cli/src/command_registry.rs")
+PACKAGE_MATRIX = Path("docs/release/package-channel-readiness-matrix.json")
 
 
 def digest(path: Path) -> str:
@@ -134,6 +138,56 @@ def python_reference(root: Path) -> tuple[list[dict], dict[str, str]]:
     return rows, dict(sorted(sources.items()))
 
 
+def native_reference(root: Path) -> tuple[dict, dict[str, str]]:
+    """Project the resolved provider and named release's installed native proof."""
+    provider = upstream_vortex_lock_version(root)
+    if upstream_vortex_provider_version(root).removeprefix("=") != provider:
+        raise ValueError("native reference requires matching Vortex manifest and lockfile versions")
+    matrix = json.loads((root / PACKAGE_MATRIX).read_text(encoding="utf-8"))
+    guide = matrix["user_guide"]
+    channel = next(row for row in matrix["channels"] if row["channel_id"] == guide["artifact_channel"])
+    provenance_path = Path(channel["provenance_ref"])
+    proof = json.loads((root / provenance_path).read_text(encoding="utf-8"))
+    version = guide["release_tag"].removeprefix("v")
+    if (proof.get("schema_version") != "shardloom.registry_release_evidence.v1" or
+            proof.get("proof_status") != "passed" or proof.get("channel_id") != channel["channel_id"] or
+            proof.get("package_version") != version or
+            proof.get("release_source_commit") != guide["source_revision"] or
+            proof.get("runtime_and_packaging_source_equal_to_release") is not True):
+        raise ValueError("native publication proof does not match the selected release")
+    expected = {
+        f"shardloom-{version}-{row['wheel_tag']}.whl"
+        for row in guide["platforms"] if "native" in row["backends"]
+    }
+    lanes = proof["native_installed_wheel_proofs"]
+    if not expected or len(lanes) != len(expected) or {row["wheel"] for row in lanes} != expected:
+        raise ValueError("native publication proof must cover every selected native wheel exactly once")
+    artifacts = {row["filename"]: row for row in proof["artifact_refs"]}
+    for lane in lanes:
+        integration = lane["integration"]
+        artifact = artifacts[lane["wheel"]]
+        if (lane.get("status") != "passed" or lane.get("uninstall_status") != "passed" or
+                lane.get("source_commit") != proof["source_commit"] or
+                integration.get("status") != "passed" or type(integration.get("tests")) is not int or
+                integration["tests"] <= 0 or
+                any(type(integration.get(key)) is not int or integration[key] != 0
+                    for key in ("failures", "errors", "skipped")) or
+                artifact.get("registry_digest_match") is not True or
+                lane.get("wheel_sha256") != artifact["sha256"] or
+                lane.get("native_library_sha256") != artifact["native_library"]["sha256"] or
+                lane.get("cli_sha256") != artifact["bundled_cli"]["sha256"]):
+            raise ValueError(f"native installed-wheel proof is incomplete or unbound: {lane['wheel']}")
+    metadata = {
+        "native_ipc_provider_version": provider,
+        "hosted_integration_complete": True,
+        "hosted_integration_release_tag": guide["release_tag"],
+        "hosted_integration_provenance_ref": provenance_path.as_posix(),
+    }
+    inputs = (Path("Cargo.toml"), Path("Cargo.lock"), Path("shardloom-vortex/Cargo.toml"),
+              PACKAGE_MATRIX, provenance_path)
+    return metadata, {path.as_posix(): digest(root / path) for path in inputs}
+
+
 def marked(text: str, name: str, content: str) -> str:
     opening, closing = f"<!-- BEGIN GENERATED {name} -->", f"<!-- END GENERATED {name} -->"
     if text.count(opening) != 1 or text.count(closing) != 1:
@@ -188,6 +242,9 @@ def render_reference(application: dict) -> str:
 def generated_files(root: Path, binary: Path | None = None) -> dict[Path, str]:
     payload = json.loads((root / INDEX).read_text(encoding="utf-8"))
     symbols, inputs = python_reference(root)
+    native, native_inputs = native_reference(root)
+    payload["native_python_surface"].update(native)
+    inputs.update(native_inputs)
     commands = command_reference(root, binary, payload.get("application", {}))
     inputs[REGISTRY.as_posix()] = commands["source_sha256"]
     identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
@@ -226,7 +283,7 @@ def main() -> int:
         if stale:
             print("Stale generated application references: " + ", ".join(stale))
             return 1
-        print("Application exports, command metadata, signatures and counts are current.")
+        print("Application exports, command metadata, signatures, counts and native publication facts are current.")
     else:
         for path, text in files.items():
             (root / path).write_text(text, encoding="utf-8")
