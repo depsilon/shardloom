@@ -225,6 +225,7 @@ def verify_runs(files, manifest):
         surfaces = provenance["surfaces"] if native else ["polars"]
         expected_pairs = {(case, surface) for case in selected for surface in surfaces}
         seen, status = set(), Counter()
+        missing_engine_clocks = 0
         for row in observations:
             case_id, surface = row["case_id"], row["surface"] if native else "polars"
             pair = (case_id, surface)
@@ -279,7 +280,10 @@ def verify_runs(files, manifest):
                 no_fallback(observation["fields"])
                 compare(wanted, actual, frozen_contract)
                 need(row["engine_execution_seconds"] == observation["clocks"]["engine_execution_seconds"], "engine clock changed")
-                clock(row["engine_execution_seconds"])
+                if row["engine_execution_seconds"] is None:
+                    missing_engine_clocks += 1
+                else:
+                    clock(row["engine_execution_seconds"])
             else:
                 need(outcome["comparison_engine_invoked"] is True and observation["execution_engine"] == "polars", "wrong baseline engine")
                 need(observation["clocks"]["engine_execution_seconds"] is None, "Polars API clock relabelled as engine time")
@@ -297,6 +301,8 @@ def verify_runs(files, manifest):
         if complete:
             need(seen == expected_pairs and summary["selected_cases"] == len(selected), "completed cohort is missing cases")
         verify_summary_outcomes(summary, native, complete, status, observations)
+        if missing_engine_clocks:
+            warnings.append(f"{name}: {missing_engine_clocks} passed native observations lack engine timing")
         outcomes[name] = {"completed": complete, "observations": len(observations), "statuses": dict(status), **failure}
         if summary is None:
             outcomes[name]["reason"] = "failed_before_summary"
@@ -317,7 +323,9 @@ def verify_runs(files, manifest):
         native_ids = {case for run, case, surface in results if run == native_run and surface == "python_sql"}
         polars_ids = {case for run, case, surface in results if run == polars_run and surface == "polars"}
         need(native_ids and native_ids == polars_ids, "native and Polars baseline coverage differ")
-    engine = sum(result["observation"]["clocks"]["engine_execution_seconds"]
+    # Missing engine clocks are valid correctness evidence, but cannot be
+    # credited to a timing baseline or replaced with another clock.
+    engine = sum(clock(result["observation"]["clocks"]["engine_execution_seconds"])
                  for (run, _, surface), result in results.items() if run in baseline and surface == "python_sql")
     need(math.isclose(engine, manifest["baseline_engine_seconds"], rel_tol=0, abs_tol=1e-10), "baseline engine total differs")
     return {"status": "passed", "checked_complete_results": checked_results, "checked_receipts": checked_receipts,

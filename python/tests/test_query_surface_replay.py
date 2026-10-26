@@ -87,6 +87,43 @@ def freeze(records):
 
 
 class ReplayTests(unittest.TestCase):
+    @staticmethod
+    def passing_native_clock(records, run, value):
+        outcome = records[run + '/case.stdout.json']
+        outcome['status'] = 'passed'
+        outcome['observation']['clocks']['engine_execution_seconds'] = value
+        records[run + '/observations.jsonl'][0].update(status='passed', engine_execution_seconds=value)
+        records[run + '/summary.json']['families']['aggregate']['case_surface_outcomes'] = {'passed': 1}
+
+    def test_missing_engine_clock_preserves_correct_nonbaseline_result(self):
+        records, manifest = fixture()
+        self.passing_native_clock(records, 'failure', None)
+        result = verify_runs(freeze(records), manifest)
+        self.assertEqual(result['runs']['failure']['statuses'], {'passed': 1})
+        self.assertEqual((result['checked_complete_results'], result['checked_receipts']), (3, 3))
+        self.assertEqual(result['baseline_engine_seconds'], 0.125)
+        self.assertEqual(result['proof_gaps'], ['failure: 1 passed native observations lack engine timing'])
+        self.assertEqual(result['executed_queries'], 0)
+
+    def test_missing_engine_clock_cannot_enter_the_timing_baseline(self):
+        records, manifest = fixture()
+        self.passing_native_clock(records, 'native', None)
+        with self.assertRaisesRegex(ValueError, 'missing or invalid clock'):
+            verify_runs(freeze(records), manifest)
+
+    def test_nonbaseline_clock_still_requires_valid_numeric_values_and_original_evidence(self):
+        for value in (True, -1, '0.125'):
+            with self.subTest(clock=value):
+                records, manifest = fixture()
+                self.passing_native_clock(records, 'failure', value)
+                with self.assertRaisesRegex(ValueError, 'missing or invalid clock'):
+                    verify_runs(freeze(records), manifest)
+        records, manifest = fixture()
+        self.passing_native_clock(records, 'failure', None)
+        records['failure/observations.jsonl'][0]['engine_execution_seconds'] = 0.25
+        with self.assertRaisesRegex(ValueError, 'engine clock changed'):
+            verify_runs(freeze(records), manifest)
+
     def failed_worker(self, stdout, returncode, failures, status, *, kind='native'):
         records, manifest = fixture()
         records['failure/case.stdout.json'] = stdout

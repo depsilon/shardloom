@@ -160,3 +160,18 @@ Relocated replay again verifies 2,331 complete results and 2,334 receipts with
 original paths and engine/effect access denied. No queries or native builds are
 rerun for this Python-only follow-up; the earlier source snapshots and evidence
 remain immutable and attributed to their original revision.
+
+### Unavailable-engine-clock follow-up
+
+The native adapter explicitly permits a correct result with unavailable engine
+timing. Replay now retains that result and reports the missing measurement as a
+proof gap. Present timings must remain finite, nonnegative numbers and match the
+original output. Every observation selected for the timing baseline must still
+have an engine measurement; another clock is never substituted.
+
+The [timing follow-up](../benchmarks/evidence/native-broad-query-review-2026-10-26/replay-timing-followup.json)
+retains the original failure and all 19 passing replay tests. Portable controls
+reject 18 corruptions, including an absent baseline engine clock, while accepting
+the same absence in a correct observation outside that baseline. Original packet
+counts, engine total and six historical provenance warnings remain unchanged.
+This is offline evidence validation; no engine queries or builds are repeated.
