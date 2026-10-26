@@ -1,0 +1,377 @@
+{
+  "copied_files": [
+    {
+      "path": "python/src/shardloom/__init__.py",
+      "sha256": "3c3bd9f73a86b74ed8678e4ee62a82c8ba4dd1d9943ee36c869f6130e94ae971"
+    },
+    {
+      "path": "python/src/shardloom/_batches.py",
+      "sha256": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a"
+    },
+    {
+      "path": "python/src/shardloom/_compat.py",
+      "sha256": "e45cc0674b26eaae5b9992affc180092e2957d1d9e6e064940d8a4bc98cdce0f"
+    },
+    {
+      "path": "python/src/shardloom/_connected.py",
+      "sha256": "104390dcf9b7b1bf96f6a2aaca839fb63914a33cdfa01f0ee98c0740a252a2ff"
+    },
+    {
+      "path": "python/src/shardloom/_exports.py",
+      "sha256": "e240641a663fc8a17cdfa256a3969f76aacc31348791f9fdc8909d35e2837a54"
+    },
+    {
+      "path": "python/src/shardloom/_input_schema.py",
+      "sha256": "b25e99d22c867a312442b51fac1f0239ae352c124aa4a7a42cc4f38ca864cddf"
+    },
+    {
+      "path": "python/src/shardloom/_native_backend.py",
+      "sha256": "9c1105ba8021d0e1b33fcda0c8cc37b0bc147fecfe365a260703851be20e2d26"
+    },
+    {
+      "path": "python/src/shardloom/_relational_sql.py",
+      "sha256": "9ab082369b7b5da3eaa2fffac565bb3b2fbc09ffa17ee69062f6bb2377d33d54"
+    },
+    {
+      "path": "python/src/shardloom/_result_schema.py",
+      "sha256": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355"
+    },
+    {
+      "path": "python/src/shardloom/_version.py",
+      "sha256": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82"
+    },
+    {
+      "path": "python/src/shardloom/_window.py",
+      "sha256": "a9bceffed98349bda217a6f37e79e31c74900af87448d507f61a7f4eecb6a5e8"
+    },
+    {
+      "path": "python/src/shardloom/adbc.py",
+      "sha256": "964357797727c1b71c4cde0dd4fe8da139cd636404511e9fcd3977f851889dad"
+    },
+    {
+      "path": "python/src/shardloom/client.py",
+      "sha256": "4520fd52d9ea279f549e2e2c4cf52d3fa848abfb99982fe9932ef8f9cada9f16"
+    },
+    {
+      "path": "python/src/shardloom/context.py",
+      "sha256": "dec46342951c83cfbc6962ad338b216f6499b7d9f429c90d4ce60841e1ce291f"
+    },
+    {
+      "path": "python/src/shardloom/dbapi.py",
+      "sha256": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31"
+    },
+    {
+      "path": "python/src/shardloom/diagnostics.py",
+      "sha256": "b8f9a81b1723bd8c08dc025e5028a0e232496b428b5e6a085fc5f2f01ab312c1"
+    },
+    {
+      "path": "python/src/shardloom/errors.py",
+      "sha256": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955"
+    },
+    {
+      "path": "python/src/shardloom/execution_resources.py",
+      "sha256": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549"
+    },
+    {
+      "path": "python/src/shardloom/functions.py",
+      "sha256": "77e3181e4a586fc94107e057df65fbd155a21bf852691380cc0fc80414f14251"
+    },
+    {
+      "path": "python/src/shardloom/models.py",
+      "sha256": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825"
+    },
+    {
+      "path": "python/src/shardloom/native.py",
+      "sha256": "c9fca7e207421c05cceeed231bd83a824351c57095b7c49fa7049fbebd768110"
+    },
+    {
+      "path": "python/src/shardloom/notebook.py",
+      "sha256": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab"
+    },
+    {
+      "path": "python/src/shardloom/query.py",
+      "sha256": "fd5da96714eda482670fb2ca65d3d6c6f50700dbd50d63d05ed00a4ecf1e7dd5"
+    },
+    {
+      "path": "python/src/shardloom/quickstart.py",
+      "sha256": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7"
+    },
+    {
+      "path": "python/src/shardloom/runtime_defaults.py",
+      "sha256": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a"
+    },
+    {
+      "path": "python/src/shardloom/session.py",
+      "sha256": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59"
+    },
+    {
+      "path": "python/src/shardloom/testing.py",
+      "sha256": "ee05e4b62eb245f763d7aea6c6098a29be74f186473aaed2415ff8cd5f5b4f90"
+    },
+    {
+      "path": "python/src/shardloom/types.py",
+      "sha256": "6911d19ba0cffca4db539644031fed7232b390c05f45f1f1a290334d3fcef348"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/__init__.py",
+      "sha256": "00b24d3eb534096b9b1f2ec7e022e27ebee44125dd1c0737373490ad0272b471"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/adapters.py",
+      "sha256": "1b26686fa8dcfa02a56f947ea2f4832edd1ca69d6f82c9b4e0eb4cf6831dc101"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/corpus.py",
+      "sha256": "8eb6554c580d9c3f228902f8959c54e76da52b61690496dabd164023193ce390"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/coverage.py",
+      "sha256": "3ef87299341acdf568972949495f446e2e76ae99ddcd189ff61d48e5b08f6ec9"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/datasets.py",
+      "sha256": "328f71d55942ea22144b71a8f894210f37d21c0b8f9edd8942b46a71ee6698ff"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/diagnostics.py",
+      "sha256": "f2137e0d6595b01ecc2d42730d58da2dd0327710c0df605afee94b72c0b46600"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/evidence.py",
+      "sha256": "68c9170edfd34b6483cee15bcbcf507b81589dcd2dd01898e197bd1b636b1e47"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/polars_adapter.py",
+      "sha256": "73ff039595422e75270c86ec595ef3f13281bbc2e8487e6fb3b41c65ad48a052"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/polars_run.py",
+      "sha256": "c0d2117ec724e1e4fd73d207b73c0d31007173175cab9e423b6add4d4b1651e2"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/reference.py",
+      "sha256": "a30bd04f95cda8fbe52adc2bc2ea0c31af94164d404c4553858e2744c5bcb362"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/replay.py",
+      "sha256": "ecc9728a82369f6519e7aaaecca3837dd123b405c8f13b04f8d98014277976d4"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/report.py",
+      "sha256": "7e47454caa4db9e9fd7536cbc1b1cf83b382be2ae3fcdec20e21f190609eb5fc"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/run.py",
+      "sha256": "0ea17ea6d008524c663c26d12c12994c0568dc639aed5b273608abc06e463f61"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/semantics.py",
+      "sha256": "e6f0eff612506c129b64188e4916968281feecdedb855043a1ce2f69768bf074"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/specification.py",
+      "sha256": "d5320307d497e17be12874188b0e020a7b1c7b22a348bae970bfb3f973623401"
+    },
+    {
+      "path": "benchmarks/traditional_analytics/query_surface/worker.py",
+      "sha256": "deaadf718fc51f8340e196b28622e3539f32df8d873ee9a9770c2dd61c968107"
+    },
+    {
+      "path": "scripts/native_workflow_protocol.py",
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855"
+    },
+    {
+      "path": "docs/benchmarks/evidence/native-broad-query-2026-10-26/manifest.json",
+      "sha256": "800ac1b971cbbab183fbd946dce721daccd26fc20c52d8d408e2c3a6c742f025"
+    },
+    {
+      "path": "docs/benchmarks/evidence/native-broad-query-2026-10-26/packet.tar.xz",
+      "sha256": "0549271bd5fdf0b290fe752ae59db53d6f92db003bdf6caae505513b1699d231"
+    }
+  ],
+  "copied_files_unchanged": true,
+  "native_and_polars_pyarrow_imports_denied": true,
+  "original_source_and_evidence_access_denied": true,
+  "packet_archive_sha256": "0549271bd5fdf0b290fe752ae59db53d6f92db003bdf6caae505513b1699d231",
+  "packet_manifest_sha256": "800ac1b971cbbab183fbd946dce721daccd26fc20c52d8d408e2c3a6c742f025",
+  "python": "3.13.13 (main, Apr  7 2026, 18:19:01) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "queries_executed": 0,
+  "relocated_replay": {
+    "baseline_cases": 347,
+    "baseline_engine_seconds": 86.828000503,
+    "checked_complete_results": 2331,
+    "checked_receipts": 2334,
+    "executed_queries": 0,
+    "external_payload_identities": 225,
+    "proof_gaps": [
+      "million_baseline_r1: legacy receipt lacks original job hash",
+      "tiny_breadth_r1: legacy provenance lacks a Python source snapshot inventory",
+      "tiny_breadth_r1: legacy receipt lacks original job hash",
+      "tiny_corrections_r1: legacy receipt lacks original job hash",
+      "tiny_runner_r2: legacy provenance lacks a Python source snapshot inventory",
+      "tiny_runner_r2: legacy receipt lacks original job hash"
+    ],
+    "retained_provenance_identities": 1887,
+    "runs": {
+      "empty_sort_correction_r1": {
+        "completed": true,
+        "observations": 20,
+        "statuses": {
+          "passed": 20
+        }
+      },
+      "full238_million_r1": {
+        "completed": true,
+        "observations": 238,
+        "statuses": {
+          "passed": 238
+        }
+      },
+      "full238_tiny_parity_r1": {
+        "completed": true,
+        "observations": 1190,
+        "statuses": {
+          "engine_error": 1,
+          "passed": 1189
+        }
+      },
+      "million_baseline_r1": {
+        "completed": true,
+        "observations": 79,
+        "statuses": {
+          "passed": 79
+        }
+      },
+      "million_composition_r1": {
+        "completed": true,
+        "observations": 30,
+        "statuses": {
+          "passed": 30
+        }
+      },
+      "polars_full238_million_r1": {
+        "completed": true,
+        "observations": 238,
+        "statuses": {
+          "passed": 238
+        }
+      },
+      "polars_million_composition_r1": {
+        "completed": true,
+        "observations": 30,
+        "statuses": {
+          "passed": 30
+        }
+      },
+      "polars_million_initial_r1": {
+        "completed": true,
+        "observations": 79,
+        "statuses": {
+          "passed": 79
+        }
+      },
+      "tiny_breadth_r1": {
+        "completed": true,
+        "observations": 395,
+        "statuses": {
+          "harness_error": 2,
+          "passed": 393
+        }
+      },
+      "tiny_corrections_r1": {
+        "completed": true,
+        "observations": 15,
+        "statuses": {
+          "passed": 15
+        }
+      },
+      "tiny_runner_r1": {
+        "completed": false,
+        "observations": 0,
+        "reason": "failed_before_summary"
+      },
+      "tiny_runner_r2": {
+        "completed": true,
+        "observations": 20,
+        "statuses": {
+          "passed": 20
+        }
+      }
+    },
+    "status": "passed"
+  },
+  "schema_version": "shardloom.broad_query.portable_controls.v1",
+  "script_sha256": "75c4fe5631e8192305490ac84a9b038688d14664acf697a24ca802f98e2d6b4a",
+  "semantic_controls": [
+    {
+      "exception": "ValueError",
+      "name": "missing_execution_receipt",
+      "reason": "missing evidence: evidence/logs/tiny_runner_r2/0000-projection_rich-cli_sql.receipt.json",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "missing_observation",
+      "reason": "completed cohort is missing cases",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "duplicate_observation",
+      "reason": "observation identity/status differs",
+      "status": "rejected"
+    },
+    {
+      "exception": "ResultMismatch",
+      "name": "rehashed_value",
+      "reason": "ordered row 0 differs: expected (0, ('decimal', -92852, 18, 2), (), None, -299, -23539761782195), got (1, ('decimal', -92852, 18, 2), (), None, -299, -23539761782195)",
+      "status": "rejected"
+    },
+    {
+      "exception": "ResultMismatch",
+      "name": "rehashed_schema",
+      "reason": "schema differs: expected (('row_id', ResultType(name='int64', nullable=False, parameters=())), ('amount', ResultType(name='decimal128', nullable=True, parameters=(18, 2))), ('items', ResultType(name='list', nullable=True, parameters=(ResultType(name='int64', nullable=True, parameters=()),))), ('detail', ResultType(name='struct', nullable=True, parameters=(('score', ResultType(name='int64', nullable=True, parameters=())), ('label', ResultType(name='utf8', nullable=False, parameters=()))))), ('event_date', ResultType(name='date32', nullable=False, parameters=())), ('event_time', ResultType(name='timestamp_micros', nullable=False, parameters=()))), got (('row_id', ResultType(name='int64', nullable=True, parameters=())), ('amount', ResultType(name='decimal128', nullable=True, parameters=(18, 2))), ('items', ResultType(name='list', nullable=True, parameters=(ResultType(name='int64', nullable=True, parameters=()),))), ('detail', ResultType(name='struct', nullable=True, parameters=(('score', ResultType(name='int64', nullable=True, parameters=())), ('label', ResultType(name='utf8', nullable=False, parameters=()))))), ('event_date', ResultType(name='date32', nullable=False, parameters=())), ('event_time', ResultType(name='timestamp_micros', nullable=False, parameters=())))",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "rehashed_fallback",
+      "reason": "missing or unsafe native evidence: fallback_attempted",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "rehashed_surface",
+      "reason": "result surface differs",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "rehashed_incomplete",
+      "reason": "execution did not consume the complete declared request",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "rehashed_clock",
+      "reason": "engine clock changed",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "erased_original_cli_failure",
+      "reason": "summary erased or changed an outcome",
+      "status": "rejected"
+    },
+    {
+      "exception": "ValueError",
+      "name": "missing_polars_pair",
+      "reason": "incomplete baseline pair selection",
+      "status": "rejected"
+    }
+  ],
+  "semantic_controls_count": 11,
+  "status": "passed",
+  "subprocess_network_and_shell_effects_denied": true,
+  "temporary_source_copy_removed": true
+}

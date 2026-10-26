@@ -1387,7 +1387,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "62c44f0d6679b69c95c964bffb815a1a448fae05cb13c20bca31ad2ed3a34acd",
+    "source_identity": "d85c8c74cc8b270b3f0642ef86ce47f5f652733bfac4b320e4ee1637aa99e211",
     "source_inputs": {
       "Cargo.lock": "51de418870e976414807ff74b6be1c9c780b4b0edaba2a63bf3108fa12a1bd01",
       "Cargo.toml": "390f78f1f66a792221d2159e2e465c10d30683c6a7949e572940493962ec6ecd",
@@ -1407,7 +1407,7 @@
       "python/src/shardloom/functions.py": "77e3181e4a586fc94107e057df65fbd155a21bf852691380cc0fc80414f14251",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "d44b38f35604cb5bd00b34bd1f03845bdd296ef55d8a288952864ec7e58ba33c",
+      "python/src/shardloom/query.py": "fd5da96714eda482670fb2ca65d3d6c6f50700dbd50d63d05ed00a4ecf1e7dd5",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",

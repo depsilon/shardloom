@@ -251,12 +251,17 @@ the ledger.
 
 Current autonomous execution order:
 
-**October 26 maintainer override:** finish item 17 and its PR checks/review,
-clean up completed generated artifacts, then start item 20 directly. Item 20
-will absorb the requested broad query-surface and performance program; expand
-and validate ShardLoom's own surface before running competitor comparisons.
+**October 26 maintainer override:** item 17 is complete and merged in #1610 as
+`c287ba45`, following #1609 as `931bf814`; all 54 and 57 respective PR checks
+pass. Completed generated payload cleanup is recorded. **Item 20 is next and
+has started**, expanded into the [broad query program](native-broad-query-program-2026-10-26.md).
+Expand and validate ShardLoom's own surface. A later October 26 instruction permits
+one Polars run per selected case to prioritize gaps; other-engine testing remains
+deferred. Compare matching complete API boundaries and keep native engine clocks separate.
+Preserve strong CLI SQL, embedded workflow, Python SQL, DataFrame and typed native
+expression parity through shared modular implementation and test definitions.
 Use targeted family tests as the main loop and retain ClickBench as an existing
-regression guard. Item 18's unfinished source and evidence are preserved on
+regression guard. New findings belong in the next PR. Item 18's unfinished source and evidence are preserved on
 `codex/universal-io` at `87b5a174`; it is not accepted or a prerequisite for item
 20. Items 18 and 19 remain requested work pending resequencing. This override
 supersedes the earlier immediate ordering below without renumbering item IDs,
@@ -353,10 +358,10 @@ exception does not merge later categories.
 14. **Consolidated dependency follow-up accepted in the same merge:** the [October 25 intake](dependency-intake-2026-10-25.md) records the source/license-reviewed Tokio/prost and workflow-pin changes, native/default/MSRV/installed-package proof and original audit warnings. Partial Arrow 60 remains blocked until a coherent provider/format/Python graph is available. The completed ledger records acceptance; item 15 began next and is now closed as dropped.
 15. **Complete-workflow work elimination — closed, whole batch dropped:** after the combined candidate Full43 failed the frozen regression gate, the maintainer dropped all item 15 runtime changes and every unstarted item 15 branch/package, including shared branches, guarded decorrelation, keep-data-moving and setup work. The runtime is restored to main `167ac248ba662ae7967a7801995e9b160b17bae5`. Earlier counted-join and fused-measure mechanism passes are historical evidence only, not retained-runtime claims. The [October 25 drop report](../benchmarks/native-workflow-drop-2026-10-25.md) records the candidate, restored-binary and fresh-main observations; the cause was not isolated. Item 16 and the subsequent 1.0.0 train are also complete. No item 15 work may be restarted unchanged without a new maintainer decision.
 16. **Ingestion representation reuse and batch/window scheduling — closed without a runtime change:** the [October 25 decision](../benchmarks/native-ingest-window-decision-2026-10-25.md) records one isolated latest-main ingestion at 49.303 engine seconds, exact byte identity with the independently validated accepted output, and the unchanged runtime's Full43 at 47.889862794 engine seconds. Source review confirms existing dictionary/schema hints, large-source string views and shared bounded scheduling; no new candidate has established complete-ingest benefit. The maintainer requests advancing the version bump train if nothing worthwhile is established. This closes the investigation before new implementation or a candidate comparison; it does not prove optimal scheduling or reject all future mechanisms. **The subsequent 1.0.0 train is complete**, with source/package validation, GitHub → TestPyPI → PyPI → Homebrew proofs, merged documentation, public-site checks and generated-file cleanup in the [publication record](../release/v1.0.0-publication-verification.md). The dropped item 15 stays out; connected programming and universal I/O retain their subsequent order.
-17. **Connected programming model locally accepted; hosted CI/review pending:** the [October 26 acceptance](../benchmarks/native-connected-programming-2026-10-26.md) implements the [October 24 contract](native-connected-programming-model-2026-10-24.md): one lazy SQL/DataFrame model, immutable session-local named plans, scoped ordinary CTEs, typed parameters and query-local relations, shared functions/types/windows, reusable plan transformations, observations during actions, and local notebook/DB-API/ADBC adapters. The connected read → DataFrame → named plan → parameterized multi-CTE SQL → DataFrame join/window → observed Vortex write/reopen workflow passes. Default tests pass 3,261; native workspace tests pass 6,128 with 35 existing ignored; Python discovery runs 997 with eight documented skips; the clean installed package passes 179 native/adapter cases with zero skips. One isolated Full43 passes complete values and exact schemas at **47.935588458 engine seconds**, within the frozen regression screen. The portable packet preserves source/artifact identities and original failures. Recursive execution and explicit batch functions remain item 20; materialized CTE ownership, persistent catalogs and remote execution retain their separate contracts. This source acceptance is not a new publication or CG closure.
+17. **Connected programming model complete and merged:** [PR #1610](https://github.com/depsilon/shardloom/pull/1610) merges as `c287ba45` after both review corrections and all 54 hosted checks pass. The [acceptance](../benchmarks/native-connected-programming-2026-10-26.md) and [completed ledger](phased-execution-completed-ledger.md) retain the local/native/package/Full43 evidence, original failures and cleanup. The preceding documentation PR #1609 merges as `931bf814` with all 57 checks passing. Item 20 inherits this shared lazy/native foundation; no new package publication or CG closure is claimed.
 18. **Universal I/O performance and coverage immediately follows connected programming:** the [October 24 handoff](native-universal-io-performance-coverage-2026-10-24.md) requires a newly grounded one-execution multi-output contract and separates bulk Parquet/ORC layout policy from small conversion batches. The dropped item 15 implementation is not a dependency and may not be restored unchanged. Rich ORC output, long-value/resource-aware conversion and genuine whole-document JSON streaming follow; selective first-use readers, dataset layouts, IPC/codec variants and enterprise/table/transport adapters come afterward. Preserve completed #1583 foundations, native owners, one shared compute engine and independent readback. Audit real family gaps and implement them; the supplied source review is not benchmark or completion evidence. Large-output and fresh-source workflows, not Full43's 381 result rows alone, determine adapter acceptance. This ordering does not delay the immediately actionable local writer work behind broader adapters or make every proposed family a v1 release blocker.
 19. **Rich-data lifecycle support follows universal I/O:** the [October 24 addition](native-rich-data-lifecycle-2026-10-24.md) makes vectors/embeddings, tensors, nested values and actual binary payloads part of ordinary native data workflows. The maintainer's clarification treats baseline rich columns as competitive completeness against established Polars/Spark/DuckDB capabilities. Deliver dense-vector, inline-binary and nested-value fidelity first; accept managed/external binary-object ownership and lazy access separately, then tensor metadata, sparse/multiple/quantized/lower-precision representations, and shared exact vector expressions. Verify a mixed import → retain → select/filter/join → stream/spill → write → separate-process reopen → export workload, including complete bytes, metadata, resource pressure and shared-owner cleanup. Measure avoidable payload reads, copies, decoding and materialization before making efficiency claims. Extend the preceding I/O package with mappings for newly admitted rich types. Model generation, OCR/media interpretation and ANN indexes remain separate optional capabilities; existing report-only contracts do not count as implementation.
-20. **Everyday analytical completion follows the already queued work:** the [October 24 completion requirements](#everyday-analytical-completion) prioritize statistics/richer aggregation, temporal fidelity and time-series workflows, then broader numeric semantics and explicit batch-function integration. SQL composition and complete connector/refresh workflows extend items 17 and 18 respectively, rather than creating duplicate projects. Existing joins, windows, pivots, sets, subqueries and nested data are foundations to extend. Verify unconfirmed operation combinations before classifying gaps. Six ordinary user workloads establish acceptance; source inventories alone do not. Scalable traversal and resource admission replace demonstrated structural ceilings without deleting safety checks. This is requested implementation work, distinct from the optional breadth backlog and from larger transactional, continuous and distributed milestones.
+20. **Broad analytical surface and performance program is active:** the [October 26 contract](native-broad-query-program-2026-10-26.md) expands [everyday analytical completion](#everyday-analytical-completion) around a 1M-row fact-table family, typed generated workloads, strict correctness, actual execution diagnostics, neighboring queries and held-out validation. Extend the existing shared native runtime and preserve all five public interfaces; keep adapters thin and workload definitions reusable. The initial 347-case native and single-observation Polars baseline is complete; finish its foundation PR before the sequenced demand-aware Parquet investigation. Statistics/richer aggregation, temporal fidelity, numeric semantics, recursive composition and explicit batch functions retain their earlier priority and six real-workflow obligations. Existing joins/windows/pivots/sets/subqueries/nested data are foundations, not presumed gaps. Other-engine testing and repeated comparisons remain deferred until the expanded ShardLoom surface is tested. Targeted family tests drive this work; ClickBench protects established behavior. Connectors, rich I/O and larger transactional/live/distributed milestones retain their existing owners.
 21. **Real Foundry integration follows everyday analytical completion and precedes AI workflows:** the [October 25 handoff](native-foundry-integration-2026-10-25.md) attaches three working deliverables to existing RFC 0036 and packaging owners: a pinned installed native package with real transform/output readback, a scalable multi-file dataset and native writer adapter, then incremental and Foundry-managed Iceberg integration. The compact-structure addition attaches logical delta maintenance to that third deliverable and existing CG-17/CG-22 state owners: begin with explicit changes and a narrow exact aggregate/join family; prove source identity, retained state, retractions, recovery and consistent state/output publication against full recomputation. This is distinct from warm caches and the rejected whole-file refresh adapter, and platform snapshot/append support does not imply a changelog. Verify the actual Linux ABI and replace the stale Conda CLI-wrapper delivery. Foundry hosts the job; ShardLoom computes through ordinary SQL/DataFrame APIs. Preserve snapshot/read-mode identity, global multi-file semantics, explicit resources/spill, schema fidelity and failure-safe output transactions. A small Arrow bridge starts deployment proof; realistic multi-file join/aggregation, independent readback and deliberate failed publication establish adapter acceptance. Whole-table Arrow materialization is not the bulk-data design. Managed Iceberg's documented single-node Arrow interface does not require a standalone Iceberg scanner first and does not imply support for every external virtual table. Keep real-enrollment proof explicit, Mac timing separate, publication separately authorized, and SDK/Compute Module/S3 extensions behind the three deliverables. Foundry remains an optional package, with its implementation now requested in this queue; CG-18/20/21/23 remain independent acceptance gates.
     - **Version milestone: 1.1.0 minor bump after Foundry integration acceptance.** Package the intervening rich-data, analytical and Foundry changes with their compatibility notes and applicable acceptance evidence before starting AI data workflows.
 22. **AI data workflows follow Foundry integration:** the [October 24 AI-data package](native-ai-data-workflows-2026-10-24.md) connects the queued rich types and shared execution model to typed model-ready batches, streaming then indexed loaders, persisted fitted feature state, exact filtered vector retrieval, then lexical/hybrid retrieval and an optional compact-vector investigation. Reuse native results in PyTorch/Hugging Face adapters; preserve arbitrary sample order and duplicates, epoch generations, worker partitioning, ownership and resource limits. Point-in-time features must respect effective and availability times. Exact eligible-population search precedes optional lossy candidate representations; rescoring does not establish global exactness. Agent inspection/execution reuses existing APIs and bounded result handles. Batch inference remains a later explicit model boundary, while GPU implementation is optional. Validate complete mixed workflows and feature-specific throughput, memory, fidelity and retrieval quality; Full43 is only a regression check. This requested package extends earlier owners without a separate AI engine or a claim that current upstream features are already available through the pinned provider.
@@ -437,12 +442,76 @@ implementation projects, completed capabilities or a PR forecast.
 
 ### Everyday analytical completion
 
-The maintainer's October 24 targeted review of #1595 at `16ff752d` adds these
-requirements without restarting the current parity work or displacing the
-already agreed queue. It is a source review, not exhaustive execution proof.
-Use the existing RFC 0044 native engine, RFC 0021 expressions/reducers, RFC 0033
-workflows and the relevant type, memory, extension and commit contracts.
-Keep CG-1 through CG-23 visible and independent; this addition closes none.
+The October 26 maintainer request expands the October 24 targeted review of
+#1595 at `16ff752d` into the [broad analytical program](native-broad-query-program-2026-10-26.md).
+The earlier source review is not exhaustive execution proof. Use the existing
+RFC 0044 native engine, RFC 0021 expressions/reducers, RFC 0033 workflows and the
+relevant type, memory, extension and commit contracts. Keep CG-1 through CG-23
+visible and independent; this implementation does not automatically close them.
+
+- [ ] **Item 20: shared analytical breadth, semantics and performance**
+  - Source: the October 24 completion requirements below and the October 26
+    [program contract](native-broad-query-program-2026-10-26.md), including the
+    maintainer's five-interface parity and shared/modular implementation requirements.
+  - Current state: item 17 and the existing shared-provider families are accepted.
+    The [strict corpus foundation and initial 347-case 1M observation](../benchmarks/native-broad-query-2026-10-26.md)
+    are implemented with local native/package and portable evidence acceptance;
+    hosted PR acceptance is in progress. New
+    analytical capabilities and the broader item-20 completion remain unfinished.
+    This is requested post-1.0 implementation, not a retroactive release blocker.
+  - Intake review: existing parity, ordinary CTEs/parameters and harness guards
+    are reused; new breadth and strict semantics are accepted; connectors retain
+    their owners; one Polars comparison per selected case is now authorized for
+    prioritization, with other engines deferred; rejected mechanisms stay dropped.
+  - ShardLoom technique review: reuse metadata-first providers, PulseWeave/capillary
+    scheduling, dynamic resource admission and evidence tiers. Measure their actual
+    work through existing owners before adding a new strategy. Keep timing surfaces
+    separate and Vortex-native input/output explicit.
+  - Execution checklist:
+    - [x] Close item 17, merge its PR and documentation prerequisite, and record cleanup.
+    - [x] Reconcile the supplied program with existing owners, parity and retain/drop decisions.
+    - [x] Extend shared harness modules with typed case contracts, strict result/error
+      validation, complete public-interface adapters and corruption controls.
+    - [x] Build independently seeded fact/dimension/relationship/edge fixtures and
+      verified layout variants, recording observed distributions and logical identities.
+      The first 1M observation covers the sorted layout; other layouts retain
+      small-fixture identity/readback proof and need larger acceptance later.
+    - [x] Review the initial archetypes and generate constrained/boundary/neighboring
+      cases, with measured coverage, explicit unsupported targets and held-out partitions.
+      All 347 existing executable cases are now discovery data; future held-out
+      acceptance requires fresh seeds/layouts/combinations.
+    - [x] Run tiny semantics, representative five-interface checks and the initial
+      1M ShardLoom baseline; retain family-balanced results, plans, work and failures.
+      Native reports preserve available strategies and explicitly unknown counters;
+      complete physical-plan and byte instrumentation remain unfinished.
+    - [ ] Correct demonstrated shared correctness, reachability, composition,
+      repeated-work or algorithm causes using prospective retain/drop gates.
+    - [ ] Complete the analytical requirements below through shared runtime families,
+      preserving the six end-to-end workflows and separate connector ownership.
+    - [ ] Validate unchanged reproducers, neighboring/held-out variations, public
+      interfaces, unrelated controls and applicable scaling/resource cases.
+    - [ ] Retain a compact regression suite and bounded exploration selection;
+      update capability/reference docs and require coverage with each new capability.
+    - [ ] Complete required workspace/native/package checks, justified ClickBench
+      protection, portable evidence review, PR acceptance and ledger movement.
+  - Next outcome: a working strict corpus foundation and measured native family
+    baseline, followed by shared changes selected from its demonstrated gaps.
+    Do not implement per-query or per-interface execution shortcuts.
+    Finish the foundation/baseline PR before the maintainer's
+    [demand-aware Parquet investigation](native-broad-query-program-2026-10-26.md#next-investigation-demand-aware-parquet);
+    preserve item-18 source/refresh ownership and defer incremental persistence.
+  - Acceptance: complete typed results/errors and native certificates at applicable
+    interfaces; measured coverage and resources; visible unsupported/failed cases;
+    preserved original observations and existing behavior. Case counts alone do not pass.
+  - Verification: focused Python/Rust tests for affected owners, real five-surface
+    requests, dataset/readback and corruption controls, then `cargo fmt --all -- --check`,
+    `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --all-targets`
+    and applicable native/installed-package gates at cohesive boundaries.
+  - Boundary: the explicit single-run Polars baseline is external comparison only;
+    no hidden fallback, new release, broad superiority claim or implicit CG closure.
+    Every ShardLoom execution preserves `fallback_attempted=false` and
+    `external_engine_invoked=false`. Other-engine comparisons require the later
+    completed-surface stage and are not a prerequisite to developing this corpus.
 
 The priority order below applies to the added completion requirements. Items
 already owned by connected programming or universal I/O stay with those packages.
@@ -451,7 +520,7 @@ already owned by connected programming or universal I/O stay with those packages
 | --- | --- | --- |
 | 1 | Statistics and richer aggregation | Extend shared update/merge/finalize, memory, native spill and window integration with sample/population variance and standard deviation, covariance, correlation, median and exact quantiles. Specify null pairs, small samples, numerical stability, merge behavior and exact quantile interpolation. Exact quantiles require separately admitted state, not variance's fixed-size state. Then add exact SUM/AVG DISTINCT, ordered first/last, values at minimum/maximum keys, list and string aggregates, reusing existing distinct/window/pivot machinery where sound. Approximate quantiles/sketches remain explicitly approximate later functions. |
 | 2 | Temporal fidelity and time-series workflows | Preserve timestamp units and timezone identity, time-of-day, durations and calendar intervals from ingestion through comparisons, grouping, casts, serialization and reopen. Complete parsing, formatting, truncation, conversion and arithmetic in shared SQL/DataFrame semantics. Distinguish instant conversion from wall-clock reinterpretation and specify ambiguous/nonexistent local times. Verify dedicated as-of, calendar/time-based rolling, resampling, gap filling and interpolation first, then implement missing behavior through existing joins/windows. Specify ordering, ties, tolerance, nulls, group boundaries and timezone effects; row-count windows do not establish calendar-window support. |
-| 3 | SQL/DataFrame composition and parameters | Extend the [connected programming package](native-connected-programming-model-2026-10-24.md) with scoped named-relation references, nested WITH scopes, typed parameters and views. Complete column-name lists and deliberate materialization controls. Recursive CTE execution remains implementation work with termination, cycle, memory and cancellation semantics, after ordinary scope binding. Audit GROUPING SETS, ROLLUP, CUBE, aggregate FILTER and ordered aggregates before labelling them absent. |
+| 3 | SQL/DataFrame composition and parameters | Preserve the [connected programming package](native-connected-programming-model-2026-10-24.md), which now implements scoped named plans, nested ordinary WITH scopes, typed parameters and column-name lists. Expand composed-query coverage. Recursive CTE execution remains implementation work with termination, cycle, memory and cancellation semantics; explicit materialized CTE ownership retains its separate contract. Audit GROUPING SETS, ROLLUP, CUBE, aggregate FILTER and ordered aggregates before labelling them absent. |
 | 4 | Numeric-domain and rich-type fidelity | Define NaN, positive/negative infinity and signed-zero behavior across observation, equality, sorting, grouping, reductions, serialization and validation, preserving a strict caller-selectable policy. Keep NaN distinct from null. Add explicit decimal precision/scale/rounding choices alongside exact behavior, and an exact widened-integer SUM contract separately from floating AVG. Coordinate with [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md); carrying a value without observing it is distinct from implementing its arithmetic. |
 | 5 | Explicit batch-function integration | Prefer reusable native expression/plan composition. Add declared application batch functions with input/output schema, null and determinism policy, errors, cancellation, ownership, memory and effects accounted for under RFCs 0011/0023. The surrounding query remains ShardLoom execution; expose the application-code/materialization boundary and do not promise built-in-function performance. Existing typed fixtures are a foundation, not completion. |
 | 6 | Complete remote/table connectors and safe refresh | Extend the [universal-I/O package](native-universal-io-performance-coverage-2026-10-24.md), retaining immediate local writer work first. A selected workflow must authenticate → discover schema → read selected data → execute natively → publish safely, with credentials, ranges, retries and generation checks. Implement safe replacement/refresh before append/upsert against a defined table contract; broader transactions follow their separate persistence/recovery contract. |
@@ -462,9 +531,11 @@ the COUNT-only DISTINCT admission in
 [`sql_native_relational.rs`](../../shardloom-cli/src/sql_native_relational.rs),
 and date-days/timezone-free microsecond recognition in
 [`native_temporal.rs`](../../shardloom-vortex/src/native_temporal.rs).
-[`sql_native_cte.rs`](../../shardloom-cli/src/sql_native_cte.rs) already implements
-ordinary nonrecursive CTEs but rejects nested/recursive scopes, column lists and
-materialization hints, and limits names/text expansion. Shared nondecimal
+The merged [native declaration binder](../../shardloom-cli/src/sql_native_relation_declaration.rs)
+implements scoped ordinary CTEs, column lists and typed parameters using shared
+plan references and resource admission. Recursive execution and explicit
+`MATERIALIZED` ownership remain unsupported; `NOT MATERIALIZED` uses ordinary
+bound references. Shared nondecimal
 SUM/AVG finalize as floating values; the reducer rejects non-finite sums, and
 [`native_decimal_reduce.rs`](../../shardloom-vortex/src/local_primitives/native_decimal_reduce.rs)
 rejects averages that would discard fractional digits. This does not imply all

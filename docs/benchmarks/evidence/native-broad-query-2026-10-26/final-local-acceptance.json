@@ -1,0 +1,239 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tools/run_final_python_checks.py"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "c287ba455168bfd836bebfb5a2d7dcc07838bfc5",
+  "working_tree": " M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-connected-programming-2026-10-26.md\n M docs/reference/shardloom-user-surface-index.json\n M docs/reference/shardloom-user-surface-index.md\n M python/src/shardloom/query.py\n M python/tests/test_query_builder.py\n M scripts/prove_native_python_wheel.py\n M scripts/test_prove_native_python_wheel.py\n M shardloom-vortex/src/local_primitives.rs\n?? benchmarks/traditional_analytics/query_surface/\n?? docs/architecture/native-broad-query-program-2026-10-26.md\n?? docs/benchmarks/evidence/native-broad-query-2026-10-26/\n?? docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-hosted-acceptance-r2.json\n?? docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-hosted-attempt-r1.json\n?? docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-hosted-macos-capacity-r1.json\n?? docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-payload-cleanup-r2.json\n?? docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-payload-retirement-r2.json.xz\n?? docs/benchmarks/native-broad-query-2026-10-26.md\n?? python/tests/test_query_surface_corpus.py\n?? python/tests/test_query_surface_datasets.py\n?? python/tests/test_query_surface_evidence.py\n?? python/tests/test_query_surface_native.py\n?? python/tests/test_query_surface_polars.py\n?? python/tests/test_query_surface_replay.py\n?? python/tests/test_query_surface_semantics.py\n?? shardloom-vortex/src/local_primitive_sort_empty_tests.rs\n",
+  "changed_source_inventory": {
+    "benchmarks/traditional_analytics/query_surface/README.md": {
+      "sha256": "01524fae5ef76ab3d7a3e3c80d6e096b327f6d84a7dcd3d2f2368da4b55ddb5f",
+      "bytes": 9283
+    },
+    "benchmarks/traditional_analytics/query_surface/__init__.py": {
+      "sha256": "00b24d3eb534096b9b1f2ec7e022e27ebee44125dd1c0737373490ad0272b471",
+      "bytes": 273
+    },
+    "benchmarks/traditional_analytics/query_surface/adapters.py": {
+      "sha256": "1b26686fa8dcfa02a56f947ea2f4832edd1ca69d6f82c9b4e0eb4cf6831dc101",
+      "bytes": 17042
+    },
+    "benchmarks/traditional_analytics/query_surface/corpus.py": {
+      "sha256": "8eb6554c580d9c3f228902f8959c54e76da52b61690496dabd164023193ce390",
+      "bytes": 21241
+    },
+    "benchmarks/traditional_analytics/query_surface/coverage.py": {
+      "sha256": "3ef87299341acdf568972949495f446e2e76ae99ddcd189ff61d48e5b08f6ec9",
+      "bytes": 2175
+    },
+    "benchmarks/traditional_analytics/query_surface/datasets.py": {
+      "sha256": "328f71d55942ea22144b71a8f894210f37d21c0b8f9edd8942b46a71ee6698ff",
+      "bytes": 20182
+    },
+    "benchmarks/traditional_analytics/query_surface/diagnostics.py": {
+      "sha256": "f2137e0d6595b01ecc2d42730d58da2dd0327710c0df605afee94b72c0b46600",
+      "bytes": 3257
+    },
+    "benchmarks/traditional_analytics/query_surface/evidence.py": {
+      "sha256": "68c9170edfd34b6483cee15bcbcf507b81589dcd2dd01898e197bd1b636b1e47",
+      "bytes": 8225
+    },
+    "benchmarks/traditional_analytics/query_surface/polars_adapter.py": {
+      "sha256": "73ff039595422e75270c86ec595ef3f13281bbc2e8487e6fb3b41c65ad48a052",
+      "bytes": 8967
+    },
+    "benchmarks/traditional_analytics/query_surface/polars_run.py": {
+      "sha256": "c0d2117ec724e1e4fd73d207b73c0d31007173175cab9e423b6add4d4b1651e2",
+      "bytes": 14914
+    },
+    "benchmarks/traditional_analytics/query_surface/reference.py": {
+      "sha256": "a30bd04f95cda8fbe52adc2bc2ea0c31af94164d404c4553858e2744c5bcb362",
+      "bytes": 11455
+    },
+    "benchmarks/traditional_analytics/query_surface/replay.py": {
+      "sha256": "ecc9728a82369f6519e7aaaecca3837dd123b405c8f13b04f8d98014277976d4",
+      "bytes": 16288
+    },
+    "benchmarks/traditional_analytics/query_surface/report.py": {
+      "sha256": "7e47454caa4db9e9fd7536cbc1b1cf83b382be2ae3fcdec20e21f190609eb5fc",
+      "bytes": 5527
+    },
+    "benchmarks/traditional_analytics/query_surface/requirements-polars.txt": {
+      "sha256": "e2a8377aba3473eadc4a39c6751a20818be9fb49dd6f276192c8b87da969bcfe",
+      "bytes": 106
+    },
+    "benchmarks/traditional_analytics/query_surface/run.py": {
+      "sha256": "0ea17ea6d008524c663c26d12c12994c0568dc639aed5b273608abc06e463f61",
+      "bytes": 17963
+    },
+    "benchmarks/traditional_analytics/query_surface/semantics.py": {
+      "sha256": "e6f0eff612506c129b64188e4916968281feecdedb855043a1ce2f69768bf074",
+      "bytes": 18504
+    },
+    "benchmarks/traditional_analytics/query_surface/specification.py": {
+      "sha256": "d5320307d497e17be12874188b0e020a7b1c7b22a348bae970bfb3f973623401",
+      "bytes": 11184
+    },
+    "benchmarks/traditional_analytics/query_surface/worker.py": {
+      "sha256": "deaadf718fc51f8340e196b28622e3539f32df8d873ee9a9770c2dd61c968107",
+      "bytes": 9264
+    },
+    "docs/architecture/native-broad-query-program-2026-10-26.md": {
+      "sha256": "0c02b00925d565e02e550a584249f9904fbdfc081de6c2df3f0d2766cbac2f0b",
+      "bytes": 29771
+    },
+    "docs/architecture/phased-execution-completed-ledger.md": {
+      "sha256": "ff00981ccfb7afc392ec46b793c6b698faf5214ae3606f7d38a4b27fd848847f",
+      "bytes": 4034539
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "sha256": "446cca85f721064f90072289b8eedcf5e9fadb9e6cf73165c9caa0d80d715550",
+      "bytes": 141838
+    },
+    "docs/benchmarks/evidence/native-broad-query-2026-10-26/controls.json": {
+      "sha256": "da0895305dad258ef8b6174632885c29f5343cb0f6636c1813ef1b168ffc51d9",
+      "bytes": 14111
+    },
+    "docs/benchmarks/evidence/native-broad-query-2026-10-26/manifest.json": {
+      "sha256": "800ac1b971cbbab183fbd946dce721daccd26fc20c52d8d408e2c3a6c742f025",
+      "bytes": 43943
+    },
+    "docs/benchmarks/evidence/native-broad-query-2026-10-26/packet.tar.xz": {
+      "sha256": "0549271bd5fdf0b290fe752ae59db53d6f92db003bdf6caae505513b1699d231",
+      "bytes": 5578896
+    },
+    "docs/benchmarks/evidence/native-broad-query-2026-10-26/replay.json": {
+      "sha256": "e51d4482f5286d16abdc0067dd72490cffacedc77e9d6da2ff2dee2ef0bdee7c",
+      "bytes": 2430
+    },
+    "docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-hosted-acceptance-r2.json": {
+      "sha256": "336db750318648aea2c517808d0d884cecdb97e24e740cf16e061b8f75e28a2e",
+      "bytes": 14253
+    },
+    "docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-hosted-attempt-r1.json": {
+      "sha256": "073d4a10ecd5f5ddfcdb7cac2ba565b35a879c0762efa7f8f09823069575a7c1",
+      "bytes": 13759
+    },
+    "docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-hosted-macos-capacity-r1.json": {
+      "sha256": "d0d5636585dc3c0631be240046f3d211c83d5281e578eec458831975267446a5",
+      "bytes": 2384
+    },
+    "docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-payload-cleanup-r2.json": {
+      "sha256": "e23a053553571457577571064cb236a95144dc02507912d9c18459e7115ba893",
+      "bytes": 3024
+    },
+    "docs/benchmarks/evidence/native-connected-programming-2026-10-26/review-payload-retirement-r2.json.xz": {
+      "sha256": "152860adde7677cf74d23a3cda24d9649765896cf51966da5de7cb801ac422e2",
+      "bytes": 801852
+    },
+    "docs/benchmarks/native-broad-query-2026-10-26.md": {
+      "sha256": "89e12400c32806607196e80120b2663cccd561f58cd1d0d087790587c3c0e633",
+      "bytes": 14196
+    },
+    "docs/benchmarks/native-connected-programming-2026-10-26.md": {
+      "sha256": "bcc33e500f5bb80154f391ae9d57a1836a23d1bc251fd501587e76d0d68a31b8",
+      "bytes": 11670
+    },
+    "docs/reference/shardloom-user-surface-index.json": {
+      "sha256": "71549ec5c1dfbc6db2b9625cff7ddd9f0e72d66f059e99d4572a94a78e21bbea",
+      "bytes": 250141
+    },
+    "docs/reference/shardloom-user-surface-index.md": {
+      "sha256": "2243c204596378cfc1e2fc53dbbc531fb3643d4ccf61156b867324d67ede1725",
+      "bytes": 41110
+    },
+    "python/src/shardloom/query.py": {
+      "sha256": "fd5da96714eda482670fb2ca65d3d6c6f50700dbd50d63d05ed00a4ecf1e7dd5",
+      "bytes": 496073
+    },
+    "python/tests/test_query_builder.py": {
+      "sha256": "c0fe50f4c0ef493d320f0592318418a3cf8b71f317c6248ee25dde48854f4fe7",
+      "bytes": 220000
+    },
+    "python/tests/test_query_surface_corpus.py": {
+      "sha256": "be084b1d977768435226e5f2937f7a8313c2167aaac5b13c189668fabda45bb8",
+      "bytes": 6869
+    },
+    "python/tests/test_query_surface_datasets.py": {
+      "sha256": "336d477c87fb7119b646f8b5e70362cb482d316b0aaebff54db9b90e9e1664c2",
+      "bytes": 8231
+    },
+    "python/tests/test_query_surface_evidence.py": {
+      "sha256": "9154c21a4a23331949b33cc1e889d292c54974fe35a19d19e781dd9c178d8b6f",
+      "bytes": 9982
+    },
+    "python/tests/test_query_surface_native.py": {
+      "sha256": "49450214d94914338f594b57a01073da32f8fed33a1cfa7d370a1012e5b83622",
+      "bytes": 4468
+    },
+    "python/tests/test_query_surface_polars.py": {
+      "sha256": "390659ec01429b7e05b3a49944e2b00235549243c19b0329eaa30fd630682250",
+      "bytes": 4485
+    },
+    "python/tests/test_query_surface_replay.py": {
+      "sha256": "17476a3fcc71b6dfab87bd5cd74f5bcab507745a24bab55a04b81c8f88694963",
+      "bytes": 12600
+    },
+    "python/tests/test_query_surface_semantics.py": {
+      "sha256": "bdd1e49e00431f211aefd096491cc4f6f397016b6f4be00cfac4fd847b2ebba0",
+      "bytes": 11209
+    },
+    "scripts/prove_native_python_wheel.py": {
+      "sha256": "4d2cac56a7218acb48d7a0cc5b455e104e80d9ebcf1bc8d4c46a80f1130d54f5",
+      "bytes": 11959
+    },
+    "scripts/test_prove_native_python_wheel.py": {
+      "sha256": "512a9c90d296c6497b8d4a8eee18ae1bc83adc8e9896e1fe160109e561e34344",
+      "bytes": 6307
+    },
+    "shardloom-vortex/src/local_primitive_sort_empty_tests.rs": {
+      "sha256": "a1ff3cd23b5dcb0135a74a7cc91657fffce1db5afd2dd991f5cfc2f3c50d1f24",
+      "bytes": 4624
+    },
+    "shardloom-vortex/src/local_primitives.rs": {
+      "sha256": "7b38d1d876f241c98bcd8ad2ee13afec9ccffa5e28934cb752c97ea13b2e403a",
+      "bytes": 2900518
+    }
+  },
+  "driver_sha256": "f49ee5a1fd1df3f533ab503ef49ccd7de588c5c8e4cbe505b49fb0446b1b3e55",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 1126035456,
+      "log_bytes": 159354880,
+      "max_log_bytes": 201326592,
+      "free_bytes": 105709764608,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 24934109184,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 105709629440,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 900.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 76085,
+  "output_bytes": 17725,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 5.718220083042979,
+  "log_sha256": "f3981fc2a756901be0039b0acf77a28b4d9e70cef73c5c318398c26bfb3d3c85"
+}

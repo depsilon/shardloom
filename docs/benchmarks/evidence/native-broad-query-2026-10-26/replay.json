@@ -1,0 +1,104 @@
+{
+  "baseline_cases": 347,
+  "baseline_engine_seconds": 86.828000503,
+  "checked_complete_results": 2331,
+  "checked_receipts": 2334,
+  "executed_queries": 0,
+  "external_payload_identities": 225,
+  "proof_gaps": [
+    "million_baseline_r1: legacy receipt lacks original job hash",
+    "tiny_breadth_r1: legacy provenance lacks a Python source snapshot inventory",
+    "tiny_breadth_r1: legacy receipt lacks original job hash",
+    "tiny_corrections_r1: legacy receipt lacks original job hash",
+    "tiny_runner_r2: legacy provenance lacks a Python source snapshot inventory",
+    "tiny_runner_r2: legacy receipt lacks original job hash"
+  ],
+  "retained_provenance_identities": 1887,
+  "runs": {
+    "empty_sort_correction_r1": {
+      "completed": true,
+      "observations": 20,
+      "statuses": {
+        "passed": 20
+      }
+    },
+    "full238_million_r1": {
+      "completed": true,
+      "observations": 238,
+      "statuses": {
+        "passed": 238
+      }
+    },
+    "full238_tiny_parity_r1": {
+      "completed": true,
+      "observations": 1190,
+      "statuses": {
+        "engine_error": 1,
+        "passed": 1189
+      }
+    },
+    "million_baseline_r1": {
+      "completed": true,
+      "observations": 79,
+      "statuses": {
+        "passed": 79
+      }
+    },
+    "million_composition_r1": {
+      "completed": true,
+      "observations": 30,
+      "statuses": {
+        "passed": 30
+      }
+    },
+    "polars_full238_million_r1": {
+      "completed": true,
+      "observations": 238,
+      "statuses": {
+        "passed": 238
+      }
+    },
+    "polars_million_composition_r1": {
+      "completed": true,
+      "observations": 30,
+      "statuses": {
+        "passed": 30
+      }
+    },
+    "polars_million_initial_r1": {
+      "completed": true,
+      "observations": 79,
+      "statuses": {
+        "passed": 79
+      }
+    },
+    "tiny_breadth_r1": {
+      "completed": true,
+      "observations": 395,
+      "statuses": {
+        "harness_error": 2,
+        "passed": 393
+      }
+    },
+    "tiny_corrections_r1": {
+      "completed": true,
+      "observations": 15,
+      "statuses": {
+        "passed": 15
+      }
+    },
+    "tiny_runner_r1": {
+      "completed": false,
+      "observations": 0,
+      "reason": "failed_before_summary"
+    },
+    "tiny_runner_r2": {
+      "completed": true,
+      "observations": 20,
+      "statuses": {
+        "passed": 20
+      }
+    }
+  },
+  "status": "passed"
+}

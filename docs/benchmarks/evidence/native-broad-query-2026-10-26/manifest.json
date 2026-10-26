@@ -1,0 +1,772 @@
+{
+  "archive": {
+    "bytes": 5578896,
+    "path": "packet.tar.xz",
+    "sha256": "0549271bd5fdf0b290fe752ae59db53d6f92db003bdf6caae505513b1699d231"
+  },
+  "baseline_case_count": 347,
+  "baseline_case_ids": [
+    "aggregate_all_null_category_mixed_arithmetic_all",
+    "aggregate_all_null_category_mixed_arithmetic_one_percent",
+    "aggregate_all_null_category_mixed_coalesce_all",
+    "aggregate_all_null_category_mixed_coalesce_one_percent",
+    "aggregate_all_null_category_mixed_direct_all",
+    "aggregate_all_null_category_mixed_direct_one_percent",
+    "aggregate_all_null_category_sum_arithmetic_all",
+    "aggregate_all_null_category_sum_arithmetic_one_percent",
+    "aggregate_all_null_category_sum_coalesce_all",
+    "aggregate_all_null_category_sum_coalesce_one_percent",
+    "aggregate_all_null_category_sum_direct_all",
+    "aggregate_all_null_category_sum_direct_one_percent",
+    "aggregate_all_null_group_key_category_mixed_arithmetic_all",
+    "aggregate_all_null_group_key_category_mixed_arithmetic_one_percent",
+    "aggregate_all_null_group_key_category_mixed_coalesce_all",
+    "aggregate_all_null_group_key_category_mixed_coalesce_one_percent",
+    "aggregate_all_null_group_key_category_mixed_direct_all",
+    "aggregate_all_null_group_key_category_mixed_direct_one_percent",
+    "aggregate_all_null_group_key_category_sum_arithmetic_all",
+    "aggregate_all_null_group_key_category_sum_arithmetic_one_percent",
+    "aggregate_all_null_group_key_category_sum_coalesce_all",
+    "aggregate_all_null_group_key_category_sum_coalesce_one_percent",
+    "aggregate_all_null_group_key_category_sum_direct_all",
+    "aggregate_all_null_group_key_category_sum_direct_one_percent",
+    "aggregate_all_null_group_key_mixed_arithmetic_all",
+    "aggregate_all_null_group_key_mixed_arithmetic_one_percent",
+    "aggregate_all_null_group_key_mixed_coalesce_all",
+    "aggregate_all_null_group_key_mixed_coalesce_one_percent",
+    "aggregate_all_null_group_key_mixed_direct_all",
+    "aggregate_all_null_group_key_mixed_direct_one_percent",
+    "aggregate_all_null_group_key_sum_arithmetic_all",
+    "aggregate_all_null_group_key_sum_arithmetic_one_percent",
+    "aggregate_all_null_group_key_sum_coalesce_all",
+    "aggregate_all_null_group_key_sum_coalesce_one_percent",
+    "aggregate_all_null_group_key_sum_direct_all",
+    "aggregate_all_null_group_key_sum_direct_one_percent",
+    "aggregate_all_null_scalar_mixed_arithmetic_all",
+    "aggregate_all_null_scalar_mixed_arithmetic_one_percent",
+    "aggregate_all_null_scalar_mixed_coalesce_all",
+    "aggregate_all_null_scalar_mixed_coalesce_one_percent",
+    "aggregate_all_null_scalar_mixed_direct_all",
+    "aggregate_all_null_scalar_mixed_direct_one_percent",
+    "aggregate_all_null_scalar_sum_arithmetic_all",
+    "aggregate_all_null_scalar_sum_arithmetic_one_percent",
+    "aggregate_all_null_scalar_sum_coalesce_all",
+    "aggregate_all_null_scalar_sum_coalesce_one_percent",
+    "aggregate_all_null_scalar_sum_direct_all",
+    "aggregate_all_null_scalar_sum_direct_one_percent",
+    "aggregate_metric_category_mixed_arithmetic_all",
+    "aggregate_metric_category_mixed_arithmetic_one_percent",
+    "aggregate_metric_category_mixed_coalesce_all",
+    "aggregate_metric_category_mixed_coalesce_one_percent",
+    "aggregate_metric_category_mixed_direct_all",
+    "aggregate_metric_category_mixed_direct_one_percent",
+    "aggregate_metric_category_sum_arithmetic_all",
+    "aggregate_metric_category_sum_arithmetic_one_percent",
+    "aggregate_metric_category_sum_coalesce_all",
+    "aggregate_metric_category_sum_coalesce_one_percent",
+    "aggregate_metric_category_sum_direct_all",
+    "aggregate_metric_category_sum_direct_one_percent",
+    "aggregate_metric_group_key_category_mixed_arithmetic_all",
+    "aggregate_metric_group_key_category_mixed_arithmetic_one_percent",
+    "aggregate_metric_group_key_category_mixed_coalesce_all",
+    "aggregate_metric_group_key_category_mixed_coalesce_one_percent",
+    "aggregate_metric_group_key_category_mixed_direct_all",
+    "aggregate_metric_group_key_category_mixed_direct_one_percent",
+    "aggregate_metric_group_key_category_sum_arithmetic_all",
+    "aggregate_metric_group_key_category_sum_arithmetic_one_percent",
+    "aggregate_metric_group_key_category_sum_coalesce_all",
+    "aggregate_metric_group_key_category_sum_coalesce_one_percent",
+    "aggregate_metric_group_key_category_sum_direct_all",
+    "aggregate_metric_group_key_category_sum_direct_one_percent",
+    "aggregate_metric_group_key_mixed_arithmetic_all",
+    "aggregate_metric_group_key_mixed_arithmetic_one_percent",
+    "aggregate_metric_group_key_mixed_coalesce_all",
+    "aggregate_metric_group_key_mixed_coalesce_one_percent",
+    "aggregate_metric_group_key_mixed_direct_all",
+    "aggregate_metric_group_key_mixed_direct_one_percent",
+    "aggregate_metric_group_key_sum_arithmetic_all",
+    "aggregate_metric_group_key_sum_arithmetic_one_percent",
+    "aggregate_metric_group_key_sum_coalesce_all",
+    "aggregate_metric_group_key_sum_coalesce_one_percent",
+    "aggregate_metric_group_key_sum_direct_all",
+    "aggregate_metric_group_key_sum_direct_one_percent",
+    "aggregate_metric_scalar_mixed_arithmetic_all",
+    "aggregate_metric_scalar_mixed_arithmetic_one_percent",
+    "aggregate_metric_scalar_mixed_coalesce_all",
+    "aggregate_metric_scalar_mixed_coalesce_one_percent",
+    "aggregate_metric_scalar_mixed_direct_all",
+    "aggregate_metric_scalar_mixed_direct_one_percent",
+    "aggregate_metric_scalar_sum_arithmetic_all",
+    "aggregate_metric_scalar_sum_arithmetic_one_percent",
+    "aggregate_metric_scalar_sum_coalesce_all",
+    "aggregate_metric_scalar_sum_coalesce_one_percent",
+    "aggregate_metric_scalar_sum_direct_all",
+    "aggregate_metric_scalar_sum_direct_one_percent",
+    "aggregate_nullable_no_null_category_mixed_arithmetic_all",
+    "aggregate_nullable_no_null_category_mixed_arithmetic_one_percent",
+    "aggregate_nullable_no_null_category_mixed_coalesce_all",
+    "aggregate_nullable_no_null_category_mixed_coalesce_one_percent",
+    "aggregate_nullable_no_null_category_mixed_direct_all",
+    "aggregate_nullable_no_null_category_mixed_direct_one_percent",
+    "aggregate_nullable_no_null_category_sum_arithmetic_all",
+    "aggregate_nullable_no_null_category_sum_arithmetic_one_percent",
+    "aggregate_nullable_no_null_category_sum_coalesce_all",
+    "aggregate_nullable_no_null_category_sum_coalesce_one_percent",
+    "aggregate_nullable_no_null_category_sum_direct_all",
+    "aggregate_nullable_no_null_category_sum_direct_one_percent",
+    "aggregate_nullable_no_null_group_key_category_mixed_arithmetic_all",
+    "aggregate_nullable_no_null_group_key_category_mixed_arithmetic_one_percent",
+    "aggregate_nullable_no_null_group_key_category_mixed_coalesce_all",
+    "aggregate_nullable_no_null_group_key_category_mixed_coalesce_one_percent",
+    "aggregate_nullable_no_null_group_key_category_mixed_direct_all",
+    "aggregate_nullable_no_null_group_key_category_mixed_direct_one_percent",
+    "aggregate_nullable_no_null_group_key_category_sum_arithmetic_all",
+    "aggregate_nullable_no_null_group_key_category_sum_arithmetic_one_percent",
+    "aggregate_nullable_no_null_group_key_category_sum_coalesce_all",
+    "aggregate_nullable_no_null_group_key_category_sum_coalesce_one_percent",
+    "aggregate_nullable_no_null_group_key_category_sum_direct_all",
+    "aggregate_nullable_no_null_group_key_category_sum_direct_one_percent",
+    "aggregate_nullable_no_null_group_key_mixed_arithmetic_all",
+    "aggregate_nullable_no_null_group_key_mixed_arithmetic_one_percent",
+    "aggregate_nullable_no_null_group_key_mixed_coalesce_all",
+    "aggregate_nullable_no_null_group_key_mixed_coalesce_one_percent",
+    "aggregate_nullable_no_null_group_key_mixed_direct_all",
+    "aggregate_nullable_no_null_group_key_mixed_direct_one_percent",
+    "aggregate_nullable_no_null_group_key_sum_arithmetic_all",
+    "aggregate_nullable_no_null_group_key_sum_arithmetic_one_percent",
+    "aggregate_nullable_no_null_group_key_sum_coalesce_all",
+    "aggregate_nullable_no_null_group_key_sum_coalesce_one_percent",
+    "aggregate_nullable_no_null_group_key_sum_direct_all",
+    "aggregate_nullable_no_null_group_key_sum_direct_one_percent",
+    "aggregate_nullable_no_null_scalar_mixed_arithmetic_all",
+    "aggregate_nullable_no_null_scalar_mixed_arithmetic_one_percent",
+    "aggregate_nullable_no_null_scalar_mixed_coalesce_all",
+    "aggregate_nullable_no_null_scalar_mixed_coalesce_one_percent",
+    "aggregate_nullable_no_null_scalar_mixed_direct_all",
+    "aggregate_nullable_no_null_scalar_mixed_direct_one_percent",
+    "aggregate_nullable_no_null_scalar_sum_arithmetic_all",
+    "aggregate_nullable_no_null_scalar_sum_arithmetic_one_percent",
+    "aggregate_nullable_no_null_scalar_sum_coalesce_all",
+    "aggregate_nullable_no_null_scalar_sum_coalesce_one_percent",
+    "aggregate_nullable_no_null_scalar_sum_direct_all",
+    "aggregate_nullable_no_null_scalar_sum_direct_one_percent",
+    "aggregate_optional_value_category_mixed_arithmetic_all",
+    "aggregate_optional_value_category_mixed_arithmetic_one_percent",
+    "aggregate_optional_value_category_mixed_coalesce_all",
+    "aggregate_optional_value_category_mixed_coalesce_one_percent",
+    "aggregate_optional_value_category_mixed_direct_all",
+    "aggregate_optional_value_category_mixed_direct_one_percent",
+    "aggregate_optional_value_category_sum_arithmetic_all",
+    "aggregate_optional_value_category_sum_arithmetic_one_percent",
+    "aggregate_optional_value_category_sum_coalesce_all",
+    "aggregate_optional_value_category_sum_coalesce_one_percent",
+    "aggregate_optional_value_category_sum_direct_all",
+    "aggregate_optional_value_category_sum_direct_one_percent",
+    "aggregate_optional_value_group_key_category_mixed_arithmetic_all",
+    "aggregate_optional_value_group_key_category_mixed_arithmetic_one_percent",
+    "aggregate_optional_value_group_key_category_mixed_coalesce_all",
+    "aggregate_optional_value_group_key_category_mixed_coalesce_one_percent",
+    "aggregate_optional_value_group_key_category_mixed_direct_all",
+    "aggregate_optional_value_group_key_category_mixed_direct_one_percent",
+    "aggregate_optional_value_group_key_category_sum_arithmetic_all",
+    "aggregate_optional_value_group_key_category_sum_arithmetic_one_percent",
+    "aggregate_optional_value_group_key_category_sum_coalesce_all",
+    "aggregate_optional_value_group_key_category_sum_coalesce_one_percent",
+    "aggregate_optional_value_group_key_category_sum_direct_all",
+    "aggregate_optional_value_group_key_category_sum_direct_one_percent",
+    "aggregate_optional_value_group_key_mixed_arithmetic_all",
+    "aggregate_optional_value_group_key_mixed_arithmetic_one_percent",
+    "aggregate_optional_value_group_key_mixed_coalesce_all",
+    "aggregate_optional_value_group_key_mixed_coalesce_one_percent",
+    "aggregate_optional_value_group_key_mixed_direct_all",
+    "aggregate_optional_value_group_key_mixed_direct_one_percent",
+    "aggregate_optional_value_group_key_sum_arithmetic_all",
+    "aggregate_optional_value_group_key_sum_arithmetic_one_percent",
+    "aggregate_optional_value_group_key_sum_coalesce_all",
+    "aggregate_optional_value_group_key_sum_coalesce_one_percent",
+    "aggregate_optional_value_group_key_sum_direct_all",
+    "aggregate_optional_value_group_key_sum_direct_one_percent",
+    "aggregate_optional_value_scalar_mixed_arithmetic_all",
+    "aggregate_optional_value_scalar_mixed_arithmetic_one_percent",
+    "aggregate_optional_value_scalar_mixed_coalesce_all",
+    "aggregate_optional_value_scalar_mixed_coalesce_one_percent",
+    "aggregate_optional_value_scalar_mixed_direct_all",
+    "aggregate_optional_value_scalar_mixed_direct_one_percent",
+    "aggregate_optional_value_scalar_sum_arithmetic_all",
+    "aggregate_optional_value_scalar_sum_arithmetic_one_percent",
+    "aggregate_optional_value_scalar_sum_coalesce_all",
+    "aggregate_optional_value_scalar_sum_coalesce_one_percent",
+    "aggregate_optional_value_scalar_sum_direct_all",
+    "aggregate_optional_value_scalar_sum_direct_one_percent",
+    "aggregate_signed_value_category_mixed_arithmetic_all",
+    "aggregate_signed_value_category_mixed_arithmetic_one_percent",
+    "aggregate_signed_value_category_mixed_coalesce_all",
+    "aggregate_signed_value_category_mixed_coalesce_one_percent",
+    "aggregate_signed_value_category_mixed_direct_all",
+    "aggregate_signed_value_category_mixed_direct_one_percent",
+    "aggregate_signed_value_category_sum_arithmetic_all",
+    "aggregate_signed_value_category_sum_arithmetic_one_percent",
+    "aggregate_signed_value_category_sum_coalesce_all",
+    "aggregate_signed_value_category_sum_coalesce_one_percent",
+    "aggregate_signed_value_category_sum_direct_all",
+    "aggregate_signed_value_category_sum_direct_one_percent",
+    "aggregate_signed_value_group_key_category_mixed_arithmetic_all",
+    "aggregate_signed_value_group_key_category_mixed_arithmetic_one_percent",
+    "aggregate_signed_value_group_key_category_mixed_coalesce_all",
+    "aggregate_signed_value_group_key_category_mixed_coalesce_one_percent",
+    "aggregate_signed_value_group_key_category_mixed_direct_all",
+    "aggregate_signed_value_group_key_category_mixed_direct_one_percent",
+    "aggregate_signed_value_group_key_category_sum_arithmetic_all",
+    "aggregate_signed_value_group_key_category_sum_arithmetic_one_percent",
+    "aggregate_signed_value_group_key_category_sum_coalesce_all",
+    "aggregate_signed_value_group_key_category_sum_coalesce_one_percent",
+    "aggregate_signed_value_group_key_category_sum_direct_all",
+    "aggregate_signed_value_group_key_category_sum_direct_one_percent",
+    "aggregate_signed_value_group_key_mixed_arithmetic_all",
+    "aggregate_signed_value_group_key_mixed_arithmetic_one_percent",
+    "aggregate_signed_value_group_key_mixed_coalesce_all",
+    "aggregate_signed_value_group_key_mixed_coalesce_one_percent",
+    "aggregate_signed_value_group_key_mixed_direct_all",
+    "aggregate_signed_value_group_key_mixed_direct_one_percent",
+    "aggregate_signed_value_group_key_sum_arithmetic_all",
+    "aggregate_signed_value_group_key_sum_arithmetic_one_percent",
+    "aggregate_signed_value_group_key_sum_coalesce_all",
+    "aggregate_signed_value_group_key_sum_coalesce_one_percent",
+    "aggregate_signed_value_group_key_sum_direct_all",
+    "aggregate_signed_value_group_key_sum_direct_one_percent",
+    "aggregate_signed_value_scalar_mixed_arithmetic_all",
+    "aggregate_signed_value_scalar_mixed_arithmetic_one_percent",
+    "aggregate_signed_value_scalar_mixed_coalesce_all",
+    "aggregate_signed_value_scalar_mixed_coalesce_one_percent",
+    "aggregate_signed_value_scalar_mixed_direct_all",
+    "aggregate_signed_value_scalar_mixed_direct_one_percent",
+    "aggregate_signed_value_scalar_sum_arithmetic_all",
+    "aggregate_signed_value_scalar_sum_arithmetic_one_percent",
+    "aggregate_signed_value_scalar_sum_coalesce_all",
+    "aggregate_signed_value_scalar_sum_coalesce_one_percent",
+    "aggregate_signed_value_scalar_sum_direct_all",
+    "aggregate_signed_value_scalar_sum_direct_one_percent",
+    "composite_active_region_report",
+    "distinct_category",
+    "distinct_group_key",
+    "distinct_group_key_category",
+    "distinct_optional_text",
+    "global_avg",
+    "global_count",
+    "global_count_distinct",
+    "global_count_star",
+    "global_max",
+    "global_min",
+    "global_sum",
+    "join_anti",
+    "join_duplicate_fanout",
+    "join_full",
+    "join_inner",
+    "join_left",
+    "join_population_anti",
+    "join_population_duplicate_fanout",
+    "join_population_inner_count",
+    "join_population_inner_mixed",
+    "join_population_left_count",
+    "join_population_left_mixed",
+    "join_population_semi",
+    "join_right",
+    "join_semi",
+    "nullable_all_null_is_not_null",
+    "nullable_all_null_is_null",
+    "nullable_mostly_null_is_not_null",
+    "nullable_mostly_null_is_null",
+    "nullable_nullable_no_null_is_not_null",
+    "nullable_nullable_no_null_is_null",
+    "nullable_optional_value_is_not_null",
+    "nullable_optional_value_is_null",
+    "numeric_add",
+    "numeric_mod",
+    "numeric_mul",
+    "numeric_sub",
+    "predicate_and",
+    "predicate_eq",
+    "predicate_ge",
+    "predicate_gt",
+    "predicate_le",
+    "predicate_lt",
+    "predicate_ne",
+    "predicate_not",
+    "predicate_one_row",
+    "predicate_or",
+    "projection_alias_filter",
+    "projection_constant",
+    "projection_limit_arithmetic_100",
+    "projection_limit_arithmetic_11",
+    "projection_limit_arithmetic_31",
+    "projection_limit_arithmetic_prefiltered_31",
+    "projection_limit_coalesce_100",
+    "projection_limit_coalesce_11",
+    "projection_limit_coalesce_31",
+    "projection_limit_coalesce_prefiltered_31",
+    "projection_limit_direct_100",
+    "projection_limit_direct_11",
+    "projection_limit_direct_31",
+    "projection_limit_direct_prefiltered_31",
+    "projection_limit_string_100",
+    "projection_limit_string_11",
+    "projection_limit_string_31",
+    "projection_limit_string_prefiltered_31",
+    "projection_limit_temporal_100",
+    "projection_limit_temporal_11",
+    "projection_limit_temporal_31",
+    "projection_limit_temporal_prefiltered_31",
+    "projection_narrow",
+    "projection_reordered",
+    "projection_rich",
+    "projection_wide",
+    "selectivity_0",
+    "selectivity_100",
+    "selectivity_10000",
+    "selectivity_100000",
+    "selectivity_1000000",
+    "selectivity_500000",
+    "set_except",
+    "set_intersect",
+    "set_union_all",
+    "set_union_distinct",
+    "star_join",
+    "star_join_products_first",
+    "string_length",
+    "string_lower",
+    "string_octet_length",
+    "string_trim",
+    "string_upper",
+    "temporal_date_day",
+    "temporal_date_month",
+    "temporal_date_year",
+    "temporal_timestamp_hour",
+    "temporal_timestamp_second",
+    "temporal_timestamp_year",
+    "topk_0_offset_0",
+    "topk_0_offset_7",
+    "topk_100_offset_0",
+    "topk_100_offset_7",
+    "topk_10_offset_0",
+    "topk_10_offset_7",
+    "topk_11_offset_0",
+    "topk_11_offset_7",
+    "topk_1_offset_0",
+    "topk_1_offset_7"
+  ],
+  "baseline_engine_seconds": 86.828000503,
+  "baseline_native_runs": [
+    "million_baseline_r1",
+    "million_composition_r1",
+    "full238_million_r1"
+  ],
+  "baseline_pairs": [
+    [
+      "million_baseline_r1",
+      "polars_million_initial_r1"
+    ],
+    [
+      "million_composition_r1",
+      "polars_million_composition_r1"
+    ],
+    [
+      "full238_million_r1",
+      "polars_full238_million_r1"
+    ]
+  ],
+  "expanded_file_bytes": 184925488,
+  "external_artifacts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/shardloom",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "b309284cfa8c9ba746ab64782e5d2ab9ae5485145b636439a4ba7482cc1e1027"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/_native.abi3.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "10e8792d3139456bbe48323fc3100996ba5b877394077bc57f2b8d3816dcb1f2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r1/dataset/fact-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "1ff786ab7d4301223a638cc92afe2b2acd452c3fda076631a4e3bf8bf4c20f1e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r1/dataset/entities-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "ded39f7d85a044be2d1e7ba490b7dbf46e02ea1d760f6e5637f208bb239ef0dc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r1/dataset/products-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "6d8e9415d67213d38e33b61073cb9773e7e68e597a7f1fd86f1618f8431ed726"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r1/dataset/relationships-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "5cdc0f8b5ce59a116e5eb721d9e1895fb5f527ce7fe10b66851389c9e0fbf55c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r1/dataset/calendar-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "97489ddf2d218993b50fcb45b5d4b01984bd52b52ed0ea2cf00c91791d75cc46"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r2/prepared/fact-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "b6d18ecba7bcfedfbe6cd75a5c31bb60beaa854a0ba0fe0dcd68709dc7622dc9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r2/prepared/entities-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "8ffc776dfec0956b7e745f33ce3d8f8c0bce0b728a0c7dc205e48dfa7a62b363"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r2/prepared/products-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "23c9dca3306c5aea57394ab9b4dae01c8f241bc48b3fbe0901e43ccc8dd0dc83"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r2/prepared/relationships-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "6aec21659841612aeb152503d0d5d0be62d2cbfc28e9612704553fbdf9acf0b5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_runner_r2/prepared/calendar-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "eb261ac29aa75c45d175a0cdb5a9f8ae86c8967a4a4b34c36d16a1d3ffcd2e02"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/dataset/fact-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "20c1a14bcd1d2b6e404203147f496f3383a7828a1e8cab8bf3c612890f049687"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/dataset/entities-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "189487422ad630e35df4fc7807449f324e2ba8045bf1294b522a414103de1e3c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/dataset/products-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "fb2d60e99bb9404b6f6fd727fc511c29cde5d52e414b1201fee5df904acdf1a9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/dataset/relationships-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "16bf95ba2112e7e1fb35d5ebb47ac3a6b14bbba5f914b7dbb4090e0fb28c9afe"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/dataset/calendar-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "346ccfcbc3a5638e5db0529580f3fad963a64f4163dca3ee92a5b5543d798781"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/prepared/fact-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "58d90c839f4a72d53f6f903eaa766055d56b800aea92fe085d8aeec0827630ba"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/prepared/entities-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "4edd5c1bdd3c68d1b8fc4a171602edcfb95328c40a193ebd5288878a70556c76"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/prepared/products-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "064e318a6bcbc2b15db485614dcc55f2e6097526b2d0730d53b7986775013d22"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/prepared/relationships-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "9a440441b177ccc93083255961dc5540573a9bc232a0cfdade024914da610986"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/tiny_breadth_r1/prepared/calendar-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "8aa58189013f635e3b2d880705a8d27b42c6008988114483f198e2489fe8b3cf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/dataset/fact-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "2922b50f3001af1b73fb8b0297ef74de257d05c21cb82aeb3870789e8a4253e7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/dataset/entities-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "b161da2a8cfbd72789aec7a89d2b5094ec44915e9a216ae8cd6309818a78eb47"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/dataset/products-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "d0ecb1ac15eeb62dfc21836f2ad4332c4962f7e2e57eb119bd18b123c16e65ea"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/dataset/relationships-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "8b9fa4caa40e4106bf6f10906a6e479f7db8af60df64abd68b43ded4a50552f4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/dataset/calendar-00000.arrow",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "346ccfcbc3a5638e5db0529580f3fad963a64f4163dca3ee92a5b5543d798781"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/prepared/fact-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "f0557bc29a0700b06ff6252286ec891a216da54502df6c4e1c105e71735d54f9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/prepared/entities-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "f7e05fcb5efd69cd81097f289723dc79c39d8513dbc1cd4fe3269a1efe591402"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/prepared/products-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "1653485866744dbf943f0bb0ab28b0dba3b971671a4a5323d2f2a2f561b7d5fa"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/prepared/relationships-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "3f34bab5925ec9ea5fcba8a8709c88febcbc7434e477ce1a54b4734b9e19834c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/million_baseline_r1/prepared/calendar-00000.vortex",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "8aa58189013f635e3b2d880705a8d27b42c6008988114483f198e2489fe8b3cf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/candidate-runtime-r1/shardloom",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "52773bd2ae12b29cf5622a11d60b0238e05a8105db45cfd27fa9535aa86b61f7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26/candidate-runtime-r1/_native.abi3.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "07419c76f3349c14bbf4bc5d614edfbb101f0fb989779954fa9936215c63e269"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/_polars_runtime_32/_polars_runtime.abi3.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "8dc8112465e25252fc97bf4da4d13345b6a76abf54128db7a1a8e0102f06e4d8"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_acero.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "60b26d8d31a5b3cc59d1dd0a92c09494dcd192f137dd699cd940232bedade672"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_azurefs.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "9d996f0bf5a10f3e518d2719d038e2d6319b71ecc886250de696cd83d05531ea"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_compute.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "c858c8a8133fb646c0693edac39c07a943747a0b7662eebe6f87470f764ea495"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_csv.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "0bbd820afbee63ed8078e335e274e741c6cadcf15a4aceab18660b79bb8bf873"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_dataset.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "677d8298afa69a9dd65dfdeec45ccc119ebfc7fb250cab1894754bc7f8a3fae7"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_dataset_orc.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "2f46ca48561ccef3f6a66ba7b550fa8b276e5ac6c9edefcb239edf29b0f2c667"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_dataset_parquet.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "a3bde2bd42a6df63a0a7403f4fc17dde8518f1e6820f71bcb37e5fc60e5d6582"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_dataset_parquet_encryption.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "67580bedd02b2f2495bd415b821bcc142fabd85a08323f7415c1836919ba5868"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_feather.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "09c9b7fd2a5052d7cddc294ac080e229313e364aefda848892a90905883860ed"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_flight.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "9a310b7e90ccd79cabcdacc1e45ab8db5c43451f99bab157f9188ad1d25ed194"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_fs.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "4ff14b33db312b7a001022be5ef4babe4586687236467cc915c375659a0b3397"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_gcsfs.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "cd6a529be57366fee0c8ca37e69888a38cb430cf2ee1acbdea082ec024e2053d"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_hdfs.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "5d4d22c6bd5a952c33c95d5b5d63e5b8adc83c7c0e36536a4cbfda1d9924c12b"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_json.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "341318815ac714372fc3d8d74ee351f2469c5c80aa07299025e8155a100454be"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_orc.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "9ae46c97de73a5af7f645a93153187256ca5412dc5e773d9dd7928dc410393bf"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_parquet.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "276d21d9c1d6967bdf9f2d3657915d1ac6f5866112d0888903ceef011b125087"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_parquet_encryption.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "6af79c2f37c525f1f260c99733f67b6ecdc9d47cb7d3043ed07e6cee5dd39fb7"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_pyarrow_cpp_tests.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "42ca9e8c015d663ca69aa9d0a946de5337835210f42ce7c9a5d782aee56d0dfe"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_s3fs.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "02fb06468f42b1fa041180fd3c6af99d0ed8b8df49a5be810c505076254a1b00"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/_substrait.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "366a0753a91b428023bad4c1a866ac70c012cfe9a115bfbc9357ffa55e8a7fad"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/lib.cpython-313-darwin.so",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "4f55902f0937f1dd576c98cbd9c520d087432ed6a7f636b9881bae897ff468c5"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "3cbd1378163f49c1e7a9918d0aaac25e6bfe017f488c501673328250f81012e1"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_acero.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "65dd12d418e4bf1edb1ab7e9eb1430f9367805676597d712814b24f7f01877aa"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_compute.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "689b7d2606cdeda727101d9742f47c8cccfa512b3c9f47d5c1f089182a6bcbc4"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_dataset.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "4c26ab9f42fc477d5b73a0322e6f63b556c1f32fd23744b049e61cf4607f71cd"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_flight.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "da6e600fdd3244ab039536d8fd30fe4bb483068f0d6be0aee84deb2747940c69"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python.2500.1.0.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "17d0a10d850ea4b908efcbcdeab41d49870a515a773929929c991aced2f27590"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "17d0a10d850ea4b908efcbcdeab41d49870a515a773929929c991aced2f27590"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "17d0a10d850ea4b908efcbcdeab41d49870a515a773929929c991aced2f27590"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python_flight.2500.1.0.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "201c72bf4dd080947c82e5a61abf1a58434496514254ae7ecd7ed60d10dfb714"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python_flight.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "201c72bf4dd080947c82e5a61abf1a58434496514254ae7ecd7ed60d10dfb714"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python_flight.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "201c72bf4dd080947c82e5a61abf1a58434496514254ae7ecd7ed60d10dfb714"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python_parquet_encryption.2500.1.0.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "1e317c3119b8606c4307ff46a0b53467a0ed4fc1d57b5ba4e1788345bcdf788b"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python_parquet_encryption.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "1e317c3119b8606c4307ff46a0b53467a0ed4fc1d57b5ba4e1788345bcdf788b"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_python_parquet_encryption.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "1e317c3119b8606c4307ff46a0b53467a0ed4fc1d57b5ba4e1788345bcdf788b"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libarrow_substrait.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "a53fd7317d945f787cff57dc4481d3598ad8bd9c9a17091210fdef2c10396eaa"
+    },
+    {
+      "path": "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/lib/python3.13/site-packages/pyarrow/libparquet.2500.dylib",
+      "reason": "large runtime/input payload excluded; exact identity and regeneration sources retained",
+      "sha256": "b625bb4c009c67ac2ec59684da1127765c442c96f703ea43c2d64df249e46854"
+    }
+  ],
+  "file_count": 18746,
+  "file_inventory": {
+    "bytes": 5527692,
+    "member": "objects/sha256/10016dfae9fc91b01721bb9ba5183259f04d929ac92a9515d68580adc99b3f0a",
+    "sha256": "10016dfae9fc91b01721bb9ba5183259f04d929ac92a9515d68580adc99b3f0a"
+  },
+  "incomplete_before_summary": [
+    "tiny_runner_r1"
+  ],
+  "limitations": [
+    "Digests check consistency, not signed execution provenance.",
+    "Replay compares complete retained results with frozen independent expectations; it does not rerun queries.",
+    "Runtime binaries, datasets, installed environments and compiler output are excluded.",
+    "Legacy missing job hashes and Python snapshot inventories remain explicit in replay proof_gaps."
+  ],
+  "original_evidence_root": "/Users/dylan/LocalData/shardloom/broad-query-2026-10-26",
+  "runs": [
+    "tiny_runner_r1",
+    "tiny_runner_r2",
+    "tiny_breadth_r1",
+    "tiny_corrections_r1",
+    "million_baseline_r1",
+    "million_composition_r1",
+    "full238_tiny_parity_r1",
+    "full238_million_r1",
+    "empty_sort_correction_r1",
+    "polars_million_initial_r1",
+    "polars_million_composition_r1",
+    "polars_full238_million_r1"
+  ],
+  "schema_version": "shardloom.broad_query.packet.v1",
+  "unique_objects": 15347
+}

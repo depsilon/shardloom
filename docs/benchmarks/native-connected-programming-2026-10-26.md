@@ -2,9 +2,21 @@
 
 # Connected programming acceptance — October 26, 2026
 
-Status: local acceptance passes for active queue item 17. Hosted CI and review
-remain separate from this record. This extends the source implementation beyond
-the published 1.0.0 package; no new package or release has been published.
+Status: item 17 is complete and merged in [PR #1610](https://github.com/depsilon/shardloom/pull/1610)
+as `c287ba45`, after the review corrections and all 54 hosted checks pass at
+`97c89e40`. Its documentation prerequisite #1609 merges as `931bf814` with all
+57 checks passing. The local observations below remain unchanged. This extends
+the source implementation beyond the published 1.0.0 package; no new package or
+release has been published.
+
+The supplementary [hosted acceptance](evidence/native-connected-programming-2026-10-26/review-hosted-acceptance-r2.json)
+preserves the original macOS runner-capacity cancellation and successful targeted
+retry on the same source/package. The [cleanup receipt](evidence/native-connected-programming-2026-10-26/review-payload-cleanup-r2.json)
+records retirement of completed package environments and the superseded runtime,
+with identities and closed handles checked before removal. Current runtime/wheel
+and compact evidence remain; item 18 is untouched. These additions do not alter
+the original portable packet. The [broad analytical program](../architecture/native-broad-query-program-2026-10-26.md)
+is the next implementation under item 20.
 
 ## Accepted behavior
 

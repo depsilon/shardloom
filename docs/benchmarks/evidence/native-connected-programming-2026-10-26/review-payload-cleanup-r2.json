@@ -1,0 +1,68 @@
+{
+  "schema_version": "shardloom.generated_artifact_retirement.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r1",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r2/package",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r2/venv",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r2/dist",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r3/package",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r3/venv"
+  ],
+  "manifest": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-payload-retirement-r2.json.xz",
+  "manifest_sha256": "152860adde7677cf74d23a3cda24d9649765896cf51966da5de7cb801ac422e2",
+  "retained_sha256": {
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/_native.abi3.so": "10e8792d3139456bbe48323fc3100996ba5b877394077bc57f2b8d3816dcb1f2",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/shardloom": "b309284cfa8c9ba746ab64782e5d2ab9ae5485145b636439a4ba7482cc1e1027",
+    "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r3/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "e301a8a758cc65e93f0fe389b6bc0c666c647260c66b86015ab94362047a99de"
+  },
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r1",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r2/package",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r2/venv",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r2/dist",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r3/package",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r3/venv",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "removed_entries": 22443,
+  "symlink_targets_followed": false,
+  "payload_backups_created": false,
+  "source_inputs_and_accepted_vortex_output_touched": false,
+  "unfinished_item18_touched": false,
+  "active_cargo_cache_touched": false,
+  "regular_files": 19741,
+  "symlinks": 6,
+  "retired_regular_bytes": 1223729864,
+  "retired_allocated_file_bytes": 1275244544,
+  "all_proof_files_unchanged": true
+}
