@@ -1,0 +1,75 @@
+{
+  "schema": "shardloom.ci_runner_capacity_observation.v1",
+  "observed_at": "2026-10-26T14:39:47Z",
+  "repository": "depsilon/shardloom",
+  "pull_request": 1610,
+  "head_revision": "97c89e406f4ab2173d4b65ef5f3e7378aef75848",
+  "run_id": 40332600140,
+  "job_id": 121629384033,
+  "classification": "hosted_macos_runner_not_acquired",
+  "tests_started": false,
+  "diagnostic": {
+    "headRevision": "97c89e406f4ab2173d4b65ef5f3e7378aef75848",
+    "checks": [
+      {
+        "id": 121629384033,
+        "name": "Native Python wheel (py313_macos)",
+        "head_sha": "97c89e406f4ab2173d4b65ef5f3e7378aef75848",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "details_url": "https://github.com/depsilon/shardloom/actions/runs/40332600140/job/121629384033",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 4
+        }
+      }
+    ],
+    "statuses": [],
+    "annotations": [
+      {
+        "path": ".github",
+        "start_line": 1,
+        "end_line": 1,
+        "annotation_level": "failure",
+        "message": "The job was not acquired by Runner of type hosted even after multiple attempts",
+        "title": "",
+        "raw_details": ""
+      },
+      {
+        "path": ".github",
+        "start_line": 1,
+        "end_line": 1,
+        "annotation_level": "notice",
+        "message": "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "title": "",
+        "raw_details": ""
+      },
+      {
+        "path": ".github",
+        "start_line": 1,
+        "end_line": 1,
+        "annotation_level": "notice",
+        "message": "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "title": "",
+        "raw_details": ""
+      },
+      {
+        "path": ".github",
+        "start_line": 1,
+        "end_line": 1,
+        "annotation_level": "notice",
+        "message": "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.",
+        "title": "",
+        "raw_details": ""
+      }
+    ],
+    "hasMore": false,
+    "job": null,
+    "jobs": [],
+    "log": null,
+    "logTruncated": false
+  },
+  "retry_plan": "Retry the affected job after the original workflow drains; retain source and built artifacts unchanged."
+}

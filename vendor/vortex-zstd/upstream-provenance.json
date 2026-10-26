@@ -40,25 +40,26 @@
     "provenance_path": "vendor/vortex-zstd/upstream-provenance.json"
   },
   "modified_files_sha256": {
-    "Cargo.toml": "1e83967a55a88f3d9e129e41992d15a5c01661e00a3cf02b56a2503f31945cab",
+    "Cargo.toml": "b5cf9c5d1c4488cd69f4a07ec2caeab1641d6fe169f1150e552ccc15ebe55397",
     "src/array.rs": "df40c9b9a92f975dac48612ce963d7a315cbfde298b5af57009f3fc518e8d0fd",
     "src/compute/cast.rs": "e7c24896b4fda8f07e86bf5586b0134e9875c429aa35a12a069298953979e917",
-    "src/lib.rs": "ce93afbb532bcf135538926e697f508d240f07348aa40e2af120b9e52d69a29a",
+    "src/lib.rs": "2ad9e68051554c4326aca60395198d236e978d512812f809f6b8917197655a2c",
     "src/test.rs": "fc1a76dbd5bc6d3f3240003ebf8b55e97ce2b5d96fc7fe0cd54c13177b0fbda5"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "42c6811a7b8e0448c2ead7089cba10843c3be0dad005220d93ca4445d1cbc7c4",
+    "README.shardloom.md": "09dc4c8e933f47039c6b6635c39aa9e01b6fe834c82e3514421c344476e81778",
     "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
     "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
     "src/decoder_workspace.rs": "c34d518ed724b778663b959a21610b40d7d729009412c09a788ac9d0f9a2e48c",
     "src/metadata_resources.rs": "66de9be321a47b23ee8192b7e1de37b163e5600ea1dd2af560e7109404622ce1",
     "src/metadata_resources_tests.rs": "96c52da21492ddc0e46345af48d01a1483580bf14b6af25fcff3727da475b81d",
-    "src/selected.rs": "631aebf780aab0c585505e88d19d16a9c52b090b266bd05e5ed1d50874048c74"
+    "src/selected.rs": "631aebf780aab0c585505e88d19d16a9c52b090b266bd05e5ed1d50874048c74",
+    "src/dependency_regression_tests.rs": "f16e06ff3722e87c1d18180aa2792a94ffa9aca6d05d0a70991ebe12090d80a5"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "42c6811a7b8e0448c2ead7089cba10843c3be0dad005220d93ca4445d1cbc7c4"
+    "sha256": "09dc4c8e933f47039c6b6635c39aa9e01b6fe834c82e3514421c344476e81778"
   },
   "supplemental_test_files": {}
 }

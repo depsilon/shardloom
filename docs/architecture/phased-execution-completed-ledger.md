@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Connected programming and current API documentation — merged acceptance`
+  — documentation [PR #1609](https://github.com/depsilon/shardloom/pull/1609)
+  merges as `931bf814` after 57 checks pass; connected programming
+  [PR #1610](https://github.com/depsilon/shardloom/pull/1610) merges as `c287ba45`
+  after 54 checks pass at `97c89e40`. The [acceptance](../benchmarks/native-connected-programming-2026-10-26.md)
+  records one lazy SQL/DataFrame model, scoped immutable named plans/CTEs,
+  typed parameters, shared discovery, observations and local notebook/DB-API/ADBC
+  adapters over the existing native owner. Default Vortex policy and referenced-only
+  relation ceilings have reproduced-before/fixed-after regression proof.
+  - Final local follow-up: 3,261 default Rust tests, default/native workspace lint,
+    1,001 Python tests with eight documented skips, 841 source-only core tests with
+    26 optional/environment skips and 182 installed native/adapter cases with none.
+    Original full native acceptance retains 6,128 passes and 35 existing ignores.
+  - The original isolated Full43 passes all 43 complete results and schemas at
+    47.935588458 engine seconds. Review fixes leave that CLI byte-identical; no
+    benchmark rerun or rewritten historical observation occurs.
+  - GitHub initially cancels the macOS wheel job before execution because a hosted
+    runner cannot be acquired. A targeted retry on the unchanged head/package passes
+    macOS, combined package acceptance and final readiness. The capacity failure
+    and original dependent failures remain in the supplementary evidence.
+  - Verified cleanup retires the superseded runtime and completed package environments:
+    19,741 regular files, six symlinks and 1,275,244,544 allocated file bytes. Current
+    runtime/wheel, source inputs and compact results remain; unfinished item 18 is
+    untouched. No payload backup, threshold change or package publication occurs.
+  - Item 20 now owns the expanded broad analytical program, shared five-interface
+    parity and remaining analytical/recursive/batch-function requirements. Connectors,
+    persistent catalogs, remote execution and CG-1 through CG-23 retain their scope.
+
 - [x] `Ingestion representation and scheduling — closed without runtime change`
   — the [October 25 decision](../benchmarks/native-ingest-window-decision-2026-10-25.md)
   preserves one isolated current-main ingestion at 49.303 engine seconds and

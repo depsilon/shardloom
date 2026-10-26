@@ -55,7 +55,7 @@ RUN_TESTS = """
 import json, pathlib, sys, unittest
 patterns = ("test_native*binding.py", "test_connected_programming.py",
             "test_native_function_catalog.py", "test_native_observations.py",
-            "test_native_standard_adapters.py")
+            "test_native_standard_adapters.py", "test_query_surface_native.py")
 suite = unittest.TestSuite()
 for pattern in patterns:
     selected = unittest.defaultTestLoader.discover(sys.argv[1], pattern=pattern)

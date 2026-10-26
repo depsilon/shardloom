@@ -1,0 +1,73 @@
+{
+  "status": "passed",
+  "schema_version": "shardloom.review_final_local_acceptance.v1",
+  "python": "3.13.13 (main, Apr  7 2026, 18:19:01) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "checks": [
+    {
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "scripts/write_public_api_reference.py",
+        "--check"
+      ],
+      "returncode": 0,
+      "stdout": "Application exports, command metadata, signatures, counts and native publication facts are current.\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "scripts/check_python_license_bundle.py"
+      ],
+      "returncode": 0,
+      "stdout": "{\"status\": \"passed\", \"registry_packages\": 436, \"vendored_packages\": 11, \"license_file_records\": 827, \"unique_text_files\": 249}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "archived_files_verified": 447,
+  "archived_source_files_unchanged": 341,
+  "manifest_sha256": "d799fcb17c51d7631c7854ef072c0cde2f97e134529864aa1e83c72ba5ce482a",
+  "archive_sha256": "61cbe38e212a695c6cf7c7383392e23f061556bbe29abe12200bcb354e683327",
+  "final_attributes_sha256": "bd41aa18089ec309bb41fa8b7c7a4bee22627899fdf7c70e002e579c2c2bbb5d",
+  "initial_precommit_probe": {
+    "command": [
+      "python3",
+      "scripts/write_public_api_reference.py",
+      "--check"
+    ],
+    "returncode": 1,
+    "interpreter": "macOS system Python 3.9",
+    "diagnostic": "TypeError: dataclass() got an unexpected keyword argument 'slots'",
+    "correction": "Use the same supported Python 3.13 as the successful guarded validations."
+  },
+  "initial_whitespace_check": {
+    "returncode": 2,
+    "diagnostic": "One final blank line in upstream ORC README and eight trailing-space lines in upstream Parquet generated help.",
+    "unchanged_upstream_sha256": {
+      "vendor/orc-rust/README.md": "88394b7c22866cbaf2b95bbf93659ae9ed2ccfa2bacb57f7b9cb328f26cd815f",
+      "vendor/parquet/src/bin/parquet-fromcsv-help.txt": "8a96bb57a021849802e61b0b9d07ff459acd7f7e0320330de4e77ae09a8a2e41"
+    },
+    "correction": "Preserve exact archive bytes; Git attributes exempt only these two unchanged documents from whitespace normalization/checking."
+  },
+  "queries_executed": 0
+}

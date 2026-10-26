@@ -16,6 +16,9 @@ mod aggregate_dense_pages;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitive_aggregate_empty_tests.rs"]
 mod aggregate_empty_tests;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_sort_empty_tests.rs"]
+mod sort_empty_tests;
 
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_aggregate_lowering.rs"]
@@ -18906,6 +18909,16 @@ fn sort_rows_report(
         .as_ref()
         .map_or_else(|| "none".to_string(), VortexSortRowsRequest::summary);
     let result_summary = rows_scan.result_summary.clone();
+    // A pushed-down predicate can consume source values and suppress every
+    // returned array. Reuse the aggregate/count provider-work contract instead
+    // of equating zero delivered arrays with a metadata-only execution.
+    let empty_provider_filter_work = scan.empty_provider_filter_work(request.predicate.as_ref())?;
+    let data_work = scan.data_read() || empty_provider_filter_work;
+    let scan_scope = if empty_provider_filter_work {
+        " scan_side_effect_scope=provider_filter_may_read_decode_materialize_not_observed_bytes"
+    } else {
+        ""
+    };
     let mut state_budget = sort_rows_state_budget_report(request, scan, input_rows)?;
     if let Some(spill) = &rows_scan.spill_report {
         state_budget.state_budget_status = "bounded_native_sort_runs".to_string();
@@ -18937,11 +18950,12 @@ fn sort_rows_report(
         primitive_kind: request.kind,
         scan_columns: None,
         result_summary: Some(format!(
-            "sort_rows input_rows={} output_rows={} projected_columns={} order={} values={}",
+            "sort_rows input_rows={} output_rows={} projected_columns={} order={}{} values={}",
             input_rows,
             rows,
             scan.projected_columns.join(","),
             sort_summary,
+            scan_scope,
             result_summary
         )),
         rows_scanned: scan.source_row_count,
@@ -18971,9 +18985,9 @@ fn sort_rows_report(
         state_budget,
         embedded_layout: scan.embedded_layout.clone(),
         evidence_collector: scan.evidence_collector(),
-        data_read: scan.data_read(),
-        data_decoded: scan.data_read(),
-        data_materialized: scan.data_read(),
+        data_read: data_work,
+        data_decoded: data_work,
+        data_materialized: data_work,
         upstream_scan_called: scan.upstream_scan_called(),
         row_read: scan.data_read(),
         arrow_converted: false,
@@ -18982,7 +18996,7 @@ fn sort_rows_report(
         spill_io_performed: rows_scan.spill_report.is_some(),
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: scan.data_read(),
+        materialization_boundary_reported: data_work,
         diagnostics: Vec::new(),
     })
 }

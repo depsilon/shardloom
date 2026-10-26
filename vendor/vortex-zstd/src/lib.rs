@@ -47,6 +47,8 @@ mod slice;
 mod zstd_buffers;
 
 #[cfg(test)]
+mod dependency_regression_tests;
+#[cfg(test)]
 mod test;
 
 /// Register the Zstd encodings and their optional edition declaration with a Vortex session.

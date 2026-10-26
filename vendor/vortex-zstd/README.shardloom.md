@@ -7,6 +7,14 @@ archive, original member hashes, license and preceding provider identity.
 `publish = false` prevents publishing this local provider. The root lockfile
 owns production dependency resolution; standalone-test lockfiles are ignored.
 
+The October 26 dependency correction selects `zstd =0.14.3` and
+`zstd-sys =2.1.2` (bundled libzstd 1.5.7). This removes the affected Rust wrapper
+versions reported by the upstream context-reuse, seekable, legacy-stream and
+WebAssembly allocator advisories. The audited C version, static workspace
+ownership and legacy-frame rejection remain in place. The wrapper packages use
+BSD-3-Clause licensing; their exact texts are included in the package notice
+bundle. This update does not add streaming, seekable or WebAssembly support.
+
 Retained changes admit codec/workspace bounds, training and frame metadata,
 compressed storage, decompression allocations and variable-binary handle tables
 through the shared fallible host allocator and external-memory reservations.

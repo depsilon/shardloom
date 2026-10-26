@@ -6559,6 +6559,10 @@ fn arrow_list_value_to_shardloom(
     Ok(ScalarValue::List(values))
 }
 
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "universal_format_io_compression_tests.rs"]
+mod compression_tests;
+
 #[cfg(test)]
 #[allow(clippy::too_many_lines)]
 mod tests {

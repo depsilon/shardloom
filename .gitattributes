@@ -16,6 +16,14 @@ docs/benchmarks/evidence/perf12-guarantees-2026-10-22/** -text
 # and whitespace. Their content hashes are verified by the license manifest.
 python/THIRD_PARTY_LICENSES/texts/*.txt -text -whitespace linguist-vendored=true
 
+# Keep the reviewed registry imports byte-exact and distinguish upstream code.
+vendor/arrow-ipc/** -text linguist-vendored=true
+vendor/orc-rust/** -text linguist-vendored=true
+vendor/parquet/** -text linguist-vendored=true
+# These unchanged upstream documents include whitespace bound by provenance.
+vendor/orc-rust/README.md -whitespace
+vendor/parquet/src/bin/parquet-fromcsv-help.txt -whitespace
+
 # Keep historical proof payloads in Git, outside install source archives.
 /docs/benchmarks/evidence/**/*.xz export-ignore
 /docs/benchmarks/evidence/**/*.gz export-ignore

@@ -62,6 +62,13 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
 
+    def test_remainder_declaration_preserves_numeric_precedence_and_rejects_text(self) -> None:
+        self.assertEqual((sl.col("value") % -3).sql, "value % -3")
+        self.assertEqual(((sl.col("value") + 1) % (sl.col("divisor") - 1)).sql,
+                         "(value + 1) % (divisor - 1)")
+        with self.assertRaises((TypeError, ValueError)):
+            sl.col("value") % "3; SELECT secret"
+
     def test_predicate_string_literals_preserve_empty_space_unicode_and_quotes(self) -> None:
         for value in ("", " ", "  text  ", "é", " O'Reilly "):
             with self.subTest(value=value):

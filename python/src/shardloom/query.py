@@ -365,6 +365,11 @@ class ColumnExpression:
 
         return self._numeric_binary("/", value)
 
+    def __mod__(self, value: object) -> "ColumnExpression":
+        """Declare native remainder, retaining SQL sign and null semantics."""
+
+        return self._numeric_binary("%", value)
+
     def __abs__(self) -> "ColumnExpression":
         """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
