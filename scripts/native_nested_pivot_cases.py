@@ -18,7 +18,7 @@ from run_clickbench_query_uat import file_sha256
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator, *,
         materializations=("python",), spill_strategy=False):
     from shardloom._result_schema import ResultType as Type, schema_fields
-    from shardloom.query import SqlWorkflow, UnsupportedWorkflowOperationReport
+    from shardloom.query import LazyFrame, UnsupportedWorkflowOperationReport
 
     if context.resources is None:
         raise ValueError("nested pivot validation requires an explicit context allocation")
@@ -36,12 +36,12 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     cases, invalid, declaration_denials = [], [], []
 
     def sql(statement, source):
-        return SqlWorkflow(statement, context.client, source_bindings=source._declared_sources())
+        return LazyFrame.from_sql(statement, context.client, source_bindings=source._declared_sources())
 
     def add(name, workflow, rows, schema, stages=1, *, sql_statement=None, large=False):
         if isinstance(workflow, UnsupportedWorkflowOperationReport):
             raise ValueError(f"{name}: nested pivot declaration was rejected")
-        variants = [("sql", workflow)] if isinstance(workflow, SqlWorkflow) else [
+        variants = [("sql", workflow)] if workflow.source.relation is not None else [
             ("dataframe", workflow),
             ("sql", sql(sql_statement or workflow._relation_statement(), workflow)),
         ]
@@ -52,7 +52,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                                             for binding in declared._declared_sources())})
 
     def reject(name, workflow, reason):
-        variants = [("sql", workflow)] if isinstance(workflow, SqlWorkflow) else [
+        variants = [("sql", workflow)] if workflow.source.relation is not None else [
             ("dataframe", workflow), ("sql", sql(workflow._relation_statement(), workflow)),
         ]
         invalid.extend((f"{case_prefix}-invalid-{name}-{surface}", declared, reason)

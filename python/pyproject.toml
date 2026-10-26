@@ -32,6 +32,8 @@ classifiers = [
 
 [project.optional-dependencies]
 materialization = ["numpy", "pandas", "pyarrow"]
+adbc = ["adbc-driver-manager>=1.12,<2", "pyarrow>=25,<26"]
+notebook = ["ipython>=8"]
 
 [project.urls]
 Homepage = "https://shardloom.io"

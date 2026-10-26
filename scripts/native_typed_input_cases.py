@@ -14,7 +14,7 @@ from native_streaming_protocol_cases import Peer
 from native_workflow_outputs import LOCAL_FORMATS, write_outputs
 from shardloom._result_schema import ResultType as T
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 
 
 def assert_python_values(actual, expected):
@@ -54,7 +54,7 @@ def run(harness):
         frame = source(mode, supplied, declaration)
         if front == "dataframe":
             return frame.select(*selected)
-        return SqlWorkflow(f"SELECT {','.join(selected)} FROM '{frame.source.uri}'", harness.client,
+        return LazyFrame.from_sql(f"SELECT {','.join(selected)} FROM '{frame.source.uri}'", harness.client,
                            source_bindings=frame._declared_sources())
 
     def exact_schema(result, wanted=fields):
@@ -157,13 +157,13 @@ def run(harness):
         frame = source(mode, rows)
         selected = ("blob", "amount", "u64", "samples", "detail")
         if front == "sql":
-            filtered = SqlWorkflow(
+            filtered = LazyFrame.from_sql(
                 f"SELECT {','.join(selected)} FROM '{frame.source.uri}' WHERE flag = FALSE", harness.client,
                 source_bindings=frame._declared_sources())
-            aggregate = SqlWorkflow(
+            aggregate = LazyFrame.from_sql(
                 f"SELECT COUNT(*) AS n,SUM(amount) AS total,MIN(u64) AS low,MAX(u64) AS high FROM '{frame.source.uri}'",
                 harness.client, source_bindings=frame._declared_sources())
-            grouped = SqlWorkflow(
+            grouped = LazyFrame.from_sql(
                 f"SELECT samples,COUNT(*) AS n FROM '{frame.source.uri}' WHERE flag IS NOT NULL GROUP BY samples ORDER BY samples",
                 harness.client, source_bindings=frame._declared_sources())
         else:

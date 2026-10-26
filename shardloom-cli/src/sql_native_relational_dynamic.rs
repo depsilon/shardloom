@@ -19,66 +19,28 @@ pub(super) struct Declaration {
 }
 
 pub(super) fn required(query: &ParsedRelationQuery) -> bool {
-    match query {
-        ParsedRelationQuery::Select(parsed) => select_required(parsed),
-        ParsedRelationQuery::Set(set) => set.branches.iter().any(select_required),
-    }
+    super::visit::Node::Query(query).dynamic()
 }
 
-pub(super) fn source_required(source: &ParsedRelationSource) -> bool {
-    match source {
-        ParsedRelationSource::Local(_) => false,
-        ParsedRelationSource::Derived(query) => required(query),
-        ParsedRelationSource::Unary(unary) => {
-            unary.request.kind == shardloom_vortex::VortexQueryPrimitiveKind::PivotRows
-                || required(&unary.input)
-        }
-    }
+pub(super) fn source_required(
+    source: &ParsedRelationSource,
+    inputs: &super::BoundRelations,
+) -> bool {
+    super::visit::Node::Source(source).dynamic_bound(inputs)
 }
 
-pub(super) fn select_required(parsed: &ParsedSqlLocalSource) -> bool {
-    source_required(&parsed.source)
-        || super::scalar::surfaces(parsed)
-            .into_iter()
-            .any(super::scalar::dynamic_required)
-        || parsed
-            .join
-            .as_ref()
-            .is_some_and(|join| source_required(&join.right_source))
-        || parsed
-            .predicate_surfaces()
-            .into_iter()
-            .any(predicate_required)
+pub(super) fn select_required(
+    parsed: &ParsedSqlLocalSource,
+    inputs: &super::BoundRelations,
+) -> bool {
+    super::visit::Node::Select(parsed).dynamic_bound(inputs)
 }
 
-pub(super) fn predicate_required(predicate: &ParsedPredicate) -> bool {
-    let (source, filter, projected) = match predicate {
-        ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
-            return super::scalar::dynamic_required(left) || super::scalar::dynamic_required(right);
-        }
-        ParsedPredicate::Logical { left, right, .. } => {
-            return predicate_required(left) || predicate_required(right);
-        }
-        ParsedPredicate::Not { inner } => return predicate_required(inner),
-        ParsedPredicate::InSubquery { subquery, .. }
-        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        ParsedPredicate::RowValueInSubquery { subquery, .. } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        ParsedPredicate::ExistsSubquery { subquery } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        _ => return false,
-    };
-    source_required(source) || predicate_required(filter) || projected.is_some_and(select_required)
+pub(super) fn predicate_required(
+    predicate: &ParsedPredicate,
+    inputs: &super::BoundRelations,
+) -> bool {
+    super::visit::Node::Predicate(predicate).dynamic_bound(inputs)
 }
 
 pub(super) fn prepare(
@@ -99,7 +61,7 @@ pub(super) fn prepare(
     }
     // Retain the already parsed declaration, including nested statement copies.
     // Every execution only resolves schemas and lowers it; it does not reparse.
-    let size = declaration_size(&parsed)?;
+    let size = declaration_size(&parsed, cancellation)?;
     let mut declaration_bytes = size.bytes;
     let shared_memory =
         session.map(shardloom_vortex::resident_session::ResidentVortexSession::shared_memory_pool);
@@ -150,6 +112,7 @@ pub(super) fn prepare(
         inputs(schemas)
     };
     let lower = move |schemas: &mut VortexRelationalPreparation<'_>| {
+        let token = schemas.cancellation_token();
         // A pivot can execute before a later branch has even been lowered.
         // Declare complete-tree reuse now, combining aliases of each URI.
         for uri in &reused {
@@ -167,6 +130,10 @@ pub(super) fn prepare(
             resolve_source: &mut resolver,
             declaration: Some(declaration.clone()),
             outer: None,
+            bound_inputs: super::BoundRelations::new(),
+            lowered_input: None,
+            cancellation: token.clone(),
+            parameters: BTreeMap::new(),
         };
         let mut query = lowerer.query(&parsed)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
@@ -206,145 +173,9 @@ fn partition_source_uses(
     (uris, reused)
 }
 
-fn declaration_size(query: &ParsedRelationQuery) -> NativeResult<DeclarationSize<'_>> {
-    let mut size = DeclarationSize {
-        bytes: 65_536,
-        queries: 0,
-        predicates: 0,
-        source_uses: BTreeMap::new(),
-    };
-    size.query(query, 0)?;
-    Ok(size)
-}
-
-/// A conservative declaration credit, separate from native operator credits.
-/// Count every retained normalized statement, even shared Arc children. The
-/// per-byte allowance covers the parser's projection/predicate representations,
-/// their Vec/String headers, and overlapping per-parameter lowering copies.
-/// This is not a claim that the credit bounds total process RSS.
-struct DeclarationSize<'a> {
-    bytes: usize,
-    queries: usize,
-    predicates: usize,
-    source_uses: BTreeMap<&'a ParsedRelationLeaf, u8>,
-}
-
-impl<'a> DeclarationSize<'a> {
-    fn query(&mut self, query: &'a ParsedRelationQuery, depth: usize) -> NativeResult<()> {
-        if depth > 24 {
-            return Err(unsupported_sql_error(
-                "dynamic declaration exceeds 24 levels",
-            ));
-        }
-        match query {
-            ParsedRelationQuery::Select(parsed) => self.select(parsed, depth),
-            ParsedRelationQuery::Set(set) => {
-                for branch in &set.branches {
-                    self.select(branch, depth)?;
-                }
-                Ok(())
-            }
-        }
-    }
-
-    fn select(&mut self, parsed: &'a ParsedSqlLocalSource, depth: usize) -> NativeResult<()> {
-        self.queries += 1;
-        if self.queries > 128 || depth > 24 {
-            return Err(unsupported_sql_error(
-                "dynamic declaration exceeds 128 queries or 24 levels",
-            ));
-        }
-        self.bytes = parsed
-            .normalized_statement
-            .len()
-            .checked_mul(1024)
-            .and_then(|bytes| bytes.checked_add(std::mem::size_of::<ParsedSqlLocalSource>() * 16))
-            .and_then(|bytes| self.bytes.checked_add(bytes))
-            .ok_or_else(|| unsupported_sql_error("dynamic declaration metadata size overflow"))?;
-        self.source(&parsed.source, depth + 1)?;
-        if let Some(join) = &parsed.join {
-            self.source(&join.right_source, depth + 1)?;
-        }
-        for predicate in parsed.predicate_surfaces() {
-            self.predicate(predicate, depth + 1)?;
-        }
-        for value in super::scalar::surfaces(parsed) {
-            self.scalar(value, depth + 1)?;
-        }
-        Ok(())
-    }
-
-    fn scalar(
-        &mut self,
-        value: &'a super::scalar_expression::ParsedScalarExpression,
-        depth: usize,
-    ) -> NativeResult<()> {
-        for (_, binding) in &value.bindings {
-            match binding {
-                super::scalar_expression::RelationalBinding::Scalar(query) => {
-                    self.query(query, depth)?;
-                }
-                super::scalar_expression::RelationalBinding::Predicate(predicate) => {
-                    self.predicate(predicate, depth)?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn source(&mut self, source: &'a ParsedRelationSource, depth: usize) -> NativeResult<()> {
-        match source {
-            ParsedRelationSource::Local(leaf) => {
-                let count = self.source_uses.entry(leaf).or_default();
-                *count = (*count + 1).min(2);
-                Ok(())
-            }
-            ParsedRelationSource::Derived(query) => self.query(query, depth),
-            ParsedRelationSource::Unary(unary) => self.query(&unary.input, depth),
-        }
-    }
-
-    fn predicate(&mut self, predicate: &'a ParsedPredicate, depth: usize) -> NativeResult<()> {
-        self.predicates += 1;
-        if depth > 24 || self.predicates > 4096 {
-            return Err(unsupported_sql_error(
-                "dynamic declaration exceeds 24 levels or 4096 predicates",
-            ));
-        }
-        let (source, filter, projected) = match predicate {
-            ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
-                self.scalar(left, depth + 1)?;
-                self.scalar(right, depth + 1)?;
-                return Ok(());
-            }
-            ParsedPredicate::Logical { left, right, .. } => {
-                self.predicate(left, depth + 1)?;
-                return self.predicate(right, depth + 1);
-            }
-            ParsedPredicate::Not { inner } => return self.predicate(inner, depth + 1),
-            ParsedPredicate::InSubquery { subquery, .. }
-            | ParsedPredicate::QuantifiedSubquery { subquery, .. } => (
-                &subquery.source,
-                subquery.predicate.as_ref(),
-                subquery.projected_plan.as_deref(),
-            ),
-            ParsedPredicate::RowValueInSubquery { subquery, .. } => (
-                &subquery.source,
-                subquery.predicate.as_ref(),
-                subquery.projected_plan.as_deref(),
-            ),
-            ParsedPredicate::ExistsSubquery { subquery } => (
-                &subquery.source,
-                subquery.predicate.as_ref(),
-                subquery.projected_plan.as_deref(),
-            ),
-            _ => return Ok(()),
-        };
-        self.source(source, depth + 1)?;
-        self.predicate(filter, depth + 1)?;
-        if let Some(projected) = projected {
-            self.select(projected, depth + 1)?;
-        }
-        Ok(())
-    }
+fn declaration_size<'a>(
+    query: &'a ParsedRelationQuery,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> NativeResult<super::visit::Admission<'a>> {
+    super::visit::Admission::inspect(query, cancellation)
 }

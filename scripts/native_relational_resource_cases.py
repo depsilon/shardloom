@@ -13,7 +13,7 @@ from run_native_unary_uat import csv_cell
 
 def run(context, output, guard, accepted, complete, sources, identity):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     workspace = output / "spill"
@@ -41,7 +41,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
     resources = {"memory_gb": 1, "max_parallelism": 1, "spill": spill}
     frame = (context.read_vortex(native).limit(count).sort("category", "label", nulls="last")
              .with_column("quantity", sl.col("identifier") + 3))
-    sql = SqlWorkflow(frame._relation_statement(), context.client,
+    sql = LazyFrame.from_sql(frame._relation_statement(), context.client,
                       source_bindings=frame._declared_sources())
 
     def clean():
@@ -178,7 +178,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
           if row["identifier"] >= 29_903]),
     ]:
         limited = transformed.limit(97)
-        spelling = SqlWorkflow(limited._relation_statement(), context.client,
+        spelling = LazyFrame.from_sql(limited._relation_statement(), context.client,
                                source_bindings=limited._declared_sources())
         for family, workflow in [("dataframe", limited), ("sql", spelling)]:
             guard()

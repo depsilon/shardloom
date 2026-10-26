@@ -35,6 +35,8 @@ categories = ["command-line-utilities", "database", "encoding", "science"]
 rust-version = "1.96"
 
 [workspace.dependencies]
+adbc_core = "=0.24.0"
+adbc_ffi = "=0.24.0"
 arrow-array = "=59.3.1"
 arrow-buffer = "=59.3.1"
 arrow-data = "=59.3.1"

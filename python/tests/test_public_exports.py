@@ -39,14 +39,13 @@ NEW_EXPORTS = frozenset(
         "ShardLoomInstallationError",
         "ShardLoomClosedError",
         "ShardLoomTimeoutError",
+        "Window",
+        "WindowSpec",
     }
 )
 ADVANCED_RUNTIME_NAMES = frozenset(
     {
         "ShardLoomSession",
-        "SessionLazyFrame",
-        "SessionGroupedLazyFrame",
-        "SessionSqlWorkflow",
         "SessionSqlResult",
         "SessionPreparedState",
         "LocalFileFingerprint",
@@ -62,7 +61,7 @@ ADVANCED_RUNTIME_NAMES = frozenset(
 
 class PublicExportTests(unittest.TestCase):
     def test_historical_names_keep_module_fingerprint_and_explicit_audience(self) -> None:
-        self.assertEqual(len(LEGACY_EXPORTS), 247)
+        self.assertEqual(len(LEGACY_EXPORTS), 243)
         normalized = sorted(
             (name, module) for name, (module, _audience) in LEGACY_EXPORTS.items()
         )
@@ -71,7 +70,7 @@ class PublicExportTests(unittest.TestCase):
         ).hexdigest()
         self.assertEqual(
             fingerprint,
-            "0e7bdee9c66ce39a2fdf95d7a09291ab465cc22ac510afc8097da770862a7c50",
+            "9afbe0b14f608a0ba14e5ed7b09bf0cea12669674762e90a7e915acd92bf761d",
         )
         self.assertEqual(set(LEGACY_EXPORTS) - set(EXPORTS), STALE_EXPORTS)
         self.assertEqual(STALE_EXPORTS, EXPECTED_STALE_EXPORTS)
@@ -85,7 +84,7 @@ class PublicExportTests(unittest.TestCase):
             {name for names in groups.values() for name in names}, set(EXPORTS)
         )
         self.assertTrue(all(audience in set(audiences) for _, audience in EXPORTS.values()))
-        self.assertEqual(NAMESPACE_MODULES, {"native", "diagnostics", "testing"})
+        self.assertEqual(NAMESPACE_MODULES, {"native", "diagnostics", "testing", "functions", "types", "adbc", "dbapi", "notebook"})
 
         diagnostic_names = {
             "ClaimSummary", "EvidenceSummary", "FallbackStatus", "FieldEntry",

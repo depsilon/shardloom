@@ -122,6 +122,7 @@ class NativePlanState:
         self.lock = threading.Lock()
         self.key = None
         self.plan = None
+        self.references = frozenset()
 
 
 def execution_envelope(fields, *, result=None, operation="collect"):
@@ -180,6 +181,19 @@ class NativeBackend:
     def command(self, args):
         return _checked_native_call(self.session.command, args, timeout=self.timeout)
 
+    def declaration(self, frame, spill=None):
+        from ._connected import native_declaration
+        if isinstance(spill, Mapping):
+            spill = json.dumps(dict(spill), sort_keys=True)
+        return native_declaration(self, frame, spill)
+
+    def schema(self, frame, allocation):
+        from ._result_schema import schema_fields
+
+        raw = _checked_native_call(self.declaration(frame).schema_json,
+            resources=native_resources(self.module, allocation), timeout=self.timeout)
+        return schema_fields(raw, "vortex.dtype.serde.v1")
+
     def close(self):
         self.session.close()
 
@@ -237,6 +251,11 @@ class NativeBackend:
             and value is not None and value is not False
             for name, value in request.items()
         )
+        if request.get("_native_frame") is not None:
+            if (operation_options or request.get("execution_policy", "vortex_middle") != "vortex_middle"
+                    or request.get("materialization_policy", "bounded") != "bounded"):
+                raise ValueError("connected plans require the native bounded execution policy; operation-specific overrides cannot replace the relation")
+            return self.declaration(request["_native_frame"], request.get("spill"))
         statement = request.get("sql_statement")
         if (operation_options or not statement
                 or request.get("execution_policy", "vortex_middle") != "vortex_middle"
@@ -271,7 +290,7 @@ class NativeBackend:
                     producer = inputs[reference]
                     fields = _native_fields(producer._types)
                     streaming = memory.get("streaming", False)
-                    batches.append((reference, producer.open, fields, streaming))
+                    batches.append((reference, producer, fields, streaming))
                     declarations.append((reference, "batches", id(producer), tuple(fields), streaming))
                 elif memory.get("kind") == "range":
                     declarations.append((reference, "range", tuple(memory.items())))

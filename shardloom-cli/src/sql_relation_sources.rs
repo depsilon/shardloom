@@ -3,14 +3,19 @@
 use super::*;
 use std::sync::Arc;
 
+#[path = "sql_relation_scopes.rs"]
+pub(super) mod scopes;
 #[path = "sql_relation_unary.rs"]
 mod unary;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 pub(crate) use unary::request as native_unary_request;
 
 pub(super) fn validate_query_structure(raw: &str) -> Result<(), ShardLoomError> {
-    if raw.len() > 256 * 1024 {
-        return Err(unsupported_sql_error("SQL exceeds 256 KiB"));
+    // Bound parser intake independently of execution. Shared CTE declarations
+    // no longer expand into this text; action admission accounts for retained
+    // syntax and operator multiplicity before opening any source.
+    if raw.len() > 8 * 1024 * 1024 {
+        return Err(unsupported_sql_error("SQL parser intake exceeds 8 MiB"));
     }
     let mut chars = raw.chars().peekable();
     let mut quoted = false;
@@ -71,6 +76,11 @@ pub(crate) struct ParsedRelationLeaf {
 
 impl ParsedRelationLeaf {
     pub(super) fn parse(raw: &str) -> Result<Self, ShardLoomError> {
+        if raw.trim_start().starts_with(':') {
+            return Err(unsupported_sql_error(
+                "scalar parameters cannot name a relation; use an explicit relation binding",
+            ));
+        }
         Ok(Self {
             path: parse_source_path(raw)?,
             declared_identifier: validate_sql_identifier(raw).is_ok(),
@@ -99,8 +109,15 @@ impl ParsedRelationLeaf {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum ParsedRelationQuery {
+    /// A query-local immutable relation binding, never a source path or text.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    Input(usize),
     Select(Box<ParsedSqlLocalSource>),
     Set(Box<ParsedSqlLocalSourceUnion>),
+    Columns {
+        input: Arc<Self>,
+        names: Vec<String>,
+    },
 }
 
 #[cfg(test)]
@@ -134,6 +151,9 @@ impl std::fmt::Display for ParsedRelationSource {
 impl ParsedRelationQuery {
     pub(super) fn parse(raw: &str) -> Result<Self, ShardLoomError> {
         let mut statement = normalize_sql_statement(raw)?;
+        if starts_with_keyword(&statement, "with") {
+            return scopes::parse(&statement);
+        }
         let synthetic = top_level_keyword_indexes(&statement, "limit")?.is_empty();
         if synthetic {
             write!(&mut statement, " LIMIT {}", usize::MAX).expect("String writes cannot fail");
@@ -157,8 +177,11 @@ impl ParsedRelationQuery {
 
     fn statement(&self) -> &str {
         match self {
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            Self::Input(_) => "bound relation",
             Self::Select(select) => &select.normalized_statement,
             Self::Set(set) => &set.normalized_statement,
+            Self::Columns { input, .. } => input.statement(),
         }
     }
 }
@@ -274,7 +297,7 @@ pub(super) fn parse_source(
 ) -> Result<(ParsedRelationSource, Option<String>), ShardLoomError> {
     let raw = raw.trim();
     let as_index = find_keyword_outside_quotes_and_parentheses(raw, "as")?;
-    let (relation, alias) = if let Some(index) = as_index {
+    let (relation, mut alias) = if let Some(index) = as_index {
         let alias = raw[index + "as".len()..].trim();
         validate_sql_identifier(alias)?;
         if alias.eq_ignore_ascii_case("outer") {
@@ -286,6 +309,9 @@ pub(super) fn parse_source(
     } else {
         (raw, None)
     };
+    if require_alias && alias.is_none() && validate_sql_identifier(relation).is_ok() {
+        alias = Some(relation.to_owned());
+    }
     if (require_alias || relation.starts_with('(')) && alias.is_none() {
         return Err(unsupported_sql_error(
             "JOIN and derived sources require <source> AS <alias> syntax",

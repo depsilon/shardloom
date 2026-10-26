@@ -22,7 +22,7 @@ _APPLICATION_NAMES = tuple(
     name for name in _names_for_audience("application") if name != "__version__"
 )
 __all__ = tuple(
-    sorted({"__version__", "native", "diagnostics", "testing", *_APPLICATION_NAMES})
+    sorted({"__version__", *_NAMESPACE_MODULES, *_APPLICATION_NAMES})
 )
 _MISSING = object()
 

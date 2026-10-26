@@ -8,7 +8,7 @@ use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy,
     local_primitives::prepared_relational::{
-        PreparedVortexRelational, VortexRelationalPreparation, prepare_relational_with_schema,
+        PreparedVortexRelational, VortexRelationalPreparation,
     },
     query_primitive::VortexSimpleAggregateMeasure,
     relational_query::{
@@ -27,10 +27,17 @@ use shardloom_vortex::{
     },
 };
 
-#[path = "sql_native_cte.rs"]
-mod cte;
+#[path = "sql_native_relation_declaration.rs"]
+mod declaration;
 #[path = "sql_native_relational_dynamic.rs"]
 mod dynamic;
+#[path = "sql_native_relational_observation.rs"]
+mod observation;
+pub(crate) use declaration::{
+    NativeSqlDeclaration, NativeSqlLowering, ResolvedSources, prune_bound_plan,
+};
+#[path = "sql_native_parameters.rs"]
+mod parameters;
 #[path = "sql_native_relational_predicate.rs"]
 mod predicate;
 #[path = "sql_native_relational_projection.rs"]
@@ -44,8 +51,12 @@ mod scalar;
 mod tests;
 #[path = "sql_native_relational_unary.rs"]
 mod unary;
+#[path = "sql_native_relational_visit.rs"]
+mod visit;
 
 type NativeResult<T> = Result<T, ShardLoomError>;
+pub(crate) type BoundRelations =
+    BTreeMap<usize, std::sync::Arc<crate::native::NativeRelationDeclaration>>;
 
 type SourceResolver<'a> = dyn FnMut(
         &ParsedRelationLeaf,
@@ -124,12 +135,45 @@ fn prepare_with_owner(
     cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> NativeResult<PreparedVortexRelational> {
     cancellation.check()?;
+    let owned_session;
+    let session = if let Some(session) = session {
+        session
+    } else {
+        owned_session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+            policy.resource_envelope.memory_budget_bytes,
+            policy.max_parallelism,
+        )?;
+        &owned_session
+    };
+    // Parser and graph metadata compete with existing live inputs/results before
+    // source resolution. Increase the same credit for per-consumer lowering only
+    // after computing its cost without expanding shared declarations.
+    let parser_bytes = raw
+        .len()
+        .checked_mul(1024)
+        .and_then(|bytes| bytes.checked_add(65_536))
+        .ok_or_else(|| unsupported_sql_error("SQL parser metadata size overflow"))?;
+    let mut metadata = session.reserve_input_scratch(
+        u64::try_from(parser_bytes)
+            .map_err(|_| unsupported_sql_error("SQL parser metadata size overflow"))?,
+    )?;
+    parameters::validate(raw, &BTreeMap::<String, Expression>::new())?;
     let parsed = parsed_native_query(raw)?;
+    let admission = visit::Admission::inspect(&parsed, cancellation)?;
+    metadata.resize(
+        u64::try_from(parser_bytes.max(admission.bytes))
+            .map_err(|_| unsupported_sql_error("SQL declaration metadata size overflow"))?,
+    )?;
+    if admission.query_depth > 24 {
+        return Err(unsupported_sql_error(
+            "recursive SQL lowering exceeds 24 levels",
+        ));
+    }
     if dynamic::required(&parsed) {
         return dynamic::prepare(
             parsed,
             policy,
-            session,
+            Some(session),
             inputs,
             &mut resolve_source,
             cancellation,
@@ -145,17 +189,18 @@ fn prepare_with_owner(
             resolve_source: &mut resolve_source,
             declaration: None,
             outer: None,
+            bound_inputs: BoundRelations::new(),
+            lowered_input: None,
+            cancellation: cancellation.clone(),
+            parameters: BTreeMap::new(),
         };
         let mut query = lowerer.query(&parsed)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
     };
-    match session {
-        Some(session) => shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session_controlled(
-            policy, session, lower, cancellation,
-        ),
-        None => prepare_relational_with_schema(policy, lower),
-    }
+    shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session_controlled(
+        policy, session, lower, cancellation,
+    )
 }
 
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.
@@ -204,40 +249,7 @@ pub(crate) fn source_leaves(raw: &str) -> NativeResult<BTreeSet<ParsedRelationLe
 }
 
 fn declared_query_sources(query: &ParsedRelationQuery, paths: &mut BTreeSet<ParsedRelationLeaf>) {
-    match query {
-        ParsedRelationQuery::Select(parsed) => declared_sources(parsed, paths),
-        ParsedRelationQuery::Set(set) => {
-            for branch in &set.branches {
-                declared_sources(branch, paths);
-            }
-        }
-    }
-}
-
-fn declared_relation_sources(
-    source: &ParsedRelationSource,
-    paths: &mut BTreeSet<ParsedRelationLeaf>,
-) {
-    match source {
-        ParsedRelationSource::Local(path) => {
-            paths.insert(path.clone());
-        }
-        ParsedRelationSource::Derived(query) => declared_query_sources(query, paths),
-        ParsedRelationSource::Unary(operation) => declared_query_sources(&operation.input, paths),
-    }
-}
-
-fn declared_sources(parsed: &ParsedSqlLocalSource, paths: &mut BTreeSet<ParsedRelationLeaf>) {
-    declared_relation_sources(&parsed.source, paths);
-    if let Some(join) = &parsed.join {
-        declared_relation_sources(&join.right_source, paths);
-    }
-    for predicate in parsed.predicate_surfaces() {
-        predicate::declared_sources(predicate, paths);
-    }
-    for value in scalar::surfaces(parsed) {
-        scalar::declared_sources(value, paths);
-    }
+    visit::Node::Query(query).sources(paths);
 }
 
 fn register_sql_memory_inputs(
@@ -258,27 +270,8 @@ fn register_sql_memory_inputs(
 }
 
 fn admitted_statement(raw: &str) -> NativeResult<(String, bool)> {
-    if raw.len() > 256 * 1024 {
-        return Err(unsupported_sql_error("native SQL exceeds 256 KiB"));
-    }
-    let mut quoted = false;
-    let mut depth = 0usize;
-    for ch in raw.chars() {
-        match ch {
-            '\'' => quoted = !quoted,
-            '(' if !quoted => {
-                depth += 1;
-                if depth > 24 {
-                    return Err(unsupported_sql_error(
-                        "native SQL exceeds 24 nesting levels",
-                    ));
-                }
-            }
-            ')' if !quoted => depth = depth.saturating_sub(1),
-            _ => {}
-        }
-    }
-    let mut statement = cte::expand(normalize_sql_statement(raw)?)?;
+    relation_sources::validate_query_structure(raw)?;
+    let mut statement = normalize_sql_statement(raw)?;
     let synthetic_limit = top_level_keyword_indexes(&statement, "limit")?.is_empty();
     if synthetic_limit {
         write!(&mut statement, " LIMIT {}", usize::MAX).expect("String writes cannot fail");
@@ -299,10 +292,11 @@ fn parsed_native_query(raw: &str) -> NativeResult<ParsedRelationQuery> {
     Ok(query)
 }
 
-struct Lowered {
-    plan: Plan,
-    columns: Vec<String>,
-    qualifiers: BTreeMap<String, String>,
+#[derive(Clone)]
+pub(crate) struct Lowered {
+    pub(crate) plan: Plan,
+    pub(crate) columns: Vec<String>,
+    pub(crate) qualifiers: BTreeMap<String, String>,
 }
 
 impl Lowered {
@@ -389,11 +383,78 @@ struct Lowerer<'a, 'session> {
     resolve_source: &'a mut SourceResolver<'a>,
     declaration: Option<dynamic::Declaration>,
     outer: Option<Vec<String>>,
+    bound_inputs: BoundRelations,
+    lowered_input: Option<(usize, Lowered)>,
+    cancellation: shardloom_exec::compute_pool::CancellationToken,
+    parameters: BTreeMap<String, Expression>,
 }
 
 impl Lowerer<'_, '_> {
     fn query(&mut self, query: &ParsedRelationQuery) -> NativeResult<Lowered> {
+        let mut current = query;
+        let mut pending = Vec::new();
+        loop {
+            self.cancellation.check()?;
+            let input = match current {
+                ParsedRelationQuery::Columns { input, .. } => input.as_ref(),
+                ParsedRelationQuery::Select(select) if select.join.is_none() => {
+                    let ParsedRelationSource::Derived(input) = &select.source else {
+                        break;
+                    };
+                    input.as_ref()
+                }
+                _ => break,
+            };
+            pending.push(current);
+            current = input;
+        }
+        let mut lowered = self.query_root(current)?;
+        for parent in pending.into_iter().rev() {
+            self.cancellation.check()?;
+            lowered = match parent {
+                ParsedRelationQuery::Columns { names, .. } => Self::rename_columns(lowered, names)?,
+                ParsedRelationQuery::Select(select) => {
+                    let input = Self::source_alias(lowered, select);
+                    self.select_input(select, None, !select.limit_is_synthetic, input)?
+                }
+                _ => unreachable!("only linear parents are queued"),
+            };
+        }
+        Ok(lowered)
+    }
+
+    fn query_root(&mut self, query: &ParsedRelationQuery) -> NativeResult<Lowered> {
+        self.cancellation.check()?;
         let parsed = match query {
+            ParsedRelationQuery::Input(index) => {
+                if let Some((slot, lowered)) = &self.lowered_input
+                    && slot == index
+                {
+                    return Ok(lowered.clone());
+                }
+                let declaration =
+                    self.bound_inputs.get(index).cloned().ok_or_else(|| {
+                        unsupported_sql_error("named relation input is not bound")
+                    })?;
+                let sources = self
+                    .declaration
+                    .as_ref()
+                    .ok_or_else(|| {
+                        unsupported_sql_error("named relation source ownership is absent")
+                    })?
+                    .sources
+                    .clone();
+                return declaration.lower_with_outer(
+                    self.schemas,
+                    &sources,
+                    &self.cancellation,
+                    self.outer.as_deref(),
+                );
+            }
+            ParsedRelationQuery::Columns { input, names } => {
+                let result = self.query(input)?;
+                return Self::rename_columns(result, names);
+            }
             ParsedRelationQuery::Select(parsed) => {
                 return self.select(parsed, None, !parsed.limit_is_synthetic);
             }
@@ -514,19 +575,11 @@ impl Lowerer<'_, '_> {
     }
 
     fn source(&mut self, parsed: &ParsedSqlLocalSource) -> NativeResult<Lowered> {
-        let mut left = self.relation(&parsed.source)?;
+        let left = self.relation(&parsed.source)?;
         let Some(join) = &parsed.join else {
             // A derived source establishes a fresh alias scope. Its output names
             // stay unchanged, so SELECT * and unqualified references agree.
-            left.qualifiers.clear();
-            if let Some(alias) = &parsed.source_alias {
-                left.qualifiers = left
-                    .columns
-                    .iter()
-                    .map(|name| (format!("{alias}.{name}"), name.clone()))
-                    .collect();
-            }
-            return Ok(left);
+            return Ok(Self::source_alias(left, parsed));
         };
         let right = self.relation(&join.right_source)?;
         let left_alias = parsed
@@ -634,6 +687,16 @@ impl Lowerer<'_, '_> {
         apply_limit: bool,
     ) -> NativeResult<Lowered> {
         let input = self.source(parsed)?;
+        self.select_input(parsed, outer, apply_limit, input)
+    }
+
+    fn select_input(
+        &mut self,
+        parsed: &ParsedSqlLocalSource,
+        outer: Option<&[String]>,
+        apply_limit: bool,
+        input: Lowered,
+    ) -> NativeResult<Lowered> {
         let visible = input.columns.clone();
         let uses_outer = predicate::select_direct_outer(parsed)?;
         let outer = outer
@@ -694,6 +757,35 @@ impl Lowerer<'_, '_> {
         if apply_limit {
             input = input.limit(parsed.limit).offset(parsed.offset)?;
         }
+        input.plan = input.plan.compact_streaming();
+        Ok(input)
+    }
+
+    fn source_alias(mut input: Lowered, parsed: &ParsedSqlLocalSource) -> Lowered {
+        input.qualifiers.clear();
+        if let Some(alias) = &parsed.source_alias {
+            input.qualifiers = input
+                .columns
+                .iter()
+                .map(|name| (format!("{alias}.{name}"), name.clone()))
+                .collect();
+        }
+        input
+    }
+
+    fn rename_columns(input: Lowered, names: &[String]) -> NativeResult<Lowered> {
+        if input.columns.len() != names.len() {
+            return Err(unsupported_sql_error(
+                "CTE column-name list must match the relation's output width",
+            ));
+        }
+        let expressions = names
+            .iter()
+            .zip(&input.columns)
+            .map(|(name, source)| Ok((name.clone(), column(source)?)))
+            .collect::<NativeResult<Vec<_>>>()?;
+        let mut input = input.project(expressions);
+        input.plan = input.plan.compact_streaming();
         Ok(input)
     }
 

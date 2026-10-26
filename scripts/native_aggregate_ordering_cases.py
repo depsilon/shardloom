@@ -12,7 +12,7 @@ from native_report_evidence import require_native_resource_admission
 
 
 def run(context, output, guard, accepted, complete, sources, identity):
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     raw, native, typed = (output / name for name in ("readings.jsonl", "readings.vortex", "readings.data"))
@@ -106,7 +106,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
             statement = (f"SELECT cohort, AVG(reading) AS mean, COUNT(*) AS entries FROM '{base.source.uri}' "
                          f"GROUP BY cohort ORDER BY mean {direction} NULLS {nulls.upper()}, "
                          f"cohort {direction} NULLS {nulls.upper()}")
-            sql = SqlWorkflow(statement, context.client, source_bindings=base._declared_sources())
+            sql = LazyFrame.from_sql(statement, context.client, source_bindings=base._declared_sources())
             expected = [grouped[index] for index in indices]
             for spelling, workflow in [("dataframe", frame), ("sql", sql)]:
                 family = f"aggregate-{source_name}-{spelling}-{direction.lower()}-{nulls}"

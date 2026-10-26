@@ -6,6 +6,9 @@
 
 use std::collections::BTreeMap;
 
+#[path = "expression_builtins.rs"]
+pub mod builtins;
+
 use regex::Regex;
 
 use crate::{
@@ -941,47 +944,57 @@ fn eval_function_call(
     args: &[Expression],
     row: &ExpressionInputRow,
 ) -> EvalResult<EvalValue> {
-    let normalized = name.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "utf8_starts_with" | "starts_with" => {
+    let definition = builtins::scalar(name)
+        .filter(|definition| definition.reference_supported)
+        .ok_or_else(|| {
+            EvalFailure::unsupported(
+                "function_call",
+                format!(
+                    "function {name:?} is not admitted by the current native semantics baseline"
+                ),
+            )
+        })?;
+    if !definition.accepts_arity(args.len()) {
+        return Err(EvalFailure::invalid(
+            definition.family,
+            format!(
+                "function {name:?} requires {} through {} arguments",
+                definition.min_args, definition.max_args
+            ),
+        ));
+    }
+    match definition.name {
+        "starts_with" => {
             eval_string_predicate(name, args, row, |value, needle| value.starts_with(needle))
         }
-        "utf8_contains" | "contains" => {
+        "contains" => {
             eval_string_predicate(name, args, row, |value, needle| value.contains(needle))
         }
-        "utf8_ends_with" | "ends_with" => {
+        "ends_with" => {
             eval_string_predicate(name, args, row, |value, needle| value.ends_with(needle))
         }
-        "utf8_regex_match" | "regex_match" | "rlike" | "regexp" | "regexp_like" => {
-            eval_string_regex_predicate(name, args, row)
-        }
-        "utf8_lower" | "lower" => eval_string_transform(name, args, row, str::to_lowercase),
-        "utf8_upper" | "upper" => eval_string_transform(name, args, row, str::to_uppercase),
-        "utf8_trim" | "trim" => {
-            eval_string_transform(name, args, row, |value| value.trim().to_string())
-        }
-        "utf8_length" | "length" => eval_string_length(name, args, row),
-        "binary_byte_length" | "byte_length" | "octet_length" => {
-            eval_binary_byte_length(name, args, row)
-        }
-        "utf8_concat" | "concat" => eval_string_concat(name, args, row),
-        "utf8_substr" | "utf8_substring" | "substr" | "substring" => {
-            eval_string_substr(name, args, row)
-        }
-        "utf8_left" | "left" => eval_string_left_right(name, args, row, false),
-        "utf8_right" | "right" => eval_string_left_right(name, args, row, true),
-        "utf8_replace" | "replace" => eval_string_replace(name, args, row),
-        "binary_unhex" | "unhex" => eval_binary_unhex(name, args, row),
-        "binary_from_base64" | "from_base64" => eval_binary_from_base64(name, args, row),
-        "numeric_abs" | "abs" => eval_numeric_abs(name, args, row),
-        "numeric_floor" | "floor" => eval_numeric_rounding(name, args, row, f64::floor),
-        "numeric_ceil" | "ceil" | "ceiling" => eval_numeric_rounding(name, args, row, f64::ceil),
-        "numeric_round" | "round" => eval_numeric_rounding(name, args, row, f64::round),
-        "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
-        "date_month" | "month" => eval_date_extract(name, args, row, |days| {
+        "regex_match" => eval_string_regex_predicate(name, args, row),
+        "lower" => eval_string_transform(name, args, row, str::to_lowercase),
+        "upper" => eval_string_transform(name, args, row, str::to_uppercase),
+        "trim" => eval_string_transform(name, args, row, |value| value.trim().to_string()),
+        "length" => eval_string_length(name, args, row),
+        "byte_length" => eval_binary_byte_length(name, args, row),
+        "concat" => eval_string_concat(name, args, row),
+        "substr" => eval_string_substr(name, args, row),
+        "left" => eval_string_left_right(name, args, row, false),
+        "right" => eval_string_left_right(name, args, row, true),
+        "replace" => eval_string_replace(name, args, row),
+        "unhex" => eval_binary_unhex(name, args, row),
+        "from_base64" => eval_binary_from_base64(name, args, row),
+        "abs" => eval_numeric_abs(name, args, row),
+        "floor" => eval_numeric_rounding(name, args, row, f64::floor),
+        "ceil" => eval_numeric_rounding(name, args, row, f64::ceil),
+        "round" => eval_numeric_rounding(name, args, row, f64::round),
+        "date_year" => eval_date_extract(name, args, row, date32_year),
+        "date_month" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
         }),
-        "date_day" | "day" => eval_date_extract(name, args, row, |days| {
+        "date_day" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_day(days)).expect("day fits i32")
         }),
         "timestamp_year" => eval_timestamp_extract(name, args, row, |micros| {
@@ -3519,35 +3532,7 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
 }
 
 fn function_operator_family(name: &str) -> &'static str {
-    match name.trim().to_ascii_lowercase().as_str() {
-        "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" | "utf8_ends_with"
-        | "ends_with" | "utf8_regex_match" | "regex_match" | "rlike" | "regexp" | "regexp_like" => {
-            "string_predicate"
-        }
-        "utf8_lower" | "lower" | "utf8_upper" | "upper" | "utf8_trim" | "trim" => {
-            "string_transform"
-        }
-        "utf8_length" | "length" => "string_length",
-        "binary_byte_length" | "byte_length" | "octet_length" => "binary_byte_length",
-        "utf8_concat" | "concat" | "utf8_substr" | "utf8_substring" | "substr" | "substring"
-        | "utf8_left" | "left" | "utf8_right" | "right" | "utf8_replace" | "replace" => {
-            "string_function"
-        }
-        "binary_unhex" | "unhex" | "binary_from_base64" | "from_base64" => "binary_function",
-        "numeric_abs" | "abs" => "numeric_abs",
-        "numeric_floor" | "floor" | "numeric_ceil" | "ceil" | "ceiling" | "numeric_round"
-        | "round" => "numeric_rounding",
-        "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
-        "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
-        | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
-        "date_add_days" | "date_sub_days" => "date_arithmetic",
-        "timestamp_add_seconds" | "timestamp_sub_seconds" => "timestamp_arithmetic",
-        "date_diff_days" | "timestamp_diff_seconds" => "temporal_difference",
-        "coalesce" => "null_coalesce",
-        "nullif" => "nullif_projection",
-        "case_when" => "conditional_projection",
-        _ => "function",
-    }
+    builtins::scalar(name).map_or("function", |definition| definition.family)
 }
 
 /// Adds a day offset, narrowing only after the complete operation.

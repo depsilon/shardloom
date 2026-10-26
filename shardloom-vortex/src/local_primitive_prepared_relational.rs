@@ -73,6 +73,8 @@ mod scan;
 #[path = "local_primitive_relational_selection.rs"]
 mod selection;
 use selection::LocalSelection;
+#[path = "local_primitive_relational_observation.rs"]
+mod observation;
 #[path = "local_primitive_relational_transform.rs"]
 mod transform;
 #[cfg(feature = "vortex-write")]
@@ -103,6 +105,10 @@ const BATCH_ROWS: usize = 2048;
 
 /// The report and certificate describe the same execution as delivered batches.
 pub struct ExecutedVortexRelational {
+    /// Complete metrics from this execution. A writer exposes them only after
+    /// successful publication; failed actions never return a completed report.
+    pub observations: Vec<CompletedVortexRelationalObservation>,
+    _observation_metadata: Option<MemoryLease>,
     /// Actual primitive report, selected after complete typed validation.
     /// Projection-only file scans, general relational, memory and streaming
     /// providers use the relational certificate without a primitive report.
@@ -226,6 +232,14 @@ pub struct ExecutedVortexRelational {
     _metadata: MemoryLease,
 }
 
+/// One explicitly named plan-position observation with the exact native schema.
+pub struct CompletedVortexRelationalObservation {
+    pub name: String,
+    pub result_jsonl: Budgeted<String>,
+    pub result_schema_json: Budgeted<String>,
+    _metadata: MemoryLease,
+}
+
 /// Complete small collection; streaming delivery has an independent row bound.
 pub struct CollectedVortexRelational {
     pub timing: super::query_timing::QueryTiming,
@@ -290,6 +304,34 @@ struct Node {
 }
 
 impl Node {
+    fn has_observations(&self) -> bool {
+        match &self.kind {
+            NodeKind::Pipeline { input, stages } => {
+                stages
+                    .iter()
+                    .any(|stage| matches!(stage.kind, PipelineKind::Observe(_)))
+                    || input.has_observations()
+            }
+            NodeKind::Project { input, .. }
+            | NodeKind::Filter { input, .. }
+            | NodeKind::Sort { input, .. }
+            | NodeKind::Limit { input, .. }
+            | NodeKind::Aggregate { input, .. }
+            | NodeKind::Window { input, .. }
+            | NodeKind::Unary { input, .. } => input.has_observations(),
+            NodeKind::Join { left, right, .. } | NodeKind::Set { left, right, .. } => {
+                left.has_observations() || right.has_observations()
+            }
+            NodeKind::Subquery {
+                input, relation, ..
+            } => {
+                input.has_observations()
+                    || matches!(relation, SubqueryRelation::Bound(relation) if relation.has_observations())
+            }
+            NodeKind::Scan { .. } | NodeKind::Outer | NodeKind::CompletedPivot { .. } => false,
+        }
+    }
+
     /// Propagate only conservative bounds from already held metadata. An
     /// overflowing or unknown bound stays unknown; no input is sampled/replayed.
     fn upper_rows(&self, sources: &[PreparedVortexSource]) -> Option<u64> {
@@ -324,6 +366,17 @@ impl Node {
             } => Some(input.upper_rows(sources).map_or(*count as u64, |rows| {
                 rows.saturating_sub(*offset as u64).min(*count as u64)
             })),
+            NodeKind::Pipeline { input, stages } => {
+                let mut rows = input.upper_rows(sources);
+                for stage in stages {
+                    if let PipelineKind::Limit { offset, count } = stage.kind {
+                        rows = Some(rows.map_or(count as u64, |rows| {
+                            rows.saturating_sub(offset as u64).min(count as u64)
+                        }));
+                    }
+                }
+                rows
+            }
             NodeKind::Set {
                 left, right, kind, ..
             } => match kind {
@@ -367,6 +420,10 @@ enum ScanSource {
 }
 
 enum NodeKind {
+    Pipeline {
+        input: Box<Node>,
+        stages: Vec<PipelineStage>,
+    },
     CompletedPivot {
         operation: Box<BoundUnary>,
         result: Box<RefCell<Option<CompletedPivot>>>,
@@ -432,6 +489,29 @@ enum NodeKind {
     },
 }
 
+struct PipelineStage {
+    fields: Vec<(String, DType)>,
+    kind: PipelineKind,
+}
+
+enum PipelineKind {
+    Project(Vec<native_relational_expression::Expression>),
+    Filter(native_relational_expression::Expression),
+    Limit { offset: usize, count: usize },
+    Observe(Box<BoundObservation>),
+}
+
+type BoundProjection = (
+    Vec<(String, DType)>,
+    Vec<native_relational_expression::Expression>,
+);
+
+struct BoundObservation {
+    name: String,
+    projection: Option<BoundProjection>,
+    spec: native_relational_aggregate::Spec,
+}
+
 /// Bind a static-schema plan and source generations without reading payload rows.
 /// Use [`prepare_relational_with_dynamic_schema`] when a frontend must discover
 /// data-dependent fields before building its downstream plan.
@@ -462,6 +542,13 @@ pub struct VortexRelationalPreparation<'a> {
 }
 
 impl VortexRelationalPreparation<'_> {
+    /// The current action's cancellation owner. Dynamic lowering must use this
+    /// token instead of retaining a token from an earlier preparation/action.
+    #[must_use]
+    pub fn cancellation_token(&self) -> shardloom_exec::compute_pool::CancellationToken {
+        self.binding.cancellation_token()
+    }
+
     /// Register an already admitted native file without reopening its provider.
     /// # Errors
     /// Rejects a changed source, mismatched URI or a different resource owner.
@@ -747,6 +834,7 @@ enum FileScanBatching {
 
 #[derive(Default)]
 struct Metrics<'a> {
+    observations: RefCell<Option<ReservedVec<CompletedVortexRelationalObservation>>>,
     #[cfg(feature = "vortex-write")]
     spill: Option<super::native_relational_spill::State>,
     scan_rows: Cell<u64>,
@@ -1029,6 +1117,20 @@ impl PreparedVortexRelational {
             )),
             PreparedRoot::Dynamic(_) => None,
         }
+    }
+
+    /// Serialize admitted output metadata without starting a consumer or reading
+    /// rows. Data-dependent schemas stay unavailable until execution completes.
+    /// # Errors
+    /// Returns schema serialization or shared memory admission errors.
+    pub fn output_schema_json(
+        &self,
+    ) -> Result<Option<shardloom_exec::live_memory::Budgeted<String>>> {
+        self.output_dtype()
+            .map(|dtype| {
+                super::collect::serialize_result_schema(&dtype, &self.session.shared_memory_pool())
+            })
+            .transpose()
     }
 
     /// Synchronously consume bounded native batches. Even an empty result has a
@@ -1323,8 +1425,18 @@ impl PreparedVortexRelational {
                 spill.as_ref(),
             )?,
         };
+        let (observations, observation_metadata) =
+            metrics.observations.borrow_mut().take().map_or_else(
+                || (vec![], None),
+                |observations| {
+                    let (values, lease) = observations.into_parts();
+                    (values, Some(lease))
+                },
+            );
         Ok((
             ExecutedVortexRelational {
+                observations,
+                _observation_metadata: observation_metadata,
                 primitive_execution,
                 provider_selection_reason: self.provider_selection_reason,
                 resources: self.policy.resource_envelope.declared_resources,
@@ -1545,6 +1657,9 @@ impl PreparedVortexRelational {
             | NodeKind::Limit { .. } => {
                 self.run_transform(node, context, metrics, batch_rows, parameter, consume)
             }
+            NodeKind::Pipeline { input, stages } => self.run_pipeline(
+                input, stages, context, metrics, batch_rows, parameter, consume,
+            ),
             NodeKind::Scan {
                 source,
                 plan,

@@ -1,11 +1,10 @@
 //! Resolve inert scalar declarations and preserve lazy relational demand.
 
 use super::{
-    BTreeSet, ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer, NativeResult,
-    ParsedAggregateArgument, ParsedPredicate, ParsedRelationLeaf, ParsedRelationQuery,
-    ParsedRelationSource, ParsedSqlLocalSource, ScalarValue, SubqueryKind, UnaryOp, WindowFunction,
-    dynamic, expression_source_columns, is_outer_correlation_ref, predicate, scalar_expression,
-    unsupported_sql_error,
+    ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer, NativeResult,
+    ParsedAggregateArgument, ParsedRelationQuery, ParsedSqlLocalSource, ScalarValue, SubqueryKind,
+    UnaryOp, WindowFunction, expression_source_columns, is_outer_correlation_ref, predicate,
+    scalar_expression, unsupported_sql_error,
 };
 use scalar_expression::{ParsedScalarExpression, RelationalBinding};
 
@@ -36,120 +35,46 @@ pub(super) fn surfaces(parsed: &ParsedSqlLocalSource) -> Vec<&ParsedScalarExpres
     values
 }
 
-pub(super) fn declared_sources(
-    value: &ParsedScalarExpression,
-    paths: &mut BTreeSet<ParsedRelationLeaf>,
-) {
-    for (_, binding) in &value.bindings {
-        match binding {
-            RelationalBinding::Scalar(query) => super::declared_query_sources(query, paths),
-            RelationalBinding::Predicate(value) => predicate::declared_sources(value, paths),
-        }
-    }
-}
-
 pub(super) fn direct_outer(value: &ParsedScalarExpression) -> bool {
     expression_source_columns(value)
         .iter()
         .any(|name| is_outer_correlation_ref(name))
         || value.bindings.iter().any(|(_, binding)| match binding {
             RelationalBinding::Predicate(value) => predicate::direct_outer(value),
-            RelationalBinding::Scalar(_) => false,
+            RelationalBinding::Scalar(_) | RelationalBinding::Parameter(_) => false,
         })
-}
-
-pub(super) fn dynamic_required(value: &ParsedScalarExpression) -> bool {
-    value.bindings.iter().any(|(_, binding)| match binding {
-        RelationalBinding::Scalar(query) => dynamic::required(query),
-        RelationalBinding::Predicate(value) => dynamic::predicate_required(value),
-    })
 }
 
 /// Reject data-dependent scalar schemas before either preparation route can
 /// resolve sources or evaluate a pivot, including in a never-selected branch.
 pub(super) fn validate_query(query: &ParsedRelationQuery) -> NativeResult<()> {
-    match query {
-        ParsedRelationQuery::Select(parsed) => validate_select(parsed),
-        ParsedRelationQuery::Set(set) => set.branches.iter().try_for_each(validate_select),
-    }
+    validate_bound_query(query, &super::BoundRelations::new())
 }
 
-fn validate_select(parsed: &ParsedSqlLocalSource) -> NativeResult<()> {
-    validate_source(&parsed.source)?;
-    if let Some(join) = &parsed.join {
-        validate_source(&join.right_source)?;
+pub(super) fn validate_bound_query(
+    query: &ParsedRelationQuery,
+    inputs: &super::BoundRelations,
+) -> NativeResult<()> {
+    for node in super::visit::Node::Query(query).walk() {
+        if let super::visit::Node::Scalar(value) = node {
+            for (_, binding) in &value.bindings {
+                if let RelationalBinding::Scalar(query) = binding {
+                    require_static_schema(query, inputs)?;
+                }
+            }
+        }
     }
-    for predicate in parsed.predicate_surfaces() {
-        validate_predicate(predicate)?;
-    }
-    surfaces(parsed)
-        .into_iter()
-        .try_for_each(validate_expression)
+    Ok(())
 }
 
-fn validate_source(source: &ParsedRelationSource) -> NativeResult<()> {
-    match source {
-        ParsedRelationSource::Local(_) => Ok(()),
-        ParsedRelationSource::Derived(query) => validate_query(query),
-        ParsedRelationSource::Unary(operation) => validate_query(&operation.input),
-    }
-}
-
-fn require_static_schema(query: &ParsedRelationQuery) -> NativeResult<()> {
-    if dynamic::required(query) {
+fn require_static_schema(
+    query: &ParsedRelationQuery,
+    inputs: &super::BoundRelations,
+) -> NativeResult<()> {
+    if super::visit::Node::Query(query).dynamic_bound(inputs) {
         return Err(unsupported_sql_error(
             "scalar subquery requires a statically bound output schema; dynamic pivot is not admitted",
         ));
-    }
-    Ok(())
-}
-
-fn validate_expression(value: &ParsedScalarExpression) -> NativeResult<()> {
-    for (_, binding) in &value.bindings {
-        match binding {
-            RelationalBinding::Scalar(query) => {
-                require_static_schema(query)?;
-                validate_query(query)?;
-            }
-            RelationalBinding::Predicate(predicate) => validate_predicate(predicate)?,
-        }
-    }
-    Ok(())
-}
-
-fn validate_predicate(predicate: &ParsedPredicate) -> NativeResult<()> {
-    let (source, filter, projected) = match predicate {
-        ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
-            validate_expression(left)?;
-            return validate_expression(right);
-        }
-        ParsedPredicate::Logical { left, right, .. } => {
-            validate_predicate(left)?;
-            return validate_predicate(right);
-        }
-        ParsedPredicate::Not { inner } => return validate_predicate(inner),
-        ParsedPredicate::InSubquery { subquery, .. }
-        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        ParsedPredicate::RowValueInSubquery { subquery, .. } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        ParsedPredicate::ExistsSubquery { subquery } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        _ => return Ok(()),
-    };
-    validate_source(source)?;
-    validate_predicate(filter)?;
-    if let Some(parsed) = projected {
-        validate_select(parsed)?;
     }
     Ok(())
 }
@@ -179,6 +104,9 @@ impl Lowerer<'_, '_> {
                     .map(|(_, value)| value)
                     .ok_or_else(|| unsupported_sql_error("scalar relational binding is absent"))?;
                 return match binding {
+                    RelationalBinding::Parameter(name) => {
+                        Ok((input, self.parameter(name, expression.id)?))
+                    }
                     RelationalBinding::Scalar(query) => {
                         self.scalar_subquery_value(input, query, guard)
                     }
@@ -267,14 +195,23 @@ impl Lowerer<'_, '_> {
         Ok((input, expression))
     }
 
+    fn parameter(&self, name: &str, id: ExprId) -> NativeResult<Expression> {
+        let mut value =
+            self.parameters.get(name).cloned().ok_or_else(|| {
+                unsupported_sql_error(&format!("missing scalar parameter :{name}"))
+            })?;
+        value.id = id;
+        Ok(value)
+    }
+
     fn scalar_subquery_value(
         &mut self,
         input: Lowered,
         query: &ParsedRelationQuery,
         guard: Option<&Expression>,
     ) -> NativeResult<(Lowered, Expression)> {
-        require_static_schema(query)?;
-        let parameterized = predicate::query_outer(query)?;
+        require_static_schema(query, &self.bound_inputs)?;
+        let parameterized = predicate::query_outer(query, &self.bound_inputs)?;
         let previous = std::mem::replace(
             &mut self.outer,
             parameterized.then(|| input.columns.clone()),

@@ -8,50 +8,6 @@ use super::{
     is_outer_correlation_ref, map_columns, unsupported_sql_error,
 };
 
-pub(super) fn declared_sources(
-    predicate: &ParsedPredicate,
-    paths: &mut std::collections::BTreeSet<super::ParsedRelationLeaf>,
-) {
-    let (source, filter, projected) = match predicate {
-        ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
-            super::scalar::declared_sources(left, paths);
-            super::scalar::declared_sources(right, paths);
-            return;
-        }
-        ParsedPredicate::Logical { left, right, .. } => {
-            declared_sources(left, paths);
-            declared_sources(right, paths);
-            return;
-        }
-        ParsedPredicate::Not { inner } => {
-            declared_sources(inner, paths);
-            return;
-        }
-        ParsedPredicate::InSubquery { subquery, .. }
-        | ParsedPredicate::QuantifiedSubquery { subquery, .. } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        ParsedPredicate::RowValueInSubquery { subquery, .. } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        ParsedPredicate::ExistsSubquery { subquery } => (
-            &subquery.source,
-            subquery.predicate.as_ref(),
-            subquery.projected_plan.as_deref(),
-        ),
-        _ => return,
-    };
-    super::declared_relation_sources(source, paths);
-    declared_sources(filter, paths);
-    if let Some(projected) = projected {
-        super::declared_sources(projected, paths);
-    }
-}
-
 pub(super) fn has_subquery(predicate: &ParsedPredicate) -> bool {
     super::scalar_expression::predicate_has_bindings(predicate)
 }
@@ -161,35 +117,69 @@ pub(super) fn select_direct_outer(parsed: &ParsedSqlLocalSource) -> NativeResult
     Ok(false)
 }
 
-fn source_outer(source: &ParsedRelationSource) -> NativeResult<bool> {
+fn source_outer(
+    source: &ParsedRelationSource,
+    inputs: &super::BoundRelations,
+) -> NativeResult<bool> {
     match source {
         ParsedRelationSource::Local(_) => Ok(false),
-        ParsedRelationSource::Derived(query) => query_outer(query),
-        ParsedRelationSource::Unary(unary) => query_outer(&unary.input),
+        ParsedRelationSource::Derived(query) => query_outer(query, inputs),
+        ParsedRelationSource::Unary(unary) => query_outer(&unary.input, inputs),
     }
 }
 
-pub(super) fn query_outer(query: &super::ParsedRelationQuery) -> NativeResult<bool> {
-    match query {
-        super::ParsedRelationQuery::Select(parsed) => select_outer(parsed),
-        super::ParsedRelationQuery::Set(set) => {
-            for branch in &set.branches {
-                if select_outer(branch)? {
+pub(super) fn query_outer(
+    query: &super::ParsedRelationQuery,
+    inputs: &super::BoundRelations,
+) -> NativeResult<bool> {
+    let mut pending = vec![query];
+    let mut visited = std::collections::BTreeSet::new();
+    while let Some(query) = pending.pop() {
+        if !visited.insert(std::ptr::from_ref(query) as usize) {
+            continue;
+        }
+        let selects: &[ParsedSqlLocalSource] = match query {
+            super::ParsedRelationQuery::Input(index) => {
+                if inputs.get(index).is_some_and(|input| input.outer) {
                     return Ok(true);
                 }
+                continue;
             }
-            Ok(false)
+            super::ParsedRelationQuery::Columns { input, .. } => {
+                pending.push(input);
+                continue;
+            }
+            super::ParsedRelationQuery::Select(select) => std::slice::from_ref(select),
+            super::ParsedRelationQuery::Set(set) => &set.branches,
+        };
+        for select in selects {
+            if select_direct_outer(select)? {
+                return Ok(true);
+            }
+            for source in std::iter::once(&select.source)
+                .chain(select.join.iter().map(|join| &join.right_source))
+            {
+                match source {
+                    ParsedRelationSource::Derived(query) => pending.push(query),
+                    ParsedRelationSource::Unary(unary) => pending.push(&unary.input),
+                    ParsedRelationSource::Local(_) => {}
+                }
+            }
         }
     }
+    Ok(false)
 }
 
-fn select_outer(parsed: &ParsedSqlLocalSource) -> NativeResult<bool> {
+fn select_outer(
+    parsed: &ParsedSqlLocalSource,
+    inputs: &super::BoundRelations,
+) -> NativeResult<bool> {
     Ok(select_direct_outer(parsed)?
-        || source_outer(&parsed.source)?
+        || source_outer(&parsed.source, inputs)?
         || parsed
             .join
             .as_ref()
-            .map(|join| source_outer(&join.right_source))
+            .map(|join| source_outer(&join.right_source, inputs))
             .transpose()?
             .unwrap_or(false))
 }
@@ -217,12 +207,13 @@ impl Inner<'_> {
     fn sources(
         self,
         declaration: &super::dynamic::Declaration,
+        inputs: &super::BoundRelations,
     ) -> NativeResult<Vec<super::DatasetUri>> {
         let mut leaves = std::collections::BTreeSet::new();
-        super::declared_relation_sources(self.source, &mut leaves);
-        declared_sources(self.predicate, &mut leaves);
+        super::visit::Node::Source(self.source).sources_bound(inputs, &mut leaves);
+        super::visit::Node::Predicate(self.predicate).sources_bound(inputs, &mut leaves);
         if let Some(projected) = self.projected {
-            super::declared_sources(projected, &mut leaves);
+            super::visit::Node::Select(projected).sources_bound(inputs, &mut leaves);
         }
         let mut sources = std::collections::BTreeMap::new();
         for leaf in leaves {
@@ -454,26 +445,31 @@ impl Lowerer<'_, '_> {
         kind: SubqueryKind,
         guard: Option<&Expression>,
     ) -> NativeResult<(Lowered, Expression)> {
-        let parameterized = source_outer(inner.source)?
+        let parameterized = source_outer(inner.source, &self.bound_inputs)?
             || direct_outer(inner.predicate)
             || inner
                 .projected
-                .map(select_outer)
+                .map(|select| select_outer(select, &self.bound_inputs))
                 .transpose()?
                 .unwrap_or(false);
-        let dynamic = super::dynamic::source_required(inner.source)
-            || super::dynamic::predicate_required(inner.predicate)
-            || inner.projected.is_some_and(super::dynamic::select_required);
+        let dynamic = super::dynamic::source_required(inner.source, &self.bound_inputs)
+            || super::dynamic::predicate_required(inner.predicate, &self.bound_inputs)
+            || inner
+                .projected
+                .is_some_and(|select| super::dynamic::select_required(select, &self.bound_inputs));
         let relation = if parameterized && dynamic {
             let declaration = self.declaration.clone().ok_or_else(|| {
                 unsupported_sql_error("dynamic subquery requires an execution declaration")
             })?;
-            let sources = inner.sources(&declaration)?;
+            let sources = inner.sources(&declaration, &self.bound_inputs)?;
             let owned = OwnedInner::from(inner);
             let columns = input.columns.clone();
             let kind = kind.clone();
+            let bound_inputs = self.bound_inputs.clone();
+            let parameters = self.parameters.clone();
             self.schemas
                 .defer_subquery_with_sources(&sources, declaration.bytes, move |schemas| {
+                    let cancellation = schemas.cancellation_token();
                     let mut resolver = |leaf: &super::ParsedRelationLeaf, _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
                         declaration.sources.get(leaf).cloned().ok_or_else(|| {
                             unsupported_sql_error(
@@ -487,6 +483,10 @@ impl Lowerer<'_, '_> {
                         resolve_source: &mut resolver,
                         declaration: Some(declaration.clone()),
                         outer: Some(columns.clone()),
+                        bound_inputs: bound_inputs.clone(),
+                        lowered_input: None,
+                        cancellation: cancellation.clone(),
+                        parameters: parameters.clone(),
                     };
                     let mut relation = lowerer.inner_relation(owned.as_inner(), &kind)?;
                     lowerer.prune(

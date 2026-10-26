@@ -6828,6 +6828,7 @@ class ShardLoomClient:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
         _native_plan: object | None = None,
+        _native_frame: object | None = None,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
 
@@ -6918,6 +6919,7 @@ class ShardLoomClient:
         if output_window_bytes:
             raise ValueError("output_window_bytes requires transport='native'")
         kwargs.pop("_native_plan", None)
+        kwargs.pop("_native_frame", None)
         from ._batches import ResultBatchIterator, validate_inputs
         if kwargs.get("requested_output", "collect") != "collect":
             raise ValueError("incremental result consumption requires collect output")

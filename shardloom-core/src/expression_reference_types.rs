@@ -190,15 +190,20 @@ impl Resolver<'_> {
         args: &[Expression],
         depth: usize,
     ) -> EvalResult<LogicalDType> {
-        let normalized = name.trim().to_ascii_lowercase();
-        let arity = function_arity(&normalized)?;
-        if !arity.contains(&args.len()) {
+        let definition = super::builtins::scalar(name)
+            .filter(|definition| definition.reference_supported)
+            .ok_or_else(|| {
+                EvalFailure::unsupported(
+                    "function_call",
+                    format!("function {name:?} has no admitted reference result type"),
+                )
+            })?;
+        if !definition.accepts_arity(args.len()) {
             return Err(EvalFailure::invalid(
                 "function_arity",
                 format!(
                     "function {name:?} requires {} through {} arguments",
-                    arity.start(),
-                    arity.end()
+                    definition.min_args, definition.max_args
                 ),
             ));
         }
@@ -209,135 +214,81 @@ impl Resolver<'_> {
         for dtype in &types {
             scalar(dtype)?;
         }
-        function_result_dtype(&normalized, &types)
+        function_result_dtype(definition.type_rule, &types)
     }
 }
 
-fn function_result_dtype(name: &str, types: &[LogicalDType]) -> EvalResult<LogicalDType> {
+fn function_result_dtype(
+    rule: super::builtins::ScalarTypeRule,
+    types: &[LogicalDType],
+) -> EvalResult<LogicalDType> {
+    use super::builtins::ScalarTypeRule as T;
     use LogicalDType::{Binary, Boolean, Date32, Int64, TimestampMicros, UInt64, Unknown, Utf8};
-    match name {
-        "coalesce" => types
+    match rule {
+        T::Coalesce => types
             .iter()
             .try_fold(Unknown, |dtype, next| common_dtype(&dtype, next)),
-        "case_when" => {
+        T::Conditional => {
             accepts(&types[0], &[Boolean])?;
             common_dtype(&types[1], &types[2])
         }
-        "nullif" => {
+        T::NullIf => {
             comparable(&types[0], &types[1])?;
             Ok(types[0].clone())
         }
-        "abs" | "numeric_abs" => numeric_unary_type(&types[0], false),
-        "floor" | "numeric_floor" | "ceil" | "ceiling" | "numeric_ceil" | "round"
-        | "numeric_round" => numeric_unary_type(&types[0], true),
-        "binary_byte_length" | "byte_length" | "octet_length" => {
+        T::NumericAbs => numeric_unary_type(&types[0], false),
+        T::NumericRound => numeric_unary_type(&types[0], true),
+        T::ByteLength => {
             accepts(&types[0], &[Utf8, Binary])?;
             Ok(Int64)
         }
-        "binary_unhex" | "unhex" | "binary_from_base64" | "from_base64" => {
+        T::BinaryDecode => {
             accepts(&types[0], &[Utf8])?;
             Ok(Binary)
         }
-        "date_add_days" | "date_sub_days" => {
+        T::DateOffset => {
             accepts(&types[0], &[Date32])?;
             accepts(&types[1], &[Int64, UInt64])?;
             Ok(Date32)
         }
-        "timestamp_add_seconds" | "timestamp_sub_seconds" => {
+        T::TimestampOffset => {
             accepts(&types[0], &[TimestampMicros])?;
             accepts(&types[1], &[Int64, UInt64])?;
             Ok(TimestampMicros)
         }
-        "date_year" | "year" | "date_month" | "month" | "date_day" | "day" | "date_diff_days" => {
+        T::DateField | T::DateDifference => {
             for dtype in types {
                 accepts(dtype, &[Date32])?;
             }
             Ok(Int64)
         }
-        "timestamp_year"
-        | "timestamp_month"
-        | "timestamp_day"
-        | "timestamp_hour"
-        | "timestamp_minute"
-        | "timestamp_second"
-        | "timestamp_diff_seconds" => {
+        T::TimestampField | T::TimestampDifference => {
             for dtype in types {
                 accepts(dtype, &[TimestampMicros])?;
             }
             Ok(Int64)
         }
-        _ => {
-            let offsets = matches!(
-                name,
-                "substr"
-                    | "substring"
-                    | "utf8_substr"
-                    | "utf8_substring"
-                    | "left"
-                    | "right"
-                    | "utf8_left"
-                    | "utf8_right"
-            );
+        T::Utf8 | T::Utf8Offsets | T::Utf8Length | T::Utf8Predicate => {
             for (index, dtype) in types.iter().enumerate() {
-                if offsets && index > 0 {
+                if rule == T::Utf8Offsets && index > 0 {
                     accepts(dtype, &[Int64, UInt64])?;
                 } else {
                     accepts(dtype, &[Utf8])?;
                 }
             }
-            Ok(match name {
-                "length" | "utf8_length" => Int64,
-                "starts_with" | "utf8_starts_with" | "ends_with" | "utf8_ends_with"
-                | "contains" | "utf8_contains" | "regex_match" | "utf8_regex_match" | "rlike"
-                | "regexp" | "regexp_like" => Boolean,
+            Ok(match rule {
+                T::Utf8Length => Int64,
+                T::Utf8Predicate => Boolean,
                 _ => Utf8,
             })
         }
-    }
-}
-
-fn function_arity(name: &str) -> EvalResult<std::ops::RangeInclusive<usize>> {
-    Ok(match name {
-        "coalesce" => 1..=128,
-        "concat" | "utf8_concat" => 2..=128,
-        "case_when" | "substr" | "substring" | "utf8_substr" | "utf8_substring" | "replace"
-        | "utf8_replace" => 3..=3,
-        "nullif"
-        | "left"
-        | "right"
-        | "utf8_left"
-        | "utf8_right"
-        | "starts_with"
-        | "utf8_starts_with"
-        | "ends_with"
-        | "utf8_ends_with"
-        | "contains"
-        | "utf8_contains"
-        | "regex_match"
-        | "utf8_regex_match"
-        | "rlike"
-        | "regexp"
-        | "regexp_like"
-        | "date_add_days"
-        | "date_sub_days"
-        | "timestamp_add_seconds"
-        | "timestamp_sub_seconds"
-        | "date_diff_days"
-        | "timestamp_diff_seconds" => 2..=2,
-        "abs" | "numeric_abs" | "floor" | "numeric_floor" | "ceil" | "ceiling" | "numeric_ceil"
-        | "round" | "numeric_round" | "lower" | "utf8_lower" | "upper" | "utf8_upper" | "trim"
-        | "utf8_trim" | "length" | "utf8_length" | "binary_byte_length" | "byte_length"
-        | "octet_length" | "binary_unhex" | "unhex" | "binary_from_base64" | "from_base64"
-        | "date_year" | "year" | "date_month" | "month" | "date_day" | "day" | "timestamp_year"
-        | "timestamp_month" | "timestamp_day" | "timestamp_hour" | "timestamp_minute"
-        | "timestamp_second" => 1..=1,
-        _ => {
-            return Err(EvalFailure::unsupported(
+        T::EpochMinute | T::EpochTruncate | T::JsonText | T::TimestampParse => {
+            Err(EvalFailure::unsupported(
                 "function_call",
-                format!("function {name:?} has no admitted reference result type"),
-            ));
+                "function has no admitted reference result type",
+            ))
         }
-    })
+    }
 }
 
 fn accepts(dtype: &LogicalDType, allowed: &[LogicalDType]) -> EvalResult<()> {

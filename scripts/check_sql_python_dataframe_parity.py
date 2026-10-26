@@ -74,7 +74,7 @@ REQUIRED_SOURCE_MARKERS = {'python/src/shardloom/context.py': ['class FrontDoorP
                                      'performance_equivalence',
                                      'pandas_compatible_claim_allowed',
                                      'ansi_sql_compliant_claim_allowed'],
- 'python/src/shardloom/query.py': ['class SqlWorkflow',
+ 'python/src/shardloom/query.py': ['class LazyFrame', 'def from_sql(',
                                    'class LazyFrame',
                                    'def collect(',
                                    'def write_vortex(',

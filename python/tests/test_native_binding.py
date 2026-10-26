@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.machinery
 import importlib.util
 import json
 import os
@@ -38,7 +39,8 @@ def _load_native():
             raise AssertionError(
                 "SHARDLOOM_NATIVE_TEST_LIBRARY must name an existing absolute file"
             )
-        spec = importlib.util.spec_from_file_location("shardloom._native", path)
+        loader = importlib.machinery.ExtensionFileLoader("shardloom._native", str(path))
+        spec = importlib.util.spec_from_file_location("shardloom._native", path, loader=loader)
         if spec is None or spec.loader is None:
             raise AssertionError(f"cannot load native binding from {path}")
         module = importlib.util.module_from_spec(spec)
@@ -386,18 +388,24 @@ class NativeBindingTests(unittest.TestCase):
             with self.assertRaises(sl.ShardLoomResourceConfigurationError):
                 limited.from_arrow_table(Producer(), resources=sl.ExecutionResources(8192, 1))
 
-    def test_public_native_frames_compose_across_clients(self):
+    def test_public_native_frames_compose_within_one_execution_owner(self):
         import shardloom as sl
 
         left = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
         right = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        self.addCleanup(left.close)
+        self.addCleanup(right.close)
         local = left.from_rows([{"id": 1}, {"id": 3}])
         foreign = right.from_rows([{"id": 3}, {"id": 5}])
-        right.client.close()
+        with self.assertRaisesRegex(ValueError, "another context"):
+            local.union_all(foreign)
+        with self.assertRaisesRegex(ValueError, "another context"):
+            local.join(foreign, on="id")
+        peer = left.from_rows([{"id": 3}, {"id": 5}])
         cases = [
-            (local.union_all(foreign).sort("id"), [{"id": 1}, {"id": 3}, {"id": 3}, {"id": 5}]),
-            (local.join(foreign, on="id").select("f.id AS id"), [{"id": 3}]),
-            (local.filter(sl.col("id").isin_source(foreign, "id")), [{"id": 3}]),
+            (local.union_all(peer).sort("id"), [{"id": 1}, {"id": 3}, {"id": 3}, {"id": 5}]),
+            (local.join(peer, on="id").select("f.id AS id"), [{"id": 3}]),
+            (local.filter(sl.col("id").isin_source(peer, "id")), [{"id": 3}]),
         ]
         with (
             patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
@@ -413,11 +421,10 @@ class NativeBindingTests(unittest.TestCase):
                     repeated = workflow.collect(check=True)
                     self.assertEqual(repeated.to_arrow().to_pylist(), expected)
                     self.assertEqual(repeated.envelope.field("resident_relational_declaration_reused"), "true")
-        limited = sl.context(
-            transport="native", memory_bytes=32 << 20, max_parallelism=1,
+        limited_source = sl.from_rows(
+            [{"id": 9}], client=left.client, memory_bytes=32 << 20, max_parallelism=1,
             resource_limits=sl.ExecutionResourceLimits(memory_bytes=32 << 20, max_parallelism=1),
         )
-        limited_source = limited.from_rows([{"id": 9}])
         with self.assertRaises(sl.ShardLoomResourceConfigurationError):
             local.union_all(limited_source)
         constrained = limited_source.union_all(local).sort("id")
@@ -425,8 +432,6 @@ class NativeBindingTests(unittest.TestCase):
             constrained.collect(memory_bytes=64 << 20, max_parallelism=2, check=True)
         admitted = constrained.collect(memory_bytes=32 << 20, max_parallelism=1, check=True)
         self.assertEqual(admitted.to_arrow().to_pylist(), [{"id": 1}, {"id": 3}, {"id": 9}])
-        limited.client.close()
-        left.client.close()
 
     def test_native_source_transfer_preserves_rich_values_and_lifetimes(self):
         pa = self.arrow()
@@ -1512,7 +1517,7 @@ assert later.row_count == 2
 
     def test_public_native_stream_composition_preserves_each_producer_across_terminals(self):
         import shardloom as sl
-        from shardloom.query import SqlWorkflow
+        from shardloom.query import LazyFrame
 
         client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
         self.addCleanup(client.close)
@@ -1561,7 +1566,7 @@ assert later.row_count == 2
                                 query = frame.join(frame, on="n").select("f.label AS label", "d.label AS copy")
                                 expected = [{"label": "a", "copy": "a"}, {"label": "b", "copy": "b"}]
                         if surface == "sql":
-                            query = SqlWorkflow(query._relation_statement(), client, source_bindings=query._declared_sources())
+                            query = LazyFrame.from_sql(query._relation_statement(), client, source_bindings=query._declared_sources())
                         with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
                              patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
                             if terminal == "collect":

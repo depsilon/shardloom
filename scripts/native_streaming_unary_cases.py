@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 
 from shardloom._result_schema import ResultType as T
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_set_cases import complete
 from native_workflow_outputs import LOCAL_FORMATS, verify_output
 from native_unary_reference import rolling_values, sample_ordinals
@@ -146,7 +146,7 @@ def apply(source, kind, surface="dataframe"):
         else:
             assert kind == "explode"
             function, arguments = "EXPLODE", payload({"column": "items", "output_columns": ["n", "s", "items"]})
-        return SqlWorkflow(f"SELECT * FROM {function}(({source._relation_statement()}), {arguments}) AS u",
+        return LazyFrame.from_sql(f"SELECT * FROM {function}(({source._relation_statement()}), {arguments}) AS u",
                            source.client, source_bindings=source._declared_sources())
     assert surface == "dataframe"
     if kind == "distinct":

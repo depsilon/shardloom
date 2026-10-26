@@ -133,7 +133,7 @@ def consume_pivot_batches(name, workflow, resources, columns, *, output, schema=
 
 def run(context, output, guard, accepted, complete, sources, identity, *, spill_strategy=False):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
@@ -282,7 +282,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *, spill_
 
         for label, dataframe, sql, stages in cases:
             columns = list(expected[label][0]) if expected[label] else ["entity"] + (["pivot_total"] if label == "empty-margins" else [])
-            for spelling, workflow in [("dataframe", dataframe), ("sql", SqlWorkflow(sql, context.client, source_bindings=base._declared_sources()))]:
+            for spelling, workflow in [("dataframe", dataframe), ("sql", LazyFrame.from_sql(sql, context.client, source_bindings=base._declared_sources()))]:
                 family = f"{case_prefix}-{source_name}-{spelling}-{label}"
                 route = workflow.route(bounded=True, check=False, **resources)
                 (output / f"{family}-route.json").write_text(json.dumps(route.envelope.raw, indent=2) + "\n")
@@ -306,7 +306,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *, spill_
 
         correlated_input = f"SELECT who AS entity,kind AS category,reading AS amount FROM {source} WHERE position < outer.position"
         correlated = f"SELECT position FROM {source} WHERE EXISTS (SELECT 1 FROM ({pivot_sql(correlated_input)}) AS p) ORDER BY position"
-        workflow = SqlWorkflow(correlated, context.client, source_bindings=base._declared_sources())
+        workflow = LazyFrame.from_sql(correlated, context.client, source_bindings=base._declared_sources())
         family = f"{case_prefix}-{source_name}-correlated"
         report = workflow.collect(check=False, **resources)
         verified(family, report, 8, 72)
@@ -330,7 +330,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *, spill_
         # Existing first-unique preserves explicit null cells; fill applies to
         # absent cells. Both declared dropna settings retain observed domains.
         frame = base.limit(5).pivot(index="entity", columns="category", values="amount", fill_value=0, dropna=dropna)
-        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(frame._relation_statement(), context.client, source_bindings=base._declared_sources()))]:
+        for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(frame._relation_statement(), context.client, source_bindings=base._declared_sources()))]:
             family = f"{case_prefix}-null-collision-{dropna}-{spelling}"
             report = workflow.collect(check=False, **resources)
             verified(family, report, 1, 5)
@@ -394,7 +394,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *, spill_
         ("margin-collision", pivot_sql(negative_input, margins=True, margins_name="a"), "field names must be nonempty and distinct"),
     ]:
         destination = output / f"must-not-publish-{label}.vortex"
-        report = SqlWorkflow(statement, context.client).write_vortex(destination, check=False, **resources)
+        report = LazyFrame.from_sql(statement, context.client).write_vortex(destination, check=False, **resources)
         denied(f"{case_prefix}-{label}", report, destination, reason)
 
     # Inspection remains syntax-only even when neither input nor observed fields exist.

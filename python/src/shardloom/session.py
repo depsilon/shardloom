@@ -20,9 +20,7 @@ from .execution_resources import (
     merge_resource_limits,
 )
 from .query import (
-    GroupedLazyFrame,
     LazyFrame,
-    SqlWorkflow,
     UnsupportedWorkflowOperationReport,
     Result,
     _normalize_fanout_outputs,
@@ -364,781 +362,26 @@ class _PreparedCacheEntry:
     target_fingerprint: LocalFileFingerprint
 
 
-@dataclass(frozen=True, slots=True)
-class SessionLazyFrame:
-    """A lazy workflow bound to an explicit `ShardLoomSession`.
 
-    Transformations still use the normal `LazyFrame` planner. Terminal local
-    collect/write/fanout calls route through the owning session so reuse evidence
-    and invalidation stay scoped to that caller-owned session.
-    """
 
-    session: "ShardLoomSession"
-    frame: LazyFrame
 
-    @property
-    def source_format(self) -> str:
-        """Return the declared input source format."""
 
-        return self.frame.source_format
 
-    @property
-    def uri(self) -> str:
-        """Return the declared input URI/path."""
 
-        return self.frame.uri
 
-    @property
-    def operation_summary(self) -> str:
-        """Return a deterministic logical-plan summary."""
 
-        return self.frame.operation_summary
-
-    def with_engine(self, engine_mode: str) -> "SessionLazyFrame":
-        """Return this lazy workflow with a different requested engine mode."""
-
-        return SessionLazyFrame(
-            session=self.session,
-            frame=self.frame.with_engine(engine_mode),
-        )
-
-    def collect(
-        self,
-        *,
-        limit: int | None = None,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult:
-        """Collect rows through this session's scoped local-source reuse cache."""
-
-        frame = (
-            self.frame
-            if limit is None
-            or any(operation.kind == "limit" for operation in self.frame.operations)
-            else self.frame.limit(limit)
-        )
-        return self.session.collect(
-            frame,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def count(
-        self,
-        *,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Return a scoped row-count report through the session cache when admitted."""
-
-        if self.frame.source_format == "vortex":
-            return self.frame.count(
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            )
-        result = self.aggregate("count(*)", check=check)
-        if isinstance(result, SessionLazyFrame):
-            return result.limit(1).collect(
-                reuse=reuse,
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            )
-        return result
-
-    def write(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str = "jsonl",
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Write this workflow through the session's scoped output reuse cache."""
-
-        return self.session.write(
-            self.frame,
-            target_uri,
-            output_format=output_format,
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_jsonl(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="jsonl")`."""
-
-        return self.write(
-            target_uri,
-            output_format="jsonl",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_json(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="json")` (one JSON array)."""
-
-        return self.write(
-            target_uri,
-            output_format="json",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_csv(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="csv")`."""
-
-        return self.write(
-            target_uri,
-            output_format="csv",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_parquet(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="parquet")`."""
-
-        return self.write(
-            target_uri,
-            output_format="parquet",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_arrow_ipc(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="arrow-ipc")`."""
-
-        return self.write(
-            target_uri,
-            output_format="arrow-ipc",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_avro(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="avro")`."""
-
-        return self.write(
-            target_uri,
-            output_format="avro",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_orc(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="orc")`."""
-
-        return self.write(
-            target_uri,
-            output_format="orc",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_vortex(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Alias for `write(..., output_format="vortex")`."""
-
-        return self.write(
-            target_uri,
-            output_format="vortex",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def fanout(
-        self,
-        outputs: FanoutOutputs,
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
-        """Write this workflow to fanout sinks through the session cache."""
-
-        return self.session.fanout(
-            self.frame,
-            outputs,
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def to_python_objects(
-        self,
-        *,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        max_parallelism: int | None = None,
-        resources: ExecutionResources | None = None,
-    ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
-        """Return bounded Python rows through the session cache when admitted."""
-
-        result = self.collect(
-            reuse=reuse, check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes,
-            max_parallelism=max_parallelism, resources=resources,
-        )
-        if isinstance(result, SessionSqlResult):
-            return result.to_rows()
-        return result
-
-    def join(
-        self,
-        other: "SessionLazyFrame | LazyFrame | str",
-        *,
-        on: str | Sequence[str] | None = None,
-        condition: object | None = None,
-        how: str = "inner",
-        check: bool = False,
-    ) -> "SessionLazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped join workflow, preserving this session when admitted."""
-
-        if isinstance(other, SessionLazyFrame):
-            other = other.frame
-        result = self.frame.join(
-            other,
-            on=on,
-            condition=condition,
-            how=how,
-            check=check,
-        )
-        return _wrap_session_query_result(self.session, result)
-
-    def __getattr__(self, name: str) -> Any:
-        attr = getattr(self.frame, name)
-        if not callable(attr):
-            return attr
-
-        def invoke(*args: Any, **kwargs: Any) -> Any:
-            return _wrap_session_query_result(self.session, attr(*args, **kwargs))
-
-        return invoke
-
-
-@dataclass(frozen=True, slots=True)
-class SessionGroupedLazyFrame:
-    """A grouped lazy workflow bound to an explicit `ShardLoomSession`."""
-
-    session: "ShardLoomSession"
-    grouped: GroupedLazyFrame
-
-    @property
-    def operation_summary(self) -> str:
-        """Return a deterministic grouped workflow summary."""
-
-        return self.grouped.operation_summary
-
-    def agg(
-        self,
-        *expressions: object,
-        check: bool = False,
-        **named_expressions: object,
-    ) -> SessionLazyFrame | UnsupportedWorkflowOperationReport:
-        """Return a session-bound grouped aggregate workflow when admitted."""
-
-        return _wrap_session_query_result(
-            self.session,
-            self.grouped.agg(*expressions, check=check, **named_expressions),
-        )
-
-    def aggregate(
-        self,
-        *expressions: object,
-        check: bool = False,
-        **named_expressions: object,
-    ) -> SessionLazyFrame | UnsupportedWorkflowOperationReport:
-        """Alias for grouped `agg`."""
-
-        return self.agg(*expressions, check=check, **named_expressions)
-
-    def __getattr__(self, name: str) -> Any:
-        attr = getattr(self.grouped, name)
-        if not callable(attr):
-            return attr
-
-        def invoke(*args: Any, **kwargs: Any) -> Any:
-            return _wrap_session_query_result(self.session, attr(*args, **kwargs))
-
-        return invoke
-
-
-@dataclass(frozen=True, slots=True)
-class SessionSqlWorkflow:
-    """A SQL workflow bound to an explicit `ShardLoomSession`."""
-
-    session: "ShardLoomSession"
-    workflow: SqlWorkflow
-
-    @property
-    def statement(self) -> str:
-        """Return the underlying SQL statement."""
-
-        return self.workflow.statement
-
-    @property
-    def operation_summary(self) -> str:
-        """Return a deterministic SQL workflow summary."""
-
-        return self.workflow.operation_summary
-
-    def collect(
-        self,
-        *,
-        limit: int | None = None,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> SessionSqlResult:
-        """Collect local-source SQL rows through this session when admitted."""
-
-        self.session._ensure_open()
-        if limit is not None:
-            return self.limit(limit).collect(
-                reuse=reuse,
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            )
-        return self.session._sql_result(
-            operation="collect",
-            execute=lambda: self.workflow.collect(
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            ),
-            reuse=reuse,
-        )
-
-    def limit(self, count: int) -> "SessionSqlWorkflow":
-        """Return this session SQL workflow with an explicit LIMIT."""
-
-        return SessionSqlWorkflow(
-            session=self.session,
-            workflow=self.workflow.limit(count),
-        )
-
-    def write(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str = "jsonl",
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Write SQL rows through this session when the statement is local-source."""
-
-        self.session._ensure_open()
-        normalized_output_format = _normalize_local_output_format(output_format)
-        return self.session._sql_result(
-            operation="write",
-            execute=lambda: self.workflow.write(
-                target_uri,
-                output_format=normalized_output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            ),
-            reuse=reuse,
-        )
-
-    def write_jsonl(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="jsonl")`."""
-
-        return self.write(
-            target_uri,
-            output_format="jsonl",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_json(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="json")` (one JSON array)."""
-
-        return self.write(
-            target_uri,
-            output_format="json",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_csv(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="csv")`."""
-
-        return self.write(
-            target_uri,
-            output_format="csv",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_parquet(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="parquet")`."""
-
-        return self.write(
-            target_uri,
-            output_format="parquet",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_arrow_ipc(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="arrow-ipc")`."""
-
-        return self.write(
-            target_uri,
-            output_format="arrow-ipc",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_avro(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="avro")`."""
-
-        return self.write(
-            target_uri,
-            output_format="avro",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_orc(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="orc")`."""
-
-        return self.write(
-            target_uri,
-            output_format="orc",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def write_vortex(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Alias for `write(..., output_format="vortex")`."""
-
-        return self.write(
-            target_uri,
-            output_format="vortex",
-            allow_overwrite=allow_overwrite,
-            reuse=reuse,
-            check=check,
-            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism,
-        )
-
-    def fanout(
-        self,
-        outputs: FanoutOutputs,
-        *,
-        allow_overwrite: bool = False,
-        reuse: bool = True,
-        check: bool = True,
-        memory_gb: int | None = None,
-        memory_bytes: int | None = None,
-        resources: ExecutionResources | None = None,
-        max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | UnsupportedWorkflowOperationReport
-    ):
-        """Write SQL rows to fanout sinks through this session when admitted."""
-
-        self.session._ensure_open()
-        normalized_outputs = _normalize_fanout_outputs(outputs)
-        return self.session._sql_result(
-            operation="fanout",
-            execute=lambda: self.workflow.fanout(
-                normalized_outputs,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            ),
-            reuse=reuse,
-        )
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.workflow, name)
-
-
-def _wrap_session_query_result(session: "ShardLoomSession", result: Any) -> Any:
-    if isinstance(result, LazyFrame):
-        return SessionLazyFrame(session=session, frame=result)
-    if isinstance(result, GroupedLazyFrame):
-        return SessionGroupedLazyFrame(session=session, grouped=result)
-    if isinstance(result, SqlWorkflow):
-        return SessionSqlWorkflow(session=session, workflow=result)
+def _session_frame(session, frame):
+    from dataclasses import replace
+    if frame.client is not session.client:
+        raise ValueError("a session cannot execute a frame from another context")
+    if frame.source._session is session:
+        return frame
+    source = replace(frame.source, _session=session)
+    # Changing the Python action owner must retain the immutable native source
+    # declaration, including single-use producer identity.
+    object.__setattr__(source, "_native_plan", frame.source._native_plan)
+    result = replace(frame, source=source)
+    object.__setattr__(result, "_native_plan", frame._native_plan)
     return result
 
 
@@ -1192,6 +435,8 @@ class ShardLoomSession:
         self._result_replay_reuse_count = 0
         self._last_reuse_reason: str | None = None
         self._last_invalidation_reason: str | None = None
+        from ._connected import Catalog
+        self.catalog = Catalog(self.client)
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -1252,11 +497,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy source by inferring the local adapter."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_source(
                 uri,
@@ -1272,11 +517,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy CSV source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_csv(
                 uri,
@@ -1292,11 +537,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy flat JSON, JSONL, or NDJSON source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_json(
                 uri,
@@ -1312,11 +557,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy Parquet source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_parquet(
                 uri,
@@ -1332,11 +577,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy Arrow IPC source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_arrow_ipc(
                 uri,
@@ -1352,11 +597,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy Avro source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_avro(
                 uri,
@@ -1372,11 +617,11 @@ class ShardLoomSession:
         uri: str | os.PathLike[str],
         *,
         schema: Mapping[str, object] | None = None,
-    ) -> SessionLazyFrame:
+    ) -> LazyFrame:
         """Declare a session-bound lazy ORC source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_orc(
                 uri,
@@ -1387,11 +632,11 @@ class ShardLoomSession:
             ),
         )
 
-    def read_vortex(self, uri: str | os.PathLike[str]) -> SessionLazyFrame:
+    def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
         """Declare a session-bound lazy native Vortex source."""
 
         self._ensure_open()
-        return SessionLazyFrame(
+        return _session_frame(
             session=self,
             frame=read_vortex(
                 uri,
@@ -1401,15 +646,32 @@ class ShardLoomSession:
             ),
         )
 
-    def sql(self, statement: object) -> SessionSqlWorkflow:
-        """Create a session-bound SQL workflow."""
+    def sql(self, statement: object, *, parameters=None, relations=None) -> LazyFrame:
+        """Bind SQL into the shared lazy DataFrame with this session's catalog."""
 
         self._ensure_open()
-        return SessionSqlWorkflow(
+        return _session_frame(
             session=self,
-            workflow=sql_workflow(statement, client=self.client, resources=self.resources,
-                                  resource_limits=self.resource_limits),
+            frame=sql_workflow(statement, client=self.client, resources=self.resources,
+                resource_limits=self.resource_limits, parameters=parameters,
+                relations=self.catalog.bindings(relations)),
         )
+
+    def register(self, name, frame, *, replace=False):
+        self._ensure_open()
+        return self.catalog.register(name, frame, replace=replace)
+
+    def table(self, name):
+        self._ensure_open()
+        return self.catalog.table(name)
+
+    def list_tables(self):
+        self._ensure_open()
+        return self.catalog.list()
+
+    def drop_view(self, name, *, if_exists=False):
+        self._ensure_open()
+        return self.catalog.drop(name, if_exists=if_exists)
 
     def prepare_vortex(
         self,
@@ -1528,14 +790,10 @@ class ShardLoomSession:
             resources=resources, inherited=self.resources or frame.resources,
             limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
         )
-        return self._sql_result(
-            operation="collect",
-            execute=lambda: frame.collect(
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            ),
-            reuse=reuse,
+        return _session_frame(self, frame).collect(
+            check=check, reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
         )
 
     def write(
@@ -1561,17 +819,11 @@ class ShardLoomSession:
             limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
         )
         normalized_output_format = _normalize_local_output_format(output_format)
-        return self._sql_result(
-            operation="write",
-            execute=lambda: frame.write(
-                target_uri,
-                output_format=normalized_output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            ),
-            reuse=reuse,
+        return _session_frame(self, frame).write(
+            target_uri, output_format=normalized_output_format,
+            allow_overwrite=allow_overwrite, check=check, reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
         )
 
     def fanout(
@@ -1596,16 +848,11 @@ class ShardLoomSession:
             limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
         )
         normalized_outputs = _normalize_fanout_outputs(outputs)
-        return self._sql_result(
-            operation="fanout",
-            execute=lambda: frame.fanout(
-                normalized_outputs,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism,
-            ),
-            reuse=reuse,
+        return _session_frame(self, frame).fanout(
+            normalized_outputs, allow_overwrite=allow_overwrite,
+            check=check, reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
         )
 
     def close(self) -> dict[str, Any]:
@@ -1613,6 +860,7 @@ class ShardLoomSession:
 
         if not self._closed:
             self._prepared_cache.clear()
+            self.catalog.clear()
             self.client.close()
             self._closed = True
         return self.evidence()
@@ -1679,6 +927,8 @@ class ShardLoomSession:
         if not reuse:
             self.client.release_prepared()
         report = execute()
+        if isinstance(report, SessionSqlResult) and report.session_id == self.session_id:
+            return report
         if isinstance(report, UnsupportedWorkflowOperationReport):
             if operation != "collect":
                 return report

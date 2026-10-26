@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from shardloom._result_schema import ResultType as T
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_unary_cases import (
     KINDS, POLICY, apply, consume, fixture, frame, oracle, output_fields, payload,
 )
@@ -17,7 +17,7 @@ from native_typed_input_cases import assert_python_values
 
 
 def sql(source, statement, extra=()):
-    return SqlWorkflow(statement, source.client,
+    return LazyFrame.from_sql(statement, source.client,
                        source_bindings=source._declared_sources() + tuple(extra))
 
 

@@ -2,6 +2,7 @@
 
 use super::{NATIVE_RECURSION_LIMIT, Plan, Result, failed};
 use shardloom_core::{ExprId, Expression, ExpressionKind, PredicateExpr, ScalarValue};
+use shardloom_vortex::relational_query::VortexRelationalStage as Stage;
 
 pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
     match plan {
@@ -33,6 +34,32 @@ pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
         }
         Plan::Sort(node) => visit(&mut node.input, nodes)?,
         Plan::Limit(node) => visit(&mut node.input, nodes)?,
+        Plan::Pipeline(node) => {
+            visit(&mut node.input, nodes)?;
+            for stage in &mut node.stages {
+                *nodes = nodes
+                    .checked_add(1)
+                    .ok_or_else(|| failed("native plan size overflow"))?;
+                match stage {
+                    Stage::Project(projected) => {
+                        for (_, value) in projected {
+                            expression(value, 0, nodes)?;
+                        }
+                    }
+                    Stage::Filter(value) => expression(value, 0, nodes)?,
+                    Stage::Observe(observation) => {
+                        for (_, value) in &mut observation.projection {
+                            expression(value, 0, nodes)?;
+                        }
+                    }
+                    Stage::Limit { offset, count } => {
+                        offset
+                            .checked_add(*count)
+                            .ok_or_else(|| failed("output range overflow"))?;
+                    }
+                }
+            }
+        }
         Plan::Aggregate(node) => visit(&mut node.input, nodes)?,
         Plan::Window(node) => visit(&mut node.input, nodes)?,
         Plan::Unary(node) => visit(&mut node.input, nodes)?,
@@ -43,7 +70,7 @@ pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
                 expression(value, 0, nodes)?;
             }
         }
-        Plan::Outer => {}
+        Plan::Input(_) | Plan::Outer => {}
         Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {
             return Err(failed(
                 "execution-scoped relation is not a reusable declaration",
@@ -97,7 +124,7 @@ fn check_depth(depth: usize) -> Result<()> {
     Ok(())
 }
 
-fn scalar(value: &ScalarValue, depth: usize) -> Result<()> {
+pub(super) fn scalar(value: &ScalarValue, depth: usize) -> Result<()> {
     check_depth(depth)?;
     match value {
         ScalarValue::List(values) => {
@@ -113,6 +140,17 @@ fn scalar(value: &ScalarValue, depth: usize) -> Result<()> {
         _ => {}
     }
     Ok(())
+}
+
+pub(super) fn parameter(value: &Expression, depth: usize) -> Result<()> {
+    check_depth(depth)?;
+    match &value.kind {
+        ExpressionKind::Literal(value) => scalar(value, depth),
+        ExpressionKind::Cast { expr, .. } => parameter(expr, depth + 1),
+        _ => Err(failed(
+            "SQL parameter must be a typed scalar literal, not an expression or identifier",
+        )),
+    }
 }
 
 fn predicate(value: &PredicateExpr, depth: usize) -> Result<()> {

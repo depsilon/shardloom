@@ -3,7 +3,7 @@
 
 from collections import Counter
 
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_dynamic_cases import frame as rich_frame, pivot, EXPECTED as PIVOT_VALUES
 from native_streaming_set_cases import KINDS, LEFT, RIGHT, POLICY, batch_frame, combine, complete, oracle
 from native_typed_input_fixtures import rich_fixture, rich_python_values
@@ -69,7 +69,7 @@ def run(harness):
                         sql, bindings = query._relation_statement(), query._declared_sources()
                         expected = oracle(expected, LEFT, "except_")
                         replay = 1
-                    query = SqlWorkflow(sql, harness.client, source_bindings=bindings)
+                    query = LazyFrame.from_sql(sql, harness.client, source_bindings=bindings)
                     assert a["opened"] == b["opened"] == 0
                     with query.iter_batches(batch_rows=2, **requested) as iterator:
                         actual = []

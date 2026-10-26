@@ -104,6 +104,10 @@ def _render_stages(
         kind, values = operation.kind, operation.values
         if kind == "set_index":
             continue  # Existing metadata-only index declarations do not alter rows.
+        if kind == "observe":
+            # SQL text describes data expressions; positional metrics remain in
+            # the separately bound native declaration and operation summary.
+            continue
         fragments = values
         if kind == "with_column":
             fragments = values[1:]

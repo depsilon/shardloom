@@ -25,6 +25,8 @@ mod scan;
 #[path = "local_primitive_relational_subquery_bind.rs"]
 mod subquery;
 pub(super) use subquery::validate_relation as validate_subquery_relation;
+#[path = "local_primitive_relational_pipeline_bind.rs"]
+mod pipeline;
 #[path = "local_primitive_relational_subquery_sources.rs"]
 mod subquery_sources;
 #[path = "local_primitive_relational_transform_bind.rs"]
@@ -42,6 +44,7 @@ pub(super) struct Binder<'a> {
     metadata: MemoryLease,
     outer_fields: Option<Vec<(String, DType)>>,
     parameterized_binding: bool,
+    observation_names: std::collections::BTreeSet<String>,
     execution: Option<dynamic::ExecutionBinding<'a>>,
     source_scope: Option<std::sync::Arc<[SourceIndex]>>,
     source_metadata: Option<std::sync::Arc<MemoryLease>>,
@@ -70,6 +73,10 @@ impl<'a> Binder<'a> {
         self.session.memory().clone()
     }
 
+    pub(super) fn cancellation_token(&self) -> shardloom_exec::compute_pool::CancellationToken {
+        self.cancellation.clone()
+    }
+
     pub(super) fn reserve_input_scratch(&self, bytes: u64) -> Result<MemoryLease> {
         self.session.reserve_input_scratch(bytes)
     }
@@ -96,6 +103,7 @@ impl<'a> Binder<'a> {
             metadata: session.memory().reserve(4096)?,
             outer_fields: None,
             parameterized_binding: false,
+            observation_names: std::collections::BTreeSet::new(),
             execution: None,
             source_scope: None,
             source_metadata: None,
@@ -301,6 +309,9 @@ impl<'a> Binder<'a> {
         // independent recursion guard remains until traversal is iterative.
         self.charge(4096)?;
         match input {
+            VortexRelationalPlan::Input(_) => Err(failed(
+                "native declaration input must be bound before preparation",
+            )),
             VortexRelationalPlan::DeferredSubquery(_) => Err(failed(
                 "deferred schema declarations require a correlated subquery relation",
             )),
@@ -333,6 +344,7 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::Filter(filter) => self.filter(filter, depth),
             VortexRelationalPlan::Sort(sort) => self.sort(sort, depth),
             VortexRelationalPlan::Limit(limit) => self.limit(limit, depth),
+            VortexRelationalPlan::Pipeline(pipeline) => self.pipeline(pipeline, depth),
             VortexRelationalPlan::Aggregate(aggregate) => self.aggregate(aggregate, depth),
             VortexRelationalPlan::Unary(unary) => {
                 let input = Box::new(self.bind(&unary.input, depth + 1)?);

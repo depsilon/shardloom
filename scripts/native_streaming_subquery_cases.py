@@ -7,7 +7,7 @@ import operator
 
 import shardloom as sl
 from shardloom._result_schema import ResultType as T
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_report_evidence import require_native_allocation_peak
 from native_streaming_unary_cases import frame
 from native_workflow_outputs import LOCAL_FORMATS, verify_output
@@ -124,7 +124,7 @@ def apply(left, right, kind, surface="dataframe"):
         )
     result = left.with_column("answer", expression)
     if surface == "sql":
-        result = SqlWorkflow(sql(left, right, kind), result.client, source_bindings=result._declared_sources())
+        result = LazyFrame.from_sql(sql(left, right, kind), result.client, source_bindings=result._declared_sources())
     return result
 
 

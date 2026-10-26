@@ -203,7 +203,7 @@ class PublicNativeContextTests(unittest.TestCase):
                 self.assertIs(result.details, result.envelope)
                 self.assertEqual(result.details.field("python_result_ownership"), "retained_native")
                 self.assertEqual(result.details.field("resident_provider_crate"), "vortex")
-                self.assertEqual(result.details.field("resident_provider_version"), "0.85")
+                self.assertEqual(result.details.field("resident_provider_version"), "=0.90.0")
                 self.assertEqual(tuple(name for name, _ in result.schema), ("id", "total"))
 
     def test_native_chaining_keeps_exact_values_after_context_close_without_export(self):
@@ -287,11 +287,11 @@ class PublicNativeContextTests(unittest.TestCase):
         self.assertEqual(result.to_rows(), ({"id": 7},))
 
     def test_session_python_conversion_preserves_logical_binary_values(self):
-        from shardloom.diagnostics import SessionLazyFrame
+        from shardloom.session import _session_frame
         ctx = self.context()
         rows = ({"id": 1, "payload": b"\x00\xff"}, {"id": 2, "payload": None})
         frame = ctx.from_rows(rows, schema={"id": "int64", "payload": "binary"})
-        session_frame = SessionLazyFrame(ctx.session(), frame)
+        session_frame = _session_frame(ctx.session(), frame)
         self.assertEqual(session_frame.to_python_objects(), rows)
 
     def test_context_cancel_closes_paused_stream_and_preserves_delivered_values(self):

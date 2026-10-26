@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_report_evidence import require_native_allocation_peak
 from native_streaming_join_cases import ORDINARY, STREAM, frame, joined, oracle
 from native_streaming_dynamic_cases import EXPECTED, frame as dynamic_frame, pivot
@@ -62,7 +62,7 @@ def run(harness):
                         query = first.sort("n", nulls="last").limit(0)
                         expected, columns = [], ("n", "s")
                     if surface == "sql":
-                        query = SqlWorkflow(query._relation_statement(), harness.client,
+                        query = LazyFrame.from_sql(query._relation_statement(), harness.client,
                                             source_bindings=query._declared_sources())
                     targets = {format: harness.output / f"{name}.{format}" for format in LOCAL_FORMATS}
                     assert all(trace["opened"] == 0 for trace in traces)

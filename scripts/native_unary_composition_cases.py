@@ -13,7 +13,7 @@ from native_report_evidence import require_native_resource_admission
 
 def run(context, output, guard, accepted, complete, sources, identity):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
@@ -182,7 +182,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         ]:
             cases.append((label, frame, frame._relation_statement(), columns))
         for label, frame, statement, columns in cases:
-            for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(statement, context.client, source_bindings=base._declared_sources()))]:
+            for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(statement, context.client, source_bindings=base._declared_sources()))]:
                 family = f"unary-{source_name}-{spelling}-{label}"
                 inspected = workflow.route(bounded=True, check=False, **resources)
                 (output / f"{family}-route.json").write_text(json.dumps(inspected.envelope.raw, indent=2) + "\n")
@@ -210,7 +210,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         (sl.col("label") == "isn't,(join)") | (sl.col("label") == "東京")
     ).replace({"label": {"isn't,(join)": "it's fine", "東京": "'東京's'"}}).select("label", "'o''clock 東京' AS marker")
     quoted_expected = [{"label": label, "marker": "o'clock 東京"} for label in ["it's fine", "'東京's'"]]
-    for spelling, workflow in [("dataframe", rewrite), ("sql", SqlWorkflow(rewrite._relation_statement(), context.client, source_bindings=text._declared_sources()))]:
+    for spelling, workflow in [("dataframe", rewrite), ("sql", LazyFrame.from_sql(rewrite._relation_statement(), context.client, source_bindings=text._declared_sources()))]:
         family = f"unary-quoted-{spelling}"
         report = workflow.collect(check=False, **resources)
         verified(family, report)
@@ -218,7 +218,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         write_all(family, workflow, quoted_expected, ["label", "marker"])
     nullable_text = text.sort("position").limit(4).replace({"label": {"isn't,(join)": "it's fine"}}).select("label")
     nullable_expected = [{"label": value} for value in ["it's fine", "東京", "keep", None]]
-    for spelling, workflow in [("dataframe", nullable_text), ("sql", SqlWorkflow(nullable_text._relation_statement(), context.client, source_bindings=text._declared_sources()))]:
+    for spelling, workflow in [("dataframe", nullable_text), ("sql", LazyFrame.from_sql(nullable_text._relation_statement(), context.client, source_bindings=text._declared_sources()))]:
         family = f"unary-nullable-text-{spelling}"
         report = workflow.collect(check=False, **resources)
         verified(family, report)
@@ -236,7 +236,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         frame = weighted.sort("id").filter(sl.col("id") > 0).sample(weights="weight", seed=7, replace=replacement, **parameters).select("id")
         selected = [4] * (2 if fraction else 7) if replacement else [1, 4]
         sample_expected = [{"id": value} for value in selected]
-        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(frame._relation_statement(), context.client, source_bindings=weighted._declared_sources()))]:
+        for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(frame._relation_statement(), context.client, source_bindings=weighted._declared_sources()))]:
             family = f"unary-ties-{fraction}-replacement-{replacement}-{spelling}"
             report = workflow.collect(check=False, **resources)
             verified(family, report)
@@ -262,7 +262,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
              .duplicated("identifier").reset_index()
              .rolling(3, min_periods=1, center=True).sum("index", alias="total")
              .melt(value_vars="total").select("variable", "value"))
-    for spelling, workflow in [("dataframe", chain), ("sql", SqlWorkflow(chain._relation_statement(), context.client, source_bindings=large_base._declared_sources()))]:
+    for spelling, workflow in [("dataframe", chain), ("sql", LazyFrame.from_sql(chain._relation_statement(), context.client, source_bindings=large_base._declared_sources()))]:
         family = f"unary-large-{spelling}"
         report = workflow.limit(97).collect(check=False, **resources)
         verified(f"{family}-limited", report)
@@ -284,7 +284,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
     ]:
         guard()
         destination = output / f"must-not-publish-{label}.vortex"
-        denial = SqlWorkflow(statement, context.client, source_bindings=bindings).write_vortex(destination, check=False, **resources).envelope
+        denial = LazyFrame.from_sql(statement, context.client, source_bindings=bindings).write_vortex(destination, check=False, **resources).envelope
         (output / f"{label}-denial.json").write_text(json.dumps(denial.raw, indent=2) + "\n")
         if (denial.status not in ("error", "unsupported") or denial.fallback.attempted
                 or denial.raw.get("certificates") or denial.raw.get("artifacts") or destination.exists()):

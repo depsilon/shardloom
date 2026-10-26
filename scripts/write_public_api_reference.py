@@ -135,6 +135,46 @@ def python_reference(root: Path) -> tuple[list[dict], dict[str, str]]:
         })
     authority = "python/src/shardloom/_exports.py"
     sources[authority] = digest(root / authority)
+    for name in ("functions", "types", "adbc", "dbapi", "notebook"):
+        module = importlib.import_module(f"shardloom.{name}")
+        relative = Path(module.__file__).resolve().relative_to(root).as_posix()
+        sources[relative] = digest(root / relative)
+        rows.append({"name": name, "namespace": "shardloom", "audience": "application",
+                     "kind": "module", "source": relative, "signature": None,
+                     "summary": (inspect.getdoc(module) or "").split("\n")[0]})
+        if name == "dbapi":
+            for member in module.__all__:
+                value = vars(module).get(member)
+                if member not in module._MANAGER_EXPORTS:
+                    try:
+                        signature = str(inspect.signature(value)) if callable(value) else None
+                    except (TypeError, ValueError):
+                        signature = None
+                    rows.append({"name": member, "namespace": "shardloom.dbapi", "audience": "application",
+                                 "kind": "function" if inspect.isfunction(value) else "class" if inspect.isclass(value) else "constant",
+                                 "source": relative, "signature": signature,
+                                 "summary": (inspect.getdoc(value) or "Package constant.").split("\n")[0] if callable(value) else "Package constant."})
+                    continue
+                origin = relative
+                rows.append({"name": member, "namespace": "shardloom.dbapi", "audience": "application",
+                             "kind": "alias",
+                             "source": origin, "signature": None,
+                             "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."})
+            continue
+        for member in module.__all__:
+            value = getattr(module, member)
+            defining_module = inspect.getmodule(value)
+            origin_path = Path(defining_module.__file__).resolve() if defining_module and getattr(defining_module, "__file__", None) else Path(module.__file__).resolve()
+            origin = origin_path.relative_to(root).as_posix()
+            sources[origin] = digest(root / origin)
+            try:
+                signature = str(inspect.signature(value))
+            except (TypeError, ValueError):
+                signature = None
+            rows.append({"name": member, "namespace": f"shardloom.{name}", "audience": "application",
+                         "kind": "class" if inspect.isclass(value) else "function" if callable(value) else "constant",
+                         "source": origin, "signature": signature,
+                         "summary": (inspect.getdoc(value) or f"Declare {member} metadata for the native binder.").split("\n")[0]})
     return rows, dict(sorted(sources.items()))
 
 
@@ -214,7 +254,8 @@ def render_reference(application: dict) -> str:
     for row in application["python_symbols"]:
         if row["audience"] != "application":
             continue
-        lines.append(f"| [`{row['name']}`](../../{row['source']}) | {row['kind']} | {cell(row['summary'])} |")
+        label = row['name'] if row['namespace'] == 'shardloom' else f"{row['namespace']}.{row['name']}"
+        lines.append(f"| [`{label}`](../../{row['source']}) | {row['kind']} | {cell(row['summary'])} |")
     lines.extend([
         "", "Exact callable signatures are generated in the [JSON reference](shardloom-user-surface-index.json)",
         "and package type stubs. `shardloom.diagnostics` contains runtime inspection and compatibility",

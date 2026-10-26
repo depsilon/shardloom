@@ -16844,13 +16844,19 @@ mod tests {
         )
         .expect("literal bait SQL route request");
 
+        // Literal projections are admitted by the shared scalar binder. SQL
+        // keywords inside those values must not infer aggregate/filter routes.
+        assert!(infer_native_vortex_sql_payload(&request).is_none());
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(plan.blocker_id, "cg21.route.native_relational_not_admitted");
-        assert_eq!(plan.diagnostics[0].code, DiagnosticCode::UnsupportedSql);
-        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(plan.route_id, "native_vortex_relational_collect");
+        assert_eq!(plan.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
+        assert_eq!(
+            field(&fields, "resolved_internal_command"),
+            "native-vortex-relational"
+        );
         assert_eq!(field(&fields, "vortex_primitive"), "none");
         assert_eq!(field(&fields, "runtime_execution"), "false");
         assert_eq!(field(&fields, "source_io_performed"), "false");

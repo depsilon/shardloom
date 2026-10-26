@@ -1,0 +1,666 @@
+{
+  "schema_version": "shardloom.native_scalar_functions.v1",
+  "source": "shardloom-core/src/expression_builtins.rs",
+  "source_sha256": "54ae6c0b154b32a3ecd41a3db1fe7154c28b09be738574ca8f2163b7673f326d",
+  "functions": [
+    {
+      "name": "abs",
+      "aliases": [
+        "numeric_abs"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "numeric -> checked promoted numeric; decimal precision/scale retained",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "numeric_abs",
+      "reference_supported": true,
+      "summary": "Checked absolute value.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "floor",
+      "aliases": [
+        "numeric_floor"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "numeric -> checked promoted numeric; decimal scale becomes zero",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "numeric_rounding",
+      "reference_supported": true,
+      "summary": "Round toward negative infinity.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "ceil",
+      "aliases": [
+        "ceiling",
+        "numeric_ceil"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "numeric -> checked promoted numeric; decimal scale becomes zero",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "numeric_rounding",
+      "reference_supported": true,
+      "summary": "Round toward positive infinity.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "round",
+      "aliases": [
+        "numeric_round"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "numeric -> checked promoted numeric; decimal scale becomes zero",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "numeric_rounding",
+      "reference_supported": true,
+      "summary": "Round to an integer; halfway values away from zero.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "lower",
+      "aliases": [
+        "utf8_lower"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_transform",
+      "reference_supported": true,
+      "summary": "Unicode lowercase.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "upper",
+      "aliases": [
+        "utf8_upper"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_transform",
+      "reference_supported": true,
+      "summary": "Unicode uppercase.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "trim",
+      "aliases": [
+        "utf8_trim"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_transform",
+      "reference_supported": true,
+      "summary": "Trim Unicode whitespace.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "length",
+      "aliases": [
+        "utf8_length"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 -> Int64 Unicode code-point count",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_length",
+      "reference_supported": true,
+      "summary": "Count Unicode code points.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "starts_with",
+      "aliases": [
+        "utf8_starts_with"
+      ],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 arguments -> Boolean",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_predicate",
+      "reference_supported": true,
+      "summary": "Exact UTF8 prefix comparison.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "ends_with",
+      "aliases": [
+        "utf8_ends_with"
+      ],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 arguments -> Boolean",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_predicate",
+      "reference_supported": true,
+      "summary": "Exact UTF8 suffix comparison.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "contains",
+      "aliases": [
+        "utf8_contains"
+      ],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 arguments -> Boolean",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_predicate",
+      "reference_supported": true,
+      "summary": "Exact UTF8 substring comparison.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "regex_match",
+      "aliases": [
+        "utf8_regex_match",
+        "rlike",
+        "regexp",
+        "regexp_like"
+      ],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 arguments -> Boolean",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_predicate",
+      "reference_supported": true,
+      "summary": "Match a bounded literal Rust-regex pattern.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "concat",
+      "aliases": [
+        "utf8_concat"
+      ],
+      "min_args": 2,
+      "max_args": 128,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_function",
+      "reference_supported": true,
+      "summary": "Concatenate UTF8 values; null propagates.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "substr",
+      "aliases": [
+        "substring",
+        "utf8_substr",
+        "utf8_substring"
+      ],
+      "min_args": 3,
+      "max_args": 3,
+      "type_rule": "UTF8, integer offsets/lengths -> UTF8; Unicode code points",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_function",
+      "reference_supported": true,
+      "summary": "Substring with native SQL start/length semantics.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "left",
+      "aliases": [
+        "utf8_left"
+      ],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8, integer offsets/lengths -> UTF8; Unicode code points",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_function",
+      "reference_supported": true,
+      "summary": "Take a UTF8 prefix by code-point length.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "right",
+      "aliases": [
+        "utf8_right"
+      ],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8, integer offsets/lengths -> UTF8; Unicode code points",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_function",
+      "reference_supported": true,
+      "summary": "Take a UTF8 suffix by code-point length.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "replace",
+      "aliases": [
+        "utf8_replace"
+      ],
+      "min_args": 3,
+      "max_args": 3,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "string_function",
+      "reference_supported": true,
+      "summary": "Replace exact substrings.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "byte_length",
+      "aliases": [
+        "binary_byte_length",
+        "octet_length"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 or binary -> Int64 byte count",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "binary_byte_length",
+      "reference_supported": true,
+      "summary": "Count UTF8/binary bytes.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "unhex",
+      "aliases": [
+        "binary_unhex"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 -> binary; malformed encoded input is an error",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "binary_function",
+      "reference_supported": true,
+      "summary": "Decode hexadecimal text.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "from_base64",
+      "aliases": [
+        "binary_from_base64"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 -> binary; malformed encoded input is an error",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "binary_function",
+      "reference_supported": true,
+      "summary": "Decode Base64 text.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "url_domain",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Extract a URL domain using the admitted native contract.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "regex_domain",
+      "aliases": [
+        "regex_replace_domain"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Apply the fixed HTTP(S) domain capture.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "regexp_replace",
+      "aliases": [
+        "regex_replace"
+      ],
+      "min_args": 3,
+      "max_args": 3,
+      "type_rule": "UTF8 arguments -> UTF8",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Only the fixed HTTP(S) domain pattern and capture are admitted.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "extract_minute",
+      "aliases": [
+        "minute"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "integer epoch seconds or timestamp text -> integer minute",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Extract minute from epoch seconds or timestamp text.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_trunc_minute",
+      "aliases": [
+        "truncate_minute"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "integer epoch seconds or timestamp text -> minute-truncated value of that family",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Truncate epoch seconds or timestamp text to a minute.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_year",
+      "aliases": [
+        "year"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "Date32 (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "date_extract",
+      "reference_supported": true,
+      "summary": "Extract Date32 calendar year.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_month",
+      "aliases": [
+        "month"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "Date32 (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "date_extract",
+      "reference_supported": true,
+      "summary": "Extract Date32 calendar month.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_day",
+      "aliases": [
+        "day"
+      ],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "Date32 (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "date_extract",
+      "reference_supported": true,
+      "summary": "Extract Date32 day of month.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_year",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_extract",
+      "reference_supported": true,
+      "summary": "Extract naive microsecond timestamp year.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_month",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_extract",
+      "reference_supported": true,
+      "summary": "Extract naive microsecond timestamp month.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_day",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_extract",
+      "reference_supported": true,
+      "summary": "Extract naive microsecond timestamp day.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_hour",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_extract",
+      "reference_supported": true,
+      "summary": "Extract naive microsecond timestamp hour.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_minute",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_extract",
+      "reference_supported": true,
+      "summary": "Extract naive microsecond timestamp minute.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_second",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_extract",
+      "reference_supported": true,
+      "summary": "Extract naive microsecond timestamp second.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_add_days",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "Date32 and integer days -> Date32 with checked overflow",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "date_arithmetic",
+      "reference_supported": true,
+      "summary": "Add whole days with checked overflow.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_sub_days",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "Date32 and integer days -> Date32 with checked overflow",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "date_arithmetic",
+      "reference_supported": true,
+      "summary": "Subtract whole days with checked overflow.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_add_seconds",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "naive TimestampMicros and integer seconds -> TimestampMicros with checked overflow",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_arithmetic",
+      "reference_supported": true,
+      "summary": "Add seconds while preserving timestamp microseconds.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_sub_seconds",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "naive TimestampMicros and integer seconds -> TimestampMicros with checked overflow",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "timestamp_arithmetic",
+      "reference_supported": true,
+      "summary": "Subtract seconds while preserving timestamp microseconds.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "date_diff_days",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "Date32 (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "temporal_difference",
+      "reference_supported": true,
+      "summary": "Subtract Date32 values in days.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "timestamp_diff_seconds",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "naive TimestampMicros (or explicitly parsed ISO text) -> Int64",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "temporal_difference",
+      "reference_supported": true,
+      "summary": "Subtract timestamps and truncate whole seconds toward zero.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "coalesce",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 128,
+      "type_rule": "compatible selected operands -> shared native common type",
+      "null_rule": "first non-null value; nullable only if all inputs are nullable",
+      "family": "null_coalesce",
+      "reference_supported": true,
+      "summary": "Select the first non-null compatible value.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "nullif",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "comparable selected operands -> first operand type",
+      "null_rule": "may produce null even with non-null inputs",
+      "family": "nullif_projection",
+      "reference_supported": true,
+      "summary": "Return null when comparable values are equal.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "case_when",
+      "aliases": [],
+      "min_args": 3,
+      "max_args": 3,
+      "type_rule": "Boolean condition and compatible branches -> shared native common branch type",
+      "null_rule": "TRUE selects first branch; FALSE/NULL selects second; branch nullability",
+      "family": "conditional_projection",
+      "reference_supported": true,
+      "summary": "Select a compatible branch with SQL three-valued condition semantics.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "json_extract",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 JSON and literal path -> nullable UTF8 JSON text, preserving string quotes and JSON null; missing path -> SQL null",
+      "null_rule": "may produce null even with non-null inputs",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Extract an admitted JSON scalar path; absent paths yield SQL null.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "strptime",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 and literal format -> naive TimestampMicros",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Parse an admitted literal timestamp format; malformed values fail.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "try_strptime",
+      "aliases": [],
+      "min_args": 2,
+      "max_args": 2,
+      "type_rule": "UTF8 and literal format -> naive TimestampMicros",
+      "null_rule": "may produce null even with non-null inputs",
+      "family": "function",
+      "reference_supported": false,
+      "summary": "Parse an admitted literal timestamp format; malformed values yield null.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    }
+  ]
+}

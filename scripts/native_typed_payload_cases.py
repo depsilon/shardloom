@@ -19,7 +19,7 @@ from native_nested_key_state_cases import run as nested_key_state_cases
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator,
         *, reductions_only=False):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     guard()
@@ -102,7 +102,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         write_all(name, workflow, expected, columns, **writers)
 
     def exercise(family, frame, expected, columns, **writers):
-        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(
+        for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(
                 frame._relation_statement(), context.client, source_bindings=frame._declared_sources()))]:
             exercise_workflow(f"{family}-{spelling}", workflow, expected, columns, **writers)
 
@@ -224,7 +224,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     large_oracle = output / "large-expected.json"
     large_oracle.write_text(json.dumps(expected) + "\n")
     remember(large_oracle)
-    for spelling, workflow in [("dataframe", large), ("sql", SqlWorkflow(
+    for spelling, workflow in [("dataframe", large), ("sql", LazyFrame.from_sql(
             large._relation_statement(), context.client, source_bindings=large._declared_sources()))]:
         family = f"typed-large-{spelling}"
         guard()
@@ -263,7 +263,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         remember(key_oracle)
         frame = context.read_vortex(prepared, schema=schema).limit(count).sort(
             key, descending=True, nulls="last").select(*fields)
-        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(
+        for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(
                 frame._relation_statement(), context.client, source_bindings=frame._declared_sources()))]:
             family = f"typed-key-large-{key}-{spelling}"
             guard()

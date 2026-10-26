@@ -47,8 +47,13 @@ def render_stub(exports: dict[str, tuple[str, str]], audience: str | None) -> st
             (
                 "from typing import Any",
                 "from . import diagnostics as diagnostics",
+                "from . import adbc as adbc",
+                "from . import dbapi as dbapi",
+                "from . import functions as functions",
                 "from . import native as native",
+                "from . import notebook as notebook",
                 "from . import testing as testing",
+                "from . import types as types",
             )
         )
     for module in sorted(by_module):
@@ -59,7 +64,12 @@ def render_stub(exports: dict[str, tuple[str, str]], audience: str | None) -> st
             "__version__",
             "native",
             "diagnostics",
+            "adbc",
+            "dbapi",
             "testing",
+            "functions",
+            "types",
+            "notebook",
             *sorted(
                 name
                 for name, (_module, kind) in exports.items()

@@ -36,15 +36,35 @@ def normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, Re
     return tuple(fields)
 
 
-def result_type_specification(dtype: ResultType) -> dict[str, object]:
-    """Project verified result metadata into the existing typed input contract."""
-    value: dict[str, object] = {"type": dtype.label, "nullable": dtype.nullable}
+def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
+    """Inspect one level; ordinary parsing owns recursive depth/node admission."""
+    if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
+        raise TypeError("ResultType requires a string name and tuple parameters")
+    expected = {"list": 1, "fixed_size_list": 2, "decimal128": 2}.get(dtype.name)
+    if (expected is not None and len(dtype.parameters) != expected) or (
+        expected is None and dtype.name != "struct" and dtype.parameters
+    ):
+        raise ValueError("ResultType has invalid parameters")
+    value: dict[str, object] = {"type": dtype.name, "nullable": dtype.nullable}
     if dtype.name in {"list", "fixed_size_list"}:
-        value.update(type=dtype.name, item=result_type_specification(dtype.parameters[0]))
+        value["item"] = dtype.parameters[0]
         if dtype.name == "fixed_size_list":
             value["size"] = dtype.parameters[1]
     elif dtype.name == "struct":
-        value["fields"] = {name: result_type_specification(child) for name, child in dtype.parameters}
+        fields = {}
+        for pair in dtype.parameters:
+            if not isinstance(pair, tuple) or len(pair) != 2 or not isinstance(pair[0], str):
+                raise ValueError("ResultType struct requires named fields")
+            name, child = pair
+            if name in fields:
+                raise ValueError("ResultType struct field names must be distinct")
+            fields[name] = child
+        value["fields"] = fields
+    elif dtype.name == "decimal128":
+        precision, scale = dtype.parameters
+        if type(precision) is not int or type(scale) is not int or not 1 <= precision <= 38 or not 0 <= scale <= precision:
+            raise ValueError("decimal input requires precision 1..38 and scale 0..precision")
+        value["type"] = f"decimal128({precision},{scale})"
     return value
 
 
@@ -53,6 +73,8 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
     budget[1] += 1024
     if depth > 24 or budget[0] > 4096 or budget[1] > _MAX_BYTES:
         raise ValueError("nested input schema exceeds depth 24, 4096 nodes or 8 MiB metadata")
+    if isinstance(specification, ResultType):
+        specification = _result_type_parameters(specification)
     parameters = specification if isinstance(specification, Mapping) else {"type": specification}
     token = parameters.get("type")
     if not isinstance(token, str):

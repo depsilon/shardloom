@@ -15,7 +15,7 @@ from run_clickbench_query_uat import file_sha256
 
 def run(context, output, guard, accepted, complete, sources, identity):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
@@ -106,7 +106,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
     oracle = output / "scalar-subqueries-expected.json"
     oracle.write_text(json.dumps({
         "declarations": {name: {"sql": workflow._relation_statement(), "rows": rows, "columns": columns,
-                                "surfaces": ["sql"] if isinstance(workflow, SqlWorkflow) else ["dataframe", "sql"],
+                                "surfaces": ["sql"] if workflow.source.relation is not None else ["dataframe", "sql"],
                                 "scalar_dtype": dtype, "source_opens": opens, "writer_denials": denials,
                                 "json_columns": list(json_columns)}
                          for name, workflow, rows, columns, dtype, opens, json_columns, denials in cases},
@@ -134,8 +134,8 @@ def run(context, output, guard, accepted, complete, sources, identity):
         complete(name, [], [])
 
     def exercise(name, workflow, expected, columns, dtype=None, opens=0, json_columns=(), denials=None):
-        variants = [("sql", workflow)] if isinstance(workflow, SqlWorkflow) else [
-            ("dataframe", workflow), ("sql", SqlWorkflow(workflow._relation_statement(), context.client,
+        variants = [("sql", workflow)] if workflow.source.relation is not None else [
+            ("dataframe", workflow), ("sql", LazyFrame.from_sql(workflow._relation_statement(), context.client,
                                                        source_bindings=workflow._declared_sources()))]
         for surface, declared in variants:
             label = f"scalar-{name}-{surface}"

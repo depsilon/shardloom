@@ -169,11 +169,8 @@ LEGACY_EXPORTS: Final = MappingProxyType({
     "sequence": ("query", "application"),
     "session": ("context", "diagnostics"),
     "SessionCacheSmokeReport": ("client", "testing"),
-    "SessionGroupedLazyFrame": ("session", "diagnostics"),
-    "SessionLazyFrame": ("session", "diagnostics"),
     "SessionPreparedState": ("session", "diagnostics"),
     "SessionSqlResult": ("session", "diagnostics"),
-    "SessionSqlWorkflow": ("session", "diagnostics"),
     "SHARDLOOM_MAX_PARALLELISM_ENV": ("runtime_defaults", "testing"),
     "SHARDLOOM_MEMORY_BYTES_ENV": ("runtime_defaults", "testing"),
     "SHARDLOOM_MEMORY_GB_ENV": ("runtime_defaults", "testing"),
@@ -190,7 +187,6 @@ LEGACY_EXPORTS: Final = MappingProxyType({
     "sql": ("query", "application"),
     "sql_literal_select": ("query", "testing"),
     "sql_values": ("query", "testing"),
-    "SqlWorkflow": ("query", "application"),
     "struct": ("query", "application"),
     "substr": ("query", "application"),
     "substring": ("query", "application"),
@@ -275,13 +271,15 @@ EXPORTS: Final = MappingProxyType({
     "Result": ("query", "application"),
     "from_result": ("query", "application"),
     "ResultType": ("_result_schema", "application"),
+    "Window": ("_window", "application"),
+    "WindowSpec": ("_window", "application"),
     "ShardLoomError": ("errors", "application"),
     "ShardLoomInstallationError": ("errors", "application"),
     "ShardLoomClosedError": ("errors", "application"),
     "ShardLoomTimeoutError": ("errors", "application"),
 })
 
-NAMESPACE_MODULES: Final = frozenset({"native", "diagnostics", "testing"})
+NAMESPACE_MODULES: Final = frozenset({"native", "diagnostics", "testing", "functions", "types", "adbc", "dbapi", "notebook"})
 
 
 def names_for_audience(audience: str) -> tuple[str, ...]:

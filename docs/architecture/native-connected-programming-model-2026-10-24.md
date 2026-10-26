@@ -31,11 +31,11 @@ resource, extension and remote-API RFCs remain governing boundaries.
 
 ## Product contract
 
-Consume the preceding work-elimination package's shared immutable structure,
-admitted aggregate-through-join rewrites and small precompiled execution
-fragments through the same binder. SQL/DataFrame transitions and named-plan
+Build on the accepted 1.0.0 runtime. The preceding work-elimination and CPU
+investigations were dropped; their unmerged rewrites and specialization are not
+implementation prerequisites. SQL/DataFrame transitions and named-plan
 references must retain encoding, multiplicity, dependency and consumer facts
-needed by those optimizations. Do not rebuild a specialization layer in the
+needed by shared native optimization. Do not build a specialization layer in the
 facade or materialize an intermediate merely to expose a different syntax.
 Prepared structure is not retained mutable aggregate state or an answer cache.
 
@@ -168,6 +168,106 @@ fastest correct native path fast, preserve existing engine-time definitions and
 exactly-once isolated Full43 rules, and use targeted mixed workloads where
 Full43 does not activate the feature. No performance, release or CG completion
 claim follows merely from exposing a new namespace or method.
+
+## October 26 implementation contract
+
+The maintainer has authorized queue items 17 through 22, with this package first.
+The [October 26 local acceptance](../benchmarks/native-connected-programming-2026-10-26.md)
+passes the connected workflow, installed adapters and isolated Full43 controls.
+Hosted CI and review remain separate. This section records the design and acceptance
+boundaries; the published 1.0.0 package predates these additions. RFC 0044 remains the implementation phase;
+CG-1 through CG-23 remain independent gates.
+
+- Keep one lazy public DataFrame and the existing native-backed Result. SQL
+  syntax, DataFrame operations and named relations retain immutable declarations
+  and their source owners. Resolve names into bound relations, never SQL text
+  replacement or an intermediate data conversion.
+- A context owns its temporary catalog. Normalize ordinary identifiers
+  consistently, reject duplicate creation unless replacement is explicit, and
+  snapshot bindings when a query is constructed. Replacement/drop changes future
+  binding only. Query-local relations shadow catalog entries; nested WITH scopes
+  shadow enclosing scopes. Reject self/forward references and cross-context
+  registrations before effects. Repeated references share declaration structure,
+  not mutable operator state or previously computed answers.
+- Parse named scalar parameters into syntax nodes and bind exact typed values
+  before native planning. Reject missing, extra and malformed parameters. A
+  parameter cannot stand for an identifier or relation. Each newly bound value
+  participates in preparation identity and parameter-sensitive decisions.
+- Replace CTE text expansion with scoped, shared query structure. Account for
+  metadata and traversal work before source effects; exercise wide declarations,
+  long ordinary compositions and cancellation. Do not remove safety guards merely
+  to admit a larger fixture. Recursive execution stays with item 20's separate
+  termination/state contract.
+- Extend `NativeRelationDeclaration` to retain immutable child declarations and
+  a typed operator template. Template input slots are bound before provider
+  preparation; they cannot be interpreted as file paths or executed. SQL roots
+  keep their parsed syntax and resolved named-plan snapshots. Construction
+  shares declarations; action admission accounts for each consumer's native
+  operators before lowering them. No result or mutable operator state is cached
+  by naming a relation or changing its frontend syntax.
+- Observations belong to a specified plan position and share the action's input
+  pass. Data completion and output publication are separate outcomes. Failed or
+  cancelled actions do not publish complete metrics or a successful write receipt.
+- Notebook, DB-API and ADBC adapters consume the same context, typed bindings,
+  metadata and bounded result streams. Verify their actual standard interfaces
+  with independent clients before claiming driver support. Declare transaction
+  limits explicitly; no implicit global context is introduced.
+
+Vortex-first provider decision: `implement_shardloom_kernel` for SQL scope/name
+binding and frontend plan composition, which are ShardLoom responsibilities rather
+than upstream array or scan APIs. Reuse the admitted Vortex 0.90 provider through
+the existing `NativeRelationDeclaration`, `VortexRelationalPlan`, resident source,
+shared preparation and native sink boundaries. No new storage representation,
+decoded Arrow execution substrate, external evaluator or provider dependency is
+needed. Actual execution retains existing resource, materialization, Native I/O
+and no-fallback evidence.
+
+Schema inspection reuses the native binder and the pinned compatibility providers'
+format metadata. Parquet reads its footer through the existing Arrow metadata
+provider; Arrow IPC converts its verified footer schema without opening row or
+dictionary blocks. Footer sizes and metadata workspace are admitted before
+decoding metadata, source generations are checked, and no compatibility ingest,
+batch producer or query executes. Schemaless text still needs an explicit data
+action; schema hints alone are not a claim about all file columns.
+
+Long ordinary chains use an ordered native streaming pipeline: projection,
+filter and range stages retain their exact position and shared expression
+semantics. Iterative declaration/SQL lowering and stage binding avoid recursive
+ownership and callbacks for those chains. Native metadata and per-action stage
+state remain resource-admitted; cancellation is checked during traversal and
+execution. Short plans retain their existing representation and provider
+selection. Stateful and correlated nesting retains its independent admission
+contract; this does not turn an unbounded recursive query into an admitted plan.
+
+Observations extend that ordered pipeline with a pass-through consumer of the
+existing native aggregate kernels. SQL scalar/aggregate admission supplies the
+same argument expressions, result types and null rules as ordinary aggregation;
+the observation's private projection cannot narrow or replace downstream rows.
+COUNT, SUM, MIN and MAX retain action-local state under the same memory owner.
+No upstream scan or array interface supplies named relational action completion,
+so ShardLoom owns this thin orchestration while reusing its admitted Vortex
+expressions and reductions. No second source pass or external provider is added.
+Observation names are unique across a complete bound action, including repeated
+named-plan references. Correlated repeated execution and distinct-state metrics
+are explicitly unadmitted. A failed/cancelled producer, consumer or publication
+discards provisional metrics; completed data observations and the write's commit
+receipt remain separate fields. Early stream close does not certify completion.
+
+Acceptance uses complete mixed workflows and targeted negative controls, then one
+isolated standard Full43 pass on the final coherent implementation. Record engine
+time only in routine comparisons. Freeze the targeted fixture identities, expected
+values, source-read counts and resource ceilings before executing the candidate;
+preserve failures and do not repeat measurements to select a favorable result.
+
+The [connected programming reference](../reference/connected-programming.md)
+documents the implemented source API. Shared scalar definitions now own names,
+aliases, arities, type rules and null rules for SQL/native binding and inert
+discovery; their [generated reference](../reference/native-scalar-functions.md)
+is checked against the actual native catalog. Existing kernels remain the
+evaluation providers. The optional ADBC 0.24 driver uses the reviewed upstream
+FFI implementation and the same context/Arrow result boundary; see the
+[dependency review](../dependencies/adbc-local-driver-review.md). No external
+query evaluator is introduced.
 
 ## Primary design references
 

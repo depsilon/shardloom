@@ -3,6 +3,50 @@
   "scope": "all_locked_registry_packages_and_vendored_patches_including_build_test_and_platform_dependencies",
   "components": [
     {
+      "name": "adbc_core",
+      "version": "0.24.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/apache/arrow-adbc",
+      "crate_checksum_sha256": "365059b13a01bbf6f324b5bfe328232a819679731431f78105e2883256236858",
+      "files": [
+        {
+          "text": "texts/46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e.txt",
+          "sha256": "46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e",
+          "bytes": 16669,
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/LICENSE.txt"
+        },
+        {
+          "text": "texts/59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb.txt",
+          "sha256": "59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb",
+          "bytes": 171,
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/NOTICE.txt"
+        }
+      ]
+    },
+    {
+      "name": "adbc_ffi",
+      "version": "0.24.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/apache/arrow-adbc",
+      "crate_checksum_sha256": "12cdef84c12e9e8858b300440c36ca94ba24fb2e188175251dc39bb44ba3584e",
+      "files": [
+        {
+          "text": "texts/46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e.txt",
+          "sha256": "46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e",
+          "bytes": 16669,
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/LICENSE.txt"
+        },
+        {
+          "text": "texts/59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb.txt",
+          "sha256": "59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb",
+          "bytes": 171,
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/NOTICE.txt"
+        }
+      ]
+    },
+    {
       "name": "adler2",
       "version": "2.0.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",

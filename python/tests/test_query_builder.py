@@ -1304,8 +1304,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("amount") * "2"
         with self.assertRaisesRegex(ValueError, "at least one shardloom column"):
             sl.concat("alpha", "beta")
-        with self.assertRaisesRegex(ValueError, "string expressions currently admit"):
-            sl.concat(sl.col("label").length(), "x")
+        # Type admission belongs to the shared native binder. Construction is
+        # inert and accepts expression structure without inventing Python types.
+        self.assertEqual(sl.concat(sl.col("label").length(), "x").sql,
+                         "CONCAT(LENGTH(label), 'x')")
         with self.assertRaisesRegex(ValueError, "substring start"):
             sl.col("label").substr(0, 2)
         with self.assertRaisesRegex(ValueError, "left count"):
@@ -4079,7 +4081,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         frame = sl.read_vortex(uri, client=client)
                     else:
                         frame = sl.read_csv(uri, schema=schema, client=client)
-                    workflow = sl.SqlWorkflow(
+                    workflow = sl.LazyFrame.from_sql(
                         expected_sql,
                         client,
                         source_bindings=frame._declared_sources(),

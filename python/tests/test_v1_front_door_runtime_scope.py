@@ -399,8 +399,9 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
 
         ctx = context(repo_root=REPO_ROOT, binary=self.fake_cli())
         frame = ctx.read_csv("events.csv", schema={"id": "int64"})
+        with self.assertRaisesRegex(ValueError, "in-process native transport"):
+            frame.sql("SELECT * FROM remote_table")
         unsupported_reports = [
-            frame.sql("SELECT * FROM remote_table"),
             frame.query("id > @threshold", threshold=10),
             frame.merge("remote.parquet", on="id", how="outer", indicator=True),
         ]

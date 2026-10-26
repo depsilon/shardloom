@@ -55,6 +55,11 @@ use shardloom_exec::compute_pool::CancellationToken;
 
 pub use crate::source_identity::SourceIdentity;
 
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+mod metadata;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+pub use metadata::inspect_local_columnar_schema;
+
 mod budgeted_projection;
 pub use budgeted_projection::{
     ColumnarSourceVisit, visit_budgeted_avro_source_with_projection,

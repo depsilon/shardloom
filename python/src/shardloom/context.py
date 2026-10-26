@@ -46,7 +46,6 @@ from .execution_resources import (
 )
 from .query import (
     LazyFrame,
-    SqlWorkflow,
     UnsupportedWorkflowOperationReport,
     Result,
     WorkflowSource,
@@ -5178,6 +5177,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         cli_commands=("run", "vortex-prepare"),
         context_methods=("sql", "run", "read", "read_csv", "read_json", "read_vortex",
                          "from_vortex_ipc",
+                         "register", "table", "list_tables", "drop_view",
                          "from_rows", "from_result", "from_batches", "literal_table", "range", "sequence", "calendar",
                          "sql_values", "sql_literal_select", "dataframe_source_free_projection",
                          "dataframe_generated_with_column", "prepare_vortex", "session", "cancel", "close"),
@@ -10141,6 +10141,8 @@ class ShardLoomContext:
         )
         self.engine = _normalize_engine_mode(engine)
         self._preparation_session: ShardLoomSession | None = None
+        from ._connected import Catalog
+        self.catalog = Catalog(self.client)
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -10171,6 +10173,7 @@ class ShardLoomContext:
 
     def close(self) -> None:
         """Revoke new work and close shared session state, preserving completed data."""
+        self.catalog.clear()
         if self._preparation_session is not None:
             self._preparation_session.close()
         else:
@@ -10758,18 +10761,35 @@ class ShardLoomContext:
         *,
         input: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
+        parameters: Mapping[str, object] | None = None,
+        relations: Mapping[str, LazyFrame] | None = None,
         check: bool | None = None,
-    ) -> SqlWorkflow:
-        """Create a scoped SQL workflow using this context's client."""
+    ) -> LazyFrame:
+        """Bind SQL to immutable catalog/query-local plans and typed parameters."""
 
         _ = check
         return sql_workflow(
             statement,
             input=input,
             input_format=input_format,
+            parameters=parameters, relations=self.catalog.bindings(relations),
             client=self.client,
             resources=self.resources, resource_limits=self.resource_limits,
         )
+
+    def register(self, name: str, frame: LazyFrame, *, replace: bool = False) -> LazyFrame:
+        """Name an immutable lazy plan in this context without reading its inputs."""
+        return self.catalog.register(name, frame, replace=replace)
+
+    def table(self, name: str) -> LazyFrame:
+        """Return the currently registered immutable plan snapshot."""
+        return self.catalog.table(name)
+
+    def list_tables(self) -> tuple[str, ...]:
+        return self.catalog.list()
+
+    def drop_view(self, name: str, *, if_exists: bool = False) -> bool:
+        return self.catalog.drop(name, if_exists=if_exists)
 
     def sequence(
         self,
@@ -10793,7 +10813,7 @@ class ShardLoomContext:
     def sql_values(
         self,
         values_clause: object,
-    ) -> SqlWorkflow:
+    ) -> LazyFrame:
         """Create a scoped SQL VALUES generated source for local output runtime."""
 
         return generated_sql_values(
@@ -10805,7 +10825,7 @@ class ShardLoomContext:
     def sql_literal_select(
         self,
         expression: object,
-    ) -> SqlWorkflow:
+    ) -> LazyFrame:
         """Create a scoped SQL literal SELECT generated source for local output runtime."""
 
         return generated_sql_literal_select(

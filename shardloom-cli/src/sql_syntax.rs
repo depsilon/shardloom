@@ -3458,7 +3458,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut timestamp_extract_projections = Vec::new();
     let mut window_projections = Vec::new();
     let mut aggregates = Vec::new();
-    for projection in entries {
+    for (ordinal, projection) in entries.into_iter().enumerate() {
         let projection = projection.trim();
         if projection == "*" {
             projection_order.push(ParsedProjectionOutput::Raw("*".to_string()));
@@ -3576,10 +3576,25 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 literal_projection.alias.clone(),
             ));
             literal_projections.push(literal_projection);
-        } else {
-            validate_sql_column_ref(projection)?;
+        } else if validate_sql_column_ref(projection).is_ok() {
             projection_order.push(ParsedProjectionOutput::Raw(projection.to_string()));
             projections.push(projection.to_string());
+        } else {
+            // An explicit CTE column-name list renames these outputs after
+            // binding. It must not require redundant aliases on its inputs.
+            // Preserve established names above; other scalar expressions use
+            // their one-based SELECT position when no alias was supplied.
+            let alias = format!("expression_{}", ordinal + 1);
+            let expression =
+                parse_numeric_scalar_expression(projection, &format!("project.implicit.{alias}"))?;
+            projection_order.push(ParsedProjectionOutput::GenericExpression(alias.clone()));
+            generic_expression_projections.push(ParsedGenericExpressionProjection {
+                alias,
+                source_columns: expression_source_columns(&expression),
+                operator_families: expression_operator_families(&expression),
+                binary_operator_count: expression_binary_operator_count(&expression),
+                expression,
+            });
         }
     }
     let has_star_projection = projection_order
@@ -3639,6 +3654,16 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
 }
 
 fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>, ShardLoomError> {
+    if let Ok(value) = raw.parse::<i64>() {
+        return Ok(Some(ParsedLiteralProjection {
+            alias: if value < 0 {
+                format!("literal_neg{}", value.unsigned_abs())
+            } else {
+                format!("literal_{value}")
+            },
+            value: ScalarValue::Int64(value),
+        }));
+    }
     if ["null", "true", "false"]
         .iter()
         .any(|literal| raw.eq_ignore_ascii_case(literal))
@@ -5116,10 +5141,10 @@ fn parse_string_scalar_expression(
     if let Some(call) = parse_string_function_call_expression(trimmed, id_prefix)? {
         return Ok(call.expression);
     }
-    if trimmed.starts_with('\'') {
+    if let Ok(value) = parse_projection_literal_value(trimmed) {
         return Ok(Expression::literal(
             ExprId::new(format!("{id_prefix}.literal"))?,
-            ScalarValue::Utf8(parse_sql_string_literal(trimmed)?),
+            value,
         ));
     }
     validate_sql_column_ref(trimmed)?;
@@ -6197,6 +6222,25 @@ fn parse_group_by_list(
     }
     let mut parsed = Vec::with_capacity(columns.len());
     for mut column in columns {
+        if let Ok(ordinal) = column.parse::<usize>() {
+            let output = ordinal
+                .checked_sub(1)
+                .and_then(|index| projections.projection_order.get(index))
+                .ok_or_else(|| {
+                    unsupported_sql_error("GROUP BY ordinal is outside the SELECT list")
+                })?;
+            column = match output {
+                ParsedProjectionOutput::Raw(name) if name != "*" => name.clone(),
+                ParsedProjectionOutput::Aggregate(_) | ParsedProjectionOutput::Window(_) => {
+                    return Err(unsupported_sql_error(
+                        "GROUP BY ordinal cannot reference an aggregate or window",
+                    ));
+                }
+                output => output.computed_alias().map(str::to_owned).ok_or_else(|| {
+                    unsupported_sql_error("GROUP BY ordinal requires a named SELECT expression")
+                })?,
+            };
+        }
         if let Some(alias) = selected_additive_alias(&column, projections) {
             column = alias;
         }
@@ -10745,6 +10789,25 @@ fn parse_qualified_column_ref(value: &str) -> Result<QualifiedColumn, ShardLoomE
 #[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unaliased_parameter_expressions_have_positional_names() {
+        let parsed = parse_projection_list("id,value+:extra,LENGTH(label)").unwrap();
+        assert_eq!(parsed.projection_order.len(), 3);
+        assert_eq!(
+            parsed.generic_expression_projections[0].alias,
+            "expression_2"
+        );
+        assert_eq!(
+            parsed.generic_expression_projections[1].alias,
+            "expression_3"
+        );
+        assert_eq!(
+            parsed.generic_expression_projections[0].source_columns,
+            ["value"]
+        );
+        assert!(parse_projection_list("value+:extra; DROP TABLE facts").is_err());
+    }
 
     #[test]
     fn compact_comparisons_preserve_operators_and_quoted_literals() {

@@ -141,7 +141,6 @@ class NativeOutputWindowBindingTests(unittest.TestCase):
 
     def test_public_sql_and_dataframe_slicing_preserves_values_and_policy(self):
         import shardloom as sl
-        from shardloom.query import SqlWorkflow
 
         for surface in ("sql", "dataframe_scan", "dataframe_projection", "dataframe_nested_projection"):
             for batch_rows in (257, 4096):
@@ -150,8 +149,8 @@ class NativeOutputWindowBindingTests(unittest.TestCase):
                     self.addCleanup(client.close)
                     frame = sl.range(0, 4097, column="id", client=client)
                     if surface == "sql":
-                        query = SqlWorkflow(f"SELECT id,id+1 AS value FROM '{frame.source.uri}'", client,
-                                            source_bindings=(frame.source,))
+                        query = sl.LazyFrame.from_sql(f"SELECT id,id+1 AS value FROM '{frame.source.uri}'", client,
+                                                      source_bindings=(frame.source,))
                     elif surface == "dataframe_scan":
                         query = frame
                     elif surface == "dataframe_projection":
