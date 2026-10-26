@@ -66,7 +66,12 @@ class OutputWindowOptionTests(unittest.TestCase):
     def test_facades_forward_explicit_configuration(self):
         client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=1)
         self.addCleanup(client.close)
-        queries = (sl.range(0, 17, client=client), sl.sql("SELECT 1 AS n", client=client))
+        # This forwarding contract runs in the source-only CI shard. SQL now
+        # binds its declaration through the selected native backend at creation.
+        backend = Mock()
+        with patch.object(client, "_native_backend_for", return_value=backend):
+            queries = (sl.range(0, 17, client=client), sl.sql("SELECT 1 AS n", client=client))
+        backend.declaration.assert_called_once_with(queries[1])
         with patch.object(client, "public_workflow_batches") as batches:
             for query in queries:
                 query.iter_batches(output_window_bytes=WINDOW)

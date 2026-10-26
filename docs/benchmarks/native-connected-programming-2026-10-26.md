@@ -84,6 +84,14 @@ adapter cases to execute with zero skips. This is macOS arm64, Python 3.13 local
 execution evidence; downloadable Linux client wheels do not constitute Linux
 execution proof. Hosted platform checks must report their own outcome.
 
+The first hosted source-only Python shard found two contract tests that invoked
+native SQL declaration binding without an installed extension. Those tests now
+mock that binding while retaining their forwarding and shared-owner assertions.
+The focused 13 tests and complete source-only core shard pass locally; the
+[follow-up record](evidence/native-connected-programming-2026-10-26/source-only-ci-followup.json)
+preserves the original hosted failure and the exact local coverage. Runtime
+sources and the original portable packet are unchanged; no benchmark was rerun.
+
 ## Full43 observation
 
 **Full43 engine time: 47.935588458 seconds**, 43 queries executed once each.

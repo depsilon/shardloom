@@ -80,7 +80,15 @@ class PublicContextContractTests(unittest.TestCase):
                 ctx = sl.context(transport=transport, **GRANT)
                 session = ctx.session()
                 self.assertIs(ctx.session(), session)
-                plan = ctx.sql("SELECT 1 AS id")
+                # Isolate the shared-owner lifecycle from optional native SQL
+                # declaration binding; real binding has its own installed tests.
+                backend = mock.Mock()
+                with mock.patch.object(ctx.client, "_native_backend_for", return_value=backend):
+                    plan = ctx.sql("SELECT 1 AS id")
+                if transport == "native":
+                    backend.declaration.assert_called_once_with(plan)
+                else:
+                    backend.declaration.assert_not_called()
                 session.close()
                 self.assertTrue(ctx.closed)
                 self.assertTrue(session.closed)
