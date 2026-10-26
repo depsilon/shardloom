@@ -287,6 +287,13 @@ impl PlanCore {
 
 #[pymethods]
 impl NativePlan {
+    /// Direct input positions retained by native binding, before source flattening.
+    /// These are indices in the supplied relation list, including source-free plans.
+    #[getter]
+    fn bound_input_indices(&self) -> PyResult<Vec<usize>> {
+        Ok(self.declaration(&self.session)?.input_indices().collect())
+    }
+
     /// Report retained source references without inspecting or opening them.
     #[getter]
     fn source_references(&self) -> PyResult<Vec<String>> {

@@ -11,7 +11,7 @@ import json
 import math
 import os
 import re
-from dataclasses import field
+from dataclasses import field, replace as _dataclass_replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from itertools import combinations
@@ -2647,13 +2647,21 @@ class LazyFrame:
                 raise ValueError(f"conflicting format or schema declarations for source {input_uri!r}")
             if not matching:
                 sources = (primary, *sources)
-        limits = merge_resource_limits(resource_limits, _predicate_limits(tuple(frame for _, frame in bound)))
         frame = cls(
             WorkflowSource("sql", "", relation=SqlRelation(statement, sources, bound, values, input_uri, input_format)),
-            client, resources=resources, resource_limits=limits,
+            client, resources=resources, resource_limits=resource_limits,
         )
         if getattr(client, "transport", "subprocess") == "native":
-            client._native_backend_for().declaration(frame)
+            plan = client._native_backend_for().declaration(frame)
+            if bound:
+                # Native binding accounts for lexical CTE scopes and source-free
+                # relations. Physical source paths cannot identify these policies.
+                used = frozenset(plan.bound_input_indices)
+                limits = merge_resource_limits(frame.resource_limits, _predicate_limits(
+                    tuple(value for index, (_, value) in enumerate(bound) if index in used)
+                ))
+                if limits != frame.resource_limits:
+                    frame = _dataclass_replace(frame, resource_limits=limits)
         return frame
 
     @property

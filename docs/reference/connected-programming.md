@@ -59,6 +59,10 @@ the output as published; reopen it with `ctx.read_vortex(destination)`.
 Vortex is the native persistence target. Compatibility exports report their
 own fidelity boundaries.
 
+`ctx.read_vortex(path).limit(1).run()` uses the native Vortex policy by default
+and executes the same connected native declaration. Selecting `native_vortex`
+explicitly on a Vortex reader is also supported.
+
 ## Names, parameters and schemas
 
 `ctx.register(name, frame)` snapshots an immutable plan. Use `replace=True` to
@@ -75,6 +79,11 @@ column-name lists use the same binder. `NOT MATERIALIZED` retains ordinary plan
 composition. `MATERIALIZED` is rejected until its CTE ownership contract exists;
 use an explicit `collect()` result and `ctx.from_result(result)` when a completed
 data boundary is required. Recursive execution is separate work.
+
+A query inherits resource ceilings only from the named plans its SQL actually
+references. Unused catalog entries and names shadowed by a local CTE do not
+constrain the query. Referenced plans keep their ceilings, including plans with
+no file source; an allocation above a ceiling fails before execution.
 
 Named parameters bind scalar values, never SQL fragments, identifiers or table
 names. Missing, extra and malformed parameters fail explicitly. For exact

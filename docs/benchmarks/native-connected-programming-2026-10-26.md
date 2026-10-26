@@ -92,6 +92,35 @@ The focused 13 tests and complete source-only core shard pass locally; the
 preserves the original hosted failure and the exact local coverage. Runtime
 sources and the original portable packet are unchanged; no benchmark was rerun.
 
+### PR review follow-up
+
+The [review follow-up](evidence/native-connected-programming-2026-10-26/review-followup.json)
+addresses both findings on PR #1610. A connected Vortex reader accepts its
+ordinary default `native_vortex` execution policy. SQL inherits resource
+ceilings from the native binder's actual referenced relations, including
+source-free plans; unused catalog entries and locally shadowed names no longer
+constrain unrelated queries. Native binding still rejects referenced allocations
+above their ceilings before source effects.
+
+All 21 connected-programming tests pass. The complete Python run executes 1,001
+tests with eight documented optional/environment skips, and the documented
+example passes. A fresh source-only core shard executes 841 tests with 26
+environment/optional skips. The default Rust suite passes 3,261 tests, default
+and native workspace Clippy pass, and a rebuilt clean installed package passes
+182 native/adapter tests with zero skips and successful uninstall. The new
+getter is exercised through both native Python paths; the earlier full native
+Rust test result remains separately recorded above.
+
+The follow-up retains the original failing regressions and an intermediate
+helper-name collision, followed by the passing checks. Its native library is
+`10e8792d3139456bbe48323fc3100996ba5b877394077bc57f2b8d3816dcb1f2`;
+the newly tested wheel is
+`e301a8a758cc65e93f0fe389b6bc0c666c647260c66b86015ab94362047a99de`.
+The CLI remains byte-identical to the accepted Full43 executable. No engine
+operator changed, no new Full43 pass was needed, and the original packet and
+observations remain unchanged. Hosted checks must validate the pushed review
+fix independently.
+
 ## Full43 observation
 
 **Full43 engine time: 47.935588458 seconds**, 43 queries executed once each.
@@ -140,8 +169,13 @@ Correlated repeated observation and distinct-state metrics remain unadmitted.
 The local adapters do not claim transactions, remote partitions, bulk parameter
 streams, SQL writes or persistent catalogs.
 
-Queue item 18 is universal I/O. The dropped item 15 implementation is not a
-dependency and must not be restored unchanged. RFC 0044, native Vortex input and
-output, explicit compatibility conversion and no external execution fallback
-remain governing contracts. This acceptance closes no CG gate and makes no
-production, release or superiority claim.
+The October 26 maintainer override makes item 20 the next implementation after
+this PR is ready and completed generated artifacts are retired. Expand and test
+ShardLoom's query surface before competitor comparisons; use targeted family
+checks as the main loop and ClickBench as an existing regression guard.
+Unfinished item 18 source and evidence remain preserved for later work. The
+dropped item 15 implementation is not a dependency and must not be restored
+unchanged. RFC 0044, native Vortex input and output, explicit compatibility
+conversion and no external execution fallback remain governing contracts. This
+acceptance closes no CG gate and makes no production, release or superiority
+claim.

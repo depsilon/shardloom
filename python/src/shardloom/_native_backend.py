@@ -252,10 +252,15 @@ class NativeBackend:
             for name, value in request.items()
         )
         if request.get("_native_frame") is not None:
-            if (operation_options or request.get("execution_policy", "vortex_middle") != "vortex_middle"
+            frame = request["_native_frame"]
+            policy = request.get("execution_policy", "vortex_middle")
+            admitted_policy = policy == "vortex_middle" or (
+                policy == "native_vortex" and frame.source.source_format == "vortex"
+            )
+            if (operation_options or not admitted_policy
                     or request.get("materialization_policy", "bounded") != "bounded"):
                 raise ValueError("connected plans require the native bounded execution policy; operation-specific overrides cannot replace the relation")
-            return self.declaration(request["_native_frame"], request.get("spill"))
+            return self.declaration(frame, request.get("spill"))
         statement = request.get("sql_statement")
         if (operation_options or not statement
                 or request.get("execution_policy", "vortex_middle") != "vortex_middle"

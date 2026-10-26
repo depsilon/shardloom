@@ -3,7 +3,10 @@
 from datetime import date
 from decimal import Decimal
 import gc
+from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 try:
     from .test_native_binding import _load_native
@@ -22,6 +25,70 @@ class ConnectedProgrammingTests(unittest.TestCase):
         context = self.sl.context(transport="native", memory_bytes=memory_bytes, max_parallelism=2)
         self.addCleanup(context.close)
         return context
+
+    def test_native_vortex_run_preserves_default_and_explicit_policy(self):
+        context = self.context()
+        with tempfile.TemporaryDirectory(prefix="shardloom-connected-policy-") as directory:
+            path = Path(directory) / "source.vortex"
+            context.range(7, 10, column="value").write_vortex(path)
+            frame = context.read_vortex(path).limit(1)
+            for policy in (None, "native_vortex", "vortex_middle"):
+                with self.subTest(policy=policy), patch(
+                    "subprocess.Popen", side_effect=AssertionError("execution child process")
+                ):
+                    report = frame.run(execution_policy=policy)
+                    result = self.sl.Result(frame, "collect", report.envelope)
+                    self.assertEqual(result.to_rows(), ({"value": 7},))
+                    self.assertFalse(report.envelope.fallback.attempted)
+                    self.assertEqual(report.envelope.field("external_engine_invoked"), "false")
+            with self.assertRaisesRegex(ValueError, "bounded execution policy"):
+                frame.run(execution_policy="unrecognized")
+            with self.assertRaisesRegex(ValueError, "bounded execution policy"):
+                frame.run(materialization_policy="unrecognized")
+
+    def test_unused_and_shadowed_catalog_relations_do_not_inherit_resource_ceilings(self):
+        context = self.context(128 << 20)
+        limited = context.session(
+            memory_bytes=16 << 20, max_parallelism=1,
+            resource_limits=self.sl.ExecutionResourceLimits(memory_bytes=16 << 20, max_parallelism=1),
+        )
+        restricted = limited.sql("SELECT 9 AS value")
+        context.register("restricted", restricted)
+        cases = (
+            ("SELECT 1 AS value", ({"value": 1},)),
+            ("SELECT 'restricted' AS value", ({"value": "restricted"},)),
+            ("WITH restricted AS (SELECT 7 AS value) SELECT value FROM restricted", ({"value": 7},)),
+        )
+        for statement, expected in cases:
+            with self.subTest(statement=statement):
+                query = context.sql(statement)
+                self.assertEqual(query.resources.memory_bytes, 128 << 20)
+                self.assertEqual(query.resource_limits, context.resource_limits)
+                self.assertEqual(query.collect().to_rows(), expected)
+        local = context.sql("SELECT 11 AS value")
+        query = context.sql("SELECT value FROM restricted", relations={"restricted": local})
+        self.assertEqual(query.collect().to_rows(), ({"value": 11},))
+
+    def test_referenced_source_free_relation_keeps_resource_ceilings_before_execution(self):
+        context = self.context(128 << 20)
+        limited = context.session(
+            memory_bytes=16 << 20, max_parallelism=1,
+            resource_limits=self.sl.ExecutionResourceLimits(memory_bytes=16 << 20, max_parallelism=1),
+        )
+        restricted = limited.sql("SELECT 9 AS value")
+        context.register("restricted", restricted)
+        for statement in (
+            "SELECT value FROM restricted",
+            "WITH alias AS (SELECT value FROM restricted) SELECT value FROM alias",
+            "SELECT (SELECT value FROM restricted) AS value",
+        ):
+            with self.subTest(statement=statement), self.assertRaises(self.sl.ShardLoomResourceConfigurationError):
+                context.sql(statement)
+        self.assertFalse(context.client._native_backend.session.snapshot()["native_owner_initialized"])
+        admitted = limited.sql("SELECT value FROM input", relations={"input": restricted})
+        with self.assertRaises(self.sl.ShardLoomResourceConfigurationError):
+            admitted.collect(memory_bytes=32 << 20)
+        self.assertEqual(admitted.collect().to_rows(), ({"value": 9},))
 
     def test_plan_transform_builds_once_without_consuming_data_and_rejects_foreign_context(self):
         context = self.context()

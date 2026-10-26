@@ -15,13 +15,15 @@ and inserts [complete-workflow work elimination](native-workflow-work-eliminatio
 then the [batch/window and shared CPU speed pass](native-ingest-batch-window-scheduling-2026-10-25.md)
 after maintenance. Reuse the earlier package's immutable plan/setup foundation
 and shared execution contracts here; named plans and interface composition
-remain this package's responsibility. This programming package follows the speed pass, then
-[universal I/O](native-universal-io-performance-coverage-2026-10-24.md),
-then [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
-The subsequent [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
-request extends this package's SQL scope and follows it with statistics,
-temporal/value semantics and explicit batch functions after the I/O and rich-data
-packages. CG-1 through CG-23 remain independent certification gates.
+remain this package's responsibility. The October 26 maintainer override now
+places [everyday analytical completion](phased-execution-plan.md#everyday-analytical-completion)
+immediately after this package's PR is ready. It extends the SQL scope with
+statistics, temporal/value semantics, explicit batch functions and broader
+query-family coverage. The [phase plan](phased-execution-plan.md) owns that
+expanded scope and the later sequencing of
+[universal I/O](native-universal-io-performance-coverage-2026-10-24.md) and
+[rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
+CG-1 through CG-23 remain independent certification gates.
 The following [AI-data package](native-ai-data-workflows-2026-10-24.md) consumes
 these same plans, results and explicit application-function boundaries for
 model-ready batches, feature preparation, retrieval and agent access.

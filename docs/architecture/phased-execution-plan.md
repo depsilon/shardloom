@@ -251,6 +251,17 @@ the ledger.
 
 Current autonomous execution order:
 
+**October 26 maintainer override:** finish item 17 and its PR checks/review,
+clean up completed generated artifacts, then start item 20 directly. Item 20
+will absorb the requested broad query-surface and performance program; expand
+and validate ShardLoom's own surface before running competitor comparisons.
+Use targeted family tests as the main loop and retain ClickBench as an existing
+regression guard. Item 18's unfinished source and evidence are preserved on
+`codex/universal-io` at `87b5a174`; it is not accepted or a prerequisite for item
+20. Items 18 and 19 remain requested work pending resequencing. This override
+supersedes the earlier immediate ordering below without renumbering item IDs,
+restoring dropped mechanisms or changing no-fallback and CG boundaries.
+
 **October 25 continuation:** PR #1605 is merged as
 `167ac248ba662ae7967a7801995e9b160b17bae5`, including the accepted
 [CI performance and coverage-preservation batch](../release/ci-performance-2026-10-25.md#completed-remote-acceptance).
