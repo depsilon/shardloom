@@ -29,6 +29,19 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [1.0.0 release cleanup](../release/evidence/v1.0.0-local-generated-cleanup-2026-10-25.json)
+retires 30,484 generated regular files and 21 environment links after release,
+installed-package and documentation verification. It covers seven completed
+installation environments, completed compiler directories, temporary source
+and package copies, 16 verified registry downloads and five superseded or
+explicitly dropped runtime files. Repeated identity reads, closed-handle checks
+and supervised process cleanup pass. The tested 1.0.0 CLI, native library and
+installed-tested PyPI wheel now form the retained runtime set; the Homebrew
+installation, current source inputs, accepted Vortex output and compact
+source/result/failure evidence remain. The packet records identities and results,
+not payload backups. These runtime identities supersede earlier retention
+statements below without changing their measurements or storage thresholds.
+
 The [October 21 cyclic-existence cleanup](../benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json)
 applies this policy after final integration: 35,888 regular generated files and
 three environment symlinks are retired with exact identities and closed-handle
