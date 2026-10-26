@@ -5094,13 +5094,14 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         required_evidence=(
             "receiving_resource_admission",
+            # Retained evidence identifier; the provider version comes from the build.
             "vortex_ipc_0_85_schema_registry_validation",
             "native_transfer_receipt",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Source-only native binding intake of complete Vortex 0.85 dtype and array "
-            "messages, bounded together to 64 MiB. Supported encoded buffers are copied "
+            "Native binding intake of complete dtype and array messages for the pinned "
+            "Vortex provider, bounded together to 64 MiB. Supported encoded buffers are copied "
             "under receiving ownership; wire statistics are discarded. Later queries reuse "
             "the source. This does not admit arbitrary Python Vortex objects, private "
             "capsules, unknown encodings, other protocol versions or subprocess intake."
@@ -11876,7 +11877,7 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
     ) -> LazyFrame:
-        """Import complete Vortex 0.85 native messages under this context's grant."""
+        """Import complete messages for the pinned Vortex provider under this context's grant."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=self.resources, limits=self.resource_limits,

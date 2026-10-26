@@ -6,7 +6,9 @@ Schema marker: `shardloom.user_surface_index.v1`.
 
 This is the **development-source application reference**. The
 [published guide](https://shardloom.io/field-guide/start-local-proof/) names the
-artifact it describes. Source additions below are not changes to published 0.6.0.
+artifact it describes. This index records current source; additions made after a
+release do not change that release's immutable packages. The native publication
+metadata in the JSON reference identifies the release and proof it describes.
 For deliberate behavior changes, read the [Python migration guide](python-api-migration.md).
 
 ## Source Of Truth Order
@@ -39,7 +41,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `cb6d68ae066b2dcd3006c6be14b3d80880b36cd67fb36b522ce8b62ddc9561f9` (SHA-256 of the listed source inputs).
+Source identity: `35358522e1639c635a86197c48694356c880ec7e839926d8889b672e5a615133` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -98,7 +100,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`from_pandas`](../../python/src/shardloom/query.py) | function | Create a scoped generated-row source from a pandas DataFrame-like object. |
 | [`from_result`](../../python/src/shardloom/query.py) | function | Admit completed ShardLoom data without an Arrow or row round trip in process. |
 | [`from_rows`](../../python/src/shardloom/query.py) | function | Declare native rows; use an explicit schema for rich types or empty columns. |
-| [`from_vortex_ipc`](../../python/src/shardloom/query.py) | function | Import one Vortex 0.85 IPC record using the native transport. |
+| [`from_vortex_ipc`](../../python/src/shardloom/query.py) | function | Import one IPC record for the pinned Vortex provider using native transport. |
 | [`interval_days`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' DAY` literal. |
 | [`interval_hours`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' HOUR` literal. |
 | [`interval_minutes`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' MINUTE` literal. |

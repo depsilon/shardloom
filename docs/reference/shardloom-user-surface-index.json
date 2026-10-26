@@ -70,7 +70,7 @@
     "client_transport": "native",
     "default_client_transport": "subprocess",
     "local_acceptance_complete": true,
-    "hosted_integration_complete": false,
+    "hosted_integration_complete": true,
     "included_in_published_0_5_1": false,
     "shared_native_execution": true,
     "retained_result_owners": true,
@@ -81,14 +81,16 @@
       "ctx.from_vortex_ipc",
       "Session.from_vortex_ipc"
     ],
-    "native_ipc_provider_version": "0.85.0",
+    "native_ipc_provider_version": "0.90.0",
     "native_ipc_max_combined_message_bytes": 67108864,
     "native_ipc_wire_statistics_trusted": false,
     "typed_plan_handles": true,
     "all_imports_zero_copy": false,
     "process_rss_bound": false,
     "fallback_attempted": false,
-    "external_engine_invoked": false
+    "external_engine_invoked": false,
+    "hosted_integration_release_tag": "v1.0.0",
+    "hosted_integration_provenance_ref": "docs/release/channel-proofs/pypi-v1.0.0-provenance.json"
   },
   "resident_native_results": {
     "reference": "docs/reference/resident-native-results.md",
@@ -1385,22 +1387,27 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "cb6d68ae066b2dcd3006c6be14b3d80880b36cd67fb36b522ce8b62ddc9561f9",
+    "source_identity": "35358522e1639c635a86197c48694356c880ec7e839926d8889b672e5a615133",
     "source_inputs": {
+      "Cargo.lock": "354291619b17f7dcb82437f0edcf178a3cb9a4d932d2da4830e93148bb529fc2",
+      "Cargo.toml": "d4dae57279fc70efaf3a185a5b5bc7bb27cedaa63fb161b9ffef99544c17c154",
+      "docs/release/channel-proofs/pypi-v1.0.0-provenance.json": "0683b7562ba59fb40594d179a29d45c44fa51c564f9a03ecb55aa5b234505eba",
+      "docs/release/package-channel-readiness-matrix.json": "a2ad776726a5eb9516e72f8e40d1894c2724e0da6c88b70358ec8fa1ebbfc5d9",
       "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
       "python/src/shardloom/_exports.py": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
       "python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
       "python/src/shardloom/client.py": "3415b4ec8e0e4ab5a5022ae9bc773ba0e4868c37cd9309440bbabe1949bbed9a",
-      "python/src/shardloom/context.py": "ae93e62819b4af0b9c771107f4d505ab4a3644d867b34cc6d4d3785712e1c19e",
+      "python/src/shardloom/context.py": "a1e596b8372f833b4686b2a5d07223ee95c7c938a774051450862a792e91f15b",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
-      "python/src/shardloom/query.py": "bfc14fe5085f4b68fdf0ae0cdcfe9747d32363d4a2036215bac5f3340bc9d12e",
+      "python/src/shardloom/query.py": "17c07424d4a4f9ee82147a2ef040d78cea33c0a3afd4bc94680baf0a9907a1ce",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",
-      "shardloom-cli/src/command_registry.rs": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2"
+      "shardloom-cli/src/command_registry.rs": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2",
+      "shardloom-vortex/Cargo.toml": "f6ca60abf844ac2a2a9462d9464798f56fdd596e464130fbaf1b894ec9afd0fd"
     },
     "python_symbols": [
       {
@@ -3264,7 +3271,7 @@
         "kind": "function",
         "source": "python/src/shardloom/query.py",
         "signature": "(array_message: 'bytes', *, dtype_message: 'bytes', client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
-        "summary": "Import one Vortex 0.85 IPC record using the native transport."
+        "summary": "Import one IPC record for the pinned Vortex provider using native transport."
       },
       {
         "name": "interval_days",

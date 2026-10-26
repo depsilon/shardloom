@@ -37,7 +37,7 @@ source-of-truth evidence instead of publishing a generated use-case browser, and
 from retired Field Guide vocabulary. `website-src/src/data/field-guide.json` remains vocabulary and
 backlink metadata; it is not the owner of guide copy.
 
-The nine public Field Guide pages are hand-authored MDX under
+The public Field Guide pages are hand-authored MDX under
 `website-src/src/content/docs/field-guide/`. Edit those files directly; `sync-content.mjs` does not
 overwrite or prune guide pages. It removes only the specifically retired
 `website-src/src/content/docs/docs.mdx` Starlight source, which would reintroduce the old `/docs`

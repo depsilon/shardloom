@@ -18,6 +18,9 @@ REFERENCE_WRITER_PATH = REPO_ROOT / "scripts" / "write_public_api_reference.py"
 
 
 def load_reference_writer():
+    scripts = str(REFERENCE_WRITER_PATH.parent)
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
     spec = importlib.util.spec_from_file_location(
         "write_public_api_reference_for_test",
         REFERENCE_WRITER_PATH,
@@ -45,6 +48,18 @@ class PublicApiReferenceTests(unittest.TestCase):
         shutil.copyfile(source, target)
         return target
 
+    def _copy_native_reference_inputs(self, root: Path) -> Path:
+        matrix = json.loads((REPO_ROOT / self.writer.PACKAGE_MATRIX).read_text(encoding="utf-8"))
+        channel = next(row for row in matrix["channels"]
+                       if row["channel_id"] == matrix["user_guide"]["artifact_channel"])
+        provenance = Path(channel["provenance_ref"])
+        for path in (Path("Cargo.toml"), Path("Cargo.lock"), Path("shardloom-vortex/Cargo.toml"),
+                     self.writer.PACKAGE_MATRIX, provenance):
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(REPO_ROOT / path, target)
+        return root / provenance
+
     def test_generated_files_are_deterministic_and_current(self) -> None:
         generated = self.writer.generated_files(REPO_ROOT)
         self.assertEqual(generated, self.writer.generated_files(REPO_ROOT))
@@ -71,6 +86,87 @@ class PublicApiReferenceTests(unittest.TestCase):
         recorded.difference_update(namespace_names)
 
         self.assertEqual(recorded, discovered)
+
+    def test_native_metadata_matches_resolved_provider_and_selected_installed_release(self) -> None:
+        facts, inputs = self.writer.native_reference(REPO_ROOT)
+        index = json.loads((REPO_ROOT / self.writer.INDEX).read_text(encoding="utf-8"))
+        matrix = json.loads((REPO_ROOT / self.writer.PACKAGE_MATRIX).read_text(encoding="utf-8"))
+        recorded = index["native_python_surface"]
+        self.assertEqual(recorded["native_ipc_provider_version"],
+                         self.writer.upstream_vortex_lock_version(REPO_ROOT))
+        self.assertEqual(facts["hosted_integration_release_tag"], matrix["user_guide"]["release_tag"])
+        self.assertTrue(facts["hosted_integration_complete"])
+        for key, value in facts.items():
+            self.assertEqual(recorded[key], value)
+        for path, expected_hash in inputs.items():
+            self.assertEqual(index["application"]["source_inputs"][path], expected_hash)
+        # This historical release-specific fact must not be promoted with current availability.
+        self.assertFalse(recorded["included_in_published_0_5_1"])
+
+    def test_native_metadata_rejects_manifest_lockfile_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._copy_native_reference_inputs(root)
+            lock = root / "Cargo.lock"
+            version = self.writer.upstream_vortex_lock_version(root)
+            text = lock.read_text(encoding="utf-8")
+            original = f'name = "vortex"\nversion = "{version}"'
+            self.assertEqual(text.count(original), 1)
+            lock.write_text(text.replace(original, original[:-1] + '-changed"'), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "matching Vortex manifest and lockfile"):
+                self.writer.native_reference(root)
+
+    def test_native_metadata_rejects_unbound_release_proof(self) -> None:
+        for field, value in (("package_version", "99.0.0"), ("release_source_commit", "0" * 40),
+                             ("proof_status", "failed"),
+                             ("runtime_and_packaging_source_equal_to_release", False)):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                provenance = self._copy_native_reference_inputs(root)
+                proof = json.loads(provenance.read_text(encoding="utf-8"))
+                proof[field] = value
+                provenance.write_text(json.dumps(proof), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "does not match the selected release"):
+                    self.writer.native_reference(root)
+
+    def test_native_metadata_requires_each_selected_native_wheel_once(self) -> None:
+        for mutation in ("missing", "duplicate"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                provenance = self._copy_native_reference_inputs(root)
+                proof = json.loads(provenance.read_text(encoding="utf-8"))
+                lanes = proof["native_installed_wheel_proofs"]
+                if mutation == "missing":
+                    lanes.pop()
+                else:
+                    lanes[-1] = copy.deepcopy(lanes[0])
+                provenance.write_text(json.dumps(proof), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "every selected native wheel exactly once"):
+                    self.writer.native_reference(root)
+
+    def test_native_metadata_rejects_failed_empty_or_skipped_integration(self) -> None:
+        for field, value in (("status", "failed"), ("tests", 0), ("tests", True),
+                             ("failures", 1), ("errors", 1), ("skipped", 1),
+                             ("failures", False), ("errors", 0.0), ("skipped", False)):
+            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                provenance = self._copy_native_reference_inputs(root)
+                proof = json.loads(provenance.read_text(encoding="utf-8"))
+                proof["native_installed_wheel_proofs"][0]["integration"][field] = value
+                provenance.write_text(json.dumps(proof), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "incomplete or unbound"):
+                    self.writer.native_reference(root)
+
+    def test_native_metadata_rejects_unbound_installed_artifacts(self) -> None:
+        for field in ("source_commit", "wheel_sha256", "native_library_sha256", "cli_sha256"):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                provenance = self._copy_native_reference_inputs(root)
+                proof = json.loads(provenance.read_text(encoding="utf-8"))
+                proof["native_installed_wheel_proofs"][0][field] = "changed"
+                provenance.write_text(json.dumps(proof), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "incomplete or unbound"):
+                    self.writer.native_reference(root)
 
     def test_source_only_command_reference_rejects_changed_registry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
