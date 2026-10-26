@@ -6,6 +6,7 @@ use super::{
     ProjectionRequest, Side, Subquery, SubqueryKind, Window, expression_source_columns,
     unsupported_sql_error,
 };
+use shardloom_vortex::relational_query::VortexRelationalStage as Stage;
 
 type Columns = BTreeSet<String>;
 
@@ -32,6 +33,9 @@ impl Lowerer<'_, '_> {
             ));
         }
         match plan {
+            Plan::Input(_) => Err(unsupported_sql_error(
+                "native declaration input must be bound before SQL pruning",
+            )),
             Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => Ok(()),
             Plan::Scan(scan) => {
                 if let Some(mut required) = required {
@@ -84,6 +88,13 @@ impl Lowerer<'_, '_> {
                 self.prune_at(&mut sort.input, required, outer, depth + 1)
             }
             Plan::Limit(limit) => self.prune_at(&mut limit.input, required, outer, depth + 1),
+            Plan::Pipeline(pipeline) => {
+                for stage in pipeline.stages.iter().rev() {
+                    self.cancellation.check()?;
+                    pipeline_columns(stage, &mut required);
+                }
+                self.prune_at(&mut pipeline.input, required, outer, depth + 1)
+            }
             Plan::Unary(unary) => {
                 // Deduplication identity, rewrite dependencies and weight/reshape
                 // inputs remain complete even when a later SELECT drops fields.
@@ -265,6 +276,37 @@ impl Lowerer<'_, '_> {
             required.extend(input);
         }
         self.prune_at(&mut query.input, required, outer, depth + 1)
+    }
+}
+
+fn pipeline_columns(stage: &Stage, required: &mut Option<Columns>) {
+    match stage {
+        Stage::Project(expressions) => {
+            *required = Some(
+                expressions
+                    .iter()
+                    .flat_map(|(_, expression)| expression_source_columns(expression))
+                    .collect(),
+            );
+        }
+        Stage::Filter(predicate) => add_expression(required, predicate),
+        Stage::Observe(observation) => {
+            if observation.projection.is_empty() {
+                if let Some(required) = required {
+                    required.extend(observation.measures.iter().filter_map(|measure| {
+                        measure
+                            .column
+                            .as_ref()
+                            .map(|column| column.as_str().to_owned())
+                    }));
+                }
+            } else {
+                for (_, expression) in &observation.projection {
+                    add_expression(required, expression);
+                }
+            }
+        }
+        Stage::Limit { .. } => {}
     }
 }
 

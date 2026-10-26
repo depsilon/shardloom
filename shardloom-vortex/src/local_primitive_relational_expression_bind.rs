@@ -6,6 +6,9 @@ use super::{
 };
 use crate::local_primitives::native_relational_expression::scalar::{Function, decimal_operand};
 use crate::local_primitives::native_relational_expression::{Expression, Kind, PREPARATION_BYTES};
+use shardloom_core::expression::builtins::{
+    self, ScalarDefinition, ScalarNullRule, ScalarTypeRule,
+};
 use shardloom_core::{
     BinaryOp, Expression as Input, ExpressionKind, LogicalDType, ScalarValue, UnaryOp,
 };
@@ -259,8 +262,13 @@ impl Binder<'_> {
         fields: &[(String, DType)],
         depth: usize,
     ) -> Result<Expression> {
-        if args.len() > 128 {
-            return Err(failed("scalar function exceeds 128 arguments"));
+        let definition = builtins::scalar(name)
+            .ok_or_else(|| failed(&format!("function '{name}' has no admitted native kernel")))?;
+        if !definition.accepts_arity(args.len()) {
+            return Err(failed(&format!(
+                "function '{}' requires {} through {} arguments",
+                definition.name, definition.min_args, definition.max_args
+            )));
         }
         self.charge_fields(args.len())?;
         let mut args = args
@@ -270,8 +278,9 @@ impl Binder<'_> {
         for argument in &args {
             selected_operand(&argument.dtype)?;
         }
-        let (dtype, kind) = match (name.to_ascii_lowercase().as_str(), args.len()) {
-            ("case_when", 3) => {
+        let nullability = function_nullability(definition.null_rule, &args);
+        let (dtype, kind) = match definition.type_rule {
+            ScalarTypeRule::Conditional => {
                 let no = args.pop().expect("length bound");
                 let yes = args.pop().expect("length bound");
                 let condition = args.pop().expect("length bound");
@@ -281,53 +290,54 @@ impl Binder<'_> {
                     Kind::Conditional(Box::new(condition), Box::new(yes), Box::new(no)),
                 )
             }
-            ("nullif", 2) => {
+            ScalarTypeRule::NullIf => {
                 let right = args.pop().expect("length bound");
                 let left = args.pop().expect("length bound");
                 // NULLIF retains its first operand's type and values.
                 compatible(&left.dtype, &right.dtype)?;
                 (
-                    left.dtype.as_nullable(),
+                    left.dtype.clone(),
                     Kind::NullIf(Box::new(left), Box::new(right)),
                 )
             }
-            ("coalesce", 1..) => {
+            ScalarTypeRule::Coalesce => {
                 let mut dtype = DType::Null;
                 for arg in &args {
                     dtype = common(&dtype, &arg.dtype)?;
                 }
-                if args.iter().any(|arg| !arg.dtype.is_nullable()) {
-                    dtype = dtype.as_nonnullable();
-                }
                 (dtype, Kind::Coalesce(args))
             }
-            _ => return self.scalar_function(name, args),
+            _ => return self.scalar_function(definition, args),
         };
-        Ok(Expression::new(dtype, kind))
+        Ok(Expression::new(dtype.with_nullability(nullability), kind))
     }
 
-    fn scalar_function(&mut self, name: &str, args: Vec<Expression>) -> Result<Expression> {
+    fn scalar_function(
+        &mut self,
+        definition: &ScalarDefinition,
+        args: Vec<Expression>,
+    ) -> Result<Expression> {
         use crate::local_primitives::native_relational_expression::scalar::Function as F;
         for argument in &args {
             scalar_operand(&argument.dtype)?;
         }
-        let normalized = name.to_ascii_lowercase();
-        let function = match (normalized.as_str(), args.len()) {
-            ("abs" | "numeric_abs", 1) => F::Abs,
-            ("floor" | "numeric_floor", 1) => F::Floor,
-            ("ceil" | "ceiling" | "numeric_ceil", 1) => F::Ceil,
-            ("round" | "numeric_round", 1) => F::Round,
-            ("lower" | "utf8_lower", 1) => F::Lower,
-            ("upper" | "utf8_upper", 1) => F::Upper,
-            ("trim" | "utf8_trim", 1) => F::Trim,
-            ("length" | "utf8_length", 1) => F::Length,
-            ("url_domain", 1) => F::Domain { regex: false },
-            ("regex_domain" | "regex_replace_domain", 1) => F::Domain { regex: true },
-            ("regexp_replace" | "regex_replace", 3) => fixed_domain_replacement(&args)?,
-            ("starts_with" | "utf8_starts_with", 2) => F::StartsWith,
-            ("ends_with" | "utf8_ends_with", 2) => F::EndsWith,
-            ("contains" | "utf8_contains", 2) => F::Contains,
-            ("regex_match" | "utf8_regex_match" | "rlike" | "regexp" | "regexp_like", 2) => {
+        let name = definition.name;
+        let function = match name {
+            "abs" => F::Abs,
+            "floor" => F::Floor,
+            "ceil" => F::Ceil,
+            "round" => F::Round,
+            "lower" => F::Lower,
+            "upper" => F::Upper,
+            "trim" => F::Trim,
+            "length" => F::Length,
+            "url_domain" => F::Domain { regex: false },
+            "regex_domain" => F::Domain { regex: true },
+            "regexp_replace" => fixed_domain_replacement(&args)?,
+            "starts_with" => F::StartsWith,
+            "ends_with" => F::EndsWith,
+            "contains" => F::Contains,
+            "regex_match" => {
                 self.charge(1024 * 1024)?;
                 let Kind::Literal(pattern) = &args[1].kind else {
                     return Err(failed("regular expressions require a literal pattern"));
@@ -345,64 +355,38 @@ impl Binder<'_> {
                         .map_err(super::vortex_error)?,
                 )
             }
-            ("concat" | "utf8_concat", 2..) => F::Concat,
-            ("substr" | "substring" | "utf8_substr" | "utf8_substring", 3) => F::Substr,
-            ("left" | "utf8_left", 2) => F::Left,
-            ("right" | "utf8_right", 2) => F::Right,
-            ("replace" | "utf8_replace", 3) => F::Replace,
-            ("binary_byte_length" | "byte_length" | "octet_length", 1) => F::ByteLength,
-            ("binary_unhex" | "unhex", 1) => F::Unhex,
-            ("binary_from_base64" | "from_base64", 1) => F::FromBase64,
-            ("json_extract", 2) => {
+            "concat" => F::Concat,
+            "substr" => F::Substr,
+            "left" => F::Left,
+            "right" => F::Right,
+            "replace" => F::Replace,
+            "byte_length" => F::ByteLength,
+            "unhex" => F::Unhex,
+            "from_base64" => F::FromBase64,
+            "json_extract" => {
                 use crate::local_primitives::native_relational_expression::scalar::text_kernels::JsonPath;
                 F::JsonExtract(JsonPath::parse(
                     literal_text(&args[1], "JSON path")?.unwrap_or("$"),
                 )?)
             }
-            ("strptime" | "try_strptime", 2) => {
+            "strptime" | "try_strptime" => {
                 use crate::local_primitives::native_relational_expression::scalar::text_kernels::TimestampFormat;
                 F::Strptime {
                     format: TimestampFormat::parse(
                         literal_text(&args[1], "timestamp format")?.unwrap_or("%Y-%m-%d"),
                     )?,
-                    tolerant: normalized == "try_strptime",
+                    tolerant: name == "try_strptime",
                 }
             }
-            _ => calendar_function(&normalized, args.len()).ok_or_else(|| {
+            _ => calendar_function(name).ok_or_else(|| {
                 failed(&format!(
                     "function '{name}' has no admitted native kernel for this arity"
                 ))
             })?,
         };
         let args = calendar_arguments(&function, args);
-        let nullable = if args.iter().any(|arg| arg.dtype.is_nullable()) {
-            Nullability::Nullable
-        } else {
-            Nullability::NonNullable
-        };
-        let dtype = if let Some(dtype) = typed_function_dtype(&function, &args, nullable)? {
-            dtype
-        } else if matches!(function, F::Abs | F::Floor | F::Ceil | F::Round) {
-            numeric(&args[0].dtype)?;
-            arithmetic_dtype(&args[0].dtype, BinaryOp::Add, &args[0].dtype)?
-        } else {
-            for (index, arg) in args.iter().enumerate() {
-                if index > 0 && matches!(function, F::Substr | F::Left | F::Right) {
-                    if !matches!(arg.dtype, DType::Null)
-                        && !matches!(arg.dtype, DType::Primitive(ptype, _) if integer(ptype).is_some())
-                    {
-                        return Err(failed("substring offsets and lengths require integers"));
-                    }
-                } else if !matches!(arg.dtype, DType::Utf8(_) | DType::Null) {
-                    return Err(failed("string function requires UTF8 arguments"));
-                }
-            }
-            match function {
-                F::Length => DType::Primitive(PType::I64, nullable),
-                F::StartsWith | F::EndsWith | F::Contains | F::Regex(_) => DType::Bool(nullable),
-                _ => DType::Utf8(nullable),
-            }
-        };
+        let nullable = function_nullability(definition.null_rule, &args);
+        let dtype = typed_function_dtype(definition.type_rule, &args, nullable)?;
         Ok(Expression::new(dtype, Kind::Function { function, args }))
     }
 
@@ -439,44 +423,38 @@ fn fixed_domain_replacement(args: &[Expression]) -> Result<Function> {
     Ok(F::Domain { regex: true })
 }
 
-fn calendar_function(name: &str, arity: usize) -> Option<Function> {
+fn calendar_function(name: &str) -> Option<Function> {
     use shardloom_core::expression as calendar;
-    Some(match (name, arity) {
-        ("extract_minute" | "minute", 1) => Function::EpochMinute { truncate: false },
-        ("date_trunc_minute" | "truncate_minute", 1) => Function::EpochMinute { truncate: true },
-        ("date_year" | "year", 1) => {
-            Function::DateExtract(|value| i64::from(calendar::date32_year(value)))
-        }
-        ("date_month" | "month", 1) => {
-            Function::DateExtract(|value| i64::from(calendar::date32_month(value)))
-        }
-        ("date_day" | "day", 1) => {
-            Function::DateExtract(|value| i64::from(calendar::date32_day(value)))
-        }
-        ("timestamp_year", 1) => {
+    Some(match name {
+        "extract_minute" => Function::EpochMinute { truncate: false },
+        "date_trunc_minute" => Function::EpochMinute { truncate: true },
+        "date_year" => Function::DateExtract(|value| i64::from(calendar::date32_year(value))),
+        "date_month" => Function::DateExtract(|value| i64::from(calendar::date32_month(value))),
+        "date_day" => Function::DateExtract(|value| i64::from(calendar::date32_day(value))),
+        "timestamp_year" => {
             Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_year(value)))
         }
-        ("timestamp_month", 1) => {
+        "timestamp_month" => {
             Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_month(value)))
         }
-        ("timestamp_day", 1) => {
+        "timestamp_day" => {
             Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_day(value)))
         }
-        ("timestamp_hour", 1) => {
+        "timestamp_hour" => {
             Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_hour(value)))
         }
-        ("timestamp_minute", 1) => {
+        "timestamp_minute" => {
             Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_minute(value)))
         }
-        ("timestamp_second", 1) => {
+        "timestamp_second" => {
             Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_second(value)))
         }
-        ("date_add_days", 2) => Function::DateOffset { subtract: false },
-        ("date_sub_days", 2) => Function::DateOffset { subtract: true },
-        ("timestamp_add_seconds", 2) => Function::TimestampOffset { subtract: false },
-        ("timestamp_sub_seconds", 2) => Function::TimestampOffset { subtract: true },
-        ("date_diff_days", 2) => Function::DateDifference,
-        ("timestamp_diff_seconds", 2) => Function::TimestampDifference,
+        "date_add_days" => Function::DateOffset { subtract: false },
+        "date_sub_days" => Function::DateOffset { subtract: true },
+        "timestamp_add_seconds" => Function::TimestampOffset { subtract: false },
+        "timestamp_sub_seconds" => Function::TimestampOffset { subtract: true },
+        "date_diff_days" => Function::DateDifference,
+        "timestamp_diff_seconds" => Function::TimestampDifference,
         _ => return None,
     })
 }
@@ -677,33 +655,36 @@ pub(in crate::local_primitives) fn arithmetic_dtype(
     Ok(DType::Primitive(dtype, nullable(left, right)))
 }
 
+fn function_nullability(rule: ScalarNullRule, args: &[Expression]) -> Nullability {
+    let nullable = match rule {
+        ScalarNullRule::Propagate => args.iter().any(|arg| arg.dtype.is_nullable()),
+        ScalarNullRule::AlwaysNullable => true,
+        ScalarNullRule::AllNullable => args.iter().all(|arg| arg.dtype.is_nullable()),
+        ScalarNullRule::Branches => args[1..].iter().any(|arg| arg.dtype.is_nullable()),
+    };
+    if nullable {
+        Nullability::Nullable
+    } else {
+        Nullability::NonNullable
+    }
+}
+
 fn typed_function_dtype(
-    function: &Function,
+    rule: ScalarTypeRule,
     args: &[Expression],
     nullable: Nullability,
-) -> Result<Option<DType>> {
-    use Function as F;
+) -> Result<DType> {
+    use ScalarTypeRule as T;
     let first = &args[0].dtype;
-    let temporal = |dtype: &DType, ptype| {
-        if dtype == &DType::Null
-            || crate::native_payload_schema::temporal_storage(dtype) == Some(ptype)
-        {
-            Ok(())
-        } else {
-            Err(failed(
-                "calendar function requires its declared date/timestamp unit",
-            ))
-        }
-    };
-    let dtype = match function {
-        F::EpochMinute { truncate } => match first {
+    let dtype = match rule {
+        T::EpochMinute | T::EpochTruncate => match first {
             DType::Primitive(ptype, _) if ptype.is_signed_int() => {
                 DType::Primitive(PType::I64, nullable)
             }
             DType::Primitive(ptype, _) if ptype.is_unsigned_int() => {
                 DType::Primitive(PType::U64, nullable)
             }
-            DType::Utf8(_) if *truncate => DType::Utf8(nullable),
+            DType::Utf8(_) if rule == T::EpochTruncate => DType::Utf8(nullable),
             DType::Utf8(_) => DType::Primitive(PType::U64, nullable),
             DType::Null => DType::Primitive(PType::I64, nullable),
             _ => {
@@ -712,27 +693,22 @@ fn typed_function_dtype(
                 ));
             }
         },
-        F::JsonExtract(_) | F::Strptime { .. } => {
+        T::JsonText | T::TimestampParse => {
             if args
                 .iter()
                 .any(|arg| !matches!(arg.dtype, DType::Null | DType::Utf8(_)))
             {
                 return Err(failed("text parsing requires UTF8 arguments"));
             }
-            if matches!(function, F::JsonExtract(_)) {
-                DType::Utf8(Nullability::Nullable)
+            if rule == T::JsonText {
+                DType::Utf8(nullable)
             } else {
-                let nullable = if matches!(function, F::Strptime { tolerant: true, .. }) {
-                    Nullability::Nullable
-                } else {
-                    nullable
-                };
                 DType::Extension(Timestamp::new(TimeUnit::Microseconds, nullable).erased())
             }
         }
-        F::Abs | F::Floor | F::Ceil | F::Round if matches!(first, DType::Decimal(..)) => {
+        T::NumericAbs | T::NumericRound if matches!(first, DType::Decimal(..)) => {
             let operand = decimal_operand(0, first)?;
-            let (precision, scale) = if matches!(function, F::Abs) {
+            let (precision, scale) = if rule == T::NumericAbs {
                 operand.precision_scale()
             } else {
                 operand.round().precision_scale()
@@ -742,32 +718,36 @@ fn typed_function_dtype(
                 nullable,
             )
         }
-        F::ByteLength => {
+        T::NumericAbs | T::NumericRound => {
+            numeric(first)?;
+            arithmetic_dtype(first, BinaryOp::Add, first)?
+        }
+        T::ByteLength => {
             if !matches!(first, DType::Null | DType::Utf8(_) | DType::Binary(_)) {
                 return Err(failed("byte length requires UTF8 or binary"));
             }
             DType::Primitive(PType::I64, nullable)
         }
-        F::Unhex | F::FromBase64 => {
+        T::BinaryDecode => {
             if !matches!(first, DType::Null | DType::Utf8(_)) {
                 return Err(failed("binary decoding requires UTF8"));
             }
             DType::Binary(nullable)
         }
-        F::DateExtract(_) | F::TimestampExtract(_) | F::DateDifference | F::TimestampDifference => {
-            let ptype = if matches!(function, F::DateExtract(_) | F::DateDifference) {
+        T::DateField | T::TimestampField | T::DateDifference | T::TimestampDifference => {
+            let ptype = if matches!(rule, T::DateField | T::DateDifference) {
                 PType::I32
             } else {
                 PType::I64
             };
             for arg in args {
-                temporal(&arg.dtype, ptype)?;
+                temporal_function_argument(&arg.dtype, ptype)?;
             }
             DType::Primitive(PType::I64, nullable)
         }
-        F::DateOffset { .. } | F::TimestampOffset { .. } => {
-            let date = matches!(function, F::DateOffset { .. });
-            temporal(first, if date { PType::I32 } else { PType::I64 })?;
+        T::DateOffset | T::TimestampOffset => {
+            let date = rule == T::DateOffset;
+            temporal_function_argument(first, if date { PType::I32 } else { PType::I64 })?;
             if args[1].dtype != DType::Null
                 && !matches!(args[1].dtype, DType::Primitive(ptype, _) if integer(ptype).is_some())
             {
@@ -779,9 +759,50 @@ fn typed_function_dtype(
                 Timestamp::new(TimeUnit::Microseconds, nullable).erased()
             })
         }
-        _ => return Ok(None),
+        T::Utf8 | T::Utf8Offsets | T::Utf8Length | T::Utf8Predicate => {
+            return text_function_dtype(rule, args, nullable);
+        }
+        T::Coalesce | T::NullIf | T::Conditional => {
+            return Err(failed(
+                "selected-operand function requires its dedicated binding",
+            ));
+        }
     };
-    Ok(Some(dtype))
+    Ok(dtype)
+}
+
+fn temporal_function_argument(dtype: &DType, ptype: PType) -> Result<()> {
+    if dtype == &DType::Null || crate::native_payload_schema::temporal_storage(dtype) == Some(ptype)
+    {
+        Ok(())
+    } else {
+        Err(failed(
+            "calendar function requires its declared date/timestamp unit",
+        ))
+    }
+}
+
+fn text_function_dtype(
+    rule: ScalarTypeRule,
+    args: &[Expression],
+    nullable: Nullability,
+) -> Result<DType> {
+    for (index, arg) in args.iter().enumerate() {
+        if index > 0 && rule == ScalarTypeRule::Utf8Offsets {
+            if !matches!(arg.dtype, DType::Null)
+                && !matches!(arg.dtype, DType::Primitive(ptype, _) if integer(ptype).is_some())
+            {
+                return Err(failed("substring offsets and lengths require integers"));
+            }
+        } else if !matches!(arg.dtype, DType::Utf8(_) | DType::Null) {
+            return Err(failed("string function requires UTF8 arguments"));
+        }
+    }
+    Ok(match rule {
+        ScalarTypeRule::Utf8Length => DType::Primitive(PType::I64, nullable),
+        ScalarTypeRule::Utf8Predicate => DType::Bool(nullable),
+        _ => DType::Utf8(nullable),
+    })
 }
 
 fn comparison_operands(

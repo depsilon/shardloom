@@ -40,7 +40,7 @@ class ScalarSubqueryDeclarationTests(unittest.TestCase):
             run.assert_not_called()
             prepare.assert_not_called()
         for value in ["SELECT 7", None, self.inner.source, 7]:
-            with self.subTest(value=type(value).__name__), self.assertRaisesRegex(TypeError, "LazyFrame or SqlWorkflow"):
+            with self.subTest(value=type(value).__name__), self.assertRaisesRegex(TypeError, "requires a LazyFrame"):
                 sl.scalar_subquery(value)
 
     def test_composition_preserves_both_sides_and_predicate_sources(self) -> None:
@@ -58,7 +58,8 @@ class ScalarSubqueryDeclarationTests(unittest.TestCase):
                 self.assertEqual({source.uri for source in expression.source_bindings}, {"inner.data", "other.jsonl"})
         for expression in [-left, left.abs(), left.cast("int64"), left.is_null(), left > 3]:
             self.assertEqual(expression.source_bindings, left.source_bindings)
-        self.assertIsInstance(sl.count_distinct("value"), str)
+        self.assertIsInstance(sl.count_distinct("value"), sl.ColumnExpression)
+        self.assertEqual(sl.count_distinct("value").sql, "count(DISTINCT value)")
         distinct = sl.count_distinct(left)
         self.assertIsInstance(distinct, sl.ColumnExpression)
         self.assertEqual(distinct.source_bindings, left.source_bindings)
@@ -127,7 +128,7 @@ class ScalarSubqueryDeclarationTests(unittest.TestCase):
             def submitted_sources(run):
                 args = run.call_args.kwargs
                 sources = dict(args["source_bindings"])
-                if isinstance(base, sl.SqlWorkflow):
+                if base.source.relation is not None:
                     self.assertEqual(args["input_uri"], "outer.vortex")
                     self.assertEqual(args["input_format"], "vortex")
                     sources[args["input_uri"]] = {"input_format": args["input_format"]}

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_report_evidence import require_native_allocation_peak
 from native_streaming_join_cases import SCHEMA, frame
 from native_workflow_outputs import LOCAL_FORMATS, verify_output
@@ -39,7 +39,7 @@ def combine(left, right, kind, surface="dataframe"):
     bindings = left._declared_sources()
     if left is not right:
         bindings += right._declared_sources()
-    return SqlWorkflow(f"SELECT * FROM ({left._relation_statement()}) AS set_left {OPERATORS[kind]} "
+    return LazyFrame.from_sql(f"SELECT * FROM ({left._relation_statement()}) AS set_left {OPERATORS[kind]} "
                        f"SELECT * FROM ({right._relation_statement()}) AS set_right",
                        left.client, source_bindings=bindings)
 

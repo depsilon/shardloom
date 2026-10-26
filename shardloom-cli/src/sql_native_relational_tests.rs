@@ -50,6 +50,10 @@ impl Drop for TestDirectory {
 }
 
 fn verify(statement: &str, expected: &Value) {
+    verify_with_source_opens(statement, expected, 1);
+}
+
+fn verify_with_source_opens(statement: &str, expected: &Value, source_opens: u64) {
     let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
         .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 32 << 20;
@@ -57,7 +61,7 @@ fn verify(statement: &str, expected: &Value) {
         DatasetUri::new(path.path.to_string_lossy().into_owned())
     })
     .unwrap_or_else(|error| panic!("{statement}: {error}"));
-    assert_eq!(prepared.snapshot().prepared_source_opens, 1);
+    assert_eq!(prepared.snapshot().prepared_source_opens, source_opens);
     for execution in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -69,8 +73,27 @@ fn verify(statement: &str, expected: &Value) {
             .map(|row| serde_json::from_str::<Value>(row).unwrap())
             .collect::<Vec<_>>();
         assert_eq!(json!(rows), *expected, "{statement}");
-        assert_eq!(result.execution.runtime.prepared_source_opens, 1);
+        assert_eq!(result.execution.runtime.prepared_source_opens, source_opens);
         assert_eq!(result.execution.runtime.completed_executions, execution);
+    }
+}
+
+#[test]
+fn native_relational_sql_group_ordinals_bind_selected_constants_and_columns() {
+    let source = fixture();
+    verify(
+        &format!(
+            "SELECT 1,value,COUNT(*) AS n FROM '{source}' GROUP BY 1,2 ORDER BY value LIMIT 2"
+        ),
+        &json!([{"literal_1":1,"value":1,"n":1},{"literal_1":1,"value":2,"n":1}]),
+    );
+    for ordinal in ["0", "4", "3"] {
+        assert!(
+            parsed_native_query(&format!(
+                "SELECT 1,value,COUNT(*) AS n FROM '{source}' GROUP BY {ordinal}"
+            ))
+            .is_err()
+        );
     }
 }
 

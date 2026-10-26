@@ -146,7 +146,6 @@ class NativeUnaryBindingTests(unittest.TestCase):
     def test_native_unary_families_columnar_and_scalar_input_across_all_terminals(self):
         import pyarrow as pa
         import shardloom as sl
-        from shardloom.query import SqlWorkflow
 
         client, retained = self.client(), []
         for kind in KINDS:
@@ -162,8 +161,8 @@ class NativeUnaryBindingTests(unittest.TestCase):
                             source, events = self.source(client, rows, columnar)
                             query = apply(source, kind)
                             if columnar:
-                                query = SqlWorkflow(query._relation_statement(), client,
-                                                    source_bindings=query._declared_sources())
+                                query = sl.LazyFrame.from_sql(query._relation_statement(), client,
+                                                              source_bindings=query._declared_sources())
                             self.assertEqual(events, [])
                             if terminal == "collect":
                                 report = query.collect(check=True)

@@ -18,30 +18,42 @@ impl Binder<'_> {
         aggregate: &VortexRelationalAggregate,
         depth: usize,
     ) -> Result<Node> {
-        if aggregate.measures.is_empty() && aggregate.group_by.is_empty() {
+        let input = Box::new(self.bind(&aggregate.input, depth + 1)?);
+        let spec = self.aggregate_spec(&input.fields, &aggregate.group_by, &aggregate.measures)?;
+        Ok(Node {
+            fields: spec.fields.clone(),
+            kind: NodeKind::Aggregate { input, spec },
+        })
+    }
+
+    pub(super) fn aggregate_spec(
+        &mut self,
+        input_fields: &[(String, DType)],
+        group_by: &[shardloom_core::ColumnRef],
+        input_measures: &[crate::query_primitive::VortexSimpleAggregateMeasure],
+    ) -> Result<kernel::Spec> {
+        if input_measures.is_empty() && group_by.is_empty() {
             return Err(failed("aggregate requires a group key or measure"));
         }
-        let width = aggregate
-            .group_by
+        let width = group_by
             .len()
-            .checked_add(aggregate.measures.len())
+            .checked_add(input_measures.len())
             .ok_or_else(|| failed("aggregate width overflow"))?;
         validate_width(width)?;
         self.charge_items(width, 16_384)?;
-        let input = Box::new(self.bind(&aggregate.input, depth + 1)?);
         let mut groups = Vec::new();
-        for column in &aggregate.group_by {
+        for column in group_by {
             validate_name(column.as_str())?;
-            validate_key(field(&input.fields, column.as_str())?)?;
+            validate_key(field(input_fields, column.as_str())?)?;
             groups.push((
                 column.as_str().to_owned(),
-                field(&input.fields, column.as_str())?.clone(),
+                field(input_fields, column.as_str())?.clone(),
             ));
         }
         validate_unique(&groups)?;
         let mut fields = groups.clone();
         let mut measures = Vec::new();
-        for measure in &aggregate.measures {
+        for measure in input_measures {
             validate_name(&measure.alias)?;
             if measure.argument_offset.is_some() || measure.value_transform.is_some() {
                 return Err(failed(
@@ -54,7 +66,7 @@ impl Binder<'_> {
                     validate_name(column.as_str())?;
                     (
                         Some(column.as_str().to_owned()),
-                        Some(field(&input.fields, column.as_str())?),
+                        Some(field(input_fields, column.as_str())?),
                     )
                 }
                 None if function == Function::Count => (None, None),
@@ -93,15 +105,11 @@ impl Binder<'_> {
             });
         }
         validate_unique(&fields)?;
-        let spec = kernel::Spec {
-            fields: fields.clone(),
+        Ok(kernel::Spec {
+            fields,
             group_names: groups.iter().map(|(name, _)| name.clone()).collect(),
             groups,
             measures,
-        };
-        Ok(Node {
-            fields,
-            kind: NodeKind::Aggregate { input, spec },
         })
     }
 }

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from shardloom._result_schema import ResultType as T
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 
 from generate_native_sampling_population_reference import fixture as population_reference
 from native_streaming_set_cases import complete
@@ -27,7 +27,7 @@ def sample(source, options, surface="dataframe"):
     assert surface == "sql"
     renamed = {"random_state": "seed", "frac": "fraction"}
     options = {renamed.get(key, key): value for key, value in options.items() if value is not None}
-    return SqlWorkflow(
+    return LazyFrame.from_sql(
         f"SELECT * FROM SAMPLE(({source._relation_statement()}), {payload(options)}) AS u",
         source.client, source_bindings=source._declared_sources(),
     )

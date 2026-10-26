@@ -7,7 +7,7 @@ import re
 
 import shardloom as sl
 from shardloom._result_schema import ResultType as T
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_dynamic_subquery_cases import FIELDS, apply, consume, fields, inner, oracle
 from native_streaming_subquery_cases import LEFT, RIGHT, SCHEMA, POLICY, complete_inputs
 from native_streaming_unary_cases import frame
@@ -101,7 +101,7 @@ def nested_declaration(harness, mode, kind):
         rows = [row for row in rows if row["n"] is not None]
     elif mode == "repeated-join":
         relation = right._relation_statement()
-        right = SqlWorkflow(f"SELECT a.n AS n,a.s AS s FROM ({relation}) AS a CROSS JOIN ({relation}) AS b",
+        right = LazyFrame.from_sql(f"SELECT a.n AS n,a.s AS s FROM ({relation}) AS a CROSS JOIN ({relation}) AS b",
                             right.client, source_bindings=right._declared_sources())
         rows = [row for row in rows for _ in RIGHT]
     else:

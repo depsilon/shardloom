@@ -10,6 +10,9 @@ artifact it describes. This index records current source; additions made after a
 release do not change that release's immutable packages. The native publication
 metadata in the JSON reference identifies the release and proof it describes.
 For deliberate behavior changes, read the [Python migration guide](python-api-migration.md).
+For the subsequent source implementation, read the
+[connected SQL/DataFrame and local-client guide](connected-programming.md)
+and [shared scalar definitions](native-scalar-functions.md).
 
 ## Source Of Truth Order
 
@@ -41,7 +44,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `35358522e1639c635a86197c48694356c880ec7e839926d8889b672e5a615133` (SHA-256 of the listed source inputs).
+Source identity: `62c44f0d6679b69c95c964bffb815a1a448fae05cb13c20bca31ad2ed3a34acd` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -73,8 +76,9 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`ShardLoomProtocolError`](../../python/src/shardloom/errors.py) | class | Raised when CLI output does not match the expected JSON protocol. |
 | [`ShardLoomResourceConfigurationError`](../../python/src/shardloom/execution_resources.py) | class | Invalid or incomplete allocation, rejected before any input is inspected. |
 | [`ShardLoomTimeoutError`](../../python/src/shardloom/errors.py) | class | An execution deadline expired, preserving both historical timeout catches. |
-| [`SqlWorkflow`](../../python/src/shardloom/query.py) | class | A scoped SQL workflow entry point over currently admitted ShardLoom SQL paths. |
+| [`Window`](../../python/src/shardloom/_window.py) | class | Factories for WindowSpec, with explicit signed offsets and unbounded ends. |
 | [`WindowExpression`](../../python/src/shardloom/query.py) | class | A SQL window declaration submitted to the shared native engine. |
+| [`WindowSpec`](../../python/src/shardloom/_window.py) | class | Window partition/order/frame metadata, reusable across expressions. |
 | [`__version__`](../../python/src/shardloom/_version.py) | constant | Package constant. |
 | [`abs`](../../python/src/shardloom/query.py) | function | Return a scoped `ABS(column)` numeric absolute-value expression. |
 | [`all_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ALL (SELECT ...)` predicate. |
@@ -89,7 +93,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`column_transform`](../../python/src/shardloom/query.py) | function | Declare scoped column rewrites for `map`, `applymap`, or `transform`. |
 | [`concat`](../../python/src/shardloom/query.py) | function | Return a scoped `CONCAT(column-or-string-literal, ...)` expression. |
 | [`context`](../../python/src/shardloom/context.py) | function | Return a side-effect-free ShardLoom context. |
-| [`count_distinct`](../../python/src/shardloom/query.py) | function | Declare COUNT DISTINCT, retaining owned query sources when present. |
+| [`count_distinct`](../../python/src/shardloom/query.py) | function | Declare exact COUNT DISTINCT through the shared native aggregate binder. |
 | [`dense_rank`](../../python/src/shardloom/query.py) | function | Return a scoped `DENSE_RANK() OVER (...) AS alias` expression. |
 | [`exists_source`](../../python/src/shardloom/query.py) | function | Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate. |
 | [`floor`](../../python/src/shardloom/query.py) | function | Return a scoped `FLOOR(column)` numeric rounding expression. |
@@ -140,6 +144,144 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`try_cast`](../../python/src/shardloom/query.py) | function | Return a scoped `TRY_CAST(column AS dtype)` dirty-value expression. |
 | [`typed_scalar_udf`](../../python/src/shardloom/query.py) | function | Return an admitted typed deterministic scalar UDF expression. |
 | [`unhex`](../../python/src/shardloom/query.py) | function | Return a scoped `UNHEX(column)` binary helper projection expression. |
+| [`functions`](../../python/src/shardloom/functions.py) | module | Native expression declarations; Python never evaluates data operations. |
+| [`shardloom.functions.abs`](../../python/src/shardloom/functions.py) | function | Declare checked absolute value over a column or expression. |
+| [`shardloom.functions.all_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ALL (SELECT ...)` predicate. |
+| [`shardloom.functions.any_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ANY (SELECT ...)` predicate. |
+| [`shardloom.functions.array`](../../python/src/shardloom/query.py) | function | Return a scoped `ARRAY[...]` projection over scalar SQL literals. |
+| [`shardloom.functions.avg`](../../python/src/shardloom/functions.py) | function | Declare native AVG over non-null values. |
+| [`shardloom.functions.byte_length`](../../python/src/shardloom/functions.py) | function | Count bytes in a UTF8 or binary column or expression. |
+| [`shardloom.functions.case_when`](../../python/src/shardloom/query.py) | function | Return a scoped single-branch `CASE WHEN` computed-column expression. |
+| [`shardloom.functions.cast`](../../python/src/shardloom/functions.py) | function | Declare a checked native cast to a supported type. |
+| [`shardloom.functions.catalog`](../../python/src/shardloom/functions.py) | function | Inspect native scalar names, aliases, argument counts and type/null rules. |
+| [`shardloom.functions.ceil`](../../python/src/shardloom/functions.py) | function | Declare rounding toward positive infinity. |
+| [`shardloom.functions.coalesce`](../../python/src/shardloom/functions.py) | function | Declare the first non-null expression; use lit() for scalar constants. |
+| [`shardloom.functions.col`](../../python/src/shardloom/query.py) | function | Return a scoped column expression for local ShardLoom predicates. |
+| [`shardloom.functions.column`](../../python/src/shardloom/query.py) | function | Alias for `col(...)`. |
+| [`shardloom.functions.concat`](../../python/src/shardloom/functions.py) | function | Concatenate columns or expressions; use lit() for string constants. |
+| [`shardloom.functions.contains`](../../python/src/shardloom/functions.py) | function | Match a literal UTF8 substring, including percent and underscore characters. |
+| [`shardloom.functions.count`](../../python/src/shardloom/functions.py) | function | Count all rows with no argument; otherwise count non-null values. |
+| [`shardloom.functions.count_distinct`](../../python/src/shardloom/query.py) | function | Declare exact COUNT DISTINCT through the shared native aggregate binder. |
+| [`shardloom.functions.date_add_days`](../../python/src/shardloom/functions.py) | function | Return a scoped Date32 day-add expression. |
+| [`shardloom.functions.date_day`](../../python/src/shardloom/functions.py) | function | Return a scoped Date32 day-of-month extract expression. |
+| [`shardloom.functions.date_diff_days`](../../python/src/shardloom/functions.py) | function | Return a scoped Date32 day-difference expression. |
+| [`shardloom.functions.date_month`](../../python/src/shardloom/functions.py) | function | Return a scoped Date32 month-extract expression. |
+| [`shardloom.functions.date_sub_days`](../../python/src/shardloom/functions.py) | function | Return a scoped Date32 day-subtract expression. |
+| [`shardloom.functions.date_trunc_minute`](../../python/src/shardloom/functions.py) | function | Truncate integer epoch seconds or timestamp text to the minute. |
+| [`shardloom.functions.date_year`](../../python/src/shardloom/functions.py) | function | Return a scoped Date32 year-extract expression. |
+| [`shardloom.functions.dense_rank`](../../python/src/shardloom/query.py) | function | Return a scoped `DENSE_RANK() OVER (...) AS alias` expression. |
+| [`shardloom.functions.ends_with`](../../python/src/shardloom/functions.py) | function | Match a literal UTF8 suffix. |
+| [`shardloom.functions.exists_source`](../../python/src/shardloom/query.py) | function | Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate. |
+| [`shardloom.functions.extract_minute`](../../python/src/shardloom/functions.py) | function | Extract a minute from integer epoch seconds or timestamp text. |
+| [`shardloom.functions.first_value`](../../python/src/shardloom/functions.py) | function | Select the first value of the frame supplied with over(). |
+| [`shardloom.functions.floor`](../../python/src/shardloom/functions.py) | function | Declare rounding toward negative infinity. |
+| [`shardloom.functions.from_base64`](../../python/src/shardloom/functions.py) | function | Declare Base64 text decoding to binary. |
+| [`shardloom.functions.interval_days`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' DAY` literal. |
+| [`shardloom.functions.interval_hours`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' HOUR` literal. |
+| [`shardloom.functions.interval_minutes`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' MINUTE` literal. |
+| [`shardloom.functions.interval_seconds`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' SECOND` literal. |
+| [`shardloom.functions.is_null`](../../python/src/shardloom/functions.py) | function | Declare a boolean null check. |
+| [`shardloom.functions.is_not_null`](../../python/src/shardloom/functions.py) | function | Declare a boolean non-null check. |
+| [`shardloom.functions.json_extract`](../../python/src/shardloom/functions.py) | function | Extract JSON using a native literal path. |
+| [`shardloom.functions.lag`](../../python/src/shardloom/functions.py) | function | Select an earlier ordered value; admitted offsets are 1 through 50000. |
+| [`shardloom.functions.last_value`](../../python/src/shardloom/functions.py) | function | Select the last value of the frame supplied with over(). |
+| [`shardloom.functions.lead`](../../python/src/shardloom/functions.py) | function | Select a later ordered value; admitted offsets are 1 through 50000. |
+| [`shardloom.functions.left`](../../python/src/shardloom/functions.py) | function | Take a UTF8 prefix by code-point count. |
+| [`shardloom.functions.length`](../../python/src/shardloom/functions.py) | function | Count Unicode code points in a column or expression. |
+| [`shardloom.functions.lit`](../../python/src/shardloom/functions.py) | function | Declare a scalar literal, including null, decimal and naive microsecond datetime values. |
+| [`shardloom.functions.lower`](../../python/src/shardloom/functions.py) | function | Declare native lowercase conversion. |
+| [`shardloom.functions.max`](../../python/src/shardloom/functions.py) | function | Declare native MAX over non-null values. |
+| [`shardloom.functions.mean`](../../python/src/shardloom/functions.py) | function | Declare native AVG over non-null values. |
+| [`shardloom.functions.min`](../../python/src/shardloom/functions.py) | function | Declare native MIN over non-null values. |
+| [`shardloom.functions.not_exists_source`](../../python/src/shardloom/query.py) | function | Return a scoped local-source `NOT EXISTS (SELECT ... FROM ...)` predicate. |
+| [`shardloom.functions.not_regex_match`](../../python/src/shardloom/functions.py) | function | Return a scoped UTF-8 regex negation. |
+| [`shardloom.functions.nth_value`](../../python/src/shardloom/functions.py) | function | Select a value by its one-based position in the frame supplied with over(). |
+| [`shardloom.functions.null_if`](../../python/src/shardloom/functions.py) | function | Return null when a column/expression equals another expression or literal. |
+| [`shardloom.functions.outer`](../../python/src/shardloom/query.py) | function | Return the reserved outer-row column expression for correlated source predicates. |
+| [`shardloom.functions.rank`](../../python/src/shardloom/query.py) | function | Return a scoped `RANK() OVER (...) AS alias` expression. |
+| [`shardloom.functions.regex_domain`](../../python/src/shardloom/functions.py) | function | Apply the fixed HTTP(S) domain-replacement expression. |
+| [`shardloom.functions.regex_match`](../../python/src/shardloom/functions.py) | function | Match UTF8 with a literal native regular expression. |
+| [`shardloom.functions.regexp_replace`](../../python/src/shardloom/functions.py) | function | Apply the admitted fixed HTTP(S) domain pattern and capture replacement. |
+| [`shardloom.functions.replace`](../../python/src/shardloom/functions.py) | function | Replace literal substrings in a column or expression. |
+| [`shardloom.functions.right`](../../python/src/shardloom/functions.py) | function | Take a UTF8 suffix by code-point count. |
+| [`shardloom.functions.round`](../../python/src/shardloom/functions.py) | function | Declare integer rounding with halfway values away from zero. |
+| [`shardloom.functions.row_in`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value `IN ((...),...)` predicate. |
+| [`shardloom.functions.row_in_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value local-source `IN (SELECT ...)` predicate. |
+| [`shardloom.functions.row_not_in`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value `NOT IN ((...),...)` predicate. |
+| [`shardloom.functions.row_not_in_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value local-source `NOT IN (SELECT ...)` predicate. |
+| [`shardloom.functions.row_number`](../../python/src/shardloom/query.py) | function | Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression. |
+| [`shardloom.functions.scalar_subquery`](../../python/src/shardloom/query.py) | function | Declare a scalar query expression without executing its source. |
+| [`shardloom.functions.starts_with`](../../python/src/shardloom/functions.py) | function | Match a literal UTF8 prefix. |
+| [`shardloom.functions.strptime`](../../python/src/shardloom/functions.py) | function | Parse timestamp text using a native literal format. |
+| [`shardloom.functions.struct`](../../python/src/shardloom/query.py) | function | Return a scoped `STRUCT(...)` projection over source columns. |
+| [`shardloom.functions.substr`](../../python/src/shardloom/functions.py) | function | Take a Unicode substring with SQL start/length semantics. |
+| [`shardloom.functions.substring`](../../python/src/shardloom/functions.py) | function | Take a Unicode substring with SQL start/length semantics. |
+| [`shardloom.functions.sum`](../../python/src/shardloom/functions.py) | function | Declare native SUM over a column or expression, excluding null values. |
+| [`shardloom.functions.timestamp_add_seconds`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp second-add expression. |
+| [`shardloom.functions.timestamp_day`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp day-of-month extract expression. |
+| [`shardloom.functions.timestamp_diff_seconds`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp second-difference expression. |
+| [`shardloom.functions.timestamp_hour`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp hour-extract expression. |
+| [`shardloom.functions.timestamp_minute`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp minute-extract expression. |
+| [`shardloom.functions.timestamp_month`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp month-extract expression. |
+| [`shardloom.functions.timestamp_second`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp second-extract expression. |
+| [`shardloom.functions.timestamp_sub_seconds`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp second-subtract expression. |
+| [`shardloom.functions.timestamp_year`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp year-extract expression. |
+| [`shardloom.functions.try_cast`](../../python/src/shardloom/functions.py) | function | Declare native conversion that maps malformed values to null. |
+| [`shardloom.functions.try_strptime`](../../python/src/shardloom/functions.py) | function | Parse timestamp text with a native literal format, yielding null on parse failure. |
+| [`shardloom.functions.trim`](../../python/src/shardloom/functions.py) | function | Declare native whitespace trimming. |
+| [`shardloom.functions.typed_scalar_udf`](../../python/src/shardloom/query.py) | function | Return an admitted typed deterministic scalar UDF expression. |
+| [`shardloom.functions.unhex`](../../python/src/shardloom/functions.py) | function | Declare hexadecimal text decoding to binary. |
+| [`shardloom.functions.upper`](../../python/src/shardloom/functions.py) | function | Declare native uppercase conversion. |
+| [`shardloom.functions.url_domain`](../../python/src/shardloom/functions.py) | function | Return the native URL-domain extraction expression. |
+| [`types`](../../python/src/shardloom/types.py) | module | Metadata-only constructors for declared ShardLoom schema types. |
+| [`shardloom.types.ResultType`](../../python/src/shardloom/_result_schema.py) | class | ResultType(name: 'str', nullable: 'bool', parameters: 'tuple[Any, ...]' = ()) |
+| [`shardloom.types.int8`](../../python/src/shardloom/types.py) | function | Declare int8 metadata for the native binder. |
+| [`shardloom.types.int16`](../../python/src/shardloom/types.py) | function | Declare int16 metadata for the native binder. |
+| [`shardloom.types.int32`](../../python/src/shardloom/types.py) | function | Declare int32 metadata for the native binder. |
+| [`shardloom.types.int64`](../../python/src/shardloom/types.py) | function | Declare int64 metadata for the native binder. |
+| [`shardloom.types.uint8`](../../python/src/shardloom/types.py) | function | Declare uint8 metadata for the native binder. |
+| [`shardloom.types.uint16`](../../python/src/shardloom/types.py) | function | Declare uint16 metadata for the native binder. |
+| [`shardloom.types.uint32`](../../python/src/shardloom/types.py) | function | Declare uint32 metadata for the native binder. |
+| [`shardloom.types.uint64`](../../python/src/shardloom/types.py) | function | Declare uint64 metadata for the native binder. |
+| [`shardloom.types.float32`](../../python/src/shardloom/types.py) | function | Declare float32 metadata for the native binder. |
+| [`shardloom.types.float64`](../../python/src/shardloom/types.py) | function | Declare float64 metadata for the native binder. |
+| [`shardloom.types.boolean`](../../python/src/shardloom/types.py) | function | Declare boolean metadata for the native binder. |
+| [`shardloom.types.string`](../../python/src/shardloom/types.py) | function | Declare string metadata for the native binder. |
+| [`shardloom.types.binary`](../../python/src/shardloom/types.py) | function | Declare binary metadata for the native binder. |
+| [`shardloom.types.date32`](../../python/src/shardloom/types.py) | function | Declare date32 metadata for the native binder. |
+| [`shardloom.types.timestamp_micros`](../../python/src/shardloom/types.py) | function | Declare timestamp_micros metadata for the native binder. |
+| [`shardloom.types.decimal128`](../../python/src/shardloom/types.py) | function | Declare decimal128 metadata for the native binder. |
+| [`shardloom.types.list_`](../../python/src/shardloom/types.py) | function | Declare list_ metadata for the native binder. |
+| [`shardloom.types.fixed_size_list`](../../python/src/shardloom/types.py) | function | Declare fixed_size_list metadata for the native binder. |
+| [`shardloom.types.struct`](../../python/src/shardloom/types.py) | function | Declare struct metadata for the native binder. |
+| [`shardloom.types.scalar`](../../python/src/shardloom/types.py) | function | Bind a scalar with an explicit native type, including typed nulls. |
+| [`adbc`](../../python/src/shardloom/adbc.py) | module | Local ADBC 1.1 access to an explicitly selected ShardLoom context. |
+| [`shardloom.adbc.database`](../../python/src/shardloom/adbc.py) | function | Open the independent ADBC manager's database handle on this context. |
+| [`shardloom.adbc.driver_options`](../../python/src/shardloom/adbc.py) | function | Yield one-use options for an independent ADBC manager's database open. |
+| [`dbapi`](../../python/src/shardloom/dbapi.py) | module | PEP 249 connection backed by the independent Apache ADBC driver manager. |
+| [`shardloom.dbapi.connect`](../../python/src/shardloom/dbapi.py) | function | Borrow an existing context; close releases this connection's operations. |
+| [`shardloom.dbapi.apilevel`](../../python/src/shardloom/dbapi.py) | constant | Package constant. |
+| [`shardloom.dbapi.threadsafety`](../../python/src/shardloom/dbapi.py) | constant | Package constant. |
+| [`shardloom.dbapi.paramstyle`](../../python/src/shardloom/dbapi.py) | constant | Package constant. |
+| [`shardloom.dbapi.Warning`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.Error`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.InterfaceError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.DatabaseError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.DataError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.OperationalError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.IntegrityError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.InternalError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.ProgrammingError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.NotSupportedError`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.Date`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.Time`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.Timestamp`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.DateFromTicks`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.TimeFromTicks`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.TimestampFromTicks`](../../python/src/shardloom/dbapi.py) | alias | PEP 249 helper or exception loaded from the optional ADBC manager. |
+| [`shardloom.dbapi.Binary`](../../python/src/shardloom/dbapi.py) | class | bytes(iterable_of_ints) -> bytes |
+| [`notebook`](../../python/src/shardloom/notebook.py) | module | Explicit-context notebook SQL that returns the same lazy DataFrame. |
+| [`shardloom.notebook.install`](../../python/src/shardloom/notebook.py) | function | Register SQL magic on an existing context and return a removable handle. |
 
 Exact callable signatures are generated in the [JSON reference](shardloom-user-surface-index.json)
 and package type stubs. `shardloom.diagnostics` contains runtime inspection and compatibility

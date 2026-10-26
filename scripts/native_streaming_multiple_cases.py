@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_join_cases import BATCHES, KINDS, ORDINARY, SCHEMA, STREAM, frame, joined, oracle
 from native_streaming_protocol_cases import Peer
 
@@ -75,7 +75,7 @@ def run(harness):
                 f"JOIN '{second.source.uri}' AS b ON a.n=b.n) AS q "
                 f"JOIN '{ordinary.source.uri}' AS c ON q.join_key=c.n ORDER BY left_value")
             bindings = first._declared_sources() + second._declared_sources() + ordinary._declared_sources()
-            query = SqlWorkflow(statement, harness.client, source_bindings=bindings)
+            query = LazyFrame.from_sql(statement, harness.client, source_bindings=bindings)
             expected = [{"left_value": value, "right_value": "r1", "label": "kept"} for value in ("a", "c")]
             destination = harness.output / (name + ".vortex")
             written = query.write_vortex(destination, spill=spill, **policy)

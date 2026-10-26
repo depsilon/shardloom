@@ -9,7 +9,7 @@ import operator
 import shardloom as sl
 import native_streaming_dynamic_subquery_cases as dynamic
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 
 from native_streaming_dynamic_subquery_cases import consume, fields
 from native_streaming_subquery_cases import (
@@ -87,7 +87,7 @@ def wide_query(left, right, kind, *, surface="dataframe", negated=False):
             expression = f"{value} IN (SELECT {columns} FROM {relation}{where})"
         if negated:
             expression = f"NOT ({expression})"
-        query = SqlWorkflow(f"SELECT n,s,{expression} AS answer FROM ({left._relation_statement()}) AS l",
+        query = LazyFrame.from_sql(f"SELECT n,s,{expression} AS answer FROM ({left._relation_statement()}) AS l",
                             query.client, source_bindings=query._declared_sources())
     return query
 

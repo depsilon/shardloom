@@ -1,9 +1,11 @@
-# Optional Arrow boundary consumer for native wheel integration tests only.
+# Optional boundary clients for native wheel integration tests only.
 # Exact PyPI 25.0.1 file metadata reviewed 2026-10-10:
 # https://pypi.org/pypi/pyarrow/25.0.1/json
 # Ubuntu x86_64 CPython 3.10/3.13 and macOS arm64/x86_64 CPython 3.13.
 # The macOS arm64 CPython 3.12 wheel supports the isolated local proof runner.
 # No Python runtime dependency or alternate execution engine is added.
+-r ci-native-python-adapters.txt
+
 pyarrow==25.0.1 \
     --hash=sha256:a4d6d5e9a3d1879a97c08ded0c797579b7965eafd0f0c26c30b45ccc06db939b \
     --hash=sha256:0befcf816e45a1af33ac775a9970b749e4868a230c7372f0ae5e932bee27039f \

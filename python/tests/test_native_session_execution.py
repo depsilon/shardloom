@@ -86,6 +86,53 @@ class NativeSessionExecutionTests(unittest.TestCase):
         self.assertIsNone(report.prepared_vortex_path)
         self.assertIsNone(report.source_state_id)
 
+    def test_mixed_set_and_sql_writes_keep_the_session_and_reuse_policy(self):
+        frame = self.session.sql("SELECT 1 AS id").union_all(
+            self.session.sql("SELECT 2 AS id")).select("id")
+        self.assertIs(frame.source._session, self.session)
+        with mock.patch.object(self.client, "release_prepared") as release, \
+             mock.patch.object(self.client, "public_workflow_run", return_value=response(1, reused=True)) as execute:
+            report = frame.write_jsonl("unused.jsonl", reuse=False)
+            self.assertEqual(report.operation, "write")
+            self.assertEqual(release.call_count, 1)
+            self.assertEqual(execute.call_count, 1)
+            self.assertEqual(self.session.output_plan_reuse_count, 1)
+        self.session.close()
+        with self.assertRaisesRegex(RuntimeError, "closed"):
+            frame.collect()
+
+    def test_session_adoption_preserves_source_and_rejects_other_contexts(self):
+        from shardloom.session import _session_frame
+        frame = ShardLoomContext(self.client).read_csv("declared.csv")
+        adopted = _session_frame(self.session, frame)
+        self.assertIs(adopted._native_plan, frame._native_plan)
+        self.assertIs(adopted.source._native_plan, frame.source._native_plan)
+        with mock.patch.object(self.client, "release_prepared") as release, \
+             mock.patch.object(self.client, "public_workflow_run", return_value=response(1)) as execute:
+            self.session.collect(adopted, reuse=False)
+            self.assertEqual(release.call_count, 1)
+            self.assertEqual(execute.call_count, 1)
+            self.assertEqual(self.session.cache_miss_count, 1)
+        foreign = ShardLoomContext(ShardLoomClient(binary="unused", memory_gb=1, max_parallelism=1))
+        self.addCleanup(foreign.close)
+        with self.assertRaisesRegex(ValueError, "another context"):
+            self.session.collect(foreign.read_csv("must-not-open.csv"))
+
+    def test_sql_prepare_uses_explicit_source_without_executing_query(self):
+        from shardloom.query import LazyFrame, WorkflowSource
+        source = WorkflowSource("csv", "declared.csv", schema=(("id", "int64"),))
+        query = LazyFrame.from_sql("SELECT id+1 AS id FROM 'declared.csv'", self.client,
+            input_uri=source.uri, input_format="csv", source_bindings=(source,),
+            resources=self.client.resources)
+        with mock.patch.object(self.client, "public_workflow_prepare", return_value="prepared") as prepare, \
+             mock.patch.object(self.client, "public_workflow_run", side_effect=AssertionError("query execution")):
+            self.assertEqual(query.prepare("declared.vortex"), "prepared")
+        self.assertEqual(prepare.call_args.kwargs["input_uri"], "declared.csv")
+        self.assertEqual(prepare.call_args.kwargs["input_format"], "csv")
+        self.assertEqual(prepare.call_args.kwargs["source_schema"], source.schema)
+        with self.assertRaisesRegex(ValueError, "one explicit file source"):
+            self.session.sql("SELECT 1 AS id").prepare("unused.vortex")
+
     def test_existing_output_does_not_bypass_the_native_write_error(self):
         with tempfile.TemporaryDirectory() as directory:
             source, target = Path(directory) / "source.csv", Path(directory) / "result.jsonl"

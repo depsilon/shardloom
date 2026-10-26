@@ -79,6 +79,9 @@ impl Binder<'_> {
         // Validate the complete subtree before binding a pivot can execute an
         // earlier child. Checking only individual scans would be too late.
         match plan {
+            VortexRelationalPlan::Input(_) => {
+                return Err(failed("native declaration input is not bound"));
+            }
             VortexRelationalPlan::Scan(scan) => {
                 self.input(&scan.source_uri)?;
             }
@@ -93,6 +96,9 @@ impl Binder<'_> {
             }
             VortexRelationalPlan::Limit(limit) => {
                 self.validate_subquery_source_scope(&limit.input, depth + 1)?;
+            }
+            VortexRelationalPlan::Pipeline(pipeline) => {
+                self.validate_subquery_source_scope(&pipeline.input, depth + 1)?;
             }
             VortexRelationalPlan::Aggregate(aggregate) => {
                 self.validate_subquery_source_scope(&aggregate.input, depth + 1)?;

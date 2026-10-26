@@ -78,7 +78,7 @@ pub(super) struct NativeExecutionStream {
 /// stream close; the stream's final report determines transaction completion.
 #[pyclass(name = "ColumnarBatch", module = "shardloom._native", frozen)]
 pub(super) struct NativeColumnarBatch {
-    batch: RecordBatch,
+    pub(super) batch: RecordBatch,
 }
 
 impl NativeExecutionStream {

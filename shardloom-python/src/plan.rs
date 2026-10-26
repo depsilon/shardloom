@@ -14,6 +14,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[path = "plan_inputs.rs"]
+mod inputs;
+use inputs::{InputOwners, Inputs};
+
 struct Prepared {
     resources: ExecutionResources,
     operation: PreparedNativeOperation,
@@ -26,10 +30,9 @@ pub(super) struct NativePlan {
 }
 
 pub(super) struct PlanCore {
-    session: Arc<SessionOwner>,
+    pub(super) session: Arc<SessionOwner>,
     statement: String,
-    bindings: Vec<SqlSourceBinding>,
-    batches: Vec<BatchDeclaration>,
+    inputs: Arc<InputOwners>,
     spill: Option<String>,
     workflow: Option<native::NativeWorkflowDeclaration>,
     relation: Option<Arc<native::NativeRelationDeclaration>>,
@@ -45,25 +48,35 @@ impl std::ops::Deref for NativePlan {
 }
 
 impl NativePlan {
-    pub(super) fn new(
+    pub(super) fn sql(
         session: Arc<SessionOwner>,
         statement: String,
+        declaration: Arc<native::NativeRelationDeclaration>,
         bindings: Vec<SqlSourceBinding>,
         batches: Vec<BatchDeclaration>,
+        parents: Vec<&NativePlan>,
         spill: Option<String>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        let inputs = InputOwners::new(
+            bindings,
+            batches,
+            parents
+                .into_iter()
+                .map(|plan| Arc::clone(&plan.inputs))
+                .collect(),
+        )
+        .map_err(native_error)?;
+        Ok(Self {
             core: Arc::new(PlanCore {
                 session,
                 statement,
-                bindings,
-                batches,
+                inputs,
                 spill,
                 workflow: None,
-                relation: None,
+                relation: Some(declaration),
                 prepared: Mutex::new(None),
             }),
-        }
+        })
     }
 
     pub(super) fn workflow(
@@ -74,8 +87,7 @@ impl NativePlan {
             core: Arc::new(PlanCore {
                 session,
                 statement: String::new(),
-                bindings: Vec::new(),
-                batches: Vec::new(),
+                inputs: Arc::default(),
                 spill: None,
                 workflow: Some(declaration),
                 relation: None,
@@ -89,20 +101,35 @@ impl NativePlan {
         declaration: Arc<native::NativeRelationDeclaration>,
         bindings: Vec<SqlSourceBinding>,
         batches: Vec<BatchDeclaration>,
+        parents: Vec<&NativePlan>,
         spill: Option<String>,
-    ) -> Self {
-        Self {
-            core: Arc::new(PlanCore {
-                session,
-                statement: String::new(),
-                bindings,
-                batches,
-                spill,
-                workflow: None,
-                relation: Some(declaration),
-                prepared: Mutex::new(None),
-            }),
+    ) -> PyResult<Self> {
+        Self::sql(
+            session,
+            String::new(),
+            declaration,
+            bindings,
+            batches,
+            parents,
+            spill,
+        )
+    }
+
+    pub(super) fn declaration(
+        &self,
+        owner: &Arc<SessionOwner>,
+    ) -> PyResult<Arc<native::NativeRelationDeclaration>> {
+        if !Arc::ptr_eq(&self.session, owner) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "relation belongs to another context; bind plans from the same context",
+            ));
         }
+        self.session.begin().map_err(native_error)?;
+        self.relation.clone().ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err(
+                "command workflow has no composable relation declaration",
+            )
+        })
     }
 }
 
@@ -110,7 +137,7 @@ impl PlanCore {
     /// A producer declaration remains effectful/one-shot even when preparation
     /// has collected its current values into a native memory source.
     pub(super) fn output_window_source_allowed(&self) -> bool {
-        self.batches.is_empty()
+        !self.inputs.has_batches
     }
 
     pub(super) fn with_prepared<T>(
@@ -138,6 +165,7 @@ impl PlanCore {
                 cancellation.check()?;
                 native::validate_sql_spill(self.spill.as_deref(), resources)?;
                 preflight()?;
+                let inputs = self.inputs.inputs(cancellation)?;
                 let mut prepared = self
                     .prepared
                     .lock()
@@ -145,17 +173,25 @@ impl PlanCore {
                 let reused = prepared
                     .as_ref()
                     .is_some_and(|entry| entry.resources == resources && entry.reusable)
-                    && self.batches.iter().all(|input| input.streaming);
+                    && inputs.batches.iter().all(|input| input.streaming);
                 if !reused {
                     *prepared = None;
                 }
+                let admission = if !reused && self.statement.is_empty() {
+                    self.relation
+                        .as_ref()
+                        .map(|declaration| declaration.admit(session, cancellation))
+                        .transpose()?
+                } else {
+                    None
+                };
                 let mut bindings = if reused {
                     Vec::new()
                 } else {
-                    self.bindings_in_session(session, cancellation)?
+                    Self::bindings_in_session(&inputs, session, cancellation)?
                 };
-                let mut streaming = BatchReaders::reserve(&self.batches, session)?;
-                for declaration in &self.batches {
+                let mut streaming = BatchReaders::reserve(&inputs.batches, session)?;
+                for declaration in &inputs.batches {
                     let reader = BatchReader::new(declaration, session, cancellation, &errors)?;
                     let source = if declaration.streaming {
                         let schema = reader.schema();
@@ -173,21 +209,7 @@ impl PlanCore {
                     });
                 }
                 if !reused {
-                    let (operation, reusable) = if let Some(declaration) = &self.relation {
-                        let (operation, reusable) = declaration.prepare(
-                            resources,
-                            session,
-                            &bindings,
-                            self.spill.as_deref(),
-                            cancellation,
-                        )?;
-                        (
-                            PreparedNativeOperation::relational(operation, resources),
-                            reusable,
-                        )
-                    } else if let Some(declaration) = &self.workflow {
-                        (declaration.prepare(resources, session, cancellation)?, true)
-                    } else {
+                    let (operation, reusable) = if !self.statement.is_empty() {
                         (
                             native::prepare_sql_operation(
                                 &self.statement,
@@ -199,6 +221,24 @@ impl PlanCore {
                             )?,
                             true,
                         )
+                    } else if let Some(declaration) = &self.relation {
+                        let (operation, reusable) = declaration.prepare_admitted(
+                            resources,
+                            session,
+                            &bindings,
+                            self.spill.as_deref(),
+                            cancellation,
+                            admission
+                                .ok_or_else(|| failed("relation metadata admission is absent"))?,
+                        )?;
+                        (
+                            PreparedNativeOperation::relational(operation, resources),
+                            reusable,
+                        )
+                    } else if let Some(declaration) = &self.workflow {
+                        (declaration.prepare(resources, session, cancellation)?, true)
+                    } else {
+                        return Err(failed("plan has no native declaration"));
                     };
                     *prepared = Some(Prepared {
                         resources,
@@ -216,11 +256,15 @@ impl PlanCore {
     }
 
     fn bindings_in_session(
-        &self,
+        inputs: &Inputs<'_>,
         session: &shardloom_vortex::resident_session::ResidentVortexSession,
         cancellation: &CancellationToken,
     ) -> Result<Vec<SqlSourceBinding>> {
-        let mut bindings = self.bindings.clone();
+        let mut bindings = inputs
+            .bindings
+            .iter()
+            .map(|binding| (*binding).clone())
+            .collect::<Vec<_>>();
         for binding in &mut bindings {
             if let SqlSource::Memory(source) = &binding.source {
                 binding.source = SqlSource::Memory(source.in_session(session, cancellation)?);
@@ -243,6 +287,102 @@ impl PlanCore {
 
 #[pymethods]
 impl NativePlan {
+    /// Direct input positions retained by native binding, before source flattening.
+    /// These are indices in the supplied relation list, including source-free plans.
+    #[getter]
+    fn bound_input_indices(&self) -> PyResult<Vec<usize>> {
+        Ok(self.declaration(&self.session)?.input_indices().collect())
+    }
+
+    /// Report retained source references without inspecting or opening them.
+    #[getter]
+    fn source_references(&self) -> PyResult<Vec<String>> {
+        Ok(self
+            .declaration(&self.session)?
+            .source_references()
+            .collect())
+    }
+
+    /// Retain the typed immutable relation, without preparing or reading inputs.
+    #[staticmethod]
+    fn parameter_names(statement: &str) -> PyResult<Vec<String>> {
+        native::NativeRelationDeclaration::parameter_names(statement).map_err(native_error)
+    }
+
+    /// Retain the typed immutable relation, without preparing or reading inputs.
+    fn as_relation(&self) -> PyResult<super::relation::NativeRelation> {
+        Ok(super::relation::NativeRelation {
+            declaration: self.declaration(&self.session)?,
+        })
+    }
+
+    /// Add position-bound native metrics, retaining this plan's source owners.
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts an owned Python sequence.
+    fn observe(&self, name: &str, measures: Vec<String>) -> PyResult<Self> {
+        let declaration = self.declaration(&self.session)?;
+        let observed = declaration.observe(name, &measures).map_err(native_error)?;
+        Self::relation(
+            self.session.clone(),
+            Arc::new(observed),
+            vec![],
+            vec![],
+            vec![self],
+            self.spill.clone(),
+        )
+    }
+
+    /// Inspect native output metadata without executing a producer or consumer.
+    /// Prepared execution state is neither populated nor reused by inspection.
+    #[pyo3(signature = (*, resources=None, timeout=None))]
+    fn schema_json(
+        &self,
+        py: Python<'_>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<String> {
+        let cancellation = self.session.begin_operation(timeout)?;
+        let resources = self.session.resources(resources).map_err(native_error)?;
+        let declaration = self.relation.as_ref().ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("command workflow has no relation schema")
+        })?;
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.session.runtime,
+                resources,
+                &cancellation,
+                |session, resources, _| {
+                    let inputs = self.inputs.inputs(&cancellation)?;
+                    let admission = declaration.admit(session, &cancellation)?;
+                    let mut bindings =
+                        PlanCore::bindings_in_session(&inputs, session, &cancellation)?;
+                    let errors = Arc::new(Mutex::new(None));
+                    // Readers retain only their declared schema. Their lazy
+                    // factories are never invoked, including one-shot inputs.
+                    let mut readers = Vec::with_capacity(inputs.batches.len());
+                    for input in &inputs.batches {
+                        let reader = BatchReader::new(input, session, &cancellation, &errors)?;
+                        bindings.push(SqlSourceBinding {
+                            reference: input.reference.clone(),
+                            source: SqlSource::ColumnarStream(reader.schema()),
+                        });
+                        readers.push(reader);
+                    }
+                    let schema = declaration.schema_json_admitted(
+                        resources,
+                        session,
+                        &bindings,
+                        self.spill.as_deref(),
+                        &cancellation,
+                        admission,
+                    )?;
+                    cancellation.check()?;
+                    Ok(schema.into_parts().0)
+                },
+            )
+            .map_err(|error| error.into_python(native_error))
+        })
+    }
+
     /// Demand-driven columnar execution. The worker starts on first iteration;
     /// completion evidence is published only after the final consumer demand.
     #[pyo3(signature = (*, resources=None, timeout=None, output_window_bytes=0))]

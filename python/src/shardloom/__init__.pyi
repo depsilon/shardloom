@@ -4,12 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 from . import diagnostics as diagnostics
+from . import adbc as adbc
+from . import dbapi as dbapi
+from . import functions as functions
 from . import native as native
+from . import notebook as notebook
 from . import testing as testing
+from . import types as types
 from ._batches import ResultBatch as ResultBatch
 from ._batches import ResultBatchIterator as ResultBatchIterator
 from ._result_schema import ResultType as ResultType
 from ._version import __version__ as __version__
+from ._window import Window as Window
+from ._window import WindowSpec as WindowSpec
 from .context import ShardLoomContext as ShardLoomContext
 from .context import context as context
 from .errors import ShardLoomBinaryNotFoundError as ShardLoomBinaryNotFoundError
@@ -30,7 +37,6 @@ from .query import IntervalLiteral as IntervalLiteral
 from .query import LazyFrame as LazyFrame
 from .query import PredicateExpression as PredicateExpression
 from .query import Result as Result
-from .query import SqlWorkflow as SqlWorkflow
 from .query import WindowExpression as WindowExpression
 from .query import abs as abs
 from .query import all_source as all_source
@@ -96,7 +102,7 @@ from .query import try_cast as try_cast
 from .query import typed_scalar_udf as typed_scalar_udf
 from .query import unhex as unhex
 
-__all__ = ('ColumnExpression', 'ComplexProjectionExpression', 'Diagnostic', 'ExecutionResourceLimits', 'ExecutionResources', 'GroupedLazyFrame', 'IntervalLiteral', 'LazyFrame', 'PredicateExpression', 'Result', 'ResultBatch', 'ResultBatchIterator', 'ResultType', 'ShardLoomBinaryNotFoundError', 'ShardLoomClosedError', 'ShardLoomCommandError', 'ShardLoomContext', 'ShardLoomError', 'ShardLoomInstallationError', 'ShardLoomProtocolError', 'ShardLoomResourceConfigurationError', 'ShardLoomTimeoutError', 'SqlWorkflow', 'WindowExpression', '__version__', 'abs', 'all_source', 'any_source', 'array', 'byte_length', 'calendar', 'case_when', 'ceil', 'col', 'column', 'column_transform', 'concat', 'context', 'count_distinct', 'dense_rank', 'diagnostics', 'exists_source', 'floor', 'from_arrow_ipc', 'from_arrow_table', 'from_base64', 'from_batches', 'from_pandas', 'from_result', 'from_rows', 'from_vortex_ipc', 'interval_days', 'interval_hours', 'interval_minutes', 'interval_seconds', 'left', 'length', 'literal_table', 'native', 'not_exists_source', 'null_if', 'outer', 'plan_transform', 'range', 'rank', 'read', 'read_arrow_ipc', 'read_avro', 'read_csv', 'read_json', 'read_orc', 'read_parquet', 'read_vortex', 'replace', 'right', 'round', 'row_in', 'row_in_source', 'row_not_in', 'row_not_in_source', 'row_number', 'row_transform', 'scalar_subquery', 'sequence', 'sql', 'struct', 'substr', 'substring', 'testing', 'try_cast', 'typed_scalar_udf', 'unhex')
+__all__ = ('ColumnExpression', 'ComplexProjectionExpression', 'Diagnostic', 'ExecutionResourceLimits', 'ExecutionResources', 'GroupedLazyFrame', 'IntervalLiteral', 'LazyFrame', 'PredicateExpression', 'Result', 'ResultBatch', 'ResultBatchIterator', 'ResultType', 'ShardLoomBinaryNotFoundError', 'ShardLoomClosedError', 'ShardLoomCommandError', 'ShardLoomContext', 'ShardLoomError', 'ShardLoomInstallationError', 'ShardLoomProtocolError', 'ShardLoomResourceConfigurationError', 'ShardLoomTimeoutError', 'Window', 'WindowExpression', 'WindowSpec', '__version__', 'abs', 'adbc', 'all_source', 'any_source', 'array', 'byte_length', 'calendar', 'case_when', 'ceil', 'col', 'column', 'column_transform', 'concat', 'context', 'count_distinct', 'dbapi', 'dense_rank', 'diagnostics', 'exists_source', 'floor', 'from_arrow_ipc', 'from_arrow_table', 'from_base64', 'from_batches', 'from_pandas', 'from_result', 'from_rows', 'from_vortex_ipc', 'functions', 'interval_days', 'interval_hours', 'interval_minutes', 'interval_seconds', 'left', 'length', 'literal_table', 'native', 'not_exists_source', 'notebook', 'null_if', 'outer', 'plan_transform', 'range', 'rank', 'read', 'read_arrow_ipc', 'read_avro', 'read_csv', 'read_json', 'read_orc', 'read_parquet', 'read_vortex', 'replace', 'right', 'round', 'row_in', 'row_in_source', 'row_not_in', 'row_not_in_source', 'row_number', 'row_transform', 'scalar_subquery', 'sequence', 'sql', 'struct', 'substr', 'substring', 'testing', 'try_cast', 'typed_scalar_udf', 'types', 'unhex')
 
 # Named legacy imports remain available at runtime during migration.
 # Their precise types live in diagnostics/testing; keep IDE discovery curated.

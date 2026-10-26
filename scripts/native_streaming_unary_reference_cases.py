@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from shardloom._result_schema import ResultType as T
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_unary_cases import consume, frame, payload
 from native_unary_reference import rolling_values, sample_ordinals
 
@@ -43,7 +43,7 @@ def run(harness):
                     rename = {"random_state": "seed", "frac": "fraction"}
                     options = {rename.get(key, key): value for key, value in case["options"].items()
                                if value is not None}
-                    query = SqlWorkflow(f"SELECT * FROM SAMPLE(({source._relation_statement()}), {payload(options)}) AS u",
+                    query = LazyFrame.from_sql(f"SELECT * FROM SAMPLE(({source._relation_statement()}), {payload(options)}) AS u",
                                         source.client, source_bindings=source._declared_sources())
                 consume(harness, name, query, case["expected"], sample_fields, [trace])
             harness.case(name, sample)
@@ -61,7 +61,7 @@ def run(harness):
                     options = {"source_column": "value", "output_column": "result",
                                "window_size": case["window"], "min_periods": case["min_periods"],
                                "center": case["center"], "aggregate": case["aggregate"]}
-                    query = SqlWorkflow(f"SELECT * FROM ROLLING(({source._relation_statement()}), {payload(options)}) AS u",
+                    query = LazyFrame.from_sql(f"SELECT * FROM ROLLING(({source._relation_statement()}), {payload(options)}) AS u",
                                         source.client, source_bindings=source._declared_sources())
                 fields = (("result", T("uint64" if case["aggregate"] == "count" else "float64", False)),)
                 consume(harness, name, query, [{"result": value} for value in case["expected"]], fields, [trace])

@@ -36,16 +36,16 @@ def reference(left, right, kind):
 
 
 def combine(left, right, kind, surface="dataframe"):
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     if surface == "dataframe":
         return getattr(left, kind)(right)
     bindings = left._declared_sources()
     if left is not right:
         bindings += right._declared_sources()
-    return SqlWorkflow(f"SELECT * FROM ({left._relation_statement()}) AS a {OPERATORS[kind]} "
-                       f"SELECT * FROM ({right._relation_statement()}) AS b",
-                       left.client, source_bindings=bindings)
+    return LazyFrame.from_sql(f"SELECT * FROM ({left._relation_statement()}) AS a {OPERATORS[kind]} "
+                              f"SELECT * FROM ({right._relation_statement()}) AS b",
+                              left.client, source_bindings=bindings)
 
 
 class NativeSetBindingTests(unittest.TestCase):

@@ -23,6 +23,7 @@ default = []
 # Opt-in bounded output-delivery diagnostics; absent from ordinary packages.
 output-window-observation = ["python-native", "shardloom-vortex/output-window-observation"]
 python-native = [
+    "dep:adbc_core", "dep:adbc_ffi",
     "dep:pyo3", "dep:pyo3-build-config", "dep:arrow-pyarrow", "dep:arrow-array", "dep:arrow-schema",
     "dep:shardloom-core", "dep:shardloom-exec", "dep:shardloom-vortex",
     "dep:shardloom-runtime", "shardloom-runtime/release-user-surfaces",
@@ -30,6 +31,8 @@ python-native = [
 release-user-surfaces = ["python-native"]
 
 [dependencies]
+adbc_core = { workspace = true, optional = true }
+adbc_ffi = { workspace = true, optional = true }
 pyo3 = { workspace = true, features = ["abi3-py310"], optional = true }
 arrow-pyarrow = { workspace = true, optional = true }
 arrow-array = { workspace = true, features = ["ffi"], optional = true }

@@ -14,7 +14,7 @@ from native_report_evidence import require_relational_source_evidence
 
 def run(context, output, guard, accepted, complete, sources, identity, *, materializations=("python",)):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
@@ -90,8 +90,8 @@ def run(context, output, guard, accepted, complete, sources, identity, *, materi
     sources.append((oracle, file_sha256(oracle), identity(oracle)))
 
     def exercise(name, workflow, expected, columns, opens):
-        variants = [("sql", workflow)] if isinstance(workflow, SqlWorkflow) else [
-            ("dataframe", workflow), ("sql", SqlWorkflow(
+        variants = [("sql", workflow)] if workflow.source.relation is not None else [
+            ("dataframe", workflow), ("sql", LazyFrame.from_sql(
                 workflow._relation_statement(), context.client, source_bindings=workflow._declared_sources()))]
         for surface, declared in variants:
             label = f"memory-{name}-{surface}"

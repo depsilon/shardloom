@@ -111,7 +111,7 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                     prepare.assert_not_called()
 
     def test_flat_scalar_sql_preserves_source_bindings_and_reaches_native_admission(self) -> None:
-        from shardloom.query import SqlWorkflow
+        from shardloom.query import LazyFrame
 
         sources = [
             self.context.read_vortex("missing.vortex"),
@@ -123,13 +123,13 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                                "value + 1 AS next_value", "'a,from b' AS label"]:
                 statement = f"SELECT {expression} FROM '{source.source.uri}'"
                 workflows = [
-                    SqlWorkflow(statement, self.client, source_bindings=(source.source,)),
+                    LazyFrame.from_sql(statement, self.client, source_bindings=(source.source,)),
                     self.context.sql(statement, input=source.source.uri,
                                      input_format=source.source.source_format),
                 ]
                 for workflow in workflows:
                     with self.subTest(source=source.source, expression=expression,
-                                      bindings=workflow.source_bindings), mock.patch.object(
+                                      bindings=workflow._declared_sources()), mock.patch.object(
                         self.client, "public_workflow_run", return_value=self.reply([])
                     ) as run, mock.patch.object(self.client, "vortex_prepare") as prepare, mock.patch.object(
                         self.client, "workflow_unsupported_plan",
@@ -208,21 +208,21 @@ class NativeRelationalCollectionTests(unittest.TestCase):
             run.assert_not_called()
 
     def test_sql_composition_preserves_primary_typed_source_binding(self) -> None:
-        from shardloom.query import SqlWorkflow
+        from shardloom.query import LazyFrame
 
         typed = self.context.read_csv("typed.data", schema={"key": "utf8"})
-        source = SqlWorkflow("SELECT key FROM 'typed.data'", self.client,
-                             input_uri="typed.data", input_format="csv",
-                             source_bindings=(typed.source,))
+        source = LazyFrame.from_sql("SELECT key FROM 'typed.data'", self.client,
+                                    input_uri="typed.data", input_format="csv",
+                                    source_bindings=(typed.source,))
         result = source.union_all(typed.select("key")).filter(sl.col("key") == "001")
         with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
             result.collect(check=True)
             self.assertEqual(run.call_args.kwargs["source_bindings"], {
                 "typed.data": {"input_format": "csv", "source_schema": typed.source.schema},
             })
-        conflict = SqlWorkflow(source.statement, self.client, input_uri="typed.data",
-                               input_format="json", source_bindings=(typed.source,))
         with self.assertRaisesRegex(ValueError, "conflicting format or schema"):
+            conflict = LazyFrame.from_sql(source.statement, self.client, input_uri="typed.data",
+                                          input_format="json", source_bindings=(typed.source,))
             conflict.union(typed)
 
     def test_sql_having_never_moves_across_order_limit_or_set_stages(self) -> None:
@@ -470,7 +470,7 @@ class NativeRelationalCollectionTests(unittest.TestCase):
             prepare.assert_not_called()
 
     def test_composed_pivot_forwards_one_spill_policy_to_both_frontends_and_consumers(self) -> None:
-        from shardloom.query import SqlWorkflow
+        from shardloom.query import LazyFrame
 
         source = self.context.read_csv("input.data", schema={"key": "utf8", "kind": "utf8", "value": "int64"})
         pivot = (source.select("key AS entity", "kind AS category", "value AS amount")
@@ -479,7 +479,7 @@ class NativeRelationalCollectionTests(unittest.TestCase):
         statement = pivot._relation_statement()
         spill = {"workspace": "/tmp/pivot-workspace", "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20}
         resources = {"memory_gb": 1, "max_parallelism": 2, "spill": spill}
-        sql = SqlWorkflow(statement, self.client, source_bindings=source._declared_sources())
+        sql = LazyFrame.from_sql(statement, self.client, source_bindings=source._declared_sources())
         for workflow in (pivot, sql):
             with self.subTest(surface=type(workflow).__name__), mock.patch.object(
                 self.client, "public_workflow_run", return_value=self.reply([])

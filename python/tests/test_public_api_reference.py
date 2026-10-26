@@ -9,6 +9,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -68,24 +69,73 @@ class PublicApiReferenceTests(unittest.TestCase):
                 actual = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
                 self.assertEqual(actual, expected)
 
+    def test_scalar_catalog_source_identity_and_generated_text_are_current(self) -> None:
+        from write_native_function_reference import snapshot, render, TARGET
+        data = snapshot(REPO_ROOT)
+        self.assertEqual((REPO_ROOT / TARGET.with_suffix(".md")).read_text(), render(data))
+
+    def test_dbapi_reference_does_not_depend_on_loaded_optional_aliases(self) -> None:
+        from shardloom import dbapi
+        before = self.writer.python_reference(REPO_ROOT)
+        missing = object()
+        previous = vars(dbapi).get("Error", missing)
+        try:
+            dbapi.Error = RuntimeError
+            self.assertEqual(before, self.writer.python_reference(REPO_ROOT))
+        finally:
+            if previous is missing:
+                del dbapi.Error
+            else:
+                dbapi.Error = previous
+
     def test_python_application_snapshot_matches_lazy_package_discovery(self) -> None:
         python_source = str(REPO_ROOT / "python" / "src")
         if python_source not in sys.path:
             sys.path.insert(0, python_source)
         shardloom = importlib.import_module("shardloom")
 
-        namespace_names = {"native", "diagnostics", "testing"}
+        namespace_names = {"native", "diagnostics", "testing", "functions", "types", "adbc", "dbapi", "notebook"}
         discovered = set(shardloom.__all__) - {"__version__"} - namespace_names
         index = json.loads((REPO_ROOT / self.writer.INDEX).read_text(encoding="utf-8"))
         application_rows = index["application"]["python_symbols"]
         recorded = {
             row["name"] for row in application_rows
-            if row.get("audience") == "application"
+            if row.get("audience") == "application" and row.get("namespace") == "shardloom"
         }
         recorded.discard("__version__")
         recorded.difference_update(namespace_names)
 
         self.assertEqual(recorded, discovered)
+        for name in ("functions", "types", "adbc", "dbapi", "notebook"):
+            module = importlib.import_module(f"shardloom.{name}")
+            entries = [row for row in application_rows if row["namespace"] == f"shardloom.{name}"]
+            if name in {"functions", "types"}:
+                self.assertEqual({row["name"] for row in entries}, set(module.__all__))
+                self.assertEqual(len(entries), len(module.__all__))
+            else:
+                self.assertIn(name, {row["name"] for row in application_rows if row["namespace"] == "shardloom"})
+        dbapi_rows = [row for row in application_rows if row["namespace"] == "shardloom.dbapi"]
+        self.assertEqual({row["name"] for row in dbapi_rows}, set(importlib.import_module("shardloom.dbapi").__all__))
+        self.assertTrue(all(row["source"].endswith("/dbapi.py") and row["signature"] is None
+                            for row in dbapi_rows if row["name"] in {"Warning", "Error", "InterfaceError", "DatabaseError",
+                                "DataError", "OperationalError", "IntegrityError", "InternalError", "ProgrammingError",
+                                "NotSupportedError", "Date", "Time", "Timestamp", "DateFromTicks", "TimeFromTicks", "TimestampFromTicks"}))
+
+    def test_dbapi_import_does_not_load_optional_dependencies(self) -> None:
+        source = str(REPO_ROOT / "python" / "src")
+        code = """import importlib.abc, sys
+class Block(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == 'adbc_driver_manager' or fullname.startswith('adbc_driver_manager.') or fullname == 'pyarrow' or fullname.startswith('pyarrow.'):
+            raise AssertionError('optional dependency import attempted: ' + fullname)
+sys.meta_path.insert(0, Block())
+import shardloom.dbapi as dbapi
+assert dbapi.apilevel == '2.0' and dbapi.threadsafety == 1 and dbapi.paramstyle == 'named' and dbapi.Binary is bytes
+assert not any(name == 'pyarrow' or name.startswith('pyarrow.') or name == 'adbc_driver_manager' or name.startswith('adbc_driver_manager.') for name in sys.modules)
+"""
+        env = dict(__import__("os").environ, PYTHONPATH=source)
+        result = subprocess.run([sys.executable, "-B", "-c", code], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_native_metadata_matches_resolved_provider_and_selected_installed_release(self) -> None:
         facts, inputs = self.writer.native_reference(REPO_ROOT)

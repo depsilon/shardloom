@@ -885,6 +885,7 @@ fn source_usage(
         return Err(failed("recursive streaming plan exceeds 24 levels"));
     }
     let operator = match plan {
+        VortexRelationalPlan::Input(_) => "unbound declaration input",
         VortexRelationalPlan::Scan(scan) => {
             return Ok(Usage {
                 uses: usize::from(&scan.source_uri == uri),
@@ -902,6 +903,9 @@ fn source_usage(
         }
         VortexRelationalPlan::Limit(limit) => {
             return source_usage(&limit.input, uri, depth + 1, dynamic, outer_scope);
+        }
+        VortexRelationalPlan::Pipeline(pipeline) => {
+            return source_usage(&pipeline.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Aggregate(aggregate) => {
             return source_usage(&aggregate.input, uri, depth + 1, dynamic, outer_scope);

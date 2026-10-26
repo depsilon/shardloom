@@ -6,6 +6,14 @@ Draft
 
 ## Summary
 
+The October 26 connected-programming implementation admits a narrow local
+ADBC boundary under this RFC: the pinned Apache ADBC exporter generates the
+C handle and Arrow release glue, while ShardLoom implements safe driver traits
+over an explicitly selected existing context. The [provider and safety review](../dependencies/adbc-local-driver-review.md)
+defines versions, ownership, bootstrap-capability lifetime, cancellation,
+parameter/result boundaries and unsupported operations. It does not admit
+arbitrary plugin loading, handwritten unsafe engine code or external execution.
+
 This RFC defines ShardLoom's extension, plugin ABI, and sandboxing design.
 
 ShardLoom should be flexible enough to support UDFs, connectors, output targets, LLM/API effects,

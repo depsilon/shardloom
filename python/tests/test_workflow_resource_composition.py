@@ -38,7 +38,7 @@ class WorkflowResourceCompositionTests(unittest.TestCase):
         return sl.read_csv(path, schema={"id": "int64"}, **options).select("id")
 
     def assert_policy(self, workflow, *, configured=True):
-        self.assertIsInstance(workflow, (sl.LazyFrame, sl.SqlWorkflow))
+        self.assertIsInstance(workflow, sl.LazyFrame)
         self.assertEqual(workflow.resource_limits, self.combined_limits)
         self.assertEqual(self.calls, [])
         for request in ({"memory_bytes": (64 << 20) + 1, "max_parallelism": 1},

@@ -26,6 +26,7 @@ pub(super) struct ParsedScalarExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum RelationalBinding {
+    Parameter(String),
     Scalar(Box<ParsedRelationQuery>),
     Predicate(Box<ParsedPredicate>),
 }
@@ -126,6 +127,15 @@ impl Parser {
         {
             return self.case(raw, id, depth);
         }
+        // A complete registered function is a scalar node even when its return
+        // type is Boolean. Sending it through predicate parsing would route a
+        // composed Boolean function back here with the same unconsumed input.
+        if let Some(open) = raw.find('(')
+            && scalar_function(raw[..open].trim())
+            && matching_closing_parenthesis(raw, open)? == Some(raw.len() - 1)
+        {
+            return self.function(raw, open, id, depth);
+        }
         if is_explicit_predicate_projection_shape(raw)? {
             return self.predicate_value(raw, id);
         }
@@ -158,19 +168,7 @@ impl Parser {
             }
         }
         if let Some((mode, inner)) = parse_cast_call_expression(raw)? {
-            let index = find_keyword_outside_quotes_and_parentheses(inner, "as")?
-                .ok_or_else(|| unsupported_sql_error("CAST requires an expression and AS dtype"))?;
-            let value = self.expression(
-                inner[..index].trim(),
-                &format!("{id}.cast.source"),
-                depth + 1,
-            )?;
-            let dtype = parse_cast_target_dtype(inner[index + 2..].trim())?;
-            let id = ExprId::new(format!("{id}.cast"))?;
-            return Ok(match mode {
-                CastMode::Strict => Expression::cast(id, value, dtype),
-                CastMode::Try => Expression::try_cast(id, value, dtype),
-            });
+            return self.cast(mode, inner, id, depth);
         }
         if let Some(value) = raw.strip_prefix('-') {
             return Ok(Expression::new(
@@ -191,11 +189,37 @@ impl Parser {
         if let Some(open) = raw.find('(') {
             return self.function(raw, open, id, depth);
         }
+        if let Some(name) = raw.strip_prefix(':') {
+            super::validate_sql_identifier(name)?;
+            return self.relational(id, RelationalBinding::Parameter(name.to_owned()));
+        }
         validate_sql_column_ref(raw)?;
         Ok(Expression::column(
             ExprId::new(format!("{id}.{raw}"))?,
             ColumnRef::new(raw)?,
         ))
+    }
+
+    fn cast(
+        &mut self,
+        mode: CastMode,
+        inner: &str,
+        id: &str,
+        depth: usize,
+    ) -> Result<Expression, ShardLoomError> {
+        let index = find_keyword_outside_quotes_and_parentheses(inner, "as")?
+            .ok_or_else(|| unsupported_sql_error("CAST requires an expression and AS dtype"))?;
+        let value = self.expression(
+            inner[..index].trim(),
+            &format!("{id}.cast.source"),
+            depth + 1,
+        )?;
+        let dtype = parse_cast_target_dtype(inner[index + 2..].trim())?;
+        let id = ExprId::new(format!("{id}.cast"))?;
+        Ok(match mode {
+            CastMode::Strict => Expression::cast(id, value, dtype),
+            CastMode::Try => Expression::try_cast(id, value, dtype),
+        })
     }
 
     fn function(
@@ -206,21 +230,19 @@ impl Parser {
         depth: usize,
     ) -> Result<Expression, ShardLoomError> {
         let name = raw[..open].trim().to_ascii_lowercase();
-        if !scalar_function(&name) {
-            return Err(unsupported_sql_error(
-                "function has no admitted scalar declaration",
-            ));
-        }
+        let definition = shardloom_core::expression::builtins::scalar(&name)
+            .ok_or_else(|| unsupported_sql_error("function has no admitted scalar declaration"))?;
         let close = matching_closing_parenthesis(raw, open)?
             .ok_or_else(|| unsupported_sql_error("scalar function parentheses must be balanced"))?;
         if !raw[close + 1..].trim().is_empty() {
             return Err(unsupported_sql_error("scalar function has trailing input"));
         }
         let arguments = split_sql_csv(&raw[open + 1..close])?;
-        if arguments.len() > 128 {
-            return Err(unsupported_sql_error(
-                "scalar function exceeds 128 arguments",
-            ));
+        if !definition.accepts_arity(arguments.len()) {
+            return Err(unsupported_sql_error(&format!(
+                "function '{}' requires {} through {} arguments",
+                definition.name, definition.min_args, definition.max_args,
+            )));
         }
         let args = arguments
                 .iter()
@@ -318,83 +340,16 @@ fn condition_expression(predicate: &ParsedPredicate) -> Result<Expression, Shard
 }
 
 fn scalar_function(name: &str) -> bool {
-    matches!(
-        name,
-        "abs"
-            | "numeric_abs"
-            | "floor"
-            | "numeric_floor"
-            | "ceil"
-            | "ceiling"
-            | "numeric_ceil"
-            | "round"
-            | "numeric_round"
-            | "lower"
-            | "utf8_lower"
-            | "upper"
-            | "utf8_upper"
-            | "trim"
-            | "utf8_trim"
-            | "length"
-            | "utf8_length"
-            | "concat"
-            | "utf8_concat"
-            | "substr"
-            | "substring"
-            | "utf8_substr"
-            | "utf8_substring"
-            | "left"
-            | "utf8_left"
-            | "right"
-            | "utf8_right"
-            | "replace"
-            | "utf8_replace"
-            | "byte_length"
-            | "binary_byte_length"
-            | "octet_length"
-            | "unhex"
-            | "binary_unhex"
-            | "from_base64"
-            | "binary_from_base64"
-            | "date_year"
-            | "year"
-            | "date_month"
-            | "month"
-            | "date_day"
-            | "day"
-            | "timestamp_year"
-            | "timestamp_month"
-            | "timestamp_day"
-            | "timestamp_hour"
-            | "timestamp_minute"
-            | "timestamp_second"
-            | "extract_minute"
-            | "minute"
-            | "date_trunc_minute"
-            | "truncate_minute"
-            | "url_domain"
-            | "regex_domain"
-            | "regex_replace_domain"
-            | "regexp_replace"
-            | "regex_replace"
-            | "date_add_days"
-            | "date_sub_days"
-            | "timestamp_add_seconds"
-            | "timestamp_sub_seconds"
-            | "date_diff_days"
-            | "timestamp_diff_seconds"
-            | "coalesce"
-            | "nullif"
-            | "json_extract"
-            | "strptime"
-            | "try_strptime"
-    )
+    shardloom_core::expression::builtins::scalar(name).is_some()
 }
 
 /// Existing simple forms retain their route metadata; composed forms use the
 /// same IR parser and native binder, without retrying execution through a facade.
 pub(super) fn composed(raw: &str) -> Result<bool, ShardLoomError> {
     let raw = trim_enclosing_scalar_expression_parentheses(raw)?;
+    if raw.starts_with(':') {
+        return Ok(true);
+    }
     if find_keyword_outside_quotes_and_parentheses(raw, "select")? == Some(0) {
         return Ok(true);
     }
@@ -452,32 +407,56 @@ pub(super) fn composed(raw: &str) -> Result<bool, ShardLoomError> {
 }
 
 fn scoped_function_composition(raw: &str, name: &str, args: &[String]) -> Option<bool> {
+    // The older column/literal forms accept SQL identifier syntax, which also
+    // spells NULL/TRUE/FALSE. These operands must remain typed literal nodes.
+    if args
+        .first()
+        .is_some_and(|source| parse_top_level_projection_literal_value(source).is_ok())
+    {
+        return Some(true);
+    }
+    // Keep the established column/constant regex predicate path and its encoded
+    // strategy metadata. Literal/composed operands use the shared scalar node.
+    if shardloom_core::expression::builtins::scalar(name)
+        .is_some_and(|definition| definition.name == "regex_match")
+        && super::parse_regex_function_prefix(raw).is_some()
+        && let [source, pattern] = args
+        && validate_sql_column_ref(source).is_ok()
+        && parse_sql_literal(source).is_err()
+        && matches!(parse_sql_literal(pattern), Ok(ScalarValue::Utf8(_)))
+    {
+        return Some(false);
+    }
     // Keep the existing public route fields for declarations those routes
     // already represent. Every new shape still lowers to the same scalar IR.
     match (name, args) {
         ("coalesce" | "nullif", [source, value])
-            if parse_null_coalesce_column_arg(source).is_ok()
+            if parse_null_coalesce_column_arg(source)
+                .is_ok_and(|(column, _)| parse_sql_literal(&column).is_err())
                 && parse_projection_literal_value(value)
                     .is_ok_and(|value| !matches!(value, ScalarValue::Null)) =>
         {
             return Some(false);
         }
         ("date_add_days" | "date_sub_days", [source, value])
-            if parse_date_arithmetic_column_arg(source).is_ok()
+            if parse_date_arithmetic_column_arg(source)
+                .is_ok_and(|column| parse_sql_literal(&column).is_err())
                 && (parse_date_arithmetic_days(value).is_ok()
                     || value.to_ascii_lowercase().starts_with("interval ")) =>
         {
             return Some(false);
         }
         ("timestamp_add_seconds" | "timestamp_sub_seconds", [source, value])
-            if parse_timestamp_arithmetic_column_arg(source).is_ok()
+            if parse_timestamp_arithmetic_column_arg(source)
+                .is_ok_and(|column| parse_sql_literal(&column).is_err())
                 && (parse_timestamp_arithmetic_seconds(value).is_ok()
                     || value.to_ascii_lowercase().starts_with("interval ")) =>
         {
             return Some(false);
         }
         ("date_year" | "date_month" | "date_day", [source])
-            if parse_date_arithmetic_column_arg(source).is_ok() =>
+            if parse_date_arithmetic_column_arg(source)
+                .is_ok_and(|column| parse_sql_literal(&column).is_err()) =>
         {
             return Some(false);
         }
@@ -485,7 +464,9 @@ fn scoped_function_composition(raw: &str, name: &str, args: &[String]) -> Option
             "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
             | "timestamp_minute" | "timestamp_second",
             [source],
-        ) if parse_timestamp_extract_column_arg(source).is_ok() => {
+        ) if parse_timestamp_extract_column_arg(source)
+            .is_ok_and(|column| parse_sql_literal(&column).is_err()) =>
+        {
             return Some(false);
         }
         ("byte_length" | "octet_length", _) => {
@@ -535,6 +516,34 @@ mod tests {
     use super::super::parse_sql_local_source_statement;
     use super::*;
     use shardloom_core::{ExpressionEvaluationStatus, ExpressionInputRow, evaluate_expression};
+
+    #[test]
+    fn registered_boolean_functions_consume_their_syntax_before_predicate_lowering() {
+        for input in [
+            "REGEXP_LIKE(NULL, '^a')",
+            "REGEX_MATCH('abc', '^a')",
+            "CONTAINS(LOWER('ABC'), 'a')",
+            "CASE WHEN REGEXP('abc','^a') THEN 1 ELSE 2 END",
+        ] {
+            let expression = parse(input, "registered.boolean").unwrap();
+            assert!(expression.bindings.is_empty(), "{input}");
+        }
+        assert!(!composed("REGEXP_LIKE(label, '^a')").unwrap());
+        assert!(composed("REGEXP_LIKE(NULL, '^a')").unwrap());
+        for input in [
+            "COALESCE(NULL, 2)",
+            "NULLIF(TRUE, FALSE)",
+            "DATE_YEAR(CAST(NULL AS DATE))",
+            "TIMESTAMP_ADD_SECONDS(CAST(NULL AS TIMESTAMP), 2)",
+            "BYTE_LENGTH(NULL)",
+        ] {
+            assert!(composed(input).unwrap(), "{input}");
+            assert!(
+                expression_source_columns(&parse(input, "literal.argument").unwrap()).is_empty(),
+                "{input}"
+            );
+        }
+    }
 
     #[test]
     fn relational_predicate_values_keep_explicit_bindings_in_scalar_positions() {

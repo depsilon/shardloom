@@ -494,6 +494,32 @@ pub(super) fn append_execution(
     result: &ExecutedVortexRelational,
     reused: bool,
 ) {
+    if !result.observations.is_empty() {
+        fields.push((
+            "relational_observation_count".into(),
+            result.observations.len().to_string(),
+        ));
+        fields.push((
+            "relational_observation_data_completed".into(),
+            "true".into(),
+        ));
+        for (index, observation) in result.observations.iter().enumerate() {
+            fields.extend([
+                (
+                    format!("relational_observation_{index}_name"),
+                    observation.name.clone(),
+                ),
+                (
+                    format!("relational_observation_{index}_schema_json"),
+                    observation.result_schema_json.value().clone(),
+                ),
+                (
+                    format!("relational_observation_{index}_result_jsonl"),
+                    observation.result_jsonl.value().clone(),
+                ),
+            ]);
+        }
+    }
     fields.push((
         "relational_provider_selection_reason".into(),
         result.provider_selection_reason.into(),

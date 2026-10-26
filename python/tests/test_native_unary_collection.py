@@ -164,7 +164,7 @@ class NativeUnaryCollectionTests(unittest.TestCase):
         terminals = [
             ("to_python_objects", {}), ("to_pandas", {}), ("to_numpy", {}),
             ("to_arrow", {}), ("to_arrow_table", {}), ("to_arrow_ipc", {}),
-            ("schema", {}), ("describe_schema", {}),
+            ("describe_schema", {}),
             ("validate_schema", {"schema": {"shipment": "int64"}}),
             ("data_quality_summary", {}), ("profile", {}),
             ("quarantine", {}), ("display", {}),

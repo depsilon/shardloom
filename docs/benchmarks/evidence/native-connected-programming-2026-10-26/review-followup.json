@@ -1,0 +1,642 @@
+{
+  "schema_version": "shardloom.connected_review_followup.v1",
+  "status": "passed",
+  "original_head": "7120a3000f0406001d144f6697843e581ddef58a",
+  "findings": [
+    {
+      "url": "https://github.com/depsilon/shardloom/pull/1610#discussion_r4375638753",
+      "fix": "Admit the default and explicit native_vortex policy for connected Vortex reader plans.",
+      "regression": "test_native_vortex_run_preserves_default_and_explicit_policy"
+    },
+    {
+      "url": "https://github.com/depsilon/shardloom/pull/1610#discussion_r4375638768",
+      "fix": "Inherit ceilings from actual native-bound relation indices, preserving CTE scope and source-free policies.",
+      "regressions": [
+        "test_unused_and_shadowed_catalog_relations_do_not_inherit_resource_ceilings",
+        "test_referenced_source_free_relation_keeps_resource_ceilings_before_execution"
+      ]
+    }
+  ],
+  "intermediate_failure": "r117 exposed a collision with the public replace expression; the dataclass helper now has a private alias.",
+  "final_source_sha256": {
+    "python/src/shardloom/_native_backend.py": "9c1105ba8021d0e1b33fcda0c8cc37b0bc147fecfe365a260703851be20e2d26",
+    "python/src/shardloom/query.py": "d44b38f35604cb5bd00b34bd1f03845bdd296ef55d8a288952864ec7e58ba33c",
+    "shardloom-python/src/plan.rs": "39dc04f518fca7555567990ceb43d86002039a42b71354fa3ee966e3891887b4",
+    "python/tests/test_connected_programming.py": "d36deebe48bbdd23d2533fbe99047f3a554422f088b9457a19255c4bff5a104d"
+  },
+  "artifacts": {
+    "native_library_sha256": "10e8792d3139456bbe48323fc3100996ba5b877394077bc57f2b8d3816dcb1f2",
+    "cli_sha256": "b309284cfa8c9ba746ab64782e5d2ab9ae5485145b636439a4ba7482cc1e1027",
+    "wheel_sha256": "e301a8a758cc65e93f0fe389b6bc0c666c647260c66b86015ab94362047a99de"
+  },
+  "checks": [
+    {
+      "name": "r111-review-regressions-before",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_connected_programming.py",
+        "-k",
+        "policy",
+        "-v"
+      ],
+      "status": "failed",
+      "returncode": 1,
+      "process_group_drained": true,
+      "receipt_sha256": "0359afc2f17ecd2d23c1622c3c00b4bcb853a144ae8c2ed10842b51fc842bbc8",
+      "log": "r111-review-regressions-before.log.gz",
+      "compressed_log_sha256": "e6c8e2b75889997b08c672fc1acbb40c180ecb7426a56bccf2a33f98889f17c9",
+      "log_sha256": "3707d3f7388090199d01b959ad44123e5aa354b6970206d525bf8713cf105dc8"
+    },
+    {
+      "name": "r114-resource-review-before",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_connected_programming.py",
+        "-k",
+        "resource_ceilings",
+        "-v"
+      ],
+      "status": "failed",
+      "returncode": 1,
+      "process_group_drained": true,
+      "receipt_sha256": "2e56724af83e9125fc3ca9e5f2fb4807f27fe5b6123dd2e881618a8bd77e3721",
+      "log": "r114-resource-review-before.log.gz",
+      "compressed_log_sha256": "e991613c385d104e42a4ae9894eefbbab3875ffdf6a6814416562b79feda5ff0",
+      "log_sha256": "ff373f266830935f1828c18b4d14024c3150c5be76c54936fe34a1d8da5e1875"
+    },
+    {
+      "name": "r115-policy-review-after",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_connected_programming.py",
+        "-k",
+        "policy",
+        "-v"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "3190adb442df26b793425e4cb907f5a96f9028870d2dc70f77895590400d9ca4",
+      "log": "r115-policy-review-after.log.gz",
+      "compressed_log_sha256": "f3c963f81dd059e076530d99e1bdfed3d09f172fe8bbe1c30b958a60df726f6e",
+      "log_sha256": "3f730d4b198ee408ca30030d73df2dc1ff85e4e3c9e6952d69d41b8f70f223a5"
+    },
+    {
+      "name": "r116-review-native-build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--release",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "shardloom-cli/release-user-surfaces,shardloom-python/python-native"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "e0f35ee70ef8b2a23404a2a146f2c23c86bcbc5b4b6bed12da353e7ff7338c74",
+      "log": "r116-review-native-build.log.gz",
+      "compressed_log_sha256": "28d4d9880b03bd65ddba169929c3ed3c5a46b485acd48d4b7a4eac395be8a771",
+      "log_sha256": "112da04e251aa4e9a7325235cd1e52b5607d0c6fc70a4d9f8466f6337bc8b35b"
+    },
+    {
+      "name": "r117-review-connected-native",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_connected_programming.py"
+      ],
+      "status": "failed",
+      "returncode": 1,
+      "process_group_drained": true,
+      "receipt_sha256": "41117f6199183185f6fda17ea5b3e3f5d76dec8e1a87aa987399e23ad13c331b",
+      "log": "r117-review-connected-native.log.gz",
+      "compressed_log_sha256": "e62b28ae17106a96f1f57c73a68f71af1957e3b1bb043d60787f0aed773b23f6",
+      "log_sha256": "e602faab14c705724e5d8ce1285c2bc2123c93bde28466040fc1a5f8f9645ddf"
+    },
+    {
+      "name": "r118-review-connected-native",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_connected_programming.py"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "1055da36f1f6c6deffab82f5677955dbc057172ddcc5eb1417174efe4afa915b",
+      "log": "r118-review-connected-native.log.gz",
+      "compressed_log_sha256": "22d672d887e19a8661f26d0ece967fdfce516040c18bc49fee26695a2d7973eb",
+      "log_sha256": "6058f751304ce98a46e9767a025119859de5c9a99f08f1c96001824d52be6ea6"
+    },
+    {
+      "name": "r119-review-full-python",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/tools/run_python_acceptance.py",
+        "--all",
+        "--report",
+        "review-full-python-r2.json"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "5b2a0fa99fee8b2588abe002274bc3275ad7c7d91cd2bba0d02f04f0598c2e27",
+      "log": "r119-review-full-python.log.gz",
+      "compressed_log_sha256": "8793c52cc5b9cdbd3f37ed49973e316a6edcfb45a88a419943306a2f413b6652",
+      "log_sha256": "85fa2434f63133b23b3411235904dfd793ac900786b1a1d0fb78092d1db9a9b0"
+    },
+    {
+      "name": "r120-review-default-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--profile",
+        "ci-native",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "53c833728c2cbdd94d7d5fede2a2da0b1a1333788b8cfbf29ecd5a99ac6cf5cb",
+      "log": "r120-review-default-clippy.log.gz",
+      "compressed_log_sha256": "98fe6bfb09c7b55ef19620e48630a71a8522cd690d1440dc232fb7dbde0aa91d",
+      "log_sha256": "15418fb3ae861305e0d3948f6eaf99f178cb25f6c51bd3c51d90e8bef6bc9f57"
+    },
+    {
+      "name": "r121-review-native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--profile",
+        "ci-native",
+        "--workspace",
+        "--features",
+        "shardloom-python/python-native",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "6cdb79feab50fd8026e7f3e5cbe3d51ecdc9451ed1c3e53d42fbb8474af54b43",
+      "log": "r121-review-native-clippy.log.gz",
+      "compressed_log_sha256": "ebb4f402eefdf8a75dda95460f2aa13bef43186ac430aab628fd045497a590f9",
+      "log_sha256": "b089b8cd00ca63841dccecef2d6bf5a0b95df4b208061c66086a34988c98c232"
+    },
+    {
+      "name": "r122-review-default-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--profile",
+        "ci-native",
+        "--workspace",
+        "--all-targets"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "dcb6e0891cc06e5f66aab0310ece35e5b42a76194a9156a64e6e96c5e28735b5",
+      "log": "r122-review-default-tests.log.gz",
+      "compressed_log_sha256": "fe209b7910934da4d808dc5a00873e3945afb3c50a7fd7f63bb2d1dbbdd5595d",
+      "log_sha256": "3a37a689334e356bd896cea0c9f1d3fa81a2472a4c8ed0047206c7c83057de5e"
+    },
+    {
+      "name": "r123-review-installed-wheel",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-wheel-r3",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/installed-proof-wheelhouse"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "7552aba0ca9560f5d3ca568bafd072703e85ca35fd99cbf1249cab58b55c10d0",
+      "log": "r123-review-installed-wheel.log.gz",
+      "compressed_log_sha256": "64215e6896b1f3336efdb7844d752ad5f1f2487d2fa41dae97ea41be085cee04",
+      "log_sha256": "84cf630dd1beba7db6a5d6df36e8a70d9b9ea1eabb935ab5337ad0db1869e007"
+    },
+    {
+      "name": "r124-review-source-only-core",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-B",
+        "scripts/run_python_test_shard.py",
+        "--shard",
+        "core",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-only-core-r2"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "afbcaa0781cd26eaf23a770c0481f3e3e5b45bb2514d6972610e7f2747ed9732",
+      "log": "r124-review-source-only-core.log.gz",
+      "compressed_log_sha256": "35f3522f9369a8ca44f0522dfc3547b854843a966a6ca399e0c1042a97ed2f41",
+      "log_sha256": "ecafbc6568e6b4d1633cf1fba863b6a7a16cff86a49bddd720344c4c9e09a5fa"
+    },
+    {
+      "name": "r125-review-source-acceptance",
+      "command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/tools/run_review_source_acceptance.py"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "5d0b149010f7cb713f06cfd2f0683138d3a098d4008863d5914f312b8435fdca",
+      "log": "r125-review-source-acceptance.log.gz",
+      "compressed_log_sha256": "f17768679724a9b56bc5b496fc73df55267920219f06e9b67f95f50d2bc2bbe9",
+      "log_sha256": "d397d9193694aa47851511896b41f7d873276f6a8fea4958de686bc98fc17aac"
+    }
+  ],
+  "python": {
+    "status": "passed",
+    "tests": 1001,
+    "failures": [],
+    "errors": [],
+    "skips": [
+      [
+        "setUpClass (test_native_output_window_observation.NativeOutputWindowObservationTests)",
+        "diagnostic-only native build required; set SHARDLOOM_REQUIRE_OUTPUT_WINDOW_OBSERVATION=1"
+      ],
+      [
+        "test_native_unary_collection.NativeUnaryCollectionTests.test_numpy_boundary_keeps_scalar_types_and_nested_values_in_two_dimensions",
+        "optional numpy conversion dependency"
+      ],
+      [
+        "test_native_unary_collection.NativeUnaryCollectionTests.test_pandas_boundary_preserves_nulls_and_full_width_integers",
+        "optional pandas conversion dependency"
+      ],
+      [
+        "test_public_context.InstalledProcessResultTests.test_process_result_chaining_preserves_empty_nested_nullable_and_exact_types",
+        "requires an explicitly selected clean installed package"
+      ],
+      [
+        "test_public_context.InstalledProcessResultTests.test_sql_null_results_chain_with_exact_schema_across_transports",
+        "requires an explicitly selected clean installed package"
+      ],
+      [
+        "test_public_native_benchmark.PublicNativeBenchmarkTests.test_split_avro_inputs_preserve_csv_headers_and_typed_nulls",
+        "fastavro is an optional fixture-generation dependency"
+      ],
+      [
+        "test_public_quickstart.InstalledPublicQuickstartTests.test_explicit_process",
+        "requires an explicitly selected clean installed package"
+      ],
+      [
+        "test_public_quickstart.InstalledPublicQuickstartTests.test_native",
+        "requires an explicitly selected clean installed package"
+      ]
+    ],
+    "documented_example": "passed"
+  },
+  "source_only_core": {
+    "command": "python scripts/run_python_test_shard.py --shard core",
+    "elapsed_seconds": 138.274,
+    "error_count": 0,
+    "external_engine_invoked": false,
+    "failure_count": 0,
+    "fallback_attempted": false,
+    "module_count": 86,
+    "modules": [
+      "python.tests.test_batches",
+      "python.tests.test_ci_python_test_shards",
+      "python.tests.test_cli_client",
+      "python.tests.test_compute_engine_completion_gate",
+      "python.tests.test_connected_programming",
+      "python.tests.test_dataframe_offset",
+      "python.tests.test_declared_schema_writes",
+      "python.tests.test_execution_resources",
+      "python.tests.test_human_errors",
+      "python.tests.test_independent_full43_evidence",
+      "python.tests.test_local_native_benchmark_example",
+      "python.tests.test_native_benchmark_evidence",
+      "python.tests.test_native_binding",
+      "python.tests.test_native_dynamic_subquery_binding",
+      "python.tests.test_native_expression_binding",
+      "python.tests.test_native_function_catalog",
+      "python.tests.test_native_golden_workflow_declarations",
+      "python.tests.test_native_grouped_preparation_evidence",
+      "python.tests.test_native_grouped_preparation_followup_evidence",
+      "python.tests.test_native_memory_inputs",
+      "python.tests.test_native_multiway_binding",
+      "python.tests.test_native_observations",
+      "python.tests.test_native_output_window_binding",
+      "python.tests.test_native_output_window_observation",
+      "python.tests.test_native_pgo_evidence",
+      "python.tests.test_native_prepared_sampling_binding",
+      "python.tests.test_native_primitive_binding",
+      "python.tests.test_native_provider_refresh_evidence",
+      "python.tests.test_native_region_evidence",
+      "python.tests.test_native_relational_collection",
+      "python.tests.test_native_release_output_proof",
+      "python.tests.test_native_resources",
+      "python.tests.test_native_result_schema",
+      "python.tests.test_native_sampling_population_binding",
+      "python.tests.test_native_semantics_transport",
+      "python.tests.test_native_session_execution",
+      "python.tests.test_native_set_binding",
+      "python.tests.test_native_shared_provider_binding",
+      "python.tests.test_native_standard_adapters",
+      "python.tests.test_native_streaming_uat_compression",
+      "python.tests.test_native_subquery_binding",
+      "python.tests.test_native_subquery_membership_binding",
+      "python.tests.test_native_surface_parity_evidence",
+      "python.tests.test_native_unary_binding",
+      "python.tests.test_native_unary_collection",
+      "python.tests.test_native_workflow_declarations",
+      "python.tests.test_native_workflow_outputs",
+      "python.tests.test_output_window_options",
+      "python.tests.test_perf12_guarantees",
+      "python.tests.test_public_api_reference",
+      "python.tests.test_public_context",
+      "python.tests.test_public_exports",
+      "python.tests.test_public_native_benchmark",
+      "python.tests.test_public_quickstart",
+      "python.tests.test_published_channel_proofs",
+      "python.tests.test_query_builder",
+      "python.tests.test_quickstart_proof",
+      "python.tests.test_registry_070_contract",
+      "python.tests.test_registry_100_contract",
+      "python.tests.test_registry_bundled_proof",
+      "python.tests.test_registry_native_bundled_proof",
+      "python.tests.test_registry_native_consumer",
+      "python.tests.test_registry_release_evidence",
+      "python.tests.test_release_report_producer_contracts",
+      "python.tests.test_required_resource_boundaries",
+      "python.tests.test_runtime_gap_family_burn_down",
+      "python.tests.test_scalar_subquery_declarations",
+      "python.tests.test_shared_provider_expressions",
+      "python.tests.test_source_bindings",
+      "python.tests.test_sql_python_dataframe_parity",
+      "python.tests.test_temporal_result_delivery",
+      "python.tests.test_typed_expression_declarations",
+      "python.tests.test_typed_native_inputs",
+      "python.tests.test_typed_unary_declarations",
+      "python.tests.test_user_route_capability_report",
+      "python.tests.test_user_surface_graduation_matrix",
+      "python.tests.test_user_surface_runtime_gap_inventory",
+      "python.tests.test_v1_api_schema_stability",
+      "python.tests.test_v1_correctness_conformance",
+      "python.tests.test_v1_front_door_runtime_scope",
+      "python.tests.test_v1_local_output_sink_scope",
+      "python.tests.test_v1_local_resource_scope_contracts",
+      "python.tests.test_v1_observability_support",
+      "python.tests.test_v1_source_prepared_state_scope",
+      "python.tests.test_v1_vortex_runtime_scope",
+      "python.tests.test_workflow_resource_composition"
+    ],
+    "schema_version": "shardloom.python_test_shard_evidence.v1",
+    "shard_id": "core",
+    "skipped_count": 26,
+    "status": "passed",
+    "test_count": 841
+  },
+  "default_rust": {
+    "passed": 3261,
+    "failed": 0,
+    "ignored": 0
+  },
+  "installed_package": {
+    "status": "passed",
+    "integration": {
+      "tests": 182,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "status": "passed"
+    },
+    "integrity": {
+      "schema_version": "shardloom.native_python_wheel_integrity.v1",
+      "status": "passed",
+      "wheel": "shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "wheel_sha256": "e301a8a758cc65e93f0fe389b6bc0c666c647260c66b86015ab94362047a99de",
+      "wheel_bytes": 52378748,
+      "native_library_sha256": "10e8792d3139456bbe48323fc3100996ba5b877394077bc57f2b8d3816dcb1f2",
+      "cli_sha256": "b309284cfa8c9ba746ab64782e5d2ab9ae5485145b636439a4ba7482cc1e1027",
+      "tag": "cp310-abi3-macosx_27_0_arm64",
+      "python_source_files": 29,
+      "linux_audit_verified": false,
+      "licenses": {
+        "status": "passed",
+        "registry_packages": 439,
+        "vendored_packages": 8,
+        "license_file_records": 831,
+        "unique_text_files": 250
+      },
+      "load_verified": false,
+      "published": false
+    },
+    "uninstall_status": "passed"
+  },
+  "native_rust_scope": "Original full native workspace tests remain recorded separately; this follow-up reruns native workspace Clippy and exercises the getter through source and installed native Python tests.",
+  "full43": {
+    "rerun": false,
+    "reason": "CLI remains byte-identical; changes are Python admission and a private binding metadata getter.",
+    "original_manifest_sha256": "77fd601a28bc908f5cf5d581bce9077b3f6dc137c8ed5cd6bcb7fc2fc8694856",
+    "engine_execution_seconds": 47.935588458
+  },
+  "hosted_checks": "Tracked on the pushed PR head; not inferred from local acceptance.",
+  "source_checks": {
+    "status": "passed",
+    "checks": [
+      {
+        "label": "format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/format.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/diff.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "notices",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/check_python_license_bundle.py"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/notices.log",
+        "log_sha256": "9558f6e2eeb352f535febd11825370917b7a2c824ad610d7f15321c0bcf40a59"
+      },
+      {
+        "label": "exports",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/write_python_api_exports.py",
+          "--check"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/exports.log",
+        "log_sha256": "cb80ef047aabee7ce5892b771b00d7374c994aca3ffbf09781d3cd68ea746906"
+      },
+      {
+        "label": "reference",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/write_public_api_reference.py",
+          "--check"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/reference.log",
+        "log_sha256": "d059991ee6a95914fa02e158d44c0c6f79a2bf349c60d6c69dc6548b963a19c0"
+      },
+      {
+        "label": "functions",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/write_native_function_reference.py",
+          "--check",
+          "--native-library",
+          "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/candidate-runtime-r2/_native.abi3.so"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/functions.log",
+        "log_sha256": "08a9fb73feb5df59046e1b4cde50dcc33ebb3a8ea0650df5022c25c538c44001"
+      },
+      {
+        "label": "parity",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/check_sql_python_dataframe_parity.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/parity.json"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/parity.log",
+        "log_sha256": "0395a7f13d7e01dbd73f3b1b3d705392de9476b5b06909b06ad9719f35f16e32"
+      },
+      {
+        "label": "front_door",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/check_v1_front_door_runtime_scope.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/front_door.json"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/front_door.log",
+        "log_sha256": "46b275f50e1df432f725a1096404e0bdec63872d48ef944aa2931250187ead1e"
+      },
+      {
+        "label": "api_schema",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/check_v1_api_schema_stability.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/api_schema.json"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/api_schema.log",
+        "log_sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84"
+      },
+      {
+        "label": "ci_gates",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/check_ci_gate_matrix.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/ci_gates.json"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/ci_gates.log",
+        "log_sha256": "8b9ab30dea5238996b660cf97ad7a9e3bb1ae18529cb08a6b527c7975956f763"
+      },
+      {
+        "label": "docs",
+        "command": [
+          "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+          "-B",
+          "scripts/check_v1_docs_productization.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/docs.json"
+        ],
+        "returncode": 0,
+        "log": "/Users/dylan/LocalData/shardloom/connected-programming-2026-10-26/review-source-acceptance-r2/docs.log",
+        "log_sha256": "64090ee6d4201f80ddc11e98884fe74c5d84cf1e14719ae494fc117198e40646"
+      }
+    ]
+  }
+}

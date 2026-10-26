@@ -7,13 +7,12 @@ use shardloom_runtime::native::NativeRelationDeclaration;
 use shardloom_vortex::{
     query_primitive::VortexSimpleAggregateMeasure,
     relational_query::{
-        NATIVE_RECURSION_LIMIT, VortexRelationalAggregate, VortexRelationalFilter,
-        VortexRelationalJoin, VortexRelationalJoinColumn, VortexRelationalJoinKey,
-        VortexRelationalJoinKind, VortexRelationalLimit, VortexRelationalNullOrder,
-        VortexRelationalOrderKey, VortexRelationalPlan as Plan, VortexRelationalProject,
-        VortexRelationalQuantifier, VortexRelationalSet, VortexRelationalSetKind,
-        VortexRelationalSide, VortexRelationalSort, VortexRelationalSubquery,
-        VortexRelationalSubqueryKind, VortexRelationalWindow,
+        VortexRelationalAggregate, VortexRelationalFilter, VortexRelationalJoin,
+        VortexRelationalJoinColumn, VortexRelationalJoinKey, VortexRelationalJoinKind,
+        VortexRelationalLimit, VortexRelationalNullOrder, VortexRelationalOrderKey,
+        VortexRelationalPlan as Plan, VortexRelationalProject, VortexRelationalQuantifier,
+        VortexRelationalSet, VortexRelationalSetKind, VortexRelationalSide, VortexRelationalSort,
+        VortexRelationalSubquery, VortexRelationalSubqueryKind, VortexRelationalWindow,
     },
 };
 use std::sync::Arc;
@@ -30,11 +29,16 @@ impl NativeRelation {
         })
     }
 
-    pub(super) fn child(&self) -> PyResult<Plan> {
-        if self.declaration.depth() >= NATIVE_RECURSION_LIMIT {
-            return Err(PyValueError::new_err("recursive plan exceeds 24 levels"));
+    fn compose(&self, plan: Plan, other: Option<&Self>) -> PyResult<Self> {
+        let mut inputs = vec![Arc::clone(&self.declaration)];
+        if let Some(other) = other {
+            inputs.push(Arc::clone(&other.declaration));
         }
-        Ok(self.declaration.plan().clone())
+        Ok(Self {
+            declaration: Arc::new(
+                NativeRelationDeclaration::compose(plan, inputs).map_err(native_error)?,
+            ),
+        })
     }
 }
 
@@ -88,14 +92,17 @@ impl NativeRelation {
         columns: Vec<String>,
         expressions: Vec<PyRef<'_, super::window::NativeWindowExpression>>,
     ) -> PyResult<Self> {
-        Self::node(Plan::Window(Box::new(VortexRelationalWindow {
-            input: self.child()?,
-            columns: columns.into_iter().map(column).collect::<PyResult<_>>()?,
-            expressions: expressions
-                .into_iter()
-                .map(|expression| expression.value.clone())
-                .collect(),
-        })))
+        self.compose(
+            Plan::Window(Box::new(VortexRelationalWindow {
+                input: Plan::Input(0),
+                columns: columns.into_iter().map(column).collect::<PyResult<_>>()?,
+                expressions: expressions
+                    .into_iter()
+                    .map(|expression| expression.value.clone())
+                    .collect(),
+            })),
+            None,
+        )
     }
 
     /// Append a typed scalar/boolean subquery result for ordinary expressions.
@@ -156,52 +163,67 @@ impl NativeRelation {
             }
         };
         let node = Box::new(VortexRelationalSubquery {
-            input: self.child()?,
-            relation: relation.child()?,
+            input: Plan::Input(0),
+            relation: Plan::Input(1),
             kind,
             evaluation_guard: guard.map(|value| (*value.value).clone()),
             correlation: join_keys(correlation)?,
             output_column,
             negated,
         });
-        Self::node(if correlated {
-            Plan::CorrelatedSubquery(node)
-        } else {
-            Plan::Subquery(node)
-        })
+        self.compose(
+            if correlated {
+                Plan::CorrelatedSubquery(node)
+            } else {
+                Plan::Subquery(node)
+            },
+            Some(relation),
+        )
     }
 
     fn project(&self, expressions: Vec<(String, PyRef<'_, NativeExpression>)>) -> PyResult<Self> {
-        Self::node(Plan::Project(Box::new(VortexRelationalProject {
-            input: self.child()?,
-            expressions: expressions
-                .into_iter()
-                .map(|(name, expr)| (name, (*expr.value).clone()))
-                .collect(),
-        })))
+        self.compose(
+            Plan::Project(Box::new(VortexRelationalProject {
+                input: Plan::Input(0),
+                expressions: expressions
+                    .into_iter()
+                    .map(|(name, expr)| (name, (*expr.value).clone()))
+                    .collect(),
+            })),
+            None,
+        )
     }
 
     fn filter(&self, predicate: &NativeExpression) -> PyResult<Self> {
-        Self::node(Plan::Filter(Box::new(VortexRelationalFilter {
-            input: self.child()?,
-            predicate: (*predicate.value).clone(),
-        })))
+        self.compose(
+            Plan::Filter(Box::new(VortexRelationalFilter {
+                input: Plan::Input(0),
+                predicate: (*predicate.value).clone(),
+            })),
+            None,
+        )
     }
 
     fn sort(&self, keys: Vec<(String, bool, Option<String>)>) -> PyResult<Self> {
-        Self::node(Plan::Sort(Box::new(VortexRelationalSort {
-            input: self.child()?,
-            keys: order_keys(keys)?,
-        })))
+        self.compose(
+            Plan::Sort(Box::new(VortexRelationalSort {
+                input: Plan::Input(0),
+                keys: order_keys(keys)?,
+            })),
+            None,
+        )
     }
 
     #[pyo3(signature = (count, *, offset=0))]
     fn limit(&self, count: usize, offset: usize) -> PyResult<Self> {
-        Self::node(Plan::Limit(Box::new(VortexRelationalLimit {
-            input: self.child()?,
-            offset,
-            count,
-        })))
+        self.compose(
+            Plan::Limit(Box::new(VortexRelationalLimit {
+                input: Plan::Input(0),
+                offset,
+                count,
+            })),
+            None,
+        )
     }
 
     /// Declare `distinct_rows`, `drop_duplicates`, duplicated, tail, sample,
@@ -235,11 +257,14 @@ impl NativeRelation {
                 ))
             })
             .collect::<PyResult<Vec<_>>>()?;
-        Self::node(Plan::Aggregate(Box::new(VortexRelationalAggregate {
-            input: self.child()?,
-            group_by: group_by.into_iter().map(column).collect::<PyResult<_>>()?,
-            measures,
-        })))
+        self.compose(
+            Plan::Aggregate(Box::new(VortexRelationalAggregate {
+                input: Plan::Input(0),
+                group_by: group_by.into_iter().map(column).collect::<PyResult<_>>()?,
+                measures,
+            })),
+            None,
+        )
     }
 
     #[pyo3(signature = (other, *, kind="union_all"))]
@@ -255,11 +280,14 @@ impl NativeRelation {
                 ));
             }
         };
-        Self::node(Plan::Set(Box::new(VortexRelationalSet {
-            left: self.child()?,
-            right: other.child()?,
-            kind,
-        })))
+        self.compose(
+            Plan::Set(Box::new(VortexRelationalSet {
+                left: Plan::Input(0),
+                right: Plan::Input(1),
+                kind,
+            })),
+            Some(other),
+        )
     }
 
     /// Explicit projections distinguish both inputs, including same-name fields.
@@ -302,14 +330,17 @@ impl NativeRelation {
                 })
             })
             .collect::<PyResult<_>>()?;
-        Self::node(Plan::Join(Box::new(VortexRelationalJoin {
-            left: self.child()?,
-            right: other.child()?,
-            kind,
-            keys,
-            columns,
-            condition: condition.map(|expr| (*expr.value).clone()),
-        })))
+        self.compose(
+            Plan::Join(Box::new(VortexRelationalJoin {
+                left: Plan::Input(0),
+                right: Plan::Input(1),
+                kind,
+                keys,
+                columns,
+                condition: condition.map(|expr| (*expr.value).clone()),
+            })),
+            Some(other),
+        )
     }
 }
 

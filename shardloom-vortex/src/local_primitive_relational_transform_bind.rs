@@ -14,12 +14,21 @@ impl Binder<'_> {
         project: &VortexRelationalProject,
         depth: usize,
     ) -> Result<Node> {
-        validate_width(project.expressions.len())?;
-        self.charge_fields(project.expressions.len())?;
-        let mut input = Box::new(self.bind(&project.input, depth + 1)?);
+        let input = self.bind(&project.input, depth + 1)?;
+        self.project_input(&project.expressions, input)
+    }
+
+    pub(super) fn project_input(
+        &mut self,
+        projected: &[(String, shardloom_core::Expression)],
+        input: Node,
+    ) -> Result<Node> {
+        validate_width(projected.len())?;
+        self.charge_fields(projected.len())?;
+        let mut input = Box::new(input);
         let mut fields = Vec::new();
         let mut expressions = Vec::new();
-        for (name, expression) in &project.expressions {
+        for (name, expression) in projected {
             validate_name(name)?;
             let mut expression = self.expression(expression, &input.fields, 0)?;
             // A wholly untyped NULL has no value domain to preserve. Give the
@@ -78,9 +87,18 @@ impl Binder<'_> {
     }
 
     pub(super) fn filter(&mut self, filter: &VortexRelationalFilter, depth: usize) -> Result<Node> {
-        let mut input = Box::new(self.bind(&filter.input, depth + 1)?);
+        let input = self.bind(&filter.input, depth + 1)?;
+        self.filter_input(&filter.predicate, input)
+    }
+
+    pub(super) fn filter_input(
+        &mut self,
+        expression: &shardloom_core::Expression,
+        input: Node,
+    ) -> Result<Node> {
+        let mut input = Box::new(input);
         let metadata_before = self.metadata.bytes();
-        let predicate = self.expression(&filter.predicate, &input.fields, 0)?;
+        let predicate = self.expression(expression, &input.fields, 0)?;
         let predicate_metadata = self.metadata.bytes() - metadata_before;
         if !matches!(predicate.dtype, DType::Bool(_) | DType::Null) {
             return Err(failed("filter predicate must produce a nullable boolean"));
@@ -125,17 +143,21 @@ impl Binder<'_> {
     }
 
     pub(super) fn limit(&mut self, limit: &VortexRelationalLimit, depth: usize) -> Result<Node> {
-        let prefix = limit
-            .offset
-            .checked_add(limit.count)
+        let input = self.bind(&limit.input, depth + 1)?;
+        self.limit_input(limit.offset, limit.count, input)
+    }
+
+    pub(super) fn limit_input(&mut self, offset: usize, count: usize, input: Node) -> Result<Node> {
+        let prefix = offset
+            .checked_add(count)
             .ok_or_else(|| failed("output range overflow"))?;
-        let mut input = Box::new(self.bind(&limit.input, depth + 1)?);
+        let mut input = Box::new(input);
         // Only an immediate Sort may omit output. Intervening projections and
         // filters can still observe rows that this Limit will discard.
         if let NodeKind::Sort { output_prefix, .. } = &mut input.kind {
-            *output_prefix = Some(if limit.count == 0 { 0 } else { prefix });
+            *output_prefix = Some(if count == 0 { 0 } else { prefix });
         }
-        if limit.count != 0 {
+        if count != 0 {
             cap_rolling_prefix(&mut input, prefix)?;
         }
         self.charge_fields(input.fields.len())?;
@@ -143,8 +165,8 @@ impl Binder<'_> {
             fields: input.fields.clone(),
             kind: NodeKind::Limit {
                 input,
-                offset: limit.offset,
-                count: limit.count,
+                offset,
+                count,
             },
         })
     }

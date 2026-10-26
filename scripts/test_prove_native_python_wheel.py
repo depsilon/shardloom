@@ -3,12 +3,41 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import prove_native_python_wheel as proof
 import test_check_native_python_wheel as fixtures
+
+
+class IntegrationSelectionTests(unittest.TestCase):
+    def test_installed_proof_requires_connected_and_independent_client_suites(self):
+        names = ("test_native_binding", "test_connected_programming", "test_native_function_catalog",
+                 "test_native_observations", "test_native_standard_adapters")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in names:
+                (root / (name + ".py")).write_text(
+                    "import unittest\nclass Check(unittest.TestCase):\n"
+                    "    def test_loaded(self): self.assertTrue(True)\n")
+            report = root / "integration.json"
+            command = [sys.executable, "-I", "-B", "-c", proof.RUN_TESTS, str(root), str(report)]
+            result = subprocess.run(command, text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(report.read_text())["tests"], 5)
+            adapter = root / "test_native_standard_adapters.py"
+            adapter.write_text("import unittest\nclass Check(unittest.TestCase):\n"
+                "    @unittest.skip('missing optional client')\n    def test_loaded(self): pass\n")
+            result = subprocess.run(command, text=True, capture_output=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(json.loads(report.read_text())["status"], "failed")
+            adapter.unlink()
+            result = subprocess.run(command, text=True, capture_output=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("required native integration suite is absent", result.stderr)
 
 
 class WheelReuseTests(unittest.TestCase):

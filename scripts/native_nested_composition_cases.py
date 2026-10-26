@@ -19,7 +19,7 @@ from native_nested_key_state_cases import run as nested_key_state_cases
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
     import shardloom as sl
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     guard()
@@ -123,7 +123,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
 
     def exercise(family, frame, expected, columns, *, nested):
         statement = frame._relation_statement()
-        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(
+        for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(
                 statement, context.client, source_bindings=frame._declared_sources()))]:
             name = family.format(spelling=spelling) if "{spelling}" in family else f"{family}-{spelling}"
             exercise_workflow(name, workflow, expected, columns, nested)
@@ -212,7 +212,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     payload_rows = [{"id": index, "items": [[index], [None]]} for index in range(count)]
     flat_rows = [{"id": index, "items": value} for index in range(count) for value in (index, None)]
     for label, frame, expected, nested in [("payload", payload, payload_rows, True), ("expanded", flat, flat_rows, False)]:
-        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(frame._relation_statement(), context.client, source_bindings=frame._declared_sources()))]:
+        for spelling, workflow in [("dataframe", frame), ("sql", LazyFrame.from_sql(frame._relation_statement(), context.client, source_bindings=frame._declared_sources()))]:
             family = f"nested-large-{label}-{spelling}"
             guard()
             report = workflow.limit(97).collect(check=False, **resources)

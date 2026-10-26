@@ -262,7 +262,7 @@ def main() -> int:
         output.mkdir(parents=True)
         sys.path.insert(0, str(code.parents[1] / "python/src"))
         import shardloom as sl
-        from shardloom.query import SqlWorkflow
+        from shardloom.query import LazyFrame
 
         # Explicit harness allocation; production entry points provide no defaults.
         context = sl.context(client=sl.ShardLoomClient(
@@ -303,7 +303,7 @@ def main() -> int:
                     }.items():
                         if envelope.field(field) != value:
                             raise ValueError(f"{name}: {field}={envelope.field(field)!r}; expected {value!r}")
-                sql_workflow = SqlWorkflow(
+                sql_workflow = LazyFrame.from_sql(
                     workflow._relation_statement(), client, source_bindings=workflow._declared_sources(),
                 )
                 name = f"{family}-sql-parity"

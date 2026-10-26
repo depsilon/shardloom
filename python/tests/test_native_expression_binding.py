@@ -280,10 +280,13 @@ class NativeExpressionBindingTests(unittest.TestCase):
             ).collect(resources=resources)
         self.assertFalse(destination.exists())
 
-        with self.assertRaises(ValueError):
-            recursive = native.Relation.scan("memory://recursive")
-            for _ in range(25):
-                recursive = recursive.limit(1)
+        recursive = native.Relation.scan("memory://recursive")
+        for _ in range(256):
+            recursive = recursive.limit(1)
+        deep = session.plan(recursive, sources=[("memory://recursive", source)])
+        with self.assertRaises(RuntimeError):
+            deep.collect(resources=native.ExecutionResources(1024, 1))
+        self.assertEqual(self.arrow_rows(deep.collect(resources=resources)), [{"value": 0}])
         session.close()
 
     def test_directory_membership_rebinds_plan_after_adding_a_vortex_part(self):

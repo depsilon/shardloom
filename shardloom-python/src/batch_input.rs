@@ -31,6 +31,14 @@ pub(super) struct BatchDeclaration {
     pub(super) streaming: bool,
 }
 
+impl BatchDeclaration {
+    pub(super) fn same_owner(&self, other: &Self) -> bool {
+        self.open.is(&other.open)
+            && self.fields == other.fields
+            && self.streaming == other.streaming
+    }
+}
+
 impl From<BatchArgument> for BatchDeclaration {
     fn from((reference, open, fields, streaming): BatchArgument) -> Self {
         Self {
@@ -58,7 +66,7 @@ pub(super) struct BatchReaders<'a> {
 
 impl<'a> BatchReaders<'a> {
     pub(super) fn reserve(
-        declarations: &[BatchDeclaration],
+        declarations: &[&BatchDeclaration],
         session: &ResidentVortexSession,
     ) -> Result<Option<Self>> {
         let capacity = declarations

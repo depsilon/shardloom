@@ -95,6 +95,10 @@ pub struct VortexRelationalSpillReport {
 /// A native relational tree. Both inputs of an operator share one session grant.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VortexRelationalPlan {
+    /// An input slot in an inert frontend operator template. The declaration
+    /// binder must resolve every slot before native preparation or execution.
+    /// It carries neither a source URI nor execution state.
+    Input(usize),
     Scan(VortexRelationalScan),
     Join(Box<VortexRelationalJoin>),
     Set(Box<VortexRelationalSet>),
@@ -110,6 +114,9 @@ pub enum VortexRelationalPlan {
     Filter(Box<VortexRelationalFilter>),
     Sort(Box<VortexRelationalSort>),
     Limit(Box<VortexRelationalLimit>),
+    /// A long ordered chain of native row-preserving/selection stages. The
+    /// flat representation bounds ownership, binding and execution call depth.
+    Pipeline(Box<VortexRelationalPipeline>),
     Aggregate(Box<VortexRelationalAggregate>),
     Unary(Box<VortexRelationalUnary>),
     /// A single-use native relation owned by the current schema-binding execution.
@@ -198,6 +205,38 @@ pub struct VortexRelationalLimit {
     pub offset: usize,
     pub count: usize,
 }
+
+/// Stages run in source-to-consumer order without changing their expression,
+/// error, filtering or range domain. They are not fused or reordered.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalPipeline {
+    pub input: VortexRelationalPlan,
+    pub stages: Vec<VortexRelationalStage>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VortexRelationalStage {
+    Project(Vec<(String, Expression)>),
+    Filter(Expression),
+    Limit {
+        offset: usize,
+        count: usize,
+    },
+    /// Accumulate selected global aggregates at this exact stage while passing
+    /// the same native rows downstream. Private projections feed only metrics.
+    Observe(VortexRelationalObservation),
+}
+
+/// An observation consumes its action's batches; it never owns a second scan.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalObservation {
+    pub name: String,
+    pub projection: Vec<(String, Expression)>,
+    pub measures: Vec<crate::query_primitive::VortexSimpleAggregateMeasure>,
+}
+
+#[path = "relational_plan_pipeline.rs"]
+mod pipeline;
 
 /// Projection and safe predicates are lowered into the immutable native scan.
 #[derive(Debug, Clone, PartialEq)]

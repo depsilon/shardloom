@@ -1387,25 +1387,31 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "35358522e1639c635a86197c48694356c880ec7e839926d8889b672e5a615133",
+    "source_identity": "62c44f0d6679b69c95c964bffb815a1a448fae05cb13c20bca31ad2ed3a34acd",
     "source_inputs": {
-      "Cargo.lock": "354291619b17f7dcb82437f0edcf178a3cb9a4d932d2da4830e93148bb529fc2",
-      "Cargo.toml": "d4dae57279fc70efaf3a185a5b5bc7bb27cedaa63fb161b9ffef99544c17c154",
+      "Cargo.lock": "51de418870e976414807ff74b6be1c9c780b4b0edaba2a63bf3108fa12a1bd01",
+      "Cargo.toml": "390f78f1f66a792221d2159e2e465c10d30683c6a7949e572940493962ec6ecd",
       "docs/release/channel-proofs/pypi-v1.0.0-provenance.json": "0683b7562ba59fb40594d179a29d45c44fa51c564f9a03ecb55aa5b234505eba",
       "docs/release/package-channel-readiness-matrix.json": "a2ad776726a5eb9516e72f8e40d1894c2724e0da6c88b70358ec8fa1ebbfc5d9",
-      "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
-      "python/src/shardloom/_exports.py": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
+      "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
+      "python/src/shardloom/_exports.py": "e240641a663fc8a17cdfa256a3969f76aacc31348791f9fdc8909d35e2837a54",
       "python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
-      "python/src/shardloom/client.py": "3415b4ec8e0e4ab5a5022ae9bc773ba0e4868c37cd9309440bbabe1949bbed9a",
-      "python/src/shardloom/context.py": "a1e596b8372f833b4686b2a5d07223ee95c7c938a774051450862a792e91f15b",
+      "python/src/shardloom/_window.py": "a9bceffed98349bda217a6f37e79e31c74900af87448d507f61a7f4eecb6a5e8",
+      "python/src/shardloom/adbc.py": "964357797727c1b71c4cde0dd4fe8da139cd636404511e9fcd3977f851889dad",
+      "python/src/shardloom/client.py": "4520fd52d9ea279f549e2e2c4cf52d3fa848abfb99982fe9932ef8f9cada9f16",
+      "python/src/shardloom/context.py": "dec46342951c83cfbc6962ad338b216f6499b7d9f429c90d4ce60841e1ce291f",
+      "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
+      "python/src/shardloom/functions.py": "77e3181e4a586fc94107e057df65fbd155a21bf852691380cc0fc80414f14251",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
-      "python/src/shardloom/query.py": "17c07424d4a4f9ee82147a2ef040d78cea33c0a3afd4bc94680baf0a9907a1ce",
+      "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
+      "python/src/shardloom/query.py": "d44b38f35604cb5bd00b34bd1f03845bdd296ef55d8a288952864ec7e58ba33c",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
-      "python/src/shardloom/session.py": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",
+      "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
+      "python/src/shardloom/types.py": "6911d19ba0cffca4db539644031fed7232b390c05f45f1f1a290334d3fcef348",
       "shardloom-cli/src/command_registry.rs": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2",
       "shardloom-vortex/Cargo.toml": "f6ca60abf844ac2a2a9462d9464798f56fdd596e464130fbaf1b894ec9afd0fd"
     },
@@ -1857,7 +1863,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(workflow: 'LazyFrame | SqlWorkflow', columns: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "signature": "(workflow: 'LazyFrame', columns: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
         "summary": "Grouped lazy workflow handle for scoped aggregation and blockers."
       },
       {
@@ -2338,24 +2344,6 @@
         "summary": "Typed view over the scoped GAR-4L/5I CLI session-cache smoke."
       },
       {
-        "name": "SessionGroupedLazyFrame",
-        "namespace": "shardloom.diagnostics",
-        "audience": "diagnostics",
-        "kind": "class",
-        "source": "python/src/shardloom/session.py",
-        "signature": "(session: \"'ShardLoomSession'\", grouped: 'GroupedLazyFrame') -> None",
-        "summary": "A grouped lazy workflow bound to an explicit `ShardLoomSession`."
-      },
-      {
-        "name": "SessionLazyFrame",
-        "namespace": "shardloom.diagnostics",
-        "audience": "diagnostics",
-        "kind": "class",
-        "source": "python/src/shardloom/session.py",
-        "signature": "(session: \"'ShardLoomSession'\", frame: 'LazyFrame') -> None",
-        "summary": "A lazy workflow bound to an explicit `ShardLoomSession`."
-      },
-      {
         "name": "SessionPreparedState",
         "namespace": "shardloom.diagnostics",
         "audience": "diagnostics",
@@ -2372,15 +2360,6 @@
         "source": "python/src/shardloom/session.py",
         "signature": "(session_id: 'str', report: 'Result', operation: 'str', reuse_hit: 'bool', reuse_reason: 'str') -> 'None'",
         "summary": "Compatibility Result with session reuse details; it owns the same data."
-      },
-      {
-        "name": "SessionSqlWorkflow",
-        "namespace": "shardloom.diagnostics",
-        "audience": "diagnostics",
-        "kind": "class",
-        "source": "python/src/shardloom/session.py",
-        "signature": "(session: \"'ShardLoomSession'\", workflow: 'SqlWorkflow') -> None",
-        "summary": "A SQL workflow bound to an explicit `ShardLoomSession`."
       },
       {
         "name": "ShardLoomBinaryNotFoundError",
@@ -2507,15 +2486,6 @@
         "source": "python/src/shardloom/context.py",
         "signature": "(user_routes: 'UserRouteCapabilityReport') -> None",
         "summary": "Native source ownership and reuse requirements; discovery performs no I/O."
-      },
-      {
-        "name": "SqlWorkflow",
-        "namespace": "shardloom",
-        "audience": "application",
-        "kind": "class",
-        "source": "python/src/shardloom/query.py",
-        "signature": "(statement: 'str', client: 'ShardLoomClient', input_uri: 'str | None' = None, input_format: 'str | None' = None, source_bindings: 'tuple[WorkflowSource, ...]' = (), resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
-        "summary": "A scoped SQL workflow entry point over currently admitted ShardLoom SQL paths."
       },
       {
         "name": "TableFormatBoundaryMatrix",
@@ -2842,6 +2812,15 @@
         "summary": "Completed data and its existing native owner, or a completed write receipt."
       },
       {
+        "name": "Window",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_window.py",
+        "signature": "()",
+        "summary": "Factories for WindowSpec, with explicit signed offsets and unbounded ends."
+      },
+      {
         "name": "WindowExpression",
         "namespace": "shardloom",
         "audience": "application",
@@ -2849,6 +2828,15 @@
         "source": "python/src/shardloom/query.py",
         "signature": "(sql: 'str', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
         "summary": "A SQL window declaration submitted to the shared native engine."
+      },
+      {
+        "name": "WindowSpec",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_window.py",
+        "signature": "(_partition: 'tuple[str, ...]' = (), _order: 'tuple[str, ...]' = (), _frame: 'str | None' = None, _exclusion: 'str | None' = None, source_bindings: 'tuple' = (), resource_limits: 'object' = None) -> None",
+        "summary": "Window partition/order/frame metadata, reusable across expressions."
       },
       {
         "name": "WorkflowCertificationReport",
@@ -2901,7 +2889,7 @@
         "audience": "testing",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, right_frame: \"'LazyFrame | None'\" = None) -> None",
         "summary": "A lazy query-builder operation."
       },
       {
@@ -3000,7 +2988,7 @@
         "audience": "testing",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(source_format: 'str', uri: 'str', schema: 'tuple[tuple[str, str], ...]' = (), memory_input: 'tuple[tuple[str, object], ...]' = (), batch_input: 'object | None' = None, native_input: 'object | None' = None) -> None",
+        "signature": "(source_format: 'str', uri: 'str', schema: 'tuple[tuple[str, str], ...]' = (), memory_input: 'tuple[tuple[str, object], ...]' = (), batch_input: 'object | None' = None, native_input: 'object | None' = None, _bound_frame: \"'LazyFrame | None'\" = None, relation: 'SqlRelation | None' = None, _session: 'object | None' = None) -> None",
         "summary": "A declared workflow source that is not read during construction."
       },
       {
@@ -3144,8 +3132,8 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(column_expression: 'object') -> 'str | ColumnExpression'",
-        "summary": "Declare COUNT DISTINCT, retaining owned query sources when present."
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Declare exact COUNT DISTINCT through the shared native aggregate binder."
       },
       {
         "name": "dataframe_generated_with_column",
@@ -3171,7 +3159,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(*, order_by: 'object', partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'dense_rank') -> 'WindowExpression'",
+        "signature": "(*, order_by: 'object' = None, partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'dense_rank') -> 'WindowExpression | ColumnExpression'",
         "summary": "Return a scoped `DENSE_RANK() OVER (...) AS alias` expression."
       },
       {
@@ -3396,7 +3384,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(*, order_by: 'object', partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'rank') -> 'WindowExpression'",
+        "signature": "(*, order_by: 'object' = None, partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'rank') -> 'WindowExpression | ColumnExpression'",
         "summary": "Return a scoped `RANK() OVER (...) AS alias` expression."
       },
       {
@@ -3540,7 +3528,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(*, order_by: 'object', partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'row_number') -> 'WindowExpression'",
+        "signature": "(*, order_by: 'object' = None, partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'row_number') -> 'WindowExpression | ColumnExpression'",
         "summary": "Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression."
       },
       {
@@ -3558,7 +3546,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(source: 'LazyFrame | SqlWorkflow') -> 'ColumnExpression'",
+        "signature": "(source: 'LazyFrame') -> 'ColumnExpression'",
         "summary": "Declare a scalar query expression without executing its source."
       },
       {
@@ -3585,7 +3573,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(statement: 'object', *, input: 'str | os.PathLike[str] | None' = None, input_format: 'str | None' = None, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'SqlWorkflow'",
+        "signature": "(statement: 'object', *, input: 'str | os.PathLike[str] | None' = None, input_format: 'str | None' = None, client: 'ShardLoomClient | None' = None, parameters: 'Mapping[str, object] | None' = None, relations: 'Mapping[str, LazyFrame] | None' = None, **client_config: 'object') -> 'LazyFrame'",
         "summary": "Create a scoped SQL workflow over currently admitted ShardLoom SQL paths."
       },
       {
@@ -3594,7 +3582,7 @@
         "audience": "testing",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(expression: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'SqlWorkflow'",
+        "signature": "(expression: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
         "summary": "Declare a source-free SQL projection for the shared native engine."
       },
       {
@@ -3603,7 +3591,7 @@
         "audience": "testing",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(values_clause: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'SqlWorkflow'",
+        "signature": "(values_clause: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
         "summary": "Declare SQL VALUES for the shared native engine."
       },
       {
@@ -3677,6 +3665,1248 @@
         "source": "python/src/shardloom/models.py",
         "signature": "(fields: 'Mapping[str, Any]', *, command: 'str' = 'runtime-field-mapping', status: 'str' = 'success', surface_id: 'str' = 'runtime', runtime_expected: 'bool' = True, execution_mode: 'str | None' = None) -> 'RuntimeEnvelopeValidationReport'",
         "summary": "Validate a flat runtime evidence mapping with the versioned envelope rules."
+      },
+      {
+        "name": "functions",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "module",
+        "source": "python/src/shardloom/functions.py",
+        "signature": null,
+        "summary": "Native expression declarations; Python never evaluates data operations."
+      },
+      {
+        "name": "abs",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare checked absolute value over a column or expression."
+      },
+      {
+        "name": "all_source",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object', comparison: 'object', source: 'object', source_column: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded local-source `ALL (SELECT ...)` predicate."
+      },
+      {
+        "name": "any_source",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object', comparison: 'object', source: 'object', source_column: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded local-source `ANY (SELECT ...)` predicate."
+      },
+      {
+        "name": "array",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*values: 'object') -> 'ComplexProjectionExpression'",
+        "summary": "Return a scoped `ARRAY[...]` projection over scalar SQL literals."
+      },
+      {
+        "name": "avg",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native AVG over non-null values."
+      },
+      {
+        "name": "byte_length",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Count bytes in a UTF8 or binary column or expression."
+      },
+      {
+        "name": "case_when",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(predicate: 'object', then_value: 'object', else_value: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped single-branch `CASE WHEN` computed-column expression."
+      },
+      {
+        "name": "cast",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, dtype) -> 'ColumnExpression'",
+        "summary": "Declare a checked native cast to a supported type."
+      },
+      {
+        "name": "catalog",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "() -> 'tuple[dict, ...]'",
+        "summary": "Inspect native scalar names, aliases, argument counts and type/null rules."
+      },
+      {
+        "name": "ceil",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare rounding toward positive infinity."
+      },
+      {
+        "name": "coalesce",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(*values) -> 'ColumnExpression'",
+        "summary": "Declare the first non-null expression; use lit() for scalar constants."
+      },
+      {
+        "name": "col",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped column expression for local ShardLoom predicates."
+      },
+      {
+        "name": "column",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'object') -> 'ColumnExpression'",
+        "summary": "Alias for `col(...)`."
+      },
+      {
+        "name": "concat",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(*values) -> 'ColumnExpression'",
+        "summary": "Concatenate columns or expressions; use lit() for string constants."
+      },
+      {
+        "name": "contains",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, needle) -> 'PredicateExpression'",
+        "summary": "Match a literal UTF8 substring, including percent and underscore characters."
+      },
+      {
+        "name": "count",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value=None) -> 'ColumnExpression'",
+        "summary": "Count all rows with no argument; otherwise count non-null values."
+      },
+      {
+        "name": "count_distinct",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Declare exact COUNT DISTINCT through the shared native aggregate binder."
+      },
+      {
+        "name": "date_add_days",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, days) -> 'ColumnExpression'",
+        "summary": "Return a scoped Date32 day-add expression."
+      },
+      {
+        "name": "date_day",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped Date32 day-of-month extract expression."
+      },
+      {
+        "name": "date_diff_days",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, other) -> 'ColumnExpression'",
+        "summary": "Return a scoped Date32 day-difference expression."
+      },
+      {
+        "name": "date_month",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped Date32 month-extract expression."
+      },
+      {
+        "name": "date_sub_days",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, days) -> 'ColumnExpression'",
+        "summary": "Return a scoped Date32 day-subtract expression."
+      },
+      {
+        "name": "date_trunc_minute",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Truncate integer epoch seconds or timestamp text to the minute."
+      },
+      {
+        "name": "date_year",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped Date32 year-extract expression."
+      },
+      {
+        "name": "dense_rank",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*, order_by: 'object' = None, partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'dense_rank') -> 'WindowExpression | ColumnExpression'",
+        "summary": "Return a scoped `DENSE_RANK() OVER (...) AS alias` expression."
+      },
+      {
+        "name": "ends_with",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, suffix) -> 'PredicateExpression'",
+        "summary": "Match a literal UTF8 suffix."
+      },
+      {
+        "name": "exists_source",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'object', *, source_alias: 'object | None' = None, select: 'object' = '*', where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate."
+      },
+      {
+        "name": "extract_minute",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Extract a minute from integer epoch seconds or timestamp text."
+      },
+      {
+        "name": "first_value",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Select the first value of the frame supplied with over()."
+      },
+      {
+        "name": "floor",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare rounding toward negative infinity."
+      },
+      {
+        "name": "from_base64",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare Base64 text decoding to binary."
+      },
+      {
+        "name": "interval_days",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' DAY` literal."
+      },
+      {
+        "name": "interval_hours",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' HOUR` literal."
+      },
+      {
+        "name": "interval_minutes",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' MINUTE` literal."
+      },
+      {
+        "name": "interval_seconds",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' SECOND` literal."
+      },
+      {
+        "name": "is_null",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value)",
+        "summary": "Declare a boolean null check."
+      },
+      {
+        "name": "is_not_null",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value)",
+        "summary": "Declare a boolean non-null check."
+      },
+      {
+        "name": "json_extract",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, path) -> 'ColumnExpression'",
+        "summary": "Extract JSON using a native literal path."
+      },
+      {
+        "name": "lag",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, offset: 'int' = 1) -> 'ColumnExpression'",
+        "summary": "Select an earlier ordered value; admitted offsets are 1 through 50000."
+      },
+      {
+        "name": "last_value",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Select the last value of the frame supplied with over()."
+      },
+      {
+        "name": "lead",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, offset: 'int' = 1) -> 'ColumnExpression'",
+        "summary": "Select a later ordered value; admitted offsets are 1 through 50000."
+      },
+      {
+        "name": "left",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, count) -> 'ColumnExpression'",
+        "summary": "Take a UTF8 prefix by code-point count."
+      },
+      {
+        "name": "length",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Count Unicode code points in a column or expression."
+      },
+      {
+        "name": "lit",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare a scalar literal, including null, decimal and naive microsecond datetime values."
+      },
+      {
+        "name": "lower",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native lowercase conversion."
+      },
+      {
+        "name": "max",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native MAX over non-null values."
+      },
+      {
+        "name": "mean",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native AVG over non-null values."
+      },
+      {
+        "name": "min",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native MIN over non-null values."
+      },
+      {
+        "name": "not_exists_source",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'object', *, source_alias: 'object | None' = None, select: 'object' = '*', where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped local-source `NOT EXISTS (SELECT ... FROM ...)` predicate."
+      },
+      {
+        "name": "not_regex_match",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, pattern) -> 'PredicateExpression'",
+        "summary": "Return a scoped UTF-8 regex negation."
+      },
+      {
+        "name": "nth_value",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, position: 'int') -> 'ColumnExpression'",
+        "summary": "Select a value by its one-based position in the frame supplied with over()."
+      },
+      {
+        "name": "null_if",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, other) -> 'ColumnExpression'",
+        "summary": "Return null when a column/expression equals another expression or literal."
+      },
+      {
+        "name": "outer",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object') -> 'ColumnExpression'",
+        "summary": "Return the reserved outer-row column expression for correlated source predicates."
+      },
+      {
+        "name": "rank",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*, order_by: 'object' = None, partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'rank') -> 'WindowExpression | ColumnExpression'",
+        "summary": "Return a scoped `RANK() OVER (...) AS alias` expression."
+      },
+      {
+        "name": "regex_domain",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Apply the fixed HTTP(S) domain-replacement expression."
+      },
+      {
+        "name": "regex_match",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, pattern) -> 'PredicateExpression'",
+        "summary": "Match UTF8 with a literal native regular expression."
+      },
+      {
+        "name": "regexp_replace",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, pattern, replacement) -> 'ColumnExpression'",
+        "summary": "Apply the admitted fixed HTTP(S) domain pattern and capture replacement."
+      },
+      {
+        "name": "replace",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, needle, replacement) -> 'ColumnExpression'",
+        "summary": "Replace literal substrings in a column or expression."
+      },
+      {
+        "name": "right",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, count) -> 'ColumnExpression'",
+        "summary": "Take a UTF8 suffix by code-point count."
+      },
+      {
+        "name": "round",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare integer rounding with halfway values away from zero."
+      },
+      {
+        "name": "row_in",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', rows: 'object') -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value `IN ((...),...)` predicate."
+      },
+      {
+        "name": "row_in_source",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', source: 'object', source_columns: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value local-source `IN (SELECT ...)` predicate."
+      },
+      {
+        "name": "row_not_in",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', rows: 'object') -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value `NOT IN ((...),...)` predicate."
+      },
+      {
+        "name": "row_not_in_source",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', source: 'object', source_columns: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value local-source `NOT IN (SELECT ...)` predicate."
+      },
+      {
+        "name": "row_number",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*, order_by: 'object' = None, partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'row_number') -> 'WindowExpression | ColumnExpression'",
+        "summary": "Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression."
+      },
+      {
+        "name": "scalar_subquery",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'LazyFrame') -> 'ColumnExpression'",
+        "summary": "Declare a scalar query expression without executing its source."
+      },
+      {
+        "name": "starts_with",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, prefix) -> 'PredicateExpression'",
+        "summary": "Match a literal UTF8 prefix."
+      },
+      {
+        "name": "strptime",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, format) -> 'ColumnExpression'",
+        "summary": "Parse timestamp text using a native literal format."
+      },
+      {
+        "name": "struct",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*columns: 'object') -> 'ComplexProjectionExpression'",
+        "summary": "Return a scoped `STRUCT(...)` projection over source columns."
+      },
+      {
+        "name": "substr",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, start, length) -> 'ColumnExpression'",
+        "summary": "Take a Unicode substring with SQL start/length semantics."
+      },
+      {
+        "name": "substring",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, start, length) -> 'ColumnExpression'",
+        "summary": "Take a Unicode substring with SQL start/length semantics."
+      },
+      {
+        "name": "sum",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native SUM over a column or expression, excluding null values."
+      },
+      {
+        "name": "timestamp_add_seconds",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, seconds) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp second-add expression."
+      },
+      {
+        "name": "timestamp_day",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp day-of-month extract expression."
+      },
+      {
+        "name": "timestamp_diff_seconds",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, other) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp second-difference expression."
+      },
+      {
+        "name": "timestamp_hour",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp hour-extract expression."
+      },
+      {
+        "name": "timestamp_minute",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp minute-extract expression."
+      },
+      {
+        "name": "timestamp_month",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp month-extract expression."
+      },
+      {
+        "name": "timestamp_second",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp second-extract expression."
+      },
+      {
+        "name": "timestamp_sub_seconds",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, seconds) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp second-subtract expression."
+      },
+      {
+        "name": "timestamp_year",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return a scoped timestamp year-extract expression."
+      },
+      {
+        "name": "try_cast",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, dtype) -> 'ColumnExpression'",
+        "summary": "Declare native conversion that maps malformed values to null."
+      },
+      {
+        "name": "try_strptime",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, format) -> 'ColumnExpression'",
+        "summary": "Parse timestamp text with a native literal format, yielding null on parse failure."
+      },
+      {
+        "name": "trim",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native whitespace trimming."
+      },
+      {
+        "name": "typed_scalar_udf",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(udf_id: 'object', column: 'object') -> 'ColumnExpression'",
+        "summary": "Return an admitted typed deterministic scalar UDF expression."
+      },
+      {
+        "name": "unhex",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare hexadecimal text decoding to binary."
+      },
+      {
+        "name": "upper",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native uppercase conversion."
+      },
+      {
+        "name": "url_domain",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Return the native URL-domain extraction expression."
+      },
+      {
+        "name": "types",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "module",
+        "source": "python/src/shardloom/types.py",
+        "signature": null,
+        "summary": "Metadata-only constructors for declared ShardLoom schema types."
+      },
+      {
+        "name": "ResultType",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_result_schema.py",
+        "signature": "(name: 'str', nullable: 'bool', parameters: 'tuple[Any, ...]' = ()) -> None",
+        "summary": "ResultType(name: 'str', nullable: 'bool', parameters: 'tuple[Any, ...]' = ())"
+      },
+      {
+        "name": "int8",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare int8 metadata for the native binder."
+      },
+      {
+        "name": "int16",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare int16 metadata for the native binder."
+      },
+      {
+        "name": "int32",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare int32 metadata for the native binder."
+      },
+      {
+        "name": "int64",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare int64 metadata for the native binder."
+      },
+      {
+        "name": "uint8",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare uint8 metadata for the native binder."
+      },
+      {
+        "name": "uint16",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare uint16 metadata for the native binder."
+      },
+      {
+        "name": "uint32",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare uint32 metadata for the native binder."
+      },
+      {
+        "name": "uint64",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare uint64 metadata for the native binder."
+      },
+      {
+        "name": "float32",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare float32 metadata for the native binder."
+      },
+      {
+        "name": "float64",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare float64 metadata for the native binder."
+      },
+      {
+        "name": "boolean",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare boolean metadata for the native binder."
+      },
+      {
+        "name": "string",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare string metadata for the native binder."
+      },
+      {
+        "name": "binary",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare binary metadata for the native binder."
+      },
+      {
+        "name": "date32",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare date32 metadata for the native binder."
+      },
+      {
+        "name": "timestamp_micros",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare timestamp_micros metadata for the native binder."
+      },
+      {
+        "name": "decimal128",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(precision: 'int', scale: 'int', *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare decimal128 metadata for the native binder."
+      },
+      {
+        "name": "list_",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(item: 'object', *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare list_ metadata for the native binder."
+      },
+      {
+        "name": "fixed_size_list",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(item: 'object', size: 'int', *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare fixed_size_list metadata for the native binder."
+      },
+      {
+        "name": "struct",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(fields: 'Mapping[str, object]', *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare struct metadata for the native binder."
+      },
+      {
+        "name": "scalar",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(value: 'object', dtype: 'object')",
+        "summary": "Bind a scalar with an explicit native type, including typed nulls."
+      },
+      {
+        "name": "adbc",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "module",
+        "source": "python/src/shardloom/adbc.py",
+        "signature": null,
+        "summary": "Local ADBC 1.1 access to an explicitly selected ShardLoom context."
+      },
+      {
+        "name": "database",
+        "namespace": "shardloom.adbc",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/adbc.py",
+        "signature": "(context)",
+        "summary": "Open the independent ADBC manager's database handle on this context."
+      },
+      {
+        "name": "driver_options",
+        "namespace": "shardloom.adbc",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/adbc.py",
+        "signature": "(context)",
+        "summary": "Yield one-use options for an independent ADBC manager's database open."
+      },
+      {
+        "name": "dbapi",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "module",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 connection backed by the independent Apache ADBC driver manager."
+      },
+      {
+        "name": "connect",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": "(context, *, autocommit=True)",
+        "summary": "Borrow an existing context; close releases this connection's operations."
+      },
+      {
+        "name": "apilevel",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "constant",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "threadsafety",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "constant",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "paramstyle",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "constant",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "Warning",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "Error",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "InterfaceError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "DatabaseError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "DataError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "OperationalError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "IntegrityError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "InternalError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "ProgrammingError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "NotSupportedError",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "Date",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "Time",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "Timestamp",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "DateFromTicks",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "TimeFromTicks",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "TimestampFromTicks",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "alias",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "PEP 249 helper or exception loaded from the optional ADBC manager."
+      },
+      {
+        "name": "Binary",
+        "namespace": "shardloom.dbapi",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/dbapi.py",
+        "signature": null,
+        "summary": "bytes(iterable_of_ints) -> bytes"
+      },
+      {
+        "name": "notebook",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "module",
+        "source": "python/src/shardloom/notebook.py",
+        "signature": null,
+        "summary": "Explicit-context notebook SQL that returns the same lazy DataFrame."
+      },
+      {
+        "name": "install",
+        "namespace": "shardloom.notebook",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/notebook.py",
+        "signature": "(context, shell=None, *, name='shardloom')",
+        "summary": "Register SQL magic on an existing context and return a removable handle."
       }
     ],
     "command_registry": {

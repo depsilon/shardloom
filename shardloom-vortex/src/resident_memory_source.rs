@@ -162,6 +162,13 @@ impl ResidentMemorySource {
         self.0.session.same_owner(session)
     }
 
+    /// Whether two handles retain the same immutable input snapshot and owner.
+    /// This checks identity only, without reading or comparing payload values.
+    #[must_use]
+    pub fn same_snapshot(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
     /// Transfer private, capacity-admitted native columns into one immutable
     /// source. Payload buffers remain shared with their original allocation
     /// credits; this never accepts arbitrary externally allocated `ArrayRef` values.

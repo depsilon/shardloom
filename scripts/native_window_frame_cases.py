@@ -44,7 +44,7 @@ def declarations():
 
 def run(context, output, guard, accepted, complete, sources, identity, *,
         materializations=("python",), nested_fixture_generator, spill_strategy=False):
-    from shardloom.query import SqlWorkflow
+    from shardloom.query import LazyFrame
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
@@ -183,7 +183,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
         "input": source_rows,
         "declarations": {
             name: {"sql": workflow._relation_statement(), "rows": rows, "columns": columns,
-                   "surfaces": ["sql"] if isinstance(workflow, SqlWorkflow) else ["dataframe", "sql"],
+                   "surfaces": ["sql"] if workflow.source.relation is not None else ["dataframe", "sql"],
                    "source_opens": opens, "typed_columns": list(typed_columns),
                    "conversions": conversions, "nested": nested}
             for name, workflow, rows, columns, opens, typed_columns, conversions, nested in cases
@@ -232,8 +232,8 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
         complete(name, [], [])
 
     def exercise(name, workflow, expected, columns, opens=0, typed_columns=(), conversions=True, nested=False):
-        variants = [("sql", workflow)] if isinstance(workflow, SqlWorkflow) else [
-            ("dataframe", workflow), ("sql", SqlWorkflow(workflow._relation_statement(), context.client,
+        variants = [("sql", workflow)] if workflow.source.relation is not None else [
+            ("dataframe", workflow), ("sql", LazyFrame.from_sql(workflow._relation_statement(), context.client,
                                                         source_bindings=workflow._declared_sources()))]
         for surface, declared in variants:
             label = f"{prefix}-{name}-{surface}"

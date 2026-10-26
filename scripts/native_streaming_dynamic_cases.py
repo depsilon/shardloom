@@ -7,7 +7,7 @@ import json
 from decimal import Decimal
 
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from shardloom._result_schema import ResultType as Type
 from native_streaming_protocol_cases import Peer
 from native_report_evidence import require_native_allocation_peak
@@ -94,7 +94,7 @@ def run(harness):
                     source, trace = frame(harness, ROWS[:3] if aggregate == "first_unique" else ROWS)
                     query = pivot(source, aggregate)
                     if surface == "sql":
-                        query = SqlWorkflow(query._relation_statement(), harness.client,
+                        query = LazyFrame.from_sql(query._relation_statement(), harness.client,
                                             source_bindings=query._declared_sources())
                     if aggregate == "count":
                         expected = [{"entity": 1, "pivot_a": 1, "pivot_b": 1},
@@ -132,7 +132,7 @@ def run(harness):
                 elif shape in ("aggregate", "window"):
                     prefix = ("SELECT SUM(pivot_a) AS total,COUNT(*) AS groups" if shape == "aggregate" else
                               "SELECT entity,ROW_NUMBER() OVER (ORDER BY pivot_a DESC) AS position")
-                    query = SqlWorkflow(f"{prefix} FROM ({query._relation_statement()}) AS p" +
+                    query = LazyFrame.from_sql(f"{prefix} FROM ({query._relation_statement()}) AS p" +
                         (" ORDER BY entity" if shape == "window" else ""), harness.client,
                         source_bindings=query._declared_sources())
                     expected = ([{"total": 21.0, "groups": 2}] if shape == "aggregate" else

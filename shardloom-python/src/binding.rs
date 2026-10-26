@@ -1,5 +1,7 @@
 use pyo3::prelude::*;
 
+#[path = "adbc.rs"]
+mod adbc;
 #[path = "batch_input.rs"]
 mod batch_input;
 #[path = "capsules.rs"]
@@ -47,7 +49,32 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<stream::NativeExecutionStream>()?;
     module.add_class::<stream::NativeColumnarBatch>()?;
     module.add_function(wrap_pyfunction!(command, module)?)?;
+    module.add_function(wrap_pyfunction!(scalar_function_catalog, module)?)?;
+    adbc::register(module)?;
     Ok(())
+}
+
+/// Read the same inert definitions used by SQL intake and native binding.
+#[pyfunction]
+fn scalar_function_catalog(py: Python<'_>) -> PyResult<Vec<Py<pyo3::types::PyDict>>> {
+    shardloom_core::expression::builtins::SCALARS
+        .iter()
+        .map(|definition| {
+            let entry = pyo3::types::PyDict::new(py);
+            entry.set_item("name", definition.name)?;
+            entry.set_item("aliases", definition.aliases)?;
+            entry.set_item("min_args", definition.min_args)?;
+            entry.set_item("max_args", definition.max_args)?;
+            entry.set_item("type_rule", definition.type_rule.contract())?;
+            entry.set_item("null_rule", definition.null_rule.contract())?;
+            entry.set_item("family", definition.family)?;
+            entry.set_item("reference_supported", definition.reference_supported)?;
+            entry.set_item("summary", definition.summary)?;
+            entry.set_item("execution_provider", "shared_shardloom_native")?;
+            entry.set_item("external_engine_invoked", false)?;
+            Ok(entry.unbind())
+        })
+        .collect()
 }
 
 #[pyfunction]

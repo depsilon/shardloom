@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from shardloom._result_schema import ResultType
 from native_streaming_join_cases import KINDS, STREAM, frame, joined, oracle
 from native_streaming_dynamic_cases import frame as dynamic_frame, pivot, ROWS as PIVOT_ROWS
@@ -69,7 +69,7 @@ def run(harness):
                     source, trace = frame(harness)
                     query = joined(source, source, False, kind)
                     if surface == "sql":
-                        query = SqlWorkflow(query._relation_statement(), harness.client,
+                        query = LazyFrame.from_sql(query._relation_statement(), harness.client,
                                             source_bindings=query._declared_sources())
                     consume(name, query, oracle(STREAM, STREAM, kind), [trace], requested)
                 harness.case(name, check)

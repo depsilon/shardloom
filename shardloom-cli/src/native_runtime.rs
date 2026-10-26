@@ -47,6 +47,13 @@ pub enum SqlSource {
         schema: Option<String>,
     },
     Memory(ResidentMemorySource),
+    /// Inert generated input; its compact native owner is admitted at action time.
+    Range {
+        column: String,
+        start: i64,
+        step: i64,
+        rows: usize,
+    },
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     ColumnarStream(arrow_schema::SchemaRef),
 }
@@ -359,6 +366,17 @@ fn register_sources(
                 Ok(source.clone())
             })?;
         }
+        if let SqlSource::Range {
+            column,
+            start,
+            step,
+            rows,
+        } = &binding.source
+        {
+            schemas.register_memory_source(DatasetUri::new(&binding.reference)?, |session| {
+                ResidentMemorySource::from_int64_range(session, column, *start, *step, *rows)
+            })?;
+        }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if let SqlSource::ColumnarStream(schema) = &binding.source {
             schemas.register_arrow_batch_source(
@@ -408,7 +426,7 @@ fn sql_request(
             SqlSource::File { format, schema } => {
                 (super::normalize_input_format(format)?, schema.clone())
             }
-            SqlSource::Memory(_) => ("memory".into(), None),
+            SqlSource::Memory(_) | SqlSource::Range { .. } => ("memory".into(), None),
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             SqlSource::ColumnarStream(_) => ("memory".into(), None),
         };

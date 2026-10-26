@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import shardloom as sl
 from shardloom._result_schema import ResultType as T
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_subquery_cases import (
     COMPARISONS, POLICY, SCHEMA, complete_inputs, fixture, in_set,
 )
@@ -58,7 +58,7 @@ def sql(left, right, kind):
 
 def apply(left, right, kind, surface="dataframe"):
     if surface == "sql":
-        return SqlWorkflow(sql(left, right, kind), left.client,
+        return LazyFrame.from_sql(sql(left, right, kind), left.client,
                            source_bindings=left._declared_sources() + right._declared_sources())
     assert surface == "dataframe"
     return left.with_column("answer", predicate(inner(right), kind))

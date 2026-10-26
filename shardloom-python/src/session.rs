@@ -224,43 +224,96 @@ impl NativeSession {
     }
 
     /// Construct a native SQL declaration without inspecting any source.
-    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), spill=None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 sequences own their borrowed Python plan guards.
+    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), ranges=Vec::new(), relations=Vec::new(), parameters=Vec::new(), spill=None))]
+    #[allow(clippy::too_many_arguments)] // Explicit bindings at the Python boundary.
     fn sql(
         &self,
         statement: String,
         files: Vec<(String, String, Option<String>)>,
         sources: Vec<(String, PyRef<'_, NativeSource>)>,
         batches: Vec<super::batch_input::BatchArgument>,
+        ranges: Vec<(String, String, i64, i64, usize)>,
+        relations: Vec<(String, PyRef<'_, NativePlan>)>,
+        parameters: Vec<(String, PyRef<'_, super::expression::NativeExpression>)>,
         spill: Option<String>,
     ) -> PyResult<NativePlan> {
         self.owner.begin().map_err(native_error)?;
-        Ok(NativePlan::new(
+        let ordinary = relations.is_empty() && parameters.is_empty();
+        let declarations = relations
+            .iter()
+            .map(|(name, plan)| Ok((name.clone(), plan.declaration(&self.owner)?)))
+            .collect::<PyResult<Vec<_>>>()?;
+        let mut values = std::collections::BTreeMap::new();
+        for (name, expression) in parameters {
+            if values.insert(name, (*expression.value).clone()).is_some() {
+                return Err(PyValueError::new_err(
+                    "SQL parameter names must be distinct",
+                ));
+            }
+        }
+        let declaration = Arc::new(
+            shardloom_runtime::native::NativeRelationDeclaration::sql_with_bound_parameters(
+                &statement,
+                declarations,
+                values,
+            )
+            .map_err(native_error)?,
+        );
+        let parents = declaration
+            .input_indices()
+            .map(|index| &*relations[index].1)
+            .collect();
+        let bindings = source_bindings(files, sources, ranges);
+        declaration
+            .validate_named_sources(
+                bindings
+                    .iter()
+                    .map(|binding| binding.reference.as_str())
+                    .chain(batches.iter().map(|batch| batch.0.as_str())),
+            )
+            .map_err(native_error)?;
+        NativePlan::sql(
             Arc::clone(&self.owner),
-            statement,
-            source_bindings(files, sources),
+            if ordinary && declaration.depth() <= 12 && statement.len() <= 256 * 1024 {
+                statement
+            } else {
+                String::new()
+            },
+            declaration,
+            bindings,
             batches.into_iter().map(Into::into).collect(),
+            parents,
             spill,
-        ))
+        )
     }
 
     /// Bind a typed native relation without rendering or parsing SQL text.
-    #[pyo3(signature = (relation, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), spill=None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 sequences own their borrowed Python plan guards.
+    #[pyo3(signature = (relation, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), ranges=Vec::new(), inputs=Vec::new(), spill=None))]
+    #[allow(clippy::too_many_arguments)] // Explicit bindings at the Python boundary.
     fn plan(
         &self,
         relation: &super::relation::NativeRelation,
         files: Vec<(String, String, Option<String>)>,
         sources: Vec<(String, PyRef<'_, NativeSource>)>,
         batches: Vec<super::batch_input::BatchArgument>,
+        ranges: Vec<(String, String, i64, i64, usize)>,
+        inputs: Vec<PyRef<'_, NativePlan>>,
         spill: Option<String>,
     ) -> PyResult<NativePlan> {
         self.owner.begin().map_err(native_error)?;
-        Ok(NativePlan::relation(
+        for input in &inputs {
+            input.declaration(&self.owner)?;
+        }
+        NativePlan::relation(
             Arc::clone(&self.owner),
             Arc::clone(&relation.declaration),
-            source_bindings(files, sources),
+            source_bindings(files, sources, ranges),
             batches.into_iter().map(Into::into).collect(),
+            inputs.iter().map(|input| &**input).collect(),
             spill,
-        ))
+        )
     }
 
     /// Copy columnar producer buffers into admitted native owners, without JSON
@@ -530,6 +583,7 @@ impl NativeSession {
 fn source_bindings(
     files: Vec<(String, String, Option<String>)>,
     sources: Vec<(String, PyRef<'_, NativeSource>)>,
+    ranges: Vec<(String, String, i64, i64, usize)>,
 ) -> Vec<SqlSourceBinding> {
     files
         .into_iter()
@@ -543,6 +597,19 @@ fn source_bindings(
                 .map(|(reference, source)| SqlSourceBinding {
                     reference,
                     source: SqlSource::Memory(source.source.clone()),
+                }),
+        )
+        .chain(
+            ranges
+                .into_iter()
+                .map(|(reference, column, start, step, rows)| SqlSourceBinding {
+                    reference,
+                    source: SqlSource::Range {
+                        column,
+                        start,
+                        step,
+                        rows,
+                    },
                 }),
         )
         .collect()

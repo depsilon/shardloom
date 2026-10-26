@@ -71,6 +71,10 @@ class BatchInput:
         self._used = True
         return iter(self._batches)
 
+    def __call__(self):
+        """Keep one producer identity across immutable native declarations."""
+        return self.open()
+
     def encode(self, batch: object) -> list[list[str | None]]:
         from ._input_schema import encode_cell
 

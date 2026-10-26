@@ -3,7 +3,7 @@
 
 import json
 
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_dynamic_cases import frame, ROWS as PIVOT_ROWS
 from native_streaming_set_cases import KINDS, LEFT, RIGHT, POLICY, combine, complete, oracle
 
@@ -49,7 +49,7 @@ def dynamic_consumers(harness, spill, clean):
                 left, a = frame(harness)
                 right, b = frame(harness)
                 sets = combine(left, right, kind)
-                query = SqlWorkflow(f"SELECT * FROM PIVOT(({sets._relation_statement()}), '{payload}') AS p",
+                query = LazyFrame.from_sql(f"SELECT * FROM PIVOT(({sets._relation_statement()}), '{payload}') AS p",
                                     harness.client, source_bindings=sets._declared_sources())
                 rows = oracle(PIVOT_ROWS, PIVOT_ROWS, kind)
                 categories = sorted({row["category"] for row in rows})

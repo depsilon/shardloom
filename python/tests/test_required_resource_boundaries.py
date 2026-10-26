@@ -313,7 +313,7 @@ class RequiredResourceBoundaryTests(unittest.TestCase):
 
     def test_inspection_and_conversion_helpers_admit_resources_before_dispatch(self):
         calls = (
-            ("schema", ()), ("describe_schema", ()),
+            ("describe_schema", ()),
             ("validate_schema", ({"n": "int64"},)),
             ("schema_contract", ({"n": "int64"},)),
             ("data_quality_check", ("not_null:n",)),

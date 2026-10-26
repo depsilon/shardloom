@@ -29,6 +29,71 @@ fn native_workload_sql_ctes_lower_to_shared_sources_joins_and_sets() {
 }
 
 #[test]
+fn native_workload_sql_ctes_bind_nested_scopes_columns_and_scalar_subqueries() {
+    verify_with_source_opens(
+        "WITH named AS (SELECT 1 AS value), \
+         nested AS (WITH named AS (SELECT 2 AS value) SELECT value FROM named) \
+         SELECT a.value AS outer_value,b.value AS inner_value \
+         FROM named AS a CROSS JOIN nested AS b",
+        &json!([{"outer_value":1,"inner_value":2}]),
+        0,
+    );
+    verify_with_source_opens(
+        "WITH first(a,b) AS NOT MATERIALIZED (SELECT 3 AS x,4 AS y), \
+         second AS (WITH inner_view AS (SELECT a+b AS total FROM first) \
+                    SELECT total FROM inner_view) SELECT total FROM second",
+        &json!([{"total":7}]),
+        0,
+    );
+    verify_with_source_opens(
+        "WITH named AS (SELECT 5 AS value) \
+         SELECT (SELECT value FROM named) AS scalar_value \
+         FROM named WHERE value IN (SELECT value FROM named)",
+        &json!([{"scalar_value":5}]),
+        0,
+    );
+}
+
+#[test]
+fn native_workload_sql_ctes_keep_names_distinct_from_strings_and_validate_columns() {
+    verify_with_source_opens(
+        "WITH named AS (SELECT 'FROM named WITH' AS text) \
+         SELECT named.text FROM named",
+        &json!([{"named.text":"FROM named WITH"}]),
+        0,
+    );
+    for query in [
+        "WITH named(a,A) AS (SELECT 1 AS x,2 AS y) SELECT * FROM named",
+        "WITH named(a,b) AS (SELECT 1 AS x) SELECT * FROM named",
+        "WITH named AS (WITH inner_view AS (SELECT * FROM named) SELECT * FROM inner_view) SELECT * FROM named",
+        "WITH named ASmaterialized (SELECT 1 AS x) SELECT * FROM named",
+    ] {
+        assert!(
+            prepare(
+                query,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap(),
+                |leaf| DatasetUri::new(leaf.path.to_string_lossy()),
+            )
+            .is_err(),
+            "{query}"
+        );
+    }
+}
+
+#[test]
+fn native_workload_sql_ctes_admit_wide_scopes_without_expanding_text() {
+    let definitions = (0..96)
+        .map(|index| format!("item_{index} AS (SELECT {index} AS value)"))
+        .collect::<Vec<_>>()
+        .join(",");
+    verify_with_source_opens(
+        &format!("WITH {definitions} SELECT value FROM item_95"),
+        &json!([{"value":95}]),
+        0,
+    );
+}
+
+#[test]
 fn native_workload_sql_remainder_group_aliases_and_input_precedence() {
     let source = fixture();
     verify(

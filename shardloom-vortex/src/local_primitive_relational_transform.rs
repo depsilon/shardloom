@@ -3,8 +3,8 @@
 use super::super::native_relational_keys::Cell as KeyCell;
 use super::{
     ArrayRef, FieldNames, LocalSelection, Metrics, NativeExecutionContext, Node, NodeKind,
-    PreparedVortexRelational, ReservedVec, Result, StructArray, Validity, failed,
-    native_relational_expression, native_relational_sort, vortex_error,
+    PipelineKind, PipelineStage, PreparedVortexRelational, ReservedVec, Result, StructArray,
+    Validity, failed, native_relational_expression, native_relational_sort, vortex_error,
 };
 
 impl PreparedVortexRelational {
@@ -24,27 +24,7 @@ impl PreparedVortexRelational {
                 metrics,
                 batch_rows,
                 parameter,
-                &mut |array| {
-                    let mut columns = ReservedVec::new(context.memory())?;
-                    columns.reserve(expressions.len())?;
-                    for expression in expressions {
-                        let result =
-                            expression.evaluate_reusing(&array, context, &columns.values)?;
-                        columns.values.push(result);
-                    }
-                    let (columns, _ownership) = columns.into_parts();
-                    let output = StructArray::try_new(
-                        node.fields
-                            .iter()
-                            .map(|(name, _)| name.as_str())
-                            .collect::<FieldNames>(),
-                        columns,
-                        array.len(),
-                        Validity::NonNullable,
-                    )
-                    .map_err(vortex_error)?;
-                    consume(vortex::array::IntoArray::into_array(output))
-                },
+                &mut |array| consume(project_array(&node.fields, expressions, &array, context)?),
             ),
             NodeKind::Filter { input, predicate } => {
                 let recipe = predicate.filter_recipe();
@@ -76,7 +56,7 @@ impl PreparedVortexRelational {
             } => {
                 // A finite streaming source still owes complete validation,
                 // including late errors, even when no rows are requested.
-                if *count == 0 && metrics.input.is_none() {
+                if *count == 0 && metrics.input.is_none() && !input.has_observations() {
                     return Ok(());
                 }
                 let mut skip = *offset;
@@ -101,6 +81,108 @@ impl PreparedVortexRelational {
             }
             _ => Err(failed("transform dispatch received another operator")),
         }
+    }
+
+    #[allow(clippy::too_many_arguments)] // Same shared runtime/callback contract as run_transform.
+    pub(super) fn run_pipeline(
+        &self,
+        input: &Node,
+        stages: &[PipelineStage],
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        if metrics.input.is_none()
+            && !input.has_observations()
+            && !stages
+                .iter()
+                .any(|stage| matches!(stage.kind, PipelineKind::Observe(_)))
+            && stages
+                .iter()
+                .any(|stage| matches!(stage.kind, PipelineKind::Limit { count: 0, .. }))
+        {
+            return Ok(());
+        }
+        let mut ranges = ReservedVec::new(context.memory())?;
+        ranges.reserve(stages.len())?;
+        let mut observations = ReservedVec::new(context.memory())?;
+        for (index, stage) in stages.iter().enumerate() {
+            ranges.values.push(match stage.kind {
+                PipelineKind::Limit { offset, count } => (offset, count),
+                _ => (0, 0),
+            });
+            if let PipelineKind::Observe(observation) = &stage.kind {
+                observations.push((
+                    index,
+                    super::native_relational_aggregate::Aggregate::new(
+                        &observation.spec,
+                        context.memory(),
+                    )?,
+                ))?;
+            }
+        }
+        self.run(
+            input,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            &mut |mut array| {
+                let mut observation_index = 0;
+                for (index, stage) in stages.iter().enumerate() {
+                    context.check_cancelled()?;
+                    array = match &stage.kind {
+                        PipelineKind::Project(expressions) => {
+                            project_array(&stage.fields, expressions, &array, context)?
+                        }
+                        PipelineKind::Filter(predicate) => {
+                            let Some(selected) =
+                                filter_array(predicate, &stage.fields, &array, context)?
+                            else {
+                                return Ok(());
+                            };
+                            selected
+                        }
+                        PipelineKind::Limit { .. } => {
+                            let (skip, remaining) = &mut ranges.values[index];
+                            let start = (*skip).min(array.len());
+                            *skip -= start;
+                            let count = (*remaining).min(array.len() - start);
+                            *remaining -= count;
+                            if count == 0 {
+                                return Ok(());
+                            }
+                            array.slice(start..start + count).map_err(vortex_error)?
+                        }
+                        PipelineKind::Observe(observation) => {
+                            let projected = observation
+                                .projection
+                                .as_ref()
+                                .map(|(fields, expressions)| {
+                                    project_array(fields, expressions, &array, context)
+                                })
+                                .transpose()?;
+                            observations.values[observation_index].1.consume(
+                                projected.as_ref().unwrap_or(&array),
+                                context,
+                                batch_rows,
+                            )?;
+                            observation_index += 1;
+                            array
+                        }
+                    };
+                }
+                consume(array)
+            },
+        )?;
+        for (index, aggregate) in &observations.values {
+            if let PipelineKind::Observe(observation) = &stages[*index].kind {
+                metrics.complete_observation(observation, aggregate, context)?;
+            }
+        }
+        Ok(())
     }
 
     fn run_sort(
@@ -152,6 +234,52 @@ impl PreparedVortexRelational {
             consume,
         )
     }
+}
+
+fn filter_array(
+    predicate: &native_relational_expression::Expression,
+    fields: &[(String, super::DType)],
+    array: &ArrayRef,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Option<ArrayRef>> {
+    let rows = filter_rows(predicate, predicate.filter_recipe(), array, context)?;
+    let mut selected = None;
+    // Selection cannot produce more rows than this input. Use one native
+    // selection batch, preserving its ownership.
+    rows.for_each_batch(array, fields, array.len().max(1), context, &mut |batch| {
+        if selected.replace(batch).is_some() {
+            return Err(failed("streaming selection exceeded its input batch"));
+        }
+        Ok(())
+    })?;
+    Ok(selected)
+}
+
+fn project_array(
+    fields: &[(String, super::DType)],
+    expressions: &[native_relational_expression::Expression],
+    array: &ArrayRef,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    let mut columns = ReservedVec::new(context.memory())?;
+    columns.reserve(expressions.len())?;
+    for expression in expressions {
+        columns
+            .values
+            .push(expression.evaluate_reusing(array, context, &columns.values)?);
+    }
+    let (columns, _ownership) = columns.into_parts();
+    let output = StructArray::try_new(
+        fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<FieldNames>(),
+        columns,
+        array.len(),
+        Validity::NonNullable,
+    )
+    .map_err(vortex_error)?;
+    Ok(vortex::array::IntoArray::into_array(output))
 }
 
 fn filter_rows(

@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 
 from shardloom.errors import ShardLoomCommandError
-from shardloom.query import SqlWorkflow
+from shardloom.query import LazyFrame
 from native_streaming_input_cases import declaration
 
 SCHEMA = {"n": "int64", "s": "utf8"}
@@ -139,7 +139,7 @@ def run(harness):
                     left, right = (other, source) if stream_right else (source, other)
                     query = left.join(right, on="n", how="full").select("f.n AS n", "f.s AS label")
                     query = query.join(other, on="n", how="left").select("f.label AS cohort").group_by("cohort").agg(rows="count(*)")
-                    query = SqlWorkflow(
+                    query = LazyFrame.from_sql(
                         f"SELECT cohort,rows FROM ({query._relation_statement()}) AS groups ORDER BY rows DESC,cohort ASC NULLS LAST LIMIT 3 OFFSET 1",
                         harness.client, source_bindings=query._declared_sources())
                     expected = ([{"cohort": None, "rows": 2}, {"cohort": "r3", "rows": 1}, {"cohort": "rn", "rows": 1}]
