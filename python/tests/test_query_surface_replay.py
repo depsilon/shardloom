@@ -11,6 +11,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'benchmarks/traditional_analytics'))
@@ -176,6 +177,130 @@ class ReplayTests(unittest.TestCase):
         del files['evidence/failure/case.receipt.json']
         with self.assertRaisesRegex(ValueError, 'missing evidence'):
             verify_runs(files, manifest)
+
+    def test_polars_abort_summary_preserves_observations_and_failure_details(self):
+        from query_surface import polars_run
+
+        records, manifest = self.failed_worker(b'', -15, ['memory budget exceeded'], 'guard_failed', kind='polars')
+        # Exercise the real failure-summary writer without starting a query.
+        with tempfile.TemporaryDirectory() as directory:
+            def abort(args):
+                args._owned_root = Path(directory)
+                raise ValueError('resource guard stopped comparison; observations retained')
+            with patch.object(polars_run, 'observe', side_effect=abort), patch.object(
+                    sys, 'argv', ['polars_run', '--native-run', directory, '--run-id', 'failure']):
+                with self.assertRaisesRegex(ValueError, 'resource guard stopped'):
+                    polars_run.main()
+            records['failure/summary.json'] = json.loads((Path(directory) / 'summary.json').read_text())
+        result = verify_runs(freeze(records), manifest)
+        self.assertEqual(result['runs']['failure'], {
+            'completed': False, 'observations': 1, 'statuses': {'guard_failed': 1},
+            'failure': records['failure/summary.json']['failure'], 'exception': 'ValueError'})
+        self.assertEqual((result['checked_complete_results'], result['checked_receipts']), (2, 3))
+        self.assertEqual(result['executed_queries'], 0)
+
+    def test_abort_before_observation_keeps_failure_and_any_available_provenance(self):
+        for native in (True, False):
+            for provenance_present in (True, False):
+                for empty_file in (True, False):
+                    with self.subTest(native=native, provenance=provenance_present, empty_file=empty_file):
+                        records, manifest = fixture()
+                        summary = ({'completed_selected_cohort': False, 'source_runtime_posthash_verified': False,
+                                    'families': {}} if native else
+                                   {'completed': False, 'posthash_verified': False, 'exception': 'ValueError'})
+                        summary['failure'] = 'input validation failed before query execution'
+                        if not native:
+                            records['failure/provenance.json'] = deepcopy(records['polars/provenance.json'])
+                        files = freeze(records)
+                        for path in list(files):
+                            if path.startswith('evidence/failure/') and not (
+                                    provenance_present and path.endswith('/provenance.json')):
+                                del files[path]
+                        files['evidence/failure/summary.json'] = encoded(summary)
+                        if empty_file:
+                            files['evidence/failure/observations.jsonl'] = b''
+                        result = verify_runs(files, manifest)
+                        outcome = result['runs']['failure']
+                        self.assertEqual((outcome['completed'], outcome['observations'], outcome['statuses']),
+                                         (False, 0, {}))
+                        self.assertEqual(outcome['failure'], summary['failure'])
+                        self.assertEqual(outcome['reason'], 'failed_before_observation')
+                        self.assertEqual(bool(result['proof_gaps']), not provenance_present)
+                        if provenance_present:
+                            provenance = json.loads(files['evidence/failure/provenance.json'])
+                            field = 'runtime_and_inputs' if native else 'frozen_files'
+                            provenance[field].append({'path': '/missing', 'sha256': '0' * 64})
+                            files['evidence/failure/provenance.json'] = encoded(provenance)
+                            with self.assertRaisesRegex(ValueError, 'missing provenance'):
+                                verify_runs(files, manifest)
+
+    def test_incomplete_summary_cannot_skip_observation_integrity(self):
+        records, manifest = self.failed_worker(b'', -15, ['memory budget exceeded'], 'guard_failed', kind='polars')
+        records['failure/summary.json'] = {
+            'completed': False, 'posthash_verified': False, 'failure': 'guard stopped', 'exception': 'ValueError'}
+        for missing in ('case.receipt.json', 'case.job.json', 'provenance.json'):
+            with self.subTest(missing=missing):
+                files = freeze(records)
+                del files['evidence/failure/' + missing]
+                with self.assertRaisesRegex(ValueError, 'missing evidence'):
+                    verify_runs(files, manifest)
+        for field, value in (('all_passed', True), ('comparisons', [])):
+            with self.subTest(field=field):
+                changed = deepcopy(records)
+                changed['failure/summary.json'][field] = value
+                with self.assertRaises(ValueError):
+                    verify_runs(freeze(changed), manifest)
+
+    def test_completed_polars_summary_requires_all_completion_fields(self):
+        for field in ('completed', 'posthash_verified', 'all_passed', 'comparisons'):
+            with self.subTest(missing=field):
+                records, manifest = fixture()
+                del records['polars/summary.json'][field]
+                with self.assertRaises(ValueError):
+                    verify_runs(freeze(records), manifest)
+        for value in (None, 0, 1, 'false'):
+            with self.subTest(completed=value):
+                records, manifest = fixture()
+                records['polars/summary.json']['completed'] = value
+                with self.assertRaises(ValueError):
+                    verify_runs(freeze(records), manifest)
+
+    def test_incomplete_polars_pair_is_not_credited_even_with_all_passing_results(self):
+        for minimal in (True, False):
+            with self.subTest(minimal=minimal):
+                records, manifest = fixture()
+                summary = {} if minimal else records['polars/summary.json']
+                summary.update(completed=False, posthash_verified=False,
+                               failure='comparison source/input/evidence digest changed', exception='ValueError')
+                records['polars/summary.json'] = summary
+                with self.assertRaisesRegex(ValueError, 'baseline contains incomplete or failed execution'):
+                    verify_runs(freeze(records), manifest)
+
+    def test_native_abort_summary_preserves_counts_and_rejects_invalid_completion(self):
+        records, manifest = self.failed_worker(b'', -15, ['memory budget exceeded'], 'guard_failed')
+        summary = records['failure/summary.json']
+        summary.update(completed_selected_cohort=False, source_runtime_posthash_verified=False,
+                       failure='guard stopped the cohort; original evidence retained')
+        result = verify_runs(freeze(records), manifest)
+        self.assertEqual(result['runs']['failure']['statuses'], {'guard_failed': 1})
+        self.assertEqual(result['runs']['failure']['failure'], summary['failure'])
+        for mutation in ('counts', 'posthash', 'failure', 'engine', 'ambiguous'):
+            with self.subTest(mutation=mutation):
+                changed = deepcopy(records)
+                summary = changed['failure/summary.json']
+                if mutation == 'counts':
+                    summary['families'] = {}
+                elif mutation == 'posthash':
+                    summary['source_runtime_posthash_verified'] = True
+                elif mutation == 'failure':
+                    del summary['failure']
+                elif mutation == 'engine':
+                    changed['failure/summary.json'] = {
+                        'completed': False, 'posthash_verified': False, 'failure': 'wrong engine'}
+                else:
+                    summary['completed'] = False
+                with self.assertRaises(ValueError):
+                    verify_runs(freeze(changed), manifest)
 
     def test_committed_packet_preserves_all_results_and_failed_observations(self):
         directory = ROOT / 'docs/benchmarks/evidence/native-broad-query-2026-10-26'

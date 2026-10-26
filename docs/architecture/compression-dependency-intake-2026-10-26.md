@@ -138,3 +138,25 @@ Eleven mutations of actual evidence are rejected. Relocated replay succeeds
 with original workspace/data access, native/Polars/PyArrow imports and process
 or network effects denied. No query is rerun and the original six provenance
 warnings remain explicit.
+
+### Incomplete-summary follow-up
+
+A second review found that the Polars runner's abort summary intentionally omits
+`all_passed` and `comparisons`. Replay now accepts that failure format, retains
+the failure details and verifies every available observation and receipt. Both
+runners can also fail before provenance or the first observation exists; those
+runs receive no execution credit, and missing provenance is an explicit proof
+gap. Any available provenance and native outcome counts still have to validate.
+Completed summaries require boolean completion, successful final identity checks
+and all derived fields. An incomplete Polars cohort cannot be selected as a
+baseline even when all its recorded query results passed.
+
+The [follow-up evidence](../benchmarks/evidence/native-broad-query-review-2026-10-26/replay-followup.json)
+preserves the failing reproducer, the corrected 16-test replay suite and 17
+rejected mutations of the original packet. A positive control retains a real
+Polars result from a simulated final-integrity failure without adding baseline
+credit. The regression exercises the actual Polars failure-summary writer.
+Relocated replay again verifies 2,331 complete results and 2,334 receipts with
+original paths and engine/effect access denied. No queries or native builds are
+rerun for this Python-only follow-up; the earlier source snapshots and evidence
+remain immutable and attributed to their original revision.

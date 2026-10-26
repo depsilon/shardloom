@@ -111,6 +111,42 @@ def clock(value):
     return value
 
 
+def summary_state(summary):
+    """Recognize the complete and aborted formats emitted by both runners."""
+    need(isinstance(summary, dict), "invalid run summary")
+    native = "completed_selected_cohort" in summary
+    need(native != ("completed" in summary), "missing or ambiguous summary completion field")
+    complete = summary["completed_selected_cohort" if native else "completed"]
+    need(type(complete) is bool, "summary completion must be a boolean")
+    posthash = summary.get("source_runtime_posthash_verified" if native else "posthash_verified")
+    need(posthash is complete, "summary completion and final identity checks differ")
+    if not complete:
+        need(isinstance(summary.get("failure"), str), "incomplete summary lacks failure details")
+        if "exception" in summary:
+            need(isinstance(summary["exception"], str), "invalid failure exception")
+    return native, complete
+
+
+def verify_summary_outcomes(summary, native, complete, status, observations):
+    if summary is None:
+        return
+    if native:
+        recorded_status = Counter()
+        for group in summary["families"].values():
+            recorded_status.update({status: count for status, count in group["case_surface_outcomes"].items()
+                                    if status not in {"proposed", "unexecuted"}})
+        need(recorded_status == status, "summary erased or changed an outcome")
+    else:
+        # Aborts omit these derived fields. If supplied, they still have to
+        # match the verified observations; complete summaries require both.
+        if complete or "all_passed" in summary:
+            need(summary.get("all_passed") is (status["passed"] == len(observations)),
+                 "baseline all-passed claim differs")
+        if complete or "comparisons" in summary:
+            need(summary.get("comparisons") == [row["comparison"] for row in observations],
+                 "baseline summary clocks differ")
+
+
 def verify_runs(files, manifest):
     prefix = manifest["original_evidence_root"].rstrip("/") + "/"
     need(prefix.startswith("/"), "missing original evidence root")
@@ -149,20 +185,37 @@ def verify_runs(files, manifest):
                 outcomes[name] = {"completed": False, "reason": "failed_before_summary", "observations": 0}
                 continue
         summary = read(base + "summary.json") if summary_present else None
-        provenance = read(base + "provenance.json")
-        native = provenance.get("comparison_engine_invoked") is False
-        need(native or provenance.get("comparison_engine_invoked") == "polars_only", "unknown engine cohort")
-        identities = (provenance["runtime_and_inputs"] + provenance["harness_sources"] + provenance.get("python_sources", [])
-                      if native else provenance["frozen_files"])
+        summary_native, complete = summary_state(summary) if summary is not None else (None, False)
+        observations = ([strict_json(line) for line in raw(base + "observations.jsonl").splitlines() if line.strip()]
+                        if "evidence/" + name + "/observations.jsonl" in files else [])
+        provenance_present = "evidence/" + name + "/provenance.json" in files
+        if summary is not None and not complete and not observations and not provenance_present:
+            # Preparation can fail before provenance or the first observation
+            # is written. Preserve the failure with no execution credit.
+            native, identities = summary_native, []
+            warnings.append(name + ": aborted before provenance; runtime/input identities unavailable")
+        else:
+            provenance = read(base + "provenance.json")
+            native = provenance.get("comparison_engine_invoked") is False
+            need(native or provenance.get("comparison_engine_invoked") == "polars_only", "unknown engine cohort")
+            need(summary is None or summary_native is native, "summary and provenance engines differ")
+            identities = (provenance["runtime_and_inputs"] + provenance["harness_sources"] + provenance.get("python_sources", [])
+                          if native else provenance["frozen_files"])
+            if native and "python_sources" not in provenance:
+                warnings.append(name + ": legacy provenance lacks a Python source snapshot inventory")
         for item in identities:
             if item["sha256"] in retained_digests:
                 retained_provenance += 1
             else:
                 need((item["path"], item["sha256"]) in external, "missing provenance content or explicit external identity")
                 external_provenance += 1
-        if native and "python_sources" not in provenance:
-            warnings.append(name + ": legacy provenance lacks a Python source snapshot inventory")
-        observations = [strict_json(line) for line in raw(base + "observations.jsonl").splitlines() if line.strip()]
+        failure = ({field: summary[field] for field in ("failure", "exception") if field in summary}
+                   if summary is not None and not complete else {})
+        if not observations and not complete:
+            verify_summary_outcomes(summary, native, complete, Counter(), observations)
+            outcomes[name] = {"completed": False, "observations": 0, "statuses": {}, **failure,
+                              "reason": "failed_before_observation" if summary is not None else "failed_before_summary"}
+            continue
         corpus_root = base if native else provenance["native_run"].rstrip("/") + "/"
         catalog_rows = read(corpus_root + "corpus.json")
         catalog = {case["id"]: case for case in catalog_rows}
@@ -241,20 +294,10 @@ def verify_runs(files, manifest):
                 need(native_row["case_identity"] == outcome["case_identity"], "paired case identity differs")
             checked_results += 1
             results[(name, case_id, surface)] = outcome
-        complete = summary.get("completed_selected_cohort" if native else "completed") if summary is not None else False
         if complete:
             need(seen == expected_pairs and summary["selected_cases"] == len(selected), "completed cohort is missing cases")
-            need(summary.get("source_runtime_posthash_verified" if native else "posthash_verified") is True, "completed cohort lacks final identity checks")
-        if summary is not None and native:
-            recorded_status = Counter()
-            for group in summary["families"].values():
-                recorded_status.update({status: count for status, count in group["case_surface_outcomes"].items()
-                                        if status not in {"proposed", "unexecuted"}})
-            need(recorded_status == status, "summary erased or changed an outcome")
-        elif summary is not None:
-            need(summary["all_passed"] == (status["passed"] == len(observations)), "baseline all-passed claim differs")
-            need(summary["comparisons"] == [row["comparison"] for row in observations], "baseline summary clocks differ")
-        outcomes[name] = {"completed": complete, "observations": len(observations), "statuses": dict(status)}
+        verify_summary_outcomes(summary, native, complete, status, observations)
+        outcomes[name] = {"completed": complete, "observations": len(observations), "statuses": dict(status), **failure}
         if summary is None:
             outcomes[name]["reason"] = "failed_before_summary"
     baseline = manifest["baseline_native_runs"]
@@ -269,6 +312,8 @@ def verify_runs(files, manifest):
     need(len(native_cases) == len(set(native_cases)) == manifest["baseline_case_count"], "baseline missing or repeats a case")
     need(sorted(native_cases) == manifest["baseline_case_ids"], "baseline case selection differs")
     for native_run, polars_run in pairs:
+        need(outcomes[polars_run]["completed"] is True and set(outcomes[polars_run]["statuses"]) == {"passed"},
+             "baseline contains incomplete or failed execution")
         native_ids = {case for run, case, surface in results if run == native_run and surface == "python_sql"}
         polars_ids = {case for run, case, surface in results if run == polars_run and surface == "polars"}
         need(native_ids and native_ids == polars_ids, "native and Polars baseline coverage differ")
