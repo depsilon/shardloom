@@ -45,6 +45,8 @@ use vortex::array::{
 mod batch_input;
 #[path = "local_primitive_relational_bind.rs"]
 mod bind;
+#[path = "local_primitive_relational_grouping.rs"]
+mod grouping;
 #[path = "local_primitive_relational_batch_replay.rs"]
 mod replay;
 pub use batch_input::{ExecutedVortexBatchInput, VortexRelationalBatchInput};
@@ -147,6 +149,10 @@ pub struct ExecutedVortexRelational {
     pub ordered_aggregate_input_rows: u64,
     /// Additional nonnull distinct records, with duplicate measure aliases shared.
     pub ordered_aggregate_distinct_rows: u64,
+    /// Nonnull native sorted-value records serving exact quantiles; shared levels reuse records.
+    /// Records shared with DISTINCT are counted by both semantic counters; counters are not
+    /// disjoint physical row or byte totals.
+    pub ordered_aggregate_quantile_rows: u64,
     /// Distinct set nodes using the bounded native ordering strategy.
     pub ordered_set_stages: u64,
     pub ordered_set_input_rows: u64,
@@ -352,8 +358,14 @@ impl Node {
             NodeKind::Unary { input, operation } => {
                 operation.upper_output_rows(input.upper_rows(sources))
             }
-            NodeKind::Aggregate { input, spec } => {
-                if spec.groups.is_empty() {
+            NodeKind::Aggregate {
+                input,
+                spec,
+                expansion,
+            } => {
+                if let Some(expansion) = expansion {
+                    expansion.upper_rows(input.upper_rows(sources))
+                } else if spec.groups.is_empty() {
                     Some(1)
                 } else {
                     input.upper_rows(sources)
@@ -437,6 +449,7 @@ enum NodeKind {
     Aggregate {
         input: Box<Node>,
         spec: native_relational_aggregate::Spec,
+        expansion: Option<Box<grouping::Spec>>,
     },
     Project {
         input: Box<Node>,
@@ -875,6 +888,7 @@ struct Metrics<'a> {
     ordered_aggregate_stages: Cell<u64>,
     ordered_aggregate_input_rows: Cell<u64>,
     ordered_aggregate_distinct_rows: Cell<u64>,
+    ordered_aggregate_quantile_rows: Cell<u64>,
     ordered_set_stages: Cell<u64>,
     ordered_set_input_rows: Cell<u64>,
     ordered_set_groups: Cell<u64>,
@@ -1484,6 +1498,7 @@ impl PreparedVortexRelational {
                 ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
                 ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
                 ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
+                ordered_aggregate_quantile_rows: metrics.ordered_aggregate_quantile_rows.get(),
                 ordered_set_stages: metrics.ordered_set_stages.get(),
                 ordered_set_input_rows: metrics.ordered_set_input_rows.get(),
                 ordered_set_groups: metrics.ordered_set_groups.get(),
@@ -1641,16 +1656,30 @@ impl PreparedVortexRelational {
                 }
                 consume(array.clone())
             }
-            NodeKind::Aggregate { input, spec } => {
+            NodeKind::Aggregate {
+                input,
+                spec,
+                expansion,
+            } => {
+                let produce = |accept: &mut dyn FnMut(ArrayRef) -> Result<()>| {
+                    grouping::produce(
+                        expansion.as_deref(),
+                        context,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        accept,
+                    )
+                };
                 #[cfg(feature = "vortex-write")]
                 if let Some(spill) = &metrics.spill {
                     let report = super::native_relational_aggregate_spill::run(
                         spec,
-                        &input.fields,
+                        expansion
+                            .as_ref()
+                            .map_or(&input.fields, |spec| &spec.fields),
                         spill,
                         context,
                         batch_rows,
-                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        produce,
                         consume,
                     )?;
                     add(&metrics.ordered_aggregate_stages, 1)?;
@@ -1659,18 +1688,15 @@ impl PreparedVortexRelational {
                         &metrics.ordered_aggregate_distinct_rows,
                         report.distinct_rows,
                     )?;
+                    add(
+                        &metrics.ordered_aggregate_quantile_rows,
+                        report.quantile_rows,
+                    )?;
                     return Ok(());
                 }
                 let mut aggregate =
                     native_relational_aggregate::Aggregate::new(spec, context.memory())?;
-                self.run(
-                    input,
-                    context,
-                    metrics,
-                    batch_rows,
-                    parameter,
-                    &mut |array| aggregate.consume(&array, context, batch_rows),
-                )?;
+                produce(&mut |array| aggregate.consume(&array, context, batch_rows))?;
                 aggregate.finish(context, batch_rows, consume)
             }
             NodeKind::Project { .. }

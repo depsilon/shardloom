@@ -2,9 +2,11 @@
 
 use super::{NativeExecutionContext, Result, failed};
 use crate::local_primitives::{
-    SimpleAggregateFunction as Aggregate, logical_field_from_native_array,
+    logical_field_from_native_array,
     native_capacity::ReservedVec,
+    native_collection_ordinals,
     native_payload::{self, CopyPolicy},
+    native_relational_aggregate::Function as Aggregate,
     native_relational_batch::{Batch, index_array},
     native_relational_records::{self as records, ORDINAL},
     native_relational_sort,
@@ -34,6 +36,7 @@ pub(super) enum Kind {
     NullableFloat,
     Decimal(DecimalDType),
     Source,
+    Sources,
 }
 
 impl Kind {
@@ -44,22 +47,31 @@ impl Kind {
                     .as_ref()
                     .ok_or_else(|| failed("window frame is absent"))?;
                 match frame.function {
+                    frame::Function::Aggregate(function) if function.is_collection() => {
+                        Self::Sources
+                    }
+                    frame::Function::Aggregate(function) if function.is_moment() => {
+                        Self::NullableFloat
+                    }
                     frame::Function::Aggregate(Aggregate::Count | Aggregate::CountDistinct) => {
                         Self::Count
                     }
-                    frame::Function::Aggregate(Aggregate::Sum | Aggregate::Avg) => {
-                        match &spec.fields[spec.columns.len() + index].1 {
-                            DType::Decimal(dtype, _) => Self::Decimal(*dtype),
-                            DType::Primitive(PType::F64, Nullability::Nullable) => {
-                                Self::NullableFloat
-                            }
-                            _ => {
-                                return Err(failed(
-                                    "stored window reduction has an unsupported bound output type",
-                                ));
-                            }
+                    frame::Function::Aggregate(
+                        Aggregate::Sum
+                        | Aggregate::Avg
+                        | Aggregate::SumDistinct
+                        | Aggregate::AvgDistinct
+                        | Aggregate::Median
+                        | Aggregate::QuantileCont,
+                    ) => match &spec.fields[spec.columns.len() + index].1 {
+                        DType::Decimal(dtype, _) => Self::Decimal(*dtype),
+                        DType::Primitive(PType::F64, Nullability::Nullable) => Self::NullableFloat,
+                        _ => {
+                            return Err(failed(
+                                "stored window reduction has an unsupported bound output type",
+                            ));
                         }
-                    }
+                    },
                     _ => Self::Source,
                 }
             }
@@ -76,6 +88,7 @@ impl Kind {
             Self::NullableFloat => DType::Primitive(PType::F64, Nullability::Nullable),
             Self::Decimal(dtype) => DType::Decimal(dtype, Nullability::Nullable),
             Self::Source => records::u64_type().as_nullable(),
+            Self::Sources => native_collection_ordinals::dtype(),
         }
     }
 
@@ -190,11 +203,15 @@ impl Layout {
         let mut group_fields = Vec::with_capacity(spec.keys.len() + 1);
         let mut group_names = Vec::with_capacity(spec.keys.len() + 1);
         for (index, key) in spec.keys.iter().enumerate() {
-            let dtype = input
-                .iter()
-                .find(|(name, _)| name == key)
-                .map(|(_, dtype)| dtype.as_nullable())
-                .ok_or_else(|| failed("window key dtype is absent"))?;
+            let dtype = if spec.parent_validity_keys.contains(&index) {
+                DType::Bool(Nullability::Nullable)
+            } else {
+                input
+                    .iter()
+                    .find(|(name, _)| name == key)
+                    .map(|(_, dtype)| dtype.as_nullable())
+                    .ok_or_else(|| failed("window key dtype is absent"))?
+            };
             let name = format!("k{index}");
             group_fields.push((name.clone(), dtype));
             group_names.push(name);
@@ -310,8 +327,10 @@ impl Layout {
         let payload = logical_field_from_native_array(source, DATA)?;
         let mut columns = ReservedVec::new(context.memory())?;
         columns.reserve(self.group_fields.len())?;
-        for (index, name) in spec.keys.iter().enumerate() {
-            let column = logical_field_from_native_array(&payload, name)?;
+        for index in 0..spec.keys.len() {
+            let column = crate::local_primitives::native_relational_window::input_key(
+                spec, &payload, index, context,
+            )?;
             columns.values.push(native_payload::take_with_policy(
                 &column,
                 &indices,
@@ -374,7 +393,13 @@ impl<'p, 's> Values<'p, 's> {
         value: frame::Value,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        self.layout.kind.value(&value)?;
+        if matches!(self.layout.kind, Kind::Sources) {
+            if !matches!(value, frame::Value::Sources(_)) {
+                return Err(failed("stored collection requires source positions"));
+            }
+        } else {
+            self.layout.kind.value(&value)?;
+        }
         self.buffer.values.push(value);
         if self.buffer.values.len() == self.limit {
             self.flush(context)?;
@@ -398,12 +423,25 @@ impl<'p, 's> Values<'p, 's> {
             .push(records::unsigned(count, context, |row| {
                 u64::try_from(self.rows + row).map_err(vortex_error)
             })?);
-        columns.values.push(result_batch::build_column(
-            &self.layout.kind.dtype(),
-            count,
-            &context.native_session().host_allocator(),
-            |row| self.layout.kind.value(&self.buffer.values[row]),
-        )?);
+        columns
+            .values
+            .push(if matches!(self.layout.kind, Kind::Sources) {
+                native_collection_ordinals::column(
+                    count,
+                    |row| match &self.buffer.values[row] {
+                        frame::Value::Sources(value) => Some(value.values.as_slice()),
+                        _ => unreachable!("push validates stored collection positions"),
+                    },
+                    context,
+                )?
+            } else {
+                result_batch::build_column(
+                    &self.layout.kind.dtype(),
+                    count,
+                    &context.native_session().host_allocator(),
+                    |row| self.layout.kind.value(&self.buffer.values[row]),
+                )?
+            });
         self.order.build(
             records::structure(&self.layout.order.fields, columns, count)?,
             context,

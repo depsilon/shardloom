@@ -1,0 +1,22 @@
+{
+  "baseline_engine_seconds": 34.960427343,
+  "benefit_gate_passed": true,
+  "candidate_engine_seconds": 31.962394957,
+  "complete_comparisons": 347,
+  "complete_rows": 12565,
+  "item_20_complete": false,
+  "limitations": [
+    "One observation per case per candidate; no statistical confidence or isolated causal claim.",
+    "The 347-case corpus protects established behavior; new features have separate acceptance tests.",
+    "Complete retained outputs replay without executing queries or archived code.",
+    "Content hashes establish internal consistency, not signed provenance.",
+    "Large data and binaries are represented by identity; this packet does not reconstruct them."
+  ],
+  "material_case_regressions": [],
+  "material_family_regressions": [],
+  "new_competitor_queries": 0,
+  "package_tests": 194,
+  "public_feature_suites": 9,
+  "reduction_fraction": 0.08575502686468972,
+  "status": "passed"
+}

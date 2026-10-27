@@ -27,7 +27,7 @@ impl Binder<'_> {
             .ok_or_else(|| failed("window schema width overflow"))?;
         validate_width(width)?;
         self.charge_items(width, 16_384)?;
-        let input = Box::new(self.bind(&window.input, depth + 1)?);
+        let mut input = Box::new(self.bind(&window.input, depth + 1)?);
         let mut fields = Vec::new();
         let mut columns = Vec::new();
         for column in &window.columns {
@@ -42,6 +42,7 @@ impl Binder<'_> {
             fields: vec![],
             columns,
             keys: vec![],
+            parent_validity_keys: vec![],
             functions: vec![],
             groups: vec![],
             frames: vec![],
@@ -71,6 +72,7 @@ impl Binder<'_> {
         }
         validate_unique(&fields)?;
         spec.fields.clone_from(&fields);
+        self.narrow_source_demand(&mut input, input_columns(&spec))?;
         Ok(Node {
             fields,
             kind: NodeKind::Window { input, spec },
@@ -83,6 +85,17 @@ impl Binder<'_> {
         fields: &[(String, DType)],
         spec: &mut kernel::Spec,
     ) -> Result<()> {
+        if let Function::Framed(
+            crate::relational_query::VortexRelationalFrameFunction::Aggregate(measure),
+        ) = &expression.function
+        {
+            if !measure.order_by.is_empty() {
+                validate_width(measure.order_by.len())?;
+            }
+            self.charge_fields(measure.order_by.len())?;
+            self.charge_fields(usize::from(measure.filter_column.is_some()))?;
+            self.charge_items(measure.separator.as_ref().map_or(0, String::len), 3)?;
+        }
         if expression.order_by.is_empty() {
             if !matches!(expression.function, Function::Framed(_)) {
                 return Err(failed("window ranking and navigation require ORDER BY"));
@@ -133,14 +146,63 @@ impl Binder<'_> {
     }
 }
 
+pub(super) fn input_columns(spec: &kernel::Spec) -> impl Iterator<Item = &str> {
+    spec.columns
+        .iter()
+        .chain(&spec.keys)
+        .map(String::as_str)
+        .chain(spec.functions.iter().flat_map(|function| {
+            let (first, second) = match function {
+                Function::Lag { column, .. } | Function::Lead { column, .. } => {
+                    (Some(column), None)
+                }
+                Function::Framed(function) => (
+                    function.column(),
+                    match function {
+                        crate::relational_query::VortexRelationalFrameFunction::Aggregate(
+                            measure,
+                        ) => measure.secondary_column.as_ref(),
+                        _ => None,
+                    },
+                ),
+                _ => (None, None),
+            };
+            first
+                .into_iter()
+                .chain(second)
+                .map(shardloom_core::ColumnRef::as_str)
+        }))
+}
+
 fn key(spec: &mut kernel::Spec, fields: &[(String, DType)], name: &str) -> Result<usize> {
     validate_name(name)?;
     validate_key(field(fields, name)?)?;
-    if let Some(index) = spec.keys.iter().position(|key| key == name) {
+    if let Some(index) = spec
+        .keys
+        .iter()
+        .enumerate()
+        .position(|(index, key)| key == name && !spec.parent_validity_keys.contains(&index))
+    {
         return Ok(index);
     }
     spec.keys.push(name.to_owned());
     Ok(spec.keys.len() - 1)
+}
+
+fn validity_key(spec: &mut kernel::Spec, fields: &[(String, DType)], name: &str) -> Result<usize> {
+    validate_name(name)?;
+    validate_key(field(fields, name)?)?;
+    if let Some(index) = spec
+        .parent_validity_keys
+        .iter()
+        .find(|&&index| spec.keys[index] == name)
+    {
+        return Ok(*index);
+    }
+    let index = spec.keys.len();
+    spec.keys.push(name.to_owned());
+    spec.parent_validity_keys.push(index);
+    Ok(index)
 }
 
 fn function_dtype(function: &Function, fields: &[(String, DType)]) -> Result<DType> {

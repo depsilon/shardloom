@@ -245,6 +245,7 @@ fn composed(fixture: &Fixture) -> VortexRelationalPlan {
     let aggregate = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input: joined,
         group_by: vec![column("s")],
+        grouping_sets: None,
         measures: vec![VortexSimpleAggregateMeasure::new(
             "count",
             None,

@@ -31,6 +31,23 @@ fn product() -> Expression {
     binary(column("a"), BinaryOp::Multiply, literal(2_i64))
 }
 
+#[test]
+fn expression_reuse_rebinds_after_a_prior_column_output_is_removed() {
+    let mut expressions = vec![column("unused"), column("a"), product(), product()];
+    Expression::bind_projection_reuse(&mut expressions);
+    assert_eq!(expressions[3].reuse_output, Some(2));
+    expressions.remove(0);
+    Expression::bind_projection_reuse(&mut expressions);
+    assert_eq!(expressions[2].reuse_output, Some(1));
+    expressions.remove(1);
+    Expression::bind_projection_reuse(&mut expressions);
+    assert_eq!(expressions[1].reuse_output, None);
+    let Kind::Binary(left, _, _) = &expressions[1].kind else {
+        panic!("product changed");
+    };
+    assert_eq!(left.reuse_output, Some(0));
+}
+
 fn assert_identical(left: &Expression, right: &Expression, expected: bool) {
     let mut remaining = MAX_NODES;
     assert_eq!(same(left, right, &mut remaining), expected);
@@ -129,6 +146,96 @@ fn expression_reuse_keeps_lazy_branches_and_selected_inputs_out_of_scope() {
         };
         assert!(children.iter().all(|child| child.reuse_output.is_none()));
     }
+}
+
+#[test]
+fn expression_reuse_shares_complete_coalesce_outputs_without_reusing_selected_branches() {
+    let coalesce = || {
+        Expression::new(
+            column("a").dtype,
+            Kind::Coalesce(vec![product(), literal(7_i64)]),
+        )
+    };
+    let mut expressions = vec![product(), coalesce(), coalesce()];
+    Expression::bind_projection_reuse(&mut expressions);
+    assert!(expressions[1].reuse_output.is_none());
+    assert_eq!(expressions[2].reuse_output, Some(1));
+    let Kind::Coalesce(children) = &expressions[1].kind else {
+        unreachable!();
+    };
+    assert!(children.iter().all(|child| child.reuse_output.is_none()));
+    let input = StructArray::from_fields(&[(
+        "a",
+        PrimitiveArray::from_option_iter([None, Some(-3_i64), None, Some(2)]).into_array(),
+    )])
+    .unwrap()
+    .into_array();
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let mut outputs = Vec::new();
+            for expression in &expressions {
+                outputs.push(expression.evaluate_reusing(&input, context, &outputs)?);
+            }
+            assert!(ArrayRef::ptr_eq(&outputs[1], &outputs[2]));
+            let mut execution = context.native_session().create_execution_ctx();
+            for (row, value) in [7_i64, -6, 7, 4].into_iter().enumerate() {
+                assert_eq!(
+                    outputs[2].execute_scalar(row, &mut execution).unwrap(),
+                    Scalar::primitive(value, Nullability::Nullable),
+                );
+            }
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn expression_reuse_complete_lazy_results_preserve_branch_errors_and_cast_policy() {
+    let guarded = || {
+        Expression::new(
+            column("a").dtype,
+            Kind::Conditional(
+                Box::new(literal(false)),
+                Box::new(binary(column("a"), BinaryOp::Divide, literal(0_i64))),
+                Box::new(column("a")),
+            ),
+        )
+    };
+    let cast = |tolerant| {
+        Expression::new(
+            column("a").dtype,
+            Kind::Cast {
+                input: Box::new(column("a")),
+                tolerant,
+            },
+        )
+    };
+    assert_identical(&guarded(), &guarded(), true);
+    assert_identical(&cast(true), &cast(false), false);
+    let mut expressions = vec![guarded(), guarded()];
+    Expression::bind_projection_reuse(&mut expressions);
+    let input = StructArray::from_fields(&[(
+        "a",
+        PrimitiveArray::from_option_iter([Some(3_i64), None]).into_array(),
+    )])
+    .unwrap()
+    .into_array();
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let first = expressions[0].evaluate(&input, context)?;
+            let second =
+                expressions[1].evaluate_reusing(&input, context, std::slice::from_ref(&first))?;
+            assert!(ArrayRef::ptr_eq(&first, &second));
+            let unguarded = binary(column("a"), BinaryOp::Divide, literal(0_i64));
+            assert!(unguarded.evaluate(&input, context).is_err());
+            Ok(())
+        })
+        .unwrap();
 }
 
 #[test]

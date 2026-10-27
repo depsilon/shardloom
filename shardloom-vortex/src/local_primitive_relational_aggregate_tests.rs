@@ -1,4 +1,15 @@
 use super::*;
+
+#[path = "local_primitive_relational_distinct_additive_tests.rs"]
+mod distinct_additive_tests;
+#[path = "local_primitive_relational_grouping_tests.rs"]
+mod grouping_tests;
+#[path = "local_primitive_relational_quantile_tests.rs"]
+mod quantile_tests;
+#[path = "local_primitive_relational_ordered_selector_tests.rs"]
+mod selection_tests;
+#[path = "local_primitive_relational_statistical_tests.rs"]
+mod statistical_tests;
 use crate::{
     query_primitive::VortexSimpleAggregateMeasure as Measure,
     relational_query::{
@@ -32,6 +43,7 @@ fn aggregate(
             .iter()
             .map(|name| ColumnRef::new(*name).unwrap())
             .collect(),
+        grouping_sets: None,
         measures,
     }))
 }

@@ -7,8 +7,9 @@ use super::{
     records::{self, Kind, Values},
 };
 use crate::local_primitives::{
-    SimpleAggregateFunction as Aggregate,
     native_capacity::ReservedVec,
+    native_collection_ordinals,
+    native_relational_aggregate::Function as Aggregate,
     native_relational_records as private, native_relational_sort,
     native_relational_spill::Ordering,
     native_relational_window::{PeerRow, ranking_value},
@@ -128,11 +129,20 @@ pub(super) fn run<'s>(
             let mut peer = Peers::new(&peers, &layout.peers.names, rows, context)?;
             match frame.function {
                 frame::Function::Aggregate(
-                    Aggregate::CountDistinct | Aggregate::Min | Aggregate::Max,
+                    Aggregate::CountDistinct
+                    | Aggregate::SumDistinct
+                    | Aggregate::AvgDistinct
+                    | Aggregate::Min
+                    | Aggregate::Max
+                    | Aggregate::First
+                    | Aggregate::Last
+                    | Aggregate::ArgMin
+                    | Aggregate::ArgMax,
                 ) => {
                     let bounds =
                         bounds::build(frame, input, &mut peer, spill, context, limit, report)?;
-                    if frame.function == frame::Function::Aggregate(Aggregate::CountDistinct) {
+                    if matches!(frame.function, frame::Function::Aggregate(function) if function.is_distinct())
+                    {
                         distinct::run(
                             frame,
                             layout,
@@ -353,7 +363,22 @@ fn assemble(
                 &kind.dtype(),
                 context,
             )?;
-            let values = if matches!(kind, Kind::Source) {
+            let values = if matches!(kind, Kind::Sources) {
+                native_collection_ordinals::map(
+                    &values,
+                    |position| {
+                        if position >= rows {
+                            return Err(failed("selected window position exceeds its partition"));
+                        }
+                        input.lookup.unsigned(
+                            input.range.start + position,
+                            spec.keys.len(),
+                            context,
+                        )
+                    },
+                    context,
+                )?
+            } else if matches!(kind, Kind::Source) {
                 let mut execution = context.native_session().create_execution_ctx();
                 let values = values
                     .execute::<PrimitiveArray>(&mut execution)

@@ -22,7 +22,7 @@ from importlib import import_module
 __all__ = [
     "ExecutionResources", "Expression", "Relation", "Session", "Source", "Plan",
     "Result", "ColumnarStream", "ExecutionStream", "ColumnarBatch", "col", "lit",
-    "FrameOffset", "WindowFrame", "WindowExpression",
+    "AggregateMeasure", "FrameOffset", "WindowFrame", "WindowExpression",
 ]
 
 

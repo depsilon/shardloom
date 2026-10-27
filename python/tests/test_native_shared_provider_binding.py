@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from fractions import Fraction
 import json
 import os
 from pathlib import Path
@@ -47,6 +48,32 @@ def typed_unary(source, kind):
         }))
     assert kind == "explode"
     return source.unary("explode", '{"column":"items"}')
+
+
+def statistical_reference(rows):
+    """Independent exact rational moments before the public Float64 boundary."""
+    from fractions import Fraction
+    import math
+    numbers = [Fraction(row["number"]) for row in rows if row["number"] is not None]
+    pairs = [(Fraction(row["number"]), Fraction(row["paired"])) for row in rows
+             if row["number"] is not None and row["paired"] is not None]
+    mean = sum(numbers) / len(numbers) if numbers else Fraction(0)
+    total = sum((value - mean) ** 2 for value in numbers)
+    population = float(total / len(numbers)) if numbers else None
+    sample = float(total / (len(numbers) - 1)) if len(numbers) > 1 else None
+    mx = sum(x for x, _ in pairs) / len(pairs) if pairs else Fraction(0)
+    my = sum(y for _, y in pairs) / len(pairs) if pairs else Fraction(0)
+    cross = sum((x - mx) * (y - my) for x, y in pairs)
+    xx = sum((x - mx) ** 2 for x, _ in pairs)
+    yy = sum((y - my) ** 2 for _, y in pairs)
+    return {
+        "var_pop": population, "var_samp": sample,
+        "stddev_pop": math.sqrt(population) if population is not None else None,
+        "stddev_samp": math.sqrt(sample) if sample is not None else None,
+        "covar_pop": float(cross / len(pairs)) if pairs else None,
+        "covar_samp": float(cross / (len(pairs) - 1)) if len(pairs) > 1 else None,
+        "corr": float(cross) / math.sqrt(float(xx * yy)) if xx and yy else None,
+    }
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
@@ -107,6 +134,990 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             finally:
                 cli.close()
         return tables
+
+    def test_grouping_sets_match_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{"id": i, "fund": ["A", "A", "B", None][i % 4],
+                 "currency": ["USD", "EUR", "JPY"][i % 3], "value": i % 7,
+                 "keep": None if i % 5 == 0 else i % 2 == 0, "unused": "not requested"}
+                for i in range(19)]
+        schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+            pa.field("fund", pa.string()), pa.field("currency", pa.string(), nullable=False),
+            pa.field("value", pa.uint64(), nullable=False), pa.field("keep", pa.bool_()),
+            pa.field("unused", pa.string(), nullable=False)])
+        expected_schema = pa.schema([pa.field("fund", pa.string()), pa.field("currency", pa.string()),
+            pa.field("mask", pa.uint64(), nullable=False), pa.field("n", pa.uint64(), nullable=False),
+            pa.field("observed", pa.uint64(), nullable=False), pa.field("total", pa.float64()),
+            pa.field("variance", pa.float64()), pa.field("items", pa.list_(pa.field("item", pa.uint64(), nullable=False)))])
+
+        def reference(sets, empty):
+            result = []
+            for keys in sets:
+                groups = {(): []} if not keys else {}
+                for row in ([] if empty else rows):
+                    groups.setdefault(tuple(row[key] for key in keys), []).append(row)
+                for key, values in groups.items():
+                    group = dict(zip(keys, key))
+                    chosen = [row["value"] for row in reversed(values) if row["keep"] is True]
+                    mean = Fraction(sum(chosen), len(chosen)) if chosen else Fraction(0)
+                    variance = float(sum((Fraction(value) - mean) ** 2 for value in chosen) / len(chosen)) if chosen else None
+                    result.append({"fund": group.get("fund"), "currency": group.get("currency"),
+                        "mask": (2 if "fund" not in keys else 0) + (1 if "currency" not in keys else 0),
+                        "n": len(values), "observed": sum(row["fund"] is not None for row in values),
+                        "total": float(sum(chosen)) if chosen else None, "variance": variance,
+                        "items": chosen or None})
+            return sorted(result, key=lambda row: (row["mask"], row["fund"] is None, row["fund"] or "",
+                                                   row["currency"] is None, row["currency"] or ""))
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-grouping-sets-") as directory:
+            table = pa.Table.from_pylist(rows, schema=schema)
+            for fmt in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{fmt}"
+                if fmt == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://grouping-sets"),
+                        sources=[("memory://grouping-sets", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=2)
+                read = sl.read_vortex if fmt == "vortex" else sl.read_parquet
+                full, fund, currency, total = ["fund", "currency"], ["fund"], ["currency"], []
+                cases = [("sets", [full, fund, total, fund], False),
+                         ("rollup", [full, fund, total], False),
+                         ("cube", [full, fund, currency, total], False),
+                         ("distinct", [full, fund, total], False),
+                         ("empty", [full, total, total], True)]
+                for kind, sets, empty in cases:
+                    base = read(path, client=client)
+                    typed = native.Relation.scan(str(path))
+                    if empty:
+                        base = base.filter(f.col("id") < 0)
+                        typed = typed.filter(native.Expression.column("id") < native.Expression.literal(0))
+                    if kind in {"rollup", "cube"}:
+                        grouped = getattr(base, kind)("fund", "currency")
+                        clause = f"{kind.upper()}(fund,currency)"
+                    else:
+                        declared_sets = [full, fund, total, fund] if kind == "distinct" else sets
+                        grouped = base.grouping_sets(*declared_sets, distinct=kind == "distinct")
+                        clause = ("DISTINCT " if kind == "distinct" else "") + "GROUPING SETS(" + ",".join("(" + ",".join(keys) + ")" for keys in declared_sets) + ")"
+                    frame = grouped.agg(mask=f.grouping_id("fund", "currency"), n=f.count(),
+                        observed=f.count("fund"), total=f.sum("value").filter(f.col("keep")),
+                        variance=f.var_pop("value").filter(f.col("keep")),
+                        items=f.list("value", order_by=[("id", True, "last")]).filter(f.col("keep")))
+                    frame = frame.sort("mask", "fund", "currency", nulls="last")
+                    relation = typed.aggregate(["fund", "currency"], [
+                        native.AggregateMeasure("count", None, "n"), native.AggregateMeasure("count", "fund", "observed"),
+                        native.AggregateMeasure("sum", "value", "total", filter_column="keep"),
+                        native.AggregateMeasure("var_pop", "value", "variance", filter_column="keep"),
+                        native.AggregateMeasure("list", "value", "items", filter_column="keep", order_by=[("id", True, "last")])],
+                        grouping_sets=sets, grouping_indicators=[("mask", ["fund", "currency"])])
+                    relation = relation.sort([(name, False, "last") for name in ("mask", "fund", "currency")])
+                    sql = ("SELECT fund,currency,GROUPING_ID(fund,currency) AS mask,COUNT(*) AS n,COUNT(fund) AS observed,"
+                           "SUM(value) FILTER (WHERE keep) AS total,VAR_POP(value) FILTER (WHERE keep) AS variance,"
+                           f"LIST(value ORDER BY id DESC NULLS LAST) FILTER (WHERE keep) AS items FROM '{path}'"
+                           + (" WHERE id < 0" if empty else "") + f" GROUP BY {clause} ORDER BY mask,fund NULLS LAST,currency NULLS LAST")
+                    wanted = pa.Table.from_pylist(reference(sets, empty), schema=expected_schema)
+                    demand = {"native_source_demand_projected_columns": "5", "native_source_demand_available_columns": "6"} if fmt == "parquet" else None
+                    for actual in self.all_surfaces(frame, relation, sql, demand):
+                        self.assertEqual(actual.schema, wanted.schema)
+                        self.assertEqual(actual.num_rows, wanted.num_rows)
+                        for got, expected in zip(actual.to_pylist(), wanted.to_pylist()):
+                            if expected["variance"] is not None:
+                                self.assertAlmostEqual(got["variance"], expected["variance"], delta=2e-12 * max(1, abs(expected["variance"])))
+                                got["variance"] = expected["variance"]
+                            self.assertEqual(got, expected, (fmt, kind))
+
+    def test_aggregate_filters_match_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        values = [None, 1, 1, 3, 5, 8, None, 9, None, None, 0, 1]
+        texts = ["z", None, "東京", "", "a", "b", None, "b", None, None, "", ""]
+        local_order = [3, 2, 1, None, 1, 2, 0, 2, 0, 1, None, 0]
+        keep = [True, True, False, True, None, False, None, False, True, False, None, True]
+        other = [False, False, True, False, True, True, False, False, False, False, True, False]
+        rows = [{"id": i, "fund": "A" if i < 5 else "B" if i < 8 else "C" if i < 10 else "D",
+                 "value": values[i], "text": texts[i], "local_order": local_order[i],
+                 "keep": keep[i], "other": other[i], "unused": "not requested"}
+                for i in range(12)]
+        schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+            pa.field("fund", pa.string(), nullable=False), pa.field("value", pa.uint64()),
+            pa.field("text", pa.string()), pa.field("local_order", pa.int32()),
+            pa.field("keep", pa.bool_()), pa.field("other", pa.bool_()),
+            pa.field("unused", pa.string(), nullable=False)])
+
+        def reference(selected, predicate):
+            chosen = [r for r in selected if r[predicate] is True]
+            nums = [Fraction(r["value"]) for r in chosen if r["value"] is not None]
+            if nums:
+                mean = sum(nums, Fraction(0)) / len(nums)
+                variance = float(sum(((n - mean) ** 2 for n in nums), Fraction(0)) / len(nums))
+                ordered = sorted(nums)
+                mid = Fraction(len(ordered) - 1, 2)
+                lo = mid.numerator // mid.denominator
+                median = float(ordered[lo] if lo == mid else (ordered[lo] + ordered[lo + 1]) / 2)
+                total = float(sum(set(nums), Fraction(0)))
+            else:
+                variance = median = total = None
+            ordered_rows = sorted(chosen, key=lambda r: (r["local_order"] is None,
+                -(r["local_order"] or 0), r["id"]))
+            observed_text = [r["text"] for r in ordered_rows if r["text"] is not None]
+            return {"n": len(chosen), "total": total, "variance": variance,
+                "median": median, "items": [r["value"] for r in ordered_rows] if chosen else None,
+                "joined": "|".join(observed_text) if observed_text else None}
+
+        def close(actual, expected):
+            self.assertEqual(actual.column_names, expected.column_names)
+            self.assertEqual(actual.schema, expected.schema)
+            self.assertEqual(actual.num_rows, expected.num_rows)
+            for got, wanted in zip(actual.to_pylist(), expected.to_pylist()):
+                self.assertEqual(got.keys(), wanted.keys())
+                for key in got:
+                    if key in {"total", "variance", "other_variance", "median", "other_median"} and got[key] is not None:
+                        self.assertAlmostEqual(got[key], wanted[key], delta=2e-12 * max(1.0, abs(wanted[key])))
+                    else:
+                        self.assertEqual(got[key], wanted[key], key)
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-aggregate-filters-") as directory:
+            table = pa.Table.from_pylist(rows, schema=schema)
+            for fmt in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{fmt}"
+                if fmt == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://aggregate-filters"),
+                        sources=[("memory://aggregate-filters", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=1)
+                read = sl.read_vortex if fmt == "vortex" else sl.read_parquet
+                measures = [
+                    f.count().filter(f.col("keep")).alias("n"),
+                    f.sum("value", distinct=True).filter(f.col("keep")).alias("total"),
+                    f.var_pop("value").filter(f.col("keep")).alias("variance"),
+                    f.var_pop("value").filter(f.col("other")).alias("other_variance"),
+                    f.median("value").filter(f.col("keep")).alias("median"),
+                    f.median("value").filter(f.col("other")).alias("other_median"),
+                    f.list("value", order_by=[("local_order", True, "last")]).filter(f.col("keep")).alias("items"),
+                    f.string_agg("text", "|", order_by=[("local_order", True, "last")]).filter(f.col("keep")).alias("joined"),
+                ]
+                frame = read(path, client=client).group_by("fund").agg(*measures).sort("fund")
+                typed_measures = [native.AggregateMeasure("count", None, "n", filter_column="keep"),
+                    native.AggregateMeasure("sum_distinct", "value", "total", filter_column="keep"),
+                    native.AggregateMeasure("var_pop", "value", "variance", filter_column="keep"),
+                    native.AggregateMeasure("var_pop", "value", "other_variance", filter_column="other"),
+                    native.AggregateMeasure("median", "value", "median", filter_column="keep"),
+                    native.AggregateMeasure("median", "value", "other_median", filter_column="other"),
+                    native.AggregateMeasure("list", "value", "items", filter_column="keep", order_by=[("local_order", True, "last")]),
+                    native.AggregateMeasure("string_agg", "text", "joined", separator="|", filter_column="keep", order_by=[("local_order", True, "last")])]
+                relation = native.Relation.scan(str(path)).aggregate(["fund"], typed_measures).sort([("fund", False, None)])
+                agg = "COUNT(*) FILTER (WHERE keep) AS n,SUM(DISTINCT value) FILTER (WHERE keep) AS total,VAR_POP(value) FILTER (WHERE keep) AS variance,VAR_POP(value) FILTER (WHERE other) AS other_variance,MEDIAN(value) FILTER (WHERE keep) AS median,MEDIAN(value) FILTER (WHERE other) AS other_median,LIST(value ORDER BY local_order DESC NULLS LAST) FILTER (WHERE keep) AS items,STRING_AGG(text, '|' ORDER BY local_order DESC NULLS LAST) FILTER (WHERE keep) AS joined"
+                sql = f"SELECT fund,{agg} FROM '{path}' GROUP BY fund ORDER BY fund"
+                expected_rows = [{"fund": fund, **reference([r for r in rows if r["fund"] == fund], "keep"),
+                    "other_variance": reference([r for r in rows if r["fund"] == fund], "other")["variance"],
+                    "other_median": reference([r for r in rows if r["fund"] == fund], "other")["median"]}
+                    for fund in ("A", "B", "C", "D")]
+                expected_schema = pa.schema([pa.field("fund", pa.string(), nullable=False),
+                    pa.field("n", pa.uint64(), nullable=False), pa.field("total", pa.float64()),
+                    pa.field("variance", pa.float64()), pa.field("other_variance", pa.float64()),
+                    pa.field("median", pa.float64()), pa.field("other_median", pa.float64()),
+                    pa.field("items", pa.list_(pa.field("item", pa.uint64(), nullable=True))),
+                    pa.field("joined", pa.string())])
+                expected_table = pa.Table.from_pylist(expected_rows, schema=expected_schema)
+                group_demand = {"native_source_demand_projected_columns": "6",
+                                "native_source_demand_available_columns": "8"} if fmt == "parquet" else None
+                for actual in self.all_surfaces(frame, relation, sql, group_demand):
+                    close(actual, expected_table)
+
+                # Typed descriptor construction is exercised independently from SQL parsing.
+                with self.assertRaises(ValueError):
+                    native.WindowExpression("row_number", "bad", filter_column="keep")
+
+                spec = sl.Window.partition_by("fund").order_by("id").rows_between(-1, 1)
+                window_frame = native.WindowFrame("rows", ("preceding", native.FrameOffset.number(
+                    native.Expression.literal(1))), ("following", native.FrameOffset.number(
+                    native.Expression.literal(1))))
+                window_exprs = [
+                    f.count().filter(f.col("keep")).over(spec).alias("n"),
+                    f.sum("value", distinct=True).filter(f.col("keep")).over(spec).alias("total"),
+                    f.var_pop("value").filter(f.col("keep")).over(spec).alias("variance"),
+                    f.var_pop("value").filter(f.col("other")).over(spec).alias("other_variance"),
+                    f.median("value").filter(f.col("keep")).over(spec).alias("median"),
+                    f.median("value").filter(f.col("other")).over(spec).alias("other_median"),
+                    f.list("value", order_by=[("local_order", True, "last")]).filter(f.col("keep")).over(spec).alias("items"),
+                    f.string_agg("text", "|", order_by=[("local_order", True, "last")]).filter(f.col("keep")).over(spec).alias("joined"),
+                ]
+                typed_windows = [
+                    native.WindowExpression("count_all", "n", filter_column="keep", partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("sum_distinct", "total", source_column="value", filter_column="keep",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("var_pop", "variance", source_column="value", filter_column="keep",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("var_pop", "other_variance", source_column="value", filter_column="other",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("median", "median", source_column="value", filter_column="keep",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("median", "other_median", source_column="value", filter_column="other",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("list", "items", source_column="value", filter_column="keep",
+                        aggregate_order_by=[("local_order", True, "last")], partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("string_agg", "joined", source_column="text", separator="|",
+                        filter_column="keep", aggregate_order_by=[("local_order", True, "last")],
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                ]
+                window_relation = native.Relation.scan(str(path)).window(["id", "fund"], typed_windows).sort([("id", False, None)])
+                over = " OVER (PARTITION BY fund ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)"
+                window_sql = (f"SELECT id,fund,COUNT(*) FILTER (WHERE keep){over} AS n,"
+                    f"SUM(DISTINCT value) FILTER (WHERE keep){over} AS total,"
+                    f"VAR_POP(value) FILTER (WHERE keep){over} AS variance,"
+                    f"VAR_POP(value) FILTER (WHERE other){over} AS other_variance,"
+                    f"MEDIAN(value) FILTER (WHERE keep){over} AS median,"
+                    f"MEDIAN(value) FILTER (WHERE other){over} AS other_median,"
+                    f"LIST(value ORDER BY local_order DESC NULLS LAST) FILTER (WHERE keep){over} AS items,"
+                    f"STRING_AGG(text, '|' ORDER BY local_order DESC NULLS LAST) FILTER (WHERE keep){over} AS joined "
+                    f"FROM '{path}' ORDER BY id")
+                window_frame_api = read(path, client=client).select("id", "fund", *window_exprs).sort("id")
+                window_schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+                    pa.field("fund", pa.string(), nullable=False), pa.field("n", pa.uint64(), nullable=False),
+                    pa.field("total", pa.float64()), pa.field("variance", pa.float64()),
+                    pa.field("other_variance", pa.float64()), pa.field("median", pa.float64()),
+                    pa.field("other_median", pa.float64()),
+                    pa.field("items", pa.list_(pa.field("item", pa.uint64(), nullable=True))),
+                    pa.field("joined", pa.string())])
+                expected_window = []
+                for row in rows:
+                    selected = [r for r in rows if r["fund"] == row["fund"] and abs(r["id"] - row["id"]) <= 1]
+                    a, b = reference(selected, "keep"), reference(selected, "other")
+                    expected_window.append({"id": row["id"], "fund": row["fund"], "n": a["n"],
+                        "total": a["total"], "variance": a["variance"], "other_variance": b["variance"],
+                        "median": a["median"], "other_median": b["median"], "items": a["items"],
+                        "joined": a["joined"]})
+                expected_window_table = pa.Table.from_pylist(expected_window, schema=window_schema)
+                window_demand = {"native_source_demand_projected_columns": "7",
+                                 "native_source_demand_available_columns": "8"} if fmt == "parquet" else None
+                for actual in self.all_surfaces(window_frame_api, window_relation, window_sql, window_demand):
+                    close(actual, expected_window_table)
+
+                empty_frame = read(path, client=client).filter(sl.col("id") < 0).agg(
+                    n=f.count().filter(f.col("keep")),
+                    items=f.list("value").filter(f.col("keep")))
+                empty_relation = native.Relation.scan(str(path)).filter(
+                    native.Expression.column("id") < native.Expression.literal(0)).aggregate([], [
+                        native.AggregateMeasure("count", None, "n", filter_column="keep"),
+                        native.AggregateMeasure("list", "value", "items", filter_column="keep")])
+                empty_sql = f"SELECT COUNT(*) FILTER (WHERE keep) AS n,LIST(value) FILTER (WHERE keep) AS items FROM '{path}' WHERE id < 0"
+                for actual in self.all_surfaces(empty_frame, empty_relation, empty_sql):
+                    self.assertEqual(actual.column_names, ["n", "items"])
+                    self.assertEqual(actual.to_pylist(), [{"n": 0, "items": None}])
+
+    def test_statistical_reductions_match_exact_reference_on_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        a, b = 1 << 60, -(1 << 59)
+        values = [(0, a + 1, b + 2), (0, a + 2, b + 1), (0, a + 3, b + 4),
+                  (0, a + 4, b + 3), (0, None, b + 100), (0, a + 99, None),
+                  (1, None, b), (1, None, None), (2, a, b),
+                  (3, a + 7, b), (3, a + 7, b + 1)]
+        rows = [{"fund": group, "number": x, "paired": y, "unused": "unrequested payload"}
+                for group, x, y in values]
+        schema = pa.schema([pa.field("fund", pa.uint8(), nullable=False),
+                            pa.field("number", pa.uint64()), pa.field("paired", pa.int64()),
+                            pa.field("unused", pa.string(), nullable=False)])
+        table = pa.Table.from_pylist(rows, schema=schema)
+        expected = [{"fund": group, **statistical_reference([row for row in rows if row["fund"] == group])}
+                    for group in range(4)]
+        names = tuple(name for name in expected[0] if name != "fund")
+        with tempfile.TemporaryDirectory(prefix="shardloom-statistical-surfaces-") as directory:
+            for format in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{format}"
+                if format == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://statistics"),
+                                 sources=[("memory://statistics", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=3)
+                read = sl.read_vortex if format == "vortex" else sl.read_parquet
+                frame = read(path, client=client).group_by("fund").agg(
+                    var_pop=f.var_pop("number"), var_samp=f.variance("number"),
+                    stddev_pop=f.stddev_pop("number"), stddev_samp=f.std("number"),
+                    covar_pop=f.covar_pop("number", "paired"),
+                    covar_samp=f.covar_samp("number", "paired"), corr=f.corr("number", "paired"),
+                ).sort("fund")
+                measures = [(name, "number", name) for name in names[:4]] + [
+                    sl.native.AggregateMeasure(name, "number", name, secondary_column="paired")
+                    for name in names[4:]]
+                relation = native.Relation.scan(str(path)).aggregate(["fund"], measures).sort([("fund", False, None)])
+                projection = ",".join(f"{name.upper()}(number{',paired' if name in names[4:] else ''}) AS {name}"
+                                      for name in names)
+                statement = f"SELECT fund,{projection} FROM '{path}' GROUP BY fund ORDER BY fund"
+                for surface, actual in zip(("dataframe", "typed", "python_sql", "workflow", "cli_sql"),
+                                           self.all_surfaces(frame, relation, statement)):
+                    with self.subTest(format=format, surface=surface):
+                        self.assertEqual(actual.column_names, ["fund", *names])
+                        for name in names:
+                            self.assertEqual(actual.schema.field(name).type, pa.float64())
+                            self.assertTrue(actual.schema.field(name).nullable)
+                        self.assertEqual(actual.num_rows, len(expected))
+                        for observed, reference in zip(actual.to_pylist(), expected):
+                            self.assertEqual(observed["fund"], reference["fund"])
+                            for name in names:
+                                if reference[name] is None:
+                                    self.assertIsNone(observed[name], name)
+                                else:
+                                    self.assertAlmostEqual(observed[name], reference[name],
+                                        delta=1e-12 * max(1.0, abs(reference[name])), msg=name)
+
+    def test_statistical_windows_match_exact_frames_on_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{"id": index, "fund": index // 3,
+                 "number": None if x is None else (1 << 60) + x, "paired": y}
+                for index, (x, y) in enumerate([(1, 4), (3, None), (5, 8), (2, 9), (None, 10), (6, 7)])]
+        schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+                            pa.field("fund", pa.uint8(), nullable=False),
+                            pa.field("number", pa.uint64()), pa.field("paired", pa.int64())])
+        names = tuple(statistical_reference(rows))
+        with tempfile.TemporaryDirectory(prefix="shardloom-statistical-windows-") as directory:
+            for format in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{format}"
+                table = pa.Table.from_pylist(rows, schema=schema)
+                if format == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://windows"),
+                                 sources=[("memory://windows", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=2)
+                for exclusion in ("no_others", "current_row"):
+                    spec = sl.Window.partition_by("fund").order_by("id").rows_between(-1, 0).exclude(exclusion)
+                    expressions = [(getattr(f, name)("number", "paired") if name in names[4:]
+                                    else getattr(f, name)("number")).over(spec).alias(name) for name in names]
+                    read = sl.read_vortex if format == "vortex" else sl.read_parquet
+                    frame = read(path, client=client).select("id", *expressions).sort("id")
+                    typed_frame = native.WindowFrame("rows", ("preceding", native.FrameOffset.number(
+                        native.Expression.literal(1))), ("current_row", None), exclusion=exclusion)
+                    relation = native.Relation.scan(str(path)).window(["id"], [
+                        native.WindowExpression(name, name, source_column="number",
+                            secondary_column="paired" if name in names[4:] else None,
+                            partition_by=["fund"], order_by=[("id", False, None)], frame=typed_frame)
+                        for name in names]).sort([("id", False, None)])
+                    projection = ",".join(str(expression) for expression in expressions)
+                    statement = f"SELECT id,{projection} FROM '{path}' ORDER BY id"
+                    expected = [{"id": row["id"], **statistical_reference([
+                        other for other in rows if other["fund"] == row["fund"]
+                        and row["id"] - 1 <= other["id"] <= row["id"]
+                        and (exclusion == "no_others" or other["id"] != row["id"])])} for row in rows]
+                    for surface, actual in zip(("dataframe", "typed", "python_sql", "workflow", "cli_sql"),
+                                               self.all_surfaces(frame, relation, statement)):
+                        with self.subTest(format=format, exclusion=exclusion, surface=surface):
+                            self.assertEqual(actual.column_names, ["id", *names])
+                            self.assertEqual(actual.num_rows, len(expected))
+                            for name in names:
+                                self.assertEqual(actual.schema.field(name).type, pa.float64())
+                                self.assertTrue(actual.schema.field(name).nullable)
+                            for observed, reference in zip(actual.to_pylist(), expected):
+                                self.assertEqual(observed["id"], reference["id"])
+                                for name in names:
+                                    if reference[name] is None:
+                                        self.assertIsNone(observed[name], name)
+                                    else:
+                                        self.assertAlmostEqual(observed[name], reference[name], places=12, msg=name)
+
+    def test_statistical_scaled_results_match_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        deltas = (1e-200, 2.0**1000, 2.0**-500)
+        paired_deltas = (-1e-200, 2.0**-1000, 2.0**-572)
+        rows = []
+        for fund, (number, paired) in enumerate(zip(deltas, paired_deltas)):
+            rows.extend([
+                {"id": 2 * fund, "fund": fund, "number": 0.0, "paired": 0.0},
+                {"id": 2 * fund + 1, "fund": fund, "number": number, "paired": paired},
+            ])
+        schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+                            pa.field("fund", pa.uint8(), nullable=False),
+                            pa.field("number", pa.float64()), pa.field("paired", pa.float64())])
+        grouped_expected = []
+        for fund, (number, paired) in enumerate(zip(deltas, paired_deltas)):
+            grouped_expected.append({
+                "fund": fund,
+                "deviation": abs(number) / 2,
+                "covariance": float(Fraction.from_float(number) * Fraction.from_float(paired) / 4),
+                "correlation": -1.0 if fund == 0 else 1.0,
+            })
+        output_names = ("deviation", "covariance", "correlation")
+
+        def compare_number(actual, expected, name):
+            if expected is None:
+                self.assertIsNone(actual, name)
+            elif expected == 0:
+                self.assertEqual(actual, expected, name)
+            else:
+                self.assertLessEqual(abs(actual / expected - 1.0), 1e-12, name)
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-statistical-scaled-") as directory:
+            table = pa.Table.from_pylist(rows, schema=schema)
+            for format in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{format}"
+                if format == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://scaled-statistics"),
+                                 sources=[("memory://scaled-statistics", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=1)
+                read = sl.read_vortex if format == "vortex" else sl.read_parquet
+                frame = read(path, client=client).group_by("fund").agg(
+                    deviation=f.stddev_pop("number"),
+                    covariance=f.covar_pop("number", "paired"),
+                    correlation=f.corr("number", "paired"),
+                ).sort("fund")
+                measures = [
+                    ("stddev_pop", "number", "deviation"),
+                    sl.native.AggregateMeasure("covar_pop", "number", "covariance",
+                                               secondary_column="paired"),
+                    sl.native.AggregateMeasure("corr", "number", "correlation",
+                                               secondary_column="paired"),
+                ]
+                relation = native.Relation.scan(str(path)).aggregate(["fund"], measures).sort(
+                    [("fund", False, None)])
+                statement = (f"SELECT fund,STDDEV_POP(number) AS deviation,"
+                             f"COVAR_POP(number,paired) AS covariance,CORR(number,paired) AS correlation "
+                             f"FROM '{path}' GROUP BY fund ORDER BY fund")
+                for surface, actual in zip(("dataframe", "typed", "python_sql", "workflow", "cli_sql"),
+                                           self.all_surfaces(frame, relation, statement)):
+                    with self.subTest(format=format, surface=surface, operation="grouped"):
+                        self.assertEqual(actual.column_names, ["fund", *output_names])
+                        self.assertEqual(actual.num_rows, len(grouped_expected))
+                        for name in output_names:
+                            self.assertEqual(actual.schema.field(name).type, pa.float64())
+                            self.assertTrue(actual.schema.field(name).nullable)
+                        for observed, expected in zip(actual.to_pylist(), grouped_expected):
+                            self.assertEqual(observed["fund"], expected["fund"])
+                            for name in output_names:
+                                compare_number(observed[name], expected[name], name)
+
+                spec = sl.Window.partition_by("fund").order_by("id").rows_between(-1, 0)
+                expressions = [f.stddev_pop("number").over(spec).alias("deviation"),
+                               f.covar_pop("number", "paired").over(spec).alias("covariance"),
+                               f.corr("number", "paired").over(spec).alias("correlation")]
+                frame = read(path, client=client).select("id", "fund", *expressions).sort("id")
+                typed_frame = native.WindowFrame("rows", ("preceding", native.FrameOffset.number(
+                    native.Expression.literal(1))), ("current_row", None))
+                relation = native.Relation.scan(str(path)).window(["id", "fund"], [
+                    native.WindowExpression("stddev_pop", "deviation", source_column="number",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=typed_frame),
+                    native.WindowExpression("covar_pop", "covariance", source_column="number",
+                        secondary_column="paired", partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=typed_frame),
+                    native.WindowExpression("corr", "correlation", source_column="number",
+                        secondary_column="paired", partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=typed_frame),
+                ]).sort([("id", False, None)])
+                statement = (f"SELECT id,fund,{','.join(map(str, expressions))} "
+                             f"FROM '{path}' ORDER BY id")
+                expected_windows = []
+                for fund in range(len(deltas)):
+                    expected_windows.extend([
+                        {"id": 2 * fund, "fund": fund, "deviation": 0.0,
+                         "covariance": 0.0, "correlation": None},
+                        {"id": 2 * fund + 1, "fund": fund, **grouped_expected[fund]},
+                    ])
+                for surface, actual in zip(("dataframe", "typed", "python_sql", "workflow", "cli_sql"),
+                                           self.all_surfaces(frame, relation, statement)):
+                    with self.subTest(format=format, surface=surface, operation="window"):
+                        self.assertEqual(actual.column_names, ["id", "fund", *output_names])
+                        self.assertEqual(actual.num_rows, len(expected_windows))
+                        for name in output_names:
+                            self.assertEqual(actual.schema.field(name).type, pa.float64())
+                            self.assertTrue(actual.schema.field(name).nullable)
+                        for observed, expected in zip(actual.to_pylist(), expected_windows):
+                            self.assertEqual(observed["id"], expected["id"])
+                            self.assertEqual(observed["fund"], expected["fund"])
+                            for name in output_names:
+                                compare_number(observed[name], expected[name], name)
+
+    def test_distinct_additive_grouped_and_windows_match_all_five_surfaces(self):
+        from decimal import Decimal
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        for helper in (f.sum, f.avg, f.mean):
+            with self.assertRaises(TypeError):
+                helper("value", distinct=1)
+        with tempfile.TemporaryDirectory(prefix="shardloom-distinct-additive-") as directory:
+            for decimal in (False, True):
+                rows = [{"id": index, "fund": 0 if index < 6 else 1 if index < 8 else 2,
+                         "value": None if value is None else Decimal(value) / 100 if decimal else value}
+                        for index, value in enumerate((3, 3, -3, 3, None, -3, 12, 12, None))]
+                schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+                                    pa.field("fund", pa.uint8(), nullable=False),
+                                    pa.field("value", pa.decimal128(10, 2) if decimal else pa.int64())])
+                def reference(selected):
+                    values = {row["value"] for row in selected if row["value"] is not None}
+                    total = sum(values) if values else None
+                    average = total / len(values) if values else None
+                    if not decimal and total is not None:
+                        total, average = float(total), float(average)
+                    return {"total": total, "average": average, "distinct": len(values)}
+                for format in ("vortex", "parquet"):
+                    path = Path(directory) / f"input-{decimal}.{format}"
+                    table = pa.Table.from_pylist(rows, schema=schema)
+                    if format == "vortex":
+                        source = session.from_arrow(table)
+                        session.plan(native.Relation.scan("memory://distinct"),
+                                     sources=[("memory://distinct", source)]).write(path, "write_vortex")
+                    else:
+                        parquet.write_table(table, path, row_group_size=2)
+                    read = sl.read_vortex if format == "vortex" else sl.read_parquet
+                    frame = read(path, client=client).group_by("fund").agg(
+                        total=f.sum("value", distinct=True), average=f.mean_distinct("value"),
+                        distinct=f.count_distinct("value")).sort("fund")
+                    relation = native.Relation.scan(str(path)).aggregate(["fund"], [
+                        ("sum_distinct", "value", "total"), ("avg_distinct", "value", "average"),
+                        ("count_distinct", "value", "distinct")]).sort([("fund", False, None)])
+                    statement = (f"SELECT fund,SUM(DISTINCT value) AS total,AVG(DISTINCT value) AS average,"
+                                 f"COUNT(DISTINCT value) AS distinct FROM '{path}' GROUP BY fund ORDER BY fund")
+                    expected = [{"fund": group, **reference([row for row in rows if row["fund"] == group])}
+                                for group in range(3)]
+                    for actual in self.all_surfaces(frame, relation, statement):
+                        with self.subTest(decimal=decimal, format=format, operation="grouped"):
+                            self.assertEqual(actual.to_pylist(), expected)
+                            self.assertEqual(actual.schema.field("total").type, pa.decimal128(38, 2) if decimal else pa.float64())
+                            self.assertEqual(actual.schema.field("average").type, pa.decimal128(38, 6) if decimal else pa.float64())
+                    spec = sl.Window.partition_by("fund").order_by("id").rows_between(-2, 0)
+                    expressions = [f.sum_distinct("value").over(spec).alias("total"),
+                                   f.avg("value", distinct=True).over(spec).alias("average"),
+                                   f.count_distinct("value").over(spec).alias("distinct")]
+                    frame = read(path, client=client).select("id", *expressions).sort("id")
+                    typed_frame = native.WindowFrame("rows", ("preceding", native.FrameOffset.number(
+                        native.Expression.literal(2))), ("current_row", None))
+                    relation = native.Relation.scan(str(path)).window(["id"], [
+                        native.WindowExpression(name, alias, source_column="value", partition_by=["fund"],
+                            order_by=[("id", False, None)], frame=typed_frame)
+                        for name, alias in (("sum_distinct", "total"), ("avg_distinct", "average"),
+                                            ("count_distinct", "distinct"))]).sort([("id", False, None)])
+                    statement = f"SELECT id,{','.join(map(str, expressions))} FROM '{path}' ORDER BY id"
+                    expected = [{"id": row["id"], **reference([other for other in rows
+                        if other["fund"] == row["fund"] and row["id"] - 2 <= other["id"] <= row["id"]])}
+                        for row in rows]
+                    for actual in self.all_surfaces(frame, relation, statement):
+                        with self.subTest(decimal=decimal, format=format, operation="window"):
+                            self.assertEqual(actual.to_pylist(), expected)
+                            self.assertEqual(actual.schema.field("total").type, pa.decimal128(38, 2) if decimal else pa.float64())
+                            self.assertEqual(actual.schema.field("average").type, pa.decimal128(38, 6) if decimal else pa.float64())
+
+    def test_exact_quantiles_match_all_five_surfaces(self):
+        import math
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        with self.assertRaises(TypeError):
+            f.quantile_cont("number", True)
+        for level in (math.nan, math.inf, -0.1, 1.1):
+            with self.subTest(level=level), self.assertRaises(ValueError):
+                f.quantile_disc("number", level)
+        for function, level, error in (("quantile_cont", True, TypeError),
+                                       ("quantile_disc", math.nan, ValueError),
+                                       ("quantile_cont", -0.1, ValueError),
+                                       ("quantile_disc", 1.1, ValueError),
+                                       ("median", 0.5, ValueError),
+                                       ("sum", 0.5, ValueError)):
+            with self.subTest(function=function, level=level):
+                with self.assertRaises(error):
+                    native.AggregateMeasure(function, "number", "out", quantile_level=level)
+                with self.assertRaises(error):
+                    native.WindowExpression(function, "out", source_column="number", quantile_level=level)
+        for function in ("quantile_cont", "quantile_disc"):
+            with self.assertRaises(ValueError):
+                native.AggregateMeasure(function, "number", "out")
+            with self.assertRaises(ValueError):
+                native.WindowExpression(function, "out", source_column="number")
+
+        rows = [
+            {"fund": "A", "id": 0, "number": 1, "unused": "unused"},
+            {"fund": "A", "id": 1, "number": 1, "unused": "unused"},
+            {"fund": "A", "id": 2, "number": 5, "unused": "unused"},
+            {"fund": "A", "id": 3, "number": None, "unused": "unused"},
+            {"fund": "A", "id": 4, "number": 9, "unused": "unused"},
+            {"fund": "B", "id": 5, "number": 2**60 + 3, "unused": "unused"},
+            {"fund": "B", "id": 6, "number": 2**60 + 1, "unused": "unused"},
+            {"fund": "B", "id": 7, "number": None, "unused": "unused"},
+            {"fund": "B", "id": 8, "number": 2**60 + 2, "unused": "unused"},
+            {"fund": None, "id": 9, "number": None, "unused": "unused"},
+            {"fund": None, "id": 10, "number": None, "unused": "unused"},
+        ]
+        schema = pa.schema([pa.field("fund", pa.string()),
+                            pa.field("id", pa.uint64(), nullable=False),
+                            pa.field("number", pa.uint64()),
+                            pa.field("unused", pa.string(), nullable=False)])
+        continuous = ("median", "cont25", "cont75", "shifted_cont50")
+        discrete = ("disc50", "disc100")
+        names = ("median", "cont25", "cont75", "disc50", "disc100", "shifted_cont50")
+
+        def reference(values, level, *, discrete_result=False):
+            values = sorted(value for value in values if value is not None)
+            if not values:
+                return None
+            probability = Fraction.from_float(level)
+            if discrete_result:
+                rank = probability * len(values)
+                index = (rank.numerator + rank.denominator - 1) // rank.denominator - 1
+                return values[min(max(index, 0), len(values) - 1)]
+            rank = probability * (len(values) - 1)
+            lower = rank.numerator // rank.denominator
+            upper = min(lower + 1, len(values) - 1)
+            fraction = rank - lower
+            exact = Fraction(values[lower]) * (1 - fraction) + Fraction(values[upper]) * fraction
+            return float(exact)
+
+        levels = {"median": 0.5, "cont25": 0.25, "cont75": 0.75,
+                  "disc50": 0.5, "disc100": 1.0, "shifted_cont50": 0.5}
+
+        def expected_for(selected, identity):
+            values = [row["number"] for row in selected]
+            shifted = [None if value is None else value + 1 for value in values]
+            return {
+                **identity,
+                "median": reference(values, levels["median"]),
+                "cont25": reference(values, levels["cont25"]),
+                "cont75": reference(values, levels["cont75"]),
+                "disc50": reference(values, levels["disc50"], discrete_result=True),
+                "disc100": reference(values, levels["disc100"], discrete_result=True),
+                "shifted_cont50": reference(shifted, levels["shifted_cont50"]),
+            }
+
+        def check_rows(actual, expected, identity_columns):
+            self.assertEqual(actual.num_rows, len(expected))
+            for name in continuous:
+                self.assertEqual(actual.schema.field(name).type, pa.float64())
+                self.assertTrue(actual.schema.field(name).nullable)
+            for name in discrete:
+                self.assertEqual(actual.schema.field(name).type, pa.uint64())
+                self.assertTrue(actual.schema.field(name).nullable)
+            observed_rows = actual.to_pylist()
+            expected_by_key = {tuple(row[key] for key in identity_columns): row for row in expected}
+            observed_by_key = {tuple(row[key] for key in identity_columns): row for row in observed_rows}
+            self.assertEqual(observed_by_key.keys(), expected_by_key.keys())
+            for key, reference_row in expected_by_key.items():
+                observed = observed_by_key[key]
+                for name in continuous:
+                    wanted = reference_row[name]
+                    if wanted is None:
+                        self.assertIsNone(observed[name], name)
+                    elif wanted == 0:
+                        self.assertEqual(observed[name], wanted, name)
+                    else:
+                        self.assertLessEqual(abs(observed[name] / wanted - 1.0), 1e-12, name)
+                for name in discrete:
+                    self.assertEqual(observed[name], reference_row[name], name)
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-exact-quantiles-") as directory:
+            table = pa.Table.from_pylist(rows, schema=schema)
+            for format in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{format}"
+                if format == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://quantiles"),
+                                 sources=[("memory://quantiles", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=1)
+                read = sl.read_vortex if format == "vortex" else sl.read_parquet
+
+                frame = read(path, client=client).group_by("fund").agg(
+                    median=f.median("number"),
+                    cont25=f.quantile_cont("number", 0.25),
+                    cont75=f.quantile_cont("number", 0.75),
+                    disc50=f.quantile_disc("number", 0.5),
+                    disc100=f.quantile_disc("number", 1.0),
+                    shifted_cont50=f.quantile_cont(sl.col("number") + f.lit(1).cast("uint64"), 0.5),
+                ).sort("fund", nulls="last")
+                expression = native.Expression
+                grouped_measures = [
+                    native.AggregateMeasure("median", "number", "median"),
+                    native.AggregateMeasure("quantile_cont", "number", "cont25", quantile_level=0.25),
+                    native.AggregateMeasure("quantile_cont", "number", "cont75", quantile_level=0.75),
+                    native.AggregateMeasure("quantile_disc", "number", "disc50", quantile_level=0.5),
+                    native.AggregateMeasure("quantile_disc", "number", "disc100", quantile_level=1.0),
+                    native.AggregateMeasure("quantile_cont", "__quantile_shifted", "shifted_cont50",
+                                             quantile_level=0.5),
+                ]
+                relation = (native.Relation.scan(str(path)).project([
+                    ("fund", expression.column("fund")),
+                    ("number", expression.column("number")),
+                    ("__quantile_shifted", expression.column("number") + expression.uint64(1)),
+                ]).aggregate(["fund"], grouped_measures).sort([("fund", False, "last")]))
+                grouped_sql = (f"SELECT fund,MEDIAN(number) AS median,QUANTILE_CONT(number,0.25) AS cont25,"
+                               f"QUANTILE_CONT(number,0.75) AS cont75,QUANTILE_DISC(number,0.5) AS disc50,"
+                               f"QUANTILE_DISC(number,1.0) AS disc100,QUANTILE_CONT(number+CAST(1 AS UINT64),0.5) AS shifted_cont50 "
+                               f"FROM '{path}' GROUP BY fund ORDER BY fund NULLS LAST")
+                grouped_expected = [expected_for([row for row in rows if row["fund"] == fund], {"fund": fund})
+                                    for fund in ("A", "B", None)]
+                demand = {"native_source_demand_projected_columns": "2",
+                          "native_source_demand_available_columns": "4"} if format == "parquet" else None
+                for actual in self.all_surfaces(frame, relation, grouped_sql, demand):
+                    self.assertEqual(actual.column_names, ["fund", *names])
+                    self.assertTrue(actual.schema.field("fund").nullable)
+                    self.assertEqual(actual.schema.field("fund").type, pa.string())
+                    check_rows(actual, grouped_expected, ("fund",))
+                    self.assertNotIn("unused", actual.column_names)
+
+                spec = sl.Window.partition_by("fund").order_by("id").rows_between(-1, 1)
+                window_expressions = [
+                    f.median("number").over(spec).alias("median"),
+                    f.quantile_cont("number", 0.25).over(spec).alias("cont25"),
+                    f.quantile_cont("number", 0.75).over(spec).alias("cont75"),
+                    f.quantile_disc("number", 0.5).over(spec).alias("disc50"),
+                    f.quantile_disc("number", 1.0).over(spec).alias("disc100"),
+                    f.quantile_cont(sl.col("number") + f.lit(1).cast("uint64"), 0.5).over(spec).alias("shifted_cont50"),
+                ]
+                window_frame = native.WindowFrame(
+                    "rows", ("preceding", native.FrameOffset.number(expression.literal(1))),
+                    ("following", native.FrameOffset.number(expression.literal(1))),
+                )
+                window_measures = [
+                    native.WindowExpression("median", "median", source_column="number",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("quantile_cont", "cont25", source_column="number",
+                        quantile_level=0.25, partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("quantile_cont", "cont75", source_column="number",
+                        quantile_level=0.75, partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("quantile_disc", "disc50", source_column="number",
+                        quantile_level=0.5, partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("quantile_disc", "disc100", source_column="number",
+                        quantile_level=1.0, partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                    native.WindowExpression("quantile_cont", "shifted_cont50", source_column="__quantile_shifted",
+                        quantile_level=0.5, partition_by=["fund"], order_by=[("id", False, None)], frame=window_frame),
+                ]
+                window_relation = (native.Relation.scan(str(path)).project([
+                    ("id", expression.column("id")), ("fund", expression.column("fund")),
+                    ("number", expression.column("number")),
+                    ("__quantile_shifted", expression.column("number") + expression.uint64(1)),
+                ]).window(["id", "fund"], window_measures).sort([("id", False, None)]))
+                window_sql = (f"SELECT id,fund,{','.join(map(str, window_expressions))} FROM '{path}' "
+                              "ORDER BY id")
+                window_frame_rows = []
+                for row in rows:
+                    selected = [other for other in rows if other["fund"] == row["fund"]
+                                and abs(other["id"] - row["id"]) <= 1]
+                    window_frame_rows.append(expected_for(selected, {"id": row["id"], "fund": row["fund"]}))
+                demand = {"native_source_demand_projected_columns": "3",
+                          "native_source_demand_available_columns": "4"} if format == "parquet" else None
+                for actual in self.all_surfaces(read(path, client=client).select(
+                    "id", "fund", *window_expressions).sort("id"), window_relation, window_sql, demand):
+                    self.assertEqual(actual.column_names, ["id", "fund", *names])
+                    self.assertEqual(actual.schema.field("id").type, pa.uint64())
+                    self.assertFalse(actual.schema.field("id").nullable)
+                    self.assertEqual(actual.schema.field("fund").type, pa.string())
+                    self.assertTrue(actual.schema.field("fund").nullable)
+                    check_rows(actual, window_frame_rows, ("id", "fund"))
+                    self.assertNotIn("unused", actual.column_names)
+
+    def test_ordered_selectors_match_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        values = [None, 2**60 + 1, 2**60 + 3, 2**60 + 2, None, 8, 9, None, None, None]
+        keys = [0, 5, 5, 1, 4, None, 4, 8, None, 9]
+        local_order = [3, 2, 1, None, 0, 2, 2, 1, 0, 1]
+        rows = [
+            {"id": index, "fund": "A" if index < 4 else "B" if index < 8 else "C",
+             "value": values[index], "arg_key": keys[index], "local_order": local_order[index],
+             "unused": "not requested"}
+            for index in range(10)
+        ]
+        schema = pa.schema([
+            pa.field("id", pa.uint64(), nullable=False),
+            pa.field("fund", pa.string(), nullable=False),
+            pa.field("value", pa.uint64()),
+            pa.field("arg_key", pa.uint64()),
+            pa.field("local_order", pa.int32()),
+            pa.field("unused", pa.string(), nullable=False),
+        ])
+        table = pa.Table.from_pylist(rows, schema=schema)
+        functions = ("first", "last", "arg_min", "arg_max")
+        modes = (("default", None), ("asc", False), ("desc", True))
+        names = [f"{function}_{mode}" for function in functions for mode, _ in modes]
+
+        def ordered(candidates, descending):
+            if descending is None:
+                return sorted(candidates, key=lambda row: row["id"])
+            return sorted(candidates, key=lambda row: (
+                row["local_order"] is None,
+                -(row["local_order"] or 0) if descending else (row["local_order"] or 0),
+                row["id"],
+            ))
+
+        def reduce_rows(candidates, function, descending):
+            selected = ordered(candidates, descending)
+            if function == "first":
+                return selected[0]["value"] if selected else None
+            if function == "last":
+                return selected[-1]["value"] if selected else None
+            eligible = [row for row in selected if row["value"] is not None and row["arg_key"] is not None]
+            if not eligible:
+                return None
+            extreme = min(row["arg_key"] for row in eligible) if function == "arg_min" else max(
+                row["arg_key"] for row in eligible
+            )
+            return next(row["value"] for row in eligible if row["arg_key"] == extreme)
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-ordered-selectors-") as directory:
+            for source_format in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{source_format}"
+                if source_format == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://ordered-selectors"),
+                                 sources=[("memory://ordered-selectors", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=1)
+                read = sl.read_vortex if source_format == "vortex" else sl.read_parquet
+
+                def dataframe_expression(function, mode):
+                    order = () if mode is None else [("local_order", mode, "last")]
+                    args = ("value", "arg_key") if function.startswith("arg_") else ("value",)
+                    return getattr(f, function)(*args, order_by=order)
+
+                frame = read(path, client=client).group_by("fund").agg(**{
+                    name: dataframe_expression(function, direction)
+                    for function in functions for mode, direction in modes
+                    for name in [f"{function}_{mode}"]
+                }).sort("fund")
+                typed_measures = []
+                sql_measures = []
+                for function in functions:
+                    for mode, direction in modes:
+                        alias = f"{function}_{mode}"
+                        order = [] if direction is None else [("local_order", direction, "last")]
+                        kwargs = {"secondary_column": "arg_key"} if function.startswith("arg_") else {}
+                        typed_measures.append(native.AggregateMeasure(
+                            function, "value", alias, order_by=order, **kwargs
+                        ))
+                        suffix = "" if direction is None else (
+                            f" ORDER BY local_order {'DESC' if direction else 'ASC'} NULLS LAST"
+                        )
+                        args = "value,arg_key" if function.startswith("arg_") else "value"
+                        sql_measures.append(f"{function.upper()}({args}{suffix}) AS {alias}")
+                relation = native.Relation.scan(str(path)).aggregate(["fund"], typed_measures).sort(
+                    [("fund", False, None)]
+                )
+                grouped_sql = f"SELECT fund,{','.join(sql_measures)} FROM '{path}' GROUP BY fund ORDER BY fund"
+                grouped_expected = []
+                for fund in ("A", "B", "C"):
+                    candidates = [row for row in rows if row["fund"] == fund]
+                    grouped_expected.append({
+                        "fund": fund,
+                        **{f"{function}_{mode}": reduce_rows(candidates, function, direction)
+                           for function in functions for mode, direction in modes},
+                    })
+                demand = {"native_source_demand_projected_columns": "4",
+                          "native_source_demand_available_columns": "6"} if source_format == "parquet" else None
+                for actual in self.all_surfaces(frame, relation, grouped_sql, demand):
+                    self.assertEqual(actual.column_names, ["fund", *names])
+                    self.assertEqual(actual.schema.field("fund").type, pa.string())
+                    self.assertFalse(actual.schema.field("fund").nullable)
+                    for name in names:
+                        field = actual.schema.field(name)
+                        self.assertEqual(field.type, pa.uint64())
+                        self.assertTrue(field.nullable)
+                    self.assertEqual(actual.to_pylist(), grouped_expected)
+
+                spec = sl.Window.partition_by("fund").order_by("id").rows_between(-1, 1)
+                window_exprs = [
+                    dataframe_expression(function, direction).over(spec).alias(f"{function}_{mode}")
+                    for function in functions for mode, direction in modes
+                ]
+                native_frame = native.WindowFrame(
+                    "rows", ("preceding", native.FrameOffset.number(native.Expression.literal(1))),
+                    ("following", native.FrameOffset.number(native.Expression.literal(1))),
+                )
+                window_measures = []
+                window_sql_measures = []
+                for function in functions:
+                    for mode, direction in modes:
+                        alias = f"{function}_{mode}"
+                        order = [] if direction is None else [("local_order", direction, "last")]
+                        kwargs = {"secondary_column": "arg_key"} if function.startswith("arg_") else {}
+                        window_measures.append(native.WindowExpression(
+                            function, alias, source_column="value", aggregate_order_by=order,
+                            partition_by=["fund"], order_by=[("id", False, None)], frame=native_frame,
+                            **kwargs,
+                        ))
+                        suffix = "" if direction is None else (
+                            f" ORDER BY local_order {'DESC' if direction else 'ASC'} NULLS LAST"
+                        )
+                        args = "value,arg_key" if function.startswith("arg_") else "value"
+                        window_sql_measures.append(f"{function.upper()}({args}{suffix}) OVER "
+                                                   "(PARTITION BY fund ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) "
+                                                   f"AS {alias}")
+                window_relation = native.Relation.scan(str(path)).window(
+                    ["id", "fund"], window_measures
+                ).sort([("id", False, None)])
+                window_sql = f"SELECT id,fund,{','.join(window_sql_measures)} FROM '{path}' ORDER BY id"
+                window_frame_rows = []
+                for row in rows:
+                    candidates = [other for other in rows if other["fund"] == row["fund"]
+                                  and abs(other["id"] - row["id"]) <= 1]
+                    window_frame_rows.append({
+                        "id": row["id"], "fund": row["fund"],
+                        **{f"{function}_{mode}": reduce_rows(candidates, function, direction)
+                           for function in functions for mode, direction in modes},
+                    })
+                demand = {"native_source_demand_projected_columns": "5",
+                          "native_source_demand_available_columns": "6"} if source_format == "parquet" else None
+                for actual in self.all_surfaces(
+                    read(path, client=client).select("id", "fund", *window_exprs).sort("id"),
+                    window_relation, window_sql, demand,
+                ):
+                    self.assertEqual(actual.column_names, ["id", "fund", *names])
+                    self.assertEqual(actual.schema.field("id").type, pa.uint64())
+                    self.assertFalse(actual.schema.field("id").nullable)
+                    self.assertEqual(actual.schema.field("fund").type, pa.string())
+                    self.assertFalse(actual.schema.field("fund").nullable)
+                    for name in names:
+                        field = actual.schema.field(name)
+                        self.assertEqual(field.type, pa.uint64())
+                        self.assertTrue(field.nullable)
+                    self.assertEqual(actual.to_pylist(), window_frame_rows)
+
+        with self.assertRaises(ValueError):
+            native.WindowExpression("first", "bad", source_column="value", secondary_column="arg_key")
+        with self.assertRaises(ValueError):
+            native.WindowExpression("arg_min", "bad", source_column="value")
+        with self.assertRaises(ValueError):
+            native.WindowExpression("sum", "bad", source_column="value",
+                                    aggregate_order_by=[("id", False, None)])
 
     def test_renamed_grouped_count_filter_selects_shared_provider_on_every_surface(self):
         import shardloom as sl
@@ -774,6 +1785,201 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                         self.assertEqual(table.to_pylist(), wanted)
                     self.assertTrue(all(table.schema == tables[0].schema for table in tables),
                                     [str(table.schema) for table in tables])
+
+
+    def test_ordered_collections_match_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        for construct in (
+            lambda: native.AggregateMeasure("string_agg", "text", "invalid"),
+            lambda: native.AggregateMeasure("list", "value", "invalid", separator=""),
+            lambda: native.WindowExpression("string_agg", "invalid", source_column="text"),
+            lambda: native.WindowExpression("list", "invalid", source_column="value", separator=""),
+        ):
+            with self.assertRaisesRegex(ValueError, "separator"):
+                construct()
+        for separator in (3, True, [], {}):
+            with self.assertRaises(TypeError):
+                native.AggregateMeasure("string_agg", "text", "invalid", separator=separator)
+            with self.assertRaises(TypeError):
+                native.WindowExpression("string_agg", "invalid", source_column="text", separator=separator)
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        values = [None, 2**60 + 1, 2**60 + 1, 2**60 + 3, 2**60 + 2,
+                  8, None, 9, None, None, 0, 1]
+        texts = ["z", None, "東京", "", "a", "b", None, "b", None, None, "", ""]
+        orders = [3, 2, 1, None, 1, 2, 0, 2, 0, 1, None, 0]
+        rows = [{"id": i, "fund": "A" if i < 5 else "B" if i < 8 else "C" if i < 10 else "D",
+                 "value": values[i], "text": texts[i], "local_order": orders[i], "unused": "not requested"}
+                for i in range(12)]
+        schema = pa.schema([pa.field("id", pa.uint64(), nullable=False),
+                            pa.field("fund", pa.string(), nullable=False),
+                            pa.field("value", pa.uint64()), pa.field("text", pa.string()),
+                            pa.field("local_order", pa.int32()),
+                            pa.field("unused", pa.string(), nullable=False)])
+        table = pa.Table.from_pylist(rows, schema=schema)
+        orderspecs = (("default", None), ("asc", False), ("desc", True))
+
+        def ordered(candidates, direction):
+            if direction is None:
+                return sorted(candidates, key=lambda r: r["id"])
+            return sorted(candidates, key=lambda r: (r["local_order"] is None,
+                -(r["local_order"] or 0) if direction else (r["local_order"] or 0), r["id"]))
+
+        def list_ref(candidates, direction):
+            selected = ordered(candidates, direction)
+            return [r["value"] for r in selected] if selected else None
+
+        def string_ref(candidates, direction, separator):
+            selected = [r["text"] for r in ordered(candidates, direction) if r["text"] is not None]
+            return separator.join(selected) if selected else None
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-ordered-collections-") as directory:
+            for source_format in ("vortex", "parquet"):
+                path = Path(directory) / f"input.{source_format}"
+                if source_format == "vortex":
+                    source = session.from_arrow(table)
+                    session.plan(native.Relation.scan("memory://ordered-collections"),
+                        sources=[("memory://ordered-collections", source)]).write(path, "write_vortex")
+                else:
+                    parquet.write_table(table, path, row_group_size=1)
+                read = sl.read_vortex if source_format == "vortex" else sl.read_parquet
+                aliases = ["list_default", "list_asc", "list_desc", "string_default", "string_asc", "string_desc"]
+                frame = read(path, client=client).group_by("fund").agg(
+                    list_default=f.array_agg("value"),
+                    list_asc=f.list("value", order_by=[("local_order", False, "last")]),
+                    list_desc=f.array_agg("value", order_by=[("local_order", True, "last")]),
+                    string_default=f.string_agg("text", " / "),
+                    string_asc=f.string_agg("text", "'東京,", order_by=[("local_order", False, "last")]),
+                    string_desc=f.string_agg("text", "", order_by=[("local_order", True, "last")]),
+                ).sort("fund")
+                measures = [native.AggregateMeasure("list", "value", "list_default"),
+                    native.AggregateMeasure("array_agg", "value", "list_asc", order_by=[("local_order", False, "last")]),
+                    native.AggregateMeasure("list", "value", "list_desc", order_by=[("local_order", True, "last")]),
+                    native.AggregateMeasure("string_agg", "text", "string_default", separator=" / "),
+                    native.AggregateMeasure("string_agg", "text", "string_asc", separator="'東京,", order_by=[("local_order", False, "last")]),
+                    native.AggregateMeasure("string_agg", "text", "string_desc", separator="", order_by=[("local_order", True, "last")])]
+                relation = native.Relation.scan(str(path)).aggregate(["fund"], measures).sort([("fund", False, None)])
+                sql_items = ["LIST(value) AS list_default",
+                    "ARRAY_AGG(value ORDER BY local_order ASC NULLS LAST) AS list_asc",
+                    "LIST(value ORDER BY local_order DESC NULLS LAST) AS list_desc",
+                    "STRING_AGG(text, ' / ') AS string_default",
+                    "STRING_AGG(text, '''東京,' ORDER BY local_order ASC NULLS LAST) AS string_asc",
+                    "STRING_AGG(text, '' ORDER BY local_order DESC NULLS LAST) AS string_desc"]
+                grouped_sql = f"SELECT fund,{','.join(sql_items)} FROM '{path}' GROUP BY fund ORDER BY fund"
+                expected = [{"fund": fund,
+                    **{f"list_{mode}": list_ref([r for r in rows if r["fund"] == fund], direction)
+                       for mode, direction in orderspecs},
+                    "string_default": string_ref([r for r in rows if r["fund"] == fund], None, " / "),
+                    "string_asc": string_ref([r for r in rows if r["fund"] == fund], False, "'東京,"),
+                    "string_desc": string_ref([r for r in rows if r["fund"] == fund], True, "")}
+                    for fund in ("A", "B", "C", "D")]
+                demand = {"native_source_demand_projected_columns": "4",
+                          "native_source_demand_available_columns": "6"} if source_format == "parquet" else None
+                for actual in self.all_surfaces(frame, relation, grouped_sql, demand):
+                    self.assertEqual(actual.column_names, ["fund", *aliases])
+                    self.assertEqual(actual.schema.field("fund").type, pa.string())
+                    self.assertFalse(actual.schema.field("fund").nullable)
+                    for name in ("list_default", "list_asc", "list_desc"):
+                        self.assertEqual(actual.schema.field(name).type, pa.list_(pa.field("item", pa.uint64(), nullable=True)))
+                        self.assertTrue(actual.schema.field(name).nullable)
+                    for name in aliases[3:]:
+                        self.assertEqual(actual.schema.field(name).type, pa.string())
+                        self.assertTrue(actual.schema.field(name).nullable)
+                    self.assertEqual(actual.to_pylist(), expected)
+
+                window_spec = sl.Window.partition_by("fund").order_by("id").rows_between(-1, 1)
+                window_exprs = [
+                    f.array_agg("value").over(window_spec).alias("list_default"),
+                    f.list("value", order_by=[("local_order", False, "last")]).over(window_spec).alias("list_asc"),
+                    f.array_agg("value", order_by=[("local_order", True, "last")]).over(window_spec).alias("list_desc"),
+                    f.string_agg("text", " / ").over(window_spec).alias("string_default"),
+                    f.string_agg("text", "'東京,", order_by=[("local_order", False, "last")]).over(window_spec).alias("string_asc"),
+                    f.string_agg("text", "", order_by=[("local_order", True, "last")]).over(window_spec).alias("string_desc"),
+                ]
+                frame = native.WindowFrame(
+                    "rows", ("preceding", native.FrameOffset.number(native.Expression.literal(1))),
+                    ("following", native.FrameOffset.number(native.Expression.literal(1))),
+                )
+                window_measures = [
+                    native.WindowExpression("list", "list_default", source_column="value",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=frame),
+                    native.WindowExpression("array_agg", "list_asc", source_column="value",
+                        aggregate_order_by=[("local_order", False, "last")], partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=frame),
+                    native.WindowExpression("list", "list_desc", source_column="value",
+                        aggregate_order_by=[("local_order", True, "last")], partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=frame),
+                    native.WindowExpression("string_agg", "string_default", source_column="text", separator=" / ",
+                        partition_by=["fund"], order_by=[("id", False, None)], frame=frame),
+                    native.WindowExpression("string_agg", "string_asc", source_column="text", separator="'東京,",
+                        aggregate_order_by=[("local_order", False, "last")], partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=frame),
+                    native.WindowExpression("string_agg", "string_desc", source_column="text", separator="",
+                        aggregate_order_by=[("local_order", True, "last")], partition_by=["fund"],
+                        order_by=[("id", False, None)], frame=frame),
+                ]
+                window_relation = native.Relation.scan(str(path)).window(["id", "fund"], window_measures).sort(
+                    [("id", False, None)])
+                clause = " OVER (PARTITION BY fund ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)"
+                window_sql_items = [
+                    f"LIST(value){clause} AS list_default",
+                    f"ARRAY_AGG(value ORDER BY local_order ASC NULLS LAST){clause} AS list_asc",
+                    f"LIST(value ORDER BY local_order DESC NULLS LAST){clause} AS list_desc",
+                    f"STRING_AGG(text, ' / '){clause} AS string_default",
+                    f"STRING_AGG(text, '''東京,' ORDER BY local_order ASC NULLS LAST){clause} AS string_asc",
+                    f"STRING_AGG(text, '' ORDER BY local_order DESC NULLS LAST){clause} AS string_desc",
+                ]
+                window_sql = f"SELECT id,fund,{','.join(window_sql_items)} FROM '{path}' ORDER BY id"
+                window_expected = []
+                for row in rows:
+                    candidates = [other for other in rows if other["fund"] == row["fund"]
+                                  and abs(other["id"] - row["id"]) <= 1]
+                    window_expected.append({"id": row["id"], "fund": row["fund"],
+                        "list_default": list_ref(candidates, None),
+                        "list_asc": list_ref(candidates, False),
+                        "list_desc": list_ref(candidates, True),
+                        "string_default": string_ref(candidates, None, " / "),
+                        "string_asc": string_ref(candidates, False, "'東京,"),
+                        "string_desc": string_ref(candidates, True, "")})
+                window_demand = {"native_source_demand_projected_columns": "5",
+                                 "native_source_demand_available_columns": "6"} if source_format == "parquet" else None
+                for actual in self.all_surfaces(
+                    read(path, client=client).select("id", "fund", *window_exprs).sort("id"),
+                    window_relation, window_sql, window_demand,
+                ):
+                    self.assertEqual(actual.column_names, ["id", "fund", *aliases])
+                    self.assertEqual(actual.schema.field("id").type, pa.uint64())
+                    self.assertFalse(actual.schema.field("id").nullable)
+                    self.assertEqual(actual.schema.field("fund").type, pa.string())
+                    self.assertFalse(actual.schema.field("fund").nullable)
+                    for name in ("list_default", "list_asc", "list_desc"):
+                        self.assertEqual(actual.schema.field(name).type, pa.list_(pa.field("item", pa.uint64(), nullable=True)))
+                        self.assertTrue(actual.schema.field(name).nullable)
+                    for name in aliases[3:]:
+                        self.assertEqual(actual.schema.field(name).type, pa.string())
+                        self.assertTrue(actual.schema.field(name).nullable)
+                    self.assertEqual(actual.to_pylist(), window_expected)
+
+                # The empty filtered scalar aggregate checks empty-input NULLs on every surface.
+                empty_frame = read(path, client=client).filter("id < 0").agg(
+                    list_empty=f.array_agg("value"), string_empty=f.string_agg("text", ""))
+                empty_relation = native.Relation.scan(str(path)).filter(
+                    native.Expression.column("id") < native.Expression.literal(0)).aggregate([], [
+                    native.AggregateMeasure("list", "value", "list_empty"),
+                    native.AggregateMeasure("string_agg", "text", "string_empty", separator="")])
+                empty_sql = f"SELECT LIST(value) AS list_empty, STRING_AGG(text, '') AS string_empty FROM '{path}' WHERE id < 0"
+                for actual in self.all_surfaces(empty_frame, empty_relation, empty_sql):
+                    self.assertEqual(actual.column_names, ["list_empty", "string_empty"])
+                    self.assertEqual(actual.schema.field("list_empty").type,
+                                     pa.list_(pa.field("item", pa.uint64(), nullable=True)))
+                    self.assertTrue(actual.schema.field("list_empty").nullable)
+                    self.assertEqual(actual.schema.field("string_empty").type, pa.string())
+                    self.assertTrue(actual.schema.field("string_empty").nullable)
+                    self.assertEqual(actual.to_pylist(), [{"list_empty": None, "string_empty": None}])
 
 
 if __name__ == "__main__":

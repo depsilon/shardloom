@@ -445,6 +445,7 @@ fn prepare_collection(
                     VortexRelationalAggregate {
                         input,
                         group_by: Vec::new(),
+                        grouping_sets: None,
                         measures: vec![shardloom_vortex::VortexSimpleAggregateMeasure::new(
                             "count",
                             None,

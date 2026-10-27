@@ -70,6 +70,33 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
         _, blockers = conformance._validate_matrix(matrix)
         self.assertEqual(blockers, [])
 
+    def test_current_python_method_inventory_reaches_conformance_consumer(self) -> None:
+        import check_python_user_surface_completion as producer
+        from python.tests.test_release_scripts import ReleaseScriptTests
+
+        rows = list(producer._load_dataframe_method_rows_from_source(
+            REPO_ROOT / "python/src/shardloom/context.py"
+        ))
+        self.assertEqual(len(rows), conformance.EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = conformance.ReportPaths()
+            ReleaseScriptTests()._write_v1_correctness_conformance_fixture_reports(conformance, root)
+            payload = json.loads((root / paths.python_user_surface).read_text())
+        payload.update(method_matrix_row_count=len(rows), method_matrix_rows=rows)
+        _, blockers = conformance._validate_python_user_surface(payload)
+        self.assertEqual(blockers, [])
+        for count in (len(rows) - 1, len(rows) + 1):
+            with self.subTest(stale_count=count):
+                _, blockers = conformance._validate_python_user_surface(
+                    {**payload, "method_matrix_row_count": count}
+                )
+                self.assertTrue(any("method_matrix_row_count=" in item for item in blockers))
+        _, blockers = conformance._validate_python_user_surface(
+            {**payload, "method_matrix_rows": rows[:-1]}
+        )
+        self.assertTrue(any("method_matrix_rows count=" in item for item in blockers))
+
     def test_current_docs_replay_reaches_conformance_and_readiness_consumers(self) -> None:
         from python.tests.test_release_scripts import ReleaseScriptTests
 

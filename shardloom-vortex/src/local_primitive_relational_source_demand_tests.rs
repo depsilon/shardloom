@@ -27,6 +27,8 @@ mod prefix_tests;
 
 #[path = "local_primitive_relational_source_demand_collection_tests.rs"]
 mod collection_tests;
+#[path = "local_primitive_relational_source_demand_window_tests.rs"]
+mod window_tests;
 
 struct ParquetFixture(PathBuf);
 

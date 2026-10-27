@@ -20,9 +20,11 @@ mod records;
 use records::{Layout, ORDINAL};
 
 #[derive(Default)]
+#[allow(clippy::struct_field_names)] // Explicit row units match the execution metrics consuming this report.
 pub(super) struct Report {
     pub(super) input_rows: u64,
     pub(super) distinct_rows: u64,
+    pub(super) quantile_rows: u64,
 }
 
 #[allow(clippy::too_many_arguments)] // One bound aggregate shares its caller's input, grant, run store and consumer.
@@ -49,13 +51,36 @@ pub(super) fn run(
             return Ok(());
         }
         order.build(layout.base(&array, ordinal, context)?, context)?;
-        for kind in 0..layout.distinct.len() {
+        for kind in 0..layout.values.len() {
             context.check_cancelled()?;
-            if let Some(record) = layout.distinct_record(&array, kind, context)? {
-                report.distinct_rows = report
-                    .distinct_rows
-                    .checked_add(record.len() as u64)
-                    .ok_or_else(|| failed("aggregate distinct record count overflow"))?;
+            if let Some(record) = layout.ordered_value_record(&array, kind, ordinal, context)? {
+                let entry = &layout.values[kind];
+                if entry
+                    .measures
+                    .iter()
+                    .any(|&index| spec.measures[index].function.is_distinct())
+                {
+                    report.distinct_rows = report
+                        .distinct_rows
+                        .checked_add(record.len() as u64)
+                        .ok_or_else(|| failed("aggregate distinct record count overflow"))?;
+                }
+                if entry
+                    .measures
+                    .iter()
+                    .any(|&index| spec.measures[index].function.is_quantile())
+                {
+                    report.quantile_rows = report
+                        .quantile_rows
+                        .checked_add(record.len() as u64)
+                        .ok_or_else(|| failed("aggregate quantile record count overflow"))?;
+                }
+                order.build(record, context)?;
+            }
+        }
+        for collection in 0..layout.collections.len() {
+            context.check_cancelled()?;
+            if let Some(record) = layout.collection_record(&array, collection, ordinal, context)? {
                 order.build(record, context)?;
             }
         }
@@ -180,7 +205,20 @@ impl Reducer<'_> {
                     .consume_ordered_base(&selected, context, batch_rows)?;
             } else {
                 let kind = usize::try_from(kind - 1).map_err(vortex_error)?;
-                consume_distinct(group, self.layout, &batch.array, start, end, kind, context)?;
+                if kind < self.layout.values.len() {
+                    consume_values(group, self.layout, &batch.array, start, end, kind, context)?;
+                } else {
+                    let entry = self
+                        .layout
+                        .collections
+                        .get(kind - self.layout.values.len())
+                        .ok_or_else(|| failed("collection record kind is invalid"))?;
+                    group.aggregate.add_ordered_collection(
+                        entry.measure,
+                        &batch.array.slice(start..end).map_err(vortex_error)?,
+                        context,
+                    )?;
+                }
             }
             start = end;
         }
@@ -262,7 +300,7 @@ impl Reducer<'_> {
 }
 
 #[allow(clippy::too_many_arguments)] // One contiguous kind/group span updates the existing exact scalar reducer.
-fn consume_distinct(
+fn consume_values(
     group: &mut Group<'_>,
     layout: &Layout,
     array: &ArrayRef,
@@ -272,9 +310,9 @@ fn consume_distinct(
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
     let entry = layout
-        .distinct
+        .values
         .get(kind)
-        .ok_or_else(|| failed("ordered aggregate distinct kind is out of bounds"))?;
+        .ok_or_else(|| failed("ordered aggregate value kind is out of bounds"))?;
     if group
         .previous
         .as_ref()
@@ -284,6 +322,30 @@ fn consume_distinct(
     }
     let column = logical_field_from_native_array(array, &entry.name)?;
     let values = keys(&column, context)?;
+    group
+        .aggregate
+        .add_ordered_quantiles(&entry.measures, &values, start..end, context)?;
+    if !entry
+        .measures
+        .iter()
+        .any(|&measure| layout.scalar.measures[measure].function.is_distinct())
+    {
+        // Every duplicate is retained for quantile ranks; no distinct endpoint
+        // or per-row membership work is needed for a quantile-only input.
+        return Ok(());
+    }
+    let mut selected = if entry.measures.iter().any(|&measure| {
+        matches!(
+            layout.scalar.measures[measure].function,
+            aggregate::Function::SumDistinct | aggregate::Function::AvgDistinct
+        )
+    }) {
+        let mut selected = ReservedVec::new(context.memory())?;
+        selected.reserve(end - start)?;
+        Some(selected)
+    } else {
+        None
+    };
     let mut count = 0_u64;
     for row in start..end {
         if row.is_multiple_of(1024) {
@@ -306,10 +368,29 @@ fn consume_distinct(
             count = count
                 .checked_add(1)
                 .ok_or_else(|| failed("distinct count overflow"))?;
+            if let Some(selected) = &mut selected {
+                selected.values.push(row);
+            }
         }
     }
     for &measure in &entry.measures {
-        group.aggregate.add_ordered_distinct(measure, count)?;
+        let function = layout.scalar.measures[measure].function;
+        if !function.is_distinct() {
+            continue;
+        }
+        if function == aggregate::Function::CountDistinct {
+            group.aggregate.add_ordered_distinct(measure, count)?;
+        } else {
+            group.aggregate.add_ordered_distinct_values(
+                measure,
+                &values,
+                &selected
+                    .as_ref()
+                    .ok_or_else(|| failed("distinct selected values are absent"))?
+                    .values,
+                context,
+            )?;
+        }
     }
     // Keep only the final value across a batch boundary, while the prior owner
     // remains credited during replacement. Do not retain the whole run block.

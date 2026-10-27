@@ -1,7 +1,7 @@
 //! Resolve inert scalar declarations and preserve lazy relational demand.
 
 use super::{
-    ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer, NativeResult,
+    ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer, NativeResult, ParsedAggregate,
     ParsedAggregateArgument, ParsedRelationQuery, ParsedSqlLocalSource, ScalarValue, SubqueryKind,
     UnaryOp, WindowFunction, expression_source_columns, is_outer_correlation_ref, predicate,
     scalar_expression, unsupported_sql_error,
@@ -15,8 +15,10 @@ pub(super) fn surfaces(parsed: &ParsedSqlLocalSource) -> Vec<&ParsedScalarExpres
         .map(|item| &item.expression)
         .collect::<Vec<_>>();
     for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
-        if let ParsedAggregateArgument::Computed { expression, .. } = &aggregate.argument {
-            values.push(expression);
+        for argument in aggregate.input_arguments() {
+            if let ParsedAggregateArgument::Computed { expression, .. } = argument {
+                values.push(expression);
+            }
         }
     }
     for window in &parsed.window_projections {
@@ -25,8 +27,10 @@ pub(super) fn surfaces(parsed: &ParsedSqlLocalSource) -> Vec<&ParsedScalarExpres
             | WindowFunction::LastValue(expression)
             | WindowFunction::NthValue { expression, .. } => values.push(expression),
             WindowFunction::Aggregate(aggregate) => {
-                if let ParsedAggregateArgument::Computed { expression, .. } = &aggregate.argument {
-                    values.push(expression);
+                for argument in aggregate.input_arguments() {
+                    if let ParsedAggregateArgument::Computed { expression, .. } = argument {
+                        values.push(expression);
+                    }
                 }
             }
             _ => {}
@@ -80,6 +84,72 @@ fn require_static_schema(
 }
 
 impl Lowerer<'_, '_> {
+    pub(super) fn aggregate_scalars(
+        &mut self,
+        mut input: Lowered,
+        aggregate: &mut ParsedAggregate,
+    ) -> NativeResult<Lowered> {
+        let guard = if let Some(filter) = &aggregate.filter {
+            let name = aggregate.output_name();
+            let value = match filter {
+                ParsedAggregateArgument::Column(name) => super::column(&input.resolve(name)?)?,
+                ParsedAggregateArgument::Computed { expression, .. } => {
+                    let (next, value) = self.scalar(input, expression, None)?;
+                    input = next;
+                    value
+                }
+                ParsedAggregateArgument::All => {
+                    return Err(unsupported_sql_error(
+                        "aggregate FILTER requires a Boolean predicate",
+                    ));
+                }
+            };
+            let private = self.fresh(&input.columns);
+            let mut projection = input
+                .columns
+                .iter()
+                .map(|name| Ok((name.clone(), super::column(name)?)))
+                .collect::<NativeResult<Vec<_>>>()?;
+            projection.push((private.clone(), value));
+            input.columns.push(private.clone());
+            input.plan = super::Plan::Project(Box::new(super::Project {
+                input: input.plan,
+                expressions: projection,
+            }));
+            aggregate.alias = Some(name);
+            aggregate.filter = Some(ParsedAggregateArgument::Column(private.clone()));
+            Some(super::column(&private)?)
+        } else {
+            None
+        };
+        for argument in aggregate.arguments_mut() {
+            if let ParsedAggregateArgument::Computed { expression, .. } = argument {
+                let (next, value) = self.scalar(input, expression, guard.as_ref())?;
+                input = next;
+                let value = if let Some(guard) = &guard {
+                    Expression::new(
+                        ExprId::new("native.aggregate.filtered_argument")?,
+                        ExpressionKind::FunctionCall {
+                            name: "case_when".into(),
+                            args: vec![
+                                guard.clone(),
+                                value,
+                                Expression::literal(
+                                    ExprId::new("native.aggregate.excluded")?,
+                                    ScalarValue::Null,
+                                ),
+                            ],
+                        },
+                    )
+                } else {
+                    value
+                };
+                **expression = value.into();
+            }
+        }
+        Ok(input)
+    }
+
     pub(super) fn scalar(
         &mut self,
         input: Lowered,

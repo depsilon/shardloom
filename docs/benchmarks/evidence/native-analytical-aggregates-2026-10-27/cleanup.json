@@ -1,0 +1,119 @@
+{
+  "schema_version": "shardloom.generated_artifact_retirement.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/wheel-build-tools",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-proof-wheelhouse",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/packet-draft",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/packet-replay-clean",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/broad-analytical-r1/harness",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/broad-analytical-r1/logs",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/source",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-native-runtime-r7/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-native-runtime-r7/shardloom",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/shardloom",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+  ],
+  "retained_sha256": {
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/shardloom": "ec54c732c66f9c73f34c023df2515002d6d7be25f9c394824a5c9c70ac285c44",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/_native.abi3.so": "014d54c9de04d1b4f1ae0ee43d76130059a952bbea7231426c4d46005b80783f",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "67830e2b63cc7d435cfa4951111142236519bfd579a7dd1d2e546e0d7c04501b",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/calendar-00000.parquet": "0a6923b1522f0c1903d5ec74d9297b224c19776e7585fa42dde38e1e494670fb",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/entities-00000.parquet": "ad1ef43250f9815f12b90c43199b1c99362ce4f81beb34615ceb12497af6f5d2",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/fact-00000.parquet": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/products-00000.parquet": "caf396dcbac020daaaff8df26b0064f0593e016646224e0964c6f9a5532ba7f9",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/relationships-00000.parquet": "bf641554001cb8e50f0d6c86d7b53b06e03968cd4d9ae340682f0f286c7babc4"
+  },
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/wheel-build-tools",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-proof-wheelhouse",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/packet-draft",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/packet-replay-clean",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/broad-analytical-r1/harness",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/broad-analytical-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-native-runtime-r7/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-native-runtime-r7/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "removed_entries": 15640,
+  "source_inputs_retained": true,
+  "original_external_baselines_untouched": true,
+  "user_files_and_item18_untouched": true,
+  "cargo_cache_untouched": true,
+  "payload_backups_created": false,
+  "symlink_targets_followed": false,
+  "regeneration_basis": "Recorded source/build/package identities, locked requirements, retained sources and current tested runtime/wheel. No bit-identical rebuild claim.",
+  "inventory": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/cleanup-inventory.json.gz",
+  "inventory_sha256": "9851f6a90227809bcd60a27b273aaea3bfa2993e89d27faaa2fc3a5c47af9c92",
+  "free_bytes_before": 94012796928,
+  "regular_files": 14011,
+  "symlinks": 6,
+  "retired_regular_bytes": 1053845913,
+  "retired_allocated_bytes": 1089355776,
+  "all_proof_files_unchanged": true,
+  "free_bytes_after": 95128621056
+}

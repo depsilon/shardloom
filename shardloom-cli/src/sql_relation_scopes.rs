@@ -340,8 +340,13 @@ impl Binder<'_> {
     }
 
     fn aggregate(&mut self, value: &mut ParsedAggregate) -> Result<(), ShardLoomError> {
-        if let ParsedAggregateArgument::Computed { expression, .. } = &mut value.argument {
+        if let Some(ParsedAggregateArgument::Computed { expression, .. }) = &mut value.filter {
             self.scalar(expression)?;
+        }
+        for argument in value.arguments_mut() {
+            if let ParsedAggregateArgument::Computed { expression, .. } = argument {
+                self.scalar(expression)?;
+            }
         }
         Ok(())
     }

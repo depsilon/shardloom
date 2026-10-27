@@ -19,6 +19,11 @@ fn scalar_spec(function: Function) -> Spec {
         groups: vec![],
         group_names: vec![],
         measures: vec![Measure {
+            secondary_column: None,
+            filter_column: None,
+            quantile_level: None,
+            selection: None,
+            separator: None,
             function,
             column: Some("n".into()),
             dtype: DType::Primitive(PType::F64, Nullability::Nullable),

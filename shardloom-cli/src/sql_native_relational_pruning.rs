@@ -101,17 +101,15 @@ impl Lowerer<'_, '_> {
                 self.prune_at(&mut unary.input, None, outer, depth + 1)
             }
             Plan::Aggregate(aggregate) => {
-                let needed = aggregate
-                    .group_by
-                    .iter()
-                    .chain(
-                        aggregate
-                            .measures
-                            .iter()
-                            .filter_map(|measure| measure.column.as_ref()),
-                    )
-                    .map(|column| column.as_str().to_owned())
-                    .collect();
+                let needed =
+                    aggregate
+                        .group_by
+                        .iter()
+                        .chain(aggregate.measures.iter().flat_map(
+                            shardloom_vortex::VortexSimpleAggregateMeasure::input_columns,
+                        ))
+                        .map(|column| column.as_str().to_owned())
+                        .collect();
                 self.prune_at(&mut aggregate.input, Some(needed), outer, depth + 1)
             }
             Plan::Join(join) => self.prune_join(join, required.as_ref(), outer, depth),
@@ -172,10 +170,12 @@ impl Lowerer<'_, '_> {
             {
                 needed.insert(column.as_str().to_owned());
             }
-            if let NativeWindowFunction::Framed(function) = &expression.function
-                && let Some(column) = function.column()
-            {
-                needed.insert(column.as_str().to_owned());
+            if let NativeWindowFunction::Framed(function) = &expression.function {
+                needed.extend(
+                    function
+                        .input_columns()
+                        .map(|column| column.as_str().to_owned()),
+                );
             }
         }
         self.prune_at(&mut window.input, Some(needed), outer, depth + 1)
@@ -293,12 +293,13 @@ fn pipeline_columns(stage: &Stage, required: &mut Option<Columns>) {
         Stage::Observe(observation) => {
             if observation.projection.is_empty() {
                 if let Some(required) = required {
-                    required.extend(observation.measures.iter().filter_map(|measure| {
-                        measure
-                            .column
-                            .as_ref()
-                            .map(|column| column.as_str().to_owned())
-                    }));
+                    required.extend(
+                        observation
+                            .measures
+                            .iter()
+                            .flat_map(shardloom_vortex::VortexSimpleAggregateMeasure::input_columns)
+                            .map(|column| column.as_str().to_owned()),
+                    );
                 }
             } else {
                 for (_, expression) in &observation.projection {

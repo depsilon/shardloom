@@ -92,6 +92,7 @@ fn native_decimal_reduction_writers_preserve_declared_results_and_retained_buffe
         let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
             input: fixture.scan(),
             group_by: vec![],
+            grouping_sets: None,
             measures: ["sum", "avg", "min", "max", "count", "count_distinct"]
                 .map(|function| {
                     VortexSimpleAggregateMeasure::new(

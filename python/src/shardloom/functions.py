@@ -8,6 +8,9 @@ for scalar values. Existing constructors are shared with the top-level API.
 
 from __future__ import annotations
 
+import math
+from collections.abc import Iterable
+
 from .query import (
     ColumnExpression, PredicateExpression, all_source, any_source, array, case_when,
     col, column, count_distinct, dense_rank, exists_source,
@@ -18,20 +21,21 @@ from .query import (
 )
 
 __all__ = (
-    "abs", "all_source", "any_source", "array", "avg", "byte_length", "case_when",
+    "grouping", "grouping_id",
+    "abs", "all_source", "any_source", "array", "array_agg", "avg", "byte_length", "case_when",
     "cast", "catalog", "ceil", "coalesce", "col", "column", "concat", "contains", "count",
     "count_distinct", "date_add_days", "date_day", "date_diff_days", "date_month",
     "date_sub_days", "date_trunc_minute", "date_year", "dense_rank", "ends_with",
-    "exists_source", "extract_minute", "first_value", "floor", "from_base64", "interval_days",
+    "arg_max", "arg_min", "corr", "covar_pop", "covar_samp", "exists_source", "extract_minute", "first", "first_value", "floor", "from_base64", "interval_days",
     "interval_hours", "interval_minutes", "interval_seconds", "is_null", "is_not_null",
-    "json_extract", "lag", "last_value", "lead", "left", "length", "lit", "lower",
-    "max", "mean", "min", "not_exists_source", "not_regex_match", "nth_value", "null_if",
+    "json_extract", "lag", "last_value", "lead", "left", "length", "list", "lit", "lower",
+    "last", "max", "mean", "mean_distinct", "median", "min", "not_exists_source", "not_regex_match", "nth_value", "null_if",
     "outer", "rank", "regex_domain", "regex_match", "regexp_replace", "replace", "right", "round", "row_in",
     "row_in_source", "row_not_in", "row_not_in_source", "row_number", "scalar_subquery",
-    "starts_with", "strptime", "struct", "substr", "substring", "sum", "timestamp_add_seconds",
+    "starts_with", "std", "stddev", "stddev_pop", "stddev_samp", "string_agg", "strptime", "struct", "substr", "substring", "sum", "timestamp_add_seconds",
     "timestamp_day", "timestamp_diff_seconds", "timestamp_hour", "timestamp_minute", "timestamp_month",
-    "timestamp_second", "timestamp_sub_seconds", "timestamp_year", "try_cast", "try_strptime",
-    "trim", "typed_scalar_udf", "unhex", "upper", "url_domain",
+    "quantile_cont", "quantile_disc", "timestamp_second", "timestamp_sub_seconds", "timestamp_year", "try_cast", "try_strptime",
+    "sum_distinct", "avg_distinct", "trim", "typed_scalar_udf", "unhex", "upper", "url_domain", "var", "var_pop", "var_samp", "variance",
 )
 
 
@@ -53,6 +57,20 @@ def _call(name, *expressions):
     from .query import _predicate_sources, _predicate_limits
     return ColumnExpression(f"{name}({','.join(str(value) for value in expressions)})",
         _predicate_sources(expressions), resource_limits=_predicate_limits(expressions))
+
+
+def grouping(*columns) -> ColumnExpression:
+    """Declare the UInt64 grouping omission mask, with the last key in the low bit."""
+    if not 1 <= len(columns) <= 64:
+        raise ValueError("grouping requires between one and 64 grouping keys")
+    return _call("GROUPING", *(_column(value) for value in columns))
+
+
+def grouping_id(*columns) -> ColumnExpression:
+    """Alias for the same grouping omission mask."""
+    if not 1 <= len(columns) <= 64:
+        raise ValueError("grouping_id requires between one and 64 grouping keys")
+    return _call("GROUPING_ID", *(_column(value) for value in columns))
 
 
 def lit(value) -> ColumnExpression:
@@ -144,9 +162,28 @@ def try_cast(value, dtype) -> ColumnExpression:
     return _column(value).try_cast(dtype)
 
 
-def sum(value) -> ColumnExpression:
-    """Declare native SUM over a column or expression, excluding null values."""
-    return _call("SUM", _column(value))
+def _aggregate(name, value, distinct: bool) -> ColumnExpression:
+    if not isinstance(distinct, bool):
+        raise TypeError("distinct must be a bool")
+    expression = _column(value)
+    result = _call(name, expression)
+    if not distinct:
+        return result
+    return ColumnExpression(
+        f"{name}(DISTINCT {expression})",
+        result.source_bindings,
+        resource_limits=result.resource_limits,
+    )
+
+
+def sum(value, *, distinct: bool = False) -> ColumnExpression:
+    """Declare native SUM, ignoring nulls and optionally using exact distinct membership."""
+    return _aggregate("SUM", value, distinct)
+
+
+def sum_distinct(value) -> ColumnExpression:
+    """Declare native SUM over distinct non-null values."""
+    return sum(value, distinct=True)
 
 
 def min(value) -> ColumnExpression:
@@ -159,12 +196,176 @@ def max(value) -> ColumnExpression:
     return _call("MAX", _column(value))
 
 
-def avg(value) -> ColumnExpression:
-    """Declare native AVG over non-null values."""
-    return _call("AVG", _column(value))
+def _normalize_aggregate_order_by(order_by) -> tuple[tuple[ColumnExpression, bool, str | None], ...]:
+    if isinstance(order_by, (str, ColumnExpression)):
+        entries = (order_by,)
+    else:
+        if not isinstance(order_by, Iterable):
+            raise TypeError("order_by must be a column, expression, or iterable of order keys")
+        entries = tuple(order_by)
+
+    normalized = []
+    for entry in entries:
+        if isinstance(entry, (str, ColumnExpression)):
+            normalized.append((_column(entry), False, None))
+            continue
+        if type(entry) is not tuple or len(entry) != 3:
+            raise TypeError(
+                "order_by entries must be columns/expressions or exact (column, descending, nulls) triples"
+            )
+        column, descending, nulls = entry
+        if not isinstance(column, (str, ColumnExpression)):
+            raise TypeError("aggregate order key column must be a string or ColumnExpression")
+        if type(descending) is not bool:
+            raise TypeError("aggregate order key direction must be bool")
+        if nulls is not None and (type(nulls) is not str or nulls not in {"first", "last"}):
+            raise ValueError("aggregate order key nulls must be None, 'first', or 'last'")
+        normalized.append((_column(column), descending, nulls))
+    return tuple(normalized)
+
+
+def _ordered_aggregate(name, arguments, order_by) -> ColumnExpression:
+    expressions = tuple(_column(value) for value in arguments)
+    ordering = _normalize_aggregate_order_by(order_by)
+    body = ",".join(str(value) for value in expressions)
+    if ordering:
+        terms = []
+        for column, descending, nulls in ordering:
+            term = f"{column} {'DESC' if descending else 'ASC'}"
+            if nulls is not None:
+                term += f" NULLS {nulls.upper()}"
+            terms.append(term)
+        body += " ORDER BY " + ",".join(terms)
+    from .query import _predicate_limits, _predicate_sources
+    dependencies = (*expressions, *(column for column, _, _ in ordering))
+    return ColumnExpression(
+        f"{name}({body})",
+        _predicate_sources(dependencies),
+        resource_limits=_predicate_limits(dependencies),
+    )
+
+
+def first(value, *, order_by=()) -> ColumnExpression:
+    """Select the first value, retaining NULL; equal order keys follow input order."""
+    return _ordered_aggregate("FIRST", (value,), order_by)
+
+
+def last(value, *, order_by=()) -> ColumnExpression:
+    """Select the last value, retaining NULL; equal order keys follow input order."""
+    return _ordered_aggregate("LAST", (value,), order_by)
+
+
+def arg_min(value, key, *, order_by=()) -> ColumnExpression:
+    """Select the value at the minimum key, skipping NULL pairs; ties use declared then input order."""
+    return _ordered_aggregate("ARG_MIN", (value, key), order_by)
+
+
+def arg_max(value, key, *, order_by=()) -> ColumnExpression:
+    """Select the value at the maximum key, skipping NULL pairs; ties use declared then input order."""
+    return _ordered_aggregate("ARG_MAX", (value, key), order_by)
+
+
+def array_agg(value, *, order_by=()) -> ColumnExpression:
+    """Collect original typed values, including NULLs and duplicates; an empty domain yields NULL."""
+    return _ordered_aggregate("ARRAY_AGG", (value,), order_by)
+
+
+list = array_agg
+
+
+def string_agg(value, separator: str, *, order_by=()) -> ColumnExpression:
+    """Join non-NULL UTF-8 values with a literal separator; an empty domain yields NULL."""
+    if not isinstance(separator, str):
+        raise TypeError("string_agg separator must be a literal string")
+    return _ordered_aggregate("STRING_AGG", (value, lit(separator)), order_by)
+
+
+def median(value) -> ColumnExpression:
+    """Declare continuous median (quantile 0.5) over non-null values."""
+    return _call("MEDIAN", _column(value))
+
+
+def _quantile(name, value, level) -> ColumnExpression:
+    if type(level) not in (int, float):
+        raise TypeError("quantile level must be an int or float")
+    try:
+        level = float(level)
+    except OverflowError as error:
+        raise ValueError("quantile level must be finite and between 0 and 1 inclusive") from error
+    if not math.isfinite(level) or not 0 <= level <= 1:
+        raise ValueError("quantile level must be finite and between 0 and 1 inclusive")
+    if level == 0.0:
+        level = 0.0
+    return _call(name, _column(value), lit(level))
+
+
+def quantile_cont(value, level) -> ColumnExpression:
+    """Declare continuous quantile with linear interpolation over ordered non-null values."""
+    return _quantile("QUANTILE_CONT", value, level)
+
+
+def quantile_disc(value, level) -> ColumnExpression:
+    """Declare discrete quantile returning an original typed selected value."""
+    return _quantile("QUANTILE_DISC", value, level)
+
+
+def avg(value, *, distinct: bool = False) -> ColumnExpression:
+    """Declare native AVG, ignoring nulls and optionally using exact distinct membership."""
+    return _aggregate("AVG", value, distinct)
 
 
 mean = avg
+
+
+def avg_distinct(value) -> ColumnExpression:
+    """Declare native AVG over distinct non-null values."""
+    return avg(value, distinct=True)
+
+
+mean_distinct = avg_distinct
+
+
+def var_pop(value) -> ColumnExpression:
+    """Declare population variance over primitive numeric values, ignoring nulls; a singleton yields zero."""
+    return _call("VAR_POP", _column(value))
+
+
+def var_samp(value) -> ColumnExpression:
+    """Declare sample variance over primitive numeric values, ignoring nulls; fewer than two yields null."""
+    return _call("VAR_SAMP", _column(value))
+
+
+variance = var_samp
+var = var_samp
+
+
+def stddev_pop(value) -> ColumnExpression:
+    """Declare population standard deviation over primitive numeric values, ignoring nulls; a singleton yields zero."""
+    return _call("STDDEV_POP", _column(value))
+
+
+def stddev_samp(value) -> ColumnExpression:
+    """Declare sample standard deviation over primitive numeric values, ignoring nulls; fewer than two yields null."""
+    return _call("STDDEV_SAMP", _column(value))
+
+
+stddev = stddev_samp
+std = stddev_samp
+
+
+def covar_pop(left, right) -> ColumnExpression:
+    """Declare population covariance for primitive numeric pairs, dropping rows where either input is null; a singleton yields zero."""
+    return _call("COVAR_POP", _column(left), _column(right))
+
+
+def covar_samp(left, right) -> ColumnExpression:
+    """Declare sample covariance for primitive numeric pairs, dropping rows where either input is null; fewer than two yields null."""
+    return _call("COVAR_SAMP", _column(left), _column(right))
+
+
+def corr(left, right) -> ColumnExpression:
+    """Declare correlation for primitive numeric pairs, dropping rows where either input is null; zero variance yields null."""
+    return _call("CORR", _column(left), _column(right))
 
 
 def count(value=None) -> ColumnExpression:

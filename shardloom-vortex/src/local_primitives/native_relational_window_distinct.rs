@@ -1,4 +1,4 @@
-//! Exact DISTINCT counts from native value-interval unions and boundary events.
+//! Exact DISTINCT reductions from native value-interval unions and boundary events.
 
 use super::{
     Layout, NativeExecutionContext, Report, Result, State, StoredOrder, add,
@@ -9,7 +9,8 @@ use super::{
 };
 use crate::local_primitives::{
     native_capacity::ReservedVec,
-    native_payload,
+    native_decimal_reduce, native_float_total, native_payload,
+    native_relational_aggregate::{Function as Aggregate, number},
     native_relational_keys::Cell,
     native_relational_records::{self as records, ORDINAL},
     native_relational_sort,
@@ -40,6 +41,8 @@ pub(super) fn run(
     output: &mut Values<'_, '_>,
     report: &mut Report,
 ) -> Result<()> {
+    let frame_spec = spec;
+    let additive = spec.function != frame::Function::Aggregate(Aggregate::CountDistinct);
     let key = spec
         .key
         .ok_or_else(|| failed("window DISTINCT has no key"))?;
@@ -66,7 +69,10 @@ pub(super) fn run(
             context.check_cancelled()?;
         }
         let spans = inverse.spans(position, context)?;
-        if spans.iter().all(Range::is_empty) || input.key_is_null(position, key, context)? {
+        if spans.iter().all(Range::is_empty)
+            || !frame::admitted(position, frame_spec, input, context)?
+            || input.key_is_null(position, key, context)?
+        {
             continue;
         }
         for span in spans.into_iter().filter(|span| !span.is_empty()) {
@@ -98,21 +104,27 @@ pub(super) fn run(
     )?;
     drop(buffer);
     let intervals = intervals.retain(context)?;
-    let event_spec = records::order(
-        vec![
-            (ORDINAL.into(), records::u64_type()),
-            (
-                DELTA.into(),
-                DType::Primitive(PType::I64, Nullability::NonNullable),
-            ),
-        ],
-        vec![ORDINAL.into(), DELTA.into()],
-    )?;
+    let mut event_fields = vec![
+        (ORDINAL.into(), records::u64_type()),
+        (
+            DELTA.into(),
+            DType::Primitive(PType::I64, Nullability::NonNullable),
+        ),
+    ];
+    if additive {
+        event_fields.push((VALUE.into(), dtype.clone()));
+    }
+    let event_spec = records::order(event_fields, vec![ORDINAL.into(), DELTA.into()])?;
     let events = unions(&intervals, &event_spec, spill, context, limit, report)?;
     intervals.finish(context)?;
+    let mut event_names = vec![ORDINAL.into(), DELTA.into()];
+    if additive {
+        event_names.push(VALUE.into());
+    }
     counts(
+        frame_spec,
         &events,
-        &event_spec.names,
+        &event_names,
         input.range.len(),
         output,
         context,
@@ -162,6 +174,7 @@ struct Events<'p, 's> {
     spec: &'p native_relational_sort::Spec,
     order: Ordering<'p, 's>,
     buffer: ReservedVec<(usize, i64)>,
+    values: Option<ReservedVec<Cell>>,
     limit: usize,
 }
 
@@ -170,9 +183,17 @@ impl Events<'_, '_> {
         &mut self,
         edge: usize,
         delta: i64,
+        value: Option<&Cell>,
         context: &NativeExecutionContext<'_>,
         report: &mut Report,
     ) -> Result<()> {
+        if let Some(values) = &mut self.values {
+            values.values.push(
+                value
+                    .ok_or_else(|| failed("distinct numeric event has no value"))?
+                    .clone(),
+            );
+        }
         self.buffer.values.push((edge, delta));
         add(&mut report.distinct_events, 1)?;
         if self.buffer.values.len() == self.limit {
@@ -191,7 +212,7 @@ impl Events<'_, '_> {
         }
         let rows = self.buffer.values.len();
         let mut columns = ReservedVec::new(context.memory())?;
-        columns.reserve(2)?;
+        columns.reserve(self.spec.fields.len())?;
         columns.values.push(records::unsigned(rows, context, |row| {
             u64::try_from(self.buffer.values[row].0).map_err(vortex_error)
         })?);
@@ -201,21 +222,33 @@ impl Events<'_, '_> {
             &context.native_session().host_allocator(),
             |row| Ok(Value::Int(self.buffer.values[row].1)),
         )?);
+        if let Some(values) = &self.values {
+            columns.values.push(result_batch::build_column(
+                &self.spec.fields[2].1,
+                rows,
+                &context.native_session().host_allocator(),
+                |row| numeric_value(&values.values[row], &self.spec.fields[2].1),
+            )?);
+        }
         self.order.build(
             records::structure(&self.spec.fields, columns, rows)?,
             context,
         )?;
         self.buffer.values.clear();
+        if let Some(values) = &mut self.values {
+            values.values.clear();
+        }
         Ok(())
     }
     fn interval(
         &mut self,
         range: Range<usize>,
+        value: Option<&Cell>,
         context: &NativeExecutionContext<'_>,
         report: &mut Report,
     ) -> Result<()> {
-        self.push(range.start, 1, context, report)?;
-        self.push(range.end, -1, context, report)
+        self.push(range.start, 1, value, context, report)?;
+        self.push(range.end, -1, value, context, report)
     }
 }
 
@@ -229,10 +262,18 @@ fn unions<'s>(
 ) -> Result<StoredOrder<'s>> {
     let mut buffer = ReservedVec::new(context.memory())?;
     buffer.reserve(limit)?;
+    let values = if spec.fields.len() > 2 {
+        let mut values = ReservedVec::new(context.memory())?;
+        values.reserve(limit)?;
+        Some(values)
+    } else {
+        None
+    };
     let mut events = Events {
         spec,
         order: Ordering::new(spec, spill, limit, context)?,
         buffer,
+        values,
         limit,
     };
     let names = [VALUE.into(), ORDINAL.into(), END.into()];
@@ -255,12 +296,22 @@ fn unions<'s>(
                 merged.end = merged.end.max(range.end);
                 continue;
             }
-            events.interval(merged.clone(), context, report)?;
+            let value = if events.values.is_some() {
+                Some(input.raw(*key, 0, context)?)
+            } else {
+                None
+            };
+            events.interval(merged.clone(), value.as_ref(), context, report)?;
         }
         current = Some((row, range));
     }
-    if let Some((_, range)) = current {
-        events.interval(range, context, report)?;
+    if let Some((key, range)) = current {
+        let value = if events.values.is_some() {
+            Some(input.raw(key, 0, context)?)
+        } else {
+            None
+        };
+        events.interval(range, value.as_ref(), context, report)?;
     }
     add(&mut report.lookup_blocks, input.blocks)?;
     events.flush(context)?;
@@ -268,6 +319,7 @@ fn unions<'s>(
 }
 
 fn counts(
+    spec: &frame::Spec,
     events: &StoredOrder<'_>,
     names: &[String],
     rows: usize,
@@ -275,6 +327,11 @@ fn counts(
     context: &NativeExecutionContext<'_>,
     report: &mut Report,
 ) -> Result<()> {
+    let frame::Function::Aggregate(function) = spec.function else {
+        return Err(failed("distinct event reducer has no aggregate function"));
+    };
+    let mut floats = native_float_total::Total::default();
+    let mut decimals = native_decimal_reduce::Total::default();
     let mut events = Lookup::<2>::new(events, names, context)?;
     let length = events.rows()?;
     let mut next = 0;
@@ -293,16 +350,51 @@ fn counts(
             if position > row {
                 break;
             }
-            count = match events.raw(next, 1, context)? {
-                Cell::NegativeInteger(-1) => count.checked_sub(1),
-                Cell::NonnegativeInteger(1) => count.checked_add(1),
+            let add = match events.raw(next, 1, context)? {
+                Cell::NegativeInteger(-1) => false,
+                Cell::NonnegativeInteger(1) => true,
                 _ => return Err(failed("window distinct event has an invalid direction")),
+            };
+            count = if add {
+                count.checked_add(1)
+            } else {
+                count.checked_sub(1)
             }
             .ok_or_else(|| failed("window distinct count overflow or underflow"))?;
+            if function != Aggregate::CountDistinct {
+                let value = events.raw(next, 2, context)?;
+                if let Some(dtype) = spec.decimal {
+                    let Cell::Decimal(value, actual) = value else {
+                        return Err(failed("distinct window event changed decimal type"));
+                    };
+                    if actual != dtype {
+                        return Err(failed("distinct window event changed decimal metadata"));
+                    }
+                    if add {
+                        decimals.add(value, dtype)?;
+                    } else {
+                        decimals.remove(value, dtype)?;
+                    }
+                } else {
+                    let value = number(&value)?;
+                    if add {
+                        floats.add(value)?;
+                    } else {
+                        floats.remove(value)?;
+                    }
+                }
+            }
             next += 1;
         }
         if row < rows {
-            output.push(frame::Value::Count(count), context)?;
+            let value = if function == Aggregate::CountDistinct {
+                frame::Value::Count(count)
+            } else if let Some(dtype) = spec.decimal {
+                frame::Value::Decimal(decimals.finish(dtype, function.is_average())?)
+            } else {
+                frame::Value::Float(floats.finish(function.is_average())?)
+            };
+            output.push(value, context)?;
         }
     }
     if next != length || count != 0 {
@@ -311,4 +403,17 @@ fn counts(
         ));
     }
     add(&mut report.lookup_blocks, events.blocks)
+}
+
+fn numeric_value(value: &Cell, dtype: &DType) -> Result<Value<'static>> {
+    Ok(match value {
+        Cell::NegativeInteger(value) => Value::Int(*value),
+        Cell::NonnegativeInteger(value) if matches!(dtype, DType::Primitive(ptype, _) if ptype.is_signed_int()) => {
+            Value::Int(i64::try_from(*value).map_err(vortex_error)?)
+        }
+        Cell::NonnegativeInteger(value) => Value::UInt(*value),
+        Cell::Float(value) => Value::Float(f64::from_bits(*value)),
+        Cell::Decimal(value, dtype) => Value::Decimal(*value, *dtype),
+        _ => return Err(failed("distinct numeric event contains a nonnumeric value")),
+    })
 }

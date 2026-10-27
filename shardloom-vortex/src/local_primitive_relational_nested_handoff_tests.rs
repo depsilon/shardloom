@@ -92,6 +92,7 @@ fn native_nested_aggregate_handoff_reuses_one_source_and_fresh_state() {
             VortexRelationalAggregate {
                 input: fixture.scan(),
                 group_by: count.group_by,
+                grouping_sets: None,
                 measures: count.measures,
             },
         )))

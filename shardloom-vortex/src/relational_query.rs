@@ -173,7 +173,41 @@ pub struct VortexRelationalUnary {
 pub struct VortexRelationalAggregate {
     pub input: VortexRelationalPlan,
     pub group_by: Vec<ColumnRef>,
+    /// Optional grouping sets over `group_by`. The input is consumed once.
+    pub grouping_sets: Option<VortexRelationalGroupingSets>,
     pub measures: Vec<crate::query_primitive::VortexSimpleAggregateMeasure>,
+}
+
+/// Normalized grouping sets. Duplicate sets retain duplicate groups; an empty
+/// set produces one aggregate result even when its input is empty. Each set
+/// names a subset of the aggregate's distinct `group_by` columns.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalGroupingSets {
+    pub sets: Vec<Vec<ColumnRef>>,
+    pub indicators: Vec<VortexRelationalGroupingIndicator>,
+}
+
+/// Unsigned omission mask: the rightmost argument occupies the low bit.
+/// Arguments must be grouping keys and there must be between one and 64.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalGroupingIndicator {
+    pub columns: Vec<ColumnRef>,
+    pub alias: String,
+}
+
+impl VortexRelationalAggregate {
+    /// Declared output names in native order; binding validates uniqueness.
+    pub fn output_columns(&self) -> impl Iterator<Item = &str> {
+        self.group_by
+            .iter()
+            .map(ColumnRef::as_str)
+            .chain(self.grouping_sets.iter().flat_map(|sets| {
+                sets.indicators
+                    .iter()
+                    .map(|indicator| indicator.alias.as_str())
+            }))
+            .chain(self.measures.iter().map(|measure| measure.alias.as_str()))
+    }
 }
 
 /// Named scalar expressions use the shared `ShardLoom` expression IR. Every

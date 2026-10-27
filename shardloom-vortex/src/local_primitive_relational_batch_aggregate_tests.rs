@@ -38,6 +38,7 @@ fn aggregate(
             .iter()
             .map(|column| ColumnRef::new(*column).unwrap())
             .collect(),
+        grouping_sets: None,
         measures,
     }))
 }

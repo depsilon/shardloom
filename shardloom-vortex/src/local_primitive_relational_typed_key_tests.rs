@@ -56,6 +56,7 @@ fn aggregate(
     VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input,
         group_by: groups.iter().map(|name| column(name)).collect(),
+        grouping_sets: None,
         measures,
     }))
 }

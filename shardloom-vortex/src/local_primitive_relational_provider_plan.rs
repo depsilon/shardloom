@@ -213,7 +213,12 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
             _ => break,
         }
     }
-    if let NodeKind::Aggregate { input, spec } = &plan.kind {
+    if let NodeKind::Aggregate {
+        input,
+        spec,
+        expansion: None,
+    } = &plan.kind
+    {
         return lower_aggregate(input, spec, source, output, limit, order, having);
     }
     if !having.is_empty() {
@@ -299,6 +304,16 @@ fn constant_group_anchor<'a>(
         })
 }
 
+fn legacy_aggregate_admitted(aggregate: &native_relational_aggregate::Spec) -> bool {
+    !aggregate.measures.is_empty()
+        && aggregate.measures.len() <= 1024
+        && aggregate.groups.len() <= 1024
+        && aggregate
+            .measures
+            .iter()
+            .all(|measure| measure.function.is_legacy() && measure.filter_column.is_none())
+}
+
 fn lower_aggregate(
     input_node: &Node,
     aggregate: &native_relational_aggregate::Spec,
@@ -308,10 +323,7 @@ fn lower_aggregate(
     order: Option<Vec<VortexAggregateOrderExpr>>,
     having: Vec<VortexAggregateHavingExpr>,
 ) -> Option<Lowered> {
-    if aggregate.measures.is_empty()
-        || aggregate.measures.len() > 1024
-        || aggregate.groups.len() > 1024
-    {
+    if !legacy_aggregate_admitted(aggregate) {
         return None;
     }
     let input = input(input_node, source)?;

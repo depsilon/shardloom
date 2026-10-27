@@ -12,6 +12,11 @@ fn measure(function: Function, column: Option<&str>, dtype: DType) -> Measure {
     Measure {
         function,
         column: column.map(str::to_owned),
+        secondary_column: None,
+        filter_column: None,
+        quantile_level: None,
+        selection: None,
+        separator: None,
         dtype,
         decimal_source: None,
         distinct_fields: vec![],

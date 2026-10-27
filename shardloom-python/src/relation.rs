@@ -4,16 +4,14 @@ use super::{expression::NativeExpression, native_error};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use shardloom_core::{ColumnRef, ComparisonOp};
 use shardloom_runtime::native::NativeRelationDeclaration;
-use shardloom_vortex::{
-    query_primitive::VortexSimpleAggregateMeasure,
-    relational_query::{
-        VortexRelationalAggregate, VortexRelationalFilter, VortexRelationalJoin,
-        VortexRelationalJoinColumn, VortexRelationalJoinKey, VortexRelationalJoinKind,
-        VortexRelationalLimit, VortexRelationalNullOrder, VortexRelationalOrderKey,
-        VortexRelationalPlan as Plan, VortexRelationalProject, VortexRelationalQuantifier,
-        VortexRelationalSet, VortexRelationalSetKind, VortexRelationalSide, VortexRelationalSort,
-        VortexRelationalSubquery, VortexRelationalSubqueryKind, VortexRelationalWindow,
-    },
+use shardloom_vortex::relational_query::{
+    VortexRelationalAggregate, VortexRelationalFilter, VortexRelationalGroupingIndicator,
+    VortexRelationalGroupingSets, VortexRelationalJoin, VortexRelationalJoinColumn,
+    VortexRelationalJoinKey, VortexRelationalJoinKind, VortexRelationalLimit,
+    VortexRelationalNullOrder, VortexRelationalOrderKey, VortexRelationalPlan as Plan,
+    VortexRelationalProject, VortexRelationalQuantifier, VortexRelationalSet,
+    VortexRelationalSetKind, VortexRelationalSide, VortexRelationalSort, VortexRelationalSubquery,
+    VortexRelationalSubqueryKind, VortexRelationalWindow,
 };
 use std::sync::Arc;
 
@@ -241,26 +239,53 @@ impl NativeRelation {
         })
     }
 
-    /// Computed keys/arguments are expressed by a preceding projection.
+    /// Computed keys/arguments are projected first; indicators are (alias, key columns) pairs.
+    #[pyo3(signature = (group_by, measures, *, grouping_sets=None, grouping_indicators=None))]
     fn aggregate(
         &self,
         group_by: Vec<String>,
-        measures: Vec<(String, Option<String>, String)>,
+        measures: Vec<Bound<'_, PyAny>>,
+        grouping_sets: Option<Vec<Vec<String>>>,
+        grouping_indicators: Option<Vec<(String, Vec<String>)>>,
     ) -> PyResult<Self> {
         let measures = measures
             .into_iter()
-            .map(|(function, name, alias)| {
-                Ok(VortexSimpleAggregateMeasure::new(
-                    function,
-                    name.map(column).transpose()?,
-                    alias,
-                ))
-            })
+            .map(|value| super::aggregate::parse(&value))
             .collect::<PyResult<Vec<_>>>()?;
+        let group_by = group_by
+            .into_iter()
+            .map(column)
+            .collect::<PyResult<Vec<_>>>()?;
+        let grouping_sets = match (grouping_sets, grouping_indicators) {
+            (None, None) => None,
+            (sets, indicators) => Some(VortexRelationalGroupingSets {
+                sets: match sets {
+                    Some(sets) => sets
+                        .into_iter()
+                        .map(|set| set.into_iter().map(column).collect::<PyResult<Vec<_>>>())
+                        .collect::<PyResult<Vec<_>>>()?,
+                    None => vec![group_by.clone()],
+                },
+                indicators: indicators
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(alias, columns)| {
+                        Ok(VortexRelationalGroupingIndicator {
+                            columns: columns
+                                .into_iter()
+                                .map(column)
+                                .collect::<PyResult<Vec<_>>>()?,
+                            alias,
+                        })
+                    })
+                    .collect::<PyResult<Vec<_>>>()?,
+            }),
+        };
         self.compose(
             Plan::Aggregate(Box::new(VortexRelationalAggregate {
                 input: Plan::Input(0),
-                group_by: group_by.into_iter().map(column).collect::<PyResult<_>>()?,
+                group_by,
+                grouping_sets,
                 measures,
             })),
             None,

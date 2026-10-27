@@ -194,7 +194,7 @@ pub(super) fn retained(request: &Request, output: &[String], names: &[String]) -
             size.add(std::mem::size_of_val(measure))?;
             size.name(&measure.function)?;
             size.name(&measure.alias)?;
-            if let Some(column) = &measure.column {
+            for column in measure.input_columns() {
                 size.name(column.as_str())?;
             }
             if let Some(function) = &measure.value_transform {

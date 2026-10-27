@@ -658,10 +658,46 @@ impl VortexRollingWindowRequest {
     }
 }
 
+/// Validated probability for an exact native quantile. Equality preserves the
+/// declared Float64 level, while both representations of zero canonicalize.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VortexQuantileLevel(u64);
+
+impl VortexQuantileLevel {
+    /// Validate a scalar quantile probability.
+    ///
+    /// # Errors
+    /// Returns an error for a nonfinite value or a probability outside `[0, 1]`.
+    pub fn new(value: f64) -> Result<Self> {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(ShardLoomError::InvalidOperation(
+                "quantile level must be finite and between 0 and 1 inclusive; no fallback execution was attempted".into(),
+            ));
+        }
+        Ok(Self(if value == 0.0 { 0 } else { value.to_bits() }))
+    }
+
+    #[must_use]
+    pub const fn value(self) -> f64 {
+        f64::from_bits(self.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexSimpleAggregateMeasure {
     pub function: String,
     pub column: Option<ColumnRef>,
+    /// Second input for a paired native reduction; absent for unary reducers.
+    pub secondary_column: Option<ColumnRef>,
+    /// Optional Boolean input selecting rows admitted by this aggregate.
+    /// True admits a row; false and NULL exclude it.
+    pub filter_column: Option<ColumnRef>,
+    /// Scalar probability for `quantile_cont`/`quantile_disc`, never an input dependency.
+    pub quantile_level: Option<VortexQuantileLevel>,
+    /// Ordering inside an ordered aggregate, independent of output/window order.
+    pub order_by: Vec<crate::relational_query::VortexRelationalOrderKey>,
+    /// Literal UTF-8 separator for `string_agg`, never an input dependency.
+    pub separator: Option<String>,
     pub alias: String,
     pub argument_offset: Option<i64>,
     pub value_transform: Option<String>,
@@ -672,6 +708,11 @@ impl VortexSimpleAggregateMeasure {
         Self {
             function: function.into(),
             column,
+            secondary_column: None,
+            filter_column: None,
+            quantile_level: None,
+            order_by: Vec::new(),
+            separator: None,
             alias,
             argument_offset: None,
             value_transform: None,
@@ -691,6 +732,53 @@ impl VortexSimpleAggregateMeasure {
     }
 
     #[must_use]
+    pub fn with_secondary_column(mut self, column: ColumnRef) -> Self {
+        self.secondary_column = Some(column);
+        self
+    }
+
+    /// Restrict this aggregate to rows whose Boolean filter column is true.
+    #[must_use]
+    pub fn with_filter_column(mut self, column: ColumnRef) -> Self {
+        self.filter_column = Some(column);
+        self
+    }
+
+    #[must_use]
+    pub fn with_order_by(
+        mut self,
+        keys: Vec<crate::relational_query::VortexRelationalOrderKey>,
+    ) -> Self {
+        self.order_by = keys;
+        self
+    }
+
+    /// Declare the literal separator for string aggregation, including empty text.
+    #[must_use]
+    pub fn with_separator(mut self, separator: impl Into<String>) -> Self {
+        self.separator = Some(separator.into());
+        self
+    }
+
+    /// Attach the validated scalar probability for an exact quantile.
+    ///
+    /// # Errors
+    /// Returns an error for a nonfinite value or a probability outside `[0, 1]`.
+    pub fn with_quantile_level(mut self, value: f64) -> Result<Self> {
+        self.quantile_level = Some(VortexQuantileLevel::new(value)?);
+        Ok(self)
+    }
+
+    /// All input dependencies, including the companion in paired reductions.
+    pub fn input_columns(&self) -> impl Iterator<Item = &ColumnRef> {
+        self.column
+            .iter()
+            .chain(self.secondary_column.iter())
+            .chain(self.filter_column.iter())
+            .chain(self.order_by.iter().map(|key| &key.column))
+    }
+
+    #[must_use]
     pub fn summary(&self) -> String {
         let offset = self
             .argument_offset
@@ -699,12 +787,37 @@ impl VortexSimpleAggregateMeasure {
             .value_transform
             .as_ref()
             .map_or_else(String::new, |value| format!(" transform {value}"));
+        let secondary = self
+            .secondary_column
+            .as_ref()
+            .map_or_else(String::new, |column| format!(",{}", column.as_str()));
+        let filter = self
+            .filter_column
+            .as_ref()
+            .map_or_else(String::new, |column| format!(",filter={}", column.as_str()));
+        let quantile = self
+            .quantile_level
+            .map_or_else(String::new, |level| format!(",level={}", level.value()));
+        let order = if self.order_by.is_empty() {
+            String::new()
+        } else {
+            format!(",order={:?}", self.order_by)
+        };
+        let separator = self
+            .separator
+            .as_ref()
+            .map_or_else(String::new, |value| format!(",separator={value:?}"));
         format!(
-            "{}({}{}{}) as {}",
+            "{}({}{}{}{}{}{}{}{}) as {}",
             self.function,
             self.column.as_ref().map_or("*", ColumnRef::as_str),
             transform,
             offset,
+            secondary,
+            filter,
+            quantile,
+            order,
+            separator,
             self.alias
         )
     }
@@ -1243,14 +1356,13 @@ impl VortexSimpleAggregateRequest {
             }
         }
         for measure in &self.measures {
-            let Some(column) = &measure.column else {
-                continue;
-            };
-            if !out
-                .iter()
-                .any(|existing: &ColumnRef| existing.as_str() == column.as_str())
-            {
-                out.push(column.clone());
+            for column in measure.input_columns() {
+                if !out
+                    .iter()
+                    .any(|existing: &ColumnRef| existing.as_str() == column.as_str())
+                {
+                    out.push(column.clone());
+                }
             }
         }
         out

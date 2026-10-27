@@ -104,6 +104,7 @@ fn streaming_subqueries_bounded_inner_aggregate_consumes_more_than_grant_without
     let inner = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input: input_scan(1),
         group_by: vec![],
+        grouping_sets: None,
         measures: vec![VortexSimpleAggregateMeasure::new(
             "count",
             None,

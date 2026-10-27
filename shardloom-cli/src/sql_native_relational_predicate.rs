@@ -51,7 +51,7 @@ pub(super) fn select_direct_outer(parsed: &ParsedSqlLocalSource) -> NativeResult
             .aggregates
             .iter()
             .chain(&parsed.having_aggregates)
-            .any(|value| value.column().is_some_and(is_outer_correlation_ref))
+            .any(|value| value.columns().any(is_outer_correlation_ref))
     {
         return Ok(true);
     }
@@ -78,7 +78,7 @@ pub(super) fn select_direct_outer(parsed: &ParsedSqlLocalSource) -> NativeResult
                 super::WindowFunction::Lag { column, .. }
                 | super::WindowFunction::Lead { column, .. } => is_outer_correlation_ref(column),
                 super::WindowFunction::Aggregate(value) => {
-                    value.column().is_some_and(is_outer_correlation_ref)
+                    value.columns().any(is_outer_correlation_ref)
                 }
                 _ => false,
             }

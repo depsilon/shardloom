@@ -129,12 +129,17 @@ streamed input uses the shared writer/replay contract below. See the
 
 ## General aggregation and completion-aware input
 
-Current source builds use the same explicit spill policy for general relational
-GROUP BY and COUNT DISTINCT, alongside COUNT, SUM, AVG/MEAN and MIN/MAX.
-Native ordering and runs bound group and distinct membership state, preserving
-first-seen group order and the existing typed, null and floating reduction
-semantics. All stages share the query grant and disk quota. Without an explicit
-policy, resident aggregation retains its deterministic memory denial.
+Shared native relational aggregation covers COUNT, SUM/AVG/MEAN, MIN/MAX,
+exact distinct SUM/AVG, statistical moments and paired measures, exact
+median/quantiles, ordered selectors, list/string collections, aggregate FILTER,
+and GROUPING SETS/ROLLUP/CUBE. These families compose through their declared
+SQL, DataFrame and typed relation surfaces; this is not a claim for arbitrary
+reducers, all input types, or general decimal statistics. See the
+[native analytical aggregate contract](native-analytical-aggregates.md)
+for per-measure semantics and the exact type, state, resource and spill
+admission boundaries. Admitted spill stages share the query grant and disk
+quota. Without an explicit policy, resident aggregation retains its deterministic
+memory denial.
 
 Distinct finite `streaming=True` batch sources can compose filters, projections, sorting,
 aggregation, joins, analytic windows, dynamic pivot, sets, admitted unary stages

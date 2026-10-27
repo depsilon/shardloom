@@ -60,6 +60,10 @@ pub(super) fn request_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
         || !aggregate.group_expressions.is_empty()
         || !aggregate.having.is_empty()
         || measure.column.is_some()
+        || measure.secondary_column.is_some()
+        || measure.filter_column.is_some()
+        || measure.quantile_level.is_some()
+        || !measure.order_by.is_empty()
         || measure.argument_offset.is_some()
         || measure.value_transform.is_some()
         || !matches!(

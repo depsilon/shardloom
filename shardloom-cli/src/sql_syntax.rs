@@ -6,8 +6,12 @@ use shardloom_core::{
     BinaryOp, ColumnRef, ComparisonOp, ExprId, Expression, ExpressionKind, UnaryOp,
     evaluate_expression, parse_iso_date32, parse_iso_timestamp_micros,
 };
-use shardloom_vortex::relational_query::VortexRelationalWindowFrame;
+use shardloom_vortex::{
+    query_primitive::VortexQuantileLevel, relational_query::VortexRelationalWindowFrame,
+};
 
+#[path = "sql_grouping_syntax.rs"]
+mod grouping_syntax;
 #[path = "sql_window_frames.rs"]
 mod window_frames;
 
@@ -113,6 +117,7 @@ struct ParsedSqlLocalSource {
     aggregates: Vec<ParsedAggregate>,
     having_aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
+    grouping_sets: Option<grouping_syntax::Grouping>,
     order_by: Option<ParsedOrderBy>,
     source: ParsedRelationSource,
     source_alias: Option<String>,
@@ -131,8 +136,13 @@ struct ParsedSqlLocalSource {
 struct ParsedAggregate {
     function: AggregateFunction,
     argument: ParsedAggregateArgument,
+    secondary_argument: Option<ParsedAggregateArgument>,
+    filter: Option<ParsedAggregateArgument>,
+    quantile_level: Option<VortexQuantileLevel>,
+    order_by: Option<ParsedOrderBy>,
     alias: Option<String>,
     distinct: bool,
+    separator: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -495,6 +505,22 @@ enum AggregateFunction {
     Avg,
     Min,
     Max,
+    VarPop,
+    VarSamp,
+    StddevPop,
+    StddevSamp,
+    CovarPop,
+    CovarSamp,
+    Corr,
+    Median,
+    QuantileCont,
+    QuantileDisc,
+    First,
+    Last,
+    ArgMin,
+    ArgMax,
+    List,
+    StringAgg,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1137,6 +1163,7 @@ struct ParsedSqlLocalSourceParts {
     distinct_projection: bool,
     having_aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
+    grouping_sets: Option<grouping_syntax::Grouping>,
     order_by: Option<ParsedOrderBy>,
     source_clause: ParsedSourceClause,
     predicate: ParsedPredicate,
@@ -1194,11 +1221,13 @@ fn bytes_to_hex(value: &[u8]) -> String {
 
 impl ParsedSqlLocalSource {
     fn is_aggregate(&self) -> bool {
-        !self.aggregates.is_empty() || !self.having_aggregates.is_empty()
+        !self.aggregates.is_empty()
+            || !self.having_aggregates.is_empty()
+            || self.grouping_sets.is_some()
     }
 
     fn is_grouped_aggregate(&self) -> bool {
-        !self.group_by.is_empty() && self.is_aggregate()
+        (!self.group_by.is_empty() || self.grouping_sets.is_some()) && self.is_aggregate()
     }
 
     fn uses_outer_correlation(&self) -> bool {
@@ -1242,17 +1271,78 @@ impl ParsedAggregate {
     fn same_value(&self, other: &Self) -> bool {
         self.function == other.function
             && self.distinct == other.distinct
-            && match (&self.argument, &other.argument) {
-                (
-                    ParsedAggregateArgument::Computed {
-                        expression: left, ..
-                    },
-                    ParsedAggregateArgument::Computed {
-                        expression: right, ..
-                    },
-                ) => left == right,
-                (left, right) => left == right,
+            && self.quantile_level == other.quantile_level
+            && self.order_by == other.order_by
+            && self.separator == other.separator
+            && match (&self.filter, &other.filter) {
+                (Some(left), Some(right)) => Self::same_argument(left, right),
+                (None, None) => true,
+                _ => false,
             }
+            && self.secondary_argument.is_some() == other.secondary_argument.is_some()
+            && self
+                .arguments()
+                .zip(other.arguments())
+                .all(|(left, right)| Self::same_argument(left, right))
+    }
+
+    fn same_argument(left: &ParsedAggregateArgument, right: &ParsedAggregateArgument) -> bool {
+        match (left, right) {
+            (
+                ParsedAggregateArgument::Computed {
+                    expression: left, ..
+                },
+                ParsedAggregateArgument::Computed {
+                    expression: right, ..
+                },
+            ) => left == right,
+            (left, right) => left == right,
+        }
+    }
+
+    fn arguments(&self) -> impl Iterator<Item = &ParsedAggregateArgument> {
+        std::iter::once(&self.argument).chain(self.secondary_argument.iter())
+    }
+
+    fn arguments_mut(&mut self) -> impl Iterator<Item = &mut ParsedAggregateArgument> {
+        std::iter::once(&mut self.argument).chain(self.secondary_argument.iter_mut())
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn input_arguments(&self) -> impl Iterator<Item = &ParsedAggregateArgument> {
+        self.arguments().chain(self.filter.iter())
+    }
+
+    fn columns(&self) -> impl Iterator<Item = &str> {
+        self.column()
+            .into_iter()
+            .chain(
+                self.secondary_argument
+                    .iter()
+                    .filter_map(|argument| match argument {
+                        ParsedAggregateArgument::Column(column) => Some(column.as_str()),
+                        _ => None,
+                    }),
+            )
+            .chain(
+                self.filter
+                    .iter()
+                    .flat_map(|filter| match filter {
+                        ParsedAggregateArgument::Column(column) => {
+                            std::slice::from_ref(column).iter()
+                        }
+                        ParsedAggregateArgument::Computed { source_columns, .. } => {
+                            source_columns.iter()
+                        }
+                        ParsedAggregateArgument::All => [].iter(),
+                    })
+                    .map(String::as_str),
+            )
+            .chain(
+                self.order_by
+                    .iter()
+                    .flat_map(|order| order.keys.iter().map(|key| key.column.as_str())),
+            )
     }
 
     fn column(&self) -> Option<&str> {
@@ -1265,6 +1355,80 @@ impl ParsedAggregate {
     fn output_name(&self) -> String {
         if let Some(alias) = self.alias.as_ref() {
             return alias.clone();
+        }
+        if self.secondary_argument.is_some()
+            || self.quantile_level.is_some()
+            || self.order_by.is_some()
+            || self.separator.is_some()
+            || self.filter.is_some()
+        {
+            use sha2::{Digest as _, Sha256};
+            let mut hash = Sha256::new();
+            if let Some(filter) = &self.filter {
+                hash.update(b"aggregate_filter");
+                hash.update([u8::from(self.distinct)]);
+                let raw = match filter {
+                    ParsedAggregateArgument::All => "*",
+                    ParsedAggregateArgument::Column(name) => name,
+                    ParsedAggregateArgument::Computed { raw, .. } => raw,
+                };
+                hash.update(
+                    u64::try_from(raw.len())
+                        .expect("SQL filter fits memory")
+                        .to_le_bytes(),
+                );
+                hash.update(raw.as_bytes());
+            }
+            for argument in self.arguments() {
+                let raw = match argument {
+                    ParsedAggregateArgument::All => "*",
+                    ParsedAggregateArgument::Column(name) => name,
+                    ParsedAggregateArgument::Computed { raw, .. } => raw,
+                };
+                hash.update(
+                    u64::try_from(raw.len())
+                        .expect("SQL names fit addressable memory")
+                        .to_le_bytes(),
+                );
+                hash.update(raw.as_bytes());
+            }
+            hash.update([u8::from(self.separator.is_some())]);
+            if let Some(separator) = &self.separator {
+                hash.update(
+                    u64::try_from(separator.len())
+                        .expect("separator fits memory")
+                        .to_le_bytes(),
+                );
+                hash.update(separator.as_bytes());
+            }
+            if let Some(level) = self.quantile_level {
+                hash.update(b"quantile_level");
+                hash.update(level.value().to_bits().to_le_bytes());
+            }
+            if let Some(order) = &self.order_by {
+                hash.update(b"aggregate_order");
+                for key in &order.keys {
+                    hash.update(
+                        u64::try_from(key.column.len())
+                            .expect("SQL names fit addressable memory")
+                            .to_le_bytes(),
+                    );
+                    hash.update(key.column.as_bytes());
+                    hash.update([
+                        u8::from(key.direction == SortDirection::Desc),
+                        match key.null_ordering {
+                            None => 0,
+                            Some(SortNullOrdering::First) => 1,
+                            Some(SortNullOrdering::Last) => 2,
+                        },
+                    ]);
+                }
+            }
+            return format!(
+                "{}_expr_{}",
+                self.function.as_str(),
+                bytes_to_hex(&hash.finalize())
+            );
         }
         if let ParsedAggregateArgument::Computed { raw, .. } = &self.argument {
             use sha2::{Digest as _, Sha256};
@@ -1289,6 +1453,47 @@ impl ParsedAggregate {
 }
 
 impl AggregateFunction {
+    fn native_name(self, distinct: bool) -> Result<&'static str, ShardLoomError> {
+        if !distinct {
+            return Ok(self.as_str());
+        }
+        match self {
+            Self::Count => Ok("count_distinct"),
+            Self::Sum => Ok("sum_distinct"),
+            Self::Avg => Ok("avg_distinct"),
+            _ => Err(unsupported_sql_error(
+                "native DISTINCT aggregates admit COUNT, SUM and AVG",
+            )),
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        Some(match value.trim().to_ascii_lowercase().as_str() {
+            "count" => Self::Count,
+            "sum" => Self::Sum,
+            "avg" | "mean" => Self::Avg,
+            "min" => Self::Min,
+            "max" => Self::Max,
+            "var_pop" => Self::VarPop,
+            "var_samp" | "variance" | "var" => Self::VarSamp,
+            "stddev_pop" => Self::StddevPop,
+            "stddev_samp" | "stddev" | "std" => Self::StddevSamp,
+            "covar_pop" => Self::CovarPop,
+            "covar_samp" => Self::CovarSamp,
+            "corr" => Self::Corr,
+            "median" => Self::Median,
+            "quantile_cont" => Self::QuantileCont,
+            "quantile_disc" => Self::QuantileDisc,
+            "first" => Self::First,
+            "last" => Self::Last,
+            "arg_min" => Self::ArgMin,
+            "arg_max" => Self::ArgMax,
+            "list" | "array_agg" => Self::List,
+            "string_agg" => Self::StringAgg,
+            _ => return None,
+        })
+    }
+
     const fn as_str(self) -> &'static str {
         match self {
             Self::Count => "count",
@@ -1296,7 +1501,42 @@ impl AggregateFunction {
             Self::Avg => "avg",
             Self::Min => "min",
             Self::Max => "max",
+            Self::VarPop => "var_pop",
+            Self::VarSamp => "var_samp",
+            Self::StddevPop => "stddev_pop",
+            Self::StddevSamp => "stddev_samp",
+            Self::CovarPop => "covar_pop",
+            Self::CovarSamp => "covar_samp",
+            Self::Corr => "corr",
+            Self::Median => "median",
+            Self::QuantileCont => "quantile_cont",
+            Self::QuantileDisc => "quantile_disc",
+            Self::First => "first",
+            Self::Last => "last",
+            Self::ArgMin => "arg_min",
+            Self::ArgMax => "arg_max",
+            Self::List => "list",
+            Self::StringAgg => "string_agg",
         }
+    }
+
+    const fn requires_secondary(self) -> bool {
+        matches!(
+            self,
+            Self::CovarPop | Self::CovarSamp | Self::Corr | Self::ArgMin | Self::ArgMax
+        )
+    }
+
+    const fn is_selector(self) -> bool {
+        matches!(self, Self::First | Self::Last | Self::ArgMin | Self::ArgMax)
+    }
+
+    const fn requires_separator(self) -> bool {
+        matches!(self, Self::StringAgg)
+    }
+
+    const fn requires_quantile_level(self) -> bool {
+        matches!(self, Self::QuantileCont | Self::QuantileDisc)
     }
 }
 
@@ -2797,24 +3037,22 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         ));
     }
 
-    let projection_list = parse_projection_list(select_list)?;
-    let (having_raw, having_aggregates) = if let Some(having_raw) = having_raw {
-        let (rewritten, aggregates) = rewrite_having_aggregate_predicate(
-            having_raw,
-            &projection_list.aggregates,
-            reserved_having_aggregate_aliases(&projection_list),
-        )?;
-        (Some(rewritten), aggregates)
-    } else {
-        (None, Vec::new())
-    };
-    let group_by = parse_group_by_list(group_by_raw, &projection_list)?;
-    let order_by = parse_selected_order_by(order_by_raw, &projection_list)?;
+    let ParsedAggregateClauses {
+        projection_list,
+        having_aggregates,
+        group_by,
+        grouping_sets,
+        order_by,
+        having,
+    } = parse_aggregate_clauses(
+        &statement,
+        select_list,
+        group_by_raw,
+        having_raw,
+        order_by_raw,
+    )?;
     let source_clause = parse_normalized_source_clause(source_raw, memory_source)?;
     let predicate = predicate_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
-    let having = having_raw
-        .as_deref()
-        .map_or(Ok(ParsedPredicate::All), parse_predicate)?;
     let limit = parse_limit(limit_raw)?;
 
     Ok(parsed_sql_local_source_from_parts(
@@ -2824,6 +3062,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
             distinct_projection,
             having_aggregates,
             group_by,
+            grouping_sets,
             order_by,
             source_clause,
             predicate,
@@ -2831,6 +3070,61 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
             limit,
         },
     ))
+}
+
+struct ParsedAggregateClauses {
+    projection_list: ParsedProjectionList,
+    having_aggregates: Vec<ParsedAggregate>,
+    group_by: Vec<String>,
+    grouping_sets: Option<grouping_syntax::Grouping>,
+    order_by: Option<ParsedOrderBy>,
+    having: ParsedPredicate,
+}
+
+fn parse_aggregate_clauses(
+    statement: &str,
+    select_list: &str,
+    group_by_raw: Option<&str>,
+    having_raw: Option<&str>,
+    order_by_raw: Option<&str>,
+) -> Result<ParsedAggregateClauses, ShardLoomError> {
+    let mut grouping_rewrite = grouping_syntax::Rewrite::new(statement);
+    let select_list = grouping_rewrite.select(select_list)?;
+    let having_raw = having_raw
+        .map(|raw| grouping_rewrite.expression(raw))
+        .transpose()?;
+    let order_by_raw = order_by_raw
+        .map(|raw| grouping_rewrite.expression(raw))
+        .transpose()?;
+    let projection_list = parse_projection_list(&select_list)?;
+    let (having_raw, mut having_aggregates) = if let Some(having_raw) = having_raw.as_deref() {
+        let (rewritten, aggregates) = rewrite_having_aggregate_predicate(
+            having_raw,
+            &projection_list.aggregates,
+            reserved_having_aggregate_aliases(&projection_list),
+        )?;
+        (Some(rewritten), aggregates)
+    } else {
+        (None, Vec::new())
+    };
+    let (group_by, grouping_sets) =
+        grouping_syntax::parse(group_by_raw, &projection_list, grouping_rewrite.indicators)?;
+    let order_by = parse_selected_order_by(
+        order_by_raw.as_deref(),
+        &projection_list,
+        &mut having_aggregates,
+    )?;
+    let having = having_raw
+        .as_deref()
+        .map_or(Ok(ParsedPredicate::All), parse_predicate)?;
+    Ok(ParsedAggregateClauses {
+        projection_list,
+        having_aggregates,
+        group_by,
+        grouping_sets,
+        order_by,
+        having,
+    })
 }
 
 fn parse_normalized_source_clause(
@@ -2855,6 +3149,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         distinct_projection,
         having_aggregates,
         group_by,
+        grouping_sets,
         order_by,
         source_clause,
         predicate,
@@ -2890,6 +3185,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         aggregates: projection_list.aggregates,
         having_aggregates,
         group_by,
+        grouping_sets,
         order_by,
         source: source_clause.source,
         source_alias: source_clause.source_alias,
@@ -3266,16 +3562,10 @@ fn rewrite_having_aggregate_predicate(
         }
         if !in_string && let Some(function_name) = aggregate_function_prefix_at(raw, index) {
             let open_index = index + function_name.len();
-            let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
-                unsupported_sql_error(
-                    "HAVING aggregate predicates require complete aggregate function calls",
-                )
-            })?;
+            let close_index = aggregate_expression_end(raw, open_index)?;
             let expression = &raw[index..=close_index];
             let mut aggregate = parse_aggregate_projection(expression)?.ok_or_else(|| {
-                unsupported_sql_error(
-                    "HAVING aggregate predicates admit COUNT, SUM, AVG, MIN, or MAX only",
-                )
+                unsupported_sql_error("HAVING requires an admitted native aggregate function")
             })?;
             let existing = selected
                 .iter()
@@ -3349,21 +3639,19 @@ fn reserved_having_aggregate_aliases(projection_list: &ParsedProjectionList) -> 
     reserved
 }
 
-fn aggregate_function_prefix_at(raw: &str, index: usize) -> Option<&'static str> {
+fn aggregate_function_prefix_at(raw: &str, index: usize) -> Option<&str> {
     if !sql_identifier_boundary_before(raw, index) {
         return None;
     }
-    for name in ["count", "sum", "avg", "min", "max"] {
-        let end = index + name.len();
-        if raw
-            .get(index..end)
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
-            && raw.as_bytes().get(end) == Some(&b'(')
-        {
-            return Some(name);
-        }
-    }
-    None
+    let rest = raw.get(index..)?;
+    let length = rest
+        .bytes()
+        .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        .count();
+    AggregateFunction::parse(rest.get(..length)?)?;
+    let trailing = rest.get(length..)?;
+    let end = length + trailing.len() - trailing.trim_start().len();
+    (rest.as_bytes().get(end) == Some(&b'(')).then_some(&rest[..end])
 }
 
 fn sql_identifier_boundary_before(raw: &str, index: usize) -> bool {
@@ -6124,13 +6412,8 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
         return Ok(None);
     };
     let function_raw = expression_raw[..open_index].trim();
-    let function = match function_raw.to_ascii_lowercase().as_str() {
-        "count" => AggregateFunction::Count,
-        "sum" => AggregateFunction::Sum,
-        "avg" => AggregateFunction::Avg,
-        "min" => AggregateFunction::Min,
-        "max" => AggregateFunction::Max,
-        _ => return Ok(None),
+    let Some(function) = AggregateFunction::parse(function_raw) else {
+        return Ok(None);
     };
     let alias = if let Some(alias_raw) = alias_raw {
         if alias_raw.is_empty() {
@@ -6143,34 +6426,44 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
     } else {
         None
     };
-    if !expression_raw.ends_with(')') {
-        return Err(unsupported_sql_error(
-            "aggregate expressions must be written as function(argument) or function(argument) AS alias",
-        ));
-    }
-    let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
+    let close_index =
+        matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
+            unsupported_sql_error("aggregate expression requires closing parentheses")
+        })?;
+    let filter = parse_aggregate_filter(expression_raw[close_index + 1..].trim())?;
+    let argument = expression_raw[open_index + 1..close_index].trim();
     if argument.is_empty() {
         return Err(unsupported_sql_error(
             "aggregate expressions require one scalar argument or COUNT(*)",
         ));
     }
-    let (distinct, argument) = if let Some(argument) = strip_leading_keyword(argument, "distinct") {
-        if function != AggregateFunction::Count {
-            return Err(unsupported_sql_error(
-                "DISTINCT aggregate runtime currently admits COUNT(DISTINCT <argument>) only",
-            ));
-        }
-        let argument = argument.trim();
-        if argument.is_empty() {
-            return Err(unsupported_sql_error(
-                "COUNT(DISTINCT ...) requires one scalar argument",
-            ));
-        }
-        (true, argument)
+    let (argument, order_by) = parse_aggregate_order(function, argument)?;
+    let (distinct, argument) = parse_aggregate_distinct(function, argument)?;
+    let arguments = split_sql_csv(argument)?;
+    let expected = if function.requires_secondary()
+        || function.requires_quantile_level()
+        || function.requires_separator()
+    {
+        2
     } else {
-        (false, argument)
+        1
     };
-    if argument == "*" {
+    if arguments.len() != expected {
+        return Err(unsupported_sql_error(&format!(
+            "{} requires exactly {expected} aggregate arguments",
+            function.as_str()
+        )));
+    }
+    let argument = arguments[0].as_str();
+    let quantile_level = function
+        .requires_quantile_level()
+        .then(|| parse_quantile_level(&arguments[1]))
+        .transpose()?;
+    let separator = function
+        .requires_separator()
+        .then(|| parse_sql_string_literal(&arguments[1]))
+        .transpose()?;
+    let argument = if argument == "*" {
         if distinct {
             return Err(unsupported_sql_error(
                 "COUNT(DISTINCT *) is not admitted; use COUNT(DISTINCT <column>)",
@@ -6181,15 +6474,127 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
                 "only COUNT(*) is admitted in this scoped aggregate smoke",
             ));
         }
-        return Ok(Some(ParsedAggregate {
-            function,
-            argument: ParsedAggregateArgument::All,
-            alias,
-            distinct,
-        }));
+        ParsedAggregateArgument::All
+    } else {
+        parse_aggregate_argument(argument)?
+    };
+    Ok(Some(ParsedAggregate {
+        function,
+        argument,
+        secondary_argument: if function.requires_secondary() {
+            Some(parse_aggregate_argument(&arguments[1])?)
+        } else {
+            None
+        },
+        quantile_level,
+        filter,
+        order_by,
+        alias,
+        distinct,
+        separator,
+    }))
+}
+
+fn aggregate_expression_end(raw: &str, open: usize) -> Result<usize, ShardLoomError> {
+    let close = matching_closing_parenthesis(raw, open)?
+        .ok_or_else(|| unsupported_sql_error("aggregate function requires closing parentheses"))?;
+    let tail = raw[close + 1..].trim_start();
+    let Some(filter) = strip_leading_keyword(tail, "filter") else {
+        return Ok(close);
+    };
+    let filter = filter.trim_start();
+    if !filter.starts_with('(') {
+        return Err(unsupported_sql_error(
+            "aggregate FILTER requires (WHERE predicate)",
+        ));
     }
+    let filter_open = raw.len() - filter.len();
+    matching_closing_parenthesis(raw, filter_open)?
+        .ok_or_else(|| unsupported_sql_error("aggregate FILTER requires closing parentheses"))
+}
+
+fn parse_aggregate_filter(raw: &str) -> Result<Option<ParsedAggregateArgument>, ShardLoomError> {
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    let tail = strip_leading_keyword(raw, "filter")
+        .ok_or_else(|| unsupported_sql_error("aggregate suffix must be FILTER (WHERE predicate)"))?
+        .trim();
+    if !tail.starts_with('(')
+        || matching_closing_parenthesis(tail, 0)? != Some(tail.len().saturating_sub(1))
+    {
+        return Err(unsupported_sql_error(
+            "aggregate FILTER requires (WHERE predicate)",
+        ));
+    }
+    let predicate = strip_leading_keyword(tail[1..tail.len() - 1].trim(), "where")
+        .ok_or_else(|| unsupported_sql_error("aggregate FILTER requires WHERE"))?
+        .trim();
+    if predicate.is_empty() {
+        return Err(unsupported_sql_error(
+            "aggregate FILTER requires a Boolean predicate",
+        ));
+    }
+    parse_aggregate_argument(predicate).map(Some)
+}
+
+fn parse_aggregate_order(
+    function: AggregateFunction,
+    argument: &str,
+) -> Result<(&str, Option<ParsedOrderBy>), ShardLoomError> {
+    let Some(index) = find_keyword_outside_quotes_and_parentheses(argument, "order by")? else {
+        return Ok((argument, None));
+    };
+    if !function.is_selector()
+        && !matches!(
+            function,
+            AggregateFunction::List | AggregateFunction::StringAgg
+        )
+    {
+        return Err(unsupported_sql_error(
+            "aggregate-local ORDER BY is supported for FIRST, LAST, ARG_MIN, ARG_MAX, LIST, ARRAY_AGG and STRING_AGG",
+        ));
+    }
+    Ok((
+        argument[..index].trim(),
+        parse_order_by(Some(argument[index + "order by".len()..].trim()))?,
+    ))
+}
+
+fn parse_aggregate_distinct(
+    function: AggregateFunction,
+    argument: &str,
+) -> Result<(bool, &str), ShardLoomError> {
+    let Some(argument) = strip_leading_keyword(argument, "distinct") else {
+        return Ok((false, argument));
+    };
+    function.native_name(true)?;
+    let argument = argument.trim();
+    if argument.is_empty() {
+        return Err(unsupported_sql_error(
+            "DISTINCT aggregate requires one scalar argument",
+        ));
+    }
+    Ok((true, argument))
+}
+
+fn parse_quantile_level(raw: &str) -> Result<VortexQuantileLevel, ShardLoomError> {
+    let level = match parse_sql_literal(raw)? {
+        ScalarValue::Float64(value) => value,
+        ScalarValue::Int64(0) | ScalarValue::UInt64(0) => 0.0,
+        ScalarValue::Int64(1) | ScalarValue::UInt64(1) => 1.0,
+        _ => {
+            return Err(unsupported_sql_error(
+                "quantile level must be a finite numeric literal between 0 and 1 inclusive",
+            ));
+        }
+    };
+    VortexQuantileLevel::new(level).map_err(|error| unsupported_sql_error(&error.to_string()))
+}
+
+fn parse_aggregate_argument(argument: &str) -> Result<ParsedAggregateArgument, ShardLoomError> {
     let expression = scalar_expression::parse(argument, "aggregate.argument")?;
-    let argument = if let ExpressionKind::Column(column) = &expression.kind {
+    Ok(if let ExpressionKind::Column(column) = &expression.kind {
         ParsedAggregateArgument::Column(column.as_str().to_owned())
     } else {
         ParsedAggregateArgument::Computed {
@@ -6197,13 +6602,7 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
             source_columns: expression_source_columns(&expression),
             expression: Box::new(expression),
         }
-    };
-    Ok(Some(ParsedAggregate {
-        function,
-        argument,
-        alias,
-        distinct,
-    }))
+    })
 }
 
 fn parse_group_by_list(
@@ -6279,11 +6678,13 @@ fn selected_additive_alias(raw: &str, projections: &ParsedProjectionList) -> Opt
         })
 }
 
-/// Resolve selected arithmetic and aggregate expressions to their public names.
+/// Resolve selected arithmetic and aggregate expressions to their bound names.
+/// Unprojected ORDER BY aggregates share the existing hidden HAVING reductions.
 /// Direction/null syntax and duplicate keys still use the ordinary order parser.
 fn parse_selected_order_by(
     raw: Option<&str>,
     projections: &ParsedProjectionList,
+    hidden: &mut Vec<ParsedAggregate>,
 ) -> Result<Option<ParsedOrderBy>, ShardLoomError> {
     let Some(raw) = raw else {
         return Ok(None);
@@ -6304,14 +6705,19 @@ fn parse_selected_order_by(
         }
         let expression = tokens[..end].join(" ");
         let mut alias = selected_additive_alias(&expression, projections);
-        if alias.is_none()
-            && let Some(aggregate) = parse_aggregate_projection(&expression)?
-        {
-            alias = projections
+        if alias.is_none() && parse_aggregate_projection(&expression)?.is_some() {
+            let selected = projections
                 .aggregates
                 .iter()
-                .find(|projection| projection.same_value(&aggregate))
-                .map(ParsedAggregate::output_name);
+                .chain(hidden.iter())
+                .cloned()
+                .collect::<Vec<_>>();
+            let mut reserved = reserved_having_aggregate_aliases(projections);
+            reserved.extend(hidden.iter().map(ParsedAggregate::output_name));
+            let (name, additions) =
+                rewrite_having_aggregate_predicate(&expression, &selected, reserved)?;
+            hidden.extend(additions);
+            alias = Some(name);
         }
         entries.push(alias.map_or(entry, |alias| {
             format!("{alias} {}", tokens[end..].join(" "))
@@ -8993,14 +9399,14 @@ fn projected_subquery_output_columns(
             "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows",
         ));
     }
-    let columns = if parsed.is_grouped_aggregate() {
+    let columns = if parsed.is_grouped_aggregate() && parsed.grouping_sets.is_none() {
         parsed
             .group_by
             .iter()
             .cloned()
             .chain(parsed.aggregates.iter().map(ParsedAggregate::output_name))
             .collect()
-    } else if parsed.is_aggregate() {
+    } else if parsed.is_aggregate() && parsed.grouping_sets.is_none() {
         parsed
             .aggregates
             .iter()
@@ -15123,12 +15529,14 @@ mod tests {
         let sum_distinct = parse_sql_local_source_statement(
             "SELECT sum(DISTINCT amount) FROM 'target/input.csv' LIMIT 1",
         )
-        .expect_err("SUM DISTINCT is blocked");
+        .expect("SUM DISTINCT is admitted");
+        assert!(sum_distinct.aggregates[0].distinct);
+        assert_eq!(sum_distinct.aggregates[0].function, AggregateFunction::Sum);
         assert!(
-            sum_distinct
-                .to_string()
-                .contains("COUNT(DISTINCT <argument>) only"),
-            "{sum_distinct}"
+            parse_sql_local_source_statement(
+                "SELECT var_pop(DISTINCT amount) FROM 'target/input.csv'"
+            )
+            .is_err()
         );
 
         let count_distinct_star = parse_sql_local_source_statement(

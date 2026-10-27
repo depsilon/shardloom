@@ -5,8 +5,9 @@
 pub(in crate::local_primitives) mod spill;
 
 use super::{
-    SimpleAggregateFunction,
     native_capacity::ReservedVec,
+    native_collection_ordinals,
+    native_relational_aggregate::Function as Aggregate,
     native_relational_batch::{Batch, Table, failed},
     native_relational_order, native_relational_window_frame as frame, result_batch, vortex_error,
 };
@@ -20,7 +21,7 @@ use shardloom_core::Result;
 use shardloom_exec::live_memory::LiveMemoryPool;
 use std::cmp::Ordering;
 use vortex::array::{
-    ArrayRef,
+    ArrayRef, VortexSessionExecute as _,
     arrays::StructArray,
     dtype::{DType, FieldNames},
     memory::HostMemorySessionExt as _,
@@ -44,10 +45,61 @@ pub(super) struct Spec {
     pub(super) fields: Vec<(String, DType)>,
     pub(super) columns: Vec<String>,
     pub(super) keys: Vec<String>,
+    pub(super) parent_validity_keys: Vec<usize>,
     pub(super) functions: Vec<Function>,
     pub(super) groups: Vec<Group>,
     pub(super) frames: Vec<Option<frame::Spec>>,
     pub(super) ordering_keys: usize,
+}
+
+pub(super) fn input_key(
+    spec: &Spec,
+    array: &ArrayRef,
+    index: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    let column = super::logical_field_from_native_array(array, &spec.keys[index])?;
+    if !spec.parent_validity_keys.contains(&index) {
+        return Ok(column);
+    }
+    let valid = super::native_relational_expression::parent_validity(&column, context)?;
+    result_batch::build_column(
+        &DType::Bool(vortex::array::dtype::Nullability::Nullable),
+        array.len(),
+        &context.native_session().host_allocator(),
+        |row| {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            Ok(if valid.value(row) {
+                result_batch::Value::Bool(true)
+            } else {
+                result_batch::Value::Null
+            })
+        },
+    )
+}
+
+pub(super) fn input_batch(
+    spec: &Spec,
+    array: ArrayRef,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Batch> {
+    let mut keys = ReservedVec::new(context.memory())?;
+    keys.reserve(spec.keys.len())?;
+    let mut execution = context.native_session().create_execution_ctx();
+    for index in 0..spec.keys.len() {
+        context.check_cancelled()?;
+        let column = input_key(spec, &array, index, context)?;
+        keys.values
+            .push(super::native_relational_keys::KeyColumn::new(
+                &column,
+                &mut execution,
+                context.memory(),
+                context.cancellation(),
+            )?);
+    }
+    Ok(Batch::from_prepared_keys(array, keys))
 }
 
 pub(super) struct Window<'a> {
@@ -68,7 +120,7 @@ impl<'a> Window<'a> {
         array: ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        let batch = Batch::new(array, &self.spec.keys, context)?;
+        let batch = input_batch(self.spec, array, context)?;
         for row in 0..batch.array.len() {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -259,6 +311,7 @@ impl<'a> Window<'a> {
                             dense_rank,
                         },
                         rows,
+                        context,
                     )?;
                 }
             }
@@ -317,14 +370,45 @@ impl<'a> Window<'a> {
                 rows[position],
                 state
                     .advance(ranges, spec, rows.len(), &mut input, context)?
-                    .map_source(|position| {
-                        rows.get(position)
-                            .copied()
-                            .ok_or_else(|| failed("selected window position exceeds its partition"))
-                    })?,
+                    .map_source(
+                        |position| {
+                            rows.get(position).copied().ok_or_else(|| {
+                                failed("selected window position exceeds its partition")
+                            })
+                        },
+                        context,
+                    )?,
             )?;
         }
         Ok(())
+    }
+
+    fn collection_output(
+        &self,
+        index: usize,
+        source: &native_collection_ordinals::Resident,
+        range: std::ops::Range<usize>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        let frame = self.spec.frames[index]
+            .as_ref()
+            .ok_or_else(|| failed("collection window frame is absent"))?;
+        let column = frame
+            .column
+            .as_deref()
+            .ok_or_else(|| failed("collection window column is absent"))?;
+        let ordinals = source.output(range, context)?;
+        native_collection_ordinals::gather(
+            &ordinals,
+            &self.spec.fields[self.spec.columns.len() + index].1,
+            frame.separator.as_deref(),
+            |rows, dtype| {
+                self.table
+                    .gather(rows, false, context)?
+                    .column(column, dtype, context)
+            },
+            context,
+        )
     }
 
     fn output(
@@ -346,6 +430,9 @@ impl<'a> Window<'a> {
             context.check_cancelled()?;
             let dtype = &self.spec.fields[self.spec.columns.len() + index].1;
             columns.values.push(match (function, values) {
+                (_, Values::Sources(source)) => {
+                    self.collection_output(index, source, range.clone(), context)?
+                }
                 (_, Values::Source(source)) => {
                     let column = match function {
                         Function::Lag { column, .. } | Function::Lead { column, .. } => {
@@ -434,6 +521,7 @@ enum Values {
     Integer(ReservedVec<u64>),
     Fraction(ReservedVec<f64>),
     Source(ReservedVec<Option<usize>>),
+    Sources(native_collection_ordinals::Resident),
     Count(ReservedVec<u64>),
     NullableFraction(ReservedVec<Option<f64>>),
     Decimal(ReservedVec<Option<i128>>),
@@ -459,14 +547,30 @@ impl Values {
             Function::Framed(_) => {
                 let frame = frame.ok_or_else(|| failed("framed function has no bound frame"))?;
                 match frame.function {
+                    frame::Function::Aggregate(function) if function.is_collection() => {
+                        Self::Sources(native_collection_ordinals::Resident::new(rows, memory)?)
+                    }
+                    frame::Function::Aggregate(function) if function.is_moment() => {
+                        Self::NullableFraction(filled(rows, None, memory)?)
+                    }
+                    frame::Function::Aggregate(Aggregate::Count | Aggregate::CountDistinct) => {
+                        Self::Count(filled(rows, 0, memory)?)
+                    }
                     frame::Function::Aggregate(
-                        SimpleAggregateFunction::Count | SimpleAggregateFunction::CountDistinct,
-                    ) => Self::Count(filled(rows, 0, memory)?),
-                    frame::Function::Aggregate(
-                        SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg,
+                        Aggregate::Sum
+                        | Aggregate::Avg
+                        | Aggregate::SumDistinct
+                        | Aggregate::AvgDistinct
+                        | Aggregate::Median
+                        | Aggregate::QuantileCont,
                     ) if frame.decimal.is_some() => Self::Decimal(filled(rows, None, memory)?),
                     frame::Function::Aggregate(
-                        SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg,
+                        Aggregate::Sum
+                        | Aggregate::Avg
+                        | Aggregate::SumDistinct
+                        | Aggregate::AvgDistinct
+                        | Aggregate::Median
+                        | Aggregate::QuantileCont,
                     ) => Self::NullableFraction(filled(rows, None, memory)?),
                     _ => Self::Source(filled(rows, None, memory)?),
                 }
@@ -493,6 +597,9 @@ impl Values {
             }
             (Self::Decimal(values), frame::Value::Decimal(value)) => values.values[row] = value,
             (Self::Source(values), frame::Value::Source(value)) => values.values[row] = value,
+            (Self::Sources(values), frame::Value::Sources(value)) => {
+                values.set(row, &value.values)?;
+            }
             _ => {
                 return Err(failed(
                     "framed value disagrees with its bound output storage",
@@ -502,12 +609,21 @@ impl Values {
         Ok(())
     }
 
-    fn set(&mut self, function: &Function, at: PeerRow, rows: &[usize]) -> Result<()> {
-        let value = ranking_value(function, at)?.map_source(|position| {
-            rows.get(position)
-                .copied()
-                .ok_or_else(|| failed("selected window position exceeds its partition"))
-        })?;
+    fn set(
+        &mut self,
+        function: &Function,
+        at: PeerRow,
+        rows: &[usize],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let value = ranking_value(function, at)?.map_source(
+            |position| {
+                rows.get(position)
+                    .copied()
+                    .ok_or_else(|| failed("selected window position exceeds its partition"))
+            },
+            context,
+        )?;
         self.set_frame(rows[at.position], value)
     }
 }

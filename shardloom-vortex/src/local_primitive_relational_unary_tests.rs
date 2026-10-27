@@ -257,6 +257,7 @@ fn composed_unary_melt_feeds_aggregate_with_native_nullable_widening() {
     let grouped = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input: melted,
         group_by: vec![ColumnRef::new("field").unwrap()],
+        grouping_sets: None,
         measures: vec![crate::query_primitive::VortexSimpleAggregateMeasure::new(
             "sum",
             Some(ColumnRef::new("value").unwrap()),

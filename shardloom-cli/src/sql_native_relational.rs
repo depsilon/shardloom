@@ -33,6 +33,8 @@ use shardloom_vortex::{
 mod declaration;
 #[path = "sql_native_relational_dynamic.rs"]
 mod dynamic;
+#[path = "sql_native_relational_grouping.rs"]
+mod grouping;
 #[path = "sql_native_relational_observation.rs"]
 mod observation;
 pub(crate) use declaration::{
@@ -709,9 +711,7 @@ impl Lowerer<'_, '_> {
             .map(<[String]>::to_vec);
         let input = Self::with_outer(input, outer.as_deref())?;
         let mut input = self.filter(input, &parsed.predicate)?;
-        let aggregate = !parsed.aggregates.is_empty()
-            || !parsed.group_by.is_empty()
-            || !parsed.having_aggregates.is_empty();
+        let aggregate = parsed.is_aggregate() || !parsed.group_by.is_empty();
         if aggregate && parsed.replace_or_add_projection {
             return Err(unsupported_sql_error(
                 "REPLACE OR ADD must follow aggregation in a derived relation",
@@ -898,69 +898,85 @@ impl Lowerer<'_, '_> {
             .cloned()
             .collect::<Vec<_>>();
         for aggregate in &mut aggregates {
-            if let ParsedAggregateArgument::Computed { expression, .. } = &mut aggregate.argument {
-                let (next, value) = self.scalar(input, expression, None)?;
-                input = next;
-                **expression = value.into();
-            }
+            input = self.aggregate_scalars(input, aggregate)?;
         }
         let group_by = parsed
             .group_by
             .iter()
             .map(|name| ColumnRef::new(input.resolve(name)?))
             .collect::<NativeResult<Vec<_>>>()?;
+        let grouping_sets = grouping::declaration(parsed, &input)?;
         let mut retained = group_by
             .iter()
             .map(|column| column.as_str().to_owned())
             .collect::<BTreeSet<_>>();
-        for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
-            if let ParsedAggregateArgument::Column(name) = &aggregate.argument {
+        for aggregate in &aggregates {
+            for name in aggregate.columns() {
                 retained.insert(input.resolve(name)?);
             }
         }
         let mut projection = Vec::new();
         let mut names = input.columns.clone();
-        let measures = aggregates
+        let mut measures = aggregates
             .iter()
             .map(|aggregate| {
-                if aggregate.distinct && aggregate.function != AggregateFunction::Count {
-                    return Err(unsupported_sql_error(
-                        "only COUNT DISTINCT has an admitted native distinct aggregate",
-                    ));
-                }
-                let argument = match &aggregate.argument {
-                    ParsedAggregateArgument::All => None,
-                    ParsedAggregateArgument::Column(name) => {
-                        Some(ColumnRef::new(input.resolve(name)?)?)
-                    }
-                    ParsedAggregateArgument::Computed { expression, .. } => {
-                        if projection.is_empty() {
-                            projection = input
-                                .columns
-                                .iter()
-                                .filter(|name| retained.contains(*name))
-                                .map(|name| Ok((name.clone(), column(name)?)))
-                                .collect::<NativeResult<Vec<_>>>()?;
-                        }
-                        let mut expression = expression.plain()?;
-                        map_columns(&mut expression, &mut |name| input.resolve(name))?;
-                        let name = self.fresh(&names);
-                        names.push(name.clone());
-                        projection.push((name.clone(), expression));
-                        Some(ColumnRef::new(name)?)
-                    }
-                };
-                Ok(VortexSimpleAggregateMeasure::new(
-                    if aggregate.distinct {
-                        "count_distinct"
-                    } else {
-                        aggregate.function.as_str()
-                    },
-                    argument,
-                    aggregate.output_name(),
-                ))
+                let function = aggregate.function.native_name(aggregate.distinct)?;
+                let mut lower_argument =
+                    |argument: &ParsedAggregateArgument| -> NativeResult<Option<ColumnRef>> {
+                        Ok(match argument {
+                            ParsedAggregateArgument::All => None,
+                            ParsedAggregateArgument::Column(name) => {
+                                Some(ColumnRef::new(input.resolve(name)?)?)
+                            }
+                            ParsedAggregateArgument::Computed { expression, .. } => {
+                                if projection.is_empty() {
+                                    projection = input
+                                        .columns
+                                        .iter()
+                                        .filter(|name| retained.contains(*name))
+                                        .map(|name| Ok((name.clone(), column(name)?)))
+                                        .collect::<NativeResult<Vec<_>>>()?;
+                                }
+                                let mut expression = expression.plain()?;
+                                map_columns(&mut expression, &mut |name| input.resolve(name))?;
+                                let name = self.fresh(&names);
+                                names.push(name.clone());
+                                projection.push((name.clone(), expression));
+                                Some(ColumnRef::new(name)?)
+                            }
+                        })
+                    };
+                let argument = lower_argument(&aggregate.argument)?;
+                let secondary = aggregate
+                    .secondary_argument
+                    .as_ref()
+                    .map(lower_argument)
+                    .transpose()?
+                    .flatten();
+                let mut measure =
+                    VortexSimpleAggregateMeasure::new(function, argument, aggregate.output_name());
+                measure.secondary_column = secondary;
+                measure.quantile_level = aggregate.quantile_level;
+                measure.separator.clone_from(&aggregate.separator);
+                measure.filter_column = aggregate_filter_column(aggregate, &input)?;
+                measure.order_by = aggregate
+                    .order_by
+                    .iter()
+                    .flat_map(|order| &order.keys)
+                    .map(|key| order_key(key, &input))
+                    .collect::<NativeResult<_>>()?;
+                Ok(measure)
             })
             .collect::<NativeResult<Vec<_>>>()?;
+        if group_by.is_empty() && measures.is_empty() && grouping_sets.is_some() {
+            // A literal SELECT over GROUP BY () still needs the one empty-domain
+            // row. The ordinary projection removes this internal measure.
+            measures.push(VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                self.fresh(&names),
+            ));
+        }
         if !projection.is_empty() {
             // These private arguments do not change the SQL qualification of
             // group keys. Retain only columns the reduction itself consumes.
@@ -969,16 +985,14 @@ impl Lowerer<'_, '_> {
                 expressions: projection,
             }));
         }
-        input.columns = group_by
-            .iter()
-            .map(|column| column.as_str().to_owned())
-            .chain(measures.iter().map(|measure| measure.alias.clone()))
-            .collect();
-        input.plan = Plan::Aggregate(Box::new(Aggregate {
+        let aggregate = Aggregate {
+            grouping_sets,
             input: input.plan,
             group_by,
             measures,
-        }));
+        };
+        input.columns = aggregate.output_columns().map(str::to_owned).collect();
+        input.plan = Plan::Aggregate(Box::new(aggregate));
         Ok((input, aliases))
     }
 
@@ -991,6 +1005,22 @@ impl Lowerer<'_, '_> {
             }
         }
     }
+}
+
+fn aggregate_filter_column(
+    aggregate: &ParsedAggregate,
+    input: &Lowered,
+) -> NativeResult<Option<ColumnRef>> {
+    aggregate
+        .filter
+        .as_ref()
+        .map(|filter| match filter {
+            ParsedAggregateArgument::Column(name) => ColumnRef::new(input.resolve(name)?),
+            _ => Err(unsupported_sql_error(
+                "aggregate FILTER was not lowered to a Boolean column",
+            )),
+        })
+        .transpose()
 }
 
 /// A file collection is one relation. Shared set/scan nodes keep all downstream

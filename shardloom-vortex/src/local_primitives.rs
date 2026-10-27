@@ -145,8 +145,25 @@ pub(crate) mod native_input_schema;
 #[path = "local_primitives/native_input_values.rs"]
 mod native_input_values;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_order_statistic.rs"]
+mod native_order_statistic;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_quantile.rs"]
+mod native_quantile;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_collection_result.rs"]
+mod native_collection_result;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_collection_ordinals.rs"]
+mod native_collection_ordinals;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_aggregate.rs"]
 mod native_relational_aggregate;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_aggregate_kind.rs"]
+mod native_relational_aggregate_kind;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_aggregate_spill.rs"]
 mod native_relational_aggregate_spill;
@@ -201,6 +218,9 @@ mod native_relational_window_frame;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_statistical_moments.rs"]
+mod native_statistical_moments;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_typed_input.rs"]
 pub(crate) mod native_typed_input;
@@ -26037,6 +26057,16 @@ fn required_simple_aggregate(
                 .to_string(),
         ));
     }
+    if aggregate.measures.iter().any(|measure| {
+        measure.secondary_column.is_some()
+            || measure.filter_column.is_some()
+            || measure.quantile_level.is_some()
+            || !measure.order_by.is_empty()
+    }) {
+        return Err(ShardLoomError::InvalidOperation(
+            "paired or parameterized aggregates require the native relational surface; no fallback execution was attempted".to_string(),
+        ));
+    }
     Ok(aggregate)
 }
 
@@ -26111,6 +26141,12 @@ impl SimpleAggregateStates {
             .measures
             .iter()
             .map(|measure| {
+                if measure.secondary_column.is_some() || measure.filter_column.is_some() || measure.quantile_level.is_some()
+                    || !measure.order_by.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "paired aggregates require the native relational surface; no fallback execution was attempted".to_string(),
+                    ));
+                }
                 if measure.alias.trim().is_empty() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate measure alias must not be empty; no fallback execution was attempted"

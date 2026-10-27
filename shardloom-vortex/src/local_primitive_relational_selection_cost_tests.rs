@@ -52,6 +52,7 @@ fn run(shape: &str, count: bool) -> serde_json::Value {
         plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
             input: plan,
             group_by: vec![],
+            grouping_sets: None,
             measures: vec![VortexSimpleAggregateMeasure::new(
                 "count",
                 None,

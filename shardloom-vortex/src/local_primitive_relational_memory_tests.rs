@@ -134,6 +134,7 @@ fn native_relational_memory_range_uses_shared_reductions_without_file_preparatio
             VortexRelationalAggregate {
                 input: memory_scan(uri),
                 group_by: vec![],
+                grouping_sets: None,
                 measures: ["count", "sum", "min", "max"]
                     .into_iter()
                     .map(|function| {

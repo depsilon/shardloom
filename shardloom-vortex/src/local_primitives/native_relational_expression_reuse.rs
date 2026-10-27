@@ -12,10 +12,42 @@ mod tests;
 
 impl Expression {
     pub(in crate::local_primitives) fn bind_projection_reuse(expressions: &mut [Self]) {
+        // Projection narrowing can remove column-only outputs. Rebind from
+        // expression trees so no output index refers to its old position.
+        for expression in expressions.iter_mut() {
+            expression.clear_reuse();
+        }
         for index in 1..expressions.len() {
             let (previous, rest) = expressions.split_at_mut(index);
             let mut remaining = MAX_NODES;
             rest[0].bind_reuse(previous, &mut remaining);
+        }
+    }
+
+    fn clear_reuse(&mut self) {
+        self.reuse_output = None;
+        match &mut self.kind {
+            Kind::Column(_) | Kind::Literal(_) => {}
+            Kind::Unary(_, child) | Kind::Cast { input: child, .. } => child.clear_reuse(),
+            Kind::Binary(left, _, right)
+            | Kind::Compare(left, _, right)
+            | Kind::NullIf(left, right) => {
+                left.clear_reuse();
+                right.clear_reuse();
+            }
+            Kind::Conditional(condition, yes, no) => {
+                condition.clear_reuse();
+                yes.clear_reuse();
+                no.clear_reuse();
+            }
+            Kind::List(children)
+            | Kind::Struct(children)
+            | Kind::Coalesce(children)
+            | Kind::Function { args: children, .. } => {
+                for child in children {
+                    child.clear_reuse();
+                }
+            }
         }
     }
 
@@ -28,6 +60,12 @@ impl Expression {
                     | Kind::Unary(..)
                     | Kind::Binary(..)
                     | Kind::Compare(..)
+                    | Kind::Conditional(..)
+                    | Kind::Coalesce(_)
+                    | Kind::NullIf(..)
+                    | Kind::Cast { .. }
+                    | Kind::List(_)
+                    | Kind::Struct(_)
             )
         {
             return;
@@ -40,6 +78,9 @@ impl Expression {
                 return;
             }
         }
+        // An identical completed outer expression belongs to this full input.
+        // Its lazy branches can have different selected inputs, so never bind
+        // those children against the full-input output scope.
         match &mut self.kind {
             Kind::Unary(_, child) => child.bind_reuse(previous, remaining),
             Kind::Binary(left, _, right) | Kind::Compare(left, _, right) => {
@@ -67,6 +108,31 @@ fn same(left: &Expression, right: &Expression, remaining: &mut usize) -> bool {
         }
         (Kind::Compare(ll, lop, lr), Kind::Compare(rl, rop, rr)) => {
             lop == rop && same(ll, rl, remaining) && same(lr, rr, remaining)
+        }
+        (Kind::Conditional(lc, ly, ln), Kind::Conditional(rc, ry, rn)) => {
+            same(lc, rc, remaining) && same(ly, ry, remaining) && same(ln, rn, remaining)
+        }
+        (Kind::NullIf(ll, lr), Kind::NullIf(rl, rr)) => {
+            same(ll, rl, remaining) && same(lr, rr, remaining)
+        }
+        (
+            Kind::Cast {
+                input: left,
+                tolerant: lt,
+            },
+            Kind::Cast {
+                input: right,
+                tolerant: rt,
+            },
+        ) => lt == rt && same(left, right, remaining),
+        (Kind::Coalesce(left), Kind::Coalesce(right))
+        | (Kind::List(left), Kind::List(right))
+        | (Kind::Struct(left), Kind::Struct(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| same(left, right, remaining))
         }
         _ => false,
     }

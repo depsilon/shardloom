@@ -2,6 +2,7 @@
 
 use super::super::{BoundObservation, PipelineKind, PipelineStage};
 use super::{Binder, Node, NodeKind, Result, failed, validate_name};
+use crate::local_primitives::native_relational_aggregate::Function;
 use crate::relational_query::{VortexRelationalPipeline, VortexRelationalStage};
 
 impl Binder<'_> {
@@ -70,10 +71,7 @@ impl Binder<'_> {
                     if spec.measures.iter().any(|measure| {
                         !matches!(
                             measure.function,
-                            crate::local_primitives::SimpleAggregateFunction::Count
-                                | crate::local_primitives::SimpleAggregateFunction::Sum
-                                | crate::local_primitives::SimpleAggregateFunction::Min
-                                | crate::local_primitives::SimpleAggregateFunction::Max
+                            Function::Count | Function::Sum | Function::Min | Function::Max
                         )
                     }) {
                         return Err(failed(

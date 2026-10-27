@@ -19,6 +19,7 @@ pub(super) fn validate(query: &ParsedRelationQuery) -> NativeResult<()> {
     if !input
         || parsed.join.is_some()
         || !parsed.group_by.is_empty()
+        || parsed.grouping_sets.is_some()
         || !parsed.predicate.is_all()
         || !parsed.having.is_all()
         || parsed.order_by.is_some()
@@ -53,6 +54,9 @@ pub(super) fn validate(query: &ParsedRelationQuery) -> NativeResult<()> {
         if let ParsedAggregateArgument::Computed { expression, .. } = &aggregate.argument {
             // No second relation, correlated scope or effectful source may hide
             // inside a metric. Ordinary typed expressions use the shared binder.
+            expression.plain()?;
+        }
+        if let Some(ParsedAggregateArgument::Computed { expression, .. }) = &aggregate.filter {
             expression.plain()?;
         }
     }

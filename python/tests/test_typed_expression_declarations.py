@@ -13,6 +13,67 @@ from shardloom.query import _sql_literal
 
 
 class TypedExpressionDeclarations(unittest.TestCase):
+    def test_grouping_set_declarations_keep_units_empty_sets_and_stage_order(self) -> None:
+        from shardloom import functions as f
+
+        frame = sl.read_vortex("input.vortex")
+        cases = [
+            (frame.grouping_sets(["g", "r"], ["g"], [], ["g"]), "GROUPING SETS((g,r),(g),(),(g))"),
+            (frame.grouping_sets(["g"], ["g"], distinct=True), "DISTINCT GROUPING SETS((g),(g))"),
+            (frame.rollup(("g", "r"), "c"), "ROLLUP((g,r),c)"),
+            (frame.cube("g", "r"), "CUBE(g,r)"),
+            (frame.rollup(), "ROLLUP()"),
+        ]
+        for grouped, clause in cases:
+            with self.subTest(clause=clause):
+                result = grouped.agg(n=f.count())
+                self.assertEqual(result.operations[-2].grouping_clause, clause)
+                self.assertIn(f" GROUP BY {clause}", result._relation_statement())
+                self.assertIn(f" GROUP BY {clause}", result.select("n")._relation_statement())
+                self.assertIsNone(result._sql_local_source_statement())
+        self.assertEqual(str(f.grouping("g", "r").alias("mask")), "GROUPING(g,r) AS mask")
+        self.assertEqual(str(f.grouping_id("r", "g")), "GROUPING_ID(r,g)")
+        with self.assertRaises(ValueError):
+            frame.grouping_sets()
+        with self.assertRaises(ValueError):
+            f.grouping()
+        with self.assertRaises(ValueError):
+            f.grouping_id(*(["g"] * 65))
+        with self.assertRaises(TypeError):
+            frame.grouping_sets(["g"], distinct="true")
+
+    def test_aggregate_filter_declaration_preserves_dependencies(self) -> None:
+        from shardloom import functions as f
+
+        condition = sl.col("enabled") == True
+        filtered_sum = f.sum("amount").filter(condition)
+        self.assertEqual(filtered_sum.sql, "SUM(amount) FILTER (WHERE enabled = true)")
+        self.assertEqual(filtered_sum.source_bindings, condition.source_bindings)
+        self.assertEqual(str(filtered_sum.over(sl.Window.partition_by("team"))),
+                         "SUM(amount) FILTER (WHERE enabled = true) OVER (PARTITION BY team)")
+        ordered = f.string_agg("label", ",", order_by=[("rank", False, None)]).filter(condition)
+        self.assertEqual(ordered.sql,
+                         "STRING_AGG(label,',' ORDER BY rank ASC) FILTER (WHERE enabled = true)")
+        self.assertEqual(str(ordered.alias("labels")),
+                         "STRING_AGG(label,',' ORDER BY rank ASC) FILTER (WHERE enabled = true) AS labels")
+        with self.assertRaises(TypeError):
+            f.sum("amount").filter("enabled")
+
+    def test_collection_declarations_preserve_literal_separators_and_local_order(self) -> None:
+        from shardloom import functions as f
+
+        for declaration in (f.array_agg, f.list):
+            self.assertEqual(str(declaration("value")), "ARRAY_AGG(value)")
+            self.assertEqual(str(declaration("value", order_by=[("key", True, "last")])),
+                             "ARRAY_AGG(value ORDER BY key DESC NULLS LAST)")
+        self.assertEqual(str(f.string_agg("value", "東京,'; ORDER BY other")),
+                         "STRING_AGG(value,'東京,''; ORDER BY other')")
+        self.assertEqual(str(f.string_agg("value", "", order_by=[("key", False, "first")])),
+                         "STRING_AGG(value,'' ORDER BY key ASC NULLS FIRST)")
+        for separator in (None, 1, f.col("separator")):
+            with self.subTest(separator=repr(separator)), self.assertRaises(TypeError):
+                f.string_agg("value", separator)
+
     def test_decimal_metadata_and_text_do_not_depend_on_python_context(self) -> None:
         with localcontext() as context:
             context.prec = 2

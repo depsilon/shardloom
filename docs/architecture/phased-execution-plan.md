@@ -529,8 +529,18 @@ visible and independent; this implementation does not automatically close them.
     Do not implement per-query or per-interface execution shortcuts.
     The foundation/baseline PR is merged. The maintainer's first
     [universal source-demand work unit, starting with Parquet](native-source-demand-2026-10-26.md)
-    is locally accepted and pending source review/integration. Preserve shared
-    planning, adapter capability contracts and item-18 source/refresh ownership.
+    is merged in #1612, and Parquet completion is merged in #1613 (`04e7d92a`).
+    The October 27 [completion continuation](native-analytical-completion-2026-10-27.md)
+    incorporates every remaining analytical, shared-performance, diagnostic and
+    acceptance obligation into this active item, followed by the remaining
+    file-format and interface-parity work. Preserve shared planning, adapter
+    capability contracts and item-18 source/refresh ownership.
+    The [aggregate/grouping work unit](../benchmarks/native-analytical-aggregates-2026-10-27.md)
+    passes local native, five-interface, workspace, installed-wheel and portable
+    checks. Its complete 347-case checkpoint is 31.962394957 engine seconds versus
+    34.960427343 previously, with no prospective material-regression flags.
+    This does not close the remaining Polars-performance gaps or item 20;
+    hosted PR acceptance remains separate.
     Incremental persistence remains deferred; this does not close the broader
     capability and operator-performance obligations above.
   - Acceptance: complete typed results/errors and native certificates at applicable
@@ -558,12 +568,17 @@ already owned by connected programming or universal I/O stay with those packages
 | 5 | Explicit batch-function integration | Prefer reusable native expression/plan composition. Add declared application batch functions with input/output schema, null and determinism policy, errors, cancellation, ownership, memory and effects accounted for under RFCs 0011/0023. The surrounding query remains ShardLoom execution; expose the application-code/materialization boundary and do not promise built-in-function performance. Existing typed fixtures are a foundation, not completion. |
 | 6 | Complete remote/table connectors and safe refresh | Extend the [universal-I/O package](native-universal-io-performance-coverage-2026-10-24.md), retaining immediate local writer work first. A selected workflow must authenticate → discover schema → read selected data → execute natively → publish safely, with credentials, ranges, retries and generation checks. Implement safe replacement/refresh before append/upsert against a defined table contract; broader transactions follow their separate persistence/recovery contract. |
 
-Current source confirms the six-function reducer family in
+The merged foundation contains the six-function reducer family in
 [`native_relational_aggregate.rs`](../../shardloom-vortex/src/local_primitives/native_relational_aggregate.rs),
 the COUNT-only DISTINCT admission in
 [`sql_native_relational.rs`](../../shardloom-cli/src/sql_native_relational.rs),
 and date-days/timezone-free microsecond recognition in
 [`native_temporal.rs`](../../shardloom-vortex/src/native_temporal.rs).
+The active [analytical implementation](native-analytical-completion-2026-10-27.md)
+now extends reductions and windows with moments, paired statistics, exact
+quantiles, additive DISTINCT, ordered selectors, collections and aggregate
+FILTER. Their focused native and five-interface evidence is recorded there;
+the wider item-20 acceptance remains open.
 The merged [native declaration binder](../../shardloom-cli/src/sql_native_relation_declaration.rs)
 implements scoped ordinary CTEs, column lists and typed parameters using shared
 plan references and resource admission. Recursive execution and explicit
