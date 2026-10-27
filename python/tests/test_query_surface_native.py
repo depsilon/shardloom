@@ -22,8 +22,8 @@ from query_surface.adapters import execute
 from query_surface.corpus import aggregate_case, composition_neighbors, reviewed_cases
 from query_surface.datasets import DatasetSpec, RowGenerator, SCHEMAS
 from query_surface.reference import expected
-from query_surface.semantics import compare
-from query_surface.specification import SURFACES
+from query_surface.semantics import ResultContract, TypedResult, compare
+from query_surface.specification import Relation, SURFACES
 
 
 class NativeQuerySurfaceTests(unittest.TestCase):
@@ -37,6 +37,58 @@ class NativeQuerySurfaceTests(unittest.TestCase):
                 raise AssertionError("required fixture dependency is unavailable") from error
             raise unittest.SkipTest("optional PyArrow is unavailable") from error
         cls.pa = pa
+
+    def test_parquet_directory_prefix_and_grouping_through_five_surfaces(self):
+        import pyarrow.parquet as pq
+        import shardloom as sl
+        from shardloom._result_schema import _arrow_type
+        binary = os.environ.get("SHARDLOOM_SURFACE_TEST_BINARY")
+        if not binary:
+            client = sl.ShardLoomClient()
+            try:
+                binary = client.binary_command()[0]
+            finally:
+                client.close()
+        spec = DatasetSpec(fact_rows=127, entity_rows=23, product_rows=7, relationship_rows=53, calendar_rows=11)
+        schema = self.pa.schema([self.pa.field(name, _arrow_type(dtype, self.pa), dtype.nullable)
+                                for name, dtype in SCHEMAS["fact"]])
+        rows = list(RowGenerator(spec, "fact").rows())
+        data = self.pa.Table.from_pylist(rows, schema=schema)
+        scan = Relation.scan("fact")
+        prefix = scan.project(("id", scan.col("row_id"))).take(7, offset=61)
+        grouped = aggregate_case({"argument": "optional_value", "keys": "group_key_category",
+                                  "measures": "mixed", "expression": "coalesce", "filter": "all"})
+        cases = [
+            ("prefix", prefix, TypedResult(prefix.schema, [{"id": row["row_id"]} for row in rows[61:68]]),
+             ResultContract(prefix.schema, ordered=True), 68),
+            ("grouped", grouped.relation, expected(grouped, spec), grouped.contract, 127),
+        ]
+        with tempfile.TemporaryDirectory(prefix="shardloom-parquet-directory-surfaces-") as directory:
+            for name, relation, wanted, contract, decoded in cases:
+                for surface in SURFACES:
+                    with self.subTest(case=name, surface=surface):
+                        path = Path(directory) / f"{name}-{surface}.parquet"
+                        path.mkdir()
+                        pq.write_table(data.slice(0, 64), path / "a.PARQUET", row_group_size=17)
+                        pq.write_table(data.slice(64), path / "b.parquet", row_group_size=17)
+                        (path / "ignored.txt").write_text("not a source")
+                        if surface == "cli_sql":
+                            actual, report = execute(relation, {"fact": [path]}, surface,
+                                native=self.native, binary=binary, memory_bytes=256 << 20)
+                        else:
+                            with patch.object(subprocess, "Popen", side_effect=AssertionError("native surface launched a process")):
+                                actual, report = execute(relation, {"fact": [path]}, surface,
+                                    native=self.native, binary=binary, memory_bytes=256 << 20)
+                        compare(wanted, actual, contract)
+                        fields = report["fields"]
+                        self.assertTrue(report["complete_consumption"])
+                        self.assertEqual(fields["native_source_demand_sources"], "1")
+                        self.assertEqual(fields["native_source_demand_files"], "2")
+                        self.assertEqual(int(fields["native_source_demand_rows_decoded"]), decoded)
+                        self.assertEqual(fields["native_source_demand_prefix_sources"], "1" if name == "prefix" else "0")
+                        self.assertEqual(fields["native_source_demand_prepared_input_bytes_written"], "0")
+                        self.assertFalse((path / ".shardloom").exists())
+                        self.assertFalse((path.parent / ".shardloom").exists())
 
     def test_parquet_five_surface_requests_preserve_strict_complete_results(self):
         import pyarrow.parquet as pq

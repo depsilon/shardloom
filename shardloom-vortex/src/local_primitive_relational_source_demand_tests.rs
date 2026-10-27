@@ -22,6 +22,12 @@ use std::{
 #[path = "local_primitive_relational_source_demand_lifecycle_tests.rs"]
 mod lifecycle_tests;
 
+#[path = "local_primitive_relational_source_demand_prefix_tests.rs"]
+mod prefix_tests;
+
+#[path = "local_primitive_relational_source_demand_collection_tests.rs"]
+mod collection_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {
@@ -164,6 +170,20 @@ fn project(input: VortexRelationalPlan, names: &[(&str, &str)]) -> VortexRelatio
 #[test]
 fn parquet_demand_projects_physical_columns_and_prunes_groups_with_residual() {
     let fixture = ParquetFixture::new();
+    let metadata =
+        ParquetRecordBatchReaderBuilder::try_new(fs::File::open(fixture.path()).unwrap()).unwrap();
+    let selected_bytes: u64 = [0, 2]
+        .into_iter()
+        .map(|column| {
+            metadata
+                .metadata()
+                .row_group(1)
+                .column(column)
+                .byte_range()
+                .1
+        })
+        .sum();
+    drop(metadata);
     let prepared = fixture.prepare(&fixture.scan(&["text"], Some(equal("n", 5))));
     let initial = prepared.snapshot().memory.reserved_bytes;
     for _ in 0..2 {
@@ -192,7 +212,8 @@ fn parquet_demand_projects_physical_columns_and_prunes_groups_with_residual() {
             (2, 4, 1)
         );
         assert_eq!(report.columnar_rows_decoded, 4);
-        assert!(report.columnar_data_read_bytes > 0);
+        assert_eq!(report.columnar_data_read_bytes, selected_bytes);
+        assert_eq!(report.columnar_data_read_requests, 2);
         assert!(report.columnar_data_read_bytes < fs::metadata(fixture.path()).unwrap().len());
         assert!(report.columnar_metadata_read_bytes > 0 && report.columnar_data_read_requests > 0);
         assert!(report.end_of_input_observed && report.output_ownership_detached);

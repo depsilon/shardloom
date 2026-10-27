@@ -872,13 +872,18 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
     // and owner release, rather than a transport snapshot taken during binding.
     let completed = [
         ("native_source_demand_sources", input.columnar_sources.to_string()),
+        ("native_source_demand_files", input.columnar_files.to_string()),
         ("native_source_demand_projected_columns", input.columnar_projected_columns.to_string()),
         ("native_source_demand_available_columns", input.columnar_available_columns.to_string()),
         ("native_source_demand_physical_leaf_columns", input.columnar_physical_leaf_columns.to_string()),
         ("native_source_demand_row_groups_total", input.columnar_row_groups_total.to_string()),
         ("native_source_demand_row_groups_read", input.columnar_row_groups_read.to_string()),
         ("native_source_demand_rows_decoded", input.columnar_rows_decoded.to_string()),
+        ("native_source_demand_prefix_sources", input.columnar_prefix_sources.to_string()),
+        ("native_source_demand_requested_prefix_rows", input.columnar_requested_prefix_rows.to_string()),
         ("native_source_demand_metadata_read_bytes", input.columnar_metadata_read_bytes.to_string()),
+        ("native_source_demand_fingerprint_read_bytes", input.columnar_fingerprint_read_bytes.to_string()),
+        ("native_source_demand_content_fingerprints", input.columnar_content_fingerprints.join(";")),
         ("native_source_demand_data_read_bytes", input.columnar_data_read_bytes.to_string()),
         ("native_source_demand_data_read_requests", input.columnar_data_read_requests.to_string()),
         ("native_input_batches", input.payload_batches.to_string()),

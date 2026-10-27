@@ -232,7 +232,7 @@ impl PreparedVortexRelational {
         self.validate_batch_provider(input.is_some())?;
         context.check_cancelled()?;
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        self.validate_preparation_sources()?;
+        self.validate_preparation_sources(context.cancellation())?;
         let input = (!self.batch_sources.is_empty())
             .then(|| super::batch_input::Execution::new(self, input))
             .transpose()?;

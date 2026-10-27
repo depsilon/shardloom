@@ -1,0 +1,113 @@
+{
+  "schema_version": "shardloom.generated_artifact_retirement.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/wheel-build-tools",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-proof-wheelhouse",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-draft",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-replay-clean",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-replay-clean-r2",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/broad-r1/harness",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/broad-r1/logs",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/source",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/shardloom",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+  ],
+  "retained_sha256": {
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/shardloom": "77b33b6a2eb4607db09f70e87724b74f77c3d6c0c02631d0fa6f71b5613916d9",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/_native.abi3.so": "a9b9d623b656b83a5ce37d91cc9fd6f880088a9c306dcfb2ac3d8c49379a68fd",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "8cb6415329355af0f9dc2ad4eb49e56d22bd42d5f2102f0d2890198df753c01e",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/calendar-00000.parquet": "0a6923b1522f0c1903d5ec74d9297b224c19776e7585fa42dde38e1e494670fb",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/entities-00000.parquet": "ad1ef43250f9815f12b90c43199b1c99362ce4f81beb34615ceb12497af6f5d2",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/fact-00000.parquet": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/products-00000.parquet": "caf396dcbac020daaaff8df26b0064f0593e016646224e0964c6f9a5532ba7f9",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/relationships-00000.parquet": "bf641554001cb8e50f0d6c86d7b53b06e03968cd4d9ae340682f0f286c7babc4"
+  },
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/wheel-build-tools",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/installed-proof-wheelhouse",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-draft",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-replay-clean",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-replay-clean-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/broad-r1/harness",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/broad-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/candidate-runtime-r1/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "removed_entries": 15840,
+  "source_inputs_retained": true,
+  "original_external_baselines_untouched": true,
+  "user_files_and_item18_untouched": true,
+  "cargo_cache_untouched": true,
+  "payload_backups_created": false,
+  "symlink_targets_followed": false,
+  "regeneration_basis": "Recorded source/build/package identities, locked requirements, retained sources and current tested runtime/wheel. No bit-identical rebuild claim.",
+  "inventory": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-parquet-demand-completion-2026-10-27/cleanup-inventory.json.gz",
+  "inventory_sha256": "761fe41709ddf0f2cafc1e52d44eda5cc588cb6059b32b7da4355eadfd55e5af",
+  "free_bytes_before": 96714452992,
+  "regular_files": 14199,
+  "symlinks": 6,
+  "retired_regular_bytes": 829912334,
+  "retired_allocated_bytes": 865755136,
+  "all_proof_files_unchanged": true,
+  "free_bytes_after": 97604100096
+}

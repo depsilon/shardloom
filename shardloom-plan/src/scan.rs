@@ -23,12 +23,18 @@ pub enum ProjectionRequest {
 /// reference's necessary condition: regions must be retained if **any** reference
 /// may need them. `None`, or an empty list before static discovery, requires all
 /// regions. These are pruning conditions, never permission to omit residual row
-/// evaluation. Providers preserve source order; this contract admits no limit
-/// pushdown or durable preparation. Physical skipping is provider-specific.
+/// evaluation. A row prefix is admitted only when every reference requires at
+/// most that source-order prefix, with no intervening predicate or fallible
+/// computation. Providers preserve source order; physical skipping is
+/// provider-specific and does not imply durable preparation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceDemand {
     pub projection: ProjectionRequest,
     pub predicates: Vec<Option<PredicateExpr>>,
+    /// Complete requested prefix of the source, before operators run. `None`
+    /// requires all admitted regions. Repeated references combine by maximum;
+    /// any unrestricted reference makes the combined demand unrestricted.
+    pub max_rows: Option<u64>,
 }
 
 impl Default for SourceDemand {
@@ -36,6 +42,7 @@ impl Default for SourceDemand {
         Self {
             projection: ProjectionRequest::All,
             predicates: Vec::new(),
+            max_rows: None,
         }
     }
 }

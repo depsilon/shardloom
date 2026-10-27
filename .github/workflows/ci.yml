@@ -403,6 +403,8 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_native_output_uat.py -v
       - name: Native regression family coverage and supervision
         run: python -B -m unittest discover -s scripts -p test_native_relational_suite.py -v
+      - name: Parquet completion portable evidence and corruption controls
+        run: python -B -m unittest discover -s scripts -p test_parquet_demand_completion_packet.py -v
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

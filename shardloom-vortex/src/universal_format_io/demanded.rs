@@ -6,7 +6,6 @@ use crate::{
     resident_session::{
         LocalReadMetrics, NativeExecutionContext, OwnedLocalRead, ResidentVortexSession,
     },
-    source_identity::SourceIdentity,
 };
 use arrow_array::RecordBatch;
 use arrow_schema::DataType;
@@ -27,89 +26,15 @@ use shardloom_plan::{ProjectionRequest, SourceDemand};
 use std::{
     collections::BTreeSet,
     io::Read,
-    path::Path,
     sync::{Arc, atomic::Ordering},
 };
 
+mod chunks;
+mod source;
 mod statistics;
-
-/// A held source generation and its metadata, with no data reader or prepared file.
-/// The first physical adapter is Parquet. Other formats must explicitly admit
-/// their own capabilities before using this shared native batch boundary.
-pub struct LocalColumnarSource {
-    identity: Arc<SourceIdentity>,
-    metadata: ArrowReaderMetadata,
-    metadata_read_bytes: u64,
-    metadata_credit: MemoryLease,
-}
+pub use source::LocalColumnarSource;
 
 impl LocalColumnarSource {
-    pub(crate) fn validate_generation(&self) -> Result<()> {
-        self.identity.validate()
-    }
-
-    pub(crate) fn validate_destination(&self, path: &Path) -> Result<()> {
-        use std::os::unix::fs::MetadataExt as _;
-        self.identity.validate()?;
-        match std::fs::metadata(path) {
-            Ok(target)
-                if target.dev() == self.identity.generation.device
-                    && target.ino() == self.identity.generation.inode =>
-            {
-                Err(failed("source and output must be different files"))
-            }
-            Ok(_) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(failed(error)),
-        }
-    }
-
-    /// Bind metadata without decoding row pages or persisting a native copy.
-    /// # Errors
-    /// Rejects unsupported formats, malformed/oversized metadata, source changes,
-    /// cancellation and insufficient metadata capacity.
-    pub fn admit(
-        path: &Path,
-        format: &str,
-        memory: &shardloom_exec::live_memory::LiveMemoryPool,
-        cancellation: &CancellationToken,
-    ) -> Result<Arc<Self>> {
-        cancellation.check()?;
-        if format != "parquet" {
-            return Err(failed("source has no admitted demand reader"));
-        }
-        let identity_credit = memory.reserve(
-            (path.as_os_str().len() as u64)
-                .checked_mul(4)
-                .and_then(|n| n.checked_add(8192))
-                .ok_or_else(|| failed("source metadata capacity overflow"))?,
-        )?;
-        let identity = Arc::new(SourceIdentity::capture(path)?);
-        let mut file = identity.open_checked()?;
-        let length = super::metadata::footer_length(&mut file, b"PAR1", 4)?;
-        let mut credit = memory.reserve(
-            (length as u64)
-                .checked_mul(32)
-                .and_then(|n| n.checked_add(8192))
-                .ok_or_else(|| failed("source metadata capacity overflow"))?,
-        )?;
-        let reader = OwnedLocalRead::metadata(Arc::clone(&identity), memory, cancellation)?;
-        let metadata =
-            ArrowReaderMetadata::load(&reader, super::parquet_metadata_first_reader_options())
-                .map_err(failed)?;
-        let metadata_read_bytes = reader.metrics().bytes.load(Ordering::Relaxed) + 12;
-        cancellation.check()?;
-        identity.validate()?;
-        let mut identity_credit = identity_credit;
-        credit.absorb(&mut identity_credit)?;
-        Ok(Arc::new(Self {
-            identity,
-            metadata,
-            metadata_read_bytes,
-            metadata_credit: credit,
-        }))
-    }
-
     pub(crate) fn prepare(
         self: &Arc<Self>,
         demand: &SourceDemand,
@@ -117,14 +42,17 @@ impl LocalColumnarSource {
         cancellation: &CancellationToken,
     ) -> Result<Arc<PreparedColumnarSource>> {
         cancellation.check()?;
+        if demand.max_rows.is_some() && demand.predicates.iter().any(Option::is_some) {
+            return Err(failed("source prefix requires an unfiltered input demand"));
+        }
         if !session.shared_memory_pool().owns(&self.metadata_credit) {
             return Err(failed(
                 "local source metadata belongs to a different memory owner",
             ));
         }
-        self.identity.validate()?;
-        let fields = self.metadata.schema().fields();
-        let groups = self.metadata.metadata().num_row_groups();
+        self.validate_generation_controlled(cancellation)?;
+        let fields = self.metadata().schema().fields();
+        let groups = self.row_groups_total;
         let count = fields
             .len()
             .checked_add(groups)
@@ -160,21 +88,37 @@ impl LocalColumnarSource {
         if projection.is_empty() {
             return Err(failed("native input requires a row-bearing source column"));
         }
-        let row_groups = (0..groups)
-            .filter(|&index| {
-                demand.predicates.is_empty()
+        let mut row_groups = Vec::new();
+        let mut source_rows = 0_u64;
+        'files: for (file_index, file) in self.files.iter().enumerate() {
+            cancellation.check()?;
+            for index in 0..file.metadata.metadata().num_row_groups() {
+                if demand.max_rows.is_some_and(|limit| source_rows >= limit) {
+                    break 'files;
+                }
+                source_rows = source_rows
+                    .checked_add(
+                        u64::try_from(file.metadata.metadata().row_group(index).num_rows())
+                            .map_err(failed)?,
+                    )
+                    .ok_or_else(|| failed("source row count overflow"))?;
+                if demand.predicates.is_empty()
                     || demand.predicates.iter().any(|predicate| {
                         predicate.as_ref().is_none_or(|predicate| {
-                            !statistics::excluded(&self.metadata, index, predicate)
+                            !statistics::excluded(&file.metadata, index, predicate)
                         })
                     })
-            })
-            .collect();
+                {
+                    row_groups.push((file_index, index));
+                }
+            }
+        }
         cancellation.check()?;
         Ok(Arc::new(PreparedColumnarSource {
             source: Arc::clone(self),
             projection,
             row_groups,
+            max_rows: demand.max_rows,
             _metadata: credit,
         }))
     }
@@ -194,7 +138,8 @@ fn predicate_columns<'a>(predicate: &'a PredicateExpr, names: &mut BTreeSet<&'a 
 pub(crate) struct PreparedColumnarSource {
     pub(crate) source: Arc<LocalColumnarSource>,
     projection: Vec<usize>,
-    row_groups: Vec<usize>,
+    row_groups: Vec<(usize, usize)>,
+    max_rows: Option<u64>,
     _metadata: MemoryLease,
 }
 
@@ -206,7 +151,7 @@ impl PreparedColumnarSource {
     ) -> Result<ResidentMemorySource> {
         let schema = Arc::new(
             self.source
-                .metadata
+                .metadata()
                 .schema()
                 .project(&self.projection)
                 .map_err(failed)?,
@@ -227,11 +172,9 @@ impl PreparedColumnarSource {
     ) -> Result<ColumnarReader> {
         context.check_cancelled()?;
         let metrics = Arc::new(LocalReadMetrics::default());
-        let input =
-            context.local_source_reader(Arc::clone(&self.source.identity), Arc::clone(&metrics))?;
         Ok(ColumnarReader {
             prepared: Arc::clone(self),
-            input,
+            input: None,
             metrics,
             next_group: 0,
             active: None,
@@ -251,6 +194,12 @@ pub struct ColumnarReadReport {
     pub row_groups_total: usize,
     pub row_groups_read: usize,
     pub rows_decoded: u64,
+    /// Requested source-order prefix, independently of physical chunk bytes.
+    pub requested_prefix_rows: Option<u64>,
+    pub files: usize,
+    /// Full-byte identity work during admission, separate from demanded reads.
+    pub fingerprint_read_bytes: u64,
+    pub content_fingerprints: Vec<String>,
     /// Initial source-admission reads, before execution. Repeated executions of
     /// the same descriptor repeat this fact, not a claim of new metadata I/O.
     pub metadata_read_bytes: u64,
@@ -261,7 +210,7 @@ pub struct ColumnarReadReport {
 
 pub(crate) struct ColumnarReader {
     prepared: Arc<PreparedColumnarSource>,
-    input: OwnedLocalRead,
+    input: Option<(usize, OwnedLocalRead)>,
     metrics: Arc<LocalReadMetrics>,
     next_group: usize,
     active: Option<(ParquetRecordBatchReader, MemoryLease)>,
@@ -276,7 +225,9 @@ impl ColumnarReader {
     ) -> Result<Option<RecordBatch>> {
         loop {
             context.check_cancelled()?;
-            self.prepared.source.identity.validate()?;
+            if let Some((index, _)) = &self.input {
+                self.prepared.source.files[*index].identity.validate()?;
+            }
             if let Some((reader, _)) = &mut self.active {
                 if let Some(batch) = reader.next() {
                     let batch = batch.map_err(failed)?;
@@ -289,11 +240,29 @@ impl ColumnarReader {
                 }
                 self.active.take();
             }
-            let Some(&group_index) = self.prepared.row_groups.get(self.next_group) else {
+            let Some(&(file_index, group_index)) = self.prepared.row_groups.get(self.next_group)
+            else {
+                self.input.take();
                 self.ended = true;
                 return Ok(None);
             };
-            let metadata = &self.prepared.source.metadata;
+            let file = &self.prepared.source.files[file_index];
+            if self
+                .input
+                .as_ref()
+                .is_none_or(|(index, _)| *index != file_index)
+            {
+                self.input.take();
+                self.input = Some((
+                    file_index,
+                    context.local_source_reader(
+                        Arc::clone(&file.identity),
+                        Arc::clone(&self.metrics),
+                    )?,
+                ));
+            }
+            let input = &self.input.as_ref().expect("selected file reader").1;
+            let metadata = &file.metadata;
             let mask = ProjectionMask::roots(
                 metadata.parquet_schema(),
                 self.prepared.projection.iter().copied(),
@@ -313,25 +282,27 @@ impl ColumnarReader {
                         .ok_or_else(|| failed("decoder workspace overflow"))
                 })?;
             let credit = context.memory().reserve(workspace)?;
-            let reader = ParquetRecordBatchReaderBuilder::new_with_metadata(
-                self.input.clone(),
-                metadata.clone(),
-            )
-            .with_projection(mask)
-            .with_row_groups(vec![group_index])
-            .with_batch_size(8192)
-            .build()
-            .map_err(failed)?;
+            let chunks = chunks::SelectedChunks::read(input, group, &mask, context.memory())?;
+            let mut builder =
+                ParquetRecordBatchReaderBuilder::new_with_metadata(chunks, metadata.clone())
+                    .with_projection(mask)
+                    .with_row_groups(vec![group_index])
+                    .with_batch_size(8192);
+            if let Some(limit) = self.prepared.max_rows {
+                builder = builder
+                    .with_limit(usize::try_from(limit.saturating_sub(self.rows)).map_err(failed)?);
+            }
+            let reader = builder.build().map_err(failed)?;
             self.active = Some((reader, credit));
             self.next_group += 1;
         }
     }
 
     pub(crate) fn report(&self) -> Result<ColumnarReadReport> {
-        if !self.ended || self.active.is_some() {
+        if !self.ended || self.active.is_some() || self.input.is_some() {
             return Err(failed("source did not reach its declared end"));
         }
-        let metadata = &self.prepared.source.metadata;
+        let metadata = self.prepared.source.metadata();
         let mask = ProjectionMask::roots(
             metadata.parquet_schema(),
             self.prepared.projection.iter().copied(),
@@ -343,9 +314,13 @@ impl ColumnarReader {
             physical_leaf_columns: (0..metadata.parquet_schema().num_columns())
                 .filter(|&i| mask.leaf_included(i))
                 .count(),
-            row_groups_total: metadata.metadata().num_row_groups(),
+            row_groups_total: self.prepared.source.row_groups_total,
             row_groups_read: self.next_group,
             rows_decoded: self.rows,
+            requested_prefix_rows: self.prepared.max_rows,
+            files: self.prepared.source.files.len(),
+            fingerprint_read_bytes: self.prepared.source.fingerprint_read_bytes,
+            content_fingerprints: self.prepared.source.content_fingerprints.clone(),
             metadata_read_bytes: self.prepared.source.metadata_read_bytes,
             data_read_bytes: self.metrics.bytes.load(Ordering::Relaxed),
             data_read_requests: self.metrics.requests.load(Ordering::Relaxed),

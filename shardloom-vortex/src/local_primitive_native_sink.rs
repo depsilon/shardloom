@@ -14,6 +14,8 @@ use crate::VortexStructuredProjectionExpr;
 use crate::resident_session::{
     NativeExecutionContext, PreparedVortexSource, ResidentVortexSession,
 };
+#[cfg(feature = "universal-format-io")]
+use crate::universal_format_io::demanded::LocalColumnarSource;
 use sha2::{Digest, Sha256};
 use shardloom_exec::compute_pool::CancellationToken;
 use std::{
@@ -62,6 +64,8 @@ pub(super) enum NativeSinkInput {
         sources: Vec<PreparedVortexSource>,
         #[cfg(feature = "universal-format-io")]
         preparations: Vec<std::sync::Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
+        #[cfg(feature = "universal-format-io")]
+        columnar: Vec<std::sync::Arc<LocalColumnarSource>>,
     },
 }
 
@@ -84,8 +88,16 @@ impl NativeSinkInput {
                     .iter()
                     .try_for_each(PreparedVortexSource::validate_generation)?;
                 #[cfg(feature = "universal-format-io")]
-                if let Self::Produced { preparations, .. } = self {
+                if let Self::Produced {
+                    preparations,
+                    columnar,
+                    ..
+                } = self
+                {
                     for source in preparations {
+                        source.validate_generation()?;
+                    }
+                    for source in columnar {
                         source.validate_generation()?;
                     }
                 }
@@ -374,6 +386,31 @@ fn prepare_source_projection(
 
 impl NativeSinkPlan {
     #[cfg(feature = "universal-format-io")]
+    pub(super) fn with_columnar_sources<'a>(
+        mut self,
+        sources: impl Iterator<Item = &'a std::sync::Arc<LocalColumnarSource>> + Clone,
+    ) -> Result<Self> {
+        let count = sources.clone().count();
+        let bytes = count
+            .checked_mul(std::mem::size_of::<std::sync::Arc<LocalColumnarSource>>())
+            .ok_or_else(|| sink_error("source metadata capacity overflow"))?;
+        self.schema_metadata.resize(
+            self.schema_metadata
+                .bytes()
+                .checked_add(bytes as u64)
+                .ok_or_else(|| sink_error("source metadata capacity overflow"))?,
+        )?;
+        if let NativeSinkInput::Produced { columnar, .. } = &mut self.source {
+            columnar.try_reserve_exact(count).map_err(vortex_error)?;
+            if columnar.capacity() > count {
+                return Err(sink_error("source metadata exceeds admission"));
+            }
+            columnar.extend(sources.cloned());
+        }
+        Ok(self)
+    }
+
+    #[cfg(feature = "universal-format-io")]
     pub(super) fn with_preparation_sources(
         mut self,
         sources: Vec<std::sync::Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
@@ -422,6 +459,8 @@ impl NativeSinkPlan {
                 sources,
                 #[cfg(feature = "universal-format-io")]
                 preparations: Vec::new(),
+                #[cfg(feature = "universal-format-io")]
+                columnar: Vec::new(),
             },
             session,
             source_path,
@@ -439,8 +478,16 @@ impl NativeSinkPlan {
     pub(super) fn validate_destination(&self, path: &Path) -> Result<()> {
         self.source.validate_generation()?;
         #[cfg(feature = "universal-format-io")]
-        if let NativeSinkInput::Produced { preparations, .. } = &self.source {
+        if let NativeSinkInput::Produced {
+            preparations,
+            columnar,
+            ..
+        } = &self.source
+        {
             for source in preparations {
+                source.validate_destination(path)?;
+            }
+            for source in columnar {
                 source.validate_destination(path)?;
             }
         }
