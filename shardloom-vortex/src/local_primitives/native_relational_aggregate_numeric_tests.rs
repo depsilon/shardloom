@@ -67,11 +67,6 @@ fn compare(column: &ArrayRef, count: u64) {
             let KeyColumn::Numeric(owner) = &values else {
                 panic!("expected numeric owner")
             };
-            let kernel = owner.bind_row_update(update_numeric);
-            assert!(
-                std::mem::size_of_val(&*kernel) + std::mem::size_of_val(&kernel)
-                    <= usize::try_from(NUMERIC_KERNEL_BYTES).unwrap()
-            );
             for function in [Function::Sum, Function::Avg] {
                 let binding = scalar_spec(function);
                 let mut actual = State {
@@ -82,22 +77,22 @@ fn compare(column: &ArrayRef, count: u64) {
                     count,
                     ..State::default()
                 };
-                let mut error = None;
-                for row in 0..column.len() {
-                    let reference = values.raw_cell(row).and_then(|value| {
-                        update(&mut expected, &binding.measures[0], Some(value), context)
-                    });
-                    let observed = kernel(&mut actual, row);
-                    assert_eq!(
-                        observed.as_ref().err().map(ToString::to_string),
-                        reference.as_ref().err().map(ToString::to_string)
-                    );
-                    assert_same(&actual, &expected);
-                    if let Err(failure) = reference {
-                        error = Some(failure.to_string());
-                        break;
-                    }
-                }
+                let error = owner
+                    .visit_numeric(|row, value, integer| {
+                        let reference = values.raw_cell(row).and_then(|value| {
+                            update(&mut expected, &binding.measures[0], Some(value), context)
+                        });
+                        let observed = value
+                            .map_or(Ok(()), |value| update_numeric(&mut actual, value, integer));
+                        assert_eq!(
+                            observed.as_ref().err().map(ToString::to_string),
+                            reference.as_ref().err().map(ToString::to_string)
+                        );
+                        assert_same(&actual, &expected);
+                        observed
+                    })
+                    .err()
+                    .map(|failure| failure.to_string());
                 let mut aggregate = Aggregate::new(&binding, context.memory())?;
                 aggregate.states.values[0].count = count;
                 let observed = aggregate.consume(&batch(column.clone()), context, 2);
@@ -263,8 +258,10 @@ fn composed_numeric_consumer_preserves_measure_order_and_releases_prepared_views
             #[cfg(debug_assertions)]
             {
                 let counts = observation.finish();
-                assert_eq!(counts.aggregate_numeric_bound_batches, 4);
-                assert_eq!(counts.aggregate_numeric_bound_rows, 8);
+                assert_eq!(counts.aggregate_numeric_bound_batches, 2);
+                assert_eq!(counts.aggregate_numeric_bound_rows, 4);
+                assert_eq!(counts.aggregate_numeric_state_reuses, 2);
+                assert_eq!(counts.aggregate_numeric_reused_rows, 4);
                 assert_eq!(counts.aggregate_value_preparations, 2);
                 assert_eq!(counts.aggregate_row_updates, 0);
             }
@@ -429,7 +426,7 @@ fn composed_numeric_consumer_groups_across_distinct_dictionary_domains_and_nulls
 }
 
 #[test]
-fn composed_numeric_consumer_accounts_kernel_and_checks_cancelled_null_rows() {
+fn composed_numeric_consumer_needs_no_heap_kernel_and_checks_cancelled_null_rows() {
     for cancelled in [false, true] {
         let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
         let memory = session.memory().clone();
@@ -442,50 +439,38 @@ fn composed_numeric_consumer_accounts_kernel_and_checks_cancelled_null_rows() {
                 panic!("numeric owner")
             };
             let mut state = State::default();
-            let occupied = if cancelled {
-                token.cancel();
-                None
-            } else {
-                Some(memory.reserve(
-                    memory.snapshot().limit_bytes
-                        - memory.snapshot().reserved_bytes
-                        - NUMERIC_KERNEL_BYTES
-                        + 1,
-                )?)
-            };
-            let retained = memory.snapshot().reserved_bytes;
-            let error = accumulate_numeric(&mut state, owner, context)
-                .unwrap_err()
-                .to_string();
-            assert!(
-                error.contains(if cancelled {
-                    "cancel"
+            let occupied =
+                if cancelled {
+                    token.cancel();
+                    None
                 } else {
-                    "reservation denied"
-                }),
-                "{error}"
-            );
+                    Some(memory.reserve(
+                        memory.snapshot().limit_bytes - memory.snapshot().reserved_bytes,
+                    )?)
+                };
+            let retained = memory.snapshot().reserved_bytes;
+            let result = accumulate_numeric(&mut state, owner, context);
+            if cancelled {
+                assert!(result.unwrap_err().to_string().contains("cancel"));
+            } else {
+                result?;
+            }
             assert_same(&state, &State::default());
             assert_eq!(memory.snapshot().reserved_bytes, retained);
             let mut grouped = [State::default()];
-            let error = accumulate_grouped_numeric(
+            let result = accumulate_grouped_numeric(
                 &mut grouped,
                 &GroupOrdinals::Scalar(array.len()),
                 1,
                 0,
                 owner,
                 context,
-            )
-            .unwrap_err()
-            .to_string();
-            assert!(
-                error.contains(if cancelled {
-                    "cancel"
-                } else {
-                    "reservation denied"
-                }),
-                "{error}"
             );
+            if cancelled {
+                assert!(result.unwrap_err().to_string().contains("cancel"));
+            } else {
+                result?;
+            }
             assert_same(&grouped[0], &State::default());
             assert_eq!(memory.snapshot().reserved_bytes, retained);
             drop(occupied);

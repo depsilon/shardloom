@@ -96,6 +96,94 @@ share a prepared input owner, and grouped SUM/AVG already binds physical type
 and validity once per batch. Extend these owners; do not introduce a second
 expression evaluator, answer cache or scheduling pool.
 
+### Shared aggregate performance continuation
+
+The next implementation class is inefficient general execution in the existing
+native aggregate owner. Source inspection confirms that group ordinals already
+share hashing and lookup across measures. The remaining numeric SUM/AVG loops
+call a boxed update function for every row; adjacent measures still repeat
+identical accumulation, and projected aliases of the same completed array do
+not share their prepared value owner. Identical adjacent FILTER domains also
+repeat selection. These are concrete repeated operations, not yet measured
+attribution of the complete-query gap.
+
+Use the existing original-width numeric owner for a monomorphized batch visitor,
+with the same row order, NULL handling, cancellation cadence and failure state.
+Admit adjacent primitive SUM/AVG state reuse only when the input array and filter
+domain agree and every corresponding accumulator is bitwise identical before
+the earlier update. Copy its completed count and sum at the later measure's
+original position. A failed earlier measure must leave later states untouched;
+different starting states, decimal/distinct reducers and different domains keep
+their ordinary paths. For grouped input, admit the two passes over retained group
+states (start comparison and completed-state copy) only when their combined
+iteration count is no greater than the input row pass they replace. This avoids
+repeated full-state traversal for high-cardinality or small later batches.
+Reuse completed native array owners by exact identity,
+never content guesses or expression names alone.
+
+Vortex-first decision: wrap existing Vortex 0.90.0 array ownership, primitive
+buffers, validity masks and native selection. The upstream grouped reducer
+provider consumes already-grouped arrays; introducing grouped lists would add
+work to this flat-input owner and has no new evidence overturning the retained
+provider decision. No new provider, scheduler or external engine is admitted.
+Require typed/encoded/null/error/pressure tests plus complete-query comparison
+and neighboring-query regression evidence before claiming a performance benefit.
+
+The first continuation checkpoint validates all 347 queries, 12,565 result rows
+and complete schemas in **30.118456795 engine seconds**, against the unchanged
+**31.962394957-second** aggregate/grouping checkpoint. The observed reduction is
+5.8% overall, 12.9% for global aggregation and 7.5% for grouped aggregation.
+Global aggregation passes the prospective 10% family-benefit gate. No family
+crosses its regression threshold. The original `projection_limit_direct_31`
+case does cross the case threshold (0.117059333 to 0.150251250 seconds), and that
+observation is preserved rather than replaced in the total.
+
+A separately frozen diagnostic runs that case and its LIMIT 11/100 neighbors
+in three baseline/candidate pairs, with pair order AB, BA, AB. All 18 executions
+validate; none reproduces the material-regression rule. For LIMIT 31 the role
+medians are 0.117325541 and 0.109783958 seconds. This supports the disposition
+"not reproduced in the bounded diagnostic," without assigning a cause to the
+original observation or claiming statistical confidence. The original runtime,
+full cohort, diagnostics and prospective thresholds remain immutable. The
+native suite passes 3,403 tests with 32 existing opt-in ignores; broader PR and
+package acceptance remains separate.
+
+### Borrowed variable-width output construction
+
+The next candidate addresses repeated native scalar lookup at existing payload
+copy and result-gather boundaries. These boundaries already execute the selected
+column to Vortex `Columnar`, but text/binary leaves still traverse scalar dispatch
+and clone buffer handles on every sizing and write visit. Primitive numeric
+leaves already bind their native storage and validity once. The saved projection
+family contributes 6.116540710 seconds of the 31.962394957-second checkpoint;
+this identifies a target, not an attribution of its complete cost.
+
+Bind the existing Vortex `VarBinViewArray` and its validity mask after the same
+selection/canonicalization boundary, then borrow values during result sizing
+and construction. Preserve native constants without row-sized expansion. Reuse
+the pinned provider's checked `utf8_slice_at` access and existing native byte
+views; do not introduce an Arrow conversion, value cache, hash-domain preparation
+or a second expression evaluator. NULLs, selected-row order, dtype, cancellation,
+independent output buffers and their memory credits retain the current contract.
+Do not eagerly validate an unselected dictionary domain or move a fallible
+expression across a filter, sort or limit to obtain a faster result.
+
+Vortex-first decision: wrap the existing native array, constant and mask providers
+already admitted in Vortex 0.90.0. `Columnar` yields a canonical array or a native
+constant; the vendored checked text accessor can use its immutable construction
+receipt without cloning a buffer for each value. The new owner binds those
+providers for existing ShardLoom output construction. It adds no dependency,
+provider permission, query-engine integration or public capability.
+
+Require exact UTF-8/binary, nullable, constant, dictionary, sliced/chunked and
+nested-parent selection tests; retain output clones after source release and
+check final reservation cleanup. Freeze the next complete-query comparison
+against the preceding numeric checkpoint before running it, with projection and
+string families declared as targets and the same material-regression rules.
+Bounded streaming Top-K retention is a separate candidate: it requires proof of
+complete payload validation and source release before reducing retention. The
+existing ordinary versus streaming error-order distinction remains authoritative.
+
 The first expression extension admits reuse of a fully completed, identical,
 pure expression on the same input. Conditional/COALESCE/NULLIF branches retain
 their selected-input evaluation scope: sharing a completed outer result does

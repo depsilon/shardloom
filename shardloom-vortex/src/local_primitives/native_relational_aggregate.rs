@@ -10,6 +10,13 @@ mod reuse_tests;
 #[path = "native_relational_aggregate_numeric_tests.rs"]
 mod numeric_tests;
 
+#[cfg(test)]
+#[path = "native_relational_aggregate_numeric_reuse_tests.rs"]
+mod numeric_reuse_tests;
+
+#[path = "native_relational_aggregate_numeric_reuse.rs"]
+mod numeric_reuse;
+
 #[path = "native_relational_collections.rs"]
 mod collections;
 #[path = "native_relational_aggregate_filter.rs"]
@@ -127,19 +134,21 @@ impl GroupOrdinals {
     }
 }
 
-/// Only adjacent compatible measures share this owner. A different column or
+/// Only adjacent compatible measures share this owner, including exact native
+/// aliases of a completed projection result. A different column or
 /// validity-only COUNT mode releases it before the next preparation, preserving the
 /// sequential ownership bound and the original measure/error order.
 struct PreparedColumn<'a> {
     name: &'a str,
     filter: Option<&'a str>,
+    source: ArrayRef,
     values: Option<KeyColumn>,
     validity: Option<Mask>,
 }
 
 impl PreparedColumn<'_> {
-    fn matches(&self, measure: &Measure, count_validity: bool) -> bool {
-        measure.column.as_deref() == Some(self.name)
+    fn matches(&self, measure: &Measure, column: &ArrayRef, count_validity: bool) -> bool {
+        (measure.column.as_deref() == Some(self.name) || ArrayRef::ptr_eq(&self.source, column))
             && measure.filter_column.as_deref() == self.filter
             && self.validity.is_some() == count_validity
     }
@@ -451,9 +460,21 @@ impl<'a> Aggregate<'a> {
         let mut decimal_index = 0;
         let mut prepared: Option<PreparedColumn<'_>> = None;
         let mut selection_groups = None;
+        let mut selected_filter = None;
+        let mut selected = None;
+        let mut numeric_reuse_from = None;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
-            let selected = filter::select(array, &all_ordinals, measure, context)?;
+            let reuse_from = numeric_reuse_from.take();
+            let filter = measure.filter_column.as_deref();
+            if selected_filter != Some(filter) {
+                // Release the old domain and its value owners before preparing
+                // a different selection. Only completed identical domains are reused.
+                prepared = None;
+                drop(selected.take());
+                selected = filter::select(array, &all_ordinals, measure, context)?;
+                selected_filter = Some(filter);
+            }
             let (array, ordinals) = selected.as_ref().map_or((array, &all_ordinals), |input| {
                 (&input.array, &input.groups)
             });
@@ -510,22 +531,17 @@ impl<'a> Aggregate<'a> {
                 prepared = None;
                 continue;
             }
-            if prepared
-                .as_ref()
-                .is_some_and(|prior| Some(prior.name) != measure.column.as_deref())
-            {
-                prepared = None;
-            }
             let column = measure
                 .column
                 .as_ref()
                 .map(|name| logical_field_from_native_array(array, name))
                 .transpose()?;
             let count_validity = measure.function == Function::Count && column.is_some();
-            if !prepared
-                .as_ref()
-                .is_some_and(|prior| prior.matches(measure, count_validity))
-            {
+            if !prepared.as_ref().is_some_and(|prior| {
+                column
+                    .as_ref()
+                    .is_some_and(|column| prior.matches(measure, column, count_validity))
+            }) {
                 prepared = None;
                 if let (Some(name), Some(array)) = (measure.column.as_deref(), &column) {
                     let (validity, values) = if count_validity {
@@ -540,6 +556,7 @@ impl<'a> Aggregate<'a> {
                     prepared = Some(PreparedColumn {
                         name,
                         filter: measure.filter_column.as_deref(),
+                        source: array.clone(),
                         values,
                         validity,
                     });
@@ -647,7 +664,25 @@ impl<'a> Aggregate<'a> {
             if matches!(measure.function, Function::Sum | Function::Avg)
                 && let Some(KeyColumn::Numeric(owner)) = values
             {
-                if self.groups.is_none() {
+                let reuse_next = owner.len() != 0
+                    && numeric_reuse::admit_next(
+                        self.spec,
+                        measure_index,
+                        array,
+                        column.as_ref().expect("numeric input column is bound"),
+                        &self.states.values,
+                        context,
+                    )?;
+                if let Some(source) = reuse_from {
+                    numeric_reuse::copy_completed(
+                        &mut self.states.values,
+                        self.spec.measures.len(),
+                        source,
+                        measure_index,
+                        owner.len(),
+                        context,
+                    )?;
+                } else if self.groups.is_none() {
                     accumulate_numeric(&mut self.states.values[measure_index], owner, context)?;
                 } else {
                     accumulate_grouped_numeric(
@@ -659,6 +694,7 @@ impl<'a> Aggregate<'a> {
                         context,
                     )?;
                 }
+                numeric_reuse_from = reuse_next.then_some(measure_index);
                 continue;
             }
             for (row, group) in ordinals.iter() {
@@ -853,11 +889,6 @@ impl<'a> Aggregate<'a> {
     }
 }
 
-// The shared kernel captures a borrowed slice, a validity reference and the
-// zero-sized update_numeric function item. This covers its box and handle;
-// tests check the actual closure size for every admitted type/validity shape.
-const NUMERIC_KERNEL_BYTES: u64 = 256;
-
 fn accumulate_numeric(
     state: &mut State,
     owner: &NativeNumericOwner,
@@ -866,21 +897,21 @@ fn accumulate_numeric(
     if owner.len() == 0 {
         return Ok(());
     }
-    let _metadata = context.memory().reserve(NUMERIC_KERNEL_BYTES)?;
-    let kernel = owner.bind_row_update(update_numeric);
     #[cfg(all(test, debug_assertions))]
     super::native_relational_observation::record(|counts| {
         counts.aggregate_numeric_bound_batches += 1;
         counts.aggregate_numeric_bound_rows += owner.len() as u64;
     });
-    for row in 0..owner.len() {
+    owner.visit_numeric(|row, value, integer| {
         // NULL rows still participate in the original cancellation cadence.
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
         }
-        kernel(state, row)?;
-    }
-    Ok(())
+        if let Some(value) = value {
+            update_numeric(state, value, integer)?;
+        }
+        Ok(())
+    })
 }
 
 fn update_numeric(state: &mut State, value: f64, integer: bool) -> Result<()> {
@@ -908,22 +939,26 @@ fn accumulate_grouped_numeric(
     if owner.len() == 0 {
         return Ok(());
     }
-    let _metadata = context.memory().reserve(NUMERIC_KERNEL_BYTES)?;
-    // Dispatch physical type and validity once; retain the same per-measure,
-    // per-row update sequence and the existing original-width borrowed owner.
-    let kernel = owner.bind_row_update(update_numeric);
+    // Dispatch once around the whole borrowed batch, retaining the same
+    // per-measure, per-row update sequence without a boxed call for every row.
     #[cfg(all(test, debug_assertions))]
     super::native_relational_observation::record(|counts| {
         counts.aggregate_numeric_bound_batches += 1;
         counts.aggregate_numeric_bound_rows += owner.len() as u64;
     });
-    for (row, group) in ordinals.iter() {
+    owner.visit_numeric(|row, value, integer| {
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
         }
-        kernel(&mut states[group * width + measure_index], row)?;
-    }
-    Ok(())
+        if let Some(value) = value {
+            update_numeric(
+                &mut states[ordinals.at(row) * width + measure_index],
+                value,
+                integer,
+            )?;
+        }
+        Ok(())
+    })
 }
 
 fn accumulate_decimal(
