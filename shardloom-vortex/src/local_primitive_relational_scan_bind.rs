@@ -1,7 +1,7 @@
-//! Normalize fully validated, infallible file projections and predicates into
-//! the existing Vortex scan. Computation, range and residual barriers remain.
+//! Narrow fully bound operator inputs and normalize safe predicates into the
+//! native file/batch scan. Expressions keep their original evaluation order.
 
-use super::{Binder, Node, NodeKind, Result, failed, field};
+use super::{Binder, Node, NodeKind, Result, Side, failed, field};
 use crate::local_primitives::{
     self as native,
     native_relational_expression::{Expression as BoundExpression, Kind},
@@ -12,13 +12,104 @@ use shardloom_plan::ProjectionRequest;
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Binder<'_> {
-    pub(super) fn narrow_file_projection(
+    pub(super) fn narrow_join_inputs(
+        &mut self,
+        left: &mut Node,
+        right: &mut Node,
+        spec: &native::native_relational_join::Spec,
+    ) -> Result<()> {
+        for (side, input, keys) in [
+            (Side::Left, left, &spec.left_keys),
+            (Side::Right, right, &spec.right_keys),
+        ] {
+            self.narrow_source_demand(
+                input,
+                keys.iter().map(String::as_str).chain(
+                    spec.columns
+                        .iter()
+                        .chain(
+                            spec.condition
+                                .iter()
+                                .flat_map(|condition| &condition.columns),
+                        )
+                        .filter_map(|(column_side, name)| {
+                            (*column_side == side).then_some(name.as_str())
+                        }),
+                ),
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn narrow_source_demand<'name>(
+        &mut self,
+        input: &mut Node,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        if self.scan_accepts_source_demand(input) {
+            self.narrow_scan_columns(input, needed)?;
+        }
+        Ok(())
+    }
+
+    fn scan_accepts_source_demand(&self, input: &Node) -> bool {
+        matches!(&input.kind, NodeKind::Scan {
+            source: ScanSource::Batch { index, .. }, ..
+        } if !self.batch_sources.values[*index].external())
+    }
+
+    pub(super) fn narrow_scan_projection(
         &mut self,
         input: &mut Node,
         expressions: &[BoundExpression],
     ) -> Result<()> {
+        // Binding has already checked every expression, including unused or
+        // fallible computations. Only narrow its input; do not remove or move
+        // the computation across a predicate or range.
+        if !matches!(
+            input.kind,
+            NodeKind::Scan {
+                source: ScanSource::File(_) | ScanSource::Batch { .. },
+                ..
+            }
+        ) {
+            return Ok(());
+        }
+        // Prepared files and caller batches keep their existing validation
+        // scope. Only owned demanded sources may exclude fields behind a
+        // computation; ordinary encoded column views remain unchanged.
+        if !self.scan_accepts_source_demand(input)
+            && expressions
+                .iter()
+                .any(|expression| !matches!(expression.kind, Kind::Column(_)))
+        {
+            return Ok(());
+        }
+        let bytes = (input.fields.len() as u64)
+            .checked_mul(4096)
+            .ok_or_else(|| failed("scan projection metadata overflow"))?;
+        let capacity = self.session.memory().snapshot();
+        if bytes > capacity.limit_bytes.saturating_sub(capacity.reserved_bytes) / 2 {
+            return Ok(());
+        }
+        let _scratch = self.session.reserve_input_scratch(bytes)?;
+        let mut needed = BTreeSet::new();
+        for expression in expressions {
+            expression.visit_columns(&mut |name| {
+                needed.insert(name.to_owned());
+                Ok(())
+            })?;
+        }
+        self.narrow_scan_columns(input, needed.iter().map(String::as_str))
+    }
+
+    pub(super) fn narrow_scan_columns<'name>(
+        &mut self,
+        input: &mut Node,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
         let NodeKind::Scan {
-            source: ScanSource::File(index),
+            source,
             plan,
             columns,
             residual,
@@ -27,15 +118,13 @@ impl Binder<'_> {
         else {
             return Ok(());
         };
-        if residual.is_some()
-            || plan.source_order_limit.is_some()
-            || expressions
-                .iter()
-                .any(|expression| !matches!(expression.kind, Kind::Column(_)))
-        {
+        if self.scan_dtype(source).is_none() {
             return Ok(());
         }
-        let bytes = (expressions.len() as u64)
+        if residual.is_some() || plan.source_order_limit.is_some() {
+            return Ok(());
+        }
+        let bytes = (input.fields.len() as u64)
             .checked_mul(4096)
             .ok_or_else(|| failed("scan projection metadata overflow"))?;
         let capacity = self.session.memory().snapshot();
@@ -45,16 +134,24 @@ impl Binder<'_> {
         self.charge(usize::try_from(bytes).map_err(native::vortex_error)?)?;
         let mut projected = Vec::new();
         let mut seen = BTreeSet::new();
-        for expression in expressions {
-            let Kind::Column(name) = &expression.kind else {
-                unreachable!("checked column-only projection")
-            };
-            if seen.insert(name.as_str()) {
+        for name in needed {
+            if seen.insert(name) {
                 projected.push(ColumnRef::new(name)?);
             }
         }
+        // COUNT(*) and constant projections still consume the real source row
+        // population. Retain one admitted field rather than invent row counts.
+        if projected.is_empty() {
+            projected.push(ColumnRef::new(
+                &input
+                    .fields
+                    .first()
+                    .ok_or_else(|| failed("scan has no row-bearing field"))?
+                    .0,
+            )?);
+        }
         let mut narrowed = native::projection_scan_plan(
-            self.sources.values[*index].dtype(),
+            self.scan_dtype(source).expect("supported scan source"),
             &ProjectionRequest::Columns(projected),
             native::VortexQueryPrimitiveKind::ProjectColumns,
         )?;
@@ -69,16 +166,17 @@ impl Binder<'_> {
         columns.clone_from(&narrowed.projected_columns);
         *plan = narrowed;
         input.fields = fields;
+        self.refresh_batch_projection(source, columns, plan)?;
         Ok(())
     }
 
-    pub(super) fn push_file_filter(
+    pub(super) fn push_scan_filter(
         &mut self,
         input: &mut Node,
         predicate: &BoundExpression,
         predicate_metadata: u64,
     ) -> Result<bool> {
-        let Some(width) = alias_file_scan_width(input) else {
+        let Some(width) = alias_scan_width(input) else {
             return Ok(false);
         };
         // Reserve the lowered predicate before cloning it, including literal
@@ -131,20 +229,23 @@ impl Binder<'_> {
                     node = input;
                 }
                 NodeKind::Scan {
-                    source: ScanSource::File(index),
+                    source,
                     predicate: prior_predicate,
                     plan,
                     residual,
+                    columns,
                     ..
                 } if residual.is_none() && plan.source_order_limit.is_none() => {
-                    let dtype = self.sources.values[*index].dtype();
+                    let Some(dtype) = self.scan_dtype(source) else {
+                        return Ok(false);
+                    };
                     let Some(predicate) = provider::scan_predicate(predicate, &aliases, dtype)
                     else {
                         return Ok(false);
                     };
                     let filter = native::predicate_to_vortex_expr(
                         &predicate,
-                        self.sources.values[*index].dtype(),
+                        dtype,
                         native::VortexQueryPrimitiveKind::FilterAndProject,
                     )?;
                     plan.filter = Some(match plan.filter.take() {
@@ -155,25 +256,54 @@ impl Binder<'_> {
                         Some(prior) => PredicateExpr::And(vec![prior, predicate]),
                         None => predicate,
                     });
+                    self.refresh_batch_projection(source, columns, plan)?;
                     return Ok(true);
                 }
                 _ => return Ok(false),
             }
         }
     }
+
+    fn scan_dtype(&self, source: &ScanSource) -> Option<&vortex::array::dtype::DType> {
+        match source {
+            ScanSource::File(index) => Some(self.sources.values[*index].dtype()),
+            ScanSource::Batch { index, .. } => {
+                Some(self.batch_sources.values[*index].schema.dtype())
+            }
+            ScanSource::Memory(_) => None,
+        }
+    }
+
+    fn refresh_batch_projection(
+        &self,
+        source: &mut ScanSource,
+        columns: &[String],
+        plan: &native::LocalVortexScanPlan,
+    ) -> Result<()> {
+        if let ScanSource::Batch { index, projection } = source {
+            **projection = self.batch_sources.values[*index]
+                .schema
+                .prepare_projection(
+                    &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                    plan.filter.clone(),
+                    None,
+                )?;
+        }
+        Ok(())
+    }
 }
 
-fn alias_file_scan_width(node: &Node) -> Option<usize> {
+fn alias_scan_width(node: &Node) -> Option<usize> {
     match &node.kind {
         NodeKind::Project { input, expressions }
             if expressions
                 .iter()
                 .all(|expression| matches!(expression.kind, Kind::Column(_))) =>
         {
-            Some(node.fields.len().max(alias_file_scan_width(input)?))
+            Some(node.fields.len().max(alias_scan_width(input)?))
         }
         NodeKind::Scan {
-            source: ScanSource::File(_),
+            source: ScanSource::File(_) | ScanSource::Batch { .. },
             plan,
             residual,
             ..

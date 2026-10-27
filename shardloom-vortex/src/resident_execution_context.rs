@@ -282,6 +282,52 @@ impl NativeExecutionContext<'_> {
         Ok(())
     }
 
+    /// Retain the already-bound compatibility generation through final delivery.
+    /// Reader and range admission use the same operation as native file scans.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    pub(crate) fn local_source_reader(
+        &self,
+        identity: Arc<SourceIdentity>,
+        metrics: Arc<super::LocalReadMetrics>,
+    ) -> Result<super::OwnedLocalRead> {
+        self.check_general_execution()?;
+        identity.validate()?;
+        let ownership = self.memory().reserve(4096)?;
+        let mut sources = self
+            .opened_sources
+            .lock()
+            .map_err(|_| resident_error("source generation ownership poisoned"))?;
+        let OpenedSources { values, capacity } = &mut *sources;
+        if values.len() == values.capacity() {
+            let target = values
+                .len()
+                .checked_add(1)
+                .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+            let bytes = (target as u64)
+                .checked_mul(std::mem::size_of::<(Arc<SourceIdentity>, MemoryLease)>() as u64)
+                .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+            let credit = capacity.get_or_insert(self.memory().reserve(0)?);
+            credit.resize(bytes)?;
+            values
+                .try_reserve_exact(1)
+                .map_err(|error| resident_error(&error.to_string()))?;
+            if values.capacity() > target {
+                return Err(resident_error(
+                    "source generation allocation exceeded admission",
+                ));
+            }
+        }
+        values.push((Arc::clone(&identity), ownership));
+        drop(sources);
+        super::OwnedLocalRead::new(
+            identity,
+            self.memory(),
+            self.cancellation(),
+            metrics,
+            Some(Arc::clone(self.file_io_scope()?)),
+        )
+    }
+
     fn file_io_scope(&self) -> Result<&Arc<IoScope>> {
         if self.io.get().is_none() {
             // Ordinary calls need the same cancellation/drain boundary as

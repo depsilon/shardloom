@@ -1282,10 +1282,11 @@ assert later.row_count == 2
                 for source in (root / "input.vortex", root / "produced.parquet"):
                     source.unlink(missing_ok=True)
                 if profile == "external":
-                    # The input adapter's reusable prepared file is distinct
-                    # from output state. Remove it before either later job.
-                    self.assertTrue(list((root / ".shardloom" / "prepared").glob("*.vortex")))
-                    shutil.rmtree(root / ".shardloom")
+                    # The source-demand reader writes no prepared input. The
+                    # persisted result must stand alone after its source is gone.
+                    self.assertEqual(writer["fields"]["native_source_demand_sources"], "1")
+                    self.assertEqual(writer["fields"]["native_source_demand_prepared_input_bytes_written"], "0")
+                    self.assertFalse((root / ".shardloom").exists())
                 aggregate = run("aggregate", profile, moved)
                 filtered = run("filter", profile, moved)
                 values = run("values", profile, moved)

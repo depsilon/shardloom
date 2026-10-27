@@ -12,7 +12,7 @@ import os
 import operator
 import time
 
-from .adapters import AdapterGap
+from .adapters import AdapterGap, source_format
 from .semantics import ResultMismatch, TypedResult, arrow_schema, compare, schema_record
 
 
@@ -92,7 +92,12 @@ def aggregate(measure, pl):
 def declaration(relation, sources, pl):
     op, args = relation.op, relation.args
     if op == "scan":
-        return pl.scan_ipc(sources[args[0]])
+        paths = sources[args[0]]
+        formats = {source_format(path) for path in paths}
+        if len(formats) != 1 or not formats <= {"arrow-ipc", "parquet"}:
+            raise AdapterGap("Polars comparison requires homogeneous Arrow IPC or Parquet source parts")
+        reader = pl.scan_parquet if formats == {"parquet"} else pl.scan_ipc
+        return reader(paths)
     inputs = [declaration(child, sources, pl) for child in relation.inputs]
     source = inputs[0]
     if op == "project":

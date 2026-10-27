@@ -1,0 +1,360 @@
+{
+  "schema_version": "shardloom.generated_artifact_retirement.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r1/dist",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r2/package",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r2/venv",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r2/dist",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/package",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/venv",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/wheel-build-tools",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-proof-wheelhouse",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-inputs",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate2-inputs",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout2-inputs",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/.shardloom",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/packet-draft",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/packet-replay-clean",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-r1-source",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/source",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-harness-r1",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-harness-r2",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/harness",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/logs",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/logs",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r2/logs",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/full43-r1",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/full43-r2",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-predicate_one_row.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_narrow.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_alias_filter.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_rich.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_wide.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-selectivity_10000.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-aggregate_signed_value_group_key_mixed_direct_all.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-aggregate_optional_value_category_mixed_direct_one_percent.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-set_union_all.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-predicate_one_row.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_narrow.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_alias_filter.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_rich.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_wide.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-selectivity_10000.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-aggregate_signed_value_group_key_mixed_direct_all.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-aggregate_optional_value_category_mixed_direct_one_percent.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-set_union_all.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/sequence.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/projection_reordered.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/predicate_or.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/selectivity_100.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/nullable_mostly_null_is_not_null.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/topk_11_offset_7.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/temporal_timestamp_hour.parquet",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/fact.arrow",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r1/shardloom",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r1/_native.abi3.so"
+  ],
+  "retained_sha256": {
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/shardloom": "7c96ba5afa964d16260c3ebc8a23db4a5a761e5aa6fe2f0b4f192f180f342c72",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/_native.abi3.so": "3f79617b82ba05dd7223708233ccbbe01b2632265232f382cecebd37a389eed9",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "1dbc764e881e745edcdd38d9dc0205e0c6bed1c7994d941856d28ee6e51f6b18",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fact.parquet": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/fact.parquet": "0c72680708bb74cde495a5aee1e4cdbf08e273bed6a41188382f39c1a10cd08f",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/fact-00000.parquet": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/entities-00000.parquet": "ad1ef43250f9815f12b90c43199b1c99362ce4f81beb34615ceb12497af6f5d2",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/products-00000.parquet": "caf396dcbac020daaaff8df26b0064f0593e016646224e0964c6f9a5532ba7f9",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/relationships-00000.parquet": "bf641554001cb8e50f0d6c86d7b53b06e03968cd4d9ae340682f0f286c7babc4",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/calendar-00000.parquet": "0a6923b1522f0c1903d5ec74d9297b224c19776e7585fa42dde38e1e494670fb"
+  },
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r1/dist",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r2/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r2/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r2/dist",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-wheel-r3/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/wheel-build-tools",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/installed-proof-wheelhouse",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-inputs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate2-inputs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout2-inputs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/.shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/packet-draft",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/packet-replay-clean",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-r1-source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r2/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-harness-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-harness-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/harness",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r2/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/full43-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/full43-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-predicate_one_row.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_narrow.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_alias_filter.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_rich.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-projection_wide.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-selectivity_10000.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-aggregate_signed_value_group_key_mixed_direct_all.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-aggregate_optional_value_category_mixed_direct_one_percent.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-0-set_union_all.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-predicate_one_row.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_narrow.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_alias_filter.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_rich.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-projection_wide.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-selectivity_10000.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-aggregate_signed_value_group_key_mixed_direct_all.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-aggregate_optional_value_category_mixed_direct_one_percent.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/fresh-1-set_union_all.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/inputs/sequence.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/projection_reordered.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/predicate_or.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/selectivity_100.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/nullable_mostly_null_is_not_null.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/topk_11_offset_7.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/temporal_timestamp_hour.parquet",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/heldout-inputs/fact.arrow",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r1/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/candidate-runtime-r1/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "removed_entries": 41638,
+  "source_inputs_retained": true,
+  "original_external_baselines_untouched": true,
+  "user_files_and_item18_untouched": true,
+  "cargo_cache_untouched": true,
+  "payload_backups_created": false,
+  "symlink_targets_followed": false,
+  "inventory": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-source-demand-2026-10-26/cleanup-inventory.json.gz",
+  "inventory_sha256": "38f610527102c0436f84fd795e0efbc030c1a5efe02ae7d524b9e215c1b31e29",
+  "free_bytes_before": 87447011328,
+  "regular_files": 37250,
+  "symlinks": 12,
+  "retired_regular_bytes": 10266036786,
+  "retired_allocated_bytes": 10376265728,
+  "all_proof_files_unchanged": true,
+  "free_bytes_after": 97858908160
+}

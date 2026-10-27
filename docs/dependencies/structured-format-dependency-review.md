@@ -77,6 +77,18 @@ is summarized in the current support snapshot below.
 The October 17 and August 29 sections below preserve their dated review decisions and graph
 observations; they are not the current dependency snapshot.
 
+## 2026-10-26 Local Parquet Query-Path Qualification
+
+The feature-gated Parquet 59.3.1 reader now has a separate metadata-first source-demand path for
+eligible ordinary relational queries over a single local Parquet file. It binds the native plan
+before reading data and supplies demanded owned batches to existing Vortex operators without first
+writing a complete prepared input artifact. This path uses the existing Parquet dependency and
+does not change the dependency graph or broaden the admitted schema/operator boundary. Existing
+prepared-artifact reuse remains available; directory intake, explicit schema overrides,
+content-digest fingerprinting, explicit `prepare_once`, and explicit primitive options retain their
+existing contracts. See the [source-demand contract](../architecture/native-source-demand-2026-10-26.md)
+for the scope and limits. This qualification makes no performance or final-acceptance claim.
+
 ## 2026-08-29 Dependency Intake Closeout
 
 - Closed Dependabot PRs <https://github.com/depsilon/shardloom/pull/1383>,

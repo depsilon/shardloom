@@ -44,12 +44,19 @@ development loop; a focused shared-runtime concern can justify using the existin
 isolated Full43 procedure. This program does not authorize routine repeats,
 cache manipulation, artificial pacing or reruns for presentation alone.
 
-## Next investigation: universal source demand, starting with Parquet
+## Active work unit: universal source demand, starting with Parquet
 
-The later October 26 maintainer proposal is accepted **after this foundation,
-347-case baseline and its PR are finished**. Reconcile the proposed source
-boundary with the pinned implementation and the saved item-18 branch before
-implementation; do not merge unfinished connector work implicitly.
+The October 26 maintainer proposal follows the completed 347-case baseline and
+foundation, merged in PR #1611 as `4d25a06e`. The
+[source-demand work unit](native-source-demand-2026-10-26.md) records the pinned
+provider and existing-owner review, the frozen pre-change comparison and the
+locally accepted first Parquet adapter. The
+[acceptance report](../benchmarks/native-source-demand-2026-10-26.md) records
+all 347 corrected Parquet cases passing in 50.877676708 seconds of engine time,
+344 cases with reduced physical column demand, and the retained first checkpoint.
+The source change is not yet merged or released. The saved item-18 connector branch remains separate.
+This work unit does not close the broader analytical capability or operator
+performance program.
 
 The maintainer's subsequent clarification makes demand propagation a universal
 planning contract. Start with Parquet as the first adapter, but derive demand in

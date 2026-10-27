@@ -20,7 +20,24 @@ pub(super) fn certificate(
     let file_sources = sources;
     let batch_sources = input.map_or(0, |input| input.sources);
     let sources = file_sources + memory_sources + batch_sources;
-    let data_work = metrics.data_scans.get() > 0;
+    let columnar = input.map_or(0, |input| input.columnar_sources);
+    let columnar_data = input.is_some_and(|input| input.columnar_rows_decoded > 0);
+    let data_work = metrics.data_scans.get() > 0 || columnar_data;
+    let source_kind = if columnar > 0 {
+        "native_arrays_and_parquet"
+    } else {
+        "vortex"
+    };
+    let adapter = if columnar > 0 {
+        "shardloom.native_relational.parquet_59_3_1_to_vortex_0_90"
+    } else {
+        "shardloom.native_relational.vortex_0_90"
+    };
+    let source_state = if columnar > 0 {
+        RepresentationState::ForeignEncoded
+    } else {
+        RepresentationState::VortexEncoded
+    };
     let spilled = spill.is_some_and(|report| report.runs_written > 0);
     let set_proof = format!(
         "ordered_set_stages={} ordered_set_input_rows={} ordered_set_groups={} ordered_set_output_rows={}",
@@ -56,6 +73,12 @@ pub(super) fn certificate(
         input.replay_buffer_bytes_copied, input.replay_spilled_sources,
         input.replay_prefilled_sources,
     ));
+    let source_demand_proof = input.filter(|input| input.columnar_sources > 0).map_or_else(String::new, |input| format!(
+        "parquet_sources={} parquet_projected_columns={} parquet_available_columns={} parquet_physical_leaf_columns={} parquet_row_groups_total={} parquet_row_groups_read={} parquet_rows_decoded={} parquet_metadata_read_bytes={} parquet_data_read_bytes={} parquet_data_read_requests={};demand_reader_sources_only;query_validation_of_requested_columns_and_regions;no_full_ingest_certification;no_prepared_input_writes;decoder_workspace_admission_is_not_an_allocator_or_rss_limit",
+        input.columnar_sources, input.columnar_projected_columns, input.columnar_available_columns,
+        input.columnar_physical_leaf_columns, input.columnar_row_groups_total, input.columnar_row_groups_read,
+        input.columnar_rows_decoded, input.columnar_metadata_read_bytes, input.columnar_data_read_bytes, input.columnar_data_read_requests,
+    ));
     let subquery_population = format!(
         "spillable_subquery_stages={} spilled_subquery_stages={} spillable_subquery_input_rows={} spillable_subquery_indexed_rows={} spillable_subquery_probe_rows={} spillable_subquery_candidate_rows={} spillable_subquery_lookup_blocks={}",
         metrics.spillable_subquery_stages.get(),
@@ -88,8 +111,8 @@ pub(super) fn certificate(
         "native_relational.execution.v1",
         "native_vortex_sources_to_relational_batches",
         NativeIoSourceCapabilityReport {
-            source_kind: "vortex".into(),
-            adapter_id: "shardloom.native_relational.vortex_0_85".into(),
+            source_kind: source_kind.into(),
+            adapter_id: adapter.into(),
             schema_discovery_status: if metrics.schema_discovery_stages.get() == 0 {
                 format!("bound_before_execution_sources={sources}")
             } else {
@@ -98,7 +121,9 @@ pub(super) fn certificate(
                     metrics.schema_discovery_stages.get()
                 )
             },
-            statistics_availability: if batch_sources > 0 {
+            statistics_availability: if columnar > 0 {
+                format!("held_parquet_row_group_metadata_sources={columnar};exact_type_compatible_facts_only;missing_ambiguous_or_unsupported_statistics_retain_regions;batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}")
+            } else if batch_sources > 0 {
                 format!(
                     "completion_aware_native_batch_sources={batch_sources};batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
                 )
@@ -107,9 +132,10 @@ pub(super) fn certificate(
                     "held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
                 )
             },
-            pushdown_capabilities: "bound_projection_and_native_predicates".into(),
-            encoded_representation_preserved: true,
-            range_read_capability: file_sources > 0,
+            pushdown_capabilities: if columnar > 0 { "bound_projection;exact_statistics_region_exclusion;native_residual_predicates;no_limit_pushdown" }
+                else { "bound_projection_and_native_predicates" }.into(),
+            encoded_representation_preserved: columnar == 0,
+            range_read_capability: file_sources > 0 || columnar > 0,
             streaming_capability: true,
             object_store_capability: false,
             fallback_attempted: false,
@@ -123,7 +149,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),
@@ -170,7 +196,7 @@ pub(super) fn certificate(
         },
         if data_work {
             vec![NativeIoRepresentationTransition::new(
-                RepresentationState::VortexEncoded,
+                source_state,
                 RepresentationState::DecodedColumnar,
                 true,
             )]
@@ -191,8 +217,8 @@ pub(super) fn certificate(
             backpressure_policy: "synchronous_consumer_controls_next_batch".into(),
         },
         NativeIoAdapterFidelityReport {
-            adapter_id: "shardloom.native_relational.vortex_0_85".into(),
-            source_kind: "vortex".into(),
+            adapter_id: adapter.into(),
+            source_kind: source_kind.into(),
             sink_kind: "native_relational_result_batches".into(),
             metadata_preserved: false,
             statistics_preserved: false,
@@ -205,7 +231,7 @@ pub(super) fn certificate(
         if data_work {
             vec![NativeIoMaterializationBoundaryReport {
                 boundary_id: "native_relational.keys_and_selected_payload".into(),
-                from_state: RepresentationState::VortexEncoded,
+                from_state: source_state,
                 to_state: RepresentationState::DecodedColumnar,
                 required_by: "typed_keys_and_bounded_native_result_consumption".into(),
                 reason: format!(
@@ -228,7 +254,7 @@ pub(super) fn certificate(
             data_decoded: data_work,
             data_materialized: data_work,
             row_read: data_work,
-            arrow_converted: false,
+            arrow_converted: columnar_data,
             object_store_io: false,
             write_io: spilled,
             spill_io_performed: spilled,

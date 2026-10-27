@@ -93,6 +93,14 @@ seeds, physical layouts and previously unused combinations.
 
 ## Optional Polars comparison
 
+The maintainer's October 26 decision is to reuse existing competitor
+observations while their implementation and comparison contract are unchanged.
+Do not rerun Polars or another unchanged competitor for a ShardLoom iteration.
+Retain the original versions, inputs, resources and timing boundary. A changed
+input format or workload must be labelled as a different comparison contract;
+it does not authorize another competitor run. A new competitor observation
+requires a separate explicit request.
+
 Install `requirements-polars.txt` in a separate environment only for an authorized
 comparison. It is not a ShardLoom package dependency. The comparison reuses an
 intact completed native run without rerunning native queries:

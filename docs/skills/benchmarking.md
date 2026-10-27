@@ -37,6 +37,17 @@ Use this skill for tasks involving:
 - Avoid cherry-picked results.
 - Include correctness validation for benchmark queries.
 
+## Competitor observation reuse
+
+For the October 26 broad-query and source-demand program, the maintainer
+requested one initial Polars observation per case and subsequently directed
+that Polars need not be rerun. Reuse those observations while iterating on
+ShardLoom. Preserve their original input identities, versions, resources,
+results and clock boundaries. A different source format, workload or measurement
+boundary must be labelled explicitly and must not be presented as an equivalent
+comparison. Other-engine testing remains deferred under the active program;
+another competitor pass requires renewed authorization for that work.
+
 ## Timing communication decision
 
 Standing maintainer decision, October 15, 2026: routine timing updates, answers, and performance

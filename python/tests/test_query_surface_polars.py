@@ -57,6 +57,26 @@ class PolarsQuerySurfaceTests(unittest.TestCase):
         self.assertEqual(frame.select(expression(expr, pl)).to_series().to_list(),
                          [scalar(expr, {"a": a, "b": b}) for a, b in values])
 
+    def test_parquet_projection_predicates_and_rich_types_use_the_original_source(self):
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        spec = DatasetSpec(fact_rows=127, entity_rows=19, product_rows=7, relationship_rows=37, calendar_rows=31)
+        with tempfile.TemporaryDirectory(prefix="shardloom-polars-parquet-") as directory:
+            root = Path(directory) / "dataset"
+            manifest = write_dataset(root, spec, "sorted", guard=lambda: None)
+            member = manifest["tables"]["fact"]["files"][0]
+            with pa.memory_map(str(root / member["path"]), "r") as source:
+                table = pa.ipc.open_file(source).read_all()
+            path = root / "fact.parquet"
+            pq.write_table(table, path, row_group_size=17)
+            names = {"predicate_one_row", "projection_rich", "projection_wide", "selectivity_10000", "set_union_all"}
+            cases = [case for case in corpus(interactions="all") if case.id in names]
+            self.assertEqual(len(cases), len(names))
+            for case in cases:
+                with self.subTest(case=case.id):
+                    output = declaration(case.relation, {"fact": [str(path)]}, self.pl).collect().to_arrow()
+                    compare_result(expected(case, spec), TypedResult(arrow_schema(output.schema), output.to_pylist()), case.contract)
+
     def test_unexposed_nullability_is_not_permission_to_change_types_or_values(self):
         schema = (("v", ResultType("int64", False)),)
         wanted, contract = TypedResult(schema, [{"v": 1}]), ResultContract(schema)

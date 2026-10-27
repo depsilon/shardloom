@@ -13,6 +13,22 @@ pub(super) struct Source {
     pub(super) uri: shardloom_core::DatasetUri,
     pub(super) schema: ResidentMemorySource,
     pub(super) usage: Usage,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) local:
+        Option<std::sync::Arc<crate::universal_format_io::demanded::PreparedColumnarSource>>,
+}
+
+impl Source {
+    pub(super) fn external(&self) -> bool {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        {
+            self.local.is_none()
+        }
+        #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+        {
+            true
+        }
+    }
 }
 
 /// Requirements derived from statically visible native relations before demand.
@@ -125,6 +141,19 @@ impl Provider<'_> {
 /// Logical bytes describe input values/offsets/validity/names, not capacity or RSS.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutedVortexBatchInput {
+    /// Physical work summed across owned columnar source producers. Execution
+    /// reads exclude the separately counted metadata binding reads. Columns and
+    /// regions are counts, not bytes or a claim about upstream decoder RSS.
+    pub columnar_sources: u64,
+    pub columnar_projected_columns: u64,
+    pub columnar_available_columns: u64,
+    pub columnar_physical_leaf_columns: u64,
+    pub columnar_row_groups_total: u64,
+    pub columnar_row_groups_read: u64,
+    pub columnar_rows_decoded: u64,
+    pub columnar_metadata_read_bytes: u64,
+    pub columnar_data_read_bytes: u64,
+    pub columnar_data_read_requests: u64,
     /// Number of distinct declared sources that reached their own explicit end.
     pub sources: usize,
     pub payload_batches: u64,
@@ -185,6 +214,16 @@ pub struct ExecutedVortexBatchInput {
 impl Default for ExecutedVortexBatchInput {
     fn default() -> Self {
         Self {
+            columnar_sources: 0,
+            columnar_projected_columns: 0,
+            columnar_available_columns: 0,
+            columnar_physical_leaf_columns: 0,
+            columnar_row_groups_total: 0,
+            columnar_row_groups_read: 0,
+            columnar_rows_decoded: 0,
+            columnar_metadata_read_bytes: 0,
+            columnar_data_read_bytes: 0,
+            columnar_data_read_requests: 0,
             sources: 0,
             payload_batches: 0,
             rows: 0,
@@ -305,7 +344,7 @@ impl PreparedVortexRelational {
     }
 
     pub(super) fn validate_batch_provider(&self, supplied: bool) -> Result<()> {
-        if self.batch_sources.is_empty() == supplied {
+        if self.batch_sources.iter().any(Source::external) != supplied {
             return Err(failed(if supplied {
                 "an input provider requires a declared streaming batch source"
             } else {
@@ -317,7 +356,13 @@ impl PreparedVortexRelational {
 
     fn validate_single_batch_provider(&self) -> Result<()> {
         self.validate_batch_provider(true)?;
-        if self.batch_sources.len() != 1 {
+        if self
+            .batch_sources
+            .iter()
+            .filter(|source| source.external())
+            .count()
+            != 1
+        {
             return Err(failed(
                 "this provider requires exactly one streaming source; use with_batch_inputs for multiple sources",
             ));
@@ -348,7 +393,7 @@ pub(super) trait Input {
 
 pub(super) struct Execution<'p, 'i> {
     prepared: &'p PreparedVortexRelational,
-    provider: RefCell<Provider<'i>>,
+    provider: RefCell<Option<Provider<'i>>>,
     // The provider borrow ends after each request. This separate lease prevents
     // nested demand from retaining one original producer batch while opening another.
     original_owner: RefCell<()>,
@@ -362,6 +407,8 @@ struct SourceState {
     next_batch: Cell<u64>,
     usage: Cell<Usage>,
     replay: RefCell<Option<replay::Completed>>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    local_reader: RefCell<Option<crate::universal_format_io::demanded::ColumnarReader>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -374,7 +421,7 @@ enum Consumption {
 impl<'p, 'i> Execution<'p, 'i> {
     pub(super) fn new(
         prepared: &'p PreparedVortexRelational,
-        provider: Provider<'i>,
+        provider: Option<Provider<'i>>,
     ) -> Result<Self> {
         let mut states = ReservedVec::new(prepared.session.memory())?;
         states.reserve(prepared.batch_sources.len())?;
@@ -385,6 +432,8 @@ impl<'p, 'i> Execution<'p, 'i> {
                 next_batch: Cell::new(0),
                 usage: Cell::new(source.usage),
                 replay: RefCell::new(None),
+                #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+                local_reader: RefCell::new(None),
             });
         }
         Ok(Self {
@@ -416,6 +465,89 @@ impl<'p, 'i> Execution<'p, 'i> {
         report.max_retained_input_logical_bytes =
             report.max_retained_input_logical_bytes.max(bytes);
         Ok(())
+    }
+
+    fn next_input(
+        &self,
+        declaration: &Source,
+        state: &SourceState,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<(Option<ResidentMemorySource>, bool)> {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if let Some(source) = &declaration.local {
+            let mut owner = state
+                .local_reader
+                .try_borrow_mut()
+                .map_err(|_| failed("local source reader is already active"))?;
+            if owner.is_none() {
+                *owner = Some(source.open(context)?);
+            }
+            let reader = owner.as_mut().expect("local reader initialized");
+            if let Some(batch) = reader.next(context)? {
+                return Ok((
+                    Some(ResidentMemorySource::from_arrow_in_context(
+                        &self.prepared.session,
+                        batch,
+                        context,
+                        true,
+                    )?),
+                    false,
+                ));
+            }
+            let observed = reader.report()?;
+            // Drop every provider cursor before the operation's final I/O drain.
+            owner.take();
+            let mut report = self.report.borrow_mut();
+            checked_add(&mut report.columnar_sources, 1)?;
+            checked_add(
+                &mut report.columnar_projected_columns,
+                observed.projected_columns as u64,
+            )?;
+            checked_add(
+                &mut report.columnar_available_columns,
+                observed.available_columns as u64,
+            )?;
+            checked_add(
+                &mut report.columnar_physical_leaf_columns,
+                observed.physical_leaf_columns as u64,
+            )?;
+            checked_add(
+                &mut report.columnar_row_groups_total,
+                observed.row_groups_total as u64,
+            )?;
+            checked_add(
+                &mut report.columnar_row_groups_read,
+                observed.row_groups_read as u64,
+            )?;
+            checked_add(&mut report.columnar_rows_decoded, observed.rows_decoded)?;
+            checked_add(
+                &mut report.columnar_metadata_read_bytes,
+                observed.metadata_read_bytes,
+            )?;
+            checked_add(
+                &mut report.columnar_data_read_bytes,
+                observed.data_read_bytes,
+            )?;
+            checked_add(
+                &mut report.columnar_data_read_requests,
+                observed.data_read_requests,
+            )?;
+            return Ok((None, false));
+        }
+        let mut input = self
+            .provider
+            .try_borrow_mut()
+            .map_err(|_| failed("streaming input provider is already active"))?;
+        let input = input
+            .as_mut()
+            .ok_or_else(|| failed("external input provider is absent"))?;
+        let next = input.next(
+            &declaration.uri,
+            state.next_batch.get(),
+            &self.prepared.session,
+            context,
+        )?;
+        Ok((next, input.has_transport_bounds()))
     }
 
     fn consume_replay(
@@ -532,19 +664,7 @@ impl Execution<'_, '_> {
             let owner = self.original_owner.try_borrow_mut().map_err(|_| {
                 failed("nested input demand requires releasing the original source batch first")
             })?;
-            let (next, transport_bounds) = {
-                let mut input = self
-                    .provider
-                    .try_borrow_mut()
-                    .map_err(|_| failed("streaming input provider is already active"))?;
-                let next = input.next(
-                    &declaration.uri,
-                    state.next_batch.get(),
-                    &self.prepared.session,
-                    context,
-                )?;
-                (next, input.has_transport_bounds())
-            };
+            let (next, transport_bounds) = self.next_input(declaration, state, context)?;
             context.check_cancelled()?;
             let Some(source) = next else {
                 let replay = recorder

@@ -5,11 +5,13 @@ pub(crate) use super::relation_sources::ParsedRelationLeaf;
 use super::*;
 use shardloom_core::DatasetUri;
 use shardloom_plan::ProjectionRequest;
+#[cfg(test)]
 use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy,
-    local_primitives::prepared_relational::{
-        PreparedVortexRelational, VortexRelationalPreparation,
-    },
+    local_primitives::prepared_relational::PreparedVortexRelational,
+};
+use shardloom_vortex::{
+    local_primitives::prepared_relational::VortexRelationalPreparation,
     query_primitive::VortexSimpleAggregateMeasure,
     relational_query::{
         VortexRelationalAggregate as Aggregate, VortexRelationalFilter as Filter,
@@ -102,6 +104,7 @@ pub(crate) fn prepare_with_inputs(
     )
 }
 
+#[cfg(test)]
 pub(crate) fn prepare_in_session(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -123,6 +126,7 @@ pub(crate) fn prepare_in_session(
     )
 }
 
+#[cfg(test)]
 fn prepare_with_owner(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -252,6 +256,7 @@ fn declared_query_sources(query: &ParsedRelationQuery, paths: &mut BTreeSet<Pars
     visit::Node::Query(query).sources(paths);
 }
 
+#[cfg(test)]
 fn register_sql_memory_inputs(
     parsed: &ParsedRelationQuery,
     schemas: &mut VortexRelationalPreparation<'_>,

@@ -37,6 +37,12 @@ const FALLBACK_BOUNDARY: &str =
     "route inspection is side-effect-free and never invokes fallback or external engines";
 const CLAIM_BOUNDARY: &str = "simplified public facade over admitted ShardLoom routes only; not broad SQL/DataFrame support, production readiness, or performance superiority";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeOperatorOptions {
+    Automatic,
+    Explicit,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PublicWorkflowRouteRequest {
     surface: String,
@@ -56,6 +62,8 @@ struct PublicWorkflowRouteRequest {
     allow_overwrite: bool,
     fanout_outputs: Vec<String>,
     source_fingerprint_policy: Option<String>,
+    // Explicit operation payloads must never be discarded in favor of SQL.
+    native_operator_options: NativeOperatorOptions,
     native_vortex_operation_family: Option<String>,
     native_vortex_right_input: Option<String>,
     vortex_primitive: Option<String>,
@@ -5745,6 +5753,11 @@ impl PublicWorkflowRouteRequest {
                 || matches!(flag.as_str(), "--operation-family" | "--right-input");
             request.parse_flag(&flag, &mut args)?;
         }
+        request.native_operator_options = if native_operator_options {
+            NativeOperatorOptions::Explicit
+        } else {
+            NativeOperatorOptions::Automatic
+        };
 
         // Resolve before decoding caller-owned input cells or preparing a source.
         if required {
@@ -5857,6 +5870,7 @@ impl PublicWorkflowRouteRequest {
             allow_overwrite: false,
             fanout_outputs: Vec::new(),
             source_fingerprint_policy: None,
+            native_operator_options: NativeOperatorOptions::Automatic,
             native_vortex_operation_family: None,
             native_vortex_right_input: None,
             vortex_primitive: None,
@@ -6119,6 +6133,13 @@ fn plan_public_workflow_route_inner(
     }
     if matches!(request.requested_output.as_str(), "collect") && !request.bounded {
         return unbounded_collect_blocked_route();
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if uses_source_demand(request)
+        && let Some(plan) = resident_relational::route_admitted_statement(request)
+    {
+        return plan;
     }
 
     if request
@@ -7747,6 +7768,27 @@ fn infer_native_vortex_route_payload(
         return None;
     }
     infer_native_vortex_primitive_payload(request)
+}
+
+/// Syntactic strategy admission only; no source/cache probing during routing.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn uses_source_demand(request: &PublicWorkflowRouteRequest) -> bool {
+    cfg!(all(
+        feature = "vortex-write",
+        feature = "universal-format-io"
+    )) && request.execution_policy == "vortex_middle"
+        && request.requested_output != "prepare"
+        && request.sql_statement.is_some()
+        && request.native_operator_options == NativeOperatorOptions::Automatic
+        && request
+            .source_fingerprint_policy
+            .as_deref()
+            .is_none_or(|policy| policy == "metadata_only")
+        && (request.input_format.as_deref() == Some("parquet")
+            || request
+                .source_bindings
+                .values()
+                .any(|binding| binding.input_format == "parquet"))
 }
 
 fn effective_public_workflow_request(
@@ -14686,7 +14728,14 @@ mod tests {
                     );
                     let plan = plan_public_workflow_route(&request);
                     assert_eq!(plan.status, CommandStatus::Success, "{plan:?}");
-                    assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
+                    assert_eq!(
+                        plan.route_id,
+                        match (format, output) {
+                            ("parquet", "collect") => "native_vortex_relational_collect",
+                            ("parquet", _) => "native_vortex_relational_write",
+                            _ => "local_file_prepare_once_first_query",
+                        },
+                    );
                     let prepared = prepared_local_workflow_native_request(&request).unwrap();
                     let prepared_plan = plan_public_workflow_route(&prepared.request);
                     assert_eq!(
@@ -17466,7 +17515,7 @@ mod tests {
                 "--bounded",
                 "true",
                 "--execution-policy",
-                "vortex_middle",
+                "prepare_once",
             ]
             .into_iter()
             .map(str::to_string),

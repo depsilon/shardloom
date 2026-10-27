@@ -17,6 +17,28 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Broad query foundation, compression intake and replay review — merged acceptance`
+  — [PR #1611](https://github.com/depsilon/shardloom/pull/1611) merges as
+  `4d25a06e` after all 57 checks pass at `a9cbcb67`. Both CI and CodeQL complete
+  successfully; the merge tree equals the reviewed tree. The
+  [integration receipt](../benchmarks/evidence/native-broad-query-review-2026-10-26/pr1611-integration.json)
+  records every check. Three replay findings have regression coverage; original
+  supervisor/Polars failures and unavailable nonbaseline engine clocks remain
+  valid evidence without receiving complete-baseline timing credit.
+  - The [baseline](../benchmarks/native-broad-query-2026-10-26.md) retains 347
+    complete 1M-row native cases and single-observation Polars equivalents, with
+    86.828000503 native engine seconds attributed to the original runtime.
+    Portable replay checks 2,331 complete results and 2,334 receipts; no query is
+    rerun for review or integration.
+  - The [compression correction](compression-dependency-intake-2026-10-26.md)
+    retains dependency/source provenance, codec-error regression tests, default
+    and full hosted native tests, installed Linux/macOS package proof and all
+    original failed attempts. No advisory waiver or package publication occurs.
+  - Item 20 remains open. Its next shared work unit is
+    [universal source demand with Parquet first](native-source-demand-2026-10-26.md).
+    Item 18's unfinished branch and the separate CG-1 through CG-23 gates remain
+    unchanged; finite baseline completion is not analytical capability closure.
+
 - [x] `Connected programming and current API documentation — merged acceptance`
   — documentation [PR #1609](https://github.com/depsilon/shardloom/pull/1609)
   merges as `931bf814` after 57 checks pass; connected programming

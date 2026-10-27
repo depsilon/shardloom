@@ -84,7 +84,9 @@ pub use plan_ir::{
     PlanPortabilityReport, PlanPortabilityStatus, PlanSchemaVersion, PlanValidationReport,
     PlanValidationStatus, TranslationBoundary,
 };
-pub use scan::{ProjectionRequest, ScanMode, ScanPlanSkeleton, ScanPlanningStatus, ScanRequest};
+pub use scan::{
+    ProjectionRequest, ScanMode, ScanPlanSkeleton, ScanPlanningStatus, ScanRequest, SourceDemand,
+};
 
 #[cfg(test)]
 mod tests {

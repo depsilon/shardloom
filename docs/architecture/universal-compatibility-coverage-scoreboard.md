@@ -83,6 +83,16 @@ fallback execution.
 | REST / Flight / ADBC | Remote and data-plane APIs | `report-only` | REST/event contracts exist as report-only surfaces; Flight/ADBC runtime bridges are not supported. | Future rows must separate control-plane discovery from data-plane runtime. | No server, remote execution, or data-plane bridge may be claimed. | Transport contract, auth policy, lifecycle, result delivery, and no-fallback parity. | No production API claim. |
 | Foundry | Platform integration | `report-only` | Foundry proof remains local/proof-only; real platform runtime is not certified. | Future rows must separate no-dataset smoke, staged local paths, Foundry output APIs, and platform evidence. | Direct S3/object-store writes do not count as Foundry generated-output proof. | Real Foundry environment proof, output API evidence, governance/lineage policy, no external compute proof. | Future validation target only; no endorsement or production claim. |
 
+The Parquet row's `vortex_ingest` ingress route describes the existing full-source prepared
+intake/certification path; it is not a route taxonomy for every public query. The
+[local Parquet source-demand contract](native-source-demand-2026-10-26.md) separately documents
+eligible single-file relational queries that bind first and read demanded Parquet columns and
+eligible row groups into native Vortex execution without first writing a complete prepared input
+artifact. Existing prepared-artifact reuse remains available. Directories, explicit schema
+overrides, content-digest fingerprinting, explicit `prepare_once`, and explicit primitive options
+retain their existing contracts. This note does not change scoreboard support levels, ingress route
+enums, or certify broader Parquet schemas, operators, output, production readiness, or performance.
+
 ## Required Scoreboard Fields For Future Machine Surfaces
 
 Future CLI, Python, and website/status projections should preserve these fields rather than scraping

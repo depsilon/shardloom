@@ -401,7 +401,7 @@ pub(super) fn run_if_needed(
                 admission,
             )
         } else {
-            #[cfg(feature = "universal-format-io")]
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             let source = source.with_preparation_sources(preparations.sources)?;
             run_optimized_source(
                 request, plan, format, fields, &binding, session, source, admission,
