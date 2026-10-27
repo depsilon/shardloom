@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "complete_comparisons": 347,
+  "complete_rows": 12565,
+  "baseline_engine_seconds": 50.877676708,
+  "candidate_engine_seconds": 34.960427343,
+  "reduction_fraction": 0.31285330610423046,
+  "benefit_gate_passed": true,
+  "material_case_regressions": [],
+  "material_family_regressions": [],
+  "package_tests": 185,
+  "new_competitor_queries": 0,
+  "limitations": [
+    "One observation per case per candidate; no statistical confidence or isolated causal claim.",
+    "Complete retained outputs are replayed without executing queries or packet code.",
+    "Content hashes establish internal consistency, not signed provenance.",
+    "Large data and binaries are represented by identity; this packet does not reconstruct them."
+  ]
+}

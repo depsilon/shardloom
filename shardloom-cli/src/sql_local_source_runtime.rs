@@ -2931,6 +2931,38 @@ fn public_preparation_identity_fields(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+pub(crate) fn parquet_source_content_fingerprint_requested(
+    policy: Option<&str>,
+) -> Result<bool, ShardLoomError> {
+    Ok(policy
+        .map(SourceFingerprintPolicy::parse)
+        .transpose()?
+        .unwrap_or(SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE)
+        .content_fingerprint_requested())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+pub(crate) fn parquet_preparation_source_binding(
+    path: &Path,
+    policy: Option<&str>,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<String, ShardLoomError> {
+    let policy = policy
+        .map(SourceFingerprintPolicy::parse)
+        .transpose()?
+        .unwrap_or(SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE);
+    let _control = memory.reserve(preparation_control_bytes(policy))?;
+    public_preparation_source_binding(
+        path,
+        Some(LocalSourceFormat::Parquet),
+        policy,
+        None,
+        cancellation,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
 fn public_preparation_source_binding(
     path: &Path,
     format: Option<LocalSourceFormat>,

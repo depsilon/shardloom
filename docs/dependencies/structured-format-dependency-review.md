@@ -80,14 +80,17 @@ observations; they are not the current dependency snapshot.
 ## 2026-10-26 Local Parquet Query-Path Qualification
 
 The feature-gated Parquet 59.3.1 reader now has a separate metadata-first source-demand path for
-eligible ordinary relational queries over a single local Parquet file. It binds the native plan
-before reading data and supplies demanded owned batches to existing Vortex operators without first
-writing a complete prepared input artifact. This path uses the existing Parquet dependency and
+eligible ordinary relational queries over local files and sorted, nonrecursive Parquet
+directories. It binds the native plan before reading data and supplies demanded owned batches to
+existing Vortex operators without first writing a complete prepared input artifact. Selected
+compressed chunks use charged buffers; safe source-order prefixes can limit decoding. Directory
+membership and file generations are checked, and optional content fingerprinting reports its
+full-byte reads separately from data decoding. This path uses the existing Parquet dependency and
 does not change the dependency graph or broaden the admitted schema/operator boundary. Existing
-prepared-artifact reuse remains available; directory intake, explicit schema overrides,
-content-digest fingerprinting, explicit `prepare_once`, and explicit primitive options retain their
-existing contracts. See the [source-demand contract](../architecture/native-source-demand-2026-10-26.md)
-for the scope and limits. This qualification makes no performance or final-acceptance claim.
+prepared-artifact reuse, explicit `prepare_once`, and explicit primitive options retain their
+contracts. Parquet schema overrides remain rejected. See the
+[completion contract](../architecture/native-parquet-demand-completion-2026-10-26.md) for scope and
+limits. This qualification makes no performance or final-acceptance claim.
 
 ## 2026-08-29 Dependency Intake Closeout
 

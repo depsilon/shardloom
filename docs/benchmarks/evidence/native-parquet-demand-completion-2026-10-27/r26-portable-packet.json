@@ -1,0 +1,161 @@
+{
+  "status": "passed",
+  "command": [
+    "python3",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/tools/build_completion_packet.py",
+    "--output",
+    "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/packet-draft"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "81ab0a4dd4b8d1c028d53632345ebf5208a4688b",
+  "working_tree": " M docs/architecture/phased-execution-plan.md\n M docs/architecture/universal-compatibility-coverage-scoreboard.md\n M docs/architecture/universal-input-contract.md\n M docs/architecture/v1-vortex-runtime-scope.md\n M docs/dependencies/structured-format-dependency-review.md\n M python/tests/test_query_surface_native.py\n M shardloom-cli/src/public_relational_source_demand_tests.rs\n M shardloom-cli/src/public_relational_sources.rs\n M shardloom-cli/src/public_resident_relational.rs\n M shardloom-cli/src/sql_local_source_runtime.rs\n M shardloom-plan/src/scan.rs\n M shardloom-vortex/src/local_primitive_native_sink.rs\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_dynamic.rs\n M shardloom-vortex/src/local_primitive_relational_report.rs\n M shardloom-vortex/src/local_primitive_relational_scan_bind.rs\n M shardloom-vortex/src/local_primitive_relational_source_demand.rs\n M shardloom-vortex/src/local_primitive_relational_source_demand_tests.rs\n M shardloom-vortex/src/local_primitive_relational_writer.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate_numeric_tests.rs\n M shardloom-vortex/src/prepared_source_binding.rs\n M shardloom-vortex/src/universal_format_io/demanded.rs\n?? docs/architecture/native-parquet-demand-completion-2026-10-26.md\n?? scripts/parquet_demand_completion_replay.py\n?? scripts/verify_parquet_demand_completion_packet.py\n?? shardloom-vortex/src/local_primitive_relational_source_demand_collection_tests.rs\n?? shardloom-vortex/src/local_primitive_relational_source_demand_prefix_tests.rs\n?? shardloom-vortex/src/universal_format_io/demanded/chunks.rs\n?? shardloom-vortex/src/universal_format_io/demanded/source.rs\n",
+  "changed_source_inventory": {
+    "docs/architecture/native-parquet-demand-completion-2026-10-26.md": {
+      "sha256": "fe145615dc30ce7e74ccbdc2ec6ed7cc72af4c67f5a2fbb699025d8c683f52af",
+      "bytes": 11780
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "sha256": "d0601c6e6569e699f21529377af2a15776af8dac54fe77d0a2f01bf1b8492fb1",
+      "bytes": 144072
+    },
+    "docs/architecture/universal-compatibility-coverage-scoreboard.md": {
+      "sha256": "507a63c9350eacef7354dff3833aa4db58a4521d745a720682052ee9c9419bf6",
+      "bytes": 35313
+    },
+    "docs/architecture/universal-input-contract.md": {
+      "sha256": "c85991c4f16f0632b154d7e7b6359ba08acc5548ef4bb8875a5529e9a44706cc",
+      "bytes": 18281
+    },
+    "docs/architecture/v1-vortex-runtime-scope.md": {
+      "sha256": "0f04cb6a7ff20fc71cd3d8cc046567506ca93bf92705c52870965b15a64e7978",
+      "bytes": 27561
+    },
+    "docs/dependencies/structured-format-dependency-review.md": {
+      "sha256": "38739903a19f7072b4fe3a686175c5db333d50f4ebc8b09cf4e8edd237972b50",
+      "bytes": 13506
+    },
+    "python/tests/test_query_surface_native.py": {
+      "sha256": "db57a73a4ca3d8085bad263fb3591ece7935803868a5c92d29550b437ba5f4ba",
+      "bytes": 12278
+    },
+    "scripts/parquet_demand_completion_replay.py": {
+      "sha256": "95bb81359ff715f03c17c9b74857de76686047094e73e0b49f49ee7695c09234",
+      "bytes": 9997
+    },
+    "scripts/verify_parquet_demand_completion_packet.py": {
+      "sha256": "962d0fd0bc0df6d4b7532bd3cf57e6e8c73062fa0e277b3e04a0e0505c9eddc8",
+      "bytes": 8569
+    },
+    "shardloom-cli/src/public_relational_source_demand_tests.rs": {
+      "sha256": "aa2ea0bfb2c519ce5b21c227c6c07089822adacd290c12ec72547a862bd00da3",
+      "bytes": 11832
+    },
+    "shardloom-cli/src/public_relational_sources.rs": {
+      "sha256": "f255a678550b202123edb1988090c02ae30cfa76c693463ce00abb55a858f3b3",
+      "bytes": 44685
+    },
+    "shardloom-cli/src/public_resident_relational.rs": {
+      "sha256": "d5b379cd4f3cb2339a652efdac4c411f3637156235134e037cbf3cde712dd6f7",
+      "bytes": 38307
+    },
+    "shardloom-cli/src/sql_local_source_runtime.rs": {
+      "sha256": "1d80df26a172626e11db2106a8fad209fb8e17fd55cb2513850241dbcf4ff98b",
+      "bytes": 412970
+    },
+    "shardloom-plan/src/scan.rs": {
+      "sha256": "cf16a1d19e2907cb3424a5c910f15b14cfb36128c68690f608ceec4b135960da",
+      "bytes": 11205
+    },
+    "shardloom-vortex/src/local_primitive_native_sink.rs": {
+      "sha256": "a9ee2b414c357cedd7d80d882f77935cfbf363972dcc887a9fa68199c17e9ef4",
+      "bytes": 43901
+    },
+    "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+      "sha256": "318351152df8b54ad1790207826111462dfe54e4be4b29f649d73b5101148031",
+      "bytes": 89221
+    },
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+      "sha256": "d13547db40bd3317d3efb370e8470b404d1ec1a937f62c9bbdbe275b9a70a5e9",
+      "bytes": 45101
+    },
+    "shardloom-vortex/src/local_primitive_relational_dynamic.rs": {
+      "sha256": "47c441c08499496fb337c36d55085f490530925d4145134925e999f806216305",
+      "bytes": 11043
+    },
+    "shardloom-vortex/src/local_primitive_relational_report.rs": {
+      "sha256": "896c5cc06cb19d448b25c5d5b08adebeb56c77a9e64cb7224e0969032495bca1",
+      "bytes": 17530
+    },
+    "shardloom-vortex/src/local_primitive_relational_scan_bind.rs": {
+      "sha256": "efbbffeda4adf4c8a09c3b947fc16c4be325e4dfe1b66c3d5be318f68a38f122",
+      "bytes": 13729
+    },
+    "shardloom-vortex/src/local_primitive_relational_source_demand.rs": {
+      "sha256": "d85a236ca014e89e2fa683c65119aac89e5eaaae195494b20201bcbafe3304fc",
+      "bytes": 6626
+    },
+    "shardloom-vortex/src/local_primitive_relational_source_demand_collection_tests.rs": {
+      "sha256": "5a122c9711f038f3a8cca2304eb9c83673fc1a6fd939cd097e5068dc6c0bca05",
+      "bytes": 8635
+    },
+    "shardloom-vortex/src/local_primitive_relational_source_demand_prefix_tests.rs": {
+      "sha256": "c433b801ae81bf12fd756e7130663f9ccc51ffe8799e5165b01ae81530324076",
+      "bytes": 7625
+    },
+    "shardloom-vortex/src/local_primitive_relational_source_demand_tests.rs": {
+      "sha256": "258b83260833b8a388c8a2a60c249db92ae59f009a22dd2e9e63b913525b8035",
+      "bytes": 18045
+    },
+    "shardloom-vortex/src/local_primitive_relational_writer.rs": {
+      "sha256": "583a2ed52fbb1e5c1ed2b644266c19c4076c7362266c06fc85fe210b0500fc86",
+      "bytes": 11544
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+      "sha256": "6cb39c7c3e084b1b6ec980fd4e2cf1ce239d6bba54cde7fe5570ec752bf735c8",
+      "bytes": 36783
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate_numeric_tests.rs": {
+      "sha256": "b3e02b70202cd5c75daaa1c16bad4df6dbfa1bc9e5f4efd86f7114b3e184be48",
+      "bytes": 19075
+    },
+    "shardloom-vortex/src/prepared_source_binding.rs": {
+      "sha256": "0db1294ac77b733ca803dea021e7f3e69ebb50bd5e121a45943abe0e5505b44c",
+      "bytes": 17009
+    },
+    "shardloom-vortex/src/universal_format_io/demanded.rs": {
+      "sha256": "4dc8f99f2ea635ff8509a0f10e6a3af7ed90639e58cb50ca91c8a8d28d7f7cae",
+      "bytes": 13954
+    },
+    "shardloom-vortex/src/universal_format_io/demanded/chunks.rs": {
+      "sha256": "f8d4b3010c8d82a7419083948bd08c0c2f14de9039e4ecfc1e832a3d77a71f95",
+      "bytes": 5226
+    },
+    "shardloom-vortex/src/universal_format_io/demanded/source.rs": {
+      "sha256": "cc3c4fa6bd359b530987928274493b690f20c84f98c1c8af8f2d00210759bbe0",
+      "bytes": 10315
+    }
+  },
+  "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CLIPPY_CONF_DIR": null,
+    "SHARDLOOM_PIP_AUDIT_PYTHON": null
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "timeout_seconds": 900.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 19785,
+  "output_bytes": 176,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 4.568440624999999,
+  "log_sha256": "b5a192a9093011312b01cbf92b17b7ca4432c0373327d99b47e8abb6dcdd58db"
+}

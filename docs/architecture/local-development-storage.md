@@ -100,6 +100,17 @@ artifacts, user files and the Cargo cache are untouched. The compact packet
 retains complete results and failures, and all 873 recorded observations replay
 unchanged after cleanup. No payload backup or storage-ceiling change occurs.
 
+The [October 27 Parquet completion cleanup](../benchmarks/evidence/native-parquet-demand-completion-2026-10-27/cleanup.json)
+retires 14,199 generated regular files and six environment links after complete
+portable verification and eight corruption controls. Temporary package/install
+and build-tool directories, copied verification sources, archived raw logs and
+the superseded source-demand runtime/wheel are removed with repeated identity
+and closed-handle checks. The latest tested runtime and wheel, five current
+Parquet inputs, independent references and compact result/failure evidence
+remain. Shared compiler outputs and unrelated files are untouched. No payload
+backup or storage-ceiling change occurs, and complete replay passes after
+retirement.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in

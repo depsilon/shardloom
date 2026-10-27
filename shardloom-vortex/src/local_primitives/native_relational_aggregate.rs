@@ -378,11 +378,21 @@ impl<'a> Aggregate<'a> {
                 )?;
                 continue;
             }
-            if self.groups.is_none()
-                && matches!(measure.function, Function::Sum | Function::Avg)
+            if matches!(measure.function, Function::Sum | Function::Avg)
                 && let Some(KeyColumn::Numeric(owner)) = values
             {
-                accumulate_numeric(&mut self.states.values[measure_index], owner, context)?;
+                if self.groups.is_none() {
+                    accumulate_numeric(&mut self.states.values[measure_index], owner, context)?;
+                } else {
+                    accumulate_grouped_numeric(
+                        &mut self.states.values,
+                        &ordinals,
+                        self.spec.measures.len(),
+                        measure_index,
+                        owner,
+                        context,
+                    )?;
+                }
                 continue;
             }
             for (row, group) in ordinals.iter() {
@@ -560,6 +570,38 @@ fn update_numeric(state: &mut State, value: f64, integer: bool) -> Result<()> {
     state.sum.add(value, integer);
     if !state.sum.is_finite() {
         return Err(failed("aggregate sum became nonfinite"));
+    }
+    Ok(())
+}
+
+fn accumulate_grouped_numeric(
+    states: &mut [State],
+    ordinals: &GroupOrdinals,
+    width: usize,
+    measure_index: usize,
+    owner: &NativeNumericOwner,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    if owner.len() != ordinals.len() {
+        return Err(failed("numeric group ordinals changed row count"));
+    }
+    if owner.len() == 0 {
+        return Ok(());
+    }
+    let _metadata = context.memory().reserve(NUMERIC_KERNEL_BYTES)?;
+    // Dispatch physical type and validity once; retain the same per-measure,
+    // per-row update sequence and the existing original-width borrowed owner.
+    let kernel = owner.bind_row_update(update_numeric);
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| {
+        counts.aggregate_numeric_bound_batches += 1;
+        counts.aggregate_numeric_bound_rows += owner.len() as u64;
+    });
+    for (row, group) in ordinals.iter() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        kernel(&mut states[group * width + measure_index], row)?;
     }
     Ok(())
 }

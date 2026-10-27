@@ -1,0 +1,6 @@
+test_passing_parent_with_running_child_fails_and_records_cleanup_problem (test_ci_native_tests.ProcessAndEvidenceTests.test_passing_parent_with_running_child_fails_and_records_cleanup_problem) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.216s
+
+OK

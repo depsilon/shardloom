@@ -22,11 +22,28 @@ fn source_paths(
     format: &str,
     cancellation: &CancellationToken,
 ) -> Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    visit_source_paths(source, format, cancellation, |path| {
+        paths.push(path.to_owned());
+        Ok(())
+    })?;
+    paths.sort();
+    Ok(paths)
+}
+
+/// Shared nonrecursive discovery for prepared and demanded local sources.
+/// The visitor admits retained metadata before allocating its own inventory.
+pub(crate) fn visit_source_paths(
+    source: &Path,
+    format: &str,
+    cancellation: &CancellationToken,
+    mut visit: impl FnMut(&Path) -> Result<()>,
+) -> Result<()> {
     cancellation.check()?;
     if !source.is_dir() {
-        return Ok(vec![source.to_owned()]);
+        return visit(source);
     }
-    let mut paths = Vec::new();
+    let mut found = false;
     for entry in std::fs::read_dir(source).map_err(error)? {
         cancellation.check()?;
         let entry = entry.map_err(error)?;
@@ -45,15 +62,15 @@ fn source_paths(
             other => extension == other,
         };
         if matches {
-            paths.push(path);
+            visit(&path)?;
+            found = true;
         }
     }
-    paths.sort();
     cancellation.check()?;
-    if paths.is_empty() {
+    if !found {
         return Err(error("source directory has no admitted files"));
     }
-    Ok(paths)
+    Ok(())
 }
 
 /// Capture a versioned local source-generation binding for embedded preparation metadata.

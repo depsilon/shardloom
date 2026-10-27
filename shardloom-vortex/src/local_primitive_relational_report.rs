@@ -74,10 +74,13 @@ pub(super) fn certificate(
         input.replay_prefilled_sources,
     ));
     let source_demand_proof = input.filter(|input| input.columnar_sources > 0).map_or_else(String::new, |input| format!(
-        "parquet_sources={} parquet_projected_columns={} parquet_available_columns={} parquet_physical_leaf_columns={} parquet_row_groups_total={} parquet_row_groups_read={} parquet_rows_decoded={} parquet_metadata_read_bytes={} parquet_data_read_bytes={} parquet_data_read_requests={};demand_reader_sources_only;query_validation_of_requested_columns_and_regions;no_full_ingest_certification;no_prepared_input_writes;decoder_workspace_admission_is_not_an_allocator_or_rss_limit",
+        "parquet_sources={} parquet_projected_columns={} parquet_available_columns={} parquet_physical_leaf_columns={} parquet_row_groups_total={} parquet_row_groups_read={} parquet_rows_decoded={} parquet_metadata_read_bytes={} parquet_data_read_bytes={} parquet_data_read_requests={} parquet_prefix_sources={} parquet_requested_prefix_rows={} parquet_files={} parquet_fingerprint_read_bytes={} parquet_content_fingerprints={};demand_reader_sources_only;query_validation_of_requested_columns_and_regions;declared_end_is_requested_region_or_prefix;fingerprinting_reads_bytes_without_validating_undemanded_pages;no_full_ingest_certification;no_prepared_input_writes;decoder_workspace_admission_is_not_an_allocator_or_rss_limit",
         input.columnar_sources, input.columnar_projected_columns, input.columnar_available_columns,
         input.columnar_physical_leaf_columns, input.columnar_row_groups_total, input.columnar_row_groups_read,
         input.columnar_rows_decoded, input.columnar_metadata_read_bytes, input.columnar_data_read_bytes, input.columnar_data_read_requests,
+        input.columnar_prefix_sources, input.columnar_requested_prefix_rows,
+        input.columnar_files, input.columnar_fingerprint_read_bytes,
+        input.columnar_content_fingerprints.join(","),
     ));
     let subquery_population = format!(
         "spillable_subquery_stages={} spilled_subquery_stages={} spillable_subquery_input_rows={} spillable_subquery_indexed_rows={} spillable_subquery_probe_rows={} spillable_subquery_candidate_rows={} spillable_subquery_lookup_blocks={}",
@@ -132,7 +135,7 @@ pub(super) fn certificate(
                     "held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
                 )
             },
-            pushdown_capabilities: if columnar > 0 { "bound_projection;exact_statistics_region_exclusion;native_residual_predicates;no_limit_pushdown" }
+            pushdown_capabilities: if columnar > 0 { "bound_projection;exact_statistics_region_exclusion;native_residual_predicates;unfiltered_source_order_prefix_through_column_views" }
                 else { "bound_projection_and_native_predicates" }.into(),
             encoded_representation_preserved: columnar == 0,
             range_read_capability: file_sources > 0 || columnar > 0,

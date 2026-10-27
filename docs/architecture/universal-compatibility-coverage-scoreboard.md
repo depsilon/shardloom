@@ -85,12 +85,14 @@ fallback execution.
 
 The Parquet row's `vortex_ingest` ingress route describes the existing full-source prepared
 intake/certification path; it is not a route taxonomy for every public query. The
-[local Parquet source-demand contract](native-source-demand-2026-10-26.md) separately documents
-eligible single-file relational queries that bind first and read demanded Parquet columns and
-eligible row groups into native Vortex execution without first writing a complete prepared input
-artifact. Existing prepared-artifact reuse remains available. Directories, explicit schema
-overrides, content-digest fingerprinting, explicit `prepare_once`, and explicit primitive options
-retain their existing contracts. This note does not change scoreboard support levels, ingress route
+[local Parquet source-demand completion contract](native-parquet-demand-completion-2026-10-26.md)
+separately documents eligible file/directory relational queries that bind first and read demanded
+Parquet columns, eligible row groups and safe source-order prefixes into native Vortex execution
+without first writing a complete prepared input artifact. Directories use sorted nonrecursive
+membership with matching schemas and generation checks. Optional content fingerprinting reads
+all bytes without validating undemanded pages. Existing prepared-artifact reuse, explicit
+`prepare_once`, and explicit primitive options retain their contracts; Parquet schema overrides
+remain rejected. This note does not change scoreboard support levels, ingress route
 enums, or certify broader Parquet schemas, operators, output, production readiness, or performance.
 
 ## Required Scoreboard Fields For Future Machine Surfaces

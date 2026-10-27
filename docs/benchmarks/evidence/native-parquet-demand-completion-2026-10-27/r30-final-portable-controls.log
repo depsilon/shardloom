@@ -1,0 +1,14 @@
+test_changed_archive (test_parquet_demand_completion_packet.CompletionPacketTests.test_changed_archive) ... ok
+test_changed_complete_value_with_relinked_digests (test_parquet_demand_completion_packet.CompletionPacketTests.test_changed_complete_value_with_relinked_digests) ... ok
+test_changed_engine_clock_with_relinked_digests (test_parquet_demand_completion_packet.CompletionPacketTests.test_changed_engine_clock_with_relinked_digests) ... ok
+test_changed_frozen_source (test_parquet_demand_completion_packet.CompletionPacketTests.test_changed_frozen_source) ... ok
+test_changed_schema_with_relinked_digests (test_parquet_demand_completion_packet.CompletionPacketTests.test_changed_schema_with_relinked_digests) ... ok
+test_complete_packet (test_parquet_demand_completion_packet.CompletionPacketTests.test_complete_packet) ... ok
+test_failed_worker_guard (test_parquet_demand_completion_packet.CompletionPacketTests.test_failed_worker_guard) ... ok
+test_missing_external_identity (test_parquet_demand_completion_packet.CompletionPacketTests.test_missing_external_identity) ... ok
+test_missing_required_gate (test_parquet_demand_completion_packet.CompletionPacketTests.test_missing_required_gate) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 5.220s
+
+OK

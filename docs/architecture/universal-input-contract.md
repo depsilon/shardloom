@@ -78,14 +78,18 @@ and active phase plan.
     Full-source local compatibility workflows normalize through
     `SourceState -> vortex_ingest -> VortexPreparedState` before prepared/native Vortex execution,
     or fail closed when the required feature gate is absent. Eligible ordinary relational queries
-    over a single local Parquet file also have a metadata-first source-demand path: with no caller
-    schema override, no explicit `prepare_once` policy, and metadata-only (or default) source
-    fingerprinting, the bound native plan reads only demanded columns and eligible row groups into
-    owned Vortex batches for existing native operators, without first writing a complete prepared
-    input artifact. A valid existing auto-prepared artifact is still checked and reused. Directory
-    inputs, explicit schema overrides, content-digest fingerprinting, and explicit durable
-    preparation keep the full-source preparation route; explicit primitive options retain their
-    explicit contract. The route does not broaden admitted Parquet schemas or native operators.
+    over local Parquet files or sorted, nonrecursive Parquet directories also have a metadata-first
+    source-demand path. Without explicit `prepare_once`, the bound native plan reads demanded
+    columns and eligible row groups into owned Vortex batches for existing native operators.
+    Proven source-order LIMIT/OFFSET prefixes can stop decoding early; filters, sorts, aggregates,
+    joins, windows and fallible projections block that propagation. Selected compressed chunks
+    have charged owners and do not prefetch other columns. No complete prepared input artifact
+    is written. A valid existing auto-prepared artifact is still checked and reused. Optional
+    content-digest identity reads every source byte without decoding or validating undemanded
+    pages; its bytes are reported separately. Directory schemas must match, and membership or
+    generation changes invalidate execution. Parquet schema overrides are rejected because the
+    embedded schema is authoritative. Explicit durable preparation and primitive options retain
+    their contracts. The route does not broaden admitted Parquet schemas or native operators.
   - When `vortex-prepare` is built with both `vortex-write` and `universal-format-io`, flat
     scalar Parquet/Arrow IPC/Avro/ORC inputs preserve an Arrow `RecordBatch` columnar SourceState
     through the prepare-once boundary and use upstream Vortex
@@ -203,8 +207,9 @@ and active phase plan.
     base/delta manifest, schema compatibility proof, changed-range evidence, Native I/O replay, and
     deterministic invalidation policy.
 - Eligible local Parquet source demand
-  - The [source-demand contract](native-source-demand-2026-10-26.md) documents a separate first-use
-    path for eligible single-file relational queries. It binds before data reads and feeds demanded
+  - The [source-demand completion contract](native-parquet-demand-completion-2026-10-26.md)
+    documents a separate first-use path for eligible file/directory relational queries.
+    It binds before data reads and feeds demanded
     owned batches to existing native Vortex operators without publishing a full
     `VortexPreparedState` artifact. It does not replace explicit durable preparation or widen the
     admitted format, schema, or operator boundary.

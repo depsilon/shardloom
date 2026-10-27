@@ -28,9 +28,10 @@ impl Binder<'_> {
             .map(|_| SourceDemand {
                 projection: ProjectionRequest::Columns(Vec::new()),
                 predicates: Vec::new(),
+                max_rows: Some(0),
             })
             .collect();
-        let complete = scans(root, &mut |source, columns, predicate, _| {
+        let complete = scans(root, None, &mut |source, columns, predicate, _, prefix| {
             if let ScanSource::Batch { index, .. } = source {
                 let demand = &mut demands[*index];
                 let ProjectionRequest::Columns(wanted) = &mut demand.projection else {
@@ -42,6 +43,7 @@ impl Binder<'_> {
                     }
                 }
                 demand.predicates.push(predicate.clone());
+                demand.max_rows = demand.max_rows.zip(prefix).map(|(old, new)| old.max(new));
             }
             Ok(())
         })?;
@@ -65,7 +67,7 @@ impl Binder<'_> {
                 source.local = Some(local);
             }
         }
-        scans(root, &mut |source, columns, predicate, plan| {
+        scans(root, None, &mut |source, columns, predicate, plan, _| {
             if let ScanSource::Batch { index, projection } = source {
                 // Bound Vortex expressions encode source field positions. A
                 // narrowed physical schema requires fresh binding, not just a
@@ -96,11 +98,13 @@ impl Binder<'_> {
 
 fn scans(
     node: &mut Node,
+    prefix: Option<u64>,
     visit: &mut impl FnMut(
         &mut ScanSource,
         &[String],
         &Option<shardloom_core::PredicateExpr>,
         &mut super::super::LocalVortexScanPlan,
+        Option<u64>,
     ) -> Result<()>,
 ) -> Result<bool> {
     match &mut node.kind {
@@ -109,30 +113,57 @@ fn scans(
             columns,
             predicate,
             plan,
+            residual,
             ..
         } => {
-            visit(source, columns, predicate, plan)?;
+            let prefix = prefix
+                .filter(|_| predicate.is_none() && plan.filter.is_none() && residual.is_none());
+            visit(source, columns, predicate, plan, prefix)?;
             Ok(true)
+        }
+        NodeKind::Project { input, expressions } => {
+            let prefix = prefix.filter(|_| {
+                expressions.iter().all(|expression| {
+                    matches!(
+                        expression.kind,
+                        crate::local_primitives::native_relational_expression::Kind::Column(_)
+                    )
+                })
+            });
+            scans(input, prefix, visit)
+        }
+        NodeKind::Limit {
+            input,
+            offset,
+            count,
+        } => {
+            let count = prefix.map_or(*count as u64, |rows| rows.min(*count as u64));
+            let prefix = if count == 0 {
+                0
+            } else {
+                (*offset as u64)
+                    .checked_add(count)
+                    .ok_or_else(|| failed("source demand prefix overflow"))?
+            };
+            scans(input, Some(prefix), visit)
         }
         NodeKind::Pipeline { input, .. }
         | NodeKind::Unary { input, .. }
         | NodeKind::Aggregate { input, .. }
-        | NodeKind::Project { input, .. }
         | NodeKind::Filter { input, .. }
         | NodeKind::Sort { input, .. }
-        | NodeKind::Limit { input, .. }
-        | NodeKind::Window { input, .. } => scans(input, visit),
+        | NodeKind::Window { input, .. } => scans(input, None, visit),
         NodeKind::Join { left, right, .. } | NodeKind::Set { left, right, .. } => {
-            let left = scans(left, visit)?;
-            let right = scans(right, visit)?;
+            let left = scans(left, None, visit)?;
+            let right = scans(right, None, visit)?;
             Ok(left && right)
         }
         NodeKind::Subquery {
             input, relation, ..
         } => {
-            let input = scans(input, visit)?;
+            let input = scans(input, None, visit)?;
             let relation = match relation {
-                SubqueryRelation::Bound(node) => scans(node, visit)?,
+                SubqueryRelation::Bound(node) => scans(node, None, visit)?,
                 SubqueryRelation::Dynamic(_) => false,
             };
             Ok(input && relation)

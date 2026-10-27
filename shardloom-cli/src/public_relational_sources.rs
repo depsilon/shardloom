@@ -485,35 +485,28 @@ impl Sources {
                     .then_some(request.source_schema.as_deref())
                     .flatten()
             });
+        if format == "parquet" && schema.is_some() {
+            return Err(failed(
+                "columnar Parquet sources use their embedded schema evidence; source schema hints apply only to local text adapters",
+            ));
+        }
         let target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
-        if format == "parquet"
-            // Directory intake and explicit schema validation retain their
-            // existing full-preparation contract in this first file adapter.
-            && schema.is_none()
-            && !Path::new(source).is_dir()
-            && request.execution_policy != "prepare_once"
-            && request
-                .source_fingerprint_policy
-                .as_deref()
-                .is_none_or(|policy| policy == "metadata_only")
-        {
+        if format == "parquet" && request.execution_policy != "prepare_once" {
             let memory =
                 memory.ok_or_else(|| failed("source metadata requires the native owner"))?;
+            let fingerprint = super::super::sql_local_source_runtime::parquet_source_content_fingerprint_requested(request.source_fingerprint_policy.as_deref())?;
             match std::fs::metadata(&target) {
                 Ok(_) => {
                     // Reuse is read-only: a missing/replaced artifact after this
                     // check fails; it never triggers a fresh full preparation.
-                    use shardloom_vortex::prepared_source_binding::{
-                        local_preparation_binding_with_schema_controlled,
-                        local_preparation_identity_controlled,
-                    };
-                    let expected = local_preparation_binding_with_schema_controlled(
-                        Path::new(source),
-                        format,
-                        "metadata_only",
-                        schema,
-                        &self.cancellation,
-                    )?;
+                    use shardloom_vortex::prepared_source_binding::local_preparation_identity_controlled;
+                    let expected =
+                        super::super::sql_local_source_runtime::parquet_preparation_source_binding(
+                            Path::new(source),
+                            request.source_fingerprint_policy.as_deref(),
+                            memory,
+                            &self.cancellation,
+                        )?;
                     self.preparations.push(std::sync::Arc::new(
                         local_preparation_identity_controlled(
                             &target,
@@ -530,9 +523,10 @@ impl Sources {
             }
             let uri = DatasetUri::new(source)?;
             let descriptor =
-                shardloom_vortex::universal_format_io::demanded::LocalColumnarSource::admit(
+                shardloom_vortex::universal_format_io::demanded::LocalColumnarSource::admit_with_content_fingerprint(
                     Path::new(source),
                     format,
+                    fingerprint,
                     memory,
                     &self.cancellation,
                 )?;

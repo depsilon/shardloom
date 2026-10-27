@@ -145,13 +145,22 @@ pub struct ExecutedVortexBatchInput {
     /// reads exclude the separately counted metadata binding reads. Columns and
     /// regions are counts, not bytes or a claim about upstream decoder RSS.
     pub columnar_sources: u64,
+    pub columnar_files: u64,
     pub columnar_projected_columns: u64,
     pub columnar_available_columns: u64,
     pub columnar_physical_leaf_columns: u64,
     pub columnar_row_groups_total: u64,
     pub columnar_row_groups_read: u64,
     pub columnar_rows_decoded: u64,
+    /// Sources whose declared end is a bound source-order prefix. The sum of
+    /// requested prefix lengths can exceed decoded rows for short sources.
+    pub columnar_prefix_sources: u64,
+    pub columnar_requested_prefix_rows: u64,
     pub columnar_metadata_read_bytes: u64,
+    /// Initial full-byte identity reads and sorted per-file FNV-64 digests.
+    /// Repeated executions report the retained admission fact, not new reads.
+    pub columnar_fingerprint_read_bytes: u64,
+    pub columnar_content_fingerprints: Vec<String>,
     pub columnar_data_read_bytes: u64,
     pub columnar_data_read_requests: u64,
     /// Number of distinct declared sources that reached their own explicit end.
@@ -215,13 +224,18 @@ impl Default for ExecutedVortexBatchInput {
     fn default() -> Self {
         Self {
             columnar_sources: 0,
+            columnar_files: 0,
             columnar_projected_columns: 0,
             columnar_available_columns: 0,
             columnar_physical_leaf_columns: 0,
             columnar_row_groups_total: 0,
             columnar_row_groups_read: 0,
             columnar_rows_decoded: 0,
+            columnar_prefix_sources: 0,
+            columnar_requested_prefix_rows: 0,
             columnar_metadata_read_bytes: 0,
+            columnar_fingerprint_read_bytes: 0,
+            columnar_content_fingerprints: Vec::new(),
             columnar_data_read_bytes: 0,
             columnar_data_read_requests: 0,
             sources: 0,
@@ -499,6 +513,14 @@ impl<'p, 'i> Execution<'p, 'i> {
             owner.take();
             let mut report = self.report.borrow_mut();
             checked_add(&mut report.columnar_sources, 1)?;
+            checked_add(&mut report.columnar_files, observed.files as u64)?;
+            checked_add(
+                &mut report.columnar_fingerprint_read_bytes,
+                observed.fingerprint_read_bytes,
+            )?;
+            report
+                .columnar_content_fingerprints
+                .extend(observed.content_fingerprints);
             checked_add(
                 &mut report.columnar_projected_columns,
                 observed.projected_columns as u64,
@@ -520,6 +542,10 @@ impl<'p, 'i> Execution<'p, 'i> {
                 observed.row_groups_read as u64,
             )?;
             checked_add(&mut report.columnar_rows_decoded, observed.rows_decoded)?;
+            if let Some(rows) = observed.requested_prefix_rows {
+                checked_add(&mut report.columnar_prefix_sources, 1)?;
+                checked_add(&mut report.columnar_requested_prefix_rows, rows)?;
+            }
             checked_add(
                 &mut report.columnar_metadata_read_bytes,
                 observed.metadata_read_bytes,

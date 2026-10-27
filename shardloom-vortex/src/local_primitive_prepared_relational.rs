@@ -1111,13 +1111,13 @@ impl PreparedVortexRelational {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    fn validate_preparation_sources(&self) -> Result<()> {
+    fn validate_preparation_sources(&self, cancellation: &CancellationToken) -> Result<()> {
         for source in &self.preparation_sources {
-            source.validate_generation()?;
+            source.validate_generation_controlled(cancellation)?;
         }
         for source in &self.batch_sources {
             if let Some(source) = &source.local {
-                source.source.validate_generation()?;
+                source.source.validate_generation_controlled(cancellation)?;
             }
         }
         Ok(())
@@ -1348,7 +1348,7 @@ impl PreparedVortexRelational {
         complete: impl FnOnce() -> Result<T>,
     ) -> Result<(ExecutedVortexRelational, T)> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        self.validate_preparation_sources()?;
+        self.validate_preparation_sources(context.cancellation())?;
         let metadata_bytes =
             65_536 + self.sources.len() as u64 * 4096 + root.fields.len() as u64 * 1024;
         #[cfg(feature = "vortex-write")]
@@ -1423,7 +1423,7 @@ impl PreparedVortexRelational {
         let completed = complete()?;
         context.check_cancelled()?;
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        self.validate_preparation_sources()?;
+        self.validate_preparation_sources(context.cancellation())?;
         #[cfg(feature = "vortex-write")]
         let spill = metrics
             .spill

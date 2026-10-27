@@ -46,16 +46,54 @@ impl Binder<'_> {
         input: &mut Node,
         needed: impl IntoIterator<Item = &'name str>,
     ) -> Result<()> {
-        if self.scan_accepts_source_demand(input) {
-            self.narrow_scan_columns(input, needed)?;
+        if !self.scan_accepts_source_demand(input) {
+            return Ok(());
+        }
+        match &mut input.kind {
+            NodeKind::Filter {
+                input: child,
+                predicate,
+            } => {
+                // The predicate still executes in the same place on every
+                // admitted row. Its hidden columns remain in the child shape.
+                self.charge_fields(child.fields.len())?;
+                let mut columns: BTreeSet<String> = needed.into_iter().map(str::to_owned).collect();
+                predicate.visit_columns(&mut |name| {
+                    columns.insert(name.to_owned());
+                    Ok(())
+                })?;
+                self.narrow_source_demand(child, columns.iter().map(String::as_str))?;
+                input.fields.clone_from(&child.fields);
+            }
+            NodeKind::Limit { input: child, .. } => {
+                self.narrow_source_demand(child, needed)?;
+                input.fields.clone_from(&child.fields);
+            }
+            NodeKind::Project {
+                input: child,
+                expressions,
+            } => {
+                // Do not remove unused computations: they may fail. Narrow
+                // only their input to the dependencies of every expression.
+                self.narrow_scan_projection(child, expressions)?;
+            }
+            NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
+            _ => {}
         }
         Ok(())
     }
 
     fn scan_accepts_source_demand(&self, input: &Node) -> bool {
-        matches!(&input.kind, NodeKind::Scan {
-            source: ScanSource::Batch { index, .. }, ..
-        } if !self.batch_sources.values[*index].external())
+        match &input.kind {
+            NodeKind::Scan {
+                source: ScanSource::Batch { index, .. },
+                ..
+            } => !self.batch_sources.values[*index].external(),
+            NodeKind::Filter { input, .. }
+            | NodeKind::Limit { input, .. }
+            | NodeKind::Project { input, .. } => self.scan_accepts_source_demand(input),
+            _ => false,
+        }
     }
 
     pub(super) fn narrow_scan_projection(
@@ -66,19 +104,22 @@ impl Binder<'_> {
         // Binding has already checked every expression, including unused or
         // fallible computations. Only narrow its input; do not remove or move
         // the computation across a predicate or range.
-        if !matches!(
-            input.kind,
-            NodeKind::Scan {
-                source: ScanSource::File(_) | ScanSource::Batch { .. },
-                ..
-            }
-        ) {
+        let demanded = self.scan_accepts_source_demand(input);
+        if !demanded
+            && !matches!(
+                input.kind,
+                NodeKind::Scan {
+                    source: ScanSource::File(_) | ScanSource::Batch { .. },
+                    ..
+                }
+            )
+        {
             return Ok(());
         }
         // Prepared files and caller batches keep their existing validation
         // scope. Only owned demanded sources may exclude fields behind a
         // computation; ordinary encoded column views remain unchanged.
-        if !self.scan_accepts_source_demand(input)
+        if !demanded
             && expressions
                 .iter()
                 .any(|expression| !matches!(expression.kind, Kind::Column(_)))
@@ -100,7 +141,11 @@ impl Binder<'_> {
                 Ok(())
             })?;
         }
-        self.narrow_scan_columns(input, needed.iter().map(String::as_str))
+        if demanded {
+            self.narrow_source_demand(input, needed.iter().map(String::as_str))
+        } else {
+            self.narrow_scan_columns(input, needed.iter().map(String::as_str))
+        }
     }
 
     pub(super) fn narrow_scan_columns<'name>(

@@ -225,7 +225,7 @@ fn public_parquet_explicit_preparation_and_existing_artifact_reuse_remain_availa
 }
 
 #[test]
-fn public_parquet_directory_and_content_digest_preserve_full_preparation() {
+fn public_parquet_directory_and_content_digest_use_demand_without_persistence() {
     let fixture = Fixture::new();
     let directory = fixture.0.join("parts");
     fs::create_dir(&directory).unwrap();
@@ -233,7 +233,9 @@ fn public_parquet_directory_and_content_digest_preserve_full_preparation() {
     Fixture::write(&directory.join("b.parquet"));
     for (path, fingerprint, count) in [
         (&directory, None, 2),
+        (&directory, Some("content_digest"), 2),
         (&fixture.path(), Some("content_digest"), 1),
+        (&fixture.path(), Some(" Full-Content-Digest "), 1),
     ] {
         let mut request = Fixture::request(path);
         request.source_fingerprint_policy = fingerprint.map(str::to_owned);
@@ -242,9 +244,57 @@ fn public_parquet_directory_and_content_digest_preserve_full_preparation() {
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
         assert_eq!(result.result_jsonl.value().lines().count(), count);
-        assert!(result.execution.input.is_none());
-        assert!(Fixture::target(path).exists());
+        let input = result.execution.input.as_ref().unwrap();
+        assert_eq!(input.columnar_sources, 1);
+        assert_eq!(input.columnar_files, count as u64);
+        assert_eq!(
+            input.columnar_content_fingerprints.len(),
+            if fingerprint.is_some() { count } else { 0 }
+        );
+        assert_eq!(
+            input.columnar_fingerprint_read_bytes,
+            if fingerprint.is_some() {
+                fs::metadata(fixture.path()).unwrap().len() * count as u64
+            } else {
+                0
+            }
+        );
+        assert!(!Fixture::target(path).exists());
     }
+}
+
+#[test]
+fn public_parquet_fingerprint_policy_rejects_unknown_and_reuses_explicit_content_preparation() {
+    let fixture = Fixture::new();
+    let mut request = Fixture::request(&fixture.path());
+    request.source_fingerprint_policy = Some("unknown".into());
+    assert!(
+        Fixture::prepare(&request)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("fingerprint policy")
+    );
+    assert!(!Fixture::target(&fixture.path()).exists());
+    request.source_fingerprint_policy = Some("content".into());
+    request.execution_policy = "prepare_once".into();
+    let operation = Fixture::prepare(&request).unwrap();
+    let result = operation
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(result.result_jsonl.value().trim(), r#"{"value":102}"#);
+    assert!(result.execution.input.is_none());
+    let target = Fixture::target(&fixture.path());
+    let before = fs::metadata(&target).unwrap();
+    request.execution_policy = "vortex_middle".into();
+    request.source_fingerprint_policy = Some("content_digest".into());
+    let reused = Fixture::prepare(&request)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(reused.result_jsonl.value(), result.result_jsonl.value());
+    assert!(reused.execution.input.is_none());
+    assert_eq!(fs::metadata(target).unwrap().ino(), before.ino());
 }
 
 #[test]

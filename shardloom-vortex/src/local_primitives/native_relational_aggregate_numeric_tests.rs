@@ -5,7 +5,7 @@ use super::*;
 use crate::resident_session::ResidentVortexSession;
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::{
-    arrays::{ChunkedArray, ConstantArray, DictArray, PrimitiveArray},
+    arrays::{ChunkedArray, ConstantArray, DictArray, PrimitiveArray, VarBinViewArray},
     dtype::Nullability,
     scalar::Scalar,
 };
@@ -98,6 +98,44 @@ fn compare(column: &ArrayRef, count: u64) {
                 let observed = aggregate.consume(&batch(column.clone()), context, 2);
                 assert_eq!(observed.err().map(|failure| failure.to_string()), error);
                 assert_same(&aggregate.states.values[0], &expected);
+                let mut mapping = ReservedVec::new(context.memory())?;
+                mapping.reserve(column.len())?;
+                mapping.values.extend((0..column.len()).map(|row| row % 3));
+                let ordinals = GroupOrdinals::Grouped(mapping);
+                let mut actual = (0..6)
+                    .map(|_| State {
+                        count,
+                        ..State::default()
+                    })
+                    .collect::<Vec<_>>();
+                let mut expected = (0..6)
+                    .map(|_| State {
+                        count,
+                        ..State::default()
+                    })
+                    .collect::<Vec<_>>();
+                let mut error = None;
+                for (row, group) in ordinals.iter() {
+                    if let Err(failure) = values.raw_cell(row).and_then(|value| {
+                        update(
+                            &mut expected[group * 2 + 1],
+                            &binding.measures[0],
+                            Some(value),
+                            context,
+                        )
+                    }) {
+                        error = Some(failure.to_string());
+                        break;
+                    }
+                }
+                let retained = memory.snapshot().reserved_bytes;
+                let observed =
+                    accumulate_grouped_numeric(&mut actual, &ordinals, 2, 1, owner, context);
+                assert_eq!(observed.err().map(|failure| failure.to_string()), error);
+                for (actual, expected) in actual.iter().zip(&expected) {
+                    assert_same(actual, expected);
+                }
+                assert_eq!(memory.snapshot().reserved_bytes, retained);
             }
             Ok(())
         })
@@ -251,7 +289,7 @@ fn composed_numeric_consumer_preserves_measure_order_and_releases_prepared_views
 }
 
 #[test]
-fn composed_numeric_consumer_keeps_grouped_numeric_updates_in_the_existing_consumer() {
+fn composed_numeric_consumer_binds_grouped_numeric_updates_once_per_batch() {
     let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let memory = session.memory().clone();
     let numbers = PrimitiveArray::from_iter([2i64, 1, 2]).into_array();
@@ -270,14 +308,114 @@ fn composed_numeric_consumer_keeps_grouped_numeric_updates_in_the_existing_consu
             #[cfg(debug_assertions)]
             {
                 let counts = observation.finish();
-                assert_eq!(counts.aggregate_numeric_bound_batches, 0);
-                assert_eq!(counts.aggregate_row_updates, 3);
+                assert_eq!(counts.aggregate_numeric_bound_batches, 1);
+                assert_eq!(counts.aggregate_numeric_bound_rows, 3);
+                assert_eq!(counts.aggregate_row_updates, 0);
             }
             assert_eq!(aggregate.states.values.len(), 2);
             assert_eq!(aggregate.states.values[0].count, 2);
             assert_eq!(aggregate.states.values[0].sum.total(), 4.0);
             assert_eq!(aggregate.states.values[1].count, 1);
             assert_eq!(aggregate.states.values[1].sum.total(), 1.0);
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn composed_numeric_consumer_groups_across_distinct_dictionary_domains_and_nulls() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let group_type = DType::Utf8(Nullability::Nullable);
+    let mut binding = scalar_spec(Function::Sum);
+    binding.groups = vec![("g".into(), group_type.clone())];
+    binding.group_names = vec!["g".into()];
+    binding.fields.insert(0, ("g".into(), group_type));
+    binding
+        .fields
+        .push(("average".into(), binding.fields[1].1.clone()));
+    binding
+        .measures
+        .push(scalar_spec(Function::Avg).measures.remove(0));
+    let first = DictArray::try_new(
+        PrimitiveArray::from_iter([0u8, 1, 0, 2]).into_array(),
+        VarBinViewArray::from_iter_nullable_str([Some("東京"), None, Some("")]).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    let second = DictArray::try_new(
+        PrimitiveArray::from_iter([3u8, 0, 1, 2, 3]).into_array(),
+        VarBinViewArray::from_iter_nullable_str([Some(""), Some("λ"), None, Some("東京")])
+            .into_array(),
+    )
+    .unwrap()
+    .into_array();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let mut aggregate = Aggregate::new(&binding, context.memory())?;
+            for (groups, numbers) in [
+                (
+                    first,
+                    PrimitiveArray::from_option_iter([Some(i64::MAX), None, Some(1), Some(5)])
+                        .into_array(),
+                ),
+                (
+                    second,
+                    PrimitiveArray::from_option_iter([
+                        Some(-i64::MAX),
+                        Some(7),
+                        Some(11),
+                        Some(13),
+                        None,
+                    ])
+                    .into_array(),
+                ),
+            ] {
+                let rows = groups.len();
+                let batch = StructArray::try_new(
+                    FieldNames::from(["g", "n"]),
+                    vec![groups, numbers],
+                    rows,
+                    Validity::NonNullable,
+                )
+                .map_err(vortex_error)?
+                .into_array();
+                aggregate.consume(&batch, context, 2)?;
+            }
+            assert_eq!(aggregate.groups.as_ref().unwrap().rows(), 4);
+            let mut actual = Vec::new();
+            aggregate.finish(context, 2, &mut |batch| {
+                let groups = keys(&logical_field_from_native_array(&batch, "g")?, context)?;
+                let totals = keys(&logical_field_from_native_array(&batch, "total")?, context)?;
+                let averages = keys(
+                    &logical_field_from_native_array(&batch, "average")?,
+                    context,
+                )?;
+                for row in 0..batch.len() {
+                    let group = match groups.raw_cell(row)? {
+                        Cell::Null => None,
+                        Cell::Utf8(bytes) => Some(std::str::from_utf8(&bytes).unwrap().to_owned()),
+                        _ => panic!("unexpected group type"),
+                    };
+                    actual.push((
+                        group,
+                        number(&totals.raw_cell(row)?)?,
+                        number(&averages.raw_cell(row)?)?,
+                    ));
+                }
+                Ok(())
+            })?;
+            assert_eq!(
+                actual,
+                vec![
+                    (Some("東京".into()), 1.0, 1.0 / 3.0),
+                    (None, 13.0, 13.0),
+                    (Some(String::new()), 12.0, 6.0),
+                    (Some("λ".into()), 11.0, 11.0),
+                ]
+            );
             Ok(())
         })
         .unwrap();
@@ -323,6 +461,27 @@ fn composed_numeric_consumer_accounts_kernel_and_checks_cancelled_null_rows() {
                 "{error}"
             );
             assert_same(&state, &State::default());
+            assert_eq!(memory.snapshot().reserved_bytes, retained);
+            let mut grouped = [State::default()];
+            let error = accumulate_grouped_numeric(
+                &mut grouped,
+                &GroupOrdinals::Scalar(array.len()),
+                1,
+                0,
+                owner,
+                context,
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(
+                error.contains(if cancelled {
+                    "cancel"
+                } else {
+                    "reservation denied"
+                }),
+                "{error}"
+            );
+            assert_same(&grouped[0], &State::default());
             assert_eq!(memory.snapshot().reserved_bytes, retained);
             drop(occupied);
             Ok(())

@@ -247,7 +247,13 @@ impl PreparedVortexRelational {
             self.sources.clone(),
         )?;
         #[cfg(feature = "universal-format-io")]
-        let plan = plan.with_preparation_sources(self.preparation_sources.clone());
+        let plan = plan
+            .with_preparation_sources(self.preparation_sources.clone())
+            .with_columnar_sources(
+                self.batch_sources
+                    .iter()
+                    .filter_map(|source| source.local.as_ref().map(|source| &source.source)),
+            )?;
         Ok(plan)
     }
 
