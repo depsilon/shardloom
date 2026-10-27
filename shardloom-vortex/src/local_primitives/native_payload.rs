@@ -27,6 +27,10 @@ use vortex::array::{
 mod storage;
 pub(super) use storage::decimal_key;
 
+#[path = "native_payload_validation.rs"]
+mod validation;
+pub(super) use validation::validate_flat_record;
+
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_storage_tests.rs"]
 mod storage_tests;

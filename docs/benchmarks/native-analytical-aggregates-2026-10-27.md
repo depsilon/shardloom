@@ -168,6 +168,14 @@ python3 -B -m unittest discover -s scripts \
   -p test_analytical_aggregate_packet.py -v
 ```
 
+PR #1614 merged at `690a671e155072f9afa7c5938412c94f173ef553` after all 57
+hosted checks passed on `6e40c404bb0bb96c006d43bc1b9c9152f511fcf0`, with no
+review threads or requested changes. The
+[hosted receipt](evidence/native-analytical-aggregates-2026-10-27/hosted.json)
+records every check. The conformance-count correction binds its gate to the
+118-method Python inventory. No benchmark observation was replaced for this
+metadata correction or merge.
+
 General decimal rounding/widened integer sums, temporal fidelity, recursive and
 materialized ownership, application batch functions, structural scaling, work
 diagnostics and the six complete workflows remain open. Remaining file-format

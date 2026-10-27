@@ -217,6 +217,26 @@ impl PreparedVortexRelational {
             )?;
             return sort.finish(context, batch_rows, consume);
         }
+        if metrics.input.is_some()
+            && let Some(mut sort) =
+                native_relational_sort::StreamingPrefix::try_new(spec, *output_prefix, context)?
+        {
+            self.run(
+                input,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                &mut |array| {
+                    let copied = sort.build(array, context)?;
+                    if copied != 0 {
+                        metrics.record_ordering_copy(copied)?;
+                    }
+                    Ok(())
+                },
+            )?;
+            return sort.finish(context, batch_rows, consume);
+        }
         let mut sort = native_relational_sort::Sort::new(spec, context.memory())?;
         self.run(
             input,

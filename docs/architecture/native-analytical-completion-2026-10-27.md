@@ -27,8 +27,10 @@ material-regression thresholds. The 50.877676708-second observation remains an
 earlier baseline. This single observation does not isolate a mechanism's benefit
 or close the remaining competitor-performance gaps. The
 [aggregate/grouping acceptance](../benchmarks/native-analytical-aggregates-2026-10-27.md)
-records completed native, workspace, installed-wheel and portable checks;
-PR acceptance is separate.
+records completed native, workspace, installed-wheel and portable checks.
+PR #1614 merged at `690a671e` after all 57 hosted checks passed; its
+[hosted receipt](../benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json)
+preserves the accepted head and individual check results.
 
 The [parent program](native-broad-query-program-2026-10-26.md) and the
 [phase plan](phased-execution-plan.md#everyday-analytical-completion) retain the
@@ -183,6 +185,71 @@ string families declared as targets and the same material-regression rules.
 Bounded streaming Top-K retention is a separate candidate: it requires proof of
 complete payload validation and source release before reducing retention. The
 existing ordinary versus streaming error-order distinction remains authoritative.
+
+The standalone candidate is **dropped** after its frozen single pass. All 347
+queries, 12,565 rows and complete schemas validate in 29.225110351 engine seconds
+against 30.118456795. The observed reduction is 3.0% overall, 8.9% for projection
+and 6.9% for strings, with no material regression flags. Neither declared family
+nor the complete cohort meets its prospective 10% benefit threshold. The source
+overlay, tests, build and complete observations remain preserved; the borrowed
+output accessor and its call sites are removed from the retained implementation.
+The numeric checkpoint remains the accepted comparison baseline. No retry or
+threshold change is used to promote this candidate.
+
+### Bounded retention at streaming ordering boundaries
+
+The subsequent candidate replaces complete payload retention only for
+an immediate, bounded Sort/Limit over streamed input. The existing ordering
+owner already selects a bounded ordinal prefix after consuming all input; it
+still first copies every source payload into retained state. The source-input
+contract requires each source batch to be released before requesting another.
+Retaining references to all source batches is therefore not an admissible
+optimization.
+
+Reuse the existing fallible stable ordering, selected-row gather, native output
+builders and credited state. Validate every input payload at the existing
+streaming boundary, including values which will not survive the limit. Only
+then validate all ordering keys and select the next prefix from the prior owned
+prefix and the current source batch. Copy that prefix independently before
+returning to the source. Tiny input batches can accumulate independently copied
+pending rows up to four times the requested prefix before compaction, avoiding
+repeated whole-prefix copies for one-row producers. The memory grant still
+admits actual bytes; the row bound does not promise a fixed byte footprint.
+Stable ties keep earlier source rows before later ones, including pending rows.
+Consume the complete input even when the requested prefix is empty.
+
+The initial admission is streamed input, no configured spill, ordinary validated
+payload policy, a bounded prefix and supported flat payload leaves. Other plans
+keep their existing native ordering path. Ordinary execution must retain its
+existing later payload-validation order. Do not move projections or filters
+across ordering or limits, introduce a second sorting implementation, or report
+discarded rows as copied. Tests must cover every-row validation, stable ties,
+null order, multiple/empty batches, offsets, zero demand, source release,
+retained-output lifetime, memory refusal, cancellation and composed operators.
+Adoption requires a separately frozen complete-query comparison and neighboring
+cases. The implementation passes 3,407 native tests (32 existing opt-in ignores),
+3,268 workspace tests, strict native/workspace checks and 29 public ordering
+checks. Its separately frozen single pass validates all 347 queries, 12,565
+complete rows and schemas in **28.017558877 engine seconds**, against the
+unchanged **30.118456795-second** numeric checkpoint. The observed reduction is
+7.0% overall and 40.5% for ordering; the declared family-benefit gate passes.
+No family crosses its material-regression threshold. These observations do not
+isolate the cause of changes in unaffected families.
+
+The original `aggregate_metric_scalar_mixed_arithmetic_all` observation crosses
+the case threshold, from 0.065623334 to 0.081370208 engine seconds. Preserve it
+in the complete total. A separately frozen diagnostic tests that exact case and
+its direct/COALESCE neighbors in three baseline/candidate pairs, ordered AB, BA,
+AB. All 18 executions validate, and none reproduces the material-regression
+rule. The flagged case's role medians are 0.080949125 and 0.067029125 seconds.
+The disposition is "not reproduced in the bounded diagnostic"; its original
+cause remains unassigned, and no statistical-confidence claim follows. The
+[shared performance acceptance](../benchmarks/native-shared-analytical-performance-2026-10-27.md)
+retains numeric reuse and bounded ordering after the 194-test installed-package
+gate, complete portable replay, 18 corruption controls, isolated source-only
+replay and verified generated-payload retirement. The borrowed-output candidate
+remains removed. Hosted PR acceptance and the broader item-20 obligations remain
+separate.
 
 The first expression extension admits reuse of a fully completed, identical,
 pure expression on the same input. Conditional/COALESCE/NULLIF branches retain

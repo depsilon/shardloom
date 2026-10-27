@@ -180,7 +180,9 @@ pub struct ExecutedVortexBatchInput {
     pub output_ownership_detached: bool,
     /// Compact copies at ordering retention boundaries, including nested sorts.
     pub ordering_batches_detached: u64,
-    /// Counts rows at each ordering boundary, not distinct source rows or bytes.
+    /// Actual retained-row copies at ordering boundaries, including repeated
+    /// prefix compaction. Excludes validated rows that were never copied;
+    /// this is neither distinct source rows nor bytes.
     pub ordering_rows_detached: u64,
     /// Build batches compacted by joins in a streamed execution. Counts each
     /// retention boundary, including ordinary sources in the same plan.

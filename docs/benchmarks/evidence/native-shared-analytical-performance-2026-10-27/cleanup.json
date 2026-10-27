@@ -1,0 +1,191 @@
+{
+  "schema_version": "shardloom.generated_artifact_retirement.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/wheel-build-tools",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-proof-wheelhouse",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-draft-r1",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-replay-clean",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/outputs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/harness",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/logs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/harness",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/logs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/harness",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/logs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/source",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/source",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/source",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/projection-diagnostic-r1/logs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-aggregate-diagnostic-r1/logs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/logs",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/shardloom",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/shardloom",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/shardloom",
+    "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+  ],
+  "retained_sha256": {
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/shardloom": "ac19b7bda03811c2945e8db5c42c01af6f6999f3f7e6346dd7ba07eab84f924e",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/_native.abi3.so": "f40be8041b7179d272c8603824082b9c11674c8a88882ab09557ca91ad2b553e",
+    "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "e0aaba74066ab3c8856461cb95f3a577d60e57c9f2de000984df29afb13e6bc1",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/calendar-00000.parquet": "0a6923b1522f0c1903d5ec74d9297b224c19776e7585fa42dde38e1e494670fb",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/entities-00000.parquet": "ad1ef43250f9815f12b90c43199b1c99362ce4f81beb34615ceb12497af6f5d2",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/fact-00000.parquet": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/products-00000.parquet": "caf396dcbac020daaaff8df26b0064f0593e016646224e0964c6f9a5532ba7f9",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/relationships-00000.parquet": "bf641554001cb8e50f0d6c86d7b53b06e03968cd4d9ae340682f0f286c7babc4"
+  },
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/wheel-build-tools",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-proof-wheelhouse",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-draft-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-replay-clean",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/outputs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/harness",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/harness",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/harness",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/projection-diagnostic-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-aggregate-diagnostic-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/logs",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "removed_entries": 20168,
+  "source_inputs_retained": true,
+  "original_external_baselines_untouched": true,
+  "user_files_and_item18_untouched": true,
+  "cargo_cache_untouched": true,
+  "payload_backups_created": false,
+  "symlink_targets_followed": false,
+  "regeneration_basis": "Recorded source/build/package identities, locked requirements, retained sources and current tested runtime/wheel. No bit-identical rebuild claim.",
+  "inventory": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup-inventory.json.gz",
+  "inventory_sha256": "760c3de9b96b0926df466b55b606e33ddfff8b03c0176a55974ce66841f50676",
+  "free_bytes_before": 90747305984,
+  "regular_files": 18514,
+  "symlinks": 6,
+  "retired_regular_bytes": 1186337890,
+  "retired_allocated_bytes": 1232748544,
+  "all_proof_files_unchanged": true,
+  "free_bytes_after": 91997532160
+}

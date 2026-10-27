@@ -1026,9 +1026,13 @@ impl Metrics<'_> {
             return Ok(array);
         }
         let detached = detach_batch(&array, context)?;
-        add(&self.ordering_batches_detached, 1)?;
-        add(&self.ordering_rows_detached, array.len() as u64)?;
+        self.record_ordering_copy(array.len())?;
         Ok(detached)
+    }
+
+    fn record_ordering_copy(&self, rows: usize) -> Result<()> {
+        add(&self.ordering_batches_detached, 1)?;
+        add(&self.ordering_rows_detached, rows as u64)
     }
 
     fn detach_join_build(

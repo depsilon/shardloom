@@ -1,0 +1,183 @@
+{
+  "complete_comparisons_per_cohort": 347,
+  "complete_rows_per_cohort": 12565,
+  "diagnostic_dispositions": {
+    "ordering-aggregate-diagnostic-r1": {
+      "cases": {
+        "aggregate_metric_scalar_mixed_arithmetic_all": {
+          "engine_seconds": {
+            "baseline": [
+              0.07938025,
+              0.080949125,
+              0.082025875
+            ],
+            "candidate": [
+              0.066495666,
+              0.067029125,
+              0.067657625
+            ]
+          },
+          "material_regression_reproduced": false,
+          "median_engine_seconds": {
+            "baseline": 0.080949125,
+            "candidate": 0.067029125
+          },
+          "median_ratio": 0.8280401424969077
+        },
+        "aggregate_metric_scalar_mixed_coalesce_all": {
+          "engine_seconds": {
+            "baseline": [
+              0.067929084,
+              0.067392458,
+              0.0683025
+            ],
+            "candidate": [
+              0.068324084,
+              0.068199791,
+              0.068393417
+            ]
+          },
+          "material_regression_reproduced": false,
+          "median_engine_seconds": {
+            "baseline": 0.067929084,
+            "candidate": 0.068324084
+          },
+          "median_ratio": 1.0058148877732547
+        },
+        "aggregate_metric_scalar_mixed_direct_all": {
+          "engine_seconds": {
+            "baseline": [
+              0.046015709,
+              0.044973625,
+              0.045357916
+            ],
+            "candidate": [
+              0.0451185,
+              0.04513,
+              0.04511725
+            ]
+          },
+          "material_regression_reproduced": false,
+          "median_engine_seconds": {
+            "baseline": 0.045357916,
+            "candidate": 0.0451185
+          },
+          "median_ratio": 0.9947216269812749
+        }
+      },
+      "disposition": "not_reproduced_in_bounded_diagnostic",
+      "observations": 18,
+      "original_cause": "unassigned",
+      "reproduced": []
+    },
+    "projection-diagnostic-r1": {
+      "cases": {
+        "projection_limit_direct_100": {
+          "engine_seconds": {
+            "baseline": [
+              0.119122375,
+              0.117875417,
+              0.117510208
+            ],
+            "candidate": [
+              0.110098792,
+              0.108266791,
+              0.110822667
+            ]
+          },
+          "material_regression_reproduced": false,
+          "median_engine_seconds": {
+            "baseline": 0.117875417,
+            "candidate": 0.110098792
+          },
+          "median_ratio": 0.9340267445246875
+        },
+        "projection_limit_direct_11": {
+          "engine_seconds": {
+            "baseline": [
+              0.115329083,
+              0.118212542,
+              0.117417
+            ],
+            "candidate": [
+              0.110088167,
+              0.109655791,
+              0.108549875
+            ]
+          },
+          "material_regression_reproduced": false,
+          "median_engine_seconds": {
+            "baseline": 0.117417,
+            "candidate": 0.109655791
+          },
+          "median_ratio": 0.9339004658609913
+        },
+        "projection_limit_direct_31": {
+          "engine_seconds": {
+            "baseline": [
+              0.116787958,
+              0.117325541,
+              0.117971208
+            ],
+            "candidate": [
+              0.109729167,
+              0.110351459,
+              0.109783958
+            ]
+          },
+          "material_regression_reproduced": false,
+          "median_engine_seconds": {
+            "baseline": 0.117325541,
+            "candidate": 0.109783958
+          },
+          "median_ratio": 0.9357208759855622
+        }
+      },
+      "disposition": "not_reproduced_in_bounded_diagnostic",
+      "observations": 18,
+      "original_cause": "unassigned",
+      "reproduced": []
+    }
+  },
+  "dropped_candidates": [
+    "borrowed_variable_width_output"
+  ],
+  "engine_seconds": {
+    "broad-aggregate-r1": 30.118456795,
+    "broad-ordering-r1": 28.017558877,
+    "broad-variable-r1": 29.225110351
+  },
+  "failed_validation_attempts": [
+    "r02-aggregate-tests",
+    "r04-native-clippy",
+    "r11-variable-tests",
+    "r17-streaming-order-tests",
+    "r19-ordering-native-clippy"
+  ],
+  "item_20_complete": false,
+  "limitations": [
+    "One complete observation per candidate; no statistical confidence or isolated causal claim.",
+    "Original regression flags remain in original totals; bounded diagnostics did not reproduce them.",
+    "Complete saved results replay without executing queries or archived code.",
+    "Content hashes establish internal consistency, not signed provenance.",
+    "Large data and binaries are represented by identity, not reconstructed by this packet."
+  ],
+  "new_competitor_queries": 0,
+  "original_material_case_regressions": {
+    "broad-aggregate-r1": [
+      "projection_limit_direct_31"
+    ],
+    "broad-ordering-r1": [
+      "aggregate_metric_scalar_mixed_arithmetic_all"
+    ],
+    "broad-variable-r1": []
+  },
+  "package_tests": 194,
+  "public_feature_suites": 9,
+  "public_ordering_cases": 29,
+  "retained_candidates": [
+    "numeric_aggregate_reuse",
+    "bounded_streaming_ordering"
+  ],
+  "status": "passed"
+}
