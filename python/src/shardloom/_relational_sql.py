@@ -20,6 +20,8 @@ def flat_order_is_safe(operations: tuple[WorkflowOperation, ...]) -> bool:
     }
     previous = -1
     for operation in operations:
+        if operation.grouping_clause is not None:
+            return False
         if operation.kind == "with_column":
             return False  # Replacement and expression dependencies bind per stage.
         position = positions.get(operation.kind, -1)
@@ -99,6 +101,7 @@ def _render_stages(
 
     statement = statement.strip().removesuffix(";").strip()
     group_by: tuple[str, ...] | None = None
+    grouping_clause: str | None = None
     aggregate_stage = False
     for index, operation in enumerate(operations):
         kind, values = operation.kind, operation.values
@@ -122,6 +125,7 @@ def _render_stages(
             if group_by is not None:
                 return None
             group_by = values
+            grouping_clause = operation.grouping_clause
             continue
         if group_by is not None and kind != "aggregate":
             return None
@@ -153,10 +157,13 @@ def _render_stages(
         elif kind == "aggregate":
             projection = (*(group_by or ()), *values)
             statement = f"SELECT {','.join(projection)} FROM {source}"
-            if group_by:
+            if grouping_clause is not None:
+                statement += f" GROUP BY {grouping_clause}"
+            elif group_by:
                 statement += f" GROUP BY {','.join(group_by)}"
             columns = _output_names(projection, columns)
             group_by = None
+            grouping_clause = None
         elif kind == "sort":
             direction, keys, nulls = q._parse_sort_operation_values(values)
             statement = f"SELECT * FROM {source}" + q._format_order_by_clause(keys, direction, nulls)

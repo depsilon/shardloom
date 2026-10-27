@@ -220,7 +220,12 @@ fn independent_relational_integer_totals_preserve_cross_batch_residues_and_float
                 measures: [SimpleAggregateFunction::Sum, SimpleAggregateFunction::Avg]
                     .into_iter()
                     .map(|function| Measure {
-                        function,
+                        secondary_column: None,
+                        filter_column: None,
+                        quantile_level: None,
+                        selection: None,
+                        separator: None,
+                        function: function.into(),
                         column: Some("amount".into()),
                         dtype: output_dtype.clone(),
                         decimal_source: None,

@@ -89,6 +89,7 @@ fn native_nested_empty_schema_admits_hash_sets_and_typed_aggregate_state() {
         let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
             input: empty.clone(),
             group_by: groups,
+            grouping_sets: None,
             measures,
         }));
         assert_eq!(collect(&plan), expected);

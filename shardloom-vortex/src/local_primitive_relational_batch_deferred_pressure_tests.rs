@@ -80,6 +80,7 @@ fn prepare(grant: u64, pivot_inner: bool) -> PreparedVortexRelational {
                     VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
                         input: pivot(scan(1)),
                         group_by: vec![],
+                        grouping_sets: None,
                         measures: vec![crate::VortexSimpleAggregateMeasure::new(
                             "count",
                             None,

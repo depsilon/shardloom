@@ -113,6 +113,16 @@ retirement.
 
 ## Scope
 
+The [October 27 analytical aggregate cleanup](../benchmarks/evidence/native-analytical-aggregates-2026-10-27/cleanup.json)
+retires 14,011 completed generated regular files and six environment links after
+native/package acceptance and portable verification. Exact identities and
+closed-handle checks cover temporary package/build/install environments, copied
+verifier sources, archived benchmark logs/source snapshots and superseded
+runtimes/wheel. Current inputs, the latest installed-tested runtime and wheel,
+and compact complete/failure evidence remain. Shared compiler outputs and
+unrelated user files are untouched; no backup payload or storage-limit change
+is introduced. Complete replay passes after retirement.
+
 Bulk generated files must remain outside cloud-synced folders. A checkout in
 Documents does not make its ignored build files exempt from iCloud syncing.
 This is an operational safety rule, not a query performance optimization.

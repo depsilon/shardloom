@@ -30,6 +30,7 @@ fn composed(fixture: &Fixture, stream_right: bool) -> VortexRelationalPlan {
     let grouped = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input: nested,
         group_by: vec![ColumnRef::new("group").unwrap()],
+        grouping_sets: None,
         measures: vec![VortexSimpleAggregateMeasure::new(
             "count",
             None,

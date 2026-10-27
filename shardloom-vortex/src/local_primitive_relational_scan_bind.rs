@@ -73,9 +73,39 @@ impl Binder<'_> {
                 input: child,
                 expressions,
             } => {
-                // Do not remove unused computations: they may fail. Narrow
-                // only their input to the dependencies of every expression.
+                self.charge_fields(input.fields.len())?;
+                let mut retained: BTreeSet<String> =
+                    needed.into_iter().map(str::to_owned).collect();
+                for ((name, _), expression) in input.fields.iter().zip(expressions.iter()) {
+                    // Every computed expression retains its original execution
+                    // and error order, even when its output is not requested.
+                    if !matches!(expression.kind, Kind::Column(_)) {
+                        retained.insert(name.clone());
+                    }
+                }
+                let mut index = 0;
+                expressions.retain(|_| {
+                    let keep = retained.contains(&input.fields[index].0);
+                    index += 1;
+                    keep
+                });
+                input.fields.retain(|(name, _)| retained.contains(name));
+                BoundExpression::bind_projection_reuse(expressions);
                 self.narrow_scan_projection(child, expressions)?;
+            }
+            NodeKind::Window { input: child, spec } => {
+                self.charge_fields(input.fields.len())?;
+                let needed: BTreeSet<_> = needed.into_iter().collect();
+                let columns = spec.columns.len();
+                let mut index = 0;
+                spec.fields.retain(|(name, _)| {
+                    let keep = index >= columns || needed.contains(name.as_str());
+                    index += 1;
+                    keep
+                });
+                spec.columns.retain(|name| needed.contains(name.as_str()));
+                input.fields.clone_from(&spec.fields);
+                self.narrow_source_demand(child, super::window::input_columns(spec))?;
             }
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
@@ -91,7 +121,8 @@ impl Binder<'_> {
             } => !self.batch_sources.values[*index].external(),
             NodeKind::Filter { input, .. }
             | NodeKind::Limit { input, .. }
-            | NodeKind::Project { input, .. } => self.scan_accepts_source_demand(input),
+            | NodeKind::Project { input, .. }
+            | NodeKind::Window { input, .. } => self.scan_accepts_source_demand(input),
             _ => false,
         }
     }

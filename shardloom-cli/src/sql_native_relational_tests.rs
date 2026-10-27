@@ -5,14 +5,20 @@ use shardloom_vortex::resident_session::ResidentVortexSession;
 
 #[path = "sql_native_relational_aggregate_expression_tests.rs"]
 mod aggregate_expression_tests;
+#[path = "sql_native_relational_aggregate_filter_tests.rs"]
+mod aggregate_filter_tests;
 #[path = "sql_native_relational_dynamic_tests.rs"]
 mod dynamic_tests;
+#[path = "sql_native_relational_grouping_tests.rs"]
+mod grouping_tests;
 #[path = "sql_native_relational_memory_tests.rs"]
 mod memory_tests;
 #[path = "sql_native_relational_prepared_sampling_tests.rs"]
 mod prepared_sampling_tests;
 #[path = "sql_native_relational_scalar_tests.rs"]
 mod scalar_tests;
+#[path = "sql_native_relational_statistical_tests.rs"]
+mod statistical_tests;
 #[path = "sql_native_relational_unary_tests.rs"]
 mod unary_tests;
 #[path = "sql_native_relational_window_frame_tests.rs"]

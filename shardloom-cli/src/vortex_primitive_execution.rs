@@ -3552,6 +3552,11 @@ fn parse_simple_aggregate_measure(
     let value_transform =
         json_optional_string_field_any(object, &["value_transform", "transform"])?
             .map(str::to_string);
+    if object.contains_key("secondary_column") {
+        return Err(ShardLoomError::InvalidOperation(
+            "paired aggregates require the native SQL or relation surface".to_string(),
+        ));
+    }
     let mut measure = VortexSimpleAggregateMeasure::new(function, column, alias);
     if let Some(argument_offset) = argument_offset {
         measure = measure.with_argument_offset(argument_offset);

@@ -1162,6 +1162,9 @@
       "sample",
       "group_by",
       "groupby",
+      "grouping_sets",
+      "rollup",
+      "cube",
       "agg",
       "aggregate",
       "join",
@@ -1387,7 +1390,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "5353232ef82dbc2c4cb6b2ab9dcf47aea653a156875610431534967dcaaf75bd",
+    "source_identity": "4029b12a60b59488f8cd9a2449d5d29cf523802e493de19290f80b397d185118",
     "source_inputs": {
       "Cargo.lock": "50bf3ecb0186991fdd485b84504688daa55809d4a3248f5704f9a6739154ffb2",
       "Cargo.toml": "3a69e393d98a223cb408b591a9942546905256985323c86aca74b3b253595f28",
@@ -1400,14 +1403,14 @@
       "python/src/shardloom/_window.py": "a9bceffed98349bda217a6f37e79e31c74900af87448d507f61a7f4eecb6a5e8",
       "python/src/shardloom/adbc.py": "964357797727c1b71c4cde0dd4fe8da139cd636404511e9fcd3977f851889dad",
       "python/src/shardloom/client.py": "4520fd52d9ea279f549e2e2c4cf52d3fa848abfb99982fe9932ef8f9cada9f16",
-      "python/src/shardloom/context.py": "dec46342951c83cfbc6962ad338b216f6499b7d9f429c90d4ce60841e1ce291f",
+      "python/src/shardloom/context.py": "86149e9545dd650347f6c8e60688bb643f1318d70723325e7625172ab538daa1",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "77e3181e4a586fc94107e057df65fbd155a21bf852691380cc0fc80414f14251",
+      "python/src/shardloom/functions.py": "d38abc0f93568a9a793bdb0d9c7e3486b2f2bb9b31f110e9aeb1431de648ab58",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "fd5da96714eda482670fb2ca65d3d6c6f50700dbd50d63d05ed00a4ecf1e7dd5",
+      "python/src/shardloom/query.py": "2da2d7d8b50a9c555534c1c184bcd7a233a9aaf7b815ce2ceeb537226350c7a6",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
@@ -1863,7 +1866,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(workflow: 'LazyFrame', columns: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "signature": "(workflow: 'LazyFrame', columns: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None, grouping_clause: 'str | None' = None) -> None",
         "summary": "Grouped lazy workflow handle for scoped aggregation and blockers."
       },
       {
@@ -2889,7 +2892,7 @@
         "audience": "testing",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, right_frame: \"'LazyFrame | None'\" = None) -> None",
+        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, right_frame: \"'LazyFrame | None'\" = None, grouping_clause: 'str | None' = None) -> None",
         "summary": "A lazy query-builder operation."
       },
       {
@@ -3676,6 +3679,24 @@
         "summary": "Native expression declarations; Python never evaluates data operations."
       },
       {
+        "name": "grouping",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(*columns) -> 'ColumnExpression'",
+        "summary": "Declare the UInt64 grouping omission mask, with the last key in the low bit."
+      },
+      {
+        "name": "grouping_id",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(*columns) -> 'ColumnExpression'",
+        "summary": "Alias for the same grouping omission mask."
+      },
+      {
         "name": "abs",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -3712,13 +3733,22 @@
         "summary": "Return a scoped `ARRAY[...]` projection over scalar SQL literals."
       },
       {
+        "name": "array_agg",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Collect original typed values, including NULLs and duplicates; an empty domain yields NULL."
+      },
+      {
         "name": "avg",
         "namespace": "shardloom.functions",
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
-        "summary": "Declare native AVG over non-null values."
+        "signature": "(value, *, distinct: 'bool' = False) -> 'ColumnExpression'",
+        "summary": "Declare native AVG, ignoring nulls and optionally using exact distinct membership."
       },
       {
         "name": "byte_length",
@@ -3910,6 +3940,51 @@
         "summary": "Match a literal UTF8 suffix."
       },
       {
+        "name": "arg_max",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, key, *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Select the value at the maximum key, skipping NULL pairs; ties use declared then input order."
+      },
+      {
+        "name": "arg_min",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, key, *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Select the value at the minimum key, skipping NULL pairs; ties use declared then input order."
+      },
+      {
+        "name": "corr",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare correlation for primitive numeric pairs, dropping rows where either input is null; zero variance yields null."
+      },
+      {
+        "name": "covar_pop",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare population covariance for primitive numeric pairs, dropping rows where either input is null; a singleton yields zero."
+      },
+      {
+        "name": "covar_samp",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare sample covariance for primitive numeric pairs, dropping rows where either input is null; fewer than two yields null."
+      },
+      {
         "name": "exists_source",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -3926,6 +4001,15 @@
         "source": "python/src/shardloom/functions.py",
         "signature": "(value) -> 'ColumnExpression'",
         "summary": "Extract a minute from integer epoch seconds or timestamp text."
+      },
+      {
+        "name": "first",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Select the first value, retaining NULL; equal order keys follow input order."
       },
       {
         "name": "first_value",
@@ -4063,6 +4147,15 @@
         "summary": "Count Unicode code points in a column or expression."
       },
       {
+        "name": "list",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Collect original typed values, including NULLs and duplicates; an empty domain yields NULL."
+      },
+      {
         "name": "lit",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -4081,6 +4174,15 @@
         "summary": "Declare native lowercase conversion."
       },
       {
+        "name": "last",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Select the last value, retaining NULL; equal order keys follow input order."
+      },
+      {
         "name": "max",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -4095,8 +4197,26 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
+        "signature": "(value, *, distinct: 'bool' = False) -> 'ColumnExpression'",
+        "summary": "Declare native AVG, ignoring nulls and optionally using exact distinct membership."
+      },
+      {
+        "name": "mean_distinct",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
         "signature": "(value) -> 'ColumnExpression'",
-        "summary": "Declare native AVG over non-null values."
+        "summary": "Declare native AVG over distinct non-null values."
+      },
+      {
+        "name": "median",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare continuous median (quantile 0.5) over non-null values."
       },
       {
         "name": "min",
@@ -4279,6 +4399,51 @@
         "summary": "Match a literal UTF8 prefix."
       },
       {
+        "name": "std",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare sample standard deviation over primitive numeric values, ignoring nulls; fewer than two yields null."
+      },
+      {
+        "name": "stddev",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare sample standard deviation over primitive numeric values, ignoring nulls; fewer than two yields null."
+      },
+      {
+        "name": "stddev_pop",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare population standard deviation over primitive numeric values, ignoring nulls; a singleton yields zero."
+      },
+      {
+        "name": "stddev_samp",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare sample standard deviation over primitive numeric values, ignoring nulls; fewer than two yields null."
+      },
+      {
+        "name": "string_agg",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, separator: 'str', *, order_by=()) -> 'ColumnExpression'",
+        "summary": "Join non-NULL UTF-8 values with a literal separator; an empty domain yields NULL."
+      },
+      {
         "name": "strptime",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -4320,8 +4485,8 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
-        "summary": "Declare native SUM over a column or expression, excluding null values."
+        "signature": "(value, *, distinct: 'bool' = False) -> 'ColumnExpression'",
+        "summary": "Declare native SUM, ignoring nulls and optionally using exact distinct membership."
       },
       {
         "name": "timestamp_add_seconds",
@@ -4378,6 +4543,24 @@
         "summary": "Return a scoped timestamp month-extract expression."
       },
       {
+        "name": "quantile_cont",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, level) -> 'ColumnExpression'",
+        "summary": "Declare continuous quantile with linear interpolation over ordered non-null values."
+      },
+      {
+        "name": "quantile_disc",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, level) -> 'ColumnExpression'",
+        "summary": "Declare discrete quantile returning an original typed selected value."
+      },
+      {
         "name": "timestamp_second",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -4423,6 +4606,24 @@
         "summary": "Parse timestamp text with a native literal format, yielding null on parse failure."
       },
       {
+        "name": "sum_distinct",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native SUM over distinct non-null values."
+      },
+      {
+        "name": "avg_distinct",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare native AVG over distinct non-null values."
+      },
+      {
         "name": "trim",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -4466,6 +4667,42 @@
         "source": "python/src/shardloom/functions.py",
         "signature": "(value) -> 'ColumnExpression'",
         "summary": "Return the native URL-domain extraction expression."
+      },
+      {
+        "name": "var",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare sample variance over primitive numeric values, ignoring nulls; fewer than two yields null."
+      },
+      {
+        "name": "var_pop",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare population variance over primitive numeric values, ignoring nulls; a singleton yields zero."
+      },
+      {
+        "name": "var_samp",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare sample variance over primitive numeric values, ignoring nulls; fewer than two yields null."
+      },
+      {
+        "name": "variance",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare sample variance over primitive numeric values, ignoring nulls; fewer than two yields null."
       },
       {
         "name": "types",

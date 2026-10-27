@@ -3,9 +3,16 @@
 use super::{Function, Input, Spec};
 use crate::{
     local_primitives::{
-        SimpleAggregateFunction as Aggregate, native_capacity::ReservedVec, native_decimal_reduce,
-        native_float_total, native_relational_aggregate::number, native_relational_batch::failed,
-        native_relational_index::RowIndex, native_relational_keys::Cell,
+        native_capacity::ReservedVec,
+        native_decimal_reduce, native_float_total,
+        native_order_statistic::{Arena, Root},
+        native_quantile::Position,
+        native_relational_aggregate::Function as Aggregate,
+        native_relational_aggregate::number,
+        native_relational_batch::failed,
+        native_relational_index::RowIndex,
+        native_relational_keys::Cell,
+        result_batch,
     },
     resident_session::NativeExecutionContext,
 };
@@ -19,15 +26,26 @@ pub(in super::super) enum Value {
     Float(Option<f64>),
     Decimal(Option<i128>),
     Source(Option<usize>),
+    Sources(ReservedVec<usize>),
 }
 
 impl Value {
     pub(in super::super) fn map_source(
         self,
-        map: impl FnOnce(usize) -> Result<usize>,
+        mut map: impl FnMut(usize) -> Result<usize>,
+        context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
         match self {
             Self::Source(Some(position)) => Ok(Self::Source(Some(map(position)?))),
+            Self::Sources(mut positions) => {
+                for (index, position) in positions.values.iter_mut().enumerate() {
+                    if index.is_multiple_of(1024) {
+                        context.check_cancelled()?;
+                    }
+                    *position = map(*position)?;
+                }
+                Ok(Self::Sources(positions))
+            }
             value => Ok(value),
         }
     }
@@ -40,6 +58,9 @@ pub(in super::super) struct State {
     decimals: [native_decimal_reduce::Total; 3],
     distinct: Option<Distinct>,
     extrema: Option<[Candidates; 3]>,
+    moments: Option<Box<super::moments::Ranges>>,
+    quantiles: Option<(Arena, Root)>,
+    collections: Option<(Arena, Root)>,
     _ownership: MemoryLease,
 }
 
@@ -54,7 +75,8 @@ impl State {
             counts: [0; 3],
             floats: [native_float_total::Total::default(); 3],
             decimals: [native_decimal_reduce::Total::default(); 3],
-            distinct: if spec.function == Function::Aggregate(Aggregate::CountDistinct) {
+            distinct: if matches!(spec.function, Function::Aggregate(function) if function.is_distinct())
+            {
                 Some(Distinct {
                     index: RowIndex::new(memory)?,
                     counts: ReservedVec::new(memory)?,
@@ -63,15 +85,32 @@ impl State {
             } else {
                 None
             },
-            extrema: if matches!(
-                spec.function,
-                Function::Aggregate(Aggregate::Min | Aggregate::Max)
-            ) {
+            extrema: if matches!(spec.function, Function::Aggregate(function)
+                if matches!(function, Aggregate::Min | Aggregate::Max) || function.is_selector())
+            {
                 Some([
                     Candidates::new(memory)?,
                     Candidates::new(memory)?,
                     Candidates::new(memory)?,
                 ])
+            } else {
+                None
+            },
+            moments: if matches!(spec.function, Function::Aggregate(function) if function.is_moment())
+            {
+                Some(super::moments::Ranges::new(memory)?)
+            } else {
+                None
+            },
+            quantiles: if matches!(spec.function, Function::Aggregate(function) if function.is_quantile())
+            {
+                Some((Arena::new(memory)?, None))
+            } else {
+                None
+            },
+            collections: if matches!(spec.function, Function::Aggregate(function) if function.is_collection())
+            {
+                Some((Arena::new(memory)?, None))
             } else {
                 None
             },
@@ -88,12 +127,20 @@ impl State {
         context: &NativeExecutionContext<'_>,
     ) -> Result<Value> {
         super::validate_intervals(&self.ranges, &next, rows)?;
+        if let Some(moments) = &mut self.moments {
+            let result = moments.advance(&next, spec, input, context)?;
+            self.ranges = next;
+            return Ok(Value::Float(result));
+        }
         if !matches!(spec.function, Function::Aggregate(_)) {
             let selected = select(&next, spec.function)?;
             self.ranges = next;
             return Ok(Value::Source(selected));
         }
-        if spec.function == Function::Aggregate(Aggregate::Count) && spec.key.is_none() {
+        if spec.function == Function::Aggregate(Aggregate::Count)
+            && spec.key.is_none()
+            && spec.filter_key.is_none()
+        {
             let count = next.iter().try_fold(0u64, |count, range| {
                 let len =
                     u64::try_from(range.len()).map_err(|_| failed("window count overflow"))?;
@@ -104,30 +151,12 @@ impl State {
             self.ranges = next;
             return Ok(Value::Count(count));
         }
-        let key = spec
-            .key
-            .ok_or_else(|| failed("window measure has no bound key"))?;
         if let Some(extrema) = &mut self.extrema {
-            let maximum = spec.function == Function::Aggregate(Aggregate::Max);
             let mut selected = None;
             for (index, candidates) in extrema.iter_mut().enumerate() {
                 candidates.advance(&self.ranges[index], &next[index], spec, input, context)?;
-                if let Some(candidate) = candidates.first() {
-                    let better = if let Some(old) = selected {
-                        let order = input.compare_key(candidate, old, key, context)?;
-                        order
-                            == if maximum {
-                                Ordering::Greater
-                            } else {
-                                Ordering::Less
-                            }
-                    } else {
-                        true
-                    };
-                    if better {
-                        selected = Some(candidate);
-                    }
-                }
+                selected =
+                    super::selection::choose(selected, candidates.first(), spec, input, context)?;
             }
             self.ranges = next;
             return Ok(Value::Source(selected));
@@ -153,11 +182,72 @@ impl State {
             }
         }
         self.ranges = next;
-        self.finish(spec)
+        self.finish(spec, context)
     }
 
-    fn finish(&self, spec: &Spec) -> Result<Value> {
+    fn finish(&self, spec: &Spec, context: &NativeExecutionContext<'_>) -> Result<Value> {
         match spec.function {
+            Function::Aggregate(function) if function.is_collection() => {
+                let (arena, root) = self
+                    .collections
+                    .as_ref()
+                    .ok_or_else(|| failed("window collection state is absent"))?;
+                let mut rows = ReservedVec::new(context.memory())?;
+                rows.reserve(
+                    usize::try_from(arena.count(*root))
+                        .map_err(|_| failed("window collection count exceeds addressable rows"))?,
+                )?;
+                arena.visit(*root, context.cancellation(), &mut |row| {
+                    rows.values.push(row);
+                    Ok(())
+                })?;
+                Ok(Value::Sources(rows))
+            }
+            Function::Aggregate(function) if function.is_quantile() => {
+                let (arena, root) = self
+                    .quantiles
+                    .as_ref()
+                    .ok_or_else(|| failed("window quantile state is absent"))?;
+                let count = arena.count(*root);
+                let discrete = function == Aggregate::QuantileDisc;
+                if count == 0 {
+                    return Ok(if discrete {
+                        Value::Source(None)
+                    } else if spec.decimal.is_some() {
+                        Value::Decimal(None)
+                    } else {
+                        Value::Float(None)
+                    });
+                }
+                let position = Position::new(
+                    spec.quantile_level
+                        .ok_or_else(|| failed("window quantile level is absent"))?,
+                    count,
+                    discrete,
+                )?;
+                let (lower, ordinal) =
+                    arena.select(*root, position.lower, context.cancellation())?;
+                if discrete {
+                    return Ok(Value::Source(Some(ordinal)));
+                }
+                let (upper, _) = arena.select(*root, position.upper, context.cancellation())?;
+                let dtype = if let Some(source) = spec.decimal {
+                    vortex::array::dtype::DType::Decimal(
+                        native_decimal_reduce::output_dtype(source, true)?,
+                        vortex::array::dtype::Nullability::Nullable,
+                    )
+                } else {
+                    vortex::array::dtype::DType::Primitive(
+                        vortex::array::dtype::PType::F64,
+                        vortex::array::dtype::Nullability::Nullable,
+                    )
+                };
+                match position.interpolate(lower, upper, &dtype)? {
+                    result_batch::Value::Float(value) => Ok(Value::Float(Some(value))),
+                    result_batch::Value::Decimal(value, _) => Ok(Value::Decimal(Some(value))),
+                    _ => Err(failed("window quantile interpolation changed output type")),
+                }
+            }
             Function::Aggregate(Aggregate::Count) => Ok(Value::Count(
                 self.counts.iter().try_fold(0u64, |sum, count| {
                     sum.checked_add(*count)
@@ -170,8 +260,11 @@ impl State {
                     .ok_or_else(|| failed("window distinct state is absent"))?
                     .active,
             )),
-            Function::Aggregate(Aggregate::Sum | Aggregate::Avg) => {
-                let average = spec.function == Function::Aggregate(Aggregate::Avg);
+            Function::Aggregate(
+                Aggregate::Sum | Aggregate::Avg | Aggregate::SumDistinct | Aggregate::AvgDistinct,
+            ) => {
+                let average =
+                    matches!(spec.function, Function::Aggregate(function) if function.is_average());
                 if let Some(dtype) = spec.decimal {
                     let mut total = native_decimal_reduce::Total::default();
                     for part in &self.decimals {
@@ -199,10 +292,44 @@ impl State {
         input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        if !super::admitted(row, spec, input, context)? {
+            return Ok(());
+        }
+        if spec.function == Function::Aggregate(Aggregate::Count) && spec.key.is_none() {
+            self.counts[interval] = if add {
+                self.counts[interval].checked_add(1)
+            } else {
+                self.counts[interval].checked_sub(1)
+            }
+            .ok_or_else(|| failed("window observation count overflow or underflow"))?;
+            return Ok(());
+        }
+        if let Some((arena, root)) = &mut self.collections {
+            if !super::selection::eligible(row, spec, input, context)? {
+                return Ok(());
+            }
+            let compare =
+                |left, right| super::selection::compare(left, right, spec, input, context);
+            *root = if add {
+                arena.insert_by(*root, row, context.cancellation(), compare)?
+            } else {
+                arena.remove_by(*root, row, context.cancellation(), compare)?
+            };
+            return Ok(());
+        }
         let key = spec
             .key
             .ok_or_else(|| failed("window observation has no bound key"))?;
         if input.key_is_null(row, key, context)? {
+            return Ok(());
+        }
+        if let Some((arena, root)) = &mut self.quantiles {
+            let value = input.raw_cell(row, key, context)?;
+            *root = if add {
+                arena.insert(*root, value, row, context.cancellation())?
+            } else {
+                arena.remove(*root, &value, row, context.cancellation())?
+            };
             return Ok(());
         }
         match spec.function {
@@ -214,36 +341,59 @@ impl State {
                 }
                 .ok_or_else(|| failed("window observation count overflow or underflow"))?;
             }
-            Function::Aggregate(Aggregate::CountDistinct) => {
-                self.distinct
+            Function::Aggregate(
+                Aggregate::CountDistinct | Aggregate::SumDistinct | Aggregate::AvgDistinct,
+            ) => {
+                let changed = self
+                    .distinct
                     .as_mut()
                     .ok_or_else(|| failed("window distinct state is absent"))?
                     .observe(row, key, add, input, context)?;
-            }
-            Function::Aggregate(Aggregate::Sum | Aggregate::Avg) => {
-                let value = input.raw_cell(row, key, context)?;
-                if let Some(dtype) = spec.decimal {
-                    let Cell::Decimal(value, actual) = value else {
-                        return Err(failed("window decimal observation changed type"));
-                    };
-                    if actual != dtype {
-                        return Err(failed("window decimal observation changed metadata"));
-                    }
-                    if add {
-                        self.decimals[interval].add(value, dtype)?;
-                    } else {
-                        self.decimals[interval].remove(value, dtype)?;
-                    }
-                } else {
-                    let value = number(&value)?;
-                    if add {
-                        self.floats[interval].add(value)?;
-                    } else {
-                        self.floats[interval].remove(value)?;
-                    }
+                if changed && spec.function != Function::Aggregate(Aggregate::CountDistinct) {
+                    // Membership belongs to the union of the frame intervals.
+                    // One shared total observes the first/last active occurrence.
+                    self.observe_additive(0, row, key, add, spec, input, context)?;
                 }
             }
+            Function::Aggregate(Aggregate::Sum | Aggregate::Avg) => {
+                self.observe_additive(interval, row, key, add, spec, input, context)?;
+            }
             _ => return Err(failed("window observation used an incompatible state")),
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)] // Updates the existing interval total using its selected native row.
+    fn observe_additive(
+        &mut self,
+        interval: usize,
+        row: usize,
+        key: usize,
+        add: bool,
+        spec: &Spec,
+        input: &mut impl Input,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let value = input.raw_cell(row, key, context)?;
+        if let Some(dtype) = spec.decimal {
+            let Cell::Decimal(value, actual) = value else {
+                return Err(failed("window decimal observation changed type"));
+            };
+            if actual != dtype {
+                return Err(failed("window decimal observation changed metadata"));
+            }
+            if add {
+                self.decimals[interval].add(value, dtype)?;
+            } else {
+                self.decimals[interval].remove(value, dtype)?;
+            }
+        } else {
+            let value = number(&value)?;
+            if add {
+                self.floats[interval].add(value)?;
+            } else {
+                self.floats[interval].remove(value)?;
+            }
         }
         Ok(())
     }
@@ -291,7 +441,7 @@ impl Distinct {
         add: bool,
         input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let hash = input
             .hash_key(row, key, context)?
             .ok_or_else(|| failed("nonnull distinct key has no hash"))?;
@@ -333,7 +483,7 @@ impl Distinct {
                 .ok_or_else(|| failed("window distinct count underflow"))?;
         }
         self.counts.values[index] = next;
-        Ok(())
+        Ok(count == 0 || next == 0)
     }
 }
 
@@ -362,10 +512,6 @@ impl Candidates {
         input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        let key = spec
-            .key
-            .ok_or_else(|| failed("window extrema has no bound key"))?;
-        let maximum = spec.function == Function::Aggregate(Aggregate::Max);
         while self.first().is_some_and(|position| position < next.start) {
             if self.head.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -382,7 +528,7 @@ impl Candidates {
                 context.check_cancelled()?;
             }
             // This also validates singleton/non-comparing finite key domains.
-            if input.hash_key(position, key, context)?.is_none() {
+            if !super::selection::eligible(position, spec, input, context)? {
                 continue;
             }
             let mut compared = 0usize;
@@ -395,14 +541,7 @@ impl Candidates {
                     .values
                     .last()
                     .expect("nonempty candidate queue");
-                let order = input.compare_key(previous, position, key, context)?;
-                if order
-                    != if maximum {
-                        Ordering::Less
-                    } else {
-                        Ordering::Greater
-                    }
-                {
+                if !super::selection::compare(previous, position, spec, input, context)?.is_gt() {
                     break;
                 }
                 self.positions.values.pop();

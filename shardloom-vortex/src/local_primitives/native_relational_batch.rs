@@ -33,6 +33,10 @@ pub(super) struct Batch {
 }
 
 impl Batch {
+    pub(super) fn from_prepared_keys(array: ArrayRef, keys: ReservedVec<KeyColumn>) -> Self {
+        Self { array, keys }
+    }
+
     pub(super) fn new(
         array: ArrayRef,
         key_names: &[String],

@@ -10,8 +10,22 @@ mod reuse_tests;
 #[path = "native_relational_aggregate_numeric_tests.rs"]
 mod numeric_tests;
 
+#[path = "native_relational_collections.rs"]
+mod collections;
+#[path = "native_relational_aggregate_filter.rs"]
+pub(super) mod filter;
+#[path = "native_relational_quantiles.rs"]
+mod quantiles;
+#[path = "native_relational_selections.rs"]
+mod selections;
+#[path = "native_relational_statistics.rs"]
+mod statistics;
+
+pub(super) use super::native_relational_aggregate_kind::Function;
+pub(super) use selections::Spec as SelectionSpec;
+
 use super::{
-    NumericAggregateSum, SimpleAggregateFunction as Function, logical_field_from_native_array,
+    NumericAggregateSum, logical_field_from_native_array,
     native_capacity::ReservedVec,
     native_decimal_reduce,
     native_numeric_owner::NativeNumericOwner,
@@ -42,10 +56,30 @@ use vortex::{
 pub(super) struct Measure {
     pub(super) function: Function,
     pub(super) column: Option<String>,
+    pub(super) secondary_column: Option<String>,
+    pub(super) quantile_level: Option<crate::query_primitive::VortexQuantileLevel>,
+    pub(super) separator: Option<String>,
+    pub(super) filter_column: Option<String>,
+    pub(super) selection: Option<SelectionSpec>,
     pub(super) dtype: DType,
     pub(super) decimal_source: Option<DecimalDType>,
     pub(super) distinct_fields: Vec<(String, DType)>,
     pub(super) distinct_names: Vec<String>,
+}
+
+impl Measure {
+    pub(super) fn input_columns(&self) -> impl Iterator<Item = &str> {
+        self.column
+            .iter()
+            .chain(self.secondary_column.iter())
+            .chain(self.filter_column.iter())
+            .map(String::as_str)
+            .chain(
+                self.selection
+                    .iter()
+                    .flat_map(|spec| spec.order.iter().map(|key| key.column.as_str())),
+            )
+    }
 }
 pub(super) struct Spec {
     pub(super) fields: Vec<(String, DType)>,
@@ -94,17 +128,20 @@ impl GroupOrdinals {
 }
 
 /// Only adjacent compatible measures share this owner. A different column or
-/// nested COUNT mode releases it before the next preparation, preserving the
+/// validity-only COUNT mode releases it before the next preparation, preserving the
 /// sequential ownership bound and the original measure/error order.
 struct PreparedColumn<'a> {
     name: &'a str,
+    filter: Option<&'a str>,
     values: Option<KeyColumn>,
     validity: Option<Mask>,
 }
 
 impl PreparedColumn<'_> {
-    fn matches(&self, name: Option<&str>, count_nested: bool) -> bool {
-        name == Some(self.name) && self.validity.is_some() == count_nested
+    fn matches(&self, measure: &Measure, count_validity: bool) -> bool {
+        measure.column.as_deref() == Some(self.name)
+            && measure.filter_column.as_deref() == self.filter
+            && self.validity.is_some() == count_validity
     }
 }
 
@@ -116,6 +153,10 @@ pub(super) struct Aggregate<'a> {
     nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,
     decimal_totals: Option<ReservedVec<native_decimal_reduce::Total>>,
     decimal_width: usize,
+    statistics: Option<statistics::Table>,
+    quantiles: Option<quantiles::Table>,
+    selections: Option<selections::Table>,
+    collections: Option<collections::Table>,
 }
 
 impl<'a> Aggregate<'a> {
@@ -150,8 +191,9 @@ impl<'a> Aggregate<'a> {
         let mut distinct = ReservedVec::new(memory)?;
         distinct.reserve(spec.measures.len())?;
         for measure in &spec.measures {
-            distinct.values.push(
-                if track_distinct && measure.function == Function::CountDistinct {
+            distinct
+                .values
+                .push(if track_distinct && measure.function.is_distinct() {
                     Some(RowSet::new(
                         &measure.distinct_fields,
                         &measure.distinct_names,
@@ -159,14 +201,12 @@ impl<'a> Aggregate<'a> {
                     )?)
                 } else {
                     None
-                },
-            );
+                });
         }
-        let nested_extrema = if spec
-            .measures
-            .iter()
-            .any(|measure| native_payload::is_nested(&measure.dtype))
-        {
+        let nested_extrema = if spec.measures.iter().any(|measure| {
+            native_payload::is_nested(&measure.dtype)
+                && matches!(measure.function, Function::Min | Function::Max)
+        }) {
             let mut values = ReservedVec::new(memory)?;
             values.reserve(states.values.len())?;
             values.values.resize_with(states.values.len(), || None);
@@ -199,10 +239,14 @@ impl<'a> Aggregate<'a> {
             nested_extrema,
             decimal_totals,
             decimal_width,
+            statistics: statistics::Table::new(spec, memory)?,
+            quantiles: quantiles::Table::new(spec, memory, !track_distinct)?,
+            selections: selections::Table::new(spec, memory)?,
+            collections: collections::Table::new(spec, memory, !track_distinct)?,
         })
     }
 
-    fn reserve_states(&mut self) -> Result<()> {
+    fn reserve_states(&mut self, memory: &LiveMemoryPool) -> Result<()> {
         if let Some(groups) = &self.groups {
             let count = groups
                 .rows()
@@ -228,6 +272,18 @@ impl<'a> Aggregate<'a> {
             totals
                 .values
                 .resize(count, native_decimal_reduce::Total::default());
+        }
+        if let Some(statistics) = &mut self.statistics {
+            statistics.reserve_groups(self.groups.as_ref().map_or(1, RowSet::rows))?;
+        }
+        if let Some(quantiles) = &mut self.quantiles {
+            quantiles.reserve_groups(self.groups.as_ref().map_or(1, RowSet::rows))?;
+        }
+        if let Some(selections) = &mut self.selections {
+            selections.reserve_groups(self.groups.as_ref().map_or(1, RowSet::rows))?;
+        }
+        if let Some(collections) = &mut self.collections {
+            collections.reserve_groups(self.groups.as_ref().map_or(1, RowSet::rows), memory)?;
         }
         Ok(())
     }
@@ -276,6 +332,107 @@ impl<'a> Aggregate<'a> {
         Ok(())
     }
 
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn add_ordered_quantiles(
+        &mut self,
+        measures: &[usize],
+        values: &KeyColumn,
+        rows: std::ops::Range<usize>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if measures
+            .iter()
+            .any(|&index| self.spec.measures[index].function.is_quantile())
+        {
+            self.quantiles
+                .as_mut()
+                .ok_or_else(|| failed("ordered quantile state is absent"))?
+                .consume_ordered(self.spec, measures, values, rows, context)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn add_ordered_collection(
+        &mut self,
+        measure: usize,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let specification = self
+            .spec
+            .measures
+            .get(measure)
+            .ok_or_else(|| failed("ordered collection measure is absent"))?;
+        self.collections
+            .as_mut()
+            .ok_or_else(|| failed("ordered collection state is absent"))?
+            .consume(
+                measure,
+                specification,
+                &GroupOrdinals::Scalar(array.len()),
+                array,
+                context,
+            )
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn add_ordered_distinct_values(
+        &mut self,
+        measure: usize,
+        values: &KeyColumn,
+        rows: &[usize],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let specification = self
+            .spec
+            .measures
+            .get(measure)
+            .ok_or_else(|| failed("ordered distinct measure is absent"))?;
+        if self.groups.is_some()
+            || !matches!(
+                specification.function,
+                Function::SumDistinct | Function::AvgDistinct
+            )
+            || self
+                .distinct
+                .values
+                .get(measure)
+                .is_none_or(Option::is_some)
+        {
+            return Err(failed("ordered distinct values have incompatible state"));
+        }
+        let decimal_index = self.spec.measures[..measure]
+            .iter()
+            .filter(|measure| measure.decimal_source.is_some())
+            .count();
+        for (offset, &row) in rows.iter().enumerate() {
+            if offset.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            let decimal = if specification.decimal_source.is_some() {
+                Some(
+                    self.decimal_totals
+                        .as_mut()
+                        .ok_or_else(|| failed("ordered distinct decimal state absent"))?
+                        .values
+                        .get_mut(decimal_index)
+                        .ok_or_else(|| failed("ordered distinct decimal slot absent"))?,
+                )
+            } else {
+                None
+            };
+            update_distinct(
+                &mut self.states.values[measure],
+                decimal,
+                specification,
+                Some(values.raw_cell(row)?),
+                context,
+            )?;
+        }
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)] // Keep the shared typed measure update loop and its ordering contract together.
     fn consume_inner(
         &mut self,
@@ -285,17 +442,71 @@ impl<'a> Aggregate<'a> {
         accumulate_distinct_values: bool,
     ) -> Result<()> {
         context.check_cancelled()?;
-        let ordinals = if let Some(groups) = &mut self.groups {
+        let all_ordinals = if let Some(groups) = &mut self.groups {
             GroupOrdinals::Grouped(groups.intern_batch(array.clone(), context, batch_rows)?)
         } else {
             GroupOrdinals::Scalar(array.len())
         };
-        self.reserve_states()?;
+        self.reserve_states(context.memory())?;
         let mut decimal_index = 0;
         let mut prepared: Option<PreparedColumn<'_>> = None;
+        let mut selection_groups = None;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
-            if !accumulate_distinct_values && measure.function == Function::CountDistinct {
+            let selected = filter::select(array, &all_ordinals, measure, context)?;
+            let (array, ordinals) = selected.as_ref().map_or((array, &all_ordinals), |input| {
+                (&input.array, &input.groups)
+            });
+            if measure.function.is_collection() {
+                if accumulate_distinct_values {
+                    self.collections
+                        .as_mut()
+                        .ok_or_else(|| failed("collection aggregate state is absent"))?
+                        .consume(measure_index, measure, ordinals, array, context)?;
+                }
+                prepared = None;
+                continue;
+            }
+            if measure.function.is_selector() {
+                let filtered_groups;
+                let groups = if selected.is_some() {
+                    filtered_groups = selections::Groups::new(ordinals, context)?;
+                    &filtered_groups
+                } else {
+                    if selection_groups.is_none() {
+                        selection_groups = Some(selections::Groups::new(&all_ordinals, context)?);
+                    }
+                    selection_groups.as_ref().expect("bound selector groups")
+                };
+                self.selections
+                    .as_mut()
+                    .ok_or_else(|| failed("selector aggregate state is absent"))?
+                    .consume(measure_index, measure, groups, array, context)?;
+                prepared = None;
+                continue;
+            }
+            let decimal_slot = measure.decimal_source.map(|_| {
+                let slot = decimal_index;
+                decimal_index += 1;
+                slot
+            });
+            if measure.function.is_moment()
+                && self
+                    .statistics
+                    .as_ref()
+                    .is_some_and(|table| !table.needs_input(measure_index))
+            {
+                continue;
+            }
+            if measure.function.is_quantile()
+                && self
+                    .quantiles
+                    .as_ref()
+                    .is_some_and(|table| !table.needs_input(measure_index))
+            {
+                continue;
+            }
+            if !accumulate_distinct_values && measure.function.is_distinct() {
                 prepared = None;
                 continue;
             }
@@ -310,17 +521,14 @@ impl<'a> Aggregate<'a> {
                 .as_ref()
                 .map(|name| logical_field_from_native_array(array, name))
                 .transpose()?;
-            let count_nested = measure.function == Function::Count
-                && column
-                    .as_ref()
-                    .is_some_and(|array| native_payload::is_nested(array.dtype()));
+            let count_validity = measure.function == Function::Count && column.is_some();
             if !prepared
                 .as_ref()
-                .is_some_and(|prior| prior.matches(measure.column.as_deref(), count_nested))
+                .is_some_and(|prior| prior.matches(measure, count_validity))
             {
                 prepared = None;
                 if let (Some(name), Some(array)) = (measure.column.as_deref(), &column) {
-                    let (validity, values) = if count_nested {
+                    let (validity, values) = if count_validity {
                         (Some(parent_validity(array, context)?), None)
                     } else {
                         #[cfg(all(test, debug_assertions))]
@@ -331,6 +539,7 @@ impl<'a> Aggregate<'a> {
                     };
                     prepared = Some(PreparedColumn {
                         name,
+                        filter: measure.filter_column.as_deref(),
                         values,
                         validity,
                     });
@@ -340,10 +549,82 @@ impl<'a> Aggregate<'a> {
             let validity = prepared
                 .as_ref()
                 .and_then(|column| column.validity.as_ref());
+            if measure.function.is_quantile() {
+                self.quantiles
+                    .as_mut()
+                    .ok_or_else(|| failed("quantile aggregate state is absent"))?
+                    .consume(
+                        measure_index,
+                        ordinals,
+                        values.ok_or_else(|| failed("quantile input is absent"))?,
+                        context,
+                    )?;
+                continue;
+            }
+            if measure.function.is_moment() {
+                let secondary = measure
+                    .secondary_column
+                    .as_deref()
+                    .map(|name| keys(&logical_field_from_native_array(array, name)?, context))
+                    .transpose()?;
+                self.statistics
+                    .as_mut()
+                    .ok_or_else(|| failed("statistical aggregate state is absent"))?
+                    .consume(
+                        measure_index,
+                        ordinals,
+                        values.ok_or_else(|| failed("statistical input column is absent"))?,
+                        secondary.as_ref(),
+                        context,
+                    )?;
+                continue;
+            }
             if measure.function == Function::Count && column.is_none() && self.groups.is_none() {
                 add_count(
                     &mut self.states.values[measure_index],
                     u64::try_from(array.len()).map_err(vortex_error)?,
+                )?;
+                continue;
+            }
+            if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
+                let states = &mut self.states.values;
+                let decimal_totals = &mut self.decimal_totals;
+                let width = self.spec.measures.len();
+                let decimal_width = self.decimal_width;
+                accumulate_distinct(
+                    distinct,
+                    ordinals,
+                    column.as_ref().expect("bound distinct column"),
+                    values.expect("bound distinct values"),
+                    measure.function != Function::CountDistinct,
+                    context,
+                    batch_rows,
+                    &mut |group, value| {
+                        let index = group
+                            .checked_mul(width)
+                            .and_then(|index| index.checked_add(measure_index))
+                            .ok_or_else(|| failed("distinct state index overflow"))?;
+                        let state = states
+                            .get_mut(index)
+                            .ok_or_else(|| failed("distinct group has no accumulator"))?;
+                        let decimal = decimal_slot
+                            .map(|slot| {
+                                let index = group
+                                    .checked_mul(decimal_width)
+                                    .and_then(|index| index.checked_add(slot))
+                                    .ok_or_else(|| {
+                                        failed("distinct decimal state index overflow")
+                                    })?;
+                                decimal_totals
+                                    .as_mut()
+                                    .ok_or_else(|| failed("distinct decimal state absent"))?
+                                    .values
+                                    .get_mut(index)
+                                    .ok_or_else(|| failed("distinct decimal slot absent"))
+                            })
+                            .transpose()?;
+                        update_distinct(state, decimal, measure, value, context)
+                    },
                 )?;
                 continue;
             }
@@ -354,27 +635,12 @@ impl<'a> Aggregate<'a> {
                     .ok_or_else(|| failed("decimal aggregate state absent"))?;
                 accumulate_decimal(
                     &mut totals.values,
-                    &ordinals,
+                    ordinals,
                     values.ok_or_else(|| failed("decimal aggregate input absent"))?,
                     self.decimal_width,
-                    decimal_index,
+                    decimal_slot.ok_or_else(|| failed("decimal aggregate slot absent"))?,
                     source,
                     context,
-                )?;
-                decimal_index += 1;
-                continue;
-            }
-            if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
-                accumulate_distinct(
-                    distinct,
-                    &ordinals,
-                    column.as_ref().expect("bound distinct column"),
-                    values.expect("bound distinct values"),
-                    &mut self.states.values,
-                    self.spec.measures.len(),
-                    measure_index,
-                    context,
-                    batch_rows,
                 )?;
                 continue;
             }
@@ -386,7 +652,7 @@ impl<'a> Aggregate<'a> {
                 } else {
                     accumulate_grouped_numeric(
                         &mut self.states.values,
-                        &ordinals,
+                        ordinals,
                         self.spec.measures.len(),
                         measure_index,
                         owner,
@@ -416,9 +682,9 @@ impl<'a> Aggregate<'a> {
                     continue;
                 }
                 let state = &mut self.states.values[state_index];
-                if count_nested {
+                if count_validity {
                     if validity
-                        .ok_or_else(|| failed("nested COUNT validity absent"))?
+                        .ok_or_else(|| failed("COUNT validity absent"))?
                         .value(row)
                     {
                         update(state, measure, None, context)?;
@@ -460,6 +726,15 @@ impl<'a> Aggregate<'a> {
             }
             let mut decimal_index = 0;
             for (index, measure) in self.spec.measures.iter().enumerate() {
+                if measure.function.is_ordered_value() {
+                    columns.values.push(self.finish_ordered(
+                        index,
+                        measure,
+                        start..end,
+                        context,
+                    )?);
+                    continue;
+                }
                 if native_payload::is_nested(&measure.dtype) {
                     let extrema = self
                         .nested_extrema
@@ -501,15 +776,12 @@ impl<'a> Aggregate<'a> {
                                 return Err(failed("decimal aggregate output type changed"));
                             };
                             return totals.values[(start + row) * self.decimal_width + index]
-                                .finish(source, measure.function == Function::Avg)
+                                .finish(source, measure.function.is_average())
                                 .map(|value| {
                                     value.map_or(Value::Null, |value| Value::Decimal(value, output))
                                 });
                         }
-                        final_value(
-                            &self.states.values[(start + row) * self.spec.measures.len() + index],
-                            measure,
-                        )
+                        self.finish_numeric(index, start + row, measure, context)
                     },
                 )?);
             }
@@ -530,6 +802,54 @@ impl<'a> Aggregate<'a> {
             context.check_cancelled()?;
         }
         Ok(())
+    }
+
+    fn finish_ordered(
+        &self,
+        index: usize,
+        measure: &Measure,
+        groups: std::ops::Range<usize>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        if measure.function.is_collection() {
+            self.collections
+                .as_ref()
+                .ok_or_else(|| failed("collection aggregate state is absent"))?
+                .finish(index, measure, groups, context)
+        } else {
+            self.selections
+                .as_ref()
+                .ok_or_else(|| failed("selector aggregate state is absent"))?
+                .finish(index, measure, groups, context)
+        }
+    }
+
+    fn finish_numeric(
+        &self,
+        index: usize,
+        group: usize,
+        measure: &Measure,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Value<'_>> {
+        if measure.function.is_moment() {
+            return self
+                .statistics
+                .as_ref()
+                .ok_or_else(|| failed("statistical aggregate state is absent"))?
+                .finish(index, group, measure.function)
+                .map(|value| value.map_or(Value::Null, Value::Float));
+        }
+        if measure.function.is_quantile() {
+            return self
+                .quantiles
+                .as_ref()
+                .ok_or_else(|| failed("quantile aggregate state is absent"))?
+                .finish(index, group, measure, context);
+        }
+        final_value(
+            &self.states.values[group * self.spec.measures.len() + index],
+            measure,
+        )
     }
 }
 
@@ -672,11 +992,10 @@ fn accumulate_distinct(
     groups: &GroupOrdinals,
     column: &ArrayRef,
     values: &KeyColumn,
-    states: &mut [State],
-    width: usize,
-    measure: usize,
+    observe_values: bool,
     context: &NativeExecutionContext<'_>,
     batch_rows: usize,
+    consume: &mut dyn FnMut(usize, Option<Cell>) -> Result<()>,
 ) -> Result<()> {
     let mut rows = ReservedVec::new(context.memory())?;
     rows.reserve(groups.len())?;
@@ -713,6 +1032,9 @@ fn accumulate_distinct(
         batch_rows,
         Some(&mut |array| {
             let groups = keys(&logical_field_from_native_array(&array, "group")?, context)?;
+            let values = observe_values
+                .then(|| keys(&logical_field_from_native_array(&array, "value")?, context))
+                .transpose()?;
             for row in 0..array.len() {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -720,23 +1042,43 @@ fn accumulate_distinct(
                 let Cell::NonnegativeInteger(group) = groups.cell(row)? else {
                     return Err(failed("distinct group ordinal is invalid"));
                 };
-                let index = usize::try_from(group)
-                    .map_err(vortex_error)?
-                    .checked_mul(width)
-                    .and_then(|index| index.checked_add(measure))
-                    .ok_or_else(|| failed("distinct state index overflow"))?;
-                let state = states
-                    .get_mut(index)
-                    .ok_or_else(|| failed("distinct group has no accumulator"))?;
-                state.count = state
-                    .count
-                    .checked_add(1)
-                    .ok_or_else(|| failed("distinct count overflow"))?;
+                consume(
+                    usize::try_from(group).map_err(vortex_error)?,
+                    values
+                        .as_ref()
+                        .map(|values| values.raw_cell(row))
+                        .transpose()?,
+                )?;
             }
             Ok(())
         }),
     )?;
     Ok(())
+}
+
+fn update_distinct(
+    state: &mut State,
+    decimal: Option<&mut native_decimal_reduce::Total>,
+    measure: &Measure,
+    value: Option<Cell>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    if measure.function == Function::CountDistinct {
+        return add_count(state, 1);
+    }
+    if let Some(source) = measure.decimal_source {
+        let Some(Cell::Decimal(value, actual)) = value else {
+            return Err(failed("distinct decimal observation changed type"));
+        };
+        if source != actual {
+            return Err(failed("distinct decimal observation changed metadata"));
+        }
+        decimal
+            .ok_or_else(|| failed("distinct decimal accumulator absent"))?
+            .add(value, source)
+    } else {
+        update(state, measure, value, context)
+    }
 }
 
 fn add_count(state: &mut State, count: u64) -> Result<()> {
@@ -759,7 +1101,7 @@ fn update(
     add_count(state, 1)?;
     match measure.function {
         Function::Count => Ok(()),
-        Function::Sum | Function::Avg => {
+        Function::Sum | Function::Avg | Function::SumDistinct | Function::AvgDistinct => {
             let value = value
                 .as_ref()
                 .ok_or_else(|| failed("numeric argument absent"))?;
@@ -794,6 +1136,24 @@ fn update(
             Ok(())
         }
         Function::CountDistinct => Err(failed("distinct state must use the exact native set")),
+        Function::List | Function::StringAgg => {
+            Err(failed("collection state requires its native value owner"))
+        }
+        Function::Median | Function::QuantileCont | Function::QuantileDisc => {
+            Err(failed("quantile state requires its exact native owner"))
+        }
+        Function::First | Function::Last | Function::ArgMin | Function::ArgMax => Err(failed(
+            "ordered selector state requires its native payload owner",
+        )),
+        Function::VarPop
+        | Function::VarSamp
+        | Function::StddevPop
+        | Function::StddevSamp
+        | Function::CovarPop
+        | Function::CovarSamp
+        | Function::Corr => Err(failed(
+            "statistical state must use its centered native owner",
+        )),
     }
 }
 
@@ -828,10 +1188,40 @@ pub(super) fn number(value: &Cell) -> Result<f64> {
 
 fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
     Ok(match measure.function {
+        Function::List | Function::StringAgg => {
+            return Err(failed(
+                "collection result requires its native payload owner",
+            ));
+        }
+        Function::First | Function::Last | Function::ArgMin | Function::ArgMax => {
+            return Err(failed(
+                "ordered selector result requires its native payload owner",
+            ));
+        }
+        Function::Median | Function::QuantileCont | Function::QuantileDisc => {
+            return Err(failed("quantile result requires its exact native owner"));
+        }
+        Function::VarPop
+        | Function::VarSamp
+        | Function::StddevPop
+        | Function::StddevSamp
+        | Function::CovarPop
+        | Function::CovarSamp
+        | Function::Corr => {
+            return Err(failed(
+                "statistical result requires its centered native owner",
+            ));
+        }
         Function::Count | Function::CountDistinct => Value::UInt(state.count),
-        Function::Sum | Function::Avg if state.count == 0 => Value::Null,
-        Function::Sum => Value::Float(state.sum.total()),
-        Function::Avg => Value::Float(super::simple_average_value(state.sum.total(), state.count)),
+        Function::Sum | Function::Avg | Function::SumDistinct | Function::AvgDistinct
+            if state.count == 0 =>
+        {
+            Value::Null
+        }
+        Function::Sum | Function::SumDistinct => Value::Float(state.sum.total()),
+        Function::Avg | Function::AvgDistinct => {
+            Value::Float(super::simple_average_value(state.sum.total(), state.count))
+        }
         Function::Min | Function::Max => match &state.extreme {
             None | Some(Cell::Null) => Value::Null,
             Some(Cell::NegativeInteger(value) | Cell::Timestamp(value)) => Value::Int(*value),
@@ -912,6 +1302,11 @@ mod ownership_tests {
             .into_array()
         };
         let mut measure = Measure {
+            secondary_column: None,
+            filter_column: None,
+            quantile_level: None,
+            selection: None,
+            separator: None,
             function: Function::Min,
             column: Some("items".into()),
             dtype: DType::Null,

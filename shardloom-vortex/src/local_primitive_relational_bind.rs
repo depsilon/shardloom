@@ -19,6 +19,8 @@ mod aggregate;
 mod dynamic;
 #[path = "local_primitive_relational_expression_bind.rs"]
 mod expression;
+#[path = "local_primitive_relational_grouping_bind.rs"]
+mod grouping;
 pub(in crate::local_primitives) use expression::{arithmetic_dtype, literal_dtype};
 #[path = "local_primitive_relational_scan_bind.rs"]
 mod scan;

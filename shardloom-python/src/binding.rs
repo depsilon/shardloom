@@ -2,6 +2,8 @@ use pyo3::prelude::*;
 
 #[path = "adbc.rs"]
 mod adbc;
+#[path = "aggregate.rs"]
+mod aggregate;
 #[path = "batch_input.rs"]
 mod batch_input;
 #[path = "capsules.rs"]
@@ -41,6 +43,7 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<plan::NativePlan>()?;
     module.add_class::<expression::NativeExpression>()?;
     module.add_class::<relation::NativeRelation>()?;
+    module.add_class::<aggregate::NativeAggregateMeasure>()?;
     module.add_class::<window::NativeFrameOffset>()?;
     module.add_class::<window::NativeWindowFrame>()?;
     module.add_class::<window::NativeWindowExpression>()?;

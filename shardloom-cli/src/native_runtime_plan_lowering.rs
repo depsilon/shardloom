@@ -135,12 +135,7 @@ pub(super) fn columns(
                 plan = &mut node.input;
             }
             Plan::Aggregate(node) => {
-                return Ok(node
-                    .group_by
-                    .iter()
-                    .map(|column| column.as_str().to_owned())
-                    .chain(node.measures.iter().map(|measure| measure.alias.clone()))
-                    .collect());
+                return Ok(node.output_columns().map(str::to_owned).collect());
             }
             Plan::Join(node) => {
                 return Ok(node

@@ -403,6 +403,7 @@ fn streaming_subqueries_scalar_and_parameterized_inner_replay_preserve_each_oute
     let aggregate = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input: parameterized_inner(),
         group_by: vec![],
+        grouping_sets: None,
         measures: vec![VortexSimpleAggregateMeasure::new(
             "max",
             Some(ColumnRef::new("n").unwrap()),

@@ -54,9 +54,21 @@ locally accepted first Parquet adapter. The
 [acceptance report](../benchmarks/native-source-demand-2026-10-26.md) records
 all 347 corrected Parquet cases passing in 50.877676708 seconds of engine time,
 344 cases with reduced physical column demand, and the retained first checkpoint.
-The source change is not yet merged or released. The saved item-18 connector branch remains separate.
+The source change is merged in #1612 (`81ab0a4d`), and its Parquet completion is
+merged in #1613 (`04e7d92a`); neither is a package release. The saved item-18
+connector branch remains separate. The October 27
+[completion continuation](native-analytical-completion-2026-10-27.md) carries
+the remaining analytical and shared-performance work, then format/parity work.
 This work unit does not close the broader analytical capability or operator
 performance program.
+
+The subsequent [aggregate/grouping acceptance](../benchmarks/native-analytical-aggregates-2026-10-27.md)
+implements the richer shared reducers, windows, aggregate filters and grouping
+combinations. All nine new feature suites pass through five public interfaces
+on Vortex and Parquet; the installed wheel passes 194 integration tests without
+skips. The unchanged 347-case corpus passes at 31.962394957 engine seconds versus
+34.960427343 in the immediately preceding checkpoint. Original Polars observations
+remain unchanged, and the performance gap campaign is still open.
 
 The maintainer's subsequent clarification makes demand propagation a universal
 planning contract. Start with Parquet as the first adapter, but derive demand in

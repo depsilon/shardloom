@@ -639,6 +639,10 @@ pub(super) fn append_execution(
             result.ordered_aggregate_distinct_rows.to_string(),
         ),
         (
+            "relational_ordered_aggregate_quantile_rows".into(),
+            result.ordered_aggregate_quantile_rows.to_string(),
+        ),
+        (
             "relational_ordered_join_stages".into(),
             result.ordered_join_stages.to_string(),
         ),

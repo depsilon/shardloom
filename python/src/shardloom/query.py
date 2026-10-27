@@ -131,6 +131,7 @@ class WorkflowOperation:
     projection_sql: tuple[str, ...] | None = None
     resource_limits: ExecutionResourceLimits | None = None
     right_frame: "LazyFrame | None" = field(default=None, repr=False, compare=False)
+    grouping_clause: str | None = None
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
@@ -139,6 +140,8 @@ class WorkflowOperation:
             return f"filter({self.values[0]})"
         if self.kind == "having":
             return f"having({self.values[0]})"
+        if self.kind == "group_by" and self.grouping_clause is not None:
+            return f"group_by({self.grouping_clause})"
         if self.kind == "select":
             return f"select({','.join(self.values)})"
         if self.kind == "limit":
@@ -302,6 +305,16 @@ class ColumnExpression:
             raise TypeError("over() requires a WindowSpec")
         return WindowExpression(f"{self.sql} OVER ({specification.sql})",
             _predicate_sources(self, specification), _predicate_limits(self, specification))
+
+    def filter(self, predicate) -> "ColumnExpression":
+        """Declare aggregate-local FILTER; false and NULL predicate values exclude rows."""
+        if not isinstance(predicate, (PredicateExpression, ColumnExpression)):
+            raise TypeError("aggregate filter requires a PredicateExpression or ColumnExpression")
+        return ColumnExpression(
+            f"{self.sql} FILTER (WHERE {predicate.sql})",
+            _predicate_sources(self, predicate),
+            resource_limits=_predicate_limits(self, predicate),
+        )
 
     def __eq__(self, value: object) -> PredicateExpression:  # type: ignore[override]
         if value is None:
@@ -5058,6 +5071,22 @@ class LazyFrame:
 
         return self.group_by(*columns)
 
+    def grouping_sets(self, *sets: object, distinct: bool = False) -> "GroupedLazyFrame":
+        """Group over explicit key sets; an empty tuple/list denotes the total.
+
+        Example: frame.grouping_sets(["region", "currency"], ["region"], []).agg(...).
+        Duplicate sets are retained unless distinct=True.
+        """
+        return _grouping_frame(self, "GROUPING SETS", sets, distinct=distinct)
+
+    def rollup(self, *columns: object) -> "GroupedLazyFrame":
+        """Group over key prefixes; a tuple/list of keys is one rollup unit."""
+        return _grouping_frame(self, "ROLLUP", columns)
+
+    def cube(self, *columns: object) -> "GroupedLazyFrame":
+        """Group over key subsets; expansion is admitted by the native memory owner."""
+        return _grouping_frame(self, "CUBE", columns)
+
     def aggregate(
         self,
         *expressions: object,
@@ -6677,13 +6706,14 @@ class LazyFrame:
         *,
         source_bindings: tuple[WorkflowSource, ...] = (),
         resource_limits: ExecutionResourceLimits | None = None,
+        grouping_clause: str | None = None,
     ) -> "LazyFrame":
         return LazyFrame(
             source=self.source,
             client=self.client,
             operations=(
                 *self.operations,
-                WorkflowOperation("group_by", columns),
+                WorkflowOperation("group_by", columns, grouping_clause=grouping_clause),
                 WorkflowOperation("aggregate", expressions, source_bindings, resource_limits=resource_limits),
             ),
             engine_mode=self.engine_mode,
@@ -6764,6 +6794,8 @@ class LazyFrame:
                     return None
                 aggregate_list = operation.values
             elif operation.kind == "group_by" and group_by_list is None:
+                if operation.grouping_clause is not None:
+                    return None  # The stage renderer owns grouping-set grammar.
                 if distinct_requested:
                     return None
                 if any(
@@ -7008,12 +7040,13 @@ class GroupedLazyFrame:
     columns: tuple[str, ...]
     source_bindings: tuple[WorkflowSource, ...] = ()
     resource_limits: ExecutionResourceLimits | None = None
+    grouping_clause: str | None = None
 
     @property
     def operation_summary(self) -> str:
         """Return the grouped workflow summary."""
 
-        return f"{self.workflow.operation_summary} -> group_by({','.join(self.columns)})"
+        return f"{self.workflow.operation_summary} -> group_by({self.grouping_clause or ','.join(self.columns)})"
 
     def agg(
         self,
@@ -7044,11 +7077,13 @@ class GroupedLazyFrame:
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
                 resource_limits=resource_limits,
+                grouping_clause=self.grouping_clause,
             )
         if self.workflow.source.source_format == "vortex":
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
                 resource_limits=resource_limits,
+                grouping_clause=self.grouping_clause,
             )
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
@@ -7081,6 +7116,22 @@ class GroupedLazyFrame:
         """Return a grouped `count(*)` workflow using a familiar aggregation shortcut."""
 
         return self.agg(**{_normalize_output_column_name(alias): "count(*)"}, check=check)
+
+
+def _grouping_frame(frame: LazyFrame, kind: str, units: tuple[object, ...], *, distinct: bool = False) -> GroupedLazyFrame:
+    if not isinstance(distinct, bool):
+        raise TypeError("distinct must be a Boolean")
+    if kind == "GROUPING SETS" and not units:
+        raise ValueError("grouping_sets requires at least one set; use [] for the total")
+    keys: list[str] = []
+    rendered: list[str] = []
+    for unit in units:
+        values = (unit,) if isinstance(unit, (str, ColumnExpression)) else tuple(unit)
+        normalized = tuple(dict.fromkeys(_normalize_columns(values))) if values else ()
+        keys.extend(name for name in normalized if name not in keys)
+        rendered.append("(" + ",".join(normalized) + ")" if kind == "GROUPING SETS" or len(normalized) != 1 else normalized[0])
+    clause = ("DISTINCT " if distinct else "") + f"{kind}({','.join(rendered)})"
+    return GroupedLazyFrame(frame, tuple(keys), _predicate_sources(units), _predicate_limits(units), clause)
 
 
 def read_vortex(

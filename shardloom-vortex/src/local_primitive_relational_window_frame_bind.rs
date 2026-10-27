@@ -1,9 +1,9 @@
 //! Bind frame shape, native value types and literal offsets before reading rows.
 
-use super::{DType, Result, failed, field, key, validate_key, validate_name};
+use super::{DType, Result, failed, field, key, validate_key, validate_name, validity_key};
 use crate::{
     local_primitives::{
-        SimpleAggregateFunction as Aggregate, native_relational_window as window,
+        native_relational_aggregate::Function as Aggregate, native_relational_window as window,
         native_relational_window_frame as frame,
     },
     relational_query::{
@@ -29,6 +29,7 @@ pub(super) fn bind(
         })
         .transpose()?;
     let function = match declaration {
+        Function::Aggregate(measure) => aggregate_function(measure)?,
         Function::CountAll | Function::Count(_) => frame::Function::Aggregate(Aggregate::Count),
         Function::CountDistinct(_) => frame::Function::Aggregate(Aggregate::CountDistinct),
         Function::Sum(_) => frame::Function::Aggregate(Aggregate::Sum),
@@ -58,25 +59,52 @@ pub(super) fn bind(
             .ok_or_else(|| failed("window value function requires an argument"))?
             .as_nullable(),
     };
-    let measure_key = if matches!(function, frame::Function::Aggregate(_)) {
-        column
-            .map(|column| key(window, fields, column))
-            .transpose()?
+    let quantile_level = if let Function::Aggregate(measure) = declaration {
+        Aggregate::parse(&measure.function)?.quantile_level(measure.quantile_level)?
     } else {
         None
     };
+    let measure_key = match function {
+        frame::Function::Aggregate(Aggregate::First | Aggregate::Last | Aggregate::List) => None,
+        frame::Function::Aggregate(
+            Aggregate::ArgMin | Aggregate::ArgMax | Aggregate::StringAgg,
+        ) => column
+            .map(|column| validity_key(window, fields, column))
+            .transpose()?,
+        frame::Function::Aggregate(_) => column
+            .map(|column| key(window, fields, column))
+            .transpose()?,
+        _ => None,
+    };
     let decimal = match (function, source) {
         (
-            frame::Function::Aggregate(Aggregate::Sum | Aggregate::Avg),
+            frame::Function::Aggregate(
+                Aggregate::Sum
+                | Aggregate::Avg
+                | Aggregate::SumDistinct
+                | Aggregate::AvgDistinct
+                | Aggregate::Median
+                | Aggregate::QuantileCont,
+            ),
             Some(DType::Decimal(dtype, _)),
         ) => Some(*dtype),
         _ => None,
     };
+    let (secondary_key, selection_order) = aggregate_keys(declaration, fields, window)?;
     Ok((
         frame::Spec {
             function,
             column: column.map(str::to_owned),
             key: measure_key,
+            secondary_key,
+            filter_key: aggregate_filter(declaration, fields, window)?,
+            quantile_level,
+            separator: if let Function::Aggregate(measure) = declaration {
+                measure.separator.clone()
+            } else {
+                None
+            },
+            selection_order,
             decimal,
             frame: policy(
                 expression
@@ -90,6 +118,81 @@ pub(super) fn bind(
         },
         dtype,
     ))
+}
+
+fn aggregate_filter(
+    declaration: &Function,
+    fields: &[(String, DType)],
+    window: &mut window::Spec,
+) -> Result<Option<usize>> {
+    let Function::Aggregate(measure) = declaration else {
+        return Ok(None);
+    };
+    super::super::aggregate::filter_column(measure, fields)?
+        .map(|column| key(window, fields, &column))
+        .transpose()
+}
+
+fn aggregate_keys(
+    declaration: &Function,
+    fields: &[(String, DType)],
+    window: &mut window::Spec,
+) -> Result<(Option<usize>, Vec<window::OrderKey>)> {
+    let Function::Aggregate(measure) = declaration else {
+        return Ok((None, vec![]));
+    };
+    let secondary = measure
+        .secondary_column
+        .as_ref()
+        .map(|column| {
+            let source = field(fields, column.as_str())?;
+            let function = Aggregate::parse(&measure.function)?;
+            if function.is_pair() {
+                super::super::aggregate::reduction_dtype(function, Some(source))?;
+            } else {
+                validate_key(source)?;
+            }
+            key(window, fields, column.as_str())
+        })
+        .transpose()?;
+    let order = measure
+        .order_by
+        .iter()
+        .map(|order| {
+            Ok(window::OrderKey {
+                key: key(window, fields, order.column.as_str())?,
+                descending: order.descending,
+                nulls: order.nulls,
+            })
+        })
+        .collect::<Result<_>>()?;
+    Ok((secondary, order))
+}
+
+fn aggregate_function(
+    measure: &crate::query_primitive::VortexSimpleAggregateMeasure,
+) -> Result<frame::Function> {
+    if measure.argument_offset.is_some() || measure.value_transform.is_some() {
+        return Err(failed(
+            "window aggregate arguments require explicit native projections",
+        ));
+    }
+    let function = Aggregate::parse(&measure.function)?;
+    function.validate_separator(measure.separator.as_deref())?;
+    if !function.is_ordered_value() && !measure.order_by.is_empty() {
+        return Err(failed(
+            "aggregate-local ordering requires an ordered value reducer",
+        ));
+    }
+    if function.requires_secondary() != measure.secondary_column.is_some() {
+        return Err(failed(
+            "paired statistics and arg_min/arg_max windows require exactly two input columns",
+        ));
+    }
+    if measure.column.is_none() && function != Aggregate::Count {
+        return Err(failed("window aggregate requires an input column"));
+    }
+    Ok(frame::Function::Aggregate(function))
 }
 
 pub(super) fn policy(

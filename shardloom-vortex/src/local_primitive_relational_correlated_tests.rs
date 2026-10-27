@@ -80,6 +80,7 @@ fn count(input: VortexRelationalPlan, grouped: bool) -> VortexRelationalPlan {
         } else {
             vec![]
         },
+        grouping_sets: None,
         measures: vec![VortexSimpleAggregateMeasure::new(
             "count",
             None,

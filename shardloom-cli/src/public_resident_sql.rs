@@ -39,6 +39,8 @@ pub(super) fn request_requires_relational(
             && aggregate.measures.len() == 1
             && aggregate.measures[0].function.eq_ignore_ascii_case("count")
             && aggregate.measures[0].column.is_none()
+            && aggregate.measures[0].secondary_column.is_none()
+            && aggregate.measures[0].quantile_level.is_none()
             && aggregate.measures[0].argument_offset.is_none()
             && aggregate.measures[0].value_transform.is_none())
             || !aggregate.having.is_empty()
@@ -515,7 +517,11 @@ mod tests {
 
     #[test]
     fn public_sql_invalid_distinct_aggregates_keep_parser_diagnostics_before_io() {
-        for expression in ["SUM(DISTINCT id)", "AVG(DISTINCT id)", "COUNT(DISTINCT *)"] {
+        for expression in [
+            "VAR_POP(DISTINCT id)",
+            "COVAR_POP(DISTINCT id,id)",
+            "COUNT(DISTINCT *)",
+        ] {
             for input_format in ["vortex", "csv"] {
                 for output in [
                     "collect",
@@ -552,7 +558,7 @@ mod tests {
                     let diagnostic = &plan.diagnostics[0];
                     assert_eq!(diagnostic.code, DiagnosticCode::UnsupportedSql);
                     assert!(
-                        diagnostic.message.contains("COUNT(DISTINCT"),
+                        diagnostic.message.contains("DISTINCT"),
                         "{expression} {input_format} {output}: {diagnostic:?}"
                     );
                     assert!(!diagnostic.fallback.attempted);

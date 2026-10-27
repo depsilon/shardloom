@@ -73,6 +73,38 @@ fn request(workspace: &Workspace, groups: &[&str]) -> VortexQueryPrimitiveReques
     )
     .with_source_order_limit(7)
 }
+
+#[test]
+fn aggregate_filter_is_not_ignored_by_legacy_weighted_count_admission() {
+    let workspace = Workspace::new();
+    let mut request = request(&workspace, &["tag"]);
+    assert!(weighted_count_spill_admission::request_admitted(&request));
+    request.simple_aggregate.as_mut().unwrap().measures[0].filter_column =
+        Some(ColumnRef::new("keep").unwrap());
+    assert!(!weighted_count_spill_admission::request_admitted(&request));
+    workspace.empty();
+}
+
+#[test]
+fn statistical_companion_is_not_ignored_by_legacy_weighted_count_admission() {
+    let workspace = Workspace::new();
+    let mut request = request(&workspace, &["tag"]);
+    assert!(weighted_count_spill_admission::request_admitted(&request));
+    request.simple_aggregate.as_mut().unwrap().measures[0].secondary_column =
+        Some(ColumnRef::new("companion").unwrap());
+    assert!(!weighted_count_spill_admission::request_admitted(&request));
+    workspace.empty();
+}
+
+#[test]
+fn exact_quantile_option_is_not_ignored_by_legacy_weighted_count_admission() {
+    let workspace = Workspace::new();
+    let mut request = request(&workspace, &["tag"]);
+    request.simple_aggregate.as_mut().unwrap().measures[0].quantile_level =
+        Some(crate::query_primitive::VortexQuantileLevel::new(0.5).unwrap());
+    assert!(!weighted_count_spill_admission::request_admitted(&request));
+    workspace.empty();
+}
 fn chunk(numbers: ArrayRef, codes: Vec<u8>, dictionary: &[&str]) -> ArrayRef {
     let text = DictArray::try_new(
         PrimitiveArray::new(codes, Validity::NonNullable).into_array(),

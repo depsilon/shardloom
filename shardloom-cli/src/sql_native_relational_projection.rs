@@ -7,7 +7,10 @@ use super::{
     WindowExpression, WindowFunction, append_ordered_projection_expression, column,
     find_projection_by_alias, map_columns, order_key, unsupported_sql_error,
 };
-use shardloom_vortex::relational_query::VortexRelationalFrameFunction as FrameFunction;
+use shardloom_vortex::{
+    query_primitive::VortexSimpleAggregateMeasure,
+    relational_query::VortexRelationalFrameFunction as FrameFunction,
+};
 
 impl Lowerer<'_, '_> {
     fn projected_expressions(
@@ -143,6 +146,7 @@ impl Lowerer<'_, '_> {
         input = input.project(expressions);
         if parsed.distinct_projection {
             input.plan = Plan::Aggregate(Box::new(Aggregate {
+                grouping_sets: None,
                 input: input.plan,
                 group_by: input
                     .columns
@@ -271,18 +275,16 @@ impl Lowerer<'_, '_> {
         windows: &mut [ParsedWindowProjection],
     ) -> NativeResult<Lowered> {
         for window in windows {
+            if let WindowFunction::Aggregate(aggregate) = &mut window.function {
+                input = self.aggregate_scalars(input, aggregate)?;
+                continue;
+            }
             let value = match &mut window.function {
                 WindowFunction::FirstValue(value)
                 | WindowFunction::LastValue(value)
                 | WindowFunction::NthValue {
                     expression: value, ..
                 } => Some(value),
-                WindowFunction::Aggregate(aggregate) => match &mut aggregate.argument {
-                    ParsedAggregateArgument::Computed { expression, .. } => {
-                        Some(expression.as_mut())
-                    }
-                    _ => None,
-                },
                 _ => None,
             };
             if let Some(value) = value {
@@ -301,13 +303,61 @@ impl Lowerer<'_, '_> {
         projection: &mut Vec<(String, Expression)>,
         names: &mut Vec<String>,
     ) -> NativeResult<FrameFunction> {
-        let argument = match &aggregate.argument {
-            ParsedAggregateArgument::All => None,
-            ParsedAggregateArgument::Column(name) => Some(ColumnRef::new(input.resolve(name)?)?),
-            ParsedAggregateArgument::Computed { expression, .. } => {
-                Some(self.window_argument(expression, input, projection, names)?)
-            }
-        };
+        let mut lower_argument =
+            |argument: &ParsedAggregateArgument| -> NativeResult<Option<ColumnRef>> {
+                Ok(match argument {
+                    ParsedAggregateArgument::All => None,
+                    ParsedAggregateArgument::Column(name) => {
+                        Some(ColumnRef::new(input.resolve(name)?)?)
+                    }
+                    ParsedAggregateArgument::Computed { expression, .. } => {
+                        Some(self.window_argument(expression, input, projection, names)?)
+                    }
+                })
+            };
+        let argument = lower_argument(&aggregate.argument)?;
+        let secondary = aggregate
+            .secondary_argument
+            .as_ref()
+            .map(lower_argument)
+            .transpose()?
+            .flatten();
+        if aggregate.filter.is_some()
+            || (aggregate.distinct && aggregate.function != AggregateFunction::Count)
+            || aggregate.function.is_selector()
+            || matches!(
+                aggregate.function,
+                AggregateFunction::VarPop
+                    | AggregateFunction::VarSamp
+                    | AggregateFunction::StddevPop
+                    | AggregateFunction::StddevSamp
+                    | AggregateFunction::CovarPop
+                    | AggregateFunction::CovarSamp
+                    | AggregateFunction::Corr
+                    | AggregateFunction::Median
+                    | AggregateFunction::QuantileCont
+                    | AggregateFunction::QuantileDisc
+                    | AggregateFunction::List
+                    | AggregateFunction::StringAgg
+            )
+        {
+            let mut measure = VortexSimpleAggregateMeasure::new(
+                aggregate.function.native_name(aggregate.distinct)?,
+                argument,
+                aggregate.output_name(),
+            );
+            measure.secondary_column = secondary;
+            measure.quantile_level = aggregate.quantile_level;
+            measure.separator.clone_from(&aggregate.separator);
+            measure.filter_column = super::aggregate_filter_column(aggregate, input)?;
+            measure.order_by = aggregate
+                .order_by
+                .iter()
+                .flat_map(|order| &order.keys)
+                .map(|key| order_key(key, input))
+                .collect::<NativeResult<_>>()?;
+            return Ok(FrameFunction::Aggregate(Box::new(measure)));
+        }
         Ok(match (aggregate.function, aggregate.distinct, argument) {
             (AggregateFunction::Count, false, None) => FrameFunction::CountAll,
             (AggregateFunction::Count, false, Some(column)) => FrameFunction::Count(column),

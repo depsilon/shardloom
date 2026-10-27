@@ -53,9 +53,6 @@ pub(super) fn build<'s>(
     let mut written = 0;
     let mut cursor = frame::Cursor::default();
     let mut previous = [0..0, 0..0, 0..0];
-    let key = spec
-        .key
-        .ok_or_else(|| failed("window interval function has no measure key"))?;
     for position in 0..input.range.len() {
         if position.is_multiple_of(1024) {
             context.check_cancelled()?;
@@ -77,9 +74,7 @@ pub(super) fn build<'s>(
                 if offset.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                if !input.key_is_null(row, key, context)? {
-                    input.hash_key(row, key, context)?;
-                }
+                observe(spec, input, row, context)?;
             }
         }
         previous.clone_from(&ranges);
@@ -100,6 +95,30 @@ pub(super) fn build<'s>(
         names,
         _metadata: metadata,
     })
+}
+
+fn observe(
+    spec: &frame::Spec,
+    input: &mut Partition<'_, '_>,
+    row: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    if !frame::admitted(row, spec, input, context)? {
+        return Ok(());
+    }
+    if matches!(spec.function, frame::Function::Aggregate(function) if function.is_selector()) {
+        // A selector observes its comparison keys and parent validity. Its
+        // value remains payload until the final selected row is gathered.
+        frame::selection::eligible(row, spec, input, context)?;
+    } else {
+        let key = spec
+            .key
+            .ok_or_else(|| failed("window interval function has no measure key"))?;
+        if !input.key_is_null(row, key, context)? {
+            input.hash_key(row, key, context)?;
+        }
+    }
+    Ok(())
 }
 
 fn flush(

@@ -157,11 +157,18 @@ impl<'a> Node<'a> {
 
     fn local_bytes(self) -> NativeResult<usize> {
         let bytes = match self {
-            Self::Select(select) => select
-                .normalized_statement
-                .len()
-                .checked_mul(1024)
-                .and_then(|bytes| bytes.checked_add(std::mem::size_of::<Select>() * 16)),
+            Self::Select(select) => {
+                let grouping = select
+                    .grouping_sets
+                    .as_ref()
+                    .map_or(Ok(0), super::grouping_syntax::Grouping::metadata_bytes)?;
+                select
+                    .normalized_statement
+                    .len()
+                    .checked_mul(1024)
+                    .and_then(|bytes| bytes.checked_add(std::mem::size_of::<Select>() * 16))
+                    .and_then(|bytes| bytes.checked_add(grouping))
+            }
             Self::Query(Query::Columns { names, .. }) => {
                 names.iter().try_fold(4096usize, |bytes, name| {
                     name.len()
@@ -315,11 +322,7 @@ impl Node<'_> {
         match self {
             Self::Select(select) => {
                 usize::from(select.join.is_some())
-                    + usize::from(
-                        !select.aggregates.is_empty()
-                            || !select.group_by.is_empty()
-                            || !select.having_aggregates.is_empty(),
-                    )
+                    + usize::from(select.is_aggregate() || !select.group_by.is_empty())
                     + usize::from(!select.window_projections.is_empty())
                     + usize::from(select.order_by.is_some())
             }

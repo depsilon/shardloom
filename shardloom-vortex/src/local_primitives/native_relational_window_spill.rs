@@ -4,6 +4,7 @@ use super::{Function, Group, Spec, frame};
 use crate::{
     local_primitives::{
         native_capacity::ReservedVec,
+        native_collection_ordinals,
         native_relational_batch::{Batch, failed},
         native_relational_records as private,
         native_relational_spill::{Ordering, State, StoredOrder},
@@ -151,7 +152,7 @@ fn build<'s>(
         context.check_cancelled()?;
         let ordinal = report.input_rows;
         add(&mut report.input_rows, array.len() as u64)?;
-        let input = Batch::new(array, &spec.keys, context)?;
+        let input = super::input_batch(spec, array, context)?;
         for row in 0..input.array.len() {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -380,6 +381,26 @@ fn result_column(
 ) -> Result<ArrayRef> {
     let dtype = &spec.fields[spec.columns.len() + index].1;
     match kind {
+        Kind::Sources => {
+            let frame = spec.frames[index]
+                .as_ref()
+                .ok_or_else(|| failed("collection window frame is absent"))?;
+            native_collection_ordinals::gather(
+                &values,
+                dtype,
+                frame.separator.as_deref(),
+                |rows, dtype| {
+                    input.gather(
+                        rows,
+                        Some(DATA),
+                        selected_column(spec, index)?,
+                        dtype,
+                        context,
+                    )
+                },
+                context,
+            )
+        }
         Kind::Source => {
             let mut execution = context.native_session().create_execution_ctx();
             let values = values

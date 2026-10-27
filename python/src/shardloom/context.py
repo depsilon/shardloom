@@ -4181,10 +4181,28 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
     ),
     _df_method(
+        "grouping_sets",
+        "aggregation",
+        "lazy_group_handle_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "rollup",
+        "aggregation",
+        "lazy_group_handle_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "cube",
+        "aggregation",
+        "lazy_group_handle_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
         "groupby",
         "aggregation",
         "lazy_group_handle_supported",
-        claim_boundary="Alias for group_by(...). Lazy grouped handle only until agg/aggregate/count terminal lowering is admitted.",
+        claim_boundary="Alias for group_by(...). The grouped handle stays lazy until an admitted agg/aggregate/count action; reducer and grouping shapes outside the declared native surface return deterministic blockers.",
     ),
     _df_method(
         "agg",
@@ -4200,7 +4218,13 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Exact native Vortex scalar/grouped aggregate provider shapes only; broad aggregate planning remains blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Shared native aggregate measures include count/sum/mean/min/max, exact distinct "
+            "sum/avg, population/sample variance and standard deviation, covariance/correlation, "
+            "exact median/quantiles, ordered first/last/arg_min/arg_max, and list/array_agg/string_agg. "
+            "Aggregate FILTER and declared grouping sets/rollup/cube/GROUPING_ID are supported. "
+            "Only declared SQL/DataFrame/typed shapes and admitted input types/resources are "
+            "supported; arbitrary reducers and unsupported type combinations remain blocked. "
+            "Compatibility sources use their declared shared native source adapters; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4218,7 +4242,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Alias over admitted aggregate provider shapes only; broad aggregate planning remains blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Alias over the declared shared native aggregate measures and grouping shapes; arbitrary reducers and unsupported type/resource combinations remain blocked. Compatibility sources use their declared shared native source adapters; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -5711,8 +5735,14 @@ FRONT_DOOR_SEMANTIC_SURFACE_ROWS: tuple[FrontDoorSemanticSurfaceRow, ...] = (
         "dataframe_aggregation",
         "dataframe",
         "aggregation",
-        "count/sum/mean/min/max/group_by and null-heavy aggregate families lower to admitted native/provider routes with empty/all-null behavior documented by evidence rows.",
-        "Unadmitted aggregate functions, custom reductions, and shape-dependent pandas outputs block.",
+        "Shared native scalar/grouped measures cover count/sum/mean/min/max, exact distinct "
+        "sum/avg, population/sample variance and standard deviation, covariance/correlation, "
+        "exact median/quantiles, ordered first/last/arg_min/arg_max, and list/array_agg/string_agg. "
+        "Aggregate FILTER and GROUPING SETS/ROLLUP/CUBE/GROUPING_ID compose through declared "
+        "DataFrame, SQL, and typed relation surfaces where input types and resource admission permit.",
+        "Unlisted reducers, arbitrary custom reductions, unsupported type/resource combinations, "
+        "and shape-dependent pandas outputs block; this does not claim general pandas aggregate "
+        "parity or arbitrary decimal statistics.",
         required_evidence=("dataframe_method_matrix", "front_door_parity_matrix"),
         claim_boundary="Scoped aggregate equivalence for admitted operators.",
     ),
@@ -5864,8 +5894,14 @@ FRONT_DOOR_SEMANTIC_SURFACE_ROWS: tuple[FrontDoorSemanticSurfaceRow, ...] = (
         "sql_aggregates",
         "sql",
         "aggregates",
-        "COUNT(*), COUNT(col), SUM, AVG/mean, MIN, MAX, grouped/global aggregate behavior, and empty/all-null cases are admitted where evidence exists.",
-        "Unadmitted aggregate functions, hidden aggregate expressions, and unsupported result-shape variants block.",
+        "Shared native SQL/typed measures cover COUNT(*), COUNT(col), SUM/AVG/mean, MIN/MAX, "
+        "exact SUM/AVG DISTINCT, population/sample variance and standard deviation, "
+        "covariance/correlation, exact median/quantiles, ordered first/last/arg_min/arg_max, "
+        "and list/array_agg/string_agg. Aggregate FILTER and GROUPING SETS/ROLLUP/CUBE/GROUPING_ID "
+        "compose where declared and admitted input types/resources permit.",
+        "Unlisted reducers, hidden unsupported aggregate expressions, unsupported type/resource "
+        "combinations, and unsupported result shapes block; arbitrary decimal statistical support "
+        "is not implied.",
         required_evidence=("admitted_semantics_matrix", "clickbench_olap_runtime_coverage"),
         claim_boundary="Scoped aggregate semantics.",
     ),

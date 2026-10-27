@@ -156,6 +156,7 @@ impl Spec {
                 VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
                     input,
                     group_by: vec![],
+                    grouping_sets: None,
                     measures: functions
                         .iter()
                         .map(|(function, name, alias)| {
