@@ -49,6 +49,11 @@ mod io_ownership;
 mod serving_admission;
 pub use execution_context::{NativeExecutionContext, ResidentCallTiming};
 pub use io_ownership::ResidentIoSnapshot;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "resident_local_read.rs"]
+mod local_read;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+pub(crate) use local_read::{LocalReadMetrics, OwnedLocalRead};
 use serving_admission::CallClass;
 pub use serving_admission::{ResidentAdmissionSnapshot, ResidentServingPolicy};
 

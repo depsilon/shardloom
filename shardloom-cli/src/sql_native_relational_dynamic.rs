@@ -2,11 +2,15 @@
 //! owns every row, sparse pivot state and downstream execution.
 
 use super::{
-    BTreeMap, BTreeSet, DatasetUri, Lowerer, NativeResult, ParsedPredicate, ParsedRelationLeaf,
-    ParsedRelationQuery, ParsedRelationSource, ParsedSqlLocalSource, PreparedVortexRelational,
-    SourceResolver, VortexLocalPrimitiveExecutionPolicy, declared_query_sources,
-    unsupported_sql_error,
+    BTreeMap, DatasetUri, ParsedPredicate, ParsedRelationLeaf, ParsedRelationQuery,
+    ParsedRelationSource, ParsedSqlLocalSource,
 };
+#[cfg(test)]
+use super::{
+    BTreeSet, Lowerer, NativeResult, PreparedVortexRelational, SourceResolver,
+    VortexLocalPrimitiveExecutionPolicy, declared_query_sources, unsupported_sql_error,
+};
+#[cfg(test)]
 use shardloom_vortex::local_primitives::prepared_relational::{
     VortexRelationalPreparation, prepare_relational_with_dynamic_inputs,
     prepare_relational_with_dynamic_inputs_in_session_controlled,
@@ -43,6 +47,7 @@ pub(super) fn predicate_required(
     super::visit::Node::Predicate(predicate).dynamic_bound(inputs)
 }
 
+#[cfg(test)]
 pub(super) fn prepare(
     parsed: ParsedRelationQuery,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -159,6 +164,7 @@ pub(super) fn prepare(
     }
 }
 
+#[cfg(test)]
 fn partition_source_uses(
     uses: BTreeMap<String, (DatasetUri, u8)>,
 ) -> (Vec<DatasetUri>, Vec<DatasetUri>) {
@@ -173,6 +179,7 @@ fn partition_source_uses(
     (uris, reused)
 }
 
+#[cfg(test)]
 fn declaration_size<'a>(
     query: &'a ParsedRelationQuery,
     cancellation: &shardloom_exec::compute_pool::CancellationToken,

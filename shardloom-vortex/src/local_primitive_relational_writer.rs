@@ -204,6 +204,12 @@ impl PreparedVortexRelational {
             source.validate_generation()?;
             source.validate_destination(path)?;
         }
+        #[cfg(feature = "universal-format-io")]
+        for source in &self.batch_sources {
+            if let Some(source) = &source.local {
+                source.source.validate_destination(path)?;
+            }
+        }
         cancellation.check()
     }
 

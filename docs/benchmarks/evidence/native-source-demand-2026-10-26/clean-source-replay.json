@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+    "-I",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/packet-replay-clean/scripts/verify_native_source_demand_packet.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-source-demand-2026-10-26"
+  ],
+  "base": "4d25a06eaf343362bc91c375054b5fd262068bbb",
+  "source_archive_sha256": "3e6543193b22f13c4dec863b46b90c996fb87672f80b51dd18940ab599093409",
+  "source_scope": [
+    "scripts",
+    "python/src",
+    "benchmarks/traditional_analytics"
+  ],
+  "overlay_sha256": {
+    "benchmarks/traditional_analytics/query_surface/README.md": "176599b0f831166656b2cefc82b34ff13ff918f41d2a84d7d5dae37a00fbf993",
+    "benchmarks/traditional_analytics/query_surface/adapters.py": "b09527e58458b9e5d1cb0c7fc75f09976f924f9a406cae9377aefd571c963ee4",
+    "benchmarks/traditional_analytics/query_surface/polars_adapter.py": "3fe8503c51711daa025bdbf5ebe56c98cbd883e606d1a952c3134ac86182d1e8",
+    "scripts/native_source_demand_checkpoint_replay.py": "fe34c530f7d14660fda64b93a27426ea6dcb69008b21c9b5aa5319ed33ce44c6",
+    "scripts/verify_native_source_demand_packet.py": "58f8fef1c158391358d1c02d49e49b1060e0525e825327548137210ab6a9da51"
+  },
+  "packet_sha256": {
+    "manifest.json": "995ff82d07a9745afb92061fafb68decbaebc9d8dbc662f07509d8dd33a0037a",
+    "packet.tar.xz": "cf8aba5bf7cbf8bc07a8ed9071b838369f334f0c80765e092a792252464ff68b",
+    "replay.json": "9f6e573b6c8965cd2bd3a51e445f923e73b6eee0492a167730bc9ce14e2fdc94"
+  },
+  "returncode": 0,
+  "stderr": "",
+  "query_execution_attempted": false,
+  "publication_attempted": false,
+  "scope": "Clean source archive of replay code/dependencies with current source overlay, isolated Python, original payloads not required.",
+  "stdout_sha256": "ec0c129ba4d591b37283d2fb2eda010b439fd7babc7abe441990e60701c466f9",
+  "complete_replay_matches": true
+}

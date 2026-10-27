@@ -17,6 +17,29 @@ pub enum ProjectionRequest {
     Columns(Vec<ColumnRef>),
 }
 
+/// Combined demand from every reference to one source in a bound native plan.
+///
+/// Projection includes hidden predicate/operator columns. Each predicate is one
+/// reference's necessary condition: regions must be retained if **any** reference
+/// may need them. `None`, or an empty list before static discovery, requires all
+/// regions. These are pruning conditions, never permission to omit residual row
+/// evaluation. Providers preserve source order; this contract admits no limit
+/// pushdown or durable preparation. Physical skipping is provider-specific.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SourceDemand {
+    pub projection: ProjectionRequest,
+    pub predicates: Vec<Option<PredicateExpr>>,
+}
+
+impl Default for SourceDemand {
+    fn default() -> Self {
+        Self {
+            projection: ProjectionRequest::All,
+            predicates: Vec::new(),
+        }
+    }
+}
+
 impl ProjectionRequest {
     #[must_use]
     pub fn all() -> Self {

@@ -35,6 +35,9 @@ impl NativeWorkflowDeclaration {
     ) -> Result<Option<Self>> {
         request.infer_defaults();
         let mut request = workflow::effective_public_workflow_request(&request);
+        if workflow::uses_source_demand(&request) {
+            return Ok(None);
+        }
         if workflow::normalized_vortex_primitive(&request).is_none() {
             return Ok(None);
         }
@@ -127,7 +130,9 @@ impl NativeWorkflowDeclaration {
             crate::execution_resources::ResourceArguments::from_resources(resources);
         validate_route(&request)?;
         let primitive = workflow::normalized_vortex_primitive(&request);
-        if primitive.is_none() {
+        if primitive.is_none()
+            || (self.sql_preserves_operation && workflow::uses_source_demand(&request))
+        {
             let statement = request.sql_statement.as_deref().ok_or_else(|| {
                 failed("a compatibility input requires its complete shared SQL declaration")
             })?;

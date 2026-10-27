@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "rejected_corruptions": 11,
+  "cases": [
+    {
+      "case": "incomplete_focused",
+      "status": "rejected",
+      "reason": "candidate is incomplete"
+    },
+    {
+      "case": "missing_focused_case",
+      "status": "rejected",
+      "reason": "candidate observation coverage differs"
+    },
+    {
+      "case": "forged_focused_clock",
+      "status": "rejected",
+      "reason": "observation clocks changed"
+    },
+    {
+      "case": "prepared_snapshot_rewritten",
+      "status": "rejected",
+      "reason": "runtime source differs from tested build"
+    },
+    {
+      "case": "skipped_package_tests",
+      "status": "rejected",
+      "reason": "package integration differs"
+    },
+    {
+      "case": "full43_clock_sum",
+      "status": "rejected",
+      "reason": "Full43 engine sum changed"
+    },
+    {
+      "case": "complete_result_value_with_updated_hashes",
+      "status": "rejected",
+      "reason": "unordered rows or duplicate multiplicities differ"
+    },
+    {
+      "case": "incomplete_broad",
+      "status": "rejected",
+      "reason": "broad native checkpoint incomplete"
+    },
+    {
+      "case": "missing_broad_case",
+      "status": "rejected",
+      "reason": "broad query coverage differs"
+    },
+    {
+      "case": "broad_physical_claim",
+      "status": "rejected",
+      "reason": "broad physical summary differs"
+    },
+    {
+      "case": "competitor_cancellation_erased",
+      "status": "rejected",
+      "reason": "competitor cancellation missing"
+    }
+  ],
+  "scope": "Offline verifier corruption checks only; no query, build or competitor execution."
+}

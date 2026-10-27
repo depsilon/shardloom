@@ -154,6 +154,15 @@ def _paths(sources, name):
     return tuple(Path(path) for path in paths)
 
 
+def source_format(path):
+    """Explicit fixture format, shared by real native and reference adapters."""
+    value = {".vortex": "vortex", ".vtx": "vortex", ".parquet": "parquet",
+             ".arrow": "arrow-ipc", ".ipc": "arrow-ipc", ".feather": "arrow-ipc"}.get(Path(path).suffix.lower())
+    if value is None:
+        raise AdapterGap(f"fixture format is not declared by its supported extension: {path}")
+    return value
+
+
 def relation_sql(relation: Relation, sources):
     op, args = relation.op, relation.args
     if op == "scan":
@@ -239,7 +248,9 @@ def relation_native(relation: Relation, sources, native):
 def relation_dataframe(relation: Relation, sources, sl, client):
     op, args = relation.op, relation.args
     if op == "scan":
-        parts = [sl.read_vortex(path, client=client) for path in _paths(sources, args[0])]
+        readers = {"vortex": sl.read_vortex, "parquet": sl.read_parquet,
+                   "arrow-ipc": sl.read_arrow_ipc}
+        parts = [readers[source_format(path)](path, client=client) for path in _paths(sources, args[0])]
         result = parts[0]
         for part in parts[1:]:
             result = result.union_all(part)
@@ -294,6 +305,8 @@ def execute(relation, sources, surface, *, native, binary, memory_bytes=1 << 30,
         raise ValueError("unknown public surface")
     started = time.perf_counter()
     sql = relation_sql(relation, sources)
+    files = [(str(path), source_format(path), None)
+             for name in sorted(relation.sources()) for path in _paths(sources, name)]
     with ExitStack() as stack:
         if surface in {"dataframe", "cli_sql"}:
             client = sl.ShardLoomClient(binary=str(binary), transport="subprocess" if surface == "cli_sql" else "native",
@@ -315,9 +328,9 @@ def execute(relation, sources, surface, *, native, binary, memory_bytes=1 << 30,
             session = native.Session(native.ExecutionResources(memory_bytes, parallelism))
             stack.callback(session.close)
             if surface == "typed_relation":
-                plan = session.plan(relation_native(relation, sources, native))
+                plan = session.plan(relation_native(relation, sources, native), files=files)
             elif surface == "python_sql":
-                plan = session.sql(sql)
+                plan = session.sql(sql, files=files)
             else:
                 plan = session.workflow(["sql", "--sql", sql, "--request", "collect", "--bounded", "true",
                                          "--memory-bytes", str(memory_bytes), "--max-parallelism", str(parallelism)])

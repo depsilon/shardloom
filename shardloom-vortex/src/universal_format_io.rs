@@ -59,6 +59,8 @@ pub use crate::source_identity::SourceIdentity;
 mod metadata;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 pub use metadata::inspect_local_columnar_schema;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+pub mod demanded;
 
 mod budgeted_projection;
 pub use budgeted_projection::{

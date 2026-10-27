@@ -105,7 +105,7 @@ pub(super) fn route_admitted_statement(
         },
         "native-vortex-relational",
         "declared_local_sources",
-        "all_sources_normalized_to_native_vortex_before_binding",
+        "source_schemas_bound_before_native_demand;compatibility_conversion_is_an_admitted_source_boundary",
         "native_vortex",
         normalization_required,
         true,
@@ -871,6 +871,16 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
     // These values come from the completed native operation, after explicit end
     // and owner release, rather than a transport snapshot taken during binding.
     let completed = [
+        ("native_source_demand_sources", input.columnar_sources.to_string()),
+        ("native_source_demand_projected_columns", input.columnar_projected_columns.to_string()),
+        ("native_source_demand_available_columns", input.columnar_available_columns.to_string()),
+        ("native_source_demand_physical_leaf_columns", input.columnar_physical_leaf_columns.to_string()),
+        ("native_source_demand_row_groups_total", input.columnar_row_groups_total.to_string()),
+        ("native_source_demand_row_groups_read", input.columnar_row_groups_read.to_string()),
+        ("native_source_demand_rows_decoded", input.columnar_rows_decoded.to_string()),
+        ("native_source_demand_metadata_read_bytes", input.columnar_metadata_read_bytes.to_string()),
+        ("native_source_demand_data_read_bytes", input.columnar_data_read_bytes.to_string()),
+        ("native_source_demand_data_read_requests", input.columnar_data_read_requests.to_string()),
         ("native_input_batches", input.payload_batches.to_string()),
         ("native_input_batch_sources", input.sources.to_string()),
         ("native_input_batch_rows", input.rows.to_string()),
@@ -916,6 +926,26 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
     for (key, value) in completed {
         fields.retain(|(existing, _)| existing != key);
         fields.push((key.into(), value));
+    }
+    if input.columnar_sources > 0 {
+        for (key, value) in [
+            (
+                "native_source_demand_validation_scope",
+                "metadata;demanded_columns_and_regions;held_generation_before_reads_and_after_final_consumer;not_full_ingest_certification",
+            ),
+            (
+                "native_source_demand_decoder_memory_scope",
+                "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copies_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound",
+            ),
+            ("native_source_demand_prepared_input_bytes_written", "0"),
+            (
+                "native_source_demand_byte_scope",
+                "owned_demand_reader_sources_only;excludes_other_inputs_and_output_writes;actual_execution_positional_read_bytes;metadata_bytes_are_initial_admission_measurements_repeated_with_cached_descriptors;not_unique_bytes_or_decoded_bytes;source_counts_summed",
+            ),
+        ] {
+            fields.retain(|(existing, _)| existing != key);
+            fields.push((key.into(), value.into()));
+        }
     }
 }
 

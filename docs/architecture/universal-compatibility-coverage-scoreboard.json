@@ -160,7 +160,7 @@
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "none_feature_gated_local_parquet_adapter_read_runtime_supported",
       "required_future_evidence": "native_vortex_derived_parquet_export_contract,nested_type_metadata_fidelity_table_object_store_production_evidence",
-      "claim_boundary": "Feature-gated flat scalar local Parquet SourceState and vortex_ingest normalization only; decoded Parquet output is a separate compatibility export contract and not a public workflow route; no broad Parquet type/nesting, metadata-fidelity, table, or production claim.",
+      "claim_boundary": "Feature-gated flat scalar local Parquet SourceState and vortex_ingest normalization only; these route fields describe full-source prepared intake, not every public query. An eligible single-file relational query may bind first and read demanded Parquet columns and eligible row groups into native Vortex execution without first writing a complete prepared input artifact (see docs/architecture/native-source-demand-2026-10-26.md). Directories, explicit schema overrides, content-digest fingerprinting, explicit prepare_once, and explicit primitive options retain their existing contracts. Decoded Parquet output is a separate compatibility export contract and not a public workflow route; no broader Parquet type/nesting, metadata-fidelity, table, production, or performance claim.",
       "source_aliases": [
         "local_parquet"
       ],

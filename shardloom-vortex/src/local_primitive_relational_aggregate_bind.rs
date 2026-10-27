@@ -18,8 +18,16 @@ impl Binder<'_> {
         aggregate: &VortexRelationalAggregate,
         depth: usize,
     ) -> Result<Node> {
-        let input = Box::new(self.bind(&aggregate.input, depth + 1)?);
+        let mut input = Box::new(self.bind(&aggregate.input, depth + 1)?);
         let spec = self.aggregate_spec(&input.fields, &aggregate.group_by, &aggregate.measures)?;
+        self.narrow_source_demand(
+            &mut input,
+            spec.group_names.iter().map(String::as_str).chain(
+                spec.measures
+                    .iter()
+                    .filter_map(|measure| measure.column.as_deref()),
+            ),
+        )?;
         Ok(Node {
             fields: spec.fields.clone(),
             kind: NodeKind::Aggregate { input, spec },

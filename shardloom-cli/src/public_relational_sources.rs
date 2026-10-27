@@ -82,30 +82,49 @@ pub(crate) fn prepare_in_session_with_reuse(
     cancellation.check()?;
     let statement = super::super::resident_sql::typed_statement(statement, request, false);
     let statement = statement.as_ref();
-    validate_bindings(statement, request)?;
-    let policy = native_vortex_materializing_policy(request)?;
-    let mut sources = Sources {
-        cancellation: cancellation.clone(),
-        ..Sources::default()
-    };
-    let operation = native_relational::prepare_in_session(
+    prepare_sql_in_session(
         statement,
-        policy,
+        request,
         session,
         inputs,
-        |leaf, memory| sources.resolve(leaf, request, memory),
         cancellation,
-    )?;
+        PublicSourcePreparations::default(),
+    )
+    .map(|(operation, reusable, _)| (operation, reusable))
+}
+
+fn prepare_sql_in_session(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(
+        &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<
+            '_,
+        >,
+    ) -> Result<(), ShardLoomError>,
+    cancellation: &CancellationToken,
+    preparations: PublicSourcePreparations,
+) -> Result<(PreparedVortexRelational, bool, usize), ShardLoomError> {
     cancellation.check()?;
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    let operation = operation.with_preparation_sources(sources.preparations)?;
-    #[cfg(feature = "vortex-write")]
-    let operation = if let Some(spill) = &request.spill {
-        operation.with_spill(spill.relational()?)?
-    } else {
-        operation
-    };
-    Ok((operation, !sources.has_collections))
+    let bytes = statement
+        .len()
+        .checked_mul(1024)
+        .and_then(|n| n.checked_add(65_536))
+        .ok_or_else(|| failed("SQL parser metadata size overflow"))?;
+    let mut metadata = session.reserve_input_scratch(bytes as u64)?;
+    validate_bindings(statement, request)?;
+    let declaration = crate::native::NativeRelationDeclaration::sql(statement, Vec::new())?;
+    metadata.resize((bytes.max(declaration.metadata_bytes)) as u64)?;
+    typed::prepare_native_with_sources(
+        &declaration,
+        request,
+        session,
+        inputs,
+        cancellation,
+        metadata,
+        None,
+        preparations,
+    )
 }
 
 /// General commands reuse the same owner as embedded plans and retained results.
@@ -129,15 +148,9 @@ pub(super) fn prepare_with_source_in_session(
         source.as_ref(),
     )?;
     let statement = statement.as_ref();
-    validate_bindings(statement, request)?;
-    let policy = native_vortex_materializing_policy(request)?;
-    let mut sources = Sources {
-        cancellation: cancellation.clone(),
-        ..Sources::default()
-    };
-    let operation = native_relational::prepare_in_session(
+    let (operation, _, normalized) = prepare_sql_in_session(
         statement,
-        policy,
+        request,
         session,
         |schemas| {
             if let Some(source) = source {
@@ -154,31 +167,10 @@ pub(super) fn prepare_with_source_in_session(
                 Ok(result)
             })
         },
-        |leaf, memory| sources.resolve(leaf, request, memory),
         cancellation,
+        preparations,
     )?;
-    cancellation.check()?;
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    sources.preparations.extend(preparations.sources);
-    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
-    let _ = preparations;
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    let operation = operation.with_preparation_sources(sources.preparations)?;
-    #[cfg(feature = "vortex-write")]
-    let operation = if let Some(spill) = &request.spill {
-        operation.with_spill(spill.relational()?)?
-    } else {
-        operation
-    };
-    Ok((
-        operation,
-        sources.normalized
-            + request
-                .source_bindings
-                .values()
-                .filter(|binding| binding.memory_input.is_some())
-                .count(),
-    ))
+    Ok((operation, normalized))
 }
 
 /// Establish the input control owner before any source resolution. Dynamic SQL
@@ -210,13 +202,9 @@ pub(super) fn prepare_with_input_adapter(
     cancellation.check()?;
     initialize(&session)?;
     cancellation.check()?;
-    let mut sources = Sources {
-        cancellation: cancellation.clone(),
-        ..Sources::default()
-    };
-    let operation = native_relational::prepare_in_session(
+    let (operation, _, normalized) = prepare_sql_in_session(
         statement,
-        policy,
+        request,
         &session,
         |schemas| {
             register_memory_inputs(schemas, request, &mut |uri, input, owner| {
@@ -226,27 +214,10 @@ pub(super) fn prepare_with_input_adapter(
                 Ok(result)
             })
         },
-        |path, memory| sources.resolve(path, request, memory),
         cancellation,
+        PublicSourcePreparations::default(),
     )?;
-    cancellation.check()?;
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    let operation = operation.with_preparation_sources(sources.preparations)?;
-    #[cfg(feature = "vortex-write")]
-    let operation = if let Some(spill) = &request.spill {
-        operation.with_spill(spill.relational()?)?
-    } else {
-        operation
-    };
-    Ok((
-        operation,
-        sources.normalized
-            + request
-                .source_bindings
-                .values()
-                .filter(|binding| binding.memory_input.is_some())
-                .count(),
-    ))
+    Ok((operation, normalized))
 }
 
 fn register_memory_inputs(
@@ -415,6 +386,11 @@ struct Sources {
     has_collections: bool,
     cancellation: CancellationToken,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    local: Vec<(
+        DatasetUri,
+        std::sync::Arc<shardloom_vortex::universal_format_io::demanded::LocalColumnarSource>,
+    )>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     preparations:
         Vec<std::sync::Arc<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>>,
 }
@@ -510,6 +486,60 @@ impl Sources {
                     .flatten()
             });
         let target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
+        if format == "parquet"
+            // Directory intake and explicit schema validation retain their
+            // existing full-preparation contract in this first file adapter.
+            && schema.is_none()
+            && !Path::new(source).is_dir()
+            && request.execution_policy != "prepare_once"
+            && request
+                .source_fingerprint_policy
+                .as_deref()
+                .is_none_or(|policy| policy == "metadata_only")
+        {
+            let memory =
+                memory.ok_or_else(|| failed("source metadata requires the native owner"))?;
+            match std::fs::metadata(&target) {
+                Ok(_) => {
+                    // Reuse is read-only: a missing/replaced artifact after this
+                    // check fails; it never triggers a fresh full preparation.
+                    use shardloom_vortex::prepared_source_binding::{
+                        local_preparation_binding_with_schema_controlled,
+                        local_preparation_identity_controlled,
+                    };
+                    let expected = local_preparation_binding_with_schema_controlled(
+                        Path::new(source),
+                        format,
+                        "metadata_only",
+                        schema,
+                        &self.cancellation,
+                    )?;
+                    self.preparations.push(std::sync::Arc::new(
+                        local_preparation_identity_controlled(
+                            &target,
+                            &expected,
+                            memory,
+                            &self.cancellation,
+                        )?,
+                    ));
+                    self.normalized += 1;
+                    return DatasetUri::new(target.to_string_lossy().into_owned());
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(failed(&format!("prepared source metadata: {error}"))),
+            }
+            let uri = DatasetUri::new(source)?;
+            let descriptor =
+                shardloom_vortex::universal_format_io::demanded::LocalColumnarSource::admit(
+                    Path::new(source),
+                    format,
+                    memory,
+                    &self.cancellation,
+                )?;
+            self.local.push((uri.clone(), descriptor));
+            self.normalized += 1;
+            return Ok(uri);
+        }
         let resources = public_workflow_effective_resource_envelope(request)?;
         let preparation = prepare_local_source_for_public_workflow_controlled(
             source,
@@ -575,6 +605,10 @@ fn failed(message: &str) -> ShardLoomError {
         "native SQL source preparation: {message}; no fallback execution was attempted"
     ))
 }
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "public_relational_source_demand_tests.rs"]
+mod source_demand_tests;
 
 #[cfg(test)]
 mod tests {

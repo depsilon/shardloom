@@ -220,7 +220,10 @@ verified installation, closed-handle checks and identity inventory. The current
 native runtime, tested wheel, original baseline runtime, inputs and all compact
 results remain available; unfinished item 18 is untouched.
 
-Hosted CI remains a separate PR gate. No Full43 rerun is needed for this
+Hosted acceptance completes in [PR #1611](https://github.com/depsilon/shardloom/pull/1611)
+as `4d25a06e`, with all 57 checks passing at `a9cbcb67` and an identical merge
+tree. The [integration receipt](evidence/native-broad-query-review-2026-10-26/pr1611-integration.json)
+records the completed checks. No Full43 rerun is needed for this
 report-only sort correction; existing ClickBench observations are retained, and
 no performance improvement is claimed for the corrected runtime.
 
@@ -236,11 +239,13 @@ and preserves supervisor failures before parsing incomplete worker output.
 The original packet, measured runtime attribution and observations above remain
 unchanged; the correction's replay executes no queries.
 
-The maintainer's later universal source-demand proposal, starting with Parquet,
-follows completion of this foundation/baseline PR. Its investigation must bind metadata and query demand
-before physical preparation, use bounded native batches and existing ownership,
-preserve explicit full-ingestion validation separately from query access, and
-compare fresh complete-workflow cost with already-prepared Vortex and same-source
-Polars. Incremental persistence and background preparation are later stages.
+The maintainer's later universal source-demand work unit, starting with Parquet,
+is [locally accepted](native-source-demand-2026-10-26.md), with shared demand
+binding, bounded native batches and distinct query/full-ingestion validation.
+Its corrected Parquet checkpoint passes all 347 cases at 50.877676708 seconds
+of engine time; 344 cases narrow physical column reads. These new observations
+retain their Parquet input/runtime attribution and do not replace the original
+prepared-Vortex/Arrow IPC results above. Existing competitor results are reused.
+Incremental persistence and background preparation are later stages.
 Existing input/refresh ownership remains with item 18; its unfinished branch is
-preserved. See the [sequenced contract](../architecture/native-broad-query-program-2026-10-26.md#next-investigation-universal-source-demand-starting-with-parquet).
+preserved. See the [sequenced contract](../architecture/native-broad-query-program-2026-10-26.md#active-work-unit-universal-source-demand-starting-with-parquet).

@@ -76,7 +76,7 @@ impl Binder<'_> {
         {
             return Ok(*input);
         }
-        self.narrow_file_projection(&mut input, &expressions)?;
+        self.narrow_scan_projection(&mut input, &expressions)?;
         crate::local_primitives::native_relational_expression::Expression::bind_projection_reuse(
             &mut expressions,
         );
@@ -104,7 +104,7 @@ impl Binder<'_> {
             return Err(failed("filter predicate must produce a nullable boolean"));
         }
         self.charge_fields(input.fields.len())?;
-        if self.push_file_filter(&mut input, &predicate, predicate_metadata)? {
+        if self.push_scan_filter(&mut input, &predicate, predicate_metadata)? {
             return Ok(*input);
         }
         Ok(Node {

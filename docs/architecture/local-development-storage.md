@@ -90,6 +90,16 @@ final combined CLI/library and installed-tested wheel remain. The existing
 Cargo cache supports the next active implementation; no rollback payload backup
 or storage-ceiling change occurs.
 
+The [October 26 source-demand cleanup](../benchmarks/evidence/native-source-demand-2026-10-26/cleanup.json)
+retires 37,250 generated regular files and 12 environment links after portable
+and clean-source replay. Completed test/install environments, duplicate source
+and input copies, logs and the superseded candidate runtime are removed with
+exact identities and closed-handle checks. Current source inputs, the final
+source-demand CLI/library and installed-tested wheel remain; external baseline
+artifacts, user files and the Cargo cache are untouched. The compact packet
+retains complete results and failures, and all 873 recorded observations replay
+unchanged after cleanup. No payload backup or storage-ceiling change occurs.
+
 ## Scope
 
 Bulk generated files must remain outside cloud-synced folders. A checkout in

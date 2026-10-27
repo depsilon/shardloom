@@ -1,0 +1,39 @@
+{
+  "schema_version": "shardloom.source_demand_post_retirement_replay.v1",
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+    "-B",
+    "scripts/verify_native_source_demand_packet.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-source-demand-2026-10-26"
+  ],
+  "returncode": 0,
+  "retired_roots_confirmed_absent": 54,
+  "complete_result_observations": 873,
+  "matches_original_replay": true,
+  "query_execution_performed": false,
+  "stderr_bytes": 0,
+  "verified_packet_files": {
+    "manifest.json": {
+      "sha256": "995ff82d07a9745afb92061fafb68decbaebc9d8dbc662f07509d8dd33a0037a",
+      "bytes": 1802920
+    },
+    "packet.tar.xz": {
+      "sha256": "cf8aba5bf7cbf8bc07a8ed9071b838369f334f0c80765e092a792252464ff68b",
+      "bytes": 4953480
+    },
+    "replay.json": {
+      "sha256": "9f6e573b6c8965cd2bd3a51e445f923e73b6eee0492a167730bc9ce14e2fdc94",
+      "bytes": 24335
+    },
+    "cleanup.json": {
+      "sha256": "c44e959218d39428126329871f17c0d06e4e2d6ce88b8c04cc53d50887a5bbce",
+      "bytes": 17179
+    },
+    "cleanup-inventory.json.gz": {
+      "sha256": "38f610527102c0436f84fd795e0efbc030c1a5efe02ae7d524b9e215c1b31e29",
+      "bytes": 2410046
+    }
+  },
+  "replay_stdout_sha256": "ec0c129ba4d591b37283d2fb2eda010b439fd7babc7abe441990e60701c466f9"
+}

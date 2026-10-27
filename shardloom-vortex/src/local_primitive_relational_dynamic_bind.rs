@@ -36,6 +36,21 @@ impl<'a> Binder<'a> {
             binder.register_memory_source(uri.clone(), |_| Ok(source.clone()))?;
         }
         for source in &owner.batch_sources {
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            if let Some(local) = &source.local {
+                // Dynamic sources retain their admitted complete demand. Reuse
+                // schema/metadata owners without reacquiring execution admission.
+                binder.charge(source.uri.as_str().len() * 8 + 4096)?;
+                binder
+                    .batch_sources
+                    .push(super::super::batch_input::Source {
+                        uri: source.uri.clone(),
+                        schema: source.schema.clone(),
+                        usage: source.usage,
+                        local: Some(std::sync::Arc::clone(local)),
+                    })?;
+                continue;
+            }
             binder.register_batch_source(source.uri.clone(), |_| Ok(source.schema.clone()))?;
             binder.require_batch_usage(binder.batch_sources.values.len() - 1, source.usage)?;
         }

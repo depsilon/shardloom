@@ -38,8 +38,8 @@ pub struct SqlSourceBinding {
     pub source: SqlSource,
 }
 
-/// Native data stays owned; compatibility files use the existing preparation
-/// boundary and generation evidence before they become Vortex inputs.
+/// Native data stays owned. Compatibility files bind source generations before
+/// entering admitted native batches or an explicitly prepared Vortex artifact.
 #[derive(Clone)]
 pub enum SqlSource {
     File {

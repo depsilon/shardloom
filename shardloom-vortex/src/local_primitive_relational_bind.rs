@@ -22,6 +22,9 @@ mod expression;
 pub(in crate::local_primitives) use expression::{arithmetic_dtype, literal_dtype};
 #[path = "local_primitive_relational_scan_bind.rs"]
 mod scan;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_source_demand.rs"]
+mod source_demand;
 #[path = "local_primitive_relational_subquery_bind.rs"]
 mod subquery;
 pub(super) use subquery::validate_relation as validate_subquery_relation;
@@ -229,6 +232,52 @@ impl<'a> Binder<'a> {
             uri,
             schema,
             usage: super::batch_input::Usage::default(),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            local: None,
+        });
+        Ok(())
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn register_local_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        source: std::sync::Arc<crate::universal_format_io::demanded::LocalColumnarSource>,
+    ) -> Result<()> {
+        if self.execution.is_some()
+            || self.source_count() >= 128
+            || uri.as_str().len() > 16_384
+            || uri.as_str().starts_with("memory://")
+            || self
+                .batch_sources
+                .values
+                .iter()
+                .any(|source| source.uri == uri)
+            || self
+                .memory_sources
+                .values
+                .iter()
+                .any(|(prior, _)| *prior == uri)
+        {
+            return Err(failed(
+                "local source requires a unique bounded file URI before execution",
+            ));
+        }
+        self.charge(uri.as_str().len() * 8 + 4096)?;
+        self.batch_sources.reserve_one()?;
+        let local = source.prepare(
+            &shardloom_plan::SourceDemand::default(),
+            self.session,
+            &self.cancellation,
+        )?;
+        // The prepared descriptor now retains the admitted source ownership.
+        drop(source);
+        let schema = local.empty_schema(self.session, &self.cancellation)?;
+        self.batch_sources.values.push(super::batch_input::Source {
+            uri,
+            schema,
+            usage: super::batch_input::Usage::default(),
+            local: Some(local),
         });
         Ok(())
     }
@@ -590,8 +639,8 @@ impl<'a> Binder<'a> {
         }
         self.charge_items(join.keys.len(), 8192)?;
         self.charge_items(join.columns.len(), 8192)?;
-        let left = Box::new(self.bind(&join.left, depth + 1)?);
-        let right = Box::new(self.bind(&join.right, depth + 1)?);
+        let mut left = Box::new(self.bind(&join.left, depth + 1)?);
+        let mut right = Box::new(self.bind(&join.right, depth + 1)?);
         let mut left_keys = Vec::new();
         let mut right_keys = Vec::new();
         for key in &join.keys {
@@ -652,6 +701,7 @@ impl<'a> Binder<'a> {
             columns,
             condition,
         };
+        self.narrow_join_inputs(&mut left, &mut right, &spec)?;
         Ok(Node {
             fields,
             kind: NodeKind::Join { left, right, spec },

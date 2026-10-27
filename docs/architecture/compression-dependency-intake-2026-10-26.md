@@ -68,7 +68,11 @@ restate those historical results.
 
 ## Acceptance
 
-Local acceptance is recorded below. Hosted CI remains the final merge gate:
+Local acceptance is recorded below. Hosted acceptance completes in #1611 as
+`4d25a06e` after all 57 checks pass at `a9cbcb67`, including full native partitions
+and Linux/macOS installed wheels. The
+[integration receipt](../benchmarks/evidence/native-broad-query-review-2026-10-26/pr1611-integration.json)
+records the identical merge tree and completed workflows. Local evidence:
 
 1. The root graph contains the fixed wrapper versions and no parallel affected
    Zstd chain; original parent versions and the native C version are retained.

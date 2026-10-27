@@ -21,55 +21,64 @@ pub(crate) fn prepare_native_in_session(
     session: &ResidentVortexSession,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<()>,
     cancellation: &CancellationToken,
-    mut metadata: shardloom_exec::live_memory::MemoryLease,
+    metadata: shardloom_exec::live_memory::MemoryLease,
     schema_aliases: Option<&BTreeMap<String, DatasetUri>>,
 ) -> Result<(PreparedVortexRelational, bool)> {
-    cancellation.check()?;
-    let policy = native_vortex_materializing_policy(request)?;
-    validate_session_policy(policy, session)?;
-    if declaration.recursive_depth() > shardloom_vortex::relational_query::NATIVE_RECURSION_LIMIT {
-        return Err(failed("recursive plan exceeds 24 levels"));
-    }
-    if !session.shared_memory_pool().owns(&metadata)
-        || metadata.bytes()
-            < u64::try_from(declaration.metadata_bytes)
-                .map_err(|_| failed("plan metadata overflow"))?
-    {
-        return Err(failed(
-            "native declaration admission has a foreign owner or insufficient capacity",
-        ));
-    }
-    let ResolvedDeclaration {
-        sources,
-        resolved,
-        uses,
-    } = resolve_sources(
+    prepare_native_with_sources(
         declaration,
         request,
         session,
+        inputs,
         cancellation,
-        &mut metadata,
+        metadata,
         schema_aliases,
-    )?;
-    let memory_inputs = declaration
-        .sources
-        .keys()
-        .filter_map(|leaf| {
-            leaf.memory_input
-                .as_ref()
-                .map(|input| (leaf.path.clone(), input.clone()))
-        })
-        .collect::<Vec<_>>();
-    let initialize = |schemas: &mut VortexRelationalPreparation<'_>| {
-        for (path, input) in memory_inputs {
-            schemas
-                .register_memory_source(DatasetUri::new(path.to_string_lossy())?, |session| {
-                    input.build(session)
-                })?;
+        super::PublicSourcePreparations::default(),
+    )
+    .map(|(operation, reusable, _)| (operation, reusable))
+}
+
+#[allow(clippy::too_many_arguments)] // Existing admission plus externally held preparation identities.
+pub(super) fn prepare_native_with_sources(
+    declaration: &crate::native::NativeRelationDeclaration,
+    request: &PublicWorkflowRouteRequest,
+    session: &ResidentVortexSession,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<()>,
+    cancellation: &CancellationToken,
+    mut metadata: shardloom_exec::live_memory::MemoryLease,
+    schema_aliases: Option<&BTreeMap<String, DatasetUri>>,
+    preparations: super::PublicSourcePreparations,
+) -> Result<(PreparedVortexRelational, bool, usize)> {
+    cancellation.check()?;
+    let policy = native_vortex_materializing_policy(request)?;
+    validate_session_policy(policy, session)?;
+    validate_admission(declaration, session, &metadata)?;
+    let initialize_inputs = |schemas: &mut VortexRelationalPreparation<'_>| {
+        for leaf in declaration
+            .sources
+            .keys()
+            .filter(|leaf| leaf.memory_input.is_some())
+        {
+            let input = leaf.memory_input.as_ref().expect("filtered inline input");
+            schemas.register_memory_source(
+                DatasetUri::new(leaf.path.to_string_lossy())?,
+                |session| input.build(session),
+            )?;
         }
         inputs(schemas)
     };
+    let mut sources = Sources::default();
     let operation = if declaration.dynamic {
+        let resolved = resolve_sources(
+            declaration,
+            request,
+            session,
+            cancellation,
+            &mut metadata,
+            schema_aliases,
+        )?;
+        sources = resolved.sources;
+        let uses = resolved.uses;
+        let resolved = resolved.resolved;
         let uris = uses
             .values()
             .map(|(uri, _)| uri.clone())
@@ -80,7 +89,10 @@ pub(crate) fn prepare_native_in_session(
             policy,
             session,
             usize::try_from(metadata.bytes()).map_err(|_| failed("plan metadata overflow"))?,
-            initialize,
+            |schemas| {
+                register_local_sources(&sources, schemas)?;
+                initialize_inputs(schemas)
+            },
             move |schemas| {
                 let token = schemas.cancellation_token();
                 for (uri, count) in uses.values() {
@@ -99,7 +111,22 @@ pub(crate) fn prepare_native_in_session(
             policy,
             session,
             |schemas| {
-                initialize(schemas)?;
+                // Static callers historically establish their input ownership
+                // and cancellation before file admission. Preserve that order
+                // while sharing the same declaration/lowering path.
+                initialize_inputs(schemas)?;
+                cancellation.check()?;
+                let resolved = resolve_sources(
+                    declaration,
+                    request,
+                    session,
+                    cancellation,
+                    &mut metadata,
+                    schema_aliases,
+                )?;
+                sources = resolved.sources;
+                register_local_sources(&sources, schemas)?;
+                let resolved = resolved.resolved;
                 let mut lowered = declaration.lower(schemas, &resolved, cancellation)?;
                 native_relational::prune_bound_plan(&mut lowered.plan, schemas, cancellation)?;
                 Ok(lowered.plan)
@@ -107,16 +134,71 @@ pub(crate) fn prepare_native_in_session(
             cancellation,
         )?
     };
+    let result = finish_source_preparation(operation, sources, request, preparations)?;
+    cancellation.check()?;
+    Ok(result)
+}
+
+fn validate_admission(
+    declaration: &crate::native::NativeRelationDeclaration,
+    session: &ResidentVortexSession,
+    metadata: &shardloom_exec::live_memory::MemoryLease,
+) -> Result<()> {
+    if declaration.recursive_depth() > shardloom_vortex::relational_query::NATIVE_RECURSION_LIMIT {
+        return Err(failed("recursive plan exceeds 24 levels"));
+    }
+    if !session.shared_memory_pool().owns(metadata)
+        || metadata.bytes()
+            < u64::try_from(declaration.metadata_bytes)
+                .map_err(|_| failed("plan metadata overflow"))?
+    {
+        return Err(failed(
+            "native declaration admission has a foreign owner or insufficient capacity",
+        ));
+    }
+    Ok(())
+}
+
+fn finish_source_preparation(
+    operation: PreparedVortexRelational,
+    sources: Sources,
+    request: &PublicWorkflowRouteRequest,
+    preparations: super::PublicSourcePreparations,
+) -> Result<(PreparedVortexRelational, bool, usize)> {
+    let normalized = sources.normalized
+        + request
+            .source_bindings
+            .values()
+            .filter(|binding| binding.memory_input.is_some())
+            .count();
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    let operation = operation.with_preparation_sources(sources.preparations)?;
+    let operation = {
+        let mut retained = sources.preparations;
+        retained.extend(preparations.sources);
+        operation.with_preparation_sources(retained)?
+    };
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    let _ = preparations;
     #[cfg(feature = "vortex-write")]
     let operation = if let Some(spill) = &request.spill {
         operation.with_spill(spill.relational()?)?
     } else {
         operation
     };
-    cancellation.check()?;
-    Ok((operation, !sources.has_collections))
+    Ok((operation, !sources.has_collections, normalized))
+}
+
+fn register_local_sources(
+    sources: &Sources,
+    schemas: &mut VortexRelationalPreparation<'_>,
+) -> Result<()> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    for (uri, source) in &sources.local {
+        schemas.register_local_source(uri.clone(), Arc::clone(source))?;
+    }
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    let _ = (sources, schemas);
+    Ok(())
 }
 
 struct ResolvedDeclaration {
@@ -133,12 +215,13 @@ fn resolve_sources(
     metadata: &mut shardloom_exec::live_memory::MemoryLease,
     schema_aliases: Option<&BTreeMap<String, DatasetUri>>,
 ) -> Result<ResolvedDeclaration> {
+    let declared = declaration
+        .sources
+        .keys()
+        .map(|leaf| super::declared_path(leaf, request))
+        .collect::<Result<std::collections::BTreeSet<_>>>()?;
     for reference in request.source_bindings.keys() {
-        if !declaration
-            .sources
-            .keys()
-            .any(|leaf| leaf.path.to_str() == Some(reference))
-        {
+        if !declared.contains(std::path::Path::new(reference)) {
             return Err(failed(
                 "source declaration is not referenced by the native plan",
             ));

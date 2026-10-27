@@ -605,6 +605,19 @@ impl VortexRelationalPreparation<'_> {
         self.binding.register_batch_source(uri, build_schema)
     }
 
+    /// Register an already-admitted local columnar source without decoding data.
+    /// The bound native plan determines its physical demand before execution.
+    /// # Errors
+    /// Rejects duplicate sources, unsupported schema, cancellation and pressure.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn register_local_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        source: std::sync::Arc<crate::universal_format_io::demanded::LocalColumnarSource>,
+    ) -> Result<()> {
+        self.binding.register_local_source(uri, source)
+    }
+
     /// Resolve public column names from the retained native source schema,
     /// excluding private derived metadata just as an all-column scan does.
     /// # Errors
@@ -720,6 +733,8 @@ fn prepare_relational_with_owner(
     cancellation.check()?;
     preparation.binding.validate_batch_plan(&plan)?;
     let mut root = preparation.binding.bind(&plan, 0)?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    preparation.binding.apply_source_demand(&mut root)?;
     let bind::BoundSources {
         sources,
         source_paths,
@@ -768,6 +783,8 @@ pub fn prepare_relational_in_session(
     validate_session_policy(policy, session)?;
     let mut binding = bind::Binder::new(session)?;
     let mut root = binding.bind(plan, 0)?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    binding.apply_source_demand(&mut root)?;
     let bind::BoundSources {
         sources,
         source_paths,
@@ -1097,6 +1114,11 @@ impl PreparedVortexRelational {
     fn validate_preparation_sources(&self) -> Result<()> {
         for source in &self.preparation_sources {
             source.validate_generation()?;
+        }
+        for source in &self.batch_sources {
+            if let Some(source) = &source.local {
+                source.source.validate_generation()?;
+            }
         }
         Ok(())
     }

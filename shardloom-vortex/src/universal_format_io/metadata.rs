@@ -84,7 +84,7 @@ pub fn inspect_local_columnar_schema(
     Ok(Budgeted::new(schema, workspace))
 }
 
-fn footer_length(file: &mut File, magic: &[u8], header_bytes: u64) -> Result<usize> {
+pub(super) fn footer_length(file: &mut File, magic: &[u8], header_bytes: u64) -> Result<usize> {
     let size = file.metadata().map_err(failed)?.len();
     let trailer = magic.len() + 4;
     if size < header_bytes + u64::try_from(trailer).map_err(failed)? {

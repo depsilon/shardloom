@@ -41,6 +41,15 @@ turn it into a broad Vortex runtime, object-store, table/catalog, or performance
 | `prepared_compatibility_artifact` | A local compatibility source is normalized through `SourceState -> vortex_ingest -> VortexPreparedState` before query execution. | Prepared benchmark-family rows include preparation/reuse evidence, source and split refs, route timing fields, execution certificate, Native I/O certificate, and no-fallback evidence. |
 | `generated_local_vortex_artifact` | Source-free/generated rows create a local Vortex-preparable artifact with explicit local output evidence. | Generated-source certificates and local output evidence prove the artifact boundary; this is not object-store or table/catalog support. |
 
+`prepared_compatibility_artifact` remains the durable full-source starting-state contract. The
+[local Parquet source-demand contract](native-source-demand-2026-10-26.md) documents an additional
+eligible first-use path for ordinary relational queries over one local Parquet file: bind before
+reading, then pass demanded owned batches to existing native Vortex operators without first
+publishing a complete prepared artifact. Existing prepared-artifact reuse remains available.
+Directory intake, explicit schema overrides, content-digest fingerprinting, explicit
+`prepare_once`, and explicit primitive options retain their existing contracts. This extension
+does not broaden the admitted Parquet schemas, operators, or other v1 boundaries.
+
 ## Format-Neutral Vortex Middle
 
 ShardLoom should not grow one Python/SQL/DataFrame execution implementation per input format.
