@@ -79,6 +79,12 @@ impl NativeNumericOwner {
     pub(super) fn all_valid(&self) -> bool {
         self.valid.all_true()
     }
+    pub(super) fn is_null(&self, row: usize) -> Result<bool> {
+        if row >= self.len() {
+            return Err(failed("native typed row index was out of bounds"));
+        }
+        Ok(!self.valid.value(row))
+    }
     pub(super) fn is_integer(&self) -> bool {
         self.primitive.ptype().is_int()
     }
@@ -169,18 +175,29 @@ impl NativeNumericOwner {
         numeric_dispatch!(self, numeric_typed, row)
     }
 
-    pub(super) fn bind_numeric_update(&self) -> super::bound_numeric_updates::RowKernel<'_> {
-        numeric_dispatch!(self, bind_numeric_update_typed)
+    /// Dispatch physical type and validity around the whole borrowed batch.
+    /// The visitor also sees NULL rows so it can preserve cancellation and
+    /// row-order contracts without a boxed call or another value buffer.
+    pub(super) fn visit_numeric(
+        &self,
+        visit: impl FnMut(usize, Option<f64>, bool) -> Result<()>,
+    ) -> Result<()> {
+        numeric_dispatch!(self, visit_numeric_typed, visit)
     }
 
-    /// Reuse the primitive consumer's borrowed, original-width row kernel with
-    /// another accumulator. The caller accounts for the closure and keeps its
-    /// own validation, update order, cancellation and finalization contracts.
-    pub(super) fn bind_row_update<State: 'static>(
+    fn visit_numeric_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
-        update: impl Fn(&mut State, f64, bool) -> Result<()> + 'static,
-    ) -> super::bound_numeric_updates::RowKernel<'_, State> {
-        numeric_dispatch!(self, bind_typed_row_update::<State>, update)
+        mut visit: impl FnMut(usize, Option<f64>, bool) -> Result<()>,
+    ) -> Result<()> {
+        for (row, value) in self.primitive.as_slice::<T>().iter().enumerate() {
+            let value = (ALL_VALID || self.valid.value(row)).then(|| value.widen().numeric());
+            visit(row, value, T::Wide::INTEGER)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn bind_numeric_update(&self) -> super::bound_numeric_updates::RowKernel<'_> {
+        numeric_dispatch!(self, bind_numeric_update_typed)
     }
 
     fn bind_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(

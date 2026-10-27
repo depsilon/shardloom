@@ -17,6 +17,44 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Shared numeric aggregation and bounded ordering — local acceptance`
+  — the [October 27 decision](../benchmarks/native-shared-analytical-performance-2026-10-27.md)
+  retains typed numeric update/reuse and bounded streamed ordering under their
+  prospective benefit, correctness and ownership gates. The complete 347-case
+  observations are 30.118456795 and 28.017558877 engine seconds, each validating
+  all 12,565 rows and schemas. The borrowed variable-width output candidate is
+  dropped at its frozen benefit gate; its 29.225110351-second observation and
+  complete source/failure evidence remain. Neither flagged retained-candidate
+  case reproduces its material regression in the separately frozen 18-execution
+  diagnostics; original flags and totals are unchanged, with causes unassigned.
+  - Numeric commit `42b5d2f5` and the exact ordering source overlay on `4aa53216`
+    bind native/workspace tests, lint and frozen release products. Final gates
+    pass 3,407 native Vortex tests (32 existing ignores), 1,030 CLI tests, 3,268
+    workspace tests, 29 public ordering cases, nine feature suites across all
+    five interfaces and 194 installed-wheel integration tests without skips.
+  - Complete portable replay, 18 corruption controls, isolated source-only replay
+    and post-retirement replay pass. Cleanup retires 18,514 generated regular
+    files and six environment links after exact identity and closed-handle
+    checks; current inputs/runtime/wheel and compact complete evidence remain.
+  - Hosted integration is separate. Item 20's temporal, composition, numeric,
+    application-function, scaling, diagnostic, workflow and measured-performance
+    obligations remain in the phase plan. No competitor rerun, new package
+    publication or CG-1 through CG-23 closure occurs.
+
+- [x] `Analytical aggregates, filters and grouping sets — merged acceptance`
+  — [PR #1614](https://github.com/depsilon/shardloom/pull/1614) merges at
+  `690a671e` after all 57 checks pass on `6e40c404`. The
+  [acceptance](../benchmarks/native-analytical-aggregates-2026-10-27.md) records
+  statistical/paired moments, exact quantiles, distinct additive reducers,
+  ordered selectors/collections, FILTER and grouping-set composition through
+  shared native owners and all five public interfaces. The complete 347-case
+  checkpoint validates all 12,565 rows at 31.962394957 engine seconds; required
+  native/workspace checks, 194 installed-package tests and portable replay with
+  11 corruption controls pass. Source ownership, charged state and native spill
+  remain explicit. The hosted receipt records the inventory-count correction
+  and every check without replacing the original benchmark observation.
+  Item 20 remains open; no package publication or broad performance claim follows.
+
 - [x] `Broad query foundation, compression intake and replay review — merged acceptance`
   — [PR #1611](https://github.com/depsilon/shardloom/pull/1611) merges as
   `4d25a06e` after all 57 checks pass at `a9cbcb67`. Both CI and CodeQL complete

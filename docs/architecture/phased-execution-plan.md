@@ -539,8 +539,14 @@ visible and independent; this implementation does not automatically close them.
     passes local native, five-interface, workspace, installed-wheel and portable
     checks. Its complete 347-case checkpoint is 31.962394957 engine seconds versus
     34.960427343 previously, with no prospective material-regression flags.
-    This does not close the remaining Polars-performance gaps or item 20;
-    hosted PR acceptance remains separate.
+    PR #1614 merged at `690a671e` after all 57 hosted checks passed. This does
+    not close the remaining Polars-performance gaps or item 20. The shared
+    [numeric and bounded-ordering continuation](../benchmarks/native-shared-analytical-performance-2026-10-27.md)
+    is locally accepted with 194 installed-package tests, complete portable replay
+    and 18 corruption controls. Its 347-case observation is 28.017558877 engine
+    seconds; original individual regression flags and bounded diagnostics remain
+    recorded. The borrowed-output candidate is dropped under its frozen gate.
+    Hosted acceptance remains separate.
     Incremental persistence remains deferred; this does not close the broader
     capability and operator-performance obligations above.
   - Acceptance: complete typed results/errors and native certificates at applicable

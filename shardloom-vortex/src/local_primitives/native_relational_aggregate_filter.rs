@@ -55,6 +55,10 @@ pub(super) fn select(
     let Some(rows) = rows(array, measure.filter_column.as_deref(), context)? else {
         return Ok(None);
     };
+    #[cfg(all(test, debug_assertions))]
+    super::super::native_relational_observation::record(|counts| {
+        counts.aggregate_filter_selections += 1;
+    });
     if rows.values.len() == array.len() {
         return Ok(None);
     }

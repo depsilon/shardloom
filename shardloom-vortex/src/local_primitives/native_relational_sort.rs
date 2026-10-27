@@ -4,6 +4,10 @@
 #[path = "native_relational_sort_tests.rs"]
 mod tests;
 
+#[path = "native_relational_sort_streaming.rs"]
+mod streaming;
+pub(super) use streaming::StreamingPrefix;
+
 use super::{
     native_capacity::ReservedVec,
     native_payload::CopyPolicy,
@@ -150,7 +154,6 @@ impl<'a> Sort<'a> {
         Ok(left.cmp(&right))
     }
 
-    #[cfg(feature = "vortex-write")]
     pub(super) fn gather_rows(
         &self,
         rows: &[usize],

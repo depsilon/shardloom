@@ -63,7 +63,14 @@ def run(harness):
     def completed(name, envelope, trace, *, ordering_rows):
         assert trace["opened"] == 1 and trace["ended"] and trace["closed"], trace
         harness.completed(name, envelope, batches=trace["batches"], rows=trace["rows"])
-        assert envelope.field_int("native_input_ordering_rows_detached") == ordering_rows
+        copied = envelope.field_int("native_input_ordering_rows_detached")
+        if isinstance(ordering_rows, tuple):
+            # A bounded sort may compact retained winners more than once. It
+            # must report actual copies within the declared linear work bound,
+            # while the checks above still require every input row and EOF.
+            assert ordering_rows[0] <= copied <= ordering_rows[1], copied
+        else:
+            assert copied == ordering_rows
 
     def collect(name, transform, expected, *, ordering_rows, batches=BATCHES):
         source, trace = frame(batches)
@@ -83,8 +90,8 @@ def run(harness):
         ("order-limit-before", lambda q: q.limit(41).sort("n", descending=True, nulls="last"),
          ordered(ROWS[:41], primary), 41),
         ("order-limit-after", lambda q: q.sort("n", descending=True, nulls="last").limit(41),
-         ordered(ROWS, primary)[:41], len(ROWS)),
-        ("order-limit-zero", lambda q: q.sort("n", nulls="first").limit(0), [], len(ROWS)),
+         ordered(ROWS, primary)[:41], (1, 2 * len(ROWS))),
+        ("order-limit-zero", lambda q: q.sort("n", nulls="first").limit(0), [], 0),
         ("limit-zero-before-order", lambda q: q.limit(0).sort("n", nulls="first"), [], 0),
         ("global-range", lambda q: q.limit(41), ROWS[:41], 0),
     ]:
@@ -116,7 +123,9 @@ def run(harness):
                     actual.extend(batch.result_rows)
                 assert iterator.report is not None and iterator._process.poll() == 0
                 harness.values(name, actual, ordered(ROWS, primary + secondary)[offset:offset + count])
-                completed(name, iterator.report.envelope, trace, ordering_rows=len(ROWS))
+                copied = (0 if offset + count == 0 else (1, 2 * len(ROWS))
+                          if offset + count < len(ROWS) else len(ROWS))
+                completed(name, iterator.report.envelope, trace, ordering_rows=copied)
         harness.case(name, sql_range)
 
     for mode, batches, transform, expected, copied in [

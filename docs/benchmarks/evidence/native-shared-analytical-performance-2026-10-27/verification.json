@@ -1,0 +1,1236 @@
+{
+  "cleanup": {
+    "document": {
+      "all_proof_files_unchanged": true,
+      "cargo_cache_untouched": true,
+      "closed_handle_checks": [
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/package",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/venv",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/wheel-build-tools",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-proof-wheelhouse",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-draft-r1",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-replay-clean",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/outputs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/harness",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/logs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/harness",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/logs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/harness",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/logs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/source",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/source",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/source",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/projection-diagnostic-r1/logs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-aggregate-diagnostic-r1/logs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/logs",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/_native.abi3.so",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/shardloom",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/_native.abi3.so",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/shardloom",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/_native.abi3.so",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/shardloom",
+          "returncode": 1
+        },
+        {
+          "open_handles": 0,
+          "path": "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+          "returncode": 1
+        }
+      ],
+      "free_bytes_after": 91997532160,
+      "free_bytes_before": 90747305984,
+      "inventory": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup-inventory.json.gz",
+      "inventory_sha256": "760c3de9b96b0926df466b55b606e33ddfff8b03c0176a55974ce66841f50676",
+      "original_external_baselines_untouched": true,
+      "payload_backups_created": false,
+      "regeneration_basis": "Recorded source/build/package identities, locked requirements, retained sources and current tested runtime/wheel. No bit-identical rebuild claim.",
+      "regular_files": 18514,
+      "removed_entries": 20168,
+      "retained_sha256": {
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "e0aaba74066ab3c8856461cb95f3a577d60e57c9f2de000984df29afb13e6bc1",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/_native.abi3.so": "f40be8041b7179d272c8603824082b9c11674c8a88882ab09557ca91ad2b553e",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/shardloom": "ac19b7bda03811c2945e8db5c42c01af6f6999f3f7e6346dd7ba07eab84f924e",
+        "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/calendar-00000.parquet": "0a6923b1522f0c1903d5ec74d9297b224c19776e7585fa42dde38e1e494670fb",
+        "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/entities-00000.parquet": "ad1ef43250f9815f12b90c43199b1c99362ce4f81beb34615ceb12497af6f5d2",
+        "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/fact-00000.parquet": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc",
+        "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/products-00000.parquet": "caf396dcbac020daaaff8df26b0064f0593e016646224e0964c6f9a5532ba7f9",
+        "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/relationships-00000.parquet": "bf641554001cb8e50f0d6c86d7b53b06e03968cd4d9ae340682f0f286c7babc4"
+      },
+      "retired_allocated_bytes": 1232748544,
+      "retired_regular_bytes": 1186337890,
+      "roots": [
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/package",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-wheel-r1/venv",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/wheel-build-tools",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/installed-proof-wheelhouse",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-draft-r1",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-replay-clean",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/outputs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/harness",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-aggregate-r1/logs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/harness",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-variable-r1/logs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/harness",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/broad-ordering-r1/logs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/source",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/source",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-release-runtime-r1/source",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/projection-diagnostic-r1/logs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-aggregate-diagnostic-r1/logs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/ordering-public-r1/logs",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/_native.abi3.so",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/aggregate-release-runtime-r1/shardloom",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/_native.abi3.so",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/variable-release-runtime-r1/shardloom",
+        "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/_native.abi3.so",
+        "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/analytical-release-runtime-r1/shardloom",
+        "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+      ],
+      "schema_version": "shardloom.generated_artifact_retirement.v1",
+      "source_inputs_retained": true,
+      "status": "passed",
+      "symlink_targets_followed": false,
+      "symlinks": 6,
+      "user_files_and_item18_untouched": true
+    },
+    "inventory": {
+      "bytes": 1160386,
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup-inventory.json.gz",
+      "sha256": "760c3de9b96b0926df466b55b606e33ddfff8b03c0176a55974ce66841f50676"
+    },
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup.json",
+    "sha256": "b71e8770331c68ac24993fdf9f887834e7adecefe3a02265a9b0e4883eb36bbe"
+  },
+  "log_identities": {
+    "r36-shared-packet-build.log": {
+      "bytes": 178,
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/r36-shared-packet-build.log",
+      "sha256": "a1eedaee2084e218d3cde5133628497c991bd8ae6912728c3bfd34827312a79d"
+    },
+    "r37-shared-packet-controls.log": {
+      "bytes": 3260,
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/r37-shared-packet-controls.log",
+      "sha256": "aa1a815afb12d24c47c93832306d11c03cf543ce03c3912e97cf43bf45952844"
+    },
+    "r38-shared-clean-replay.log": {
+      "bytes": 8548,
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/r38-shared-clean-replay.log",
+      "sha256": "8a2e9644c98bbff53ea366101517a192c6f69adc5f625e7452c5087939d8270a"
+    },
+    "r39-retire-completed-payloads.log": {
+      "bytes": 167,
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/r39-retire-completed-payloads.log",
+      "sha256": "9063a9aba1cafc1e92711255620295de8a41643c0f0e5269fa2b4ddaccbc85e9"
+    },
+    "r40-post-retirement-replay.log": {
+      "bytes": 5288,
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/r40-post-retirement-replay.log",
+      "sha256": "8c12952a75b15aa265612804a478ca0f223a301958175add8615633c4478e9ef"
+    },
+    "r41-final-source-governance.log": {
+      "bytes": 110,
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/r41-final-source-governance.log",
+      "sha256": "aee7792c7e794584546711609fd5ce874b09f5b9ce1e84e8a01a74d102873f8e"
+    }
+  },
+  "packet_verification": {
+    "complete_comparisons_per_cohort": 347,
+    "complete_rows_per_cohort": 12565,
+    "diagnostic_dispositions": {
+      "ordering-aggregate-diagnostic-r1": {
+        "cases": {
+          "aggregate_metric_scalar_mixed_arithmetic_all": {
+            "engine_seconds": {
+              "baseline": [
+                0.07938025,
+                0.080949125,
+                0.082025875
+              ],
+              "candidate": [
+                0.066495666,
+                0.067029125,
+                0.067657625
+              ]
+            },
+            "material_regression_reproduced": false,
+            "median_engine_seconds": {
+              "baseline": 0.080949125,
+              "candidate": 0.067029125
+            },
+            "median_ratio": 0.8280401424969077
+          },
+          "aggregate_metric_scalar_mixed_coalesce_all": {
+            "engine_seconds": {
+              "baseline": [
+                0.067929084,
+                0.067392458,
+                0.0683025
+              ],
+              "candidate": [
+                0.068324084,
+                0.068199791,
+                0.068393417
+              ]
+            },
+            "material_regression_reproduced": false,
+            "median_engine_seconds": {
+              "baseline": 0.067929084,
+              "candidate": 0.068324084
+            },
+            "median_ratio": 1.0058148877732547
+          },
+          "aggregate_metric_scalar_mixed_direct_all": {
+            "engine_seconds": {
+              "baseline": [
+                0.046015709,
+                0.044973625,
+                0.045357916
+              ],
+              "candidate": [
+                0.0451185,
+                0.04513,
+                0.04511725
+              ]
+            },
+            "material_regression_reproduced": false,
+            "median_engine_seconds": {
+              "baseline": 0.045357916,
+              "candidate": 0.0451185
+            },
+            "median_ratio": 0.9947216269812749
+          }
+        },
+        "disposition": "not_reproduced_in_bounded_diagnostic",
+        "observations": 18,
+        "original_cause": "unassigned",
+        "reproduced": []
+      },
+      "projection-diagnostic-r1": {
+        "cases": {
+          "projection_limit_direct_100": {
+            "engine_seconds": {
+              "baseline": [
+                0.119122375,
+                0.117875417,
+                0.117510208
+              ],
+              "candidate": [
+                0.110098792,
+                0.108266791,
+                0.110822667
+              ]
+            },
+            "material_regression_reproduced": false,
+            "median_engine_seconds": {
+              "baseline": 0.117875417,
+              "candidate": 0.110098792
+            },
+            "median_ratio": 0.9340267445246875
+          },
+          "projection_limit_direct_11": {
+            "engine_seconds": {
+              "baseline": [
+                0.115329083,
+                0.118212542,
+                0.117417
+              ],
+              "candidate": [
+                0.110088167,
+                0.109655791,
+                0.108549875
+              ]
+            },
+            "material_regression_reproduced": false,
+            "median_engine_seconds": {
+              "baseline": 0.117417,
+              "candidate": 0.109655791
+            },
+            "median_ratio": 0.9339004658609913
+          },
+          "projection_limit_direct_31": {
+            "engine_seconds": {
+              "baseline": [
+                0.116787958,
+                0.117325541,
+                0.117971208
+              ],
+              "candidate": [
+                0.109729167,
+                0.110351459,
+                0.109783958
+              ]
+            },
+            "material_regression_reproduced": false,
+            "median_engine_seconds": {
+              "baseline": 0.117325541,
+              "candidate": 0.109783958
+            },
+            "median_ratio": 0.9357208759855622
+          }
+        },
+        "disposition": "not_reproduced_in_bounded_diagnostic",
+        "observations": 18,
+        "original_cause": "unassigned",
+        "reproduced": []
+      }
+    },
+    "dropped_candidates": [
+      "borrowed_variable_width_output"
+    ],
+    "engine_seconds": {
+      "broad-aggregate-r1": 30.118456795,
+      "broad-ordering-r1": 28.017558877,
+      "broad-variable-r1": 29.225110351
+    },
+    "failed_validation_attempts": [
+      "r02-aggregate-tests",
+      "r04-native-clippy",
+      "r11-variable-tests",
+      "r17-streaming-order-tests",
+      "r19-ordering-native-clippy"
+    ],
+    "item_20_complete": false,
+    "limitations": [
+      "One complete observation per candidate; no statistical confidence or isolated causal claim.",
+      "Original regression flags remain in original totals; bounded diagnostics did not reproduce them.",
+      "Complete saved results replay without executing queries or archived code.",
+      "Content hashes establish internal consistency, not signed provenance.",
+      "Large data and binaries are represented by identity, not reconstructed by this packet."
+    ],
+    "new_competitor_queries": 0,
+    "original_material_case_regressions": {
+      "broad-aggregate-r1": [
+        "projection_limit_direct_31"
+      ],
+      "broad-ordering-r1": [
+        "aggregate_metric_scalar_mixed_arithmetic_all"
+      ],
+      "broad-variable-r1": []
+    },
+    "package_tests": 194,
+    "public_feature_suites": 9,
+    "public_ordering_cases": 29,
+    "retained_candidates": [
+      "numeric_aggregate_reuse",
+      "bounded_streaming_ordering"
+    ],
+    "status": "passed"
+  },
+  "preparation_attempts": [
+    {
+      "cause": "Unqualified python3 selected Python 3.9, which lacks dataclass slots.",
+      "correction": "Use the existing explicit Python 3.13 interpreter.",
+      "stage": "supplemental_export_import",
+      "status": "failed_before_output"
+    },
+    {
+      "cause": "The exporter asserted a mapping for cases; the verified comparison uses a list.",
+      "correction": "Preserve the complete list and require exactly 347 entries.",
+      "stage": "supplemental_export_schema",
+      "status": "failed_before_output"
+    }
+  ],
+  "receipts": {
+    "r36-shared-packet-build.json": {
+      "changed_source_inventory": {
+        "docs/architecture/native-analytical-completion-2026-10-27.md": {
+          "bytes": 41683,
+          "sha256": "6b671b04f1a26188bf01755b555e174c71d697642469ef2375f7e4071d982f64"
+        },
+        "docs/architecture/native-streamed-ordering-2026-10-07.md": {
+          "bytes": 10819,
+          "sha256": "1d0d3b41087962b8172df60d4855e98709beb5f2ffbd167809f4b3eb3e419797"
+        },
+        "scripts/native_streaming_order_cases.py": {
+          "bytes": 10409,
+          "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+        },
+        "scripts/test_shared_analytical_performance_packet.py": {
+          "bytes": 9332,
+          "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+        },
+        "scripts/verify_shared_analytical_performance_packet.py": {
+          "bytes": 21412,
+          "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+        },
+        "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+          "bytes": 90528,
+          "sha256": "d9aec9b7a89eaa9ca939b6f94f034ea3336cf3d88e4c216239bd6f4529e7cb10"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+          "bytes": 45228,
+          "sha256": "6359070c7ba41b034bb7bdf2ec291b2357c659f536809917d73f6faef60a2d04"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs": {
+          "bytes": 11715,
+          "sha256": "6547dfb18e3c616cbf5b6a60189fc1cfb897e741d17d1dfd034d163594ba5b40"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs": {
+          "bytes": 23852,
+          "sha256": "9afab12e532b899ea0e5cce31d09471076b94c9369e794ab0fe6896658c94975"
+        },
+        "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+          "bytes": 12221,
+          "sha256": "a568db98f7ff2bf0c93c183220af88884d059866804e3ae9a9c68cd9673f0b9d"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload.rs": {
+          "bytes": 20635,
+          "sha256": "491fda38ac9e89e8a2f799cfe0958f1252654100ad321429b78fd7f60ec9d159"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+          "bytes": 2426,
+          "sha256": "a5d8f9da886723c2c3b45bb1e30b506c52e5a418994cc250d076345a546f640c"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "bytes": 2294,
+          "sha256": "d2564929704a404a297144279daab7b21f0c6bc5418b8060ee8bc031fe0f6dbc"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+          "bytes": 10494,
+          "sha256": "4020c3fb217791e5303201268fc9bf49ba4eddbf4a8fd508250a0f5733a389ba"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs": {
+          "bytes": 3658,
+          "sha256": "0bc8baaad784ba7014262dc546357653d8004991c0455f2da91017d9a07cd786"
+        }
+      },
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/tools/build_shared_performance_packet.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-draft-r1"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "4aa53216f40c1efd6d0ad31556088a0b125db790",
+      "interrupted_signal": null,
+      "log_sha256": "a1eedaee2084e218d3cde5133628497c991bd8ae6912728c3bfd34827312a79d",
+      "output_bytes": 178,
+      "output_limit_bytes": 8388608,
+      "pid": 69839,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 10.866660125087947,
+      "status": "passed",
+      "storage_last_observation": {
+        "cargo": {
+          "free_bytes": 90808496128,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 33317101568
+        },
+        "output": {
+          "free_bytes": 90808496128,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 1255710903
+        }
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 600.0,
+      "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-streamed-ordering-2026-10-07.md\n M scripts/native_streaming_order_cases.py\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_sort.rs\n?? scripts/test_shared_analytical_performance_packet.py\n?? scripts/verify_shared_analytical_performance_packet.py\n?? shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs\n?? shardloom-vortex/src/local_primitives/native_payload_validation.rs\n?? shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs\n"
+    },
+    "r37-shared-packet-controls.json": {
+      "changed_source_inventory": {
+        "docs/architecture/native-analytical-completion-2026-10-27.md": {
+          "bytes": 41683,
+          "sha256": "6b671b04f1a26188bf01755b555e174c71d697642469ef2375f7e4071d982f64"
+        },
+        "docs/architecture/native-streamed-ordering-2026-10-07.md": {
+          "bytes": 10819,
+          "sha256": "1d0d3b41087962b8172df60d4855e98709beb5f2ffbd167809f4b3eb3e419797"
+        },
+        "scripts/native_streaming_order_cases.py": {
+          "bytes": 10409,
+          "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+        },
+        "scripts/test_shared_analytical_performance_packet.py": {
+          "bytes": 9332,
+          "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+        },
+        "scripts/verify_shared_analytical_performance_packet.py": {
+          "bytes": 21412,
+          "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+        },
+        "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+          "bytes": 90528,
+          "sha256": "d9aec9b7a89eaa9ca939b6f94f034ea3336cf3d88e4c216239bd6f4529e7cb10"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+          "bytes": 45228,
+          "sha256": "6359070c7ba41b034bb7bdf2ec291b2357c659f536809917d73f6faef60a2d04"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs": {
+          "bytes": 11715,
+          "sha256": "6547dfb18e3c616cbf5b6a60189fc1cfb897e741d17d1dfd034d163594ba5b40"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs": {
+          "bytes": 23852,
+          "sha256": "9afab12e532b899ea0e5cce31d09471076b94c9369e794ab0fe6896658c94975"
+        },
+        "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+          "bytes": 12221,
+          "sha256": "a568db98f7ff2bf0c93c183220af88884d059866804e3ae9a9c68cd9673f0b9d"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload.rs": {
+          "bytes": 20635,
+          "sha256": "491fda38ac9e89e8a2f799cfe0958f1252654100ad321429b78fd7f60ec9d159"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+          "bytes": 2426,
+          "sha256": "a5d8f9da886723c2c3b45bb1e30b506c52e5a418994cc250d076345a546f640c"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "bytes": 2294,
+          "sha256": "d2564929704a404a297144279daab7b21f0c6bc5418b8060ee8bc031fe0f6dbc"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+          "bytes": 10494,
+          "sha256": "4020c3fb217791e5303201268fc9bf49ba4eddbf4a8fd508250a0f5733a389ba"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs": {
+          "bytes": 3658,
+          "sha256": "0bc8baaad784ba7014262dc546357653d8004991c0455f2da91017d9a07cd786"
+        }
+      },
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "env",
+        "SHARDLOOM_SHARED_PERFORMANCE_PACKET=/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/packet-draft-r1",
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_shared_analytical_performance_packet.py",
+        "-v"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "4aa53216f40c1efd6d0ad31556088a0b125db790",
+      "interrupted_signal": null,
+      "log_sha256": "aa1a815afb12d24c47c93832306d11c03cf543ce03c3912e97cf43bf45952844",
+      "output_bytes": 3260,
+      "output_limit_bytes": 8388608,
+      "pid": 69861,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 48.51863520918414,
+      "status": "passed",
+      "storage_last_observation": {
+        "cargo": {
+          "free_bytes": 90799325184,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 33317101568
+        },
+        "output": {
+          "free_bytes": 90799325184,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 1268977847
+        }
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 600.0,
+      "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-streamed-ordering-2026-10-07.md\n M scripts/native_streaming_order_cases.py\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_sort.rs\n?? scripts/test_shared_analytical_performance_packet.py\n?? scripts/verify_shared_analytical_performance_packet.py\n?? shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs\n?? shardloom-vortex/src/local_primitives/native_payload_validation.rs\n?? shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs\n"
+    },
+    "r38-shared-clean-replay.json": {
+      "changed_source_inventory": {
+        "docs/architecture/native-analytical-completion-2026-10-27.md": {
+          "bytes": 41683,
+          "sha256": "6b671b04f1a26188bf01755b555e174c71d697642469ef2375f7e4071d982f64"
+        },
+        "docs/architecture/native-streamed-ordering-2026-10-07.md": {
+          "bytes": 10819,
+          "sha256": "1d0d3b41087962b8172df60d4855e98709beb5f2ffbd167809f4b3eb3e419797"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/manifest.json": {
+          "bytes": 1970722,
+          "sha256": "7665e2ee2c9e7233717292e532fee7cb9d296aab5793198ee0be68dcb68bfbf8"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/packet.tar.xz": {
+          "bytes": 11265056,
+          "sha256": "5564d2680d322a5e68a4dc2c2837212b82615bb25aec2f739f22906a124493da"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/replay.json": {
+          "bytes": 5288,
+          "sha256": "cab8e59b72235a46623fdf7a6f0ed3c8ad80c97140a4511f25539212994379fe"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/source-only-replay.py": {
+          "bytes": 1241,
+          "sha256": "0071ec331e9cc66d687778360a1c2a015c46468b8a4b0854dc5965d25a2625ab"
+        },
+        "scripts/native_streaming_order_cases.py": {
+          "bytes": 10409,
+          "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+        },
+        "scripts/test_shared_analytical_performance_packet.py": {
+          "bytes": 9332,
+          "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+        },
+        "scripts/verify_shared_analytical_performance_packet.py": {
+          "bytes": 21412,
+          "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+        },
+        "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+          "bytes": 90528,
+          "sha256": "d9aec9b7a89eaa9ca939b6f94f034ea3336cf3d88e4c216239bd6f4529e7cb10"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+          "bytes": 45228,
+          "sha256": "6359070c7ba41b034bb7bdf2ec291b2357c659f536809917d73f6faef60a2d04"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs": {
+          "bytes": 11715,
+          "sha256": "6547dfb18e3c616cbf5b6a60189fc1cfb897e741d17d1dfd034d163594ba5b40"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs": {
+          "bytes": 23852,
+          "sha256": "9afab12e532b899ea0e5cce31d09471076b94c9369e794ab0fe6896658c94975"
+        },
+        "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+          "bytes": 12221,
+          "sha256": "a568db98f7ff2bf0c93c183220af88884d059866804e3ae9a9c68cd9673f0b9d"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload.rs": {
+          "bytes": 20635,
+          "sha256": "491fda38ac9e89e8a2f799cfe0958f1252654100ad321429b78fd7f60ec9d159"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+          "bytes": 2426,
+          "sha256": "a5d8f9da886723c2c3b45bb1e30b506c52e5a418994cc250d076345a546f640c"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "bytes": 2294,
+          "sha256": "d2564929704a404a297144279daab7b21f0c6bc5418b8060ee8bc031fe0f6dbc"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+          "bytes": 10494,
+          "sha256": "4020c3fb217791e5303201268fc9bf49ba4eddbf4a8fd508250a0f5733a389ba"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs": {
+          "bytes": 3658,
+          "sha256": "0bc8baaad784ba7014262dc546357653d8004991c0455f2da91017d9a07cd786"
+        }
+      },
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/tools/clean_shared_performance_replay.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "4aa53216f40c1efd6d0ad31556088a0b125db790",
+      "interrupted_signal": null,
+      "log_sha256": "8a2e9644c98bbff53ea366101517a192c6f69adc5f625e7452c5087939d8270a",
+      "output_bytes": 8548,
+      "output_limit_bytes": 8388608,
+      "pid": 69934,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 51.941028540953994,
+      "status": "passed",
+      "storage_last_observation": {
+        "cargo": {
+          "free_bytes": 90749972480,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 33317101568
+        },
+        "output": {
+          "free_bytes": 90749972480,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 1288310967
+        }
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 600.0,
+      "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-streamed-ordering-2026-10-07.md\n M scripts/native_streaming_order_cases.py\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_sort.rs\n?? docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/\n?? scripts/test_shared_analytical_performance_packet.py\n?? scripts/verify_shared_analytical_performance_packet.py\n?? shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs\n?? shardloom-vortex/src/local_primitives/native_payload_validation.rs\n?? shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs\n"
+    },
+    "r39-retire-completed-payloads.json": {
+      "changed_source_inventory": {
+        "docs/architecture/native-analytical-completion-2026-10-27.md": {
+          "bytes": 41876,
+          "sha256": "d6f0b5b7684d39d457180e995ee89a24a75057d228300e44dfdf68cfc3e5714d"
+        },
+        "docs/architecture/native-streamed-ordering-2026-10-07.md": {
+          "bytes": 10819,
+          "sha256": "1d0d3b41087962b8172df60d4855e98709beb5f2ffbd167809f4b3eb3e419797"
+        },
+        "docs/architecture/phased-execution-plan.md": {
+          "bytes": 146205,
+          "sha256": "b9a181b4af48b787a9e5e913fc721eead9c336f04248caab2d7a9b87fe2c4b72"
+        },
+        "docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json": {
+          "bytes": 17887,
+          "sha256": "52e34e5b5b531aeb7659b0f2d780050263e5352c65da2dc94043b55c30452aa2"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/manifest.json": {
+          "bytes": 1970722,
+          "sha256": "7665e2ee2c9e7233717292e532fee7cb9d296aab5793198ee0be68dcb68bfbf8"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/packet.tar.xz": {
+          "bytes": 11265056,
+          "sha256": "5564d2680d322a5e68a4dc2c2837212b82615bb25aec2f739f22906a124493da"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/replay.json": {
+          "bytes": 5288,
+          "sha256": "cab8e59b72235a46623fdf7a6f0ed3c8ad80c97140a4511f25539212994379fe"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/source-only-replay.py": {
+          "bytes": 1241,
+          "sha256": "0071ec331e9cc66d687778360a1c2a015c46468b8a4b0854dc5965d25a2625ab"
+        },
+        "docs/benchmarks/native-analytical-aggregates-2026-10-27.md": {
+          "bytes": 11260,
+          "sha256": "750883a25e2646881f69083d2336f73bd91fa63d771a0d80a2c0126df4c86c55"
+        },
+        "scripts/native_streaming_order_cases.py": {
+          "bytes": 10409,
+          "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+        },
+        "scripts/test_shared_analytical_performance_packet.py": {
+          "bytes": 9332,
+          "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+        },
+        "scripts/verify_shared_analytical_performance_packet.py": {
+          "bytes": 21412,
+          "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+        },
+        "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+          "bytes": 90528,
+          "sha256": "d9aec9b7a89eaa9ca939b6f94f034ea3336cf3d88e4c216239bd6f4529e7cb10"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+          "bytes": 45228,
+          "sha256": "6359070c7ba41b034bb7bdf2ec291b2357c659f536809917d73f6faef60a2d04"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs": {
+          "bytes": 11715,
+          "sha256": "6547dfb18e3c616cbf5b6a60189fc1cfb897e741d17d1dfd034d163594ba5b40"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs": {
+          "bytes": 23852,
+          "sha256": "9afab12e532b899ea0e5cce31d09471076b94c9369e794ab0fe6896658c94975"
+        },
+        "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+          "bytes": 12221,
+          "sha256": "a568db98f7ff2bf0c93c183220af88884d059866804e3ae9a9c68cd9673f0b9d"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload.rs": {
+          "bytes": 20635,
+          "sha256": "491fda38ac9e89e8a2f799cfe0958f1252654100ad321429b78fd7f60ec9d159"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+          "bytes": 2426,
+          "sha256": "a5d8f9da886723c2c3b45bb1e30b506c52e5a418994cc250d076345a546f640c"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "bytes": 2294,
+          "sha256": "d2564929704a404a297144279daab7b21f0c6bc5418b8060ee8bc031fe0f6dbc"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+          "bytes": 10494,
+          "sha256": "4020c3fb217791e5303201268fc9bf49ba4eddbf4a8fd508250a0f5733a389ba"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs": {
+          "bytes": 3658,
+          "sha256": "0bc8baaad784ba7014262dc546357653d8004991c0455f2da91017d9a07cd786"
+        }
+      },
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/tools/retire_completed_performance_payloads.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "4aa53216f40c1efd6d0ad31556088a0b125db790",
+      "interrupted_signal": null,
+      "log_sha256": "9063a9aba1cafc1e92711255620295de8a41643c0f0e5269fa2b4ddaccbc85e9",
+      "output_bytes": 167,
+      "output_limit_bytes": 8388608,
+      "pid": 70210,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 10.522856707999999,
+      "status": "passed",
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 900.0,
+      "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-streamed-ordering-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-analytical-aggregates-2026-10-27.md\n M scripts/native_streaming_order_cases.py\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_sort.rs\n?? docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json\n?? docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/\n?? scripts/test_shared_analytical_performance_packet.py\n?? scripts/verify_shared_analytical_performance_packet.py\n?? shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs\n?? shardloom-vortex/src/local_primitives/native_payload_validation.rs\n?? shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs\n"
+    },
+    "r40-post-retirement-replay.json": {
+      "changed_source_inventory": {
+        "docs/architecture/native-analytical-completion-2026-10-27.md": {
+          "bytes": 41876,
+          "sha256": "d6f0b5b7684d39d457180e995ee89a24a75057d228300e44dfdf68cfc3e5714d"
+        },
+        "docs/architecture/native-streamed-ordering-2026-10-07.md": {
+          "bytes": 10819,
+          "sha256": "1d0d3b41087962b8172df60d4855e98709beb5f2ffbd167809f4b3eb3e419797"
+        },
+        "docs/architecture/phased-execution-plan.md": {
+          "bytes": 146205,
+          "sha256": "b9a181b4af48b787a9e5e913fc721eead9c336f04248caab2d7a9b87fe2c4b72"
+        },
+        "docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json": {
+          "bytes": 17887,
+          "sha256": "52e34e5b5b531aeb7659b0f2d780050263e5352c65da2dc94043b55c30452aa2"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup-inventory.json.gz": {
+          "bytes": 1160386,
+          "sha256": "760c3de9b96b0926df466b55b606e33ddfff8b03c0176a55974ce66841f50676"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup.json": {
+          "bytes": 10260,
+          "sha256": "b71e8770331c68ac24993fdf9f887834e7adecefe3a02265a9b0e4883eb36bbe"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/manifest.json": {
+          "bytes": 1970722,
+          "sha256": "7665e2ee2c9e7233717292e532fee7cb9d296aab5793198ee0be68dcb68bfbf8"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/packet.tar.xz": {
+          "bytes": 11265056,
+          "sha256": "5564d2680d322a5e68a4dc2c2837212b82615bb25aec2f739f22906a124493da"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/replay.json": {
+          "bytes": 5288,
+          "sha256": "cab8e59b72235a46623fdf7a6f0ed3c8ad80c97140a4511f25539212994379fe"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/source-only-replay.py": {
+          "bytes": 1241,
+          "sha256": "0071ec331e9cc66d687778360a1c2a015c46468b8a4b0854dc5965d25a2625ab"
+        },
+        "docs/benchmarks/native-analytical-aggregates-2026-10-27.md": {
+          "bytes": 11260,
+          "sha256": "750883a25e2646881f69083d2336f73bd91fa63d771a0d80a2c0126df4c86c55"
+        },
+        "scripts/native_streaming_order_cases.py": {
+          "bytes": 10409,
+          "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+        },
+        "scripts/test_shared_analytical_performance_packet.py": {
+          "bytes": 9332,
+          "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+        },
+        "scripts/verify_shared_analytical_performance_packet.py": {
+          "bytes": 21412,
+          "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+        },
+        "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+          "bytes": 90528,
+          "sha256": "d9aec9b7a89eaa9ca939b6f94f034ea3336cf3d88e4c216239bd6f4529e7cb10"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+          "bytes": 45228,
+          "sha256": "6359070c7ba41b034bb7bdf2ec291b2357c659f536809917d73f6faef60a2d04"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs": {
+          "bytes": 11715,
+          "sha256": "6547dfb18e3c616cbf5b6a60189fc1cfb897e741d17d1dfd034d163594ba5b40"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs": {
+          "bytes": 23852,
+          "sha256": "9afab12e532b899ea0e5cce31d09471076b94c9369e794ab0fe6896658c94975"
+        },
+        "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+          "bytes": 12221,
+          "sha256": "a568db98f7ff2bf0c93c183220af88884d059866804e3ae9a9c68cd9673f0b9d"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload.rs": {
+          "bytes": 20635,
+          "sha256": "491fda38ac9e89e8a2f799cfe0958f1252654100ad321429b78fd7f60ec9d159"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+          "bytes": 2426,
+          "sha256": "a5d8f9da886723c2c3b45bb1e30b506c52e5a418994cc250d076345a546f640c"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "bytes": 2294,
+          "sha256": "d2564929704a404a297144279daab7b21f0c6bc5418b8060ee8bc031fe0f6dbc"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+          "bytes": 10494,
+          "sha256": "4020c3fb217791e5303201268fc9bf49ba4eddbf4a8fd508250a0f5733a389ba"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs": {
+          "bytes": 3658,
+          "sha256": "0bc8baaad784ba7014262dc546357653d8004991c0455f2da91017d9a07cd786"
+        }
+      },
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "python3",
+        "-I",
+        "-B",
+        "scripts/verify_shared_analytical_performance_packet.py",
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "4aa53216f40c1efd6d0ad31556088a0b125db790",
+      "interrupted_signal": null,
+      "log_sha256": "8c12952a75b15aa265612804a478ca0f223a301958175add8615633c4478e9ef",
+      "output_bytes": 5288,
+      "output_limit_bytes": 8388608,
+      "pid": 70289,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 3.242851833,
+      "status": "passed",
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 600.0,
+      "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-streamed-ordering-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-analytical-aggregates-2026-10-27.md\n M scripts/native_streaming_order_cases.py\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_sort.rs\n?? docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json\n?? docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/\n?? scripts/test_shared_analytical_performance_packet.py\n?? scripts/verify_shared_analytical_performance_packet.py\n?? shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs\n?? shardloom-vortex/src/local_primitives/native_payload_validation.rs\n?? shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs\n"
+    },
+    "r41-final-source-governance.json": {
+      "changed_source_inventory": {
+        "docs/architecture/native-analytical-completion-2026-10-27.md": {
+          "bytes": 42169,
+          "sha256": "f86f357bd7aae44bcb92bfb46a054fbebc847ccf5f773a0bdeae06a0425b039d"
+        },
+        "docs/architecture/native-streamed-ordering-2026-10-07.md": {
+          "bytes": 10819,
+          "sha256": "1d0d3b41087962b8172df60d4855e98709beb5f2ffbd167809f4b3eb3e419797"
+        },
+        "docs/architecture/phased-execution-plan.md": {
+          "bytes": 146442,
+          "sha256": "5633cfe29f05e453362275d407efce6d64a1af3f85784e815bbf05437a546d38"
+        },
+        "docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json": {
+          "bytes": 17887,
+          "sha256": "52e34e5b5b531aeb7659b0f2d780050263e5352c65da2dc94043b55c30452aa2"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup-inventory.json.gz": {
+          "bytes": 1160386,
+          "sha256": "760c3de9b96b0926df466b55b606e33ddfff8b03c0176a55974ce66841f50676"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/cleanup.json": {
+          "bytes": 10260,
+          "sha256": "b71e8770331c68ac24993fdf9f887834e7adecefe3a02265a9b0e4883eb36bbe"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/manifest.json": {
+          "bytes": 1970722,
+          "sha256": "7665e2ee2c9e7233717292e532fee7cb9d296aab5793198ee0be68dcb68bfbf8"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/packet.tar.xz": {
+          "bytes": 11265056,
+          "sha256": "5564d2680d322a5e68a4dc2c2837212b82615bb25aec2f739f22906a124493da"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/replay.json": {
+          "bytes": 5288,
+          "sha256": "cab8e59b72235a46623fdf7a6f0ed3c8ad80c97140a4511f25539212994379fe"
+        },
+        "docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/source-only-replay.py": {
+          "bytes": 1241,
+          "sha256": "0071ec331e9cc66d687778360a1c2a015c46468b8a4b0854dc5965d25a2625ab"
+        },
+        "docs/benchmarks/native-analytical-aggregates-2026-10-27.md": {
+          "bytes": 11260,
+          "sha256": "750883a25e2646881f69083d2336f73bd91fa63d771a0d80a2c0126df4c86c55"
+        },
+        "docs/benchmarks/native-shared-analytical-performance-2026-10-27.md": {
+          "bytes": 12039,
+          "sha256": "40751fa97b93d721ad8fb9e7c46d9725836d1a964ef8fa6b78c4d4d99c6e8735"
+        },
+        "scripts/native_streaming_order_cases.py": {
+          "bytes": 10409,
+          "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+        },
+        "scripts/test_shared_analytical_performance_packet.py": {
+          "bytes": 9332,
+          "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+        },
+        "scripts/verify_shared_analytical_performance_packet.py": {
+          "bytes": 21412,
+          "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+        },
+        "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+          "bytes": 90528,
+          "sha256": "d9aec9b7a89eaa9ca939b6f94f034ea3336cf3d88e4c216239bd6f4529e7cb10"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+          "bytes": 45228,
+          "sha256": "6359070c7ba41b034bb7bdf2ec291b2357c659f536809917d73f6faef60a2d04"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs": {
+          "bytes": 11715,
+          "sha256": "6547dfb18e3c616cbf5b6a60189fc1cfb897e741d17d1dfd034d163594ba5b40"
+        },
+        "shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs": {
+          "bytes": 23852,
+          "sha256": "9afab12e532b899ea0e5cce31d09471076b94c9369e794ab0fe6896658c94975"
+        },
+        "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+          "bytes": 12221,
+          "sha256": "a568db98f7ff2bf0c93c183220af88884d059866804e3ae9a9c68cd9673f0b9d"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload.rs": {
+          "bytes": 20635,
+          "sha256": "491fda38ac9e89e8a2f799cfe0958f1252654100ad321429b78fd7f60ec9d159"
+        },
+        "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+          "bytes": 2426,
+          "sha256": "a5d8f9da886723c2c3b45bb1e30b506c52e5a418994cc250d076345a546f640c"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "bytes": 2294,
+          "sha256": "d2564929704a404a297144279daab7b21f0c6bc5418b8060ee8bc031fe0f6dbc"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+          "bytes": 10494,
+          "sha256": "4020c3fb217791e5303201268fc9bf49ba4eddbf4a8fd508250a0f5733a389ba"
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs": {
+          "bytes": 3658,
+          "sha256": "0bc8baaad784ba7014262dc546357653d8004991c0455f2da91017d9a07cd786"
+        }
+      },
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_contribution_governance.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "4aa53216f40c1efd6d0ad31556088a0b125db790",
+      "interrupted_signal": null,
+      "log_sha256": "aee7792c7e794584546711609fd5ce874b09f5b9ce1e84e8a01a74d102873f8e",
+      "output_bytes": 110,
+      "output_limit_bytes": 8388608,
+      "pid": 70423,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.070318666,
+      "status": "passed",
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 600.0,
+      "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-streamed-ordering-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-analytical-aggregates-2026-10-27.md\n M scripts/native_streaming_order_cases.py\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_batch_order_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_sort.rs\n?? docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/hosted.json\n?? docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/\n?? docs/benchmarks/native-shared-analytical-performance-2026-10-27.md\n?? scripts/test_shared_analytical_performance_packet.py\n?? scripts/verify_shared_analytical_performance_packet.py\n?? shardloom-vortex/src/local_primitive_relational_batch_order_prefix_tests.rs\n?? shardloom-vortex/src/local_primitives/native_payload_validation.rs\n?? shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs\n"
+    }
+  },
+  "schema_version": "shardloom.shared_analytical_performance_verification_supplement.v1",
+  "supplemental_file_bytes": 28976,
+  "supplemental_files": {
+    "logs/r36-shared-packet-build.log": {
+      "bytes": 178,
+      "content": "{\"status\": \"passed\", \"files\": 7226, \"expanded_bytes\": 127904344, \"archive_bytes\": 11265056, \"archive_sha256\": \"5564d2680d322a5e68a4dc2c2837212b82615bb25aec2f739f22906a124493da\"}\n",
+      "sha256": "a1eedaee2084e218d3cde5133628497c991bd8ae6912728c3bfd34827312a79d"
+    },
+    "logs/r37-shared-packet-controls.log": {
+      "bytes": 3260,
+      "content": "test_changed_archive (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_archive) ... ok\ntest_changed_complete_value_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_complete_value_with_relinked_digests) ... ok\ntest_changed_engine_clock_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_engine_clock_with_relinked_digests) ... ok\ntest_changed_frozen_source (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_frozen_source) ... ok\ntest_changed_schema_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_schema_with_relinked_digests) ... ok\ntest_compiled_source_changed (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_compiled_source_changed) ... ok\ntest_complete_packet_preserves_candidate_decisions_and_flags (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_complete_packet_preserves_candidate_decisions_and_flags) ... ok\ntest_diagnostic_changed_clock_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_changed_clock_with_relinked_digests) ... ok\ntest_diagnostic_changed_result_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_changed_result_with_relinked_digests) ... ok\ntest_diagnostic_median_changed (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_median_changed) ... ok\ntest_diagnostic_missing_observation (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_missing_observation) ... ok\ntest_dropped_candidate_cannot_be_promoted (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_dropped_candidate_cannot_be_promoted) ... ok\ntest_failed_worker_guard (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_failed_worker_guard) ... ok\ntest_historical_failure_cannot_be_replaced (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_historical_failure_cannot_be_replaced) ... ok\ntest_missing_external_identity (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_missing_external_identity) ... ok\ntest_missing_required_gate (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_missing_required_gate) ... ok\ntest_original_regression_cannot_be_removed (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_original_regression_cannot_be_removed) ... ok\ntest_package_runtime_replaced (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_package_runtime_replaced) ... ok\ntest_public_ordering_case_missing (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_public_ordering_case_missing) ... ok\n\n----------------------------------------------------------------------\nRan 19 tests in 48.420s\n\nOK\n",
+      "sha256": "aa1a815afb12d24c47c93832306d11c03cf543ce03c3912e97cf43bf45952844"
+    },
+    "logs/r38-shared-clean-replay.log": {
+      "bytes": 8548,
+      "content": "{\n  \"status\": \"passed\",\n  \"complete_comparisons_per_cohort\": 347,\n  \"complete_rows_per_cohort\": 12565,\n  \"retained_candidates\": [\n    \"numeric_aggregate_reuse\",\n    \"bounded_streaming_ordering\"\n  ],\n  \"dropped_candidates\": [\n    \"borrowed_variable_width_output\"\n  ],\n  \"engine_seconds\": {\n    \"broad-aggregate-r1\": 30.118456795,\n    \"broad-variable-r1\": 29.225110351,\n    \"broad-ordering-r1\": 28.017558877\n  },\n  \"original_material_case_regressions\": {\n    \"broad-aggregate-r1\": [\n      \"projection_limit_direct_31\"\n    ],\n    \"broad-variable-r1\": [],\n    \"broad-ordering-r1\": [\n      \"aggregate_metric_scalar_mixed_arithmetic_all\"\n    ]\n  },\n  \"diagnostic_dispositions\": {\n    \"projection-diagnostic-r1\": {\n      \"observations\": 18,\n      \"reproduced\": [],\n      \"cases\": {\n        \"projection_limit_direct_11\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.115329083,\n              0.118212542,\n              0.117417\n            ],\n            \"candidate\": [\n              0.110088167,\n              0.109655791,\n              0.108549875\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.117417,\n            \"candidate\": 0.109655791\n          },\n          \"median_ratio\": 0.9339004658609913,\n          \"material_regression_reproduced\": false\n        },\n        \"projection_limit_direct_31\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.116787958,\n              0.117325541,\n              0.117971208\n            ],\n            \"candidate\": [\n              0.109729167,\n              0.110351459,\n              0.109783958\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.117325541,\n            \"candidate\": 0.109783958\n          },\n          \"median_ratio\": 0.9357208759855622,\n          \"material_regression_reproduced\": false\n        },\n        \"projection_limit_direct_100\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.119122375,\n              0.117875417,\n              0.117510208\n            ],\n            \"candidate\": [\n              0.110098792,\n              0.108266791,\n              0.110822667\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.117875417,\n            \"candidate\": 0.110098792\n          },\n          \"median_ratio\": 0.9340267445246875,\n          \"material_regression_reproduced\": false\n        }\n      },\n      \"disposition\": \"not_reproduced_in_bounded_diagnostic\",\n      \"original_cause\": \"unassigned\"\n    },\n    \"ordering-aggregate-diagnostic-r1\": {\n      \"observations\": 18,\n      \"reproduced\": [],\n      \"cases\": {\n        \"aggregate_metric_scalar_mixed_direct_all\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.046015709,\n              0.044973625,\n              0.045357916\n            ],\n            \"candidate\": [\n              0.0451185,\n              0.04513,\n              0.04511725\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.045357916,\n            \"candidate\": 0.0451185\n          },\n          \"median_ratio\": 0.9947216269812749,\n          \"material_regression_reproduced\": false\n        },\n        \"aggregate_metric_scalar_mixed_arithmetic_all\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.07938025,\n              0.080949125,\n              0.082025875\n            ],\n            \"candidate\": [\n              0.066495666,\n              0.067029125,\n              0.067657625\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.080949125,\n            \"candidate\": 0.067029125\n          },\n          \"median_ratio\": 0.8280401424969077,\n          \"material_regression_reproduced\": false\n        },\n        \"aggregate_metric_scalar_mixed_coalesce_all\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.067929084,\n              0.067392458,\n              0.0683025\n            ],\n            \"candidate\": [\n              0.068324084,\n              0.068199791,\n              0.068393417\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.067929084,\n            \"candidate\": 0.068324084\n          },\n          \"median_ratio\": 1.0058148877732547,\n          \"material_regression_reproduced\": false\n        }\n      },\n      \"disposition\": \"not_reproduced_in_bounded_diagnostic\",\n      \"original_cause\": \"unassigned\"\n    }\n  },\n  \"failed_validation_attempts\": [\n    \"r02-aggregate-tests\",\n    \"r04-native-clippy\",\n    \"r11-variable-tests\",\n    \"r17-streaming-order-tests\",\n    \"r19-ordering-native-clippy\"\n  ],\n  \"public_feature_suites\": 9,\n  \"public_ordering_cases\": 29,\n  \"package_tests\": 194,\n  \"new_competitor_queries\": 0,\n  \"item_20_complete\": false,\n  \"limitations\": [\n    \"One complete observation per candidate; no statistical confidence or isolated causal claim.\",\n    \"Original regression flags remain in original totals; bounded diagnostics did not reproduce them.\",\n    \"Complete saved results replay without executing queries or archived code.\",\n    \"Content hashes establish internal consistency, not signed provenance.\",\n    \"Large data and binaries are represented by identity, not reconstructed by this packet.\"\n  ]\n}\ntest_changed_archive (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_archive) ... ok\ntest_changed_complete_value_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_complete_value_with_relinked_digests) ... ok\ntest_changed_engine_clock_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_engine_clock_with_relinked_digests) ... ok\ntest_changed_frozen_source (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_frozen_source) ... ok\ntest_changed_schema_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_changed_schema_with_relinked_digests) ... ok\ntest_compiled_source_changed (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_compiled_source_changed) ... ok\ntest_complete_packet_preserves_candidate_decisions_and_flags (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_complete_packet_preserves_candidate_decisions_and_flags) ... ok\ntest_diagnostic_changed_clock_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_changed_clock_with_relinked_digests) ... ok\ntest_diagnostic_changed_result_with_relinked_digests (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_changed_result_with_relinked_digests) ... ok\ntest_diagnostic_median_changed (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_median_changed) ... ok\ntest_diagnostic_missing_observation (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_diagnostic_missing_observation) ... ok\ntest_dropped_candidate_cannot_be_promoted (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_dropped_candidate_cannot_be_promoted) ... ok\ntest_failed_worker_guard (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_failed_worker_guard) ... ok\ntest_historical_failure_cannot_be_replaced (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_historical_failure_cannot_be_replaced) ... ok\ntest_missing_external_identity (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_missing_external_identity) ... ok\ntest_missing_required_gate (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_missing_required_gate) ... ok\ntest_original_regression_cannot_be_removed (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_original_regression_cannot_be_removed) ... ok\ntest_package_runtime_replaced (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_package_runtime_replaced) ... ok\ntest_public_ordering_case_missing (test_shared_analytical_performance_packet.SharedAnalyticalPerformancePacketTests.test_public_ordering_case_missing) ... ok\n\n----------------------------------------------------------------------\nRan 19 tests in 48.497s\n\nOK\n",
+      "sha256": "8a2e9644c98bbff53ea366101517a192c6f69adc5f625e7452c5087939d8270a"
+    },
+    "logs/r39-retire-completed-payloads.log": {
+      "bytes": 167,
+      "content": "{\"stage\": \"identities_and_closed_handles_verified\", \"entries\": 20168}\n{\"status\": \"passed\", \"regular_files\": 18514, \"symlinks\": 6, \"retired_regular_bytes\": 1186337890}\n",
+      "sha256": "9063a9aba1cafc1e92711255620295de8a41643c0f0e5269fa2b4ddaccbc85e9"
+    },
+    "logs/r40-post-retirement-replay.log": {
+      "bytes": 5288,
+      "content": "{\n  \"status\": \"passed\",\n  \"complete_comparisons_per_cohort\": 347,\n  \"complete_rows_per_cohort\": 12565,\n  \"retained_candidates\": [\n    \"numeric_aggregate_reuse\",\n    \"bounded_streaming_ordering\"\n  ],\n  \"dropped_candidates\": [\n    \"borrowed_variable_width_output\"\n  ],\n  \"engine_seconds\": {\n    \"broad-aggregate-r1\": 30.118456795,\n    \"broad-variable-r1\": 29.225110351,\n    \"broad-ordering-r1\": 28.017558877\n  },\n  \"original_material_case_regressions\": {\n    \"broad-aggregate-r1\": [\n      \"projection_limit_direct_31\"\n    ],\n    \"broad-variable-r1\": [],\n    \"broad-ordering-r1\": [\n      \"aggregate_metric_scalar_mixed_arithmetic_all\"\n    ]\n  },\n  \"diagnostic_dispositions\": {\n    \"projection-diagnostic-r1\": {\n      \"observations\": 18,\n      \"reproduced\": [],\n      \"cases\": {\n        \"projection_limit_direct_11\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.115329083,\n              0.118212542,\n              0.117417\n            ],\n            \"candidate\": [\n              0.110088167,\n              0.109655791,\n              0.108549875\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.117417,\n            \"candidate\": 0.109655791\n          },\n          \"median_ratio\": 0.9339004658609913,\n          \"material_regression_reproduced\": false\n        },\n        \"projection_limit_direct_31\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.116787958,\n              0.117325541,\n              0.117971208\n            ],\n            \"candidate\": [\n              0.109729167,\n              0.110351459,\n              0.109783958\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.117325541,\n            \"candidate\": 0.109783958\n          },\n          \"median_ratio\": 0.9357208759855622,\n          \"material_regression_reproduced\": false\n        },\n        \"projection_limit_direct_100\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.119122375,\n              0.117875417,\n              0.117510208\n            ],\n            \"candidate\": [\n              0.110098792,\n              0.108266791,\n              0.110822667\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.117875417,\n            \"candidate\": 0.110098792\n          },\n          \"median_ratio\": 0.9340267445246875,\n          \"material_regression_reproduced\": false\n        }\n      },\n      \"disposition\": \"not_reproduced_in_bounded_diagnostic\",\n      \"original_cause\": \"unassigned\"\n    },\n    \"ordering-aggregate-diagnostic-r1\": {\n      \"observations\": 18,\n      \"reproduced\": [],\n      \"cases\": {\n        \"aggregate_metric_scalar_mixed_direct_all\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.046015709,\n              0.044973625,\n              0.045357916\n            ],\n            \"candidate\": [\n              0.0451185,\n              0.04513,\n              0.04511725\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.045357916,\n            \"candidate\": 0.0451185\n          },\n          \"median_ratio\": 0.9947216269812749,\n          \"material_regression_reproduced\": false\n        },\n        \"aggregate_metric_scalar_mixed_arithmetic_all\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.07938025,\n              0.080949125,\n              0.082025875\n            ],\n            \"candidate\": [\n              0.066495666,\n              0.067029125,\n              0.067657625\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.080949125,\n            \"candidate\": 0.067029125\n          },\n          \"median_ratio\": 0.8280401424969077,\n          \"material_regression_reproduced\": false\n        },\n        \"aggregate_metric_scalar_mixed_coalesce_all\": {\n          \"engine_seconds\": {\n            \"baseline\": [\n              0.067929084,\n              0.067392458,\n              0.0683025\n            ],\n            \"candidate\": [\n              0.068324084,\n              0.068199791,\n              0.068393417\n            ]\n          },\n          \"median_engine_seconds\": {\n            \"baseline\": 0.067929084,\n            \"candidate\": 0.068324084\n          },\n          \"median_ratio\": 1.0058148877732547,\n          \"material_regression_reproduced\": false\n        }\n      },\n      \"disposition\": \"not_reproduced_in_bounded_diagnostic\",\n      \"original_cause\": \"unassigned\"\n    }\n  },\n  \"failed_validation_attempts\": [\n    \"r02-aggregate-tests\",\n    \"r04-native-clippy\",\n    \"r11-variable-tests\",\n    \"r17-streaming-order-tests\",\n    \"r19-ordering-native-clippy\"\n  ],\n  \"public_feature_suites\": 9,\n  \"public_ordering_cases\": 29,\n  \"package_tests\": 194,\n  \"new_competitor_queries\": 0,\n  \"item_20_complete\": false,\n  \"limitations\": [\n    \"One complete observation per candidate; no statistical confidence or isolated causal claim.\",\n    \"Original regression flags remain in original totals; bounded diagnostics did not reproduce them.\",\n    \"Complete saved results replay without executing queries or archived code.\",\n    \"Content hashes establish internal consistency, not signed provenance.\",\n    \"Large data and binaries are represented by identity, not reconstructed by this packet.\"\n  ]\n}\n",
+      "sha256": "8c12952a75b15aa265612804a478ca0f223a301958175add8615633c4478e9ef"
+    },
+    "logs/r41-final-source-governance.log": {
+      "bytes": 110,
+      "content": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/target/contribution-governance-report.json\n",
+      "sha256": "aee7792c7e794584546711609fd5ce874b09f5b9ce1e84e8a01a74d102873f8e"
+    },
+    "sources/retire_completed_performance_payloads.py": {
+      "bytes": 10184,
+      "content": "\"\"\"Retire exact completed payloads after independent portable verification.\"\"\"\nfrom pathlib import Path\nimport gzip\nimport hashlib\nimport json\nimport os\nimport shutil\nimport stat\nimport subprocess\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nROOT = Path(__file__).resolve().parent.parent\nOLD = ROOT.parent / 'analytical-completion-2026-10-27'\nPACKET = REPO / 'docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27'\nsys.path[:0] = [str(REPO / 'scripts'), str(REPO / 'python/src'),\n               str(REPO / 'benchmarks/traditional_analytics'),\n               '/Users/dylan/LocalData/shardloom/release-0.3.3-20260930']\nfrom query_surface.replay import object_files\nfrom verify_shared_analytical_performance_packet import verify\nfrom release_validation_guard import WorkloadGuard\n\n\ndef read(path):\n    return json.loads(path.read_text())\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef identity(path):\n    state = path.lstat()\n    generation = lambda s: [s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns]\n    item = dict(path=str(path), generation=generation(state))\n    if stat.S_ISREG(state.st_mode):\n        item.update(kind='regular', sha256=digest(path), allocated_bytes=state.st_blocks * 512)\n    elif stat.S_ISLNK(state.st_mode):\n        item.update(kind='symlink', target=os.readlink(path))\n    elif stat.S_ISDIR(state.st_mode):\n        item.update(kind='directory')\n    else:\n        raise ValueError('unexpected generated file type: ' + str(path))\n    assert generation(path.lstat()) == item['generation'], path\n    return item\n\n\ndef inventory(root):\n    assert (root.is_relative_to(ROOT) or root.is_relative_to(OLD)) and root.resolve() == root\n    rows = [identity(root)]\n    if rows[0]['kind'] == 'directory':\n        assert not (root / '.git').exists()\n        def visit(directory):\n            for path in sorted(directory.iterdir()):\n                item = identity(path)\n                rows.append(item)\n                if item['kind'] == 'directory':\n                    visit(path)\n        visit(root)\n    return rows\n\n\ndef closed(path):\n    command = ['/usr/sbin/lsof', '-nP', '-Fpn']\n    command += ['+D', str(path)] if path.is_dir() else [str(path)]\n    result = subprocess.run(command, capture_output=True, text=True, timeout=45)\n    assert result.returncode == 1 and not result.stdout and not result.stderr, (str(path), result.stdout, result.stderr)\n    return dict(path=str(path), returncode=1, open_handles=0)\n\n\ndef main():\n    assert ROOT == Path('/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27')\n    assert not (PACKET / 'cleanup.json').exists()\n    manifest = read(PACKET / 'manifest.json')\n    files = object_files(manifest, (PACKET / 'packet.tar.xz').read_bytes())\n    assert verify(files, manifest) == read(PACKET / 'replay.json')\n    for name in ('r37-shared-packet-controls', 'r38-shared-clean-replay'):\n        proof = read(ROOT / (name + '.json'))\n        assert proof['status'] == 'passed' and proof['process_group_drained']\n        assert digest(ROOT / (name + '.log')) == proof['log_sha256']\n    package = read(ROOT / 'installed-wheel-r1/report.json')\n    assert package['status'] == package['uninstall_status'] == 'passed'\n    retained = {\n        ROOT / 'ordering-release-runtime-r1/shardloom': package['integrity']['cli_sha256'],\n        ROOT / 'ordering-release-runtime-r1/_native.abi3.so': package['integrity']['native_library_sha256'],\n        ROOT / 'installed-wheel-r1/dist' / package['integrity']['wheel']: package['integrity']['wheel_sha256'],\n    }\n    frozen = read(ROOT / 'broad-aggregate-r1/inputs.json')\n    sources = {p for paths in frozen['sources'].values() for p in paths}\n    frozen_paths = {item['path'] for item in frozen['frozen_files']}\n    assert len(sources) == 5 and sources <= frozen_paths\n    for item in frozen['frozen_files']:\n        if item['path'] in sources:\n            retained[Path(item['path'])] = item['sha256']\n    assert sources <= {str(path) for path in retained}\n    assert all(p.is_file() and not p.is_symlink() and digest(p) == d for p, d in retained.items())\n    roots = [(ROOT / name, False) for name in (\n        'installed-wheel-r1/package', 'installed-wheel-r1/venv', 'wheel-build-tools',\n        'installed-proof-wheelhouse', 'packet-draft-r1', 'packet-replay-clean',\n        'ordering-public-r1/outputs')]\n    roots += [(ROOT / name, True) for name in (\n        'broad-aggregate-r1/harness', 'broad-aggregate-r1/logs',\n        'broad-variable-r1/harness', 'broad-variable-r1/logs',\n        'broad-ordering-r1/harness', 'broad-ordering-r1/logs',\n        'aggregate-release-runtime-r1/source', 'variable-release-runtime-r1/source',\n        'ordering-release-runtime-r1/source',\n        'projection-diagnostic-r1/logs', 'ordering-aggregate-diagnostic-r1/logs',\n        'ordering-public-r1/logs')]\n\n    def runtime_payloads(runtime):\n        runtime = Path(runtime)\n        runtime_manifest = read(runtime / 'manifest.json')\n        payloads = {}\n        for name, item in runtime_manifest['files'].items():\n            path = runtime / name\n            assert path.is_file() and not path.is_symlink()\n            assert path.stat().st_size == item['bytes'] and digest(path) == item['sha256'], path\n            payloads[path] = item['sha256']\n        assert set(runtime_manifest['files']) == {'shardloom', '_native.abi3.so'}\n        return payloads\n\n    superseded = {}\n    for runtime in ('aggregate-release-runtime-r1', 'variable-release-runtime-r1'):\n        superseded.update(runtime_payloads(ROOT / runtime))\n    superseded.update(runtime_payloads(OLD / 'analytical-release-runtime-r1'))\n    previous = read(OLD / 'installed-wheel-r1/report.json')['integrity']\n    old_wheel = OLD / 'installed-wheel-r1/dist' / previous['wheel']\n    assert old_wheel.is_file() and not old_wheel.is_symlink()\n    assert old_wheel.stat().st_size == previous['wheel_bytes']\n    assert digest(old_wheel) == previous['wheel_sha256']\n    superseded[old_wheel] = previous['wheel_sha256']\n    roots += [(p, False) for p in superseded]\n    assert len({str(p) for p, _ in roots}) == len(roots)\n    assert all(not (p == kept or p in kept.parents) for p, _ in roots for kept in retained)\n    rows = []\n    for path, archived in roots:\n        current = inventory(path)\n        if archived:\n            for item in current:\n                if item['kind'] == 'regular':\n                    key = manifest['path_map'].get(item['path'])\n                    assert key in files and len(files[key]) == item['generation'][3]\n                    assert hashlib.sha256(files[key]).hexdigest() == item['sha256'], item['path']\n        rows.extend(current)\n    assert len({r['path'] for r in rows}) == len(rows)\n    proofs = {str(p): digest(p) for p in ROOT.glob('*.json') if p.is_file()}\n    proofs.update({str(PACKET / n): digest(PACKET / n) for n in (\n        'manifest.json', 'packet.tar.xz', 'replay.json', 'source-only-replay.py')})\n    record = dict(schema_version='shardloom.generated_artifact_retirement.v1', status='running',\n        roots=[str(p) for p, _ in roots], retained_sha256={str(p): d for p, d in retained.items()},\n        closed_handle_checks=[], removed_entries=0, source_inputs_retained=True,\n        original_external_baselines_untouched=True, user_files_and_item18_untouched=True,\n        cargo_cache_untouched=True, payload_backups_created=False, symlink_targets_followed=False,\n        regeneration_basis='Recorded source/build/package identities, locked requirements, retained sources and current tested runtime/wheel. No bit-identical rebuild claim.')\n    raw = json.dumps(dict(entries=rows, retained=record['retained_sha256'], proof_sha256=proofs), sort_keys=True).encode()\n    assert len(raw) <= 32 << 20\n    packed = gzip.compress(raw, mtime=0)\n    assert gzip.decompress(packed) == raw\n    out = PACKET / 'cleanup-inventory.json.gz'\n    with out.open('xb') as stream:\n        stream.write(packed)\n    record.update(inventory=str(out), inventory_sha256=digest(out), free_bytes_before=shutil.disk_usage(ROOT).free)\n    try:\n        WorkloadGuard().check()\n        record['closed_handle_checks'] = [closed(p) for p, _ in roots]\n        assert all(digest(Path(p)) == d for p, d in proofs.items())\n        assert [item for p, _ in roots for item in inventory(p)] == rows\n        WorkloadGuard().check()\n        print(json.dumps(dict(stage='identities_and_closed_handles_verified', entries=len(rows))), flush=True)\n        for item in sorted(rows, key=lambda r: len(Path(r['path']).parts), reverse=True):\n            path = Path(item['path'])\n            if item['kind'] == 'directory':\n                state = path.lstat()\n                assert [state.st_dev, state.st_ino, state.st_mode] == item['generation'][:3]\n                path.rmdir()\n            else:\n                assert identity(path) == item\n                path.unlink()\n            record['removed_entries'] += 1\n        assert all(not p.exists() and not p.is_symlink() for p, _ in roots)\n        assert all(p.is_file() and not p.is_symlink() and digest(p) == d for p, d in retained.items())\n        assert all(digest(Path(p)) == d for p, d in proofs.items())\n        record.update(status='passed', regular_files=sum(r['kind'] == 'regular' for r in rows),\n            symlinks=sum(r['kind'] == 'symlink' for r in rows),\n            retired_regular_bytes=sum(r['generation'][3] for r in rows if r['kind'] == 'regular'),\n            retired_allocated_bytes=sum(r.get('allocated_bytes', 0) for r in rows),\n            all_proof_files_unchanged=True, free_bytes_after=shutil.disk_usage(ROOT).free)\n    except BaseException as error:\n        record.update(status='failed', error=repr(error))\n        raise\n    finally:\n        (PACKET / 'cleanup.json').write_text(json.dumps(record, indent=2) + '\\n')\n        (ROOT / 'cleanup.json').write_text(json.dumps(record, indent=2) + '\\n')\n    print(json.dumps({k: record[k] for k in ('status', 'regular_files', 'symlinks', 'retired_regular_bytes')}), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n\n",
+      "path": "/Users/dylan/LocalData/shardloom/shared-aggregate-performance-2026-10-27/tools/retire_completed_performance_payloads.py",
+      "sha256": "22d6fe6cc64f2e3eb2314bfc87cb69437b38f8884e6e24e902abca0331e77b56"
+    },
+    "sources/source-only-replay.py": {
+      "bytes": 1241,
+      "content": "\"\"\"Replay complete evidence from source-only copies with isolated Python.\"\"\"\nfrom pathlib import Path\nimport shutil\nimport subprocess\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nROOT = Path(__file__).resolve().parent.parent / 'packet-replay-clean'\nassert not ROOT.exists()\nfor prefix in ('scripts', 'python/src/shardloom', 'benchmarks/traditional_analytics/query_surface'):\n    for path in (REPO / prefix).rglob('*.py'):\n        if '__pycache__' in path.parts:\n            continue\n        assert path.is_file() and not path.is_symlink()\n        target = ROOT / path.relative_to(REPO)\n        target.parent.mkdir(parents=True, exist_ok=True)\n        shutil.copyfile(path, target)\npacket = Path('docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27')\nshutil.copytree(REPO / packet, ROOT / packet)\nsubprocess.run([sys.executable, '-I', '-B', str(ROOT / 'scripts/verify_shared_analytical_performance_packet.py'),\n                str(ROOT / packet)], cwd=ROOT, check=True)\nsubprocess.run([sys.executable, '-I', '-B', '-m', 'unittest', 'discover', '-s', str(ROOT / 'scripts'),\n                '-p', 'test_shared_analytical_performance_packet.py', '-v'], cwd=ROOT, check=True)\n",
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-analytical-performance-2026-10-27/source-only-replay.py",
+      "sha256": "0071ec331e9cc66d687778360a1c2a015c46468b8a4b0854dc5965d25a2625ab"
+    }
+  }
+}

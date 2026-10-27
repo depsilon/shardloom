@@ -134,8 +134,10 @@ fn composed_numeric_consumer_streams_after_filter_projection_and_reuses_no_prior
         #[cfg(debug_assertions)]
         {
             let counts = observation.finish();
-            assert_eq!(counts.aggregate_numeric_bound_batches, 6);
-            assert_eq!(counts.aggregate_numeric_bound_rows, 8);
+            assert_eq!(counts.aggregate_numeric_bound_batches, 3);
+            assert_eq!(counts.aggregate_numeric_bound_rows, 4);
+            assert_eq!(counts.aggregate_numeric_state_reuses, 3);
+            assert_eq!(counts.aggregate_numeric_reused_rows, 4);
             // COUNT observes only validity; none of these measures dispatches
             // through the generic scalar-value update path.
             assert_eq!(counts.aggregate_row_updates, 0);

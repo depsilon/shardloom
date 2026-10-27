@@ -61,17 +61,26 @@ passes a borrowed source into the ordinary projection/residual scan. When the
 downstream call returns, drop the source and check its weak release witness.
 Only then request another payload. An empty batch is not end-of-input.
 
-Filter/project preserve their native lazy/expression behavior. Each ordering
-retention boundary compacts its incoming native batch into independently credited
-payload before handing it to resident or spill sort. This is an explicit copy,
-including nested order stages, with batch/row counters; it is not zero-copy.
+Filter/project preserve their native lazy/expression behavior. Ordering
+retention boundaries validate every incoming payload and retain independently
+credited copies. The ordinary resident/spill path compacts each incoming batch.
+The October 27 [bounded ordering continuation](native-analytical-completion-2026-10-27.md#bounded-retention-at-streaming-ordering-boundaries)
+retains only the selected prefix for an admitted immediate Sort/Limit with flat
+payloads and no configured spill. It independently copies tiny pending batches
+and compacts them before their retained population exceeds four prefix lengths;
+the existing byte grant still governs all state. Complete payload and key
+validation precede discarding rows, and each source owner is released before
+another batch is requested. The batch/row counters report actual retention
+copies, including repeated prefix compaction and nested order stages; validated
+rows that are never copied do not enter the copy count. This is explicit copying.
 Sort buffers, native run reads/writes, overlapping merge output, final results
 and sink metadata share the existing query grant. Source, detached state and
 output can overlap and each owner keeps its credits until its final reference
 drops. The input-batch count does not bound the state or whole process.
 
-Each Sort sees all upstream rows once, preserves its existing stable tie semantics
-across input and spill boundaries, then delivers its complete ordered relation.
+Each Sort consumes every upstream row and preserves its existing stable tie
+semantics across input and spill boundaries. An admitted immediate Sort/Limit
+can construct only the requested ordered prefix after complete input validation.
 A Limit before/after Sort applies once to the relation. It discards later output
 after its requested range while continuing upstream evaluation and validation.
 Late producer/schema/value errors, resource failures and cancellation therefore

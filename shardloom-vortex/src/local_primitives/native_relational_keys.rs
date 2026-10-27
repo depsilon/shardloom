@@ -274,11 +274,13 @@ impl KeyColumn {
         if row >= self.len() {
             return Err(failed("row index exceeds scalar owner"));
         }
-        if let Self::Numeric(values) = self
-            && let AggregateDistinctValue::Float64Bits(bits) = values.distinct_value(row)?
-        {
-            validate_finite_scalar(f64::from_bits(bits))?;
-            return Ok(Cell::Float(bits));
+        if let Self::Numeric(values) = self {
+            let value = values.distinct_value(row)?;
+            if let AggregateDistinctValue::Float64Bits(bits) = value {
+                validate_finite_scalar(f64::from_bits(bits))?;
+                return Ok(Cell::Float(bits));
+            }
+            return normalize_numeric(&value);
         }
         self.cell(row)
     }
@@ -321,7 +323,7 @@ impl KeyColumn {
         Ok(match self {
             Self::Null(_) => true,
             Self::Numeric(values) | Self::Date(values) | Self::Timestamp(values) => {
-                values.distinct_value(row)? == AggregateDistinctValue::Null
+                values.is_null(row)?
             }
             Self::Boolean { valid, .. } => !valid.value(row),
             Self::Variable(values) => values.index(row)?.is_none(),

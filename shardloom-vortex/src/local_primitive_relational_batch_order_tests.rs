@@ -10,6 +10,9 @@ use std::cmp::Ordering as Comparison;
 #[path = "local_primitive_relational_batch_order_spill_tests.rs"]
 mod spill_tests;
 
+#[path = "local_primitive_relational_batch_order_prefix_tests.rs"]
+mod prefix_tests;
+
 fn key(name: &str, descending: bool, nulls: NullOrder) -> VortexRelationalOrderKey {
     VortexRelationalOrderKey {
         column: ColumnRef::new(name).unwrap(),
@@ -420,7 +423,17 @@ fn streamed_ordering_prefix_is_admitted_only_for_an_immediate_limit() {
             } else {
                 rows.len() as u64
             };
-            assert_eq!(counts.sort_retained_ordinals, retained, "{barrier}");
+            if matches!(barrier, "none" | "identity") {
+                assert_eq!(
+                    counts.sort_streaming_prefix_rows_validated,
+                    rows.len() as u64
+                );
+                assert!(counts.sort_streaming_prefix_peak_rows <= retained * 4);
+                assert!(counts.sort_streaming_prefix_rows_copied < rows.len() as u64);
+            } else {
+                assert_eq!(counts.sort_retained_ordinals, retained, "{barrier}");
+                assert_eq!(counts.sort_streaming_prefix_batches, 0);
+            }
             assert_eq!(counts.sort_output_rows_constructed, retained, "{barrier}");
         }
         assert!(
