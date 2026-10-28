@@ -276,7 +276,7 @@ fn direct_columnar_denial_and_cancellation_release_credits_and_allow_retry() {
         )]),
         batch(vec![(
             "n",
-            Arc::new(TimestampMicrosecondArray::from(vec![1]).with_timezone("UTC")),
+            Arc::new(TimestampMicrosecondArray::from(vec![1]).with_timezone("ShardLoom/Invalid")),
         )]),
         RecordBatch::try_new(
             Arc::new(Schema::new(vec![

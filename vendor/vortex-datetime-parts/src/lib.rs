@@ -11,6 +11,9 @@ mod compute;
 mod ops;
 mod timestamp;
 
+#[cfg(test)]
+mod test_support;
+
 use vortex_array::ArrayVTable;
 use vortex_array::aggregate_fn::AggregateFnVTable;
 use vortex_array::aggregate_fn::fns::is_constant::IsConstant;

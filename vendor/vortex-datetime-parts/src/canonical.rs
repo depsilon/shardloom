@@ -173,7 +173,6 @@ mod test {
     use vortex_array::arrays::PrimitiveArray;
     use vortex_array::arrays::TemporalArray;
     use vortex_array::arrays::extension::ExtensionArrayExt;
-    use vortex_array::assert_arrays_eq;
     use vortex_array::extension::datetime::TimeUnit;
     use vortex_array::validity::Validity;
     use vortex_buffer::buffer;
@@ -184,6 +183,7 @@ mod test {
     use crate::array::DateTimePartsArraySlotsExt;
     use crate::array::DateTimePartsParts;
     use crate::canonical::decode_to_temporal;
+    use crate::test_support::assert_arrays_eq;
 
     static SESSION: LazyLock<VortexSession> = LazyLock::new(|| {
         let session = vortex_array::array_session();

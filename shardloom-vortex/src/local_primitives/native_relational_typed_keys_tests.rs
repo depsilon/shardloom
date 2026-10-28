@@ -209,6 +209,20 @@ fn native_typed_keys_admission_precedes_work_and_releases_failed_reservations() 
         DecimalArray::from_option_iter([] as [Option<i128>; 0], DecimalDType::new(39, 0))
             .into_array(),
         ExtensionArray::new(
+            Timestamp::new_with_tz(
+                TimeUnit::Microseconds,
+                Some("ShardLoom/Invalid".into()),
+                Nullability::NonNullable,
+            )
+            .erased(),
+            PrimitiveArray::from_iter([] as [i64; 0]).into_array(),
+        )
+        .into_array(),
+    ] {
+        assert!(KeyColumn::new(&array, &mut context, &memory, &cancellation).is_err());
+    }
+    for array in [
+        ExtensionArray::new(
             Timestamp::new(TimeUnit::Nanoseconds, Nullability::NonNullable).erased(),
             PrimitiveArray::from_iter([] as [i64; 0]).into_array(),
         )
@@ -224,7 +238,9 @@ fn native_typed_keys_admission_precedes_work_and_releases_failed_reservations() 
         )
         .into_array(),
     ] {
-        assert!(KeyColumn::new(&array, &mut context, &memory, &cancellation).is_err());
+        let key = KeyColumn::new(&array, &mut context, &memory, &cancellation).unwrap();
+        drop(key);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
     cancellation.cancel();
     assert!(KeyColumn::new(&binary, &mut context, &memory, &cancellation).is_err());

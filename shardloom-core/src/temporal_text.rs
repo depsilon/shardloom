@@ -67,6 +67,8 @@ impl TemporalTextCodec {
     /// # Errors
     /// Rejects malformed text, precision loss, overflow and calendar ambiguity.
     pub fn parse(&self, text: &str) -> Result<i64> {
+        // Retain the legacy date32/timestamp_micros cast normalization.
+        let text = text.trim();
         let ticks = match self.dtype.kind() {
             Kind::Date32 | Kind::Date64 => {
                 let (year, month, day) = civil::parse_date(text)?;
@@ -103,6 +105,8 @@ impl TemporalTextCodec {
         Ok(TemporalValue::new(self.parse(text)?, self.dtype.clone())?.into_scalar())
     }
 
+    // The receiver owns the bound zone only when calendar support is enabled.
+    #[cfg_attr(not(feature = "temporal-calendar"), allow(clippy::unused_self))]
     fn local_ticks(&self, date: CivilDateTime, unit: Unit) -> Result<i64> {
         #[cfg(feature = "temporal-calendar")]
         if let Some(zone) = &self.zone {
@@ -133,6 +137,7 @@ impl TemporalTextCodec {
         }
     }
 
+    #[cfg_attr(not(feature = "temporal-calendar"), allow(clippy::unused_self))]
     fn timestamp_text(&self, value: i64, unit: Unit) -> Result<String> {
         #[cfg(feature = "temporal-calendar")]
         if let Some(zone) = &self.zone {
@@ -158,6 +163,37 @@ impl TemporalTextCodec {
             Ok(crate::expression::format_iso_timestamp_micros(value))
         } else {
             CivilDateTime::from_ticks(value, unit).datetime_text(unit)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temporal_text_preserves_surrounding_whitespace_normalization() {
+        for (kind, text, ticks) in [
+            ("date32", "1970-01-02", 1),
+            ("date64", "1969-12-31", -86_400_000),
+            ("timestamp_micros", "1969-12-31T23:59:59.999999Z", -1),
+            ("timestamp(ns)", "1970-01-01T00:00:00.000000001Z", 1),
+            ("time(ms)", "00:00:00.001", 1),
+            ("duration(ns)", "-17ns", -17),
+        ] {
+            let codec = TemporalTextCodec::new(TemporalDType::parse(kind).unwrap()).unwrap();
+            for padded in [format!(" \t{text}\r\n"), format!("\u{2003}{text}\u{a0}")] {
+                assert_eq!(codec.parse(&padded).unwrap(), ticks, "{kind}: {padded:?}");
+            }
+            assert!(codec.parse(" \t\r\n").is_err());
+        }
+        for (kind, text) in [
+            ("date32", "1970- 01-01"),
+            ("timestamp_micros", "1970-01-01T00: 00:00Z"),
+            ("duration(ns)", "-17 ns"),
+        ] {
+            let codec = TemporalTextCodec::new(TemporalDType::parse(kind).unwrap()).unwrap();
+            assert!(codec.parse(text).is_err(), "{kind}: {text:?}");
         }
     }
 }

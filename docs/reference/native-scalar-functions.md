@@ -9,10 +9,20 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `54ae6c0b154b32a3ecd41a3db1fe7154c28b09be738574ca8f2163b7673f326d`.
+Definition source SHA-256: `b4e3614626312b7914c1199d8a091031e7fe08264f3f796651734e3563be584c`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |
+| `temporal_extract` | — | 2 | Extract a literal calendar field from a typed date, time or timestamp. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `temporal_trunc` | — | 2–3 | Truncate a typed date, time or timestamp to a literal calendar boundary. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `calendar_add_days` | — | 2–3 | Add local calendar days with an explicit optional gap/fold policy. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `calendar_add_months` | — | 2–4 | Add calendar months with explicit optional month-end and gap/fold policies. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `temporal_add_duration` | — | 2 | Add a typed fixed duration exactly, retaining the left operand's unit. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `temporal_sub_duration` | — | 2 | Subtract a typed fixed duration exactly, retaining the left operand's unit. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `timestamp_difference` | — | 2 | Subtract timestamps with identical metadata to produce a typed duration. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `timestamp_assign_timezone` | — | 2–3 | Resolve naive civil ticks in a declared timezone, rejecting ambiguity by default. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `timestamp_convert_timezone` | — | 2 | Change an instant's presentation timezone without changing its ticks. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `timestamp_remove_timezone` | — | 1 | Remove a timezone while preserving the instant's local civil fields. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `abs` | `numeric_abs` | 1 | Checked absolute value. numeric -> checked promoted numeric; decimal precision/scale retained | null input produces null; nullable if any input is nullable |
 | `floor` | `numeric_floor` | 1 | Round toward negative infinity. numeric -> checked promoted numeric; decimal scale becomes zero | null input produces null; nullable if any input is nullable |
 | `ceil` | `ceiling`, `numeric_ceil` | 1 | Round toward positive infinity. numeric -> checked promoted numeric; decimal scale becomes zero | null input produces null; nullable if any input is nullable |

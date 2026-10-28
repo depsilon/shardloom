@@ -258,7 +258,6 @@ mod test {
     use vortex_array::arrays::ConstantArray;
     use vortex_array::arrays::PrimitiveArray;
     use vortex_array::arrays::TemporalArray;
-    use vortex_array::assert_arrays_eq;
     use vortex_array::dtype::IntegerPType;
     use vortex_array::extension::datetime::TimeUnit;
     use vortex_array::extension::datetime::Timestamp;
@@ -271,6 +270,7 @@ mod test {
     use super::*;
     use crate::DateTimeParts;
     use crate::DateTimePartsArray;
+    use crate::test_support::assert_arrays_eq;
 
     fn dtp_array_from_timestamp<T: IntegerPType>(
         value: T,

@@ -74,11 +74,13 @@ impl fmt::Display for TimeValue {
         }
         let seconds = ticks / scale;
         let time = jiff::civil::Time::new(
-            (seconds / 3_600) as i8,
-            (seconds / 60 % 60) as i8,
-            (seconds % 60) as i8,
-            ((ticks % scale) * (1_000_000_000 / scale)) as i32,
-        ).map_err(|_| fmt::Error)?;
+            i8::try_from(seconds / 3_600).map_err(|_| fmt::Error)?,
+            i8::try_from(seconds / 60 % 60).map_err(|_| fmt::Error)?,
+            i8::try_from(seconds % 60).map_err(|_| fmt::Error)?,
+            i32::try_from((ticks % scale) * (1_000_000_000 / scale))
+                .map_err(|_| fmt::Error)?,
+        )
+        .map_err(|_| fmt::Error)?;
         write!(f, "{time}")
     }
 }

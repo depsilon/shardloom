@@ -282,11 +282,14 @@ fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
             return None;
         }
         let kind = nested::data_type(&dtype)?;
-        arrow_fields.push(crate::native_temporal::arrow::field(&Field::new(
-            name.as_ref(),
-            kind,
-            dtype.is_nullable(),
-        )));
+        arrow_fields.push(
+            crate::native_temporal::arrow::field(&Field::new(
+                name.as_ref(),
+                kind,
+                dtype.is_nullable(),
+            ))
+            .ok()?,
+        );
     }
     Some(Arc::new(Schema::new(arrow_fields)))
 }

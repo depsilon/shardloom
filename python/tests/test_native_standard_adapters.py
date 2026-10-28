@@ -156,9 +156,19 @@ class NativeStandardAdapterTests(unittest.TestCase):
         self.assertEqual(equivalent.to_arrow().schema, result.schema)
         self.assertEqual(equivalent.to_rows(), tuple(result.to_pylist()))
         rejected = self.statement(self.open(ctx), "SELECT :value AS value")
-        for dtype in (pa.int32(), pa.float32(), pa.timestamp("ns"), pa.timestamp("us", tz="UTC")):
+        for dtype in (pa.int32(), pa.float32()):
             with self.subTest(dtype=dtype), self.assertRaisesRegex(self.manager.Error, "exact native scalar"):
                 self.bind(rejected, pa.record_batch([pa.array([None], type=dtype)], names=["value"]))
+
+        for dtype in (pa.timestamp("ns"), pa.timestamp("us", tz="UTC")):
+            for ticks in (None, -1, (1 << 63) - 1):
+                with self.subTest(dtype=dtype, ticks=ticks):
+                    statement = self.statement(self.open(ctx), "SELECT :value AS value")
+                    values = pa.array([ticks], type=pa.int64()).cast(dtype)
+                    self.bind(statement, pa.record_batch([values], names=["value"]))
+                    result = self.reader(statement).read_all()
+                    self.assertEqual(result.schema.field("value").type, dtype)
+                    self.assertEqual(result.column("value").cast(pa.int64()).to_pylist(), [ticks])
 
     def test_completion_report_contains_native_observations_only_after_eof(self):
         import json

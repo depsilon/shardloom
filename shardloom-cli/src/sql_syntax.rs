@@ -12687,12 +12687,13 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system clock")
             .as_nanos();
+        let counter =
+            SQL_LOCAL_SOURCE_TEST_PATH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         path.push(format!(
-            "shardloom-vortex-ingest-reuse-{name}-{}-{nanos}",
+            "shardloom-vortex-ingest-reuse-{name}-{}-{nanos}-{counter}",
             std::process::id()
         ));
-        let _ = fs::remove_dir_all(&path);
-        fs::create_dir_all(&path).expect("create vortex ingest reuse root");
+        fs::create_dir(&path).expect("create unique vortex ingest reuse root");
         path
     }
 

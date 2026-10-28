@@ -29,17 +29,29 @@ pub(super) fn register(session: &VortexSession) {
 }
 
 /// Supply explicit provider dispatch metadata without touching input buffers.
-pub(crate) fn field(field: &Field) -> Field {
+/// Logical schema admission and its resource bounds belong to the caller;
+/// preparation may preserve physical Null/dictionary fields that cannot be keys.
+pub(crate) fn field(field: &Field) -> shardloom_core::Result<Field> {
+    if !crate::native_payload_schema::arrow_field_metadata_admitted(field) {
+        return Err(shardloom_core::ShardLoomError::InvalidOperation(
+            "Arrow source extension metadata is not admitted; no fallback execution was attempted"
+                .into(),
+        ));
+    }
     let dtype = match field.data_type() {
-        DataType::Struct(fields) => {
-            DataType::Struct(fields.iter().map(|f| self::field(f)).collect())
-        }
-        DataType::List(child) => DataType::List(Arc::new(self::field(child))),
-        DataType::LargeList(child) => DataType::LargeList(Arc::new(self::field(child))),
-        DataType::ListView(child) => DataType::ListView(Arc::new(self::field(child))),
-        DataType::LargeListView(child) => DataType::LargeListView(Arc::new(self::field(child))),
+        DataType::Struct(fields) => DataType::Struct(
+            fields
+                .iter()
+                .map(|f| self::field(f))
+                .collect::<shardloom_core::Result<Vec<_>>>()?
+                .into(),
+        ),
+        DataType::List(child) => DataType::List(Arc::new(self::field(child)?)),
+        DataType::LargeList(child) => DataType::LargeList(Arc::new(self::field(child)?)),
+        DataType::ListView(child) => DataType::ListView(Arc::new(self::field(child)?)),
+        DataType::LargeListView(child) => DataType::LargeListView(Arc::new(self::field(child)?)),
         DataType::FixedSizeList(child, size) => {
-            DataType::FixedSizeList(Arc::new(self::field(child)), *size)
+            DataType::FixedSizeList(Arc::new(self::field(child)?), *size)
         }
         other => other.clone(),
     };
@@ -52,20 +64,16 @@ pub(crate) fn field(field: &Field) -> Field {
         );
         result = result.with_metadata(metadata);
     }
-    result
+    Ok(result)
 }
 
 pub(crate) fn schema(schema: &Schema) -> shardloom_core::Result<Schema> {
-    for field in schema.fields() {
-        if !crate::native_payload_schema::arrow_field_metadata_admitted(field) {
-            return Err(shardloom_core::ShardLoomError::InvalidOperation(
-                "Arrow source extension metadata is not admitted; no fallback execution was attempted".into(),
-            ));
-        }
-        crate::native_payload_schema::arrow_metadata_bytes(field.data_type())?;
-    }
     Ok(Schema::new_with_metadata(
-        schema.fields().iter().map(|f| field(f)).collect::<Vec<_>>(),
+        schema
+            .fields()
+            .iter()
+            .map(|f| field(f))
+            .collect::<shardloom_core::Result<Vec<_>>>()?,
         schema.metadata().clone(),
     ))
 }
@@ -152,11 +160,14 @@ impl ArrowExportVTable for DurationArrow {
         ) {
             return Ok(None);
         }
-        Ok(Some(field(&Field::new(
-            name,
-            crate::temporal_arrow::data_type(&temporal),
-            dtype.is_nullable(),
-        ))))
+        Ok(Some(
+            field(&Field::new(
+                name,
+                crate::temporal_arrow::data_type(&temporal),
+                dtype.is_nullable(),
+            ))
+            .map_err(|error| vortex_err!("{error}"))?,
+        ))
     }
 
     fn execute_arrow(
@@ -305,5 +316,31 @@ mod tests {
             )]));
             assert!(schema(&Schema::new(vec![field])).is_err());
         }
+    }
+
+    #[test]
+    fn temporal_duration_dispatch_preserves_preparation_dictionary_and_null_fields() {
+        let plain = Schema::new(vec![
+            Field::new("empty", DataType::Null, true),
+            Field::new(
+                "domain",
+                DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+                true,
+            ),
+        ]);
+        assert_eq!(schema(&plain).unwrap(), plain);
+        // Metadata validation still reaches nested fields before annotation.
+        let foreign = Field::new("span", DataType::Duration(TimeUnit::Second), true).with_metadata(
+            std::collections::HashMap::from([(
+                EXTENSION_TYPE_NAME_KEY.into(),
+                "unknown.duration".into(),
+            )]),
+        );
+        let nested = Schema::new(vec![Field::new(
+            "values",
+            DataType::List(Arc::new(foreign)),
+            true,
+        )]);
+        assert!(schema(&nested).is_err());
     }
 }

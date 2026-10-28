@@ -253,6 +253,66 @@ and automated review completed without findings; its
 [hosted receipt](../benchmarks/evidence/native-shared-analytical-performance-2026-10-27/hosted.json)
 retains that evidence. The broader item-20 obligations remain open.
 
+### Pending shared-performance work after temporal-fidelity acceptance
+
+After the temporal-fidelity PR #1616 is validated and merged, continue the
+existing item-20 queue in this order. These are candidate packages, not claims
+that the listed paths are currently performance bottlenecks. Preserve the
+already-retained streamed prefix implementation, shared group ordinals,
+typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
+
+1. **Broaden bounded streamed retention.** Extend the existing
+   `StreamingPrefix` owner to admitted decimal and list/struct payloads where
+   ownership and complete validation can be preserved. Validate every incoming
+   payload before key observation or row discard; retain independent output
+   ownership and the existing source-release boundary. Attribute retained and
+   copied **bytes**, including nested and variable-width payloads, in addition
+   to row counts. Do not retain source-batch references or change ordinary
+   execution's later payload-validation order.
+2. **Share key and value movement.** Resolve join key columns once per batch
+   and reduce repeated `Table::locate` work using the existing native table and
+   batch owners. Admit dense integer or dictionary-code mappings only with
+   explicit resource/range admission and exact equality, first-occurrence,
+   NULL, signedness, width, duplicate and changing-domain semantics. Add
+   exact original-width typed MIN/MAX updates, a membership-only path for
+   zero-measure DISTINCT, and typed independently-owned join gather. Preserve
+   row order, ownership credits, cancellation and spill behavior where already
+   admitted; do not generalize earlier dropped counted-join or fused-measure
+   mechanisms by renaming them.
+3. **Reduce expression construction and reuse work.** For UTF-8/binary
+   results, replace repeated callback evaluation in sizing and writing with
+   single evaluation using bounded, accounted staging or a native append path.
+   The current reuse binder omits function outputs and does not bind argument
+   subtrees; extend deterministic function reuse only when every semantic
+   parameter is part of identity and lazy-domain selection, error order,
+   cancellation and ownership remain unchanged. Trace expression-construction
+   call sites before attributing complete-expression duplicate work. Profile
+   numeric and temporal typed loops before selecting any specialization; do not
+   infer that generic source shape alone warrants one.
+
+For each candidate, freeze a record naming the removed operation, existing
+native owner reused, activation counter or profile, targeted cases and
+unrelated controls, plus the current prospective whole-query benefit and
+material-regression gates from the [shared-performance protocol](../benchmarks/native-shared-analytical-performance-2026-10-27.md).
+Do not invent or revise thresholds after observing results. Preserve every
+observation and drop candidates that fail their gates. Keep all 347 existing
+cases as discovery/regression data; held-out acceptance uses fresh seeds,
+layouts and composed variations. Include high-cardinality groups, sparse,
+signed, mixed-width and duplicate keys, tiny batches, changing dictionaries,
+larger join outputs, bounded K and full sorts with offsets, fresh skew/shuffle
+variations, and memory denial, cancellation or spill cases where those paths
+are already admitted. Preserve the original Polars observations and their Arrow
+IPC input and complete-API clock. ShardLoom's retained engine observations use
+Parquet; do not combine those clocks into a new speed ratio. No new performance
+claim follows from this queue.
+
+The counted-join, fused-measure, retained-output and borrowed-output mechanisms
+remain dropped. The borrowed-output result is documented above; the others
+retain their prior drop records. Broader item-20 obligations remain active,
+including temporal/time-series workflows, statistical and richer aggregates,
+numeric semantics, recursive composition, explicit batch functions,
+diagnostics, resource/failure behavior and format/interface parity.
+
 The first expression extension admits reuse of a fully completed, identical,
 pure expression on the same input. Conditional/COALESCE/NULLIF branches retain
 their selected-input evaluation scope: sharing a completed outer result does

@@ -181,13 +181,13 @@ fn is_constant_zero(array: &ArrayRef) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::assert_arrays_eq;
     use vortex_array::ArrayRef;
     use vortex_array::VortexSessionExecute;
     use vortex_array::array_session;
     use vortex_array::arrays::BoolArray;
     use vortex_array::arrays::PrimitiveArray;
     use vortex_array::arrays::TemporalArray;
-    use vortex_array::assert_arrays_eq;
     use vortex_array::extension::datetime::TimeUnit;
     use vortex_array::extension::datetime::TimestampOptions;
     use vortex_array::optimizer::ArrayOptimizer;

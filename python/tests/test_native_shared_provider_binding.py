@@ -232,6 +232,46 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                                 self.assertEqual(result.schema.field(name).type, kind)
                                 self.assertEqual(result[name].cast(pa.int64()).to_pylist(), [] if empty else values, name)
 
+    def test_temporal_text_casts_preserve_whitespace_on_all_five_surfaces(self):
+        import shardloom as sl
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        source = pa.table({
+            "day": [" \t1970-01-02\r", "\u20031969-12-31\u00a0", None],
+            "instant": [" \n1970-01-01T00:00:00.000001Z\t", "\u20031969-12-31T23:59:59.999999Z\u00a0", None],
+            "bad": ["1970- 01-01", "1970-01-01T00: 00:00Z", " \t"],
+        })
+        declarations = [
+            ("day", "date32", False, [1, -1, None]),
+            ("day", "date32", True, [1, -1, None]),
+            ("instant", "timestamp_micros", False, [1, -1, None]),
+            ("instant", "timestamp_micros", True, [1, -1, None]),
+            ("bad", "date32", True, [None, None, None]),
+            ("bad", "timestamp_micros", True, [None, None, None]),
+        ]
+        with tempfile.TemporaryDirectory(prefix="shardloom-temporal-text-") as directory:
+            path = Path(directory) / "source.arrow"
+            with pa.OSFile(str(path), "wb") as output, pa.ipc.new_file(output, source.schema) as writer:
+                writer.write_table(source)
+            frame = sl.read_arrow_ipc(path, client=client).select(*[
+                (sl.col(column).try_cast(kind) if tolerant else sl.col(column).cast(kind)).alias(f"v{index}")
+                for index, (column, kind, tolerant, _) in enumerate(declarations)
+            ])
+            relation = native.Relation.scan(str(path)).project([
+                (f"v{index}", native.Expression.column(column).cast(kind, tolerant=tolerant))
+                for index, (column, kind, tolerant, _) in enumerate(declarations)
+            ])
+            statement = "SELECT " + ",".join(
+                f"{'TRY_CAST' if tolerant else 'CAST'}({column} AS {kind}) AS v{index}"
+                for index, (column, kind, tolerant, _) in enumerate(declarations)
+            ) + f" FROM '{path}'"
+            for result in self.all_surfaces(frame, relation, statement):
+                for index, (_, kind, _, expected) in enumerate(declarations):
+                    physical = pa.int32() if kind == "date32" else pa.int64()
+                    self.assertEqual(result[f"v{index}"].cast(physical).to_pylist(), expected)
+
     def test_temporal_python_rows_batches_and_retained_arrow_keep_exact_ticks(self):
         import shardloom as sl
         from shardloom import types as t

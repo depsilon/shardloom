@@ -855,7 +855,7 @@
     "src/canonical.rs": "40114707b20752c47612d88bf85170921ef445955e4f55d1c58629cd203f088a",
     "src/executor.rs": "9bf3b9b66393ff88ad4b0ecbd8a65f20c4a0f2fdf2476993a5e3118e3f3f6982",
     "src/extension/datetime/date.rs": "951a053c7582465d8b377f4e138b15e49478e964133579f7b4b447383d790c3d",
-    "src/extension/datetime/time.rs": "04ad56a69968be764536011e435ff9fc43a78f49c21c18c2a0e97af07ec7ff63",
+    "src/extension/datetime/time.rs": "ca978b2d23fc34142c66f6092e7ff1d749ac0f63d1ee69d5123468cb2eb7d968",
     "src/extension/datetime/timestamp.rs": "66bea8458449509a70193635b590116dfe81cb64dc5d355b71c2fec649e975f4",
     "src/lib.rs": "bff6e5094ded969507725dce53581073a5932f09790bdf6daf818f8edeaabbc2",
     "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",

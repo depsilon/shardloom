@@ -102,6 +102,8 @@ fn temporal_casts_floor_negative_dates_and_preserve_zoned_instants() {
 #[test]
 fn temporal_text_has_explicit_units_offsets_and_ambiguity_policy() {
     for (kind, text, expected) in [
+        ("date32", "1970-01-02", 1),
+        ("timestamp_micros", "1969-12-31T23:59:59.999999Z", -1),
         ("time(ns)", "23:59:59.999999999", 86_399_999_999_999),
         ("date64", "1969-12-31", -86_400_000),
         ("duration(ns)", "-17ns", -17),
@@ -125,6 +127,12 @@ fn temporal_text_has_explicit_units_offsets_and_ambiguity_policy() {
         ),
     ] {
         assert_eq!(parse(kind, text).unwrap(), expected, "{kind}: {text}");
+        let padded = format!("\u{2003}\t{text}\r\n\u{a0}");
+        assert_eq!(
+            parse(kind, &padded).unwrap(),
+            expected,
+            "{kind}: {padded:?}"
+        );
     }
     for (kind, text) in [
         ("time(s)", "24:00:00"),

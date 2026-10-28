@@ -546,7 +546,15 @@ visible and independent; this implementation does not automatically close them.
     and 18 corruption controls. Its 347-case observation is 28.017558877 engine
     seconds; original individual regression flags and bounded diagnostics remain
     recorded. The borrowed-output candidate is dropped under its frozen gate.
-    Hosted acceptance remains separate.
+    PR #1615 merged at `5a0b8c0f` after all 57 hosted checks passed. After temporal-
+    fidelity PR #1616 is validated and merged, continue the shared-performance queue in the existing
+    item-20 completion document: broaden bounded streamed retention, share key and
+    value movement, then reduce expression construction/reuse work. Reuse existing
+    native owners and the current frozen benefit/regression protocol; retain the
+    dropped counted-join, fused-measure, retained-output and borrowed-output
+    decisions. This sequence does not replace the wider temporal/time-series,
+    rich-aggregate, numeric, composition, batch-function, diagnostics, or
+    format/interface obligations.
     Incremental persistence remains deferred; this does not close the broader
     capability and operator-performance obligations above.
   - Acceptance: complete typed results/errors and native certificates at applicable

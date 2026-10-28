@@ -10567,7 +10567,7 @@
           "src/canonical.rs": "40114707b20752c47612d88bf85170921ef445955e4f55d1c58629cd203f088a",
           "src/executor.rs": "9bf3b9b66393ff88ad4b0ecbd8a65f20c4a0f2fdf2476993a5e3118e3f3f6982",
           "src/extension/datetime/date.rs": "951a053c7582465d8b377f4e138b15e49478e964133579f7b4b447383d790c3d",
-          "src/extension/datetime/time.rs": "04ad56a69968be764536011e435ff9fc43a78f49c21c18c2a0e97af07ec7ff63",
+          "src/extension/datetime/time.rs": "ca978b2d23fc34142c66f6092e7ff1d749ac0f63d1ee69d5123468cb2eb7d968",
           "src/extension/datetime/timestamp.rs": "66bea8458449509a70193635b590116dfe81cb64dc5d355b71c2fec649e975f4",
           "src/lib.rs": "bff6e5094ded969507725dce53581073a5932f09790bdf6daf818f8edeaabbc2",
           "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
@@ -10762,18 +10762,43 @@
         "modified_files_sha256": {
           "Cargo.toml": "88fe98c5930b37c621611b0fd91aa934b8bdc9c177f9aa54b594ea129faf8693",
           "src/compress.rs": "47c7b3dd14e36f5c504cf54e4712ade0f2a147128c531007a48a6f0bfad494a6",
-          "src/compute/compare.rs": "49e2405edf8baac5b570ffb314db678686db446d1a316fb7be02e9d12c96f66a",
-          "src/compute/rules.rs": "40237ae370c6ce7e9534786daeb8e3dd30a65457715a02fa3a6f95b8bab99e26",
+          "src/canonical.rs": "70183f21bc924f54e7876a0fe035c369974eb20cb3f7b2984196743caf108043",
+          "src/compute/compare.rs": "523b21c152442fe9cddb5a8a606d5bf25cea68fb974a85c6dbc8244a6ec9fd6f",
+          "src/compute/rules.rs": "3f1b87bf0aff53d384a0f7ff14b6ece51beb51ffcc39667b7440788d93bde514",
+          "src/lib.rs": "f6cf9aed876ac9abbe5de0d2c91799d74e9e587198188612c0ec4653b5efdae0",
           "src/ops.rs": "0970974ba4c9d504731bda364982dc411d0f782183e523e5fa24312074bbc588",
           "src/timestamp.rs": "b6731f0c30dbf9f650711032384b7ee226896512f1c27d40242db9e4f6ec9ead"
         },
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "acc33ff609071237407665632c96dbe7a0f0b4ebc843fae06f26999996f576bc"
+          "README.shardloom.md": "b5bbb2542ff6c4ae1889f248df60b4754628ca74c8e436e915da896701dad045",
+          "goldenfiles/datetimeparts.metadata": "9881d91556463b5d85bd82beb6f32670fb5fb5fb60ad5cbec7e13f36811cf07d",
+          "src/test_support.rs": "eda635f847c6188e07bf43af88e76de38f8981ddaac977e5ed5e8915d8fb5ad9"
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "acc33ff609071237407665632c96dbe7a0f0b4ebc843fae06f26999996f576bc"
+          "sha256": "b5bbb2542ff6c4ae1889f248df60b4754628ca74c8e436e915da896701dad045"
+        },
+        "supplemental_test_files": {
+          "goldenfiles/datetimeparts.metadata": {
+            "provider": "vortex-datetime-parts",
+            "path": "goldenfiles/datetimeparts.metadata",
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/encodings/datetime-parts/goldenfiles/datetimeparts.metadata",
+            "git_blob_sha1": "0b1c0ff496f365821c9e00b2e5ac58438e38200b",
+            "sha256": "9881d91556463b5d85bd82beb6f32670fb5fb5fb60ad5cbec7e13f36811cf07d",
+            "bytes": 6,
+            "test_source": "src/lib.rs",
+            "test_source_matches_published_archive": false,
+            "test_source_sha256": "563660d9fd24dec844496df1e4d71071b210fbc7d732d0b0062bc36ebec2148f",
+            "test_source_published_archive_sha256": "563660d9fd24dec844496df1e4d71071b210fbc7d732d0b0062bc36ebec2148f",
+            "test_source_current_sha256": "f6cf9aed876ac9abbe5de0d2c91799d74e9e587198188612c0ec4653b5efdae0",
+            "retained_test_module": {
+              "marker": "#[cfg(test)]\nmod test {",
+              "bytes": 569,
+              "sha256": "5d05f630e5836ee8bc15c63c5cd2482dad2541430edc6c2cdbde892f50fbac21",
+              "matches_published_archive": true
+            }
+          }
         }
       },
       "files": [
