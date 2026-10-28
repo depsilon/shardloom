@@ -8,6 +8,8 @@ pub(crate) struct Counts {
     pub(crate) key_cache_batches: u64,
     pub(crate) key_cache_slots: u64,
     pub(crate) key_cache_hits: u64,
+    pub(crate) key_inline_cache_batches: u64,
+    pub(crate) key_inline_cache_hits: u64,
     pub(crate) key_exact_lookups: u64,
     pub(crate) group_ordinal_rows: u64,
     pub(crate) variable_domains: u64,

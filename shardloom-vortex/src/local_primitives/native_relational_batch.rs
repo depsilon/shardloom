@@ -115,10 +115,7 @@ impl Batch {
         &self,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<KeyLookupCache<'_>>> {
-        match self.keys.values.as_slice() {
-            [key] => KeyLookupCache::new(key, context.memory(), context.cancellation()),
-            _ => Ok(None),
-        }
+        KeyLookupCache::for_columns(&self.keys.values, context.memory(), context.cancellation())
     }
 
     pub(super) fn hash(&self, row: usize, nulls_equal: bool) -> Result<Option<u64>> {

@@ -66,8 +66,9 @@ reason to reduce correctness/coverage. Grouped aggregation contributes
 9.969800537 seconds, projection 4.468361084 seconds, and ordinary plus multiway
 joins 2.855853169 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. Complete
-the expression construction/reuse package and select further numeric/temporal
-specializations only from demonstrated costs. Added capability cases retain
+the active exact group-key experiment, then follow the shared-owner reuse
+sequence below. Select further numeric/temporal specializations only from
+demonstrated costs. Added capability cases retain
 their own coverage and cannot change the original comparison denominator.
 Larger-volume and complex-plan acceptance must measure resource behavior and
 complete results; the encoded/pruning/streaming architecture alone establishes
@@ -75,6 +76,62 @@ no general advantage over Polars. Preserve the original Polars IPC/API-clock
 observations and native Parquet/engine-clock observations as distinct evidence.
 A later comparative claim requires matched input, resources and clock boundaries;
 this objective does not authorize another competitor cohort.
+
+### Shared-owner reuse continuation
+
+The October 28 maintainer suggestions refine the optimization sequence inside
+this same item and PR. Preserve the 347-case discovery/regression denominator;
+freeze fresh seeds, layouts and compositions for correctness. Each candidate
+must identify the existing owner reused, the blocked or repeated execution
+path, the work removed, prospective admission, activation/work counters,
+complete errors/results, ownership and the frozen benefit decision.
+
+1. Finish and evaluate the current exact group-key candidate before selecting
+   another grouping mechanism.
+2. Implement typed complete-payload validation through existing native numeric,
+   temporal and variable-width owners. The flat
+   `native_payload_validation::validate_record` path currently validates through
+   `build_column_prefix` with no retained rows; eliminate proved repeated scalar
+   conversion or scratch writes while preserving the entire input obligation,
+   field/row failure order, NULL masks, cancellation and discarded-row checks.
+   Rich/nullable records retain their existing recursive ownership and parent
+   masks until equivalent handling is proved. This is separate from the dropped
+   expression construction candidate.
+3. Evaluate exact join-probe identity reuse and once-resolved gather coordinates.
+   The ordinary no-residual `Join::consume` path still hashes/probes each left
+   row, and `Table::gather` resolves rows while finding touched segments and
+   again while constructing take indices. Reuse existing directory/index,
+   table/gather and reserved-vector owners. Distinguish uninitialized entries
+   from proved misses; preserve NULL policy, complete duplicate chains, output
+   order and matched-row bookkeeping. Residual predicates remain an independent
+   gate. Retain the touched-chunks-only take contract and account for descriptors
+   as part of the bounded work unit.
+4. Audit specialized-consumer reachability before refactoring a shared batch
+   consumer. Both general relational preparation entry points currently admit
+   the file provider only for exactly one file source and no memory/batch
+   sources; its input recognizer also requires `ScanSource::File(0)`. These
+   source restrictions do not establish semantic equivalence. Start with exact
+   count or another small typed family only after proving actual representation,
+   dtype/null, arithmetic, ordering, error, memory, cancellation and output
+   compatibility. File metadata shortcuts keep their original evidence needs.
+5. Use the remaining profiles and representation evidence to choose ordered
+   preparation workers or encoded unary expressions. Reuse `AggregateChunkJobs`,
+   resident worker grants and native leases where admitted; retain ownership
+   through queued, running, completed and unconsumed states. Do not duplicate
+   the CPU grant or parallelize ordered arithmetic without equivalence proof.
+   For unary dictionary expressions, first show actual dictionaries at that
+   boundary, then preserve referenced-domain coverage, selected branches,
+   Unicode behavior, NULLs and equality after distinct values map to the same
+   transformed result. Do not manufacture a dictionary solely for this path.
+
+PulseWeave inventory, scarcity and proof policies can govern measured choices
+among admitted paths. Their presence in a report does not establish active
+operator scheduling. Add adaptive feedback only after work/queue/wait/live-byte
+evidence warrants it. Selected-row handoff between joins and broader output
+credit windows remain conditional on measured copy or downstream pressure,
+including retained source bytes and producer-close lifetime proof. This does
+not revive previously dropped candidates, bypass provider admission, reduce the
+remaining analytical capability checklist or close any competitive gate.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
@@ -361,10 +418,33 @@ removal patch and source inventory for the consolidated acceptance packet.
 The accepted numeric baseline is unchanged.
 Full item 20 continues in consolidated PR #1619.
 
-The next group-key cache candidate has a frozen
+The exact group-key cache candidate follows its frozen
 [prospective protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/group-key-cache-protocol.json).
-Its local implementation and validation are in progress. It has no accepted
-performance result and is not included in this documentation checkpoint.
+Its local 347-case observation passes all 12,565 complete result rows at
+**19.754020577 engine seconds**, a 14.408% reduction from the numeric checkpoint.
+Grouped aggregation falls from 9.969800537 to 6.837246991 seconds, a 31.420%
+reduction. There are no material case or family regression flags under the
+unchanged prospective thresholds. This is one observation per case, with no
+statistical confidence or competitor-superiority claim. The candidate is retained
+for the combined item-20 acceptance; installed-package, portable and hosted
+acceptance remain separate.
+
+The bounded cache extends the existing batch-local proved identities to one or
+two integer, Boolean or raw short-text/binary keys. Sampling only admits the
+cache; ordinary exact lookup establishes every first group. Tests cover collision
+misses, normalized inline padding, NULL/empty/NUL distinctions, changed batches,
+late long or unique values, all integer widths, unsupported domains and released
+credits on cancellation. Native lint and the 3,481-test native suite pass, with
+32 existing opt-in tests ignored. Five-interface grouping/DISTINCT and retained
+reuse pass. Fresh independent correctness replay passes all 160 observations
+and 1,273,610 complete result rows across two seeds and two layouts. The complete
+comparison, failures, source snapshot and process evidence remain in the local
+item-20 packet for consolidated portable acceptance.
+
+The next typed-validation candidate uses this measured cache checkpoint as its
+baseline without another baseline execution. Projection remains 4.497855210
+seconds; ordinary and multiway joins total 2.767251541 seconds. The per-family
+one-second targets and complete under-ten-second objective remain open.
 
 The following construction and reuse details preserve the evaluated proposal;
 they are not an accepted runtime change or a current-runtime description.

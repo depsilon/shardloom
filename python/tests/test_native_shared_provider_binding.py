@@ -231,6 +231,73 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             check_values(self.table(retained), wanted)
             check_values(self.table(reused), wanted)
 
+    def test_inline_composite_group_keys_match_five_surfaces_and_retained_reuse(self):
+        from collections import defaultdict
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        texts = (None, "", "a\0", "東京", "abcdefghijkl")
+        numbers = (None, -(1 << 63), (1 << 63) - 1, -1, 0, 1)
+        rows = [{"id": index, "number": numbers[index % len(numbers)],
+                 "tag": (f"late-outlined-{index}" if index >= 512 and index % 257 == 0
+                         else texts[(index // 6) % len(texts)]),
+                 "value": None if index % 17 == 0 else index % 31 - 15}
+                for index in range(2053)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("number", pa.int64()), pa.field("tag", pa.string()),
+                            pa.field("value", pa.int64())])
+        groups = defaultdict(list)
+        for row in rows:
+            groups[(row["number"], row["tag"])].append(row)
+        ordered = sorted(groups, key=lambda key: (
+            key[0] is None, key[0] or 0, key[1] is None, key[1] or ""))
+        wanted = [{"number": key[0], "tag": key[1], "rows": len(groups[key]),
+                   "total": float(sum(row["value"] for row in groups[key] if row["value"] is not None))}
+                  for key in ordered]
+        with tempfile.TemporaryDirectory(prefix="shardloom-inline-group-") as directory:
+            path = Path(directory) / "keys.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path,
+                                row_group_size=2053, use_dictionary=False)
+            frame = sl.read_parquet(path, client=client)
+            relation = native.Relation.scan(str(path))
+            grouped = frame.group_by("number", "tag").agg(rows="COUNT(*)", total="SUM(value)")
+            grouped = grouped.sort("number", "tag", nulls="last")
+            typed = relation.aggregate(["number", "tag"],
+                                       [("count", None, "rows"), ("sum", "value", "total")])
+            typed = typed.sort([("number", False, "last"), ("tag", False, "last")])
+            sql = (f"SELECT number,tag,COUNT(*) AS rows,SUM(value) AS total FROM '{path}' "
+                   "GROUP BY number,tag ORDER BY number NULLS LAST,tag NULLS LAST")
+            for table in self.all_surfaces(grouped, typed, sql):
+                self.assertEqual(table.to_pylist(), wanted)
+                self.assertEqual(table.schema.field("number").type, pa.int64())
+                self.assertEqual(table.schema.field("tag").type, pa.string())
+
+            distinct = frame.select("number", "tag").distinct().sort("number", "tag", nulls="last")
+            distinct_typed = relation.aggregate(["number", "tag"], []).sort(
+                [("number", False, "last"), ("tag", False, "last")])
+            distinct_sql = (f"SELECT number,tag FROM '{path}' GROUP BY number,tag "
+                            "ORDER BY number NULLS LAST,tag NULLS LAST")
+            for table in self.all_surfaces(distinct, distinct_typed, distinct_sql):
+                self.assertEqual(table.to_pylist(), [{"number": key[0], "tag": key[1]} for key in ordered])
+
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.sql(sql).collect()
+            path.unlink()
+            retained_source = retained.as_source()
+            for _ in range(2):
+                reused = producer.sql(
+                    "SELECT * FROM 'memory://retained' ORDER BY number NULLS LAST,tag NULLS LAST",
+                    sources=[("memory://retained", retained_source)]).collect()
+                self.assertEqual(self.table(reused).to_pylist(), wanted)
+            del retained_source
+            producer.close()
+            self.assertEqual(self.table(retained).to_pylist(), wanted)
+            self.assertEqual(self.table(reused).to_pylist(), wanted)
+
     def test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces(self):
         from collections import defaultdict
         import shardloom as sl

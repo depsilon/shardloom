@@ -14,6 +14,10 @@ use vortex::array::{ArrayRef, dtype::DType};
 #[path = "native_relational_set_cache_tests.rs"]
 mod cache_tests;
 
+#[cfg(test)]
+#[path = "native_relational_set_inline_cache_tests.rs"]
+mod inline_cache_tests;
+
 pub(super) struct RowSet<'a> {
     fields: &'a [(String, DType)],
     names: &'a [String],
@@ -136,8 +140,14 @@ impl<'a> RowSet<'a> {
             {
                 continue;
             }
-            let slot = cache.as_ref().map(|cache| cache.slot(row)).transpose()?;
-            if let Some(group) = slot.and_then(|slot| cache.as_ref()?.get(slot)) {
+            let probe = cache
+                .as_ref()
+                .map(|cache| cache.probe(row))
+                .transpose()?
+                .flatten();
+            if let Some(probe) = probe
+                && let Some(group) = probe.group()
+            {
                 #[cfg(all(test, debug_assertions))]
                 super::native_relational_observation::record(|counts| {
                     counts.key_cache_hits += 1;
@@ -182,8 +192,8 @@ impl<'a> RowSet<'a> {
             if let Some(mapping) = &mut mapping {
                 mapping.values.push(group);
             }
-            if let (Some(cache), Some(slot)) = (&mut cache, slot) {
-                cache.insert(slot, group);
+            if let (Some(cache), Some(probe)) = (&mut cache, probe) {
+                cache.insert(probe, group);
             }
         }
         drop(cache);
