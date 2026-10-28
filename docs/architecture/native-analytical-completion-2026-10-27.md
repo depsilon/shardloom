@@ -74,6 +74,10 @@ CG-1 through CG-23 retain their independent acceptance and authorization.
   and move item 20 into the completed ledger only when its obligations pass.
 - [ ] Continue remaining format and interface parity through existing I/O and
   rich-data owners, including safe refresh and complete independent readback.
+  Item 18 extends shared demand-aware defaults and owns the
+  [cross-surface and format acceptance gate](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
+  before the planned 1.1.0 bump. Item 19 then extends the same coverage for newly
+  admitted rich types; this sequencing does not defer item 20's own acceptance.
 
 The six user workflows remain a statistical fund summary, an entity/currency
 as-of valuation, a timezone-aware daily report across daylight-saving changes,
