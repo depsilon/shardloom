@@ -647,6 +647,20 @@ visible and independent; this implementation does not automatically close them.
     workspace lint and 3,274 passing workspace tests on the same runtime source.
     Combined implementation, installed-package, portable and hosted acceptance
     remain open.
+    The next retained [demand-driven hashing checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json)
+    validates all 347 cases and 12,565 rows at 17.42942424 engine seconds, 1.69%
+    lower overall than 17.729495249. DISTINCT improves 10.80%, passing its frozen
+    family-benefit gate with positive overall balance; grouping improves 3.31%.
+    No material regression flags occur. Null-equal membership reuses the existing
+    exact cache before requesting flat text/binary hashes, while full domain
+    validation and all established non-admitted paths remain intact. The final
+    189 focused relational tests, strict native lint, four public regressions and
+    160 fresh five-interface observations pass (303,260 complete result rows).
+    Preserve the corrected lint and missing-Arrow test-launch failures. This is
+    a modest single-observation gain, not statistical or causal attribution.
+    Full native validation passes 5,015 tests with 35 existing opt-in ignores;
+    formatting, strict workspace lint and all 3,274 default workspace tests pass.
+    Combined installed-package, portable and hosted acceptance remain open.
     Continue the full item-20 work in the same PR #1619. Retain the dropped
     counted-join, fused-measure, retained-output and borrowed-output decisions.
     This sequence does not replace the wider temporal/time-series,

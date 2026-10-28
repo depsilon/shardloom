@@ -175,6 +175,77 @@ fn inline_cache_complete_text_and_binary_results_survive_changed_batches() {
 }
 
 #[test]
+fn membership_hashes_only_exact_cache_misses_and_retained_unique_keys() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let fields = vec![("k0".into(), DType::Utf8(Nullability::NonNullable))];
+            let names = vec!["k0".into()];
+            let mut set = RowSet::new(&fields, &names, context.memory())?;
+            for (ordinal, word) in ["first", "second"].into_iter().enumerate() {
+                let source = record(vec![
+                    VarBinViewArray::from_iter_str(std::iter::repeat_n(word, 2053)).into_array(),
+                ]);
+                #[cfg(debug_assertions)]
+                let observation = super::super::native_relational_observation::Session::start();
+                let actual = set.intern_batch(source, context, 7)?;
+                assert_eq!(actual.values, vec![ordinal; 2053]);
+                assert_eq!(set.rows(), ordinal + 1);
+                #[cfg(debug_assertions)]
+                {
+                    let counts = observation.finish();
+                    assert_eq!(counts.variable_domain_values, 2054);
+                    assert_eq!(counts.variable_hash_on_demand_values, 1);
+                    assert_eq!(counts.variable_hash_values, 2);
+                    assert_eq!(counts.variable_hash_slot_bytes, 8);
+                    assert_eq!(counts.key_inline_cache_hits, 2052);
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn other_set_membership_keeps_eager_hash_preparation() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let fields = vec![("k0".into(), DType::Utf8(Nullability::NonNullable))];
+            let names = vec!["k0".into()];
+            let mut other = RowSet::new(&fields, &names, context.memory())?;
+            other.insert_batch(
+                record(vec![VarBinViewArray::from_iter_str(["match"]).into_array()]),
+                None,
+                context,
+                7,
+                None,
+            )?;
+            let mut set = RowSet::new(&fields, &names, context.memory())?;
+            let source = record(vec![
+                VarBinViewArray::from_iter_str(
+                    (0..1025).map(|row| if row % 2 == 0 { "match" } else { "miss" }),
+                )
+                .into_array(),
+            ]);
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
+            assert_eq!(
+                set.insert_batch(source, Some((&other, true)), context, 7, None)?,
+                1
+            );
+            #[cfg(debug_assertions)]
+            assert_eq!(observation.finish().variable_hash_on_demand_values, 0);
+            assert_eq!(set.rows(), 1);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn inline_cache_complete_composite_integer_keys_preserve_all_widths_and_limits() {
     macro_rules! check {
         ($($ty:ty),+) => { $(

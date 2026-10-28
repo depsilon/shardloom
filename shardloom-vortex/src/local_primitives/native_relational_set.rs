@@ -126,7 +126,11 @@ impl<'a> RowSet<'a> {
         if batch_rows == 0 {
             return Err(failed("set output batch rows must be positive"));
         }
-        let batch = Batch::new(array, self.names, context)?;
+        let batch = if self.nulls_equal && other.is_none() {
+            Batch::for_membership(array, self.names, context)?
+        } else {
+            Batch::new(array, self.names, context)?
+        };
         let mut selected = ReservedVec::new(context.memory())?;
         selected.reserve(batch.array.len())?;
         let mut cache = batch.key_cache(context)?;

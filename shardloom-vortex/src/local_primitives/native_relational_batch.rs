@@ -63,6 +63,19 @@ impl Batch {
         )
     }
 
+    pub(super) fn for_membership(
+        array: ArrayRef,
+        key_names: &[String],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
+        Self::from_names(
+            array,
+            key_names.iter().map(String::as_str),
+            context,
+            Preparation::HashOnDemand,
+        )
+    }
+
     pub(super) fn with_names<const N: usize>(
         array: ArrayRef,
         key_names: [&str; N],
@@ -86,6 +99,7 @@ impl Batch {
             let prepare = match purpose {
                 Preparation::Values => KeyColumn::values,
                 Preparation::Hash => KeyColumn::new,
+                Preparation::HashOnDemand => KeyColumn::for_membership,
             };
             keys.values.push(prepare(
                 &column,

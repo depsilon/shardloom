@@ -16,6 +16,7 @@ pub(crate) struct Counts {
     pub(crate) variable_domain_values: u64,
     pub(crate) variable_hash_slot_bytes: u64,
     pub(crate) variable_hash_values: u64,
+    pub(crate) variable_hash_on_demand_values: u64,
     pub(crate) variable_hash_bytes: u64,
     pub(crate) aggregate_value_preparations: u64,
     pub(crate) aggregate_row_updates: u64,

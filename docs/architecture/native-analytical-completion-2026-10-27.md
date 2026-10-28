@@ -60,11 +60,11 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The latest retained checkpoint records 17.729495249 seconds, so this requires
-about 43.6% further reduction; it is a stretch target, not an achieved result or
+The latest retained checkpoint records 17.42942424 seconds, so this requires
+about 42.6% further reduction; it is a stretch target, not an achieved result or
 a reason to reduce correctness/coverage. Grouped aggregation contributes
-6.824433458 seconds, projection 3.183748958 seconds, and ordinary plus multiway
-joins 2.720761958 seconds. Use these complete family totals to prioritize
+6.598215708 seconds, projection 3.168085623 seconds, and ordinary plus multiway
+joins 2.689858626 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. The
 shared-owner sequence below records the retained and dropped candidates.
 Select further numeric/temporal specializations only from
@@ -208,20 +208,35 @@ match the measured candidate; intervening changes are documentation only.
 Installed-package acceptance, the complete portable packet and hosted acceptance
 of this new source remain open alongside the remaining item-20 implementation.
 
-The next [prospective candidate](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-protocol.json)
-targets redundant text-key preparation inside that existing membership owner.
-`Batch::new` currently allocates and computes every variable-domain hash before
-`RowSet` consults its exact per-batch identity cache. Admit on-demand hashing for
-flat UTF-8/binary keys only in null-equal membership without an other-set probe;
-preserve complete domain validation, late dictionary-code errors, exact hash
-bits, first-occurrence ordinals and ordinary cache-decline lookup. Reuse Vortex's
-checked borrowed text view during that validation walk. Matching joins, nested
-keys and retained unique key payloads keep their existing preparation. The
-candidate must prove fewer hashes and hash-slot bytes plus complete-query benefit
-against 17.729495249 seconds; it is not yet retained. No worker or CPU-grant change
-is introduced. Dictionary unary execution remains conditional on actual encoded
-arguments reaching the function boundary; Parquet page encoding alone is not
-that evidence.
+The [demand-driven hashing protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-protocol.json)
+and [retained disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json)
+remove eager text-domain hashing before the existing exact membership cache.
+Flat UTF-8/binary keys use on-demand hashing only in null-equal membership without
+an other-set probe. Complete domain validation, late dictionary-code errors,
+exact hash bits, first-occurrence ordinals and ordinary cache-decline lookup
+remain intact. Vortex's checked borrowed text view validates UTF-8 without
+cloning an unused byte owner. Matching joins, nested keys and retained unique
+key payloads keep their established preparation. A focused 2,053-row repeated-key
+case validates the full domain, hashes one input key and one retained output key,
+and allocates hash storage only for that retained key.
+
+All 347 cases and 12,565 rows pass at **17.42942424 engine seconds**, a 1.69%
+complete-cohort reduction from 17.729495249. DISTINCT improves 10.80%, satisfying
+the prospective family-benefit gate with positive overall balance; grouping
+improves 3.31%. No material case/family regression flags occur. These remain
+single observations with modest observed benefit, not statistical or causal
+attribution. The final focused relational run passes 189 tests, strict native
+lint passes, and four public regressions plus 160 fresh five-interface
+observations pass. Complete replay checks 303,260 result rows against independent
+references. Preserve the initial function-size lint failure and the public
+launch with missing Arrow (zero tests), followed by their corrected passes.
+No worker or CPU-grant change is introduced. Dictionary unary execution remains
+conditional on actual encoded arguments reaching the function boundary; Parquet
+page encoding alone is not that evidence. Combined item-20 acceptance stays open.
+The full native gate passes 5,015 tests with 35 existing opt-in ignores;
+workspace lint and all 3,274 default workspace tests pass on the same source.
+Formatting passes. Combined installed-package, portable and hosted acceptance
+remain separate from this local checkpoint.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.

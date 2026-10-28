@@ -115,7 +115,11 @@ fn value_preparation_rejects_unreferenced_malformed_utf8_domain_values() {
     let dictionary = DictArray::try_new(PrimitiveArray::from_iter([0u8]).into_array(), domain)
         .unwrap()
         .into_array();
-    for purpose in [Preparation::Values, Preparation::Hash] {
+    for purpose in [
+        Preparation::Values,
+        Preparation::Hash,
+        Preparation::HashOnDemand,
+    ] {
         let memory = LiveMemoryPool::new(4096).unwrap();
         let error = prepare(&dictionary, &memory, purpose)
             .err()
@@ -138,12 +142,26 @@ fn value_preparation_checks_dictionary_codes_when_observed() {
         )
         .unwrap()
         .into_array();
-        for purpose in [Preparation::Values, Preparation::Hash] {
+        for purpose in [
+            Preparation::Values,
+            Preparation::Hash,
+            Preparation::HashOnDemand,
+        ] {
             let memory = LiveMemoryPool::new(4096).unwrap();
             let values = prepare(&dictionary, &memory, purpose).unwrap();
             values.validate_at(0).unwrap();
             assert!(values.validate_at(1).is_err());
             assert!(values.cell(1).is_err());
+            if purpose != Preparation::Values {
+                values
+                    .hash_into(0, &mut rustc_hash::FxHasher::default())
+                    .unwrap();
+                assert!(
+                    values
+                        .hash_into(1, &mut rustc_hash::FxHasher::default())
+                        .is_err()
+                );
+            }
             drop(values);
             assert_eq!(memory.snapshot().reserved_bytes, 0);
         }

@@ -3,6 +3,9 @@
 //! Equality normalizes finite floating signed zero and integer signedness.
 
 #[cfg(test)]
+#[path = "native_relational_demand_hash_tests.rs"]
+mod demand_hash_tests;
+#[cfg(test)]
 #[path = "native_relational_nested_keys_tests.rs"]
 mod nested_tests;
 #[cfg(test)]
@@ -78,13 +81,14 @@ pub(super) enum KeyColumn {
 pub(super) enum Preparation {
     Values,
     Hash,
+    HashOnDemand,
 }
 
 pub(super) struct VariableColumn {
     values: VarBinViewArray,
     valid: Mask,
     codes: Option<NativeNumericOwner>,
-    hashes: Option<VariableHashes>,
+    hashes: VariableHashing,
     rows: usize,
     binary: bool,
 }
@@ -92,6 +96,12 @@ pub(super) struct VariableColumn {
 struct VariableHashes {
     values: Vec<u64>,
     _ownership: MemoryLease,
+}
+
+enum VariableHashing {
+    Unavailable,
+    Prepared(VariableHashes),
+    OnDemand,
 }
 
 impl VariableHashes {
@@ -135,6 +145,23 @@ impl KeyColumn {
         cancellation: &CancellationToken,
     ) -> Result<Self> {
         Self::prepare(array, context, memory, cancellation, Preparation::Values)
+    }
+
+    /// Membership consults its exact identity cache before requesting a hash.
+    /// Flat text/binary domains still validate completely during preparation;
+    /// other key families keep their established eager preparation.
+    pub(super) fn for_membership(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        let purpose = if matches!(array.dtype(), DType::Utf8(_) | DType::Binary(_)) {
+            Preparation::HashOnDemand
+        } else {
+            Preparation::Hash
+        };
+        Self::prepare(array, context, memory, cancellation, purpose)
     }
 
     fn prepare(
@@ -398,12 +425,24 @@ impl KeyColumn {
         }
         if let Self::Variable(values) = self {
             if let Some(index) = values.index(row)? {
-                let hashes = values
-                    .hashes
-                    .as_ref()
-                    .ok_or_else(|| failed("value-only text owner has no admitted hash state"))?;
+                let value_hash = match &values.hashes {
+                    VariableHashing::Prepared(hashes) => hashes.values[index],
+                    VariableHashing::OnDemand => {
+                        let bytes = values.values.bytes_at(index);
+                        #[cfg(all(test, debug_assertions))]
+                        super::native_relational_observation::record(|counts| {
+                            counts.variable_hash_values += 1;
+                            counts.variable_hash_bytes += bytes.len() as u64;
+                            counts.variable_hash_on_demand_values += 1;
+                        });
+                        compound_count_partial::string_hash(bytes.as_slice())
+                    }
+                    VariableHashing::Unavailable => {
+                        return Err(failed("value-only text owner has no admitted hash state"));
+                    }
+                };
                 hash.write_u8(if values.binary { 6 } else { 5 });
-                hash.write_u64(hashes.values[index]);
+                hash.write_u64(value_hash);
                 return Ok(true);
             }
             hash.write_u8(0);
@@ -728,6 +767,12 @@ impl VariableColumn {
             if index.is_multiple_of(4096) {
                 cancellation.check()?;
             }
+            if purpose == Preparation::HashOnDemand {
+                if valid.value(index) {
+                    Self::validate_unhashed_value(&values, index, binary)?;
+                }
+                continue;
+            }
             let hash = if valid.value(index) {
                 // Both purposes preserve the complete domain validation walk,
                 // even when a dictionary never refers to this value.
@@ -756,10 +801,26 @@ impl VariableColumn {
             values,
             valid,
             codes,
-            hashes,
+            hashes: match hashes {
+                Some(hashes) => VariableHashing::Prepared(hashes),
+                None if purpose == Preparation::HashOnDemand => VariableHashing::OnDemand,
+                None => VariableHashing::Unavailable,
+            },
             rows: array.len(),
             binary,
         })
+    }
+
+    fn validate_unhashed_value(values: &VarBinViewArray, index: usize, binary: bool) -> Result<()> {
+        if binary {
+            // Keep the ordinary complete native-domain access.
+            drop(values.bytes_at(index));
+        } else {
+            // The checked borrowed view discharges the same UTF-8 obligation
+            // without cloning an unused byte owner.
+            values.utf8_slice_at(index).map_err(vortex_error)?;
+        }
+        Ok(())
     }
 
     fn index(&self, row: usize) -> Result<Option<usize>> {
