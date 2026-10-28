@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 reintegration of earlier positive-gain borrowed output and expression candidates",
+  "source_before_runtime_edits": "c25d94eaf3d6331c27df9fcc67a18fa02fab375b",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-integer-extrema-r1/inputs.json",
+  "baseline_inputs_sha256": "d2ab5145b3465d75628cb0838dd0b348f6840722ff133ad60aedc32d6bc6e41e",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-integer-extrema-r1/native-observations.json",
+  "baseline_observations_sha256": "01d2643dc81518e866fca462b27df5052e509caccebe40cd36791125afb2d3f2",
+  "baseline_engine_seconds": 15.992156898,
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/integer-extrema-fusion-disposition.json",
+    "bytes": 91064,
+    "sha256": "dc0914d6252d6bb249cb4b8f3a46245b46874922df7755c5db544674bc9a9cdd"
+  },
+  "baseline_policy": "Reuse the retained integer-extrema source and complete 347-query observation. Verify every saved result and source/test/build linkage without rerunning baseline queries. Preserve all historical observations, original percentage-gate outcomes, and the earlier numeric arithmetic-group flag. Historical deltas are not additive evidence for this combined source.",
+  "maintainer_policy": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/complete-cohort-gain-policy.json",
+    "bytes": 2437,
+    "sha256": "672299bb7aa4a89144199cf45dcb9471394a088477657660c1081be5892a5b5b"
+  },
+  "earlier_drop_audit": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/earlier-positive-gain-rejection-audit.json",
+    "bytes": 19177,
+    "sha256": "7e49f2e53337c3f8c9ef13040cecf22b3154ebce3fe459995d037a0285612cae"
+  },
+  "candidate_source_recovery": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/positive-gain-recovery-map.json",
+    "bytes": 18492,
+    "sha256": "889e9a6eebdb4107169ff74b9e2e36209a81fd79d0e7f4a2894673415045c5e6"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "Restore selected native text/binary borrowing at existing result-copy and flat gathering boundaries. Prepare only already selected Columnar values or constants and their validity; use checked UTF-8 slices and borrowed native byte views instead of repeated per-value owner clones. Keep independent credited output buffers, compact constants, selected-row order, complete validation and source release. Do not build dictionary key domains or move canonicalization across a selection.",
+    "Restore once-evaluated UTF-8/binary expression construction in independently allocated native offset, validity and payload buffers. Charge every live geometric-growth replacement while its predecessor remains live; release all scratch on refusal or cancellation. Preserve callback error precedence, dtype/null checks and the ordinary complete-prefix validation path. Retain the later malformed-text repair and typed numeric construction unchanged.",
+    "Restore exact reuse of completed pure scalar-function outputs and full-input function arguments within the existing bounded projection scope. Include every bound semantic parameter, regex pattern/inline flags, JSON path, parse policy and temporal input/output domain/timezone/operation policy in identity. Keep lazy selected branches outside full-input reuse. No new function, effect, cache, provider, dependency or public capability is admitted."
+  ],
+  "activation_evidence": [
+    "Native tests prove borrowed-access activation and fewer per-row owner clones, unchanged constant representation, selection order, empty/all-NULL/long UTF-8 and arbitrary binary values, dictionary/chunked/sliced sources and nested parent masks.",
+    "Compare restored expression construction and reuse with the existing sequential owners, including callback counts, complete function parameters, NULLs, signed zero, invalid selected UTF-8, skipped invalid branches, first errors, cancellation and exact cleanup.",
+    "Prove output lifetime after source/session release and memory refusal during overlapping buffer growth. Preserve the current numeric, integer-extrema, typed validation, bounded ordering and join regression suites.",
+    "Run five public regression tests covering expression reuse, numeric extrema, rich bounded ordering, joins and shared keys, then 160 fresh observations across all five interfaces with complete independent schema/value and input readback checks."
+  ],
+  "retention_decision": {
+    "rule": "strict_complete_cohort_gain",
+    "declared_families": [
+      "projection",
+      "strings",
+      "grouped_aggregation",
+      "global_aggregation",
+      "composite"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve every case and family flag with its absolute contribution and correctness/resource evidence. Flags do not impose a percentage benefit floor or automatically block a positive complete-cohort decision. Any separately justified diagnosis must preserve the observation.",
+    "performance_rule": "Ship when candidate complete-cohort engine seconds are strictly less than baseline; drop when equal or greater. No complete-cohort or family percentage minimum.",
+    "correctness": "Complete values, schemas, callback/error ordering, lazy domains, ownership, resource and cancellation checks must pass. No external execution fallback."
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610289947,
+      202610290113
+    ],
+    "rows": 4099,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "expression_text_repeated",
+      "expression_binary_repeated",
+      "expression_bound_parameters",
+      "expression_temporal_domains",
+      "expression_lazy_domains",
+      "expression_filtered_grouped",
+      "expression_selected_reordered",
+      "expression_empty"
+    ],
+    "case_generator": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/expression_heldout_cases.py",
+      "bytes": 10114,
+      "sha256": "1cd4a12e22036847588b90ed7813d4d6b41bfd1a8fd929cca33b6f7d90dee87d"
+    },
+    "scope": "Reuse existing independent expression declarations with new seeds and complete independently reopened Parquet inputs; 8 cases x 2 seeds x 2 layouts x 5 interfaces = 160 observations. Native tests cover borrowed dictionary/constant/rich-parent and ownership boundaries. Public join/ordering regressions supplement the fresh expressions. This correctness cohort is not an additional performance denominator."
+  },
+  "execution_policy": "One isolated sequential execution of each original case in original order with existing storage limits, deadlines, complete validation, concurrency guard and cleanup. Finish other task-owned jobs and agents before queries. Full hashing and recursive inventories remain outside execution. No repeated trials, baseline rerun, cache manipulation or pacing.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of each of the unchanged 347 cases",
+  "vortex_first_check": {
+    "decision": "wrap_existing_native_providers",
+    "provider_version": "Vortex 0.90.0 pinned and vendored",
+    "upstream_checked": [
+      "vendor/vortex-array/src/arrays/varbinview/array.rs",
+      "vendor/vortex-array/src/validity.rs",
+      "vendor/vortex-array/src/host_memory.rs"
+    ],
+    "boundary": "Reuse existing Columnar/VarBinView, validity, native constant and fallible host allocator providers. ShardLoom retains selected-domain admission, independent result ownership, strict scalar error policy and exact function identity; query-engine integrations remain prohibited. No upstream implementation code is copied."
+  },
+  "candidate_performance_executions_before_protocol": 0,
+  "publication_authorized": false,
+  "item_20_complete": false
+}
