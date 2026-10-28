@@ -147,13 +147,34 @@ pub(super) fn scalar(
     context: &mut vortex::array::ExecutionCtx,
 ) -> Result<vortex::array::scalar::Scalar> {
     use vortex::array::{
-        arrays::decimal::DecimalArrayExt as _,
-        scalar::{DecimalValue, Scalar},
+        arrays::{VarBinView, decimal::DecimalArrayExt as _, varbinview::VarBinViewArrayExt as _},
+        scalar::{DecimalValue, Scalar, ScalarValue},
     };
     if row >= array.len() {
         return Err(failed("selected scalar exceeds its source domain"));
     }
     let array = scalar_storage(array, context)?;
+    if matches!(array.dtype(), DType::Utf8(_))
+        && let Some(text) = array.as_opt::<VarBinView>()
+    {
+        // Provider scalar extraction assumes text was validated at construction.
+        // Serialized or selected views can instead carry an unvalidated domain.
+        // Check observed bytes before constructing a BufferString, including when
+        // the output prefix discards this row and has no final text to validate.
+        let value = if array
+            .validity()
+            .map_err(vortex_error)?
+            .execute_is_valid(row, context)
+            .map_err(vortex_error)?
+        {
+            Some(ScalarValue::Utf8(
+                text.utf8_buffer_at(row).map_err(vortex_error)?,
+            ))
+        } else {
+            None
+        };
+        return Scalar::try_new(array.dtype().clone(), value).map_err(vortex_error);
+    }
     if let DType::Decimal(dtype, _) = array.dtype() {
         if !crate::native_payload_schema::admitted_decimal(*dtype) {
             return Err(failed(

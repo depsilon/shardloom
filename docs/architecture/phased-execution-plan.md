@@ -661,6 +661,27 @@ visible and independent; this implementation does not automatically close them.
     Full native validation passes 5,015 tests with 35 existing opt-in ignores;
     formatting, strict workspace lint and all 3,274 default workspace tests pass.
     Combined installed-package, portable and hosted acceptance remain open.
+    The subsequent [selected-child/direct-decimal validation candidate](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json)
+    is dropped: 17.670435985 engine seconds for all 347 complete queries versus
+    17.42942424, without the frozen family benefit or any material regression
+    flags. Four public regressions and 160 fresh five-interface observations
+    pass, including 33,260 complete result rows. Preserve its source, original
+    observations and failures; remove both optimization mechanisms. Retain the
+    independently required malformed-text correction and regression tests.
+    Its cost is not isolated by the combined candidate timing; the last accepted
+    optimization checkpoint remains 17.42942424 seconds. The
+    [post-removal source validation](../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json)
+    passes formatting, strict native/workspace lint, 5,016 native tests (35
+    existing opt-in ignores) and 3,274 workspace tests. The unchanged provider
+    source has 146 passing tests, one existing ignore and strict lint. The
+    combined candidate's public/fresh-cohort results do not establish new
+    retained-source installed-package acceptance; that combined gate stays open.
+    The October 28 maintainer follow-up prioritizes measured shared grouping,
+    projection and join costs, then shared-intermediate reuse and plan traversal
+    where source and workload evidence warrants them. Recursive CTEs and structural
+    limit removal retain their capability/scalability scope; do not assume they
+    accelerate the current cohort. This priority preserves every remaining
+    capability, workflow and combined-acceptance requirement.
     Continue the full item-20 work in the same PR #1619. Retain the dropped
     counted-join, fused-measure, retained-output and borrowed-output decisions.
     This sequence does not replace the wider temporal/time-series,

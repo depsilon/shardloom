@@ -77,6 +77,20 @@ observations and native Parquet/engine-clock observations as distinct evidence.
 A later comparative claim requires matched input, resources and clock boundaries;
 this objective does not authorize another competitor cohort.
 
+The October 28 maintainer follow-up delegates the execution order to measured
+impact. Prioritize shared grouped aggregation, projection and joins: their
+retained family totals sum to 12.456159957 of the 17.42942424 engine seconds.
+This is workload concentration, not a claim that all of that time is removable.
+After each frozen candidate decision, target demonstrated repeated preparation,
+validation, copying or operator work in those shared owners. Explicit materialized
+ownership and shared-intermediate reuse can move earlier when a repeated expensive
+subplan is demonstrated and resource/semantic admission is defined. Plan traversal
+work targets measured repeated work or large-plan scaling; recursive CTE support
+and relaxed structural limits are capability obligations, not assumed speedups for
+the existing cohort. Complete the remaining capability and acceptance checklist
+after this evidence-led performance work; no requirement is removed or deferred
+into items 18/19 by this ordering decision.
+
 ### Shared-owner reuse continuation
 
 The October 28 maintainer suggestions refine the optimization sequence inside
@@ -237,6 +251,37 @@ The full native gate passes 5,015 tests with 35 existing opt-in ignores;
 workspace lint and all 3,274 default workspace tests pass on the same source.
 Formatting passes. Combined installed-package, portable and hosted acceptance
 remain separate from this local checkpoint.
+
+The selected-child/direct-decimal validation candidate is **dropped** under its
+unchanged prospective gate. All 347 queries and 12,565 complete rows pass at
+17.670435985 engine seconds, 1.38% above the retained 17.42942424-second
+checkpoint. Projection and ordering do not improve; no case or family exceeds
+the material-regression thresholds. Four five-interface public regressions and
+160 fresh observations (33,260 complete result rows) pass. The
+[disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json)
+preserves the candidate source, complete results, source-linked focused checks
+and all earlier failed attempts. The evidence freeze initially failed on a
+helper path type before any query; the corrected freeze changes no runtime,
+workload or benefit threshold. Full candidate suites were deliberately not run
+after its benefit failure; the retained source passes its own broad gates below.
+
+The candidate's malformed-text regression also exposed an existing
+zero-retention scalar-validation defect. Keep the shared checked native UTF-8
+access and its provider/payload regression tests while removing both proposed
+optimizations and their counters. The
+[correctness addendum](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-correctness-addendum.md)
+records the root cause and the disproved initial hypothesis. The combined
+candidate timing cannot isolate this repair's cost. No replacement performance
+observation is taken merely for optimization removal: 17.42942424 seconds remains
+the last accepted optimization checkpoint, not an independent measurement of
+the additional correctness repair. The [post-removal validation record](../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json)
+binds the six retained source files to passing formatting, strict native and
+workspace lint, 5,016 native tests (35 existing opt-in ignores), and 3,274
+workspace tests. The unchanged provider source retains its 146 passing tests,
+one existing ignore and strict lint. Both rejected mechanisms and their modules
+are absent. The earlier public and fresh-cohort results belong to the combined
+dropped candidate; they are not new package acceptance of this retained source.
+Combined item-20 acceptance stays open.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.

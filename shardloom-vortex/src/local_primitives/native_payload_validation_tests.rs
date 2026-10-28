@@ -15,7 +15,7 @@ use vortex::{
     buffer::Buffer,
 };
 
-fn record(fields: Vec<(&str, ArrayRef)>, validity: Validity) -> ArrayRef {
+pub(super) fn record(fields: Vec<(&str, ArrayRef)>, validity: Validity) -> ArrayRef {
     let rows = fields[0].1.len();
     StructArray::try_new(
         FieldNames::from(fields.iter().map(|(name, _)| *name).collect::<Vec<_>>()),
@@ -58,7 +58,7 @@ fn decimal(values: &[i128]) -> ArrayRef {
     .into_array()
 }
 
-fn check_copy_agreement(array: &ArrayRef, expected_error: Option<&str>) {
+pub(super) fn check_copy_agreement(array: &ArrayRef, expected_error: Option<&str>) {
     let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
