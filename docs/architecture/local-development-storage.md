@@ -113,6 +113,18 @@ retirement.
 
 ## Scope
 
+The [October 28 shared-key cleanup](../benchmarks/evidence/native-shared-key-lookup-2026-10-28/cleanup.json)
+retires 23,751 completed regular files and six environment links after native,
+installed-package, 23-control and isolated source-only acceptance. Repeated
+identities and closed-handle checks cover package/build environments, temporary
+verifier sources, staged packets, archived outputs and the superseded
+rich-retention runtime/wheel. The current tested key-lookup runtime and wheel,
+five original Parquet inputs, 347 independent references and compact complete
+results/failures remain. All 507 retired process identifiers and 24 historical
+helper/control source versions are preserved. Full replay passes after retirement;
+the Cargo cache and unrelated files are untouched, with no payload backup or
+storage-limit change.
+
 The [October 27 analytical aggregate cleanup](../benchmarks/evidence/native-analytical-aggregates-2026-10-27/cleanup.json)
 retires 14,011 completed generated regular files and six environment links after
 native/package acceptance and portable verification. Exact identities and

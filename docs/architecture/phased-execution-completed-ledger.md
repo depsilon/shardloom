@@ -17,7 +17,28 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Rich bounded streamed retention — local acceptance`
+- [x] `Shared key lookup and join build addressing — local acceptance`
+  — the [October 28 decision](../benchmarks/native-shared-key-lookup-2026-10-28.md)
+  retains a bounded exact per-batch directory in the existing membership owner,
+  removes unused per-row ordinals for zero-measure grouping, and binds join build
+  keys to their current batch. Native equality, first occurrence, NULL behavior,
+  signedness/width, changing dictionaries, duplicate order and output ownership
+  remain authoritative.
+  - The isolated 347-case pass validates 12,565 complete rows at 25.508976866
+    engine seconds versus the reused 27.374316659-second checkpoint. The frozen
+    family gate passes through grouped aggregation (12.44%) and DISTINCT
+    (17.39%); no material case/family regressions are flagged.
+  - Fresh correctness validates 160 observations and 2,345,274 complete rows.
+    Native Vortex tests pass 3,442 with 32 existing ignored; workspace tests
+    pass 3,274; native CLI tests pass 1,032; five public surfaces pass 25 cases;
+    the installed native wheel passes 201 integration tests without skips.
+    Twenty-three corruption controls and isolated source-only replay pass with
+    Python assertions disabled. Original failures and corrections are preserved.
+  - Hosted checks and merge remain separate. Typed MIN/MAX, independent numeric
+    gathering and expression work remain queued. Item 20 and CG-1 through CG-23
+    stay open; no new baseline, Polars or Full43 run or publication occurs.
+
+- [x] `Rich bounded streamed retention — merged acceptance`
   — the [October 28 decision](../benchmarks/native-rich-bounded-retention-2026-10-28.md)
   retains complete validation with bounded independent decimal/list/struct
   payload retention through the existing native ordering owner. The single
@@ -31,7 +52,10 @@ phase plan first.
     installed-wheel tests without skips. Portable replay and 22 corruption
     controls pass. Seven failed original attempts and the corrected verifier
     test assumptions remain recorded.
-  - Hosted checks and merge remain separate. Item 20 and CG-1 through CG-23
+  - PR #1617 merged at `328d3bf0` after all 57 hosted checks passed at
+    `1022a366`; automated review completed without findings. The
+    [hosted receipt](../benchmarks/evidence/native-rich-bounded-retention-2026-10-28/hosted.json)
+    preserves the check and review evidence. Item 20 and CG-1 through CG-23
     remain open; no competitor rerun, Full43 pass or package publication occurs.
 
 - [x] `Temporal fidelity — merged acceptance`

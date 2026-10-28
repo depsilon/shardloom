@@ -99,15 +99,22 @@ impl<'a> Join<'a> {
         if keep_matches {
             self.matched.values.resize(rows.end, false);
         }
-        if !self.spec.right_keys.is_empty() {
-            for row in rows {
+        if !self.spec.right_keys.is_empty() && !rows.is_empty() {
+            let (batch, _) = self.right.locate_batch(rows.start)?;
+            for row in rows.clone() {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                if let Some(hash) = self.right.hash(row, false)? {
+                let local = row - rows.start;
+                if let Some(hash) = batch.hash(local, false)? {
                     self.index
                         .insert(hash, row, context.cancellation(), |old| {
-                            self.right.equal(row, old, false)
+                            if old >= rows.start {
+                                batch.equal(local, batch, old - rows.start, false)
+                            } else {
+                                let (old_batch, old_local) = self.right.locate_batch(old)?;
+                                batch.equal(local, old_batch, old_local, false)
+                            }
                         })?;
                 }
             }

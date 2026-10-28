@@ -10,6 +10,48 @@ use vortex::array::{
 #[path = "native_relational_join_existence_tests.rs"]
 mod existence_tests;
 
+#[test]
+fn join_build_uses_current_batch_and_keeps_cross_batch_duplicate_order() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let binding = spec(Kind::Inner);
+            let mut join = Join::new(&binding, context.memory())?;
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
+            join.build(
+                input(&[Some(7); 128], &(0..128).collect::<Vec<_>>()),
+                context,
+                16,
+            )?;
+            join.build(
+                input(&[Some(7); 128], &(128..256).collect::<Vec<_>>()),
+                context,
+                16,
+            )?;
+            #[cfg(debug_assertions)]
+            {
+                let counts = observation.finish();
+                assert_eq!(counts.row_location_searches, 130);
+                assert_eq!(counts.join_retained_right_rows, 256);
+            }
+            let mut observed = vec![];
+            join.consume(input(&[Some(7)], &[999]), context, 17, &mut |array| {
+                observed.extend(pairs(&array));
+                Ok(())
+            })?;
+            assert_eq!(
+                observed,
+                (0..256).map(|id| (Some(999), Some(id))).collect::<Vec<_>>()
+            );
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 fn input(keys: &[Option<u64>], ids: &[u32]) -> ArrayRef {
     StructArray::try_new(
         FieldNames::from(["key", "id"]),

@@ -1,0 +1,75 @@
+{
+  "status": "passed",
+  "steps": [
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_release_architecture_tracker.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_release_architecture_tracker-r1.json",
+        "--allow-blocked"
+      ],
+      "returncode": 0,
+      "stdout": "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_release_architecture_tracker-r1.json\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_v1_docs_productization.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_v1_docs_productization-r1.json"
+      ],
+      "returncode": 0,
+      "stdout": "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_v1_docs_productization-r1.json\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_public_status_docs.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_public_status_docs-r1.json"
+      ],
+      "returncode": 0,
+      "stdout": "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_public_status_docs-r1.json\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_ci_execution_plan.py",
+        "-v"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad (test_ci_execution_plan.ClassificationTests.test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad) ... ok\ntest_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation (test_ci_execution_plan.ClassificationTests.test_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation) ... ok\ntest_comma_and_newline_paths_are_ambiguous_and_force_broad_validation (test_ci_execution_plan.ClassificationTests.test_comma_and_newline_paths_are_ambiguous_and_force_broad_validation) ... ok\ntest_make_plan_never_removes_a_job_recommended_by_rust (test_ci_execution_plan.ClassificationTests.test_make_plan_never_removes_a_job_recommended_by_rust) ... ok\ntest_malformed_planner_json_and_unclosed_or_bad_schema_are_broad (test_ci_execution_plan.ClassificationTests.test_malformed_planner_json_and_unclosed_or_bad_schema_are_broad) ... ok\ntest_plain_existing_readme_and_getting_started_wording_can_be_narrow (test_ci_execution_plan.ClassificationTests.test_plain_existing_readme_and_getting_started_wording_can_be_narrow) ... ok\ntest_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad (test_ci_execution_plan.ClassificationTests.test_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad) ... ok\ntest_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy (test_ci_execution_plan.ClassificationTests.test_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy) ... ok\ntest_summary_accepts_exact_all_success_results (test_ci_execution_plan.SummaryTests.test_summary_accepts_exact_all_success_results) ... ok\ntest_summary_command_preserves_failure_evidence_and_exits_unsuccessfully (test_ci_execution_plan.SummaryTests.test_summary_command_preserves_failure_evidence_and_exits_unsuccessfully) ... ok\ntest_summary_rejects_missing_invented_duplicate_and_unclassified_omissions (test_ci_execution_plan.SummaryTests.test_summary_rejects_missing_invented_duplicate_and_unclassified_omissions) ... ok\ntest_summary_rejects_wrong_workflow_or_revision (test_ci_execution_plan.SummaryTests.test_summary_rejects_wrong_workflow_or_revision) ... ok\ntest_summary_requires_selected_jobs_success_and_omitted_jobs_skipped (test_ci_execution_plan.SummaryTests.test_summary_requires_selected_jobs_success_and_omitted_jobs_skipped) ... ok\ntest_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job (test_ci_execution_plan.WorkflowTests.test_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 4.250s\n\nOK\n"
+    }
+  ]
+}

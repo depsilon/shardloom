@@ -15,6 +15,10 @@ mod value_preparation_tests;
 #[path = "native_relational_nested_keys.rs"]
 mod nested;
 
+#[path = "native_relational_key_cache.rs"]
+mod cache;
+pub(super) use cache::KeyLookupCache;
+
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::{

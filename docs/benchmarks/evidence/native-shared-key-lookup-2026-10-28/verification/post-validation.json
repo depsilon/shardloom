@@ -1,0 +1,101 @@
+{
+  "schema_version": "shardloom.shared_key_post_validation.v1",
+  "status": "passed",
+  "receipts": [
+    {
+      "name": "r21-build-evidence-packet.json",
+      "status": "failed",
+      "returncode": 1,
+      "sha256": "ed72235f11474c8f70c91978e2549176d767d83638f00d0dedef951fe83d21ab",
+      "log_sha256": "55528557f5a66d6ac1c8e0adf07c12f043b3a520de1f027e23b12991e42de9f5"
+    },
+    {
+      "name": "r22-build-evidence-packet.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "41946601ee1a07ce1c365aed23f3ec4ff72c22a9a4e7341bdf45757a6c0bf060",
+      "log_sha256": "b0ba32150438596cecbf860f4989e6161578a13da8eb849b265384fe4bd108d1"
+    },
+    {
+      "name": "r23-build-final-evidence-packet.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "e690bae0c37f62c9f281d32eef3ce327f6b45f3bc697486cbb99e0ce2b224d79",
+      "log_sha256": "87d0f8bc03796ae397b0e55cd190a2790761f9e36d47ac1a129d49b432e5995f"
+    },
+    {
+      "name": "r24-packet-controls.json",
+      "status": "failed",
+      "returncode": -15,
+      "sha256": "ff77df70dad723fb474b880f70acb5272b132c59395b89d59cd77288c7e88d76",
+      "log_sha256": "a269e26600e0b51f81bf8b84108b9f30d951575595d1c3b7f9f3d66fdcc08a49"
+    },
+    {
+      "name": "r25-build-corrected-evidence-packet.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "d8293385c1e54aa7d66cb65c79c29dfe23768f8e69e3740830f53398093a1ea9",
+      "log_sha256": "3dca178c2d05faaa13af589d462bfb05185ba5ce38c8e61db5008b2cc985112e"
+    },
+    {
+      "name": "r26-packet-controls.json",
+      "status": "failed",
+      "returncode": -15,
+      "sha256": "0f1ae3f5aa654c4ae2e1c7e1ff923e8835510ba0367056aa5d351dee678171c9",
+      "log_sha256": "81589bfdf9d3683395528663fb050a888e68285d8da9a2af5078124deadaf73d"
+    },
+    {
+      "name": "r27-packet-controls.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "deb9ce4545795502527cc2bc2b987ef9a1d64ac59bf6ac2a880a5991af0f6f8d",
+      "log_sha256": "b83e2fa4338b8b9b352adf23a5c181300681e654e00bbff00ccdeacb9b8b9ea5"
+    },
+    {
+      "name": "r28-build-final-evidence-packet.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "d67fe8b3027eac70a3cba2483e068c3e836f6d2ad4e34ceccfb8bfdcc615431d",
+      "log_sha256": "7d8ee2d5eddbc387bb29fa39d402cec8535544ca02f676735b58880214fd021d"
+    },
+    {
+      "name": "r29-isolated-portable-replay.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "ad49fff15daaa2613bc605da821b27a76f60537b3478e281acefbd89ac647171",
+      "log_sha256": "35346e18d91d573b991f02fef0be583184e6a56d151bd1ecf50e0bf047ab1b32"
+    },
+    {
+      "name": "r30-final-static.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "62ccc9cf625f129afb3968b05bce92dda4b9847b0449ebc73226b96bad5cdcee",
+      "log_sha256": "658346c20ae8939ca3f32bb02bd80f12258cce380fc8e38d7f6b579f5ff89825"
+    },
+    {
+      "name": "r31-retire-completed-payloads.json",
+      "status": "passed",
+      "returncode": 0,
+      "sha256": "d6bd6cac99ea1927f63379dd95ce1a965c401f023fa50d6a38ff670d904c69e3",
+      "log_sha256": "dc5c90b21acc31e9bcaad08023937e77de91a1f023a290058ba7e91540c45c12"
+    }
+  ],
+  "original_runtime_gates": "r01 through r20 remain inside the immutable packet, including the original r05 lint failure.",
+  "failed_or_interrupted_attempts": {
+    "r21": "Original packer rejected the prior archive at the unchanged per-member byte limit; corrected by bounded chunks.",
+    "r24": "Stopped after semantic corruption controls correctly rejected results using ResultMismatch while the tests expected ValueError.",
+    "r26": "Stopped after the dtype mutation made negative integers invalid as UInt64 before schema comparison; corrected to a representable Int32 width mutation."
+  },
+  "final_controls": {
+    "receipt": "r27-packet-controls.json",
+    "passed": 23,
+    "assertions_disabled": true
+  },
+  "final_packet_source_binding": "final-packet-binding.json",
+  "isolated_replay": "portable-verification-r1.json",
+  "primary_review": "primary-review.json",
+  "cleanup": "../cleanup.json",
+  "new_native_query_executions": 0,
+  "original_engine_observation_unchanged": true,
+  "remaining_hosted_checks_pending": true
+}

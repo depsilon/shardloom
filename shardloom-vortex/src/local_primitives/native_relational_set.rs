@@ -10,6 +10,10 @@ use shardloom_core::Result;
 use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::{ArrayRef, dtype::DType};
 
+#[cfg(test)]
+#[path = "native_relational_set_cache_tests.rs"]
+mod cache_tests;
+
 pub(super) struct RowSet<'a> {
     fields: &'a [(String, DType)],
     names: &'a [String],
@@ -86,6 +90,10 @@ impl<'a> RowSet<'a> {
         }
         let mut mapping = ReservedVec::new(context.memory())?;
         mapping.reserve(array.len())?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.group_ordinal_rows += array.len() as u64;
+        });
         self.ingest(array, None, context, batch_rows, None, Some(&mut mapping))?;
         Ok(mapping)
     }
@@ -117,6 +125,7 @@ impl<'a> RowSet<'a> {
         let batch = Batch::new(array, self.names, context)?;
         let mut selected = ReservedVec::new(context.memory())?;
         selected.reserve(batch.array.len())?;
+        let mut cache = batch.key_cache(context)?;
         let prior_rows = self.table.rows();
         for row in 0..batch.array.len() {
             if row.is_multiple_of(1024) {
@@ -125,6 +134,17 @@ impl<'a> RowSet<'a> {
             if let Some((other, want_match)) = other
                 && other.contains(&batch, row, context)? != want_match
             {
+                continue;
+            }
+            let slot = cache.as_ref().map(|cache| cache.slot(row)).transpose()?;
+            if let Some(group) = slot.and_then(|slot| cache.as_ref()?.get(slot)) {
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.key_cache_hits += 1;
+                });
+                if let Some(mapping) = &mut mapping {
+                    mapping.values.push(group);
+                }
                 continue;
             }
             let Some(hash) = batch.hash(row, self.nulls_equal)? else {
@@ -144,6 +164,10 @@ impl<'a> RowSet<'a> {
             let ordinal = prior_rows
                 .checked_add(selected.values.len())
                 .ok_or_else(|| failed("set cardinality overflow"))?;
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.key_exact_lookups += 1;
+            });
             let (group, inserted) =
                 self.index
                     .insert_unique(hash, ordinal, context.cancellation(), equal)?;
@@ -158,7 +182,11 @@ impl<'a> RowSet<'a> {
             if let Some(mapping) = &mut mapping {
                 mapping.values.push(group);
             }
+            if let (Some(cache), Some(slot)) = (&mut cache, slot) {
+                cache.insert(slot, group);
+            }
         }
+        drop(cache);
         for rows in selected.values.chunks(batch_rows) {
             context.check_cancelled()?;
             let array = take_batch(&batch.array, self.fields, rows, context)?;

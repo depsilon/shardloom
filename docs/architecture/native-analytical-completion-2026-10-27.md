@@ -262,7 +262,7 @@ that the listed paths are currently performance bottlenecks. Preserve the
 already-retained streamed prefix implementation, shared group ordinals,
 typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
 
-1. **Broaden bounded streamed retention — locally accepted.** Extend the existing
+1. **Broaden bounded streamed retention — accepted and merged.** Extend the existing
    `StreamingPrefix` owner to admitted decimal and list/struct payloads where
    ownership and complete validation can be preserved. Validate every incoming
    payload before key observation or row discard; retain independent output
@@ -274,8 +274,9 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    records 27.374316659 engine seconds for all 347 cases against a fresh
    28.118399295-second temporal baseline, a 10.36% projection-family reduction,
    no candidate material-regression flags, complete 176-case held-out results,
-   200 installed-package tests and portable replay. Hosted acceptance remains
-   pending; prior observations and temporal-baseline flags are preserved.
+   200 installed-package tests and portable replay. PR #1617 merged at
+   `328d3bf0` after all 57 hosted checks passed and automated review completed
+   without findings; prior observations and temporal-baseline flags are preserved.
 2. **Share key and value movement.** Resolve join key columns once per batch
    and reduce repeated `Table::locate` work using the existing native table and
    batch owners. Admit dense integer or dictionary-code mappings only with
@@ -286,6 +287,14 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    row order, ownership credits, cancellation and spill behavior where already
    admitted; do not generalize earlier dropped counted-join or fused-measure
    mechanisms by renaming them.
+   The [shared-key acceptance](../benchmarks/native-shared-key-lookup-2026-10-28.md)
+   retains the bounded key directory, membership-only DISTINCT and current-batch
+   join build addressing: 25.508976866 engine seconds for all 347 cases versus
+   the reused 27.374316659-second checkpoint, with no material regression flags.
+   Grouped aggregation improves 12.44% and DISTINCT 17.39%. Complete fresh
+   correctness, native/public/package gates and portable replay pass. Hosted
+   acceptance remains separate; typed MIN/MAX and independently owned numeric
+   gathering are the next measured candidates within this package.
 3. **Reduce expression construction and reuse work.** For UTF-8/binary
    results, replace repeated callback evaluation in sizing and writing with
    single evaluation using bounded, accounted staging or a native append path.
@@ -319,6 +328,54 @@ retain their prior drop records. Broader item-20 obligations remain active,
 including temporal/time-series workflows, statistical and richer aggregates,
 numeric semantics, recursive composition, explicit batch functions,
 diagnostics, resource/failure behavior and format/interface parity.
+
+#### Shared key lookup and addressing candidate contract
+
+The accepted candidate extends `RowSet`, `RowIndex`, `Batch` and `Table` rather
+than adding a second grouping or join implementation. A single integer key
+may use an exact per-batch directory only when its observed range is at most
+16,384 slots, at least four input rows amortize each slot, and the directory
+fits within one sixteenth of available native memory. Native UTF-8/binary
+dictionary codes use the same admission. Each first code/value visit still
+uses ordinary exact hashing and equality; subsequent visits reuse only the
+confirmed ordinal. Rebuild the directory for each batch, preserve first
+occurrence, nullable codes and values, duplicate dictionary values and changing
+domains, and release its credits before gathering retained payloads. Sparse,
+small, composite or resource-declined domains keep existing native execution.
+
+Zero-measure grouping uses existing membership-only insertion. Join build
+hashing binds directly to the current batch and resolves retained row locations
+only for comparisons that require them. Duplicate fanout, error/cancellation
+boundaries and output order remain. Typed extrema and independently owned
+numeric output construction are separate subsequent candidates in this package.
+
+Vortex-first review checks the pinned 0.90 primitive arrays, masks, dictionary
+codes/value domains and typed buffers already owned by the key layer. The
+existing flat-row `RowIndex` remains the authority for group identity; upstream
+grouped-array reducers require a different representation and do not replace
+it. No external provider, new execution substrate or dependency is introduced.
+
+Before implementation, `protocol-key-r1.json` freezes the accepted
+27.374316659-second complete 347-case result as the baseline, with no baseline
+rerun. The existing 10% complete-cohort or declared-family benefit rule applies
+to `grouped_aggregation`, `joins`, `multiway_joins`, `distinct` and `composite`,
+with unchanged case/family material regression thresholds.
+Fresh correctness cohorts use seeds 202610281337 and 202610281509, shuffled and
+clustered layouts, and dense-negative, sparse/extreme, high-cardinality,
+nullable, skewed and changing-dictionary controls. Activation counters cover
+directory lookups and confirmed-ordinal reuse, ordinal allocation, and retained
+row-location searches. Complete independent results, five-interface and
+resource/ownership evidence remain required before acceptance.
+
+The local acceptance meets that contract with 160 fresh observations and
+2,345,274 complete output rows, 25 declarations across five public interfaces,
+3,442 native Vortex tests (32 existing ignored), 3,274 workspace tests, 1,032
+native CLI tests and 201 installed-wheel integration tests without skips.
+Twenty-three corruption controls and an isolated source-only replay verify the
+saved evidence with Python assertions disabled. The original lint failure,
+packaging limit refusal and interrupted control-test corrections are preserved.
+No additional baseline, Polars or Full43 run was performed, and no package
+publication or item-20/competitive-gate completion is implied.
 
 #### Rich bounded retention candidate contract
 

@@ -1,0 +1,72 @@
+{
+  "schema_version": "shardloom.shared_key_primary_review.v1",
+  "status": "passed",
+  "reviewer": "primary agent; not an independent external review",
+  "runtime_source_sha256": {
+    "python/tests/test_native_shared_provider_binding.py": "5be9c664f0fae24621371d1a968e5741bbe2e2c898c09c20d2fdf378a789ff48",
+    "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": "8553d2ce6da03b437ae9cb13cb3120cb02e2927930984147f69ae904f7508d19",
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": "955f000e1df85f662def26f9be2e7e6c767e30c07c83d0b6b14891cbbc669241",
+    "shardloom-vortex/src/local_primitives/native_relational_batch.rs": "b6b1410c7292912793e8eec012bec8cbe1d32a961be0641534ee378cae7fdaf4",
+    "shardloom-vortex/src/local_primitives/native_relational_join.rs": "14f91174fe2cd07af7804c30be9e1ec5f7aacb678a261ec50cb628130c72bffe",
+    "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": "8f0728ce9d7c70abff40fc0d5861f4124815526445797c0f8c0b2bee0fbc27ed",
+    "shardloom-vortex/src/local_primitives/native_relational_key_cache.rs": "ab748f59922f9c9fbcf01718a6b91b275403de8a8f9fa8c134e33aea4d0041c1",
+    "shardloom-vortex/src/local_primitives/native_relational_keys.rs": "656a939fe7adece787898e3c2b5fef83fb22fa8899e40b32ee76d42950aa8bb0",
+    "shardloom-vortex/src/local_primitives/native_relational_observation.rs": "8607376791bc43e650e6d36c7f14b0e16ca59605efd43dd8fb1f3a4010fea3f0",
+    "shardloom-vortex/src/local_primitives/native_relational_set.rs": "899a41c807bf210f9265e257ab9f7c1d54c21ba58930c8bc2b9ac82629e0ff65",
+    "shardloom-vortex/src/local_primitives/native_relational_set_cache_tests.rs": "338d7b328b7ab2d75f361c58e7e6b54def1f2e4b66d34325c702b753c4d62020"
+  },
+  "considerations": [
+    {
+      "question": "Can reused dictionary codes or integer offsets manufacture a group identity?",
+      "resolution": "No. Batch borrowing resets domains on every ingest; initial visits still call the existing exact index. Nulls under join policy are never inserted, duplicate represented values reach exact equality, and sparse/high-cardinality/composite inputs retain the ordinary native path.",
+      "sources": [
+        "shardloom-vortex/src/local_primitives/native_relational_key_cache.rs:28",
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs:125"
+      ],
+      "tests": [
+        "dictionary_key_cache_keeps_duplicate_values_null_codes_and_changing_dictionaries",
+        "membership_cache_does_not_intern_nulls_under_join_null_policy",
+        "key_cache_preserves_all_integer_widths_and_encoded_numeric_inputs"
+      ]
+    },
+    {
+      "question": "Can optional acceleration silently retain unaccounted memory or mask invalid input?",
+      "resolution": "The directory uses ReservedVec, accounts for its minimum allocation, declines above one sixteenth of available native credits, checks cancellation, and drops before retained payload gathering. Integer arithmetic stays exact in i128. Invalid dictionary-code and complete fresh-result checks remain enforced.",
+      "sources": [
+        "shardloom-vortex/src/local_primitives/native_relational_key_cache.rs:59",
+        "shardloom-vortex/src/local_primitives/native_numeric_owner.rs:178",
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs:189"
+      ],
+      "tests": [
+        "cached_set_rejects_late_invalid_codes_and_releases_all_credits",
+        "key_directory_reservation_declines_low_memory_and_checks_cancellation"
+      ]
+    },
+    {
+      "question": "Does removing global row-location lookup alter duplicate order or output ownership?",
+      "resolution": "Table.push retains one contiguous current batch. Build hashing uses its local row; only older-batch equality resolves retained locations. The existing duplicate index and output gather/ownership paths remain unchanged. Activation checks assert 130 location searches for two 128-row duplicate batches and all 256 outputs in order.",
+      "sources": [
+        "shardloom-vortex/src/local_primitives/native_relational_join.rs:99",
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs:260"
+      ],
+      "tests": [
+        "join_build_uses_current_batch_and_keeps_cross_batch_duplicate_order",
+        "test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces"
+      ]
+    }
+  ],
+  "evidence_review": {
+    "complete_pass_cases": 347,
+    "fresh_cases": 160,
+    "fresh_rows": 2345274,
+    "corruption_controls": 23,
+    "source_only_replay": "passed",
+    "frozen_gate_unchanged": true,
+    "external_engine_execution": false
+  },
+  "remaining_limits": [
+    "One candidate observation and a reused accepted baseline; no statistical confidence or external-engine superiority claim.",
+    "32 existing native measurement/fixture tests remain ignored.",
+    "Hosted PR checks and review are still pending; item 20 and CG-1 through CG-23 remain open."
+  ]
+}

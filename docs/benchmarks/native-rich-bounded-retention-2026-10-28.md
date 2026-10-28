@@ -7,7 +7,8 @@ prefix to validate nested, variable-width and decimal payloads before discarding
 rows, while retaining only the bounded owned prefix. The candidate is retained
 for the existing item-20 work queue. Its runtime, held-out correctness,
 collection, installed-package and portable replay results pass the recorded local
-gates, including 22 corruption controls. Hosted checks remain pending. This
+gates, including 22 corruption controls. PR #1617 merged at `328d3bf0` after
+all 57 hosted checks passed and automated review completed without findings. This
 does not complete item 20 or establish platform-wide runtime coverage.
 
 The candidate follows the [item-20 rich-retention contract](../architecture/native-analytical-completion-2026-10-27.md#rich-bounded-retention-candidate-contract): the 16,384-row cap, four-cap pending-batch bound, no-spill admission, stable ordering and independently owned output remain. Validation-only traversal validates complete payloads without copying discarded values. Retained-payload copy-byte totals exclude separately built ordering keys, provider scratch, metadata and final delivery.
@@ -104,6 +105,8 @@ small process-ID records in the compressed cleanup inventory before deletion.
 Replay passes after retirement; the current tested runtime/wheel, five original
 Parquet inputs, 347 original references, earlier packet and compact proof remain.
 
-Hosted checks remain pending. No package release, new
+The [hosted receipt](evidence/native-rich-bounded-retention-2026-10-28/hosted.json)
+binds the 57 passing checks and completed review to head `1022a366` and merge
+`328d3bf0`. No package release, new
 Polars observation, Full43 run or statistical-confidence claim is included.
 Item 20 remains open, including its broader analytical and performance work.
