@@ -39,6 +39,13 @@ pub(super) fn certificate(
         RepresentationState::VortexEncoded
     };
     let spilled = spill.is_some_and(|report| report.runs_written > 0);
+    let ordering_proof = format!(
+        "streaming_ordering_payload_buffer_bytes_copied={} streaming_ordering_prefix_batches={} streaming_ordering_prefix_rows_validated={} streaming_ordering_prefix_peak_retained_buffer_bytes={}",
+        metrics.ordering_payload_buffer_bytes_copied.get(),
+        metrics.ordering_prefix_batches.get(),
+        metrics.ordering_prefix_rows_validated.get(),
+        metrics.ordering_prefix_peak_retained_buffer_bytes.get(),
+    );
     let set_proof = format!(
         "ordered_set_stages={} ordered_set_input_rows={} ordered_set_groups={} ordered_set_output_rows={}",
         metrics.ordered_set_stages.get(),
@@ -152,7 +159,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_aggregate_quantile_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_aggregate_quantile_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {ordering_proof} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),

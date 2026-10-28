@@ -184,6 +184,21 @@ pub struct ExecutedVortexBatchInput {
     /// prefix compaction. Excludes validated rows that were never copied;
     /// this is neither distinct source rows nor bytes.
     pub ordering_rows_detached: u64,
+    /// Byte extents written to owned payload buffers at ordering retention
+    /// copies, including nested children, validity, offsets and repeat compaction.
+    /// Includes key columns when copied as payload. Excludes separately built
+    /// keys, metadata, provider scratch, spill internals and delivery.
+    pub ordering_payload_buffer_bytes_copied: u64,
+    /// Incoming batches handled by bounded streamed ordering, including empty
+    /// batches if the upstream operator delivers them to ordering.
+    pub ordering_prefix_batches: u64,
+    /// Complete payload rows validated by bounded streamed ordering before
+    /// key observation or discard, including repeated composed stages.
+    pub ordering_prefix_rows_validated: u64,
+    /// Largest payload-buffer byte extent held by one bounded ordering stage
+    /// between callbacks. Not a sum across stages or the inclusive memory peak.
+    /// Zero when bounded ordering retains no payload or is not selected.
+    pub ordering_prefix_peak_retained_buffer_bytes: u64,
     /// Build batches compacted by joins in a streamed execution. Counts each
     /// retention boundary, including ordinary sources in the same plan.
     pub join_build_batches_detached: u64,
@@ -253,6 +268,10 @@ impl Default for ExecutedVortexBatchInput {
             output_ownership_detached: true,
             ordering_batches_detached: 0,
             ordering_rows_detached: 0,
+            ordering_payload_buffer_bytes_copied: 0,
+            ordering_prefix_batches: 0,
+            ordering_prefix_rows_validated: 0,
+            ordering_prefix_peak_retained_buffer_bytes: 0,
             join_build_batches_detached: 0,
             join_build_rows_detached: 0,
             window_batches_detached: 0,

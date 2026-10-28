@@ -1,0 +1,29 @@
+{"status": "passed", "files": 5209, "broad_cases_per_role": 347, "heldout_cases": 176, "heldout_rows": 624906, "candidate_engine_seconds": 27.374316659, "public_interface_cases": 30, "installed_package_tests": 200}
+test_candidate_source_snapshot_entry_cannot_be_removed (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_candidate_source_snapshot_entry_cannot_be_removed) ... ok
+test_changed_actual_compressed_hash (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_actual_compressed_hash) ... ok
+test_changed_archive (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_archive) ... ok
+test_changed_candidate_source_snapshot (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_candidate_source_snapshot) ... ok
+test_changed_declared_query_in_heldout_outcome (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_declared_query_in_heldout_outcome) ... ok
+test_changed_heldout_schema_with_repacked_actual_and_relinked_stdout (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_heldout_schema_with_repacked_actual_and_relinked_stdout) ... ok
+test_changed_heldout_value_with_repacked_actual_and_relinked_stdout (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_heldout_value_with_repacked_actual_and_relinked_stdout) ... ok
+test_changed_public_proof_test_hash (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_changed_public_proof_test_hash) ... ok
+test_compiled_source_receipt_hash_mismatch (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_compiled_source_receipt_hash_mismatch) ... ok
+test_complete_packet_preserves_acceptance (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_complete_packet_preserves_acceptance) ... ok
+test_copied_bytes_cannot_fall_below_retained_peak (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_copied_bytes_cannot_fall_below_retained_peak) ... ok
+test_duplicated_heldout_case (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_duplicated_heldout_case) ... ok
+test_empty_public_runtime_test_hash_map_is_rejected (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_empty_public_runtime_test_hash_map_is_rejected) ... ok
+test_excessive_actual_uncompressed_length (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_excessive_actual_uncompressed_length) ... ok
+test_failed_worker_guard (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_failed_worker_guard) ... ok
+test_historical_failed_gate_cannot_be_promoted (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_historical_failed_gate_cannot_be_promoted) ... ok
+test_missing_frozen_external_identity (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_missing_frozen_external_identity) ... ok
+test_missing_heldout_observation (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_missing_heldout_observation) ... ok
+test_missing_required_gate (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_missing_required_gate) ... ok
+test_no_fallback_cannot_be_changed_to_true (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_no_fallback_cannot_be_changed_to_true) ... ok
+test_original_temporal_baseline_flags_cannot_be_erased (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_original_temporal_baseline_flags_cannot_be_erased) ... ok
+test_package_runtime_mismatch (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_package_runtime_mismatch) ... ok
+test_prefix_activation_cannot_be_erased (test_rich_bounded_retention_packet.RichBoundedRetentionPacketTests.test_prefix_activation_cannot_be_erased) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 67.514s
+
+OK

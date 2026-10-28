@@ -255,13 +255,14 @@ retains that evidence. The broader item-20 obligations remain open.
 
 ### Pending shared-performance work after temporal-fidelity acceptance
 
-After the temporal-fidelity PR #1616 is validated and merged, continue the
-existing item-20 queue in this order. These are candidate packages, not claims
+Temporal-fidelity PR #1616 is accepted and merged at `51cf54fd` after all 57
+hosted checks pass. Continue the existing item-20 queue in this order. These are
+candidate packages, not claims
 that the listed paths are currently performance bottlenecks. Preserve the
 already-retained streamed prefix implementation, shared group ordinals,
 typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
 
-1. **Broaden bounded streamed retention.** Extend the existing
+1. **Broaden bounded streamed retention — locally accepted.** Extend the existing
    `StreamingPrefix` owner to admitted decimal and list/struct payloads where
    ownership and complete validation can be preserved. Validate every incoming
    payload before key observation or row discard; retain independent output
@@ -269,6 +270,12 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    copied **bytes**, including nested and variable-width payloads, in addition
    to row counts. Do not retain source-batch references or change ordinary
    execution's later payload-validation order.
+   The [October 28 acceptance](../benchmarks/native-rich-bounded-retention-2026-10-28.md)
+   records 27.374316659 engine seconds for all 347 cases against a fresh
+   28.118399295-second temporal baseline, a 10.36% projection-family reduction,
+   no candidate material-regression flags, complete 176-case held-out results,
+   200 installed-package tests and portable replay. Hosted acceptance remains
+   pending; prior observations and temporal-baseline flags are preserved.
 2. **Share key and value movement.** Resolve join key columns once per batch
    and reduce repeated `Table::locate` work using the existing native table and
    batch owners. Admit dense integer or dictionary-code mappings only with
@@ -312,6 +319,50 @@ retain their prior drop records. Broader item-20 obligations remain active,
 including temporal/time-series workflows, statistical and richer aggregates,
 numeric semantics, recursive composition, explicit batch functions,
 diagnostics, resource/failure behavior and format/interface parity.
+
+#### Rich bounded retention candidate contract
+
+Extend the existing streamed prefix owner, retaining its cap of 16,384 rows,
+four-cap pending-batch amortization, no-spill admission and independent ownership.
+The native payload copier gains a validation-only mode through the same field-
+major traversal. Scalar writers retain zero rows; decimal storage validates its
+existing wrappers without constructing value buffers; nested coordinates and
+parent validity keep their existing semantics and memory credits. Identity
+selection may be omitted only for a complete, nonnull row domain in this mode.
+Hidden children and unused dictionary entries must remain unobserved. Ordinary
+copying and private unobserved-measure movement keep their existing paths.
+
+Vortex-first classification: `implement_shardloom_kernel` extends ShardLoom's
+validation and ownership policy around already-admitted Vortex 0.90.0 providers.
+Vortex has native take, validity, list/struct, decimal and array-buffer surfaces;
+it does not enforce this complete-validation-before-discard contract or the
+credited independent source-release boundary. Reuse those providers and the
+existing native Sort owner, selection and gather. No new dependency, decoded
+Arrow execution, external engine or scheduler is admitted. Existing provider
+and no-fallback certificates remain required. Provider decoding/scratch is
+accounted separately from owned retained payload.
+
+Count the byte extents of the newly written owned payload buffers at each
+ordering retention copy, including nested children, offsets, validity and repeat
+compaction, including key columns when they are part of the copied record.
+Exclude separately built keys, provider scratch, metadata and final delivery
+from this narrow copy counter. Separately report the maximum owned payload-buffer
+bytes held by a bounded-prefix stage between input callbacks; that maximum is
+neither a plan-wide sum nor the inclusive memory-pool peak. Include activation
+and full-validation row counts. Test byte equality on fixed and variable-width
+fixtures, source release, retained child lifetime and error/cleanup boundaries.
+
+Freeze a fresh temporal baseline and candidate with identical release settings,
+since temporal fidelity changed after the retained 28.017558877-second
+observation. Execute each of the unchanged 347 discovery cases once per runtime.
+Keep the prior observation intact, and apply the existing 10% complete-cohort or
+declared-family benefit gate with projection and ordering predeclared. Material
+regressions require both 20% and 0.010 engine seconds per case, or both 20% and
+0.050 seconds per family. Fresh seeds, shuffled/skewed layouts and composed rich
+top-K requests provide held-out correctness acceptance. Freeze inputs, complete
+expected results, source/runtime hashes and the protocol before queries. No
+new external-engine observation, Full43 repeat or statistical-confidence claim
+is part of this candidate.
 
 The first expression extension admits reuse of a fully completed, identical,
 pure expression on the same input. Conditional/COALESCE/NULLIF branches retain
@@ -784,16 +835,17 @@ saving transitions. Record installed-package and required workspace/native
 checks before any support claim. Preserve existing 347-case observations;
 rerun a complete cohort only for a justified shared-runtime regression check.
 
-The focused native storage/compression matrix passes 13 tests after the
-DateTimeParts day-width correction, including every fixed timestamp unit,
-timezone metadata, endpoint statistics, scalar/canonical decoding and encoded
-comparisons. The rebuilt public matrix passes 21 tests without skips, exercising
-all five interfaces, both daylight-saving transitions, Vortex/Parquet/Arrow-file
-inputs, full-domain nested readback, declared Python rows and streamed batches,
-ADBC temporal parameters and failed-output cleanup. Earlier unsuccessful public
-runs remain in the validation record. Required broad checks, standalone-provider
-checks and installed-package acceptance are still pending; this targeted result
-does not close item 20 or its later as-of/time-series obligations.
+The [temporal acceptance](../benchmarks/native-temporal-fidelity-2026-10-27.md)
+passes 6,301 native workspace tests (35 existing ignores), 3,274 default tests,
+89 DateTimeParts provider tests, strict lint and formatting. The rebuilt public
+matrix passes 22 tests without skips across all five interfaces, both daylight-
+saving transitions, Vortex/Parquet/Arrow-file inputs, full-domain nested readback,
+declared Python rows/batches, ADBC parameters, whitespace casts and failed-output
+cleanup. Installed-wheel acceptance passes 199 tests without skips. Earlier
+unsuccessful observations remain in the compact packet; portable verification
+and 24 corruption controls pass from an isolated source-only copy. PR #1616
+merges at `51cf54fd` after all 57 hosted checks pass. This closes the temporal-
+fidelity work unit, not item 20 or its later as-of/time-series obligations.
 
 Provider references: the pinned local Vortex datetime extension sources,
 [Jiff timezone conversion and ambiguity semantics](https://docs.rs/jiff/0.2.35/jiff/tz/struct.TimeZone.html),

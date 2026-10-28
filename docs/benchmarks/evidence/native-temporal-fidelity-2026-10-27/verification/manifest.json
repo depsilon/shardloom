@@ -1,0 +1,122 @@
+{
+  "additional_attempts": [
+    {
+      "command": "python3 -B -m unittest discover -s scripts -p test_native_temporal_fidelity_packet.py -v",
+      "disposition": "unsupported Python version; documented Python >=3.10; r81 runs Python3.13 and passes",
+      "error": "TypeError: dataclass() got an unexpected keyword argument slots",
+      "interpreter": "Apple CommandLineTools Python 3.9",
+      "status": "failed"
+    }
+  ],
+  "files": {
+    "portable-verification-r1.json": {
+      "bytes": 51032,
+      "sha256": "4eff044243e3b837401ce9e301fa86bf9796af72b0983d94f1fc873546eeb6c4"
+    },
+    "r69-temporal-evidence.json": {
+      "bytes": 1305,
+      "sha256": "8b4a197b7663743ad08312dcf13dde66b4a3c699e4300414dbc72cb7639bdce5"
+    },
+    "r69-temporal-evidence.log": {
+      "bytes": 81,
+      "sha256": "9915225a305b8795b92ef0df9874712429a0410cf734d4181713151c8e6e7f80"
+    },
+    "r70-final-temporal-evidence.json": {
+      "bytes": 1304,
+      "sha256": "152478d9b2fc8816dcd992be15bd794b8e04cddec16fe2626d83a85e791ea5b2"
+    },
+    "r70-final-temporal-evidence.log": {
+      "bytes": 81,
+      "sha256": "65df3a882a9aa29aed10d2eed8098626a1b255c3554fa0b95cd454fa52d3f7ad"
+    },
+    "r71-temporal-evidence-verification.json": {
+      "bytes": 1305,
+      "sha256": "18866196b91c86cde749e21416962728c9dc52797a6f04407d4f19f0ac0bb41b"
+    },
+    "r71-temporal-evidence-verification.log": {
+      "bytes": 55,
+      "sha256": "1e8bc7ee579e324164e1580002ebcb8d36daf4a4b3a9b95661f812ee7b853ff3"
+    },
+    "r72-temporal-evidence-controls.json": {
+      "bytes": 1200,
+      "sha256": "5aaaceab371eb802713afeda4e2d692fbd1d7e5ac2d0bf2902136e147f747dd7"
+    },
+    "r72-temporal-evidence-controls.log": {
+      "bytes": 45,
+      "sha256": "a4c97ccb08c22cbf9b58946ed9ba28e4e2bd870801c23de2facb9deccf1797c5"
+    },
+    "r73-temporal-generated-cleanup.json": {
+      "bytes": 1207,
+      "sha256": "2615cc1a7e560df5abc256a737204e0bf969f9c2262fc9afe6250bea661a642a"
+    },
+    "r73-temporal-generated-cleanup.log": {
+      "bytes": 852,
+      "sha256": "bb6f40ae3db29e1f5eaeff41654b249936b1115a8aa56d860b153d88be86bfff"
+    },
+    "r74-complete-temporal-evidence.json": {
+      "bytes": 1315,
+      "sha256": "eca00152465f5b3d2f356c97924c8ac80065c980a5503226fdb6b4b11f3cc076"
+    },
+    "r74-complete-temporal-evidence.log": {
+      "bytes": 81,
+      "sha256": "1d952b7ed6bdccffb2eec5aebc574d3fa284058594cb1c777a8e41328b8ce8cf"
+    },
+    "r75-temporal-evidence-verification.json": {
+      "bytes": 1316,
+      "sha256": "dc545ba2d75c60c968c8e31ac25f2f43aa8f92c9118bf5992a2a508e02ad4113"
+    },
+    "r75-temporal-evidence-verification.log": {
+      "bytes": 55,
+      "sha256": "fe5e6db8e371c89cf9d0948b40f59f4ad35138446bda7115105f9547b3261998"
+    },
+    "r76-temporal-evidence-controls.json": {
+      "bytes": 1199,
+      "sha256": "7e4196ff92d60c0b56b4c0da9ff3c448c473cf64a7c4771e53e53c332efa0dae"
+    },
+    "r76-temporal-evidence-controls.log": {
+      "bytes": 45,
+      "sha256": "a4c97ccb08c22cbf9b58946ed9ba28e4e2bd870801c23de2facb9deccf1797c5"
+    },
+    "r77-temporal-generated-cleanup.json": {
+      "bytes": 1200,
+      "sha256": "907000d17d5c9eaaaebefd0e3697c28a29960a0768188c78c7b4eed1f0f91b8e"
+    },
+    "r77-temporal-generated-cleanup.log": {
+      "bytes": 167,
+      "sha256": "e44601d66c0de53553b0df348fb52bd86353afdb60ba5bd4fcd700987ba49ff0"
+    },
+    "r78-portable-verifier.json": {
+      "bytes": 1473,
+      "sha256": "5b3216b75a033ebb759fa6a98a11cc3186c30e3f1f40106492987ce62a2152a8"
+    },
+    "r78-portable-verifier.log": {
+      "bytes": 116,
+      "sha256": "1605f634808b730c435f5b8465221b662f29e2748794633ff96a7dc44bccce12"
+    },
+    "r79-portable-controls.json": {
+      "bytes": 1808,
+      "sha256": "20c02a5e3cc4153bdb50efe4fc83578270d66388b70a34442824651aae56d892"
+    },
+    "r79-portable-controls.log": {
+      "bytes": 1136,
+      "sha256": "da011b32a239de0e2b27d3f25e83cd37b5500e4d702c58aef1810c38ea20510b"
+    },
+    "r80-isolated-portable-proof.json": {
+      "bytes": 8300,
+      "sha256": "5babf80b9db65b5811cab307e53eda442cf81dd9fcaec2c3e5a12bb7ca8357d6"
+    },
+    "r80-isolated-portable-proof.log": {
+      "bytes": 1252,
+      "sha256": "bd51a89354c57289264e49d039aa2761311852bc9724c58de82a6a1f11b1a12c"
+    },
+    "r81-repository-portable-controls.json": {
+      "bytes": 9277,
+      "sha256": "f81cd9698ba48c683abf20801c703723baac315972d89da9c9a94921b1f486fd"
+    },
+    "r81-repository-portable-controls.log": {
+      "bytes": 1136,
+      "sha256": "ffac4bbc58a225bfddd389f78ffd1ea54ba7608a4c9af9cbd622a7e5c6650336"
+    }
+  },
+  "schema_version": "shardloom.temporal_fidelity_supplement.v1"
+}

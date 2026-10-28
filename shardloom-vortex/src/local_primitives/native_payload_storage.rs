@@ -69,7 +69,7 @@ pub(super) fn copy(
 /// the typed buffer instead. Public copies validate selected values with the
 /// fallible scalar constructor before constructing credited storage; private
 /// movement preserves storage without evaluating an unobserved measure.
-pub(super) fn decimal(
+pub(super) fn decimal<const RETAIN: bool>(
     source: Option<&ArrayRef>,
     rows: &[Option<usize>],
     dtype: &DType,
@@ -78,7 +78,7 @@ pub(super) fn decimal(
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     let mut execution = context.native_session().create_execution_ctx();
-    decimal_with(
+    decimal_with::<RETAIN>(
         source,
         rows.iter().copied(),
         dtype,
@@ -117,7 +117,7 @@ pub(in crate::local_primitives) fn decimal_key(
         execution.host_allocator(),
         memory.reserve(super::metadata_bytes(source.dtype())?)?,
     );
-    let array = decimal_with(
+    let array = decimal_with::<true>(
         Some(&array),
         (0..array.len()).map(Some),
         array.dtype(),
@@ -138,7 +138,7 @@ struct DecimalWork<'a> {
     execution: &'a mut ExecutionCtx,
 }
 
-fn decimal_with(
+fn decimal_with<const RETAIN: bool>(
     source: Option<&ArrayRef>,
     rows: impl ExactSizeIterator<Item = Option<usize>>,
     dtype: &DType,
@@ -156,11 +156,11 @@ fn decimal_with(
             "decimal payload exceeds admitted precision or scale",
         ));
     }
-    let length = rows.len();
+    let length = if RETAIN { rows.len() } else { 0 };
     let mut values = super::ReservedVec::new(work.memory)?;
     values.reserve(length)?;
     let mut valid = super::ReservedVec::new(work.memory)?;
-    valid.reserve(length)?;
+    valid.reserve(rows.len())?;
     let mut wide = false;
     for (row, original) in rows.enumerate() {
         if row.is_multiple_of(1024) {
@@ -179,11 +179,13 @@ fn decimal_with(
                 .map_err(vortex_error)?;
         }
         valid.values.push(value.is_some());
-        let value = value.unwrap_or(DecimalValue::I128(0));
-        wide |= value.cast::<i128>().is_none();
-        values.values.push(value);
+        if RETAIN {
+            let value = value.unwrap_or(DecimalValue::I128(0));
+            wide |= value.cast::<i128>().is_none();
+            values.values.push(value);
+        }
     }
-    let validity = super::validity(dtype, &valid.values, allocator)?;
+    let validity = super::validity::<RETAIN>(dtype, &valid.values, allocator)?;
     let stride = if wide { 32 } else { 16 };
     let bytes = length
         .checked_mul(stride)

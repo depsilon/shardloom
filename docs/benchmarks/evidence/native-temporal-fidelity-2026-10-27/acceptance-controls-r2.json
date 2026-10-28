@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "refused_controls": [
+    "failed_native_gate",
+    "nonzero_exit",
+    "undrained_processes",
+    "timed_out_gate",
+    "another_build_commit",
+    "dirty_final_build",
+    "public_skip",
+    "missing_public_test",
+    "wrong_public_runtime",
+    "package_test_failure",
+    "package_skip",
+    "another_packaged_binary",
+    "published_artifact",
+    "failed_uninstall",
+    "unbound_native_test_source",
+    "changed_test_log",
+    "changed_archive"
+  ],
+  "clean_verification_passed": true,
+  "packet_sha256": "b596e28365db1343d16583094fb0764dfa81c65b6c63339e6d8d34606c12b39a",
+  "verifier_sha256": "24ea24423c33e9617adc6320cd3415ce567fe0f9d1ecb3c4e7e6d249721b5791",
+  "controls_sha256": "cdc37f5c6e054b1accca57d3f7dbaa59ef1b06fd11a5e40f8d1a59d29a481712"
+}

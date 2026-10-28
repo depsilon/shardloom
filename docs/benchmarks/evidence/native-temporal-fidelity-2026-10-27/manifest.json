@@ -1,0 +1,19 @@
+{
+  "archive": {
+    "bytes": 1348692,
+    "path": "packet.tar.xz",
+    "sha256": "b596e28365db1343d16583094fb0764dfa81c65b6c63339e6d8d34606c12b39a"
+  },
+  "expanded_file_bytes": 39511517,
+  "file_count": 539,
+  "file_inventory": {
+    "bytes": 140121,
+    "member": "objects/sha256/be3ec3522afe458190f278914178a7453c2f629e4b2d7693b3c50a50b7e00c5b",
+    "sha256": "be3ec3522afe458190f278914178a7453c2f629e4b2d7693b3c50a50b7e00c5b"
+  },
+  "original_evidence_root": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27",
+  "schema_version": "shardloom.broad_query.packet.v1",
+  "source_head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+  "unique_objects": 315,
+  "verification_kind": "temporal_fidelity"
+}

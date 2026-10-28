@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "command": [
+    "python3",
+    "-B",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/build_temporal_acceptance.py",
+    "--output",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/packet-final"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+  "working_tree": "",
+  "changed_source_inventory": {},
+  "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CLIPPY_CONF_DIR": null,
+    "SHARDLOOM_PIP_AUDIT_PYTHON": null
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "timeout_seconds": 2400,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 96352,
+  "output_bytes": 81,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 1.97008575,
+  "log_sha256": "65df3a882a9aa29aed10d2eed8098626a1b255c3554fa0b95cd454fa52d3f7ad"
+}

@@ -135,6 +135,58 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces(self):
+        from decimal import Decimal
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{
+            "id": index,
+            "key": None if index % 13 == 0 else (index * 37) % 41 - 20,
+            "amount": None if index % 17 == 0 else Decimal(index * 29 - 901).scaleb(-3),
+            "payload": None if index % 11 == 0 else {
+                "items": [] if index % 5 == 0 else ["λ\0猫" * 16, None, str(index)],
+                "label": "text-" + str(index % 7),
+            },
+            "instant": None if index % 19 == 0 else index * 1_000_003 - 11_000_000,
+        } for index in range(2053)]
+        schema = pa.schema([
+            pa.field("id", pa.int64(), nullable=False),
+            pa.field("key", pa.int64()),
+            pa.field("amount", pa.decimal128(18, 3)),
+            pa.field("payload", pa.struct([
+                pa.field("items", pa.list_(pa.string())), pa.field("label", pa.string(), nullable=False)])),
+            pa.field("instant", pa.timestamp("us", tz="America/New_York")),
+        ])
+        source = pa.Table.from_pylist(rows, schema=schema)
+        with tempfile.TemporaryDirectory(prefix="shardloom-rich-prefix-") as directory:
+            path = Path(directory) / "rich.parquet"
+            parquet.write_table(source, path, row_group_size=257)
+            for column in ("key", "amount"):
+                # Python's stable sort provides the independent row-order oracle.
+                positions = sorted(range(len(rows)), key=lambda index: (
+                    rows[index][column] is None,
+                    rows[index][column] if rows[index][column] is not None else 0))
+                for count, offset in ((0, 0), (7, 3), (16_385, 0)):
+                    with self.subTest(column=column, count=count, offset=offset):
+                        selected = positions[offset:offset + count]
+                        expected = source.take(pa.array(selected, type=pa.int64()))
+                        frame = sl.read_parquet(path, client=client).sort(column, nulls="last").limit(count, offset=offset)
+                        relation = native.Relation.scan(str(path)).sort([(column, False, "last")]).limit(count, offset=offset)
+                        statement = f"SELECT * FROM '{path}' ORDER BY {column} NULLS LAST LIMIT {count} OFFSET {offset}"
+                        checks = {
+                            "native_input_end_observed": "true",
+                            "native_input_output_ownership_detached": "true",
+                            "native_input_ordering_prefix_rows_validated": str(len(rows) if count <= 16_384 else 0),
+                        }
+                        for result in self.all_surfaces(frame, relation, statement, checks):
+                            self.assertTrue(result.schema.equals(expected.schema, check_metadata=False),
+                                            (result.schema, expected.schema))
+                            self.assertEqual(result.to_pylist(), expected.to_pylist())
+
     def test_temporal_calendar_workflows_match_all_five_surfaces(self):
         import shardloom as sl
         import pyarrow.parquet as parquet

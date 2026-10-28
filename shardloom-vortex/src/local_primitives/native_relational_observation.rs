@@ -26,6 +26,8 @@ pub(crate) struct Counts {
     pub(crate) sort_streaming_prefix_rows_validated: u64,
     pub(crate) sort_streaming_prefix_rows_copied: u64,
     pub(crate) sort_streaming_prefix_peak_rows: u64,
+    pub(crate) sort_streaming_prefix_buffer_bytes_copied: u64,
+    pub(crate) sort_streaming_prefix_peak_buffer_bytes: u64,
     pub(crate) predicate_compile_attempts: u64,
     pub(crate) predicate_boolean_rows: u64,
     pub(crate) expression_output_reuses: u64,
