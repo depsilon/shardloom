@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 exact batch-local identities for repeated short text and composite grouping keys",
+  "source_before_runtime_edits": "7543154e5caf0d7b11dc8b989700258c1e01e9c1",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/broad-numeric-r1/inputs.json",
+  "baseline_inputs_sha256": "3aaa9ff9b1edb254f7ec44d7e5095af4b6672ab279567073bd35576a8836989b",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/broad-numeric-r1/native-observations.json",
+  "baseline_observations_sha256": "85666a11baf23f862f779a77204b67bed804cf70d4e800485f26b76e168ae880",
+  "baseline_engine_seconds": 23.079365459,
+  "baseline_policy": "Reuse the complete locally accepted numeric observation and independently validated references. Continue all remaining item 20 in existing PR 1619; hosted acceptance remains separate. Do not rerun the baseline.",
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "Extend the existing batch-local proved-identity cache to one or two integer, boolean, null or raw short-text/binary keys. A fixed exact representation can only return a group after ordinary native RowIndex has proved that complete key in this same batch. Hash collisions compare the complete cache identity and can only cause misses. New batches clear the cache.",
+    "Keep the existing single integer/dictionary directory first. For other eligible keys, admit a bounded 512-slot cache only for batches of at least 512 rows with at least 32 exact repeat hits in the first 256 rows, and only when its entire allocation is at most one sixteenth of available operator memory. Sampling is admission evidence only and cannot publish group identities.",
+    "Integer identities retain exact original signed/unsigned values and nulls; short text/binary identities normalize unused inline padding and distinguish NULL from empty and embedded NUL values. Long values, unsupported types, dictionary composite keys, sparse reuse, tiny batches and pressure retain ordinary exact native lookup. No key is ignored and output ownership/cancellation/failure order remains intact."
+  ],
+  "activation_evidence": [
+    "exact inline cache admitted batches, reserved slots and hits",
+    "ordinary first-key lookup retained",
+    "collision, changed-batch, long-value and unsupported-domain controls",
+    "memory credits released on completion/error/cancellation",
+    "unchanged independent native output after source closure"
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "grouped_aggregation",
+      "joins",
+      "multiway_joins"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag. Under the October 28 maintainer policy, substantial complete-cohort benefit may outweigh a small isolated timing regression without an automatic blocker. Any extra execution requires a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete typed results, exact keys, null policy, first-occurrence ordering, error order, independent output lifetime, memory refusal, cancellation and existing spill behavior must pass. Otherwise drop the mechanism and preserve all observations.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610283101,
+      202610283219
+    ],
+    "rows": 32779,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "short_unicode_and_embedded_nul",
+      "two_integer_text_keys",
+      "short_binary_tuples",
+      "nullable_boolean_and_integer",
+      "late_long_values",
+      "duplicate_prefix_then_high_cardinality",
+      "high_cardinality_decline",
+      "unsupported_float_nested_controls"
+    ],
+    "compositions": [
+      "grouped_reductions",
+      "distinct_set_membership",
+      "filter_project_group_sort_limit",
+      "join_then_group",
+      "retained_result_reuse"
+    ],
+    "scope": "Freeze fresh complete independent references and input identities before selected correctness execution through all five interfaces. Correctness/activation only; no second benefit cohort."
+  },
+  "execution_policy": "One isolated sequential pass over each unchanged case in original order, using the existing guard, storage limits, deadlines, complete validation and process cleanup. Finish all task-owned builds, tests and agents before queries; full hashes and recursive inventories occur outside execution. No cache manipulation or artificial pacing.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false,
+  "diagnostic_evidence": {
+    "observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r1/observations.json",
+    "sha256": "e058650d51eb9efb75a3153e622634a558effa2761a5a524b5803f312e0e0961",
+    "complete_cases": 7,
+    "diagnostic_only": true,
+    "comparison_allowed": false,
+    "finding": "Exact group lookup dominates the selected composite aggregations. The selected wide projection is dominated by payload validation; joins also incur matching and gathering work. Those latter mechanisms remain separate follow-up work."
+  },
+  "vortex_first_check": {
+    "reused": [
+      "NativeNumericOwner and native validity masks",
+      "VarBinViewArray and its safe BinaryView::as_u128 representation",
+      "existing RowSet, RowIndex and fallible ReservedVec credits"
+    ],
+    "upstream_checked": [
+      "vendor/vortex-array/src/builders/dict/mod.rs",
+      "vendor/vortex-array/src/builders/dict/bytes.rs",
+      "vendor/vortex-array/src/arrays/varbinview/view/mod.rs"
+    ],
+    "decision": "Wrap existing native key identities in the current batch-local lookup cache. Upstream DictEncoder builds another encoded array, grows its own hash lookup infallibly, and may return only a prefix under constraints; it does not provide ShardLoom operation-owned group ordinals or this fallible cache contract. No new upstream dependency/provider or external engine."
+  }
+}
