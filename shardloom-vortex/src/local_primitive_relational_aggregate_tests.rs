@@ -109,6 +109,107 @@ fn all_measures() -> Vec<Measure> {
 }
 
 #[test]
+fn integer_extrema_pair_reaches_the_native_bound_grouped_runtime() {
+    use crate::resident_memory_source::{MemoryColumn, MemoryColumnValues};
+
+    fn source(
+        session: &ResidentVortexSession,
+        groups: &[i64],
+        values: &[Option<i64>],
+    ) -> Result<ResidentMemorySource> {
+        ResidentMemorySource::from_batch_columns(
+            session,
+            &[
+                MemoryColumn {
+                    name: "g",
+                    values: MemoryColumnValues::Int64NonNullable(groups),
+                },
+                MemoryColumn {
+                    name: "n",
+                    values: MemoryColumnValues::Int64(values),
+                },
+            ],
+        )
+    }
+
+    let uri = DatasetUri::new("memory://integer-extrema").unwrap();
+    let plan = aggregate(
+        VortexRelationalPlan::Scan(VortexRelationalScan {
+            source_uri: uri.clone(),
+            projection: shardloom_plan::ProjectionRequest::All,
+            predicate: None,
+        }),
+        &["g"],
+        vec![
+            measure("sum", Some("n"), "sum"),
+            measure("avg", Some("n"), "avg"),
+            measure("min", Some("n"), "min"),
+            measure("max", Some("n"), "max"),
+            measure("count", Some("n"), "present"),
+        ],
+    );
+    // A single native file may select the existing equivalent file provider.
+    // A public batch source proves activation in the bound shared relational
+    // runtime rather than assuming that provider dispatch chose this kernel.
+    let prepared = prepare_relational_with_schema(policy(), |preparation| {
+        preparation.register_batch_source(uri, |session| source(session, &[], &[]))?;
+        Ok(plan)
+    })
+    .unwrap();
+    assert!(prepared.provider.is_none());
+    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let groups: Vec<_> = (0..2053i64).map(|row| row % 2).collect();
+    let values: Vec<_> = (0..2053i64)
+        .map(|row| (row % 7 != 0).then_some(row % 101 - 50))
+        .collect();
+    let mut calls = 0;
+    let mut input = |session: &ResidentVortexSession| {
+        calls += 1;
+        match calls {
+            1 => source(session, &groups[..1024], &values[..1024]).map(Some),
+            2 => source(session, &groups[1024..], &values[1024..]).map(Some),
+            3 => Ok(None),
+            _ => panic!("input was replayed"),
+        }
+    };
+    #[cfg(debug_assertions)]
+    let observation = crate::local_primitives::native_relational_observation::Session::start();
+    let collected = prepared
+        .with_batch_input(&mut input)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(calls, 3);
+    let rows = json_rows(&collected);
+    assert_eq!(rows.len(), 2);
+    for row in rows {
+        let group = row["g"].as_i64().unwrap();
+        let values: Vec<_> = (0..2053i64)
+            .filter(|value| value % 2 == group && value % 7 != 0)
+            .map(|value| value % 101 - 50)
+            .collect();
+        assert_eq!(row["min"], serde_json::json!(values.iter().min().unwrap()));
+        assert_eq!(row["max"], serde_json::json!(values.iter().max().unwrap()));
+        assert_eq!(row["present"], serde_json::json!(values.len()));
+    }
+    #[cfg(debug_assertions)]
+    {
+        let counts = observation.finish();
+        assert!(
+            counts.aggregate_integer_extrema_fused_batches > 0,
+            "{counts:?}"
+        );
+        assert_eq!(counts.aggregate_integer_extrema_fused_rows, 2053);
+        assert_eq!(counts.aggregate_integer_extrema_saved_measure_rows, 4106);
+    }
+    drop(collected);
+    assert_eq!(
+        prepared.session.memory().snapshot().reserved_bytes,
+        baseline
+    );
+}
+
+#[test]
 fn native_relational_aggregate_exact_grouping_and_distinct_across_batches_preserve_nulls_and_order()
 {
     let fixture = fixture();

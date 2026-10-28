@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "scope": "Remaining Item 20 analytical performance work in PR #1619",
+  "maintainer_decision_date": "2026-10-28",
+  "trigger": "The maintainer rejected the automatic percentage cutoff after a complete positive-gain candidate had been dropped, directed that it be implemented, requested an audit of similar historical drops, and clarified that small gains compound.",
+  "performance_rule": {
+    "ship": "candidate complete-cohort engine seconds < accepted baseline complete-cohort engine seconds",
+    "drop": "candidate complete-cohort engine seconds >= accepted baseline complete-cohort engine seconds",
+    "minimum_percentage_gain": null,
+    "minimum_family_percentage_gain": null,
+    "clock": "sum of engine_execution_seconds for one execution of each of the unchanged 347 cases"
+  },
+  "unchanged_requirements": [
+    "Complete schema and value correctness",
+    "Resource, ownership, cancellation and no-fallback contracts",
+    "Isolated sequential execution and frozen source/input/runtime identities",
+    "Preserve every original observation and regression flag",
+    "No baseline rerun or repeated trials solely to change a decision"
+  ],
+  "historical_policy": "Preserve historical prospective protocols and original threshold results. Apply the new maintainer decision as a separately linked disposition; do not relabel an original threshold failure as a threshold pass.",
+  "compounding_policy": "Advance the accepted baseline with each retained improvement. Audit earlier positive-gain drops and integrate applicable source changes with current correctness and combined-performance checks; historical deltas are not additive evidence for the current implementation.",
+  "immediate_candidate": {
+    "candidate": "Grouped integer extrema and optional COUNT traversal",
+    "baseline_engine_seconds": 16.249797458,
+    "candidate_engine_seconds": 15.992156898,
+    "saved_engine_seconds": 0.25764056,
+    "complete_queries": 347,
+    "complete_rows": 12565,
+    "original_percentage_benefit_gate_passed": false,
+    "complete_cohort_gain_gate_passed": true,
+    "performance_decision": "retain",
+    "source_restoration": "All six candidate source files restored byte-for-byte to the measured snapshot; no measurement rerun",
+    "remaining_acceptance": "Complete broad source gates and combined Item 20 acceptance"
+  },
+  "package_publication_authorized": false,
+  "item_20_complete": false
+}

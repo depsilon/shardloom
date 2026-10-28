@@ -75,6 +75,13 @@ build/evidence inventories outside query execution. Preserve active-output stora
 timeouts, cleanup, complete-result checks and all prior observations. Do not add parallel
 profiling or repeated trials to a routine pass.
 
+For the remaining analytical performance work, the October 28 maintainer decision
+uses binary complete-cohort gain/loss: lower total engine time ships; higher or
+unchanged total drops, after correctness, resource, ownership and no-fallback
+checks pass. There is no minimum percentage gain. Preserve original protocols
+and observations, record changed dispositions explicitly, and advance the
+accepted baseline as small improvements compound. See the benchmarking policy.
+
 ## Architecture principles
 
 ShardLoom should avoid work before optimizing work.

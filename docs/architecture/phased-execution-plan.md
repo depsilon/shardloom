@@ -691,6 +691,22 @@ visible and independent; this implementation does not automatically close them.
     opt-in ignores) and 3,274 workspace tests pass. The source-linked record
     preserves all failed attempts and the exact candidate patch. Combined
     installed-package, portable and hosted acceptance stay open.
+    The [integer-extrema checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/integer-extrema-fusion-disposition.json)
+    retains shared grouped integer MIN/MAX and eligible COUNT traversal at
+    **15.992156898 engine seconds** for all 347 queries and 12,565 rows, saving
+    **0.257640560 seconds** with no material regression flags. Ten focused and
+    207 relational tests, four public regressions, 160 fresh five-interface
+    observations (6,860 result rows), formatting, strict native/workspace lint,
+    5,035 native tests (35 existing opt-in ignores) and 3,274 workspace tests
+    pass on the measured source. Six original failed attempts remain recorded.
+    The [maintainer's gain/loss rule](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
+    supersedes percentage floors: lower complete-cohort engine time ships;
+    higher or unchanged drops after correctness/resource checks. This explicitly
+    reverses the candidate's original cutoff-only drop without changing its
+    frozen protocol or rerunning queries. Advance the retained baseline as gains
+    compound. Reintegrate applicable earlier positive-gain borrowed-output and
+    expression changes against the current source, preserving later improvements;
+    their historical deltas are not additive current-runtime evidence.
     The October 28 maintainer follow-up prioritizes measured shared grouping,
     projection and join costs, then shared-intermediate reuse and plan traversal
     where source and workload evidence warrants them. Recursive CTEs and structural
@@ -698,7 +714,9 @@ visible and independent; this implementation does not automatically close them.
     accelerate the current cohort. This priority preserves every remaining
     capability, workflow and combined-acceptance requirement.
     Continue the full item-20 work in the same PR #1619. Retain the dropped
-    counted-join, fused-measure, retained-output and borrowed-output decisions.
+    counted-join, fused-measure and retained-output decisions. The later
+    maintainer gain/loss decision reopens cutoff-only borrowed-output and
+    expression drops for current-source integration and acceptance.
     This sequence does not replace the wider temporal/time-series,
     rich-aggregate, numeric, composition, batch-function, diagnostics, or
     format/interface obligations.

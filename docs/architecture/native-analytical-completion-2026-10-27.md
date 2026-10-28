@@ -60,11 +60,11 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The latest retained checkpoint records 16.249797458 seconds, so this requires
-about 38.5% further reduction; it is a stretch target, not an achieved result or
+The latest retained candidate records 15.992156898 seconds, so this requires
+about 37.5% further reduction; it is a stretch target, not an achieved result or
 a reason to reduce correctness/coverage. Grouped aggregation contributes
-5.690822797 seconds, projection 3.108211289 seconds, and ordinary plus multiway
-joins 2.85217179 seconds. Use these complete family totals to prioritize
+5.541190993 seconds, projection 3.079028541 seconds, and ordinary plus multiway
+joins 2.798152709 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. The
 shared-owner sequence below records the retained and dropped candidates.
 Select further numeric/temporal specializations only from
@@ -79,7 +79,7 @@ this objective does not authorize another competitor cohort.
 
 The October 28 maintainer follow-up delegates the execution order to measured
 impact. Prioritize shared grouped aggregation, projection and joins: their
-retained family totals sum to 11.651205876 of the 16.249797458 engine seconds.
+retained family totals sum to 11.418372243 of the 15.992156898 engine seconds.
 This is workload concentration, not a claim that all of that time is removable.
 After each frozen candidate decision, target demonstrated repeated preparation,
 validation, copying or operator work in those shared owners. Explicit materialized
@@ -90,6 +90,15 @@ and relaxed structural limits are capability obligations, not assumed speedups f
 the existing cohort. Complete the remaining capability and acceptance checklist
 after this evidence-led performance work; no requirement is removed or deferred
 into items 18/19 by this ordering decision.
+
+The later October 28 [gain/loss decision](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
+removes percentage benefit cutoffs for the remaining analytical performance
+work. After correctness and resource checks pass, lower complete-cohort engine
+time ships; higher or unchanged time drops. Advance the baseline as gains
+compound. Keep original protocols and threshold results immutable and record
+each changed disposition separately. Audit earlier positive-gain drops and
+integrate still-applicable changes against the current implementation; do not
+add historical savings together as if measured on the same source.
 
 ### Shared-owner reuse continuation
 
@@ -318,6 +327,37 @@ error-order fixtures required correction; the invalid dictionary panic and
 disproved constant-array refusal assumption are not claimed as runtime fixes.
 Combined installed-package, portable and hosted acceptance remain open, as do
 the speed targets and every remaining item-20 capability/workflow obligation.
+
+The subsequent [integer-extrema checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/integer-extrema-fusion-disposition.json)
+retains one grouped traversal for adjacent integer MIN/MAX and eligible COUNT.
+It reuses the existing prepared numeric owner, exact group ordinals and aggregate
+states. Bounded inspection admits transparent single-chunk ownership wrappers;
+encoded validity keeps COUNT at its original position. Unequal counts, possible
+overflow, noninteger values and other unproved shapes retain ordered execution.
+The complete 347-query observation validates all 12,565 rows at
+**15.992156898 engine seconds**, saving **0.257640560 seconds** against
+16.249797458. No material case or family regression flags occur.
+
+The original 10% benefit gate failed. The maintainer then explicitly replaced
+that rule with complete-cohort gain/loss and directed retention; all six source
+files were restored byte-for-byte to the measured snapshot. The original gate
+and results remain unchanged, and no query was rerun to change the disposition.
+Ten focused tests, 207 relational tests, four public regressions and 160 fresh
+five-interface observations pass, including 6,860 result rows and 17,364 input
+rows. Formatting, strict native/workspace lint, 5,035 native tests (35 existing
+opt-in ignores) and 3,274 workspace tests pass. The source-linked disposition
+preserves six failed attempts and verifies the exact source patch, release
+runtime, complete result replay and broad test inventories. Combined item-20
+acceptance remains open.
+
+The earlier-drop audit found two positive complete-cohort observations rejected
+by percentage floors: borrowed variable output (30.118456795 to 29.225110351
+seconds) and expression construction/reuse (23.079365459 to 22.941843204 seconds).
+Reintegrate applicable changes against the current source and test their combined
+effect against this retained checkpoint. Preserve later numeric, validation and
+ownership improvements. These historical differences are not additive evidence
+for the current runtime. The join-reuse and selected-payload candidates were
+slower overall and remain dropped.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
@@ -1316,11 +1356,13 @@ The 347 existing cases are discovery/regression data. Fresh seeds, layouts,
 null/type combinations and composed requests supply held-out acceptance. Reuse
 the retained Polars observations without rerunning that engine. Freeze each
 performance candidate's native baseline, exact source/build, workload and
-numeric retention gates before measuring it. Evaluate the declared family and
-whole-query controls; no function-count or aggregate suite total establishes a
-benefit for every case. Preserve unfavorable observations and drop failed
-mechanisms rather than changing thresholds afterward. The dropped item-15
-implementation is not restored unchanged.
+retention rule before measuring it. The October 28 maintainer rule ships a lower
+complete-cohort engine total and drops a higher or unchanged total after
+correctness and resource checks pass, with no percentage floor. Preserve family
+and case observations and explicitly assess regression flags; no aggregate suite
+total establishes benefit for every case. Keep historical protocols and their
+original outcomes immutable, recording changed dispositions separately. The
+dropped item-15 implementation is not restored unchanged.
 
 Use focused independent semantic tests while implementing, then required
 workspace formatting, Clippy and tests, native-feature and installed-package

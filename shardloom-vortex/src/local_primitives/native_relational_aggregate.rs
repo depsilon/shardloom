@@ -20,6 +20,9 @@ mod numeric_reuse;
 #[path = "native_relational_aggregate_extrema.rs"]
 mod extrema;
 
+#[path = "native_relational_aggregate_extrema_pair.rs"]
+mod extrema_pair;
+
 #[path = "native_relational_collections.rs"]
 mod collections;
 #[path = "native_relational_aggregate_filter.rs"]
@@ -472,8 +475,12 @@ impl<'a> Aggregate<'a> {
         let mut selected_filter = None;
         let mut selected = None;
         let mut numeric_reuse_from = None;
+        let mut completed_extrema_end = 0;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
+            if measure_index < completed_extrema_end {
+                continue;
+            }
             let reuse_from = numeric_reuse_from.take();
             let filter = measure.filter_column.as_deref();
             if selected_filter != Some(filter) {
@@ -709,6 +716,29 @@ impl<'a> Aggregate<'a> {
             if matches!(measure.function, Function::Min | Function::Max)
                 && let Some(KeyColumn::Numeric(owner)) = values
             {
+                if let Some(end) = extrema_pair::accumulate(
+                    self.spec,
+                    measure_index,
+                    &mut self.states.values,
+                    ordinals,
+                    &prepared
+                        .as_ref()
+                        .expect("numeric column is prepared")
+                        .source,
+                    owner,
+                    context,
+                )? {
+                    completed_extrema_end = end;
+                    if end == measure_index + 3 {
+                        // COUNT would replace value preparation with this same
+                        // source's executed mask. Keep that ownership/reuse state.
+                        let valid = owner.validity().clone();
+                        let prepared = prepared.as_mut().expect("numeric column is prepared");
+                        prepared.values = None;
+                        prepared.validity = Some(valid);
+                    }
+                    continue;
+                }
                 extrema::accumulate(
                     &mut self.states.values,
                     ordinals,

@@ -53,6 +53,12 @@ fn update(state: &mut State, value: &StatValue, minimum: bool) -> Result<()> {
         validate_finite_scalar(*value)?;
     }
     add_count(state, 1)?;
+    update_extreme(state, value, minimum)
+}
+
+/// Compare and replace a present value after the caller establishes its domain.
+/// The paired integer path shares this exact comparator without recounting it.
+pub(super) fn update_extreme(state: &mut State, value: &StatValue, minimum: bool) -> Result<()> {
     let replace = match &state.extreme {
         None => true,
         Some(prior) => {
