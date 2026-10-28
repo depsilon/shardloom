@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "tested_packet_sha256": "8bf79d758bdba9ff51c7451213aae115ccd012c698e95d598f12231c975d3d2d",
+  "final_packet_sha256": "65c9af8f100581f17fec2a5b68a851c94fc243264fe0acfe5082b4e9de6b0361",
+  "changed_common_members": [
+    "source/scripts/test_shared_key_lookup_packet.py"
+  ],
+  "added_members": [
+    "evidence/tools/check_final_static.py",
+    "evidence/tools/retire_completed_payloads.py",
+    "evidence/tools/verify_portable_copy.py"
+  ],
+  "complete_acceptance_unchanged": true,
+  "control_test_source_matches_passed_gate": true
+}

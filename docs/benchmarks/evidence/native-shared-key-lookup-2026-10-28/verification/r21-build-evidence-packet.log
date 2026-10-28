@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/tools/build_shared_key_packet.py", line 137, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/tools/build_shared_key_packet.py", line 125, in main
+    files, manifest = gather()
+                      ~~~~~~^^
+  File "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/tools/build_shared_key_packet.py", line 51, in gather
+    add(previous / name, 'previous/' + name)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/tools/build_shared_key_packet.py", line 24, in add
+    data = bounded_bytes(path, MAX_FILE)
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/replay.py", line 50, in bounded_bytes
+    need(len(value) <= maximum, "packet input exceeds bound")
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/replay.py", line 39, in need
+    raise ValueError(reason)
+ValueError: packet input exceeds bound

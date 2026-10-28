@@ -135,6 +135,81 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces(self):
+        from collections import defaultdict
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        expression = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{"id": index, "key": None if index % 17 == 0 else index % 7 - 3,
+                 "value": None if index % 11 == 0 else (1 << 63) + index,
+                 "small": index % 31 - 15,
+                 "tag": None if index % 13 == 0 else "λ-" + str(index % 5)}
+                for index in range(2053)]
+        right_rows = [{"key": key, "right_id": index}
+                      for index, key in enumerate((None, -4, -3, -3, -1, 0, 0, 2, 4))]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False), pa.field("key", pa.int64()),
+                            pa.field("value", pa.uint64()), pa.field("small", pa.int16(), nullable=False),
+                            pa.field("tag", pa.string())])
+        right_schema = pa.schema([pa.field("key", pa.int64()), pa.field("right_id", pa.int64(), nullable=False)])
+        with tempfile.TemporaryDirectory(prefix="shardloom-key-domains-") as directory:
+            path, right_path = Path(directory) / "left.parquet", Path(directory) / "right.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=257)
+            parquet.write_table(pa.Table.from_pylist(right_rows, schema=right_schema), right_path, row_group_size=3)
+            frame, right_frame = sl.read_parquet(path, client=client), sl.read_parquet(right_path, client=client)
+            relation, right_relation = native.Relation.scan(str(path)), native.Relation.scan(str(right_path))
+            for key in ("key", "tag"):
+                groups = defaultdict(list)
+                for row in rows:
+                    groups[row[key]].append(row)
+                keys = sorted(groups, key=lambda value: (value is None, value if value is not None else 0))
+                wanted = []
+                for value in keys:
+                    members = groups[value]
+                    values = [row["value"] for row in members if row["value"] is not None]
+                    wanted.append({key: value, "minimum": min(values), "maximum": max(values),
+                                   "total": float(sum(row["small"] for row in members)), "rows": len(members)})
+                grouped = frame.group_by(key).agg(minimum="MIN(value)", maximum="MAX(value)",
+                                                  total="SUM(small)", rows="COUNT(*)").sort(key, nulls="last")
+                typed = relation.aggregate([key], [("min", "value", "minimum"), ("max", "value", "maximum"),
+                                                   ("sum", "small", "total"), ("count", None, "rows")])
+                typed = typed.sort([(key, False, "last")])
+                sql = (f"SELECT {key},MIN(value) AS minimum,MAX(value) AS maximum,SUM(small) AS total,"
+                       f"COUNT(*) AS rows FROM '{path}' GROUP BY {key} ORDER BY {key} NULLS LAST")
+                with self.subTest(operation="group", key=key):
+                    tables = self.all_surfaces(grouped, typed, sql)
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), wanted)
+                        self.assertEqual(table.schema.field("minimum").type, pa.uint64())
+                        self.assertEqual(table.schema.field("maximum").type, pa.uint64())
+                        self.assertEqual(table.schema, tables[0].schema)
+                with self.subTest(operation="distinct", key=key):
+                    projected = relation.project([(key, expression.column(key))])
+                    tables = self.all_surfaces(frame.select(key).distinct().sort(key, nulls="last"),
+                        projected.aggregate([key], []).sort([(key, False, "last")]),
+                        f"SELECT {key} FROM '{path}' GROUP BY {key} ORDER BY {key} NULLS LAST")
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), [{key: value} for value in keys])
+                        self.assertEqual(table.schema, tables[0].schema)
+            wanted = []
+            for row in rows:
+                matches = [other for other in right_rows if row["key"] is not None and row["key"] == other["key"]]
+                wanted.extend({"id": row["id"], "value": row["value"], "right_id": other["right_id"]}
+                              for other in matches or [{"right_id": None}])
+            joined = frame.join(right_frame, on="key", how="left").select(
+                "f.id AS id", "f.value AS value", "d.right_id AS right_id")
+            typed = relation.join(right_relation, [("key", "key")],
+                [("left", "id", "id"), ("left", "value", "value"), ("right", "right_id", "right_id")], kind="left")
+            sql = (f"SELECT f.id AS id,f.value AS value,d.right_id AS right_id FROM '{path}' AS f "
+                   f"LEFT JOIN '{right_path}' AS d ON f.key = d.key")
+            for table in self.all_surfaces(joined, typed, sql):
+                self.assertEqual(table.to_pylist(), wanted)
+                self.assertEqual(table.schema.field("value").type, pa.uint64())
+                self.assertTrue(table.schema.field("right_id").nullable)
+
     def test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces(self):
         from decimal import Decimal
         import shardloom as sl

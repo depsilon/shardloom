@@ -451,6 +451,12 @@ impl<'a> Aggregate<'a> {
         accumulate_distinct_values: bool,
     ) -> Result<()> {
         context.check_cancelled()?;
+        if self.spec.measures.is_empty()
+            && let Some(groups) = &mut self.groups
+        {
+            groups.insert_batch(array.clone(), None, context, batch_rows, None)?;
+            return context.check_cancelled();
+        }
         let all_ordinals = if let Some(groups) = &mut self.groups {
             GroupOrdinals::Grouped(groups.intern_batch(array.clone(), context, batch_rows)?)
         } else {

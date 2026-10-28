@@ -5,6 +5,11 @@ use std::cell::RefCell;
 #[derive(Default, Debug, serde::Serialize)]
 pub(crate) struct Counts {
     pub(crate) key_columns: u64,
+    pub(crate) key_cache_batches: u64,
+    pub(crate) key_cache_slots: u64,
+    pub(crate) key_cache_hits: u64,
+    pub(crate) key_exact_lookups: u64,
+    pub(crate) group_ordinal_rows: u64,
     pub(crate) variable_domains: u64,
     pub(crate) variable_domain_values: u64,
     pub(crate) variable_hash_slot_bytes: u64,

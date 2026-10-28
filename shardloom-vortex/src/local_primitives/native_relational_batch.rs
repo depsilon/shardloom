@@ -5,7 +5,7 @@ use super::{
     native_capacity::ReservedVec,
     native_numeric_owner::NativeNumericOwner,
     native_payload,
-    native_relational_keys::{Cell, KeyColumn, Preparation},
+    native_relational_keys::{Cell, KeyColumn, KeyLookupCache, Preparation},
     result_batch, vortex_error,
 };
 use crate::resident_session::NativeExecutionContext;
@@ -109,6 +109,16 @@ impl Batch {
             .values
             .get(key)
             .ok_or_else(|| failed("bound scalar key is absent"))
+    }
+
+    pub(super) fn key_cache(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<KeyLookupCache<'_>>> {
+        match self.keys.values.as_slice() {
+            [key] => KeyLookupCache::new(key, context.memory(), context.cancellation()),
+            _ => Ok(None),
+        }
     }
 
     pub(super) fn hash(&self, row: usize, nulls_equal: bool) -> Result<Option<u64>> {

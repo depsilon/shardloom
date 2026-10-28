@@ -1,0 +1,22 @@
+/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_release_architecture_tracker-r1.json
+/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_v1_docs_productization-r1.json
+/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/check_public_status_docs-r1.json
+test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad (test_ci_execution_plan.ClassificationTests.test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad) ... ok
+test_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation (test_ci_execution_plan.ClassificationTests.test_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation) ... ok
+test_comma_and_newline_paths_are_ambiguous_and_force_broad_validation (test_ci_execution_plan.ClassificationTests.test_comma_and_newline_paths_are_ambiguous_and_force_broad_validation) ... ok
+test_make_plan_never_removes_a_job_recommended_by_rust (test_ci_execution_plan.ClassificationTests.test_make_plan_never_removes_a_job_recommended_by_rust) ... ok
+test_malformed_planner_json_and_unclosed_or_bad_schema_are_broad (test_ci_execution_plan.ClassificationTests.test_malformed_planner_json_and_unclosed_or_bad_schema_are_broad) ... ok
+test_plain_existing_readme_and_getting_started_wording_can_be_narrow (test_ci_execution_plan.ClassificationTests.test_plain_existing_readme_and_getting_started_wording_can_be_narrow) ... ok
+test_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad (test_ci_execution_plan.ClassificationTests.test_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad) ... ok
+test_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy (test_ci_execution_plan.ClassificationTests.test_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy) ... ok
+test_summary_accepts_exact_all_success_results (test_ci_execution_plan.SummaryTests.test_summary_accepts_exact_all_success_results) ... ok
+test_summary_command_preserves_failure_evidence_and_exits_unsuccessfully (test_ci_execution_plan.SummaryTests.test_summary_command_preserves_failure_evidence_and_exits_unsuccessfully) ... ok
+test_summary_rejects_missing_invented_duplicate_and_unclassified_omissions (test_ci_execution_plan.SummaryTests.test_summary_rejects_missing_invented_duplicate_and_unclassified_omissions) ... ok
+test_summary_rejects_wrong_workflow_or_revision (test_ci_execution_plan.SummaryTests.test_summary_rejects_wrong_workflow_or_revision) ... ok
+test_summary_requires_selected_jobs_success_and_omitted_jobs_skipped (test_ci_execution_plan.SummaryTests.test_summary_requires_selected_jobs_success_and_omitted_jobs_skipped) ... ok
+test_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job (test_ci_execution_plan.WorkflowTests.test_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 4.250s
+
+OK

@@ -555,9 +555,17 @@ visible and independent; this implementation does not automatically close them.
     with the fresh temporal baseline's 28.118399295 seconds. The declared
     projection family improves 10.36% with no candidate material flags; 176
     fresh held-out cases, 200 installed-package tests and portable replay pass.
-    Hosted acceptance remains pending. Continue the shared-performance queue
-    in the existing item-20 completion document: share key and value movement,
-    then reduce expression construction/reuse work. Reuse existing
+    PR #1617 merged at `328d3bf0` after all 57 hosted checks passed and automated
+    review completed without findings. The
+    [shared key-lookup continuation](../benchmarks/native-shared-key-lookup-2026-10-28.md)
+    passes local gates at 25.508976866 engine seconds for all 347 cases versus
+    the reused 27.374316659-second checkpoint. Grouped aggregation improves
+    12.44% and DISTINCT 17.39%, with no material regression flags. Complete
+    160-case fresh correctness, 201 installed-wheel tests, 23 corruption controls
+    and isolated replay pass; hosted acceptance remains separate. Continue the
+    shared-performance queue in the existing item-20 completion document with
+    typed MIN/MAX and independently owned numeric gathering, then reduce
+    expression construction/reuse work. Reuse existing
     native owners and the current frozen benefit/regression protocol; retain the
     dropped counted-join, fused-measure, retained-output and borrowed-output
     decisions. This sequence does not replace the wider temporal/time-series,

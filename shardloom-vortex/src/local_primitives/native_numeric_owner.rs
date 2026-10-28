@@ -175,6 +175,68 @@ impl NativeNumericOwner {
         numeric_dispatch!(self, numeric_typed, row)
     }
 
+    /// Inspect an integer domain without rounding or materializing its values.
+    /// A range that already exceeds the bound cannot become dense later.
+    pub(super) fn bounded_integer_range(
+        &self,
+        max_span: usize,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<Option<(i128, usize)>> {
+        if !self.is_integer() {
+            return Ok(None);
+        }
+        numeric_dispatch!(self, bounded_integer_range_typed, max_span, cancellation)
+    }
+
+    fn bounded_integer_range_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        max_span: usize,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<Option<(i128, usize)>> {
+        let mut range: Option<(i128, i128)> = None;
+        for (row, value) in self.primitive.as_slice::<T>().iter().enumerate() {
+            if row.is_multiple_of(1024) {
+                cancellation.check()?;
+            }
+            if ALL_VALID || self.valid.value(row) {
+                let value = value
+                    .widen()
+                    .ordinal()
+                    .ok_or_else(|| failed("integer range requires integer storage"))?;
+                let (min, max) = range.get_or_insert((value, value));
+                *min = (*min).min(value);
+                *max = (*max).max(value);
+                if *max - *min >= max_span as i128 {
+                    return Ok(None);
+                }
+            }
+        }
+        cancellation.check()?;
+        Ok(Some(range.map_or((0, 0), |(min, max)| {
+            (
+                min,
+                usize::try_from(max - min + 1).expect("bounded integer range"),
+            )
+        })))
+    }
+
+    pub(super) fn integer_ordinal(&self, row: usize) -> Result<Option<i128>> {
+        numeric_dispatch!(self, integer_ordinal_typed, row)
+    }
+
+    fn integer_ordinal_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        row: usize,
+    ) -> Result<Option<i128>> {
+        self.value::<T, ALL_VALID>(row)?
+            .map(|value| {
+                value
+                    .ordinal()
+                    .ok_or_else(|| failed("integer ordinal requires integer storage"))
+            })
+            .transpose()
+    }
+
     /// Dispatch physical type and validity around the whole borrowed batch.
     /// The visitor also sees NULL rows so it can preserve cancellation and
     /// row-order contracts without a boxed call or another value buffer.

@@ -1,0 +1,113 @@
+{
+  "status": "failed",
+  "command": [
+    "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/wheel-build-tools/bin/python",
+    "-B",
+    "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/tools/build_shared_key_packet.py",
+    "--output",
+    "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/packet-r1"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "328d3bf0a1e81a6818b3addc2e1c35d32e1777f6",
+  "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-rich-bounded-retention-2026-10-28.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_join.rs\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n M shardloom-vortex/src/local_primitives/native_relational_keys.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n M shardloom-vortex/src/local_primitives/native_relational_set.rs\n?? docs/benchmarks/evidence/native-rich-bounded-retention-2026-10-28/hosted.json\n?? scripts/shared_key_replay.py\n?? scripts/test_shared_key_lookup_packet.py\n?? scripts/verify_shared_key_lookup_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_key_cache.rs\n?? shardloom-vortex/src/local_primitives/native_relational_set_cache_tests.rs\n",
+  "changed_source_inventory": {
+    "docs/architecture/native-analytical-completion-2026-10-27.md": {
+      "sha256": "03bbc3311df2df47e6c87a40bb4fe51c47a434c054a7021f64b4a2184f5cbe5b",
+      "bytes": 61141
+    },
+    "docs/architecture/phased-execution-completed-ledger.md": {
+      "sha256": "c90ca90f9457c0626ecae054480a2d962fa9fd3ec5da6de0e67f8fc627a35a8b",
+      "bytes": 4041495
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "sha256": "7332594f7fc09c739def79a45f7f7cebf0ed8b6e9676d34d2fecaf78f399625e",
+      "bytes": 147801
+    },
+    "docs/benchmarks/evidence/native-rich-bounded-retention-2026-10-28/hosted.json": {
+      "sha256": "c36093e147ccbd02151e7b6dc7f8c54993e3f6f2a1e1b9d0140eccd09a1bf68c",
+      "bytes": 17900
+    },
+    "docs/benchmarks/native-rich-bounded-retention-2026-10-28.md": {
+      "sha256": "69bf7116cec22851ad1d4314cf4e141f1788baabda631cb38b05461fbcd01316",
+      "bytes": 6932
+    },
+    "python/tests/test_native_shared_provider_binding.py": {
+      "sha256": "5be9c664f0fae24621371d1a968e5741bbe2e2c898c09c20d2fdf378a789ff48",
+      "bytes": 162733
+    },
+    "scripts/shared_key_replay.py": {
+      "sha256": "c2f7b6b1a5c50b85ac4238c8fea998625cc09d40e449275036184700eaf86f36",
+      "bytes": 8366
+    },
+    "scripts/test_shared_key_lookup_packet.py": {
+      "sha256": "5415bb45f90d6e6eed1d770e93c2ae39ceb6b25d2d32a155e8d2c7da9d21096a",
+      "bytes": 10915
+    },
+    "scripts/verify_shared_key_lookup_packet.py": {
+      "sha256": "32e6657a8ad6a93c16eccd7644aea4a4ab9c5b8869d52cf3c18d1f1b98f01bfb",
+      "bytes": 14776
+    },
+    "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+      "sha256": "8553d2ce6da03b437ae9cb13cb3120cb02e2927930984147f69ae904f7508d19",
+      "bytes": 35169
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+      "sha256": "955f000e1df85f662def26f9be2e7e6c767e30c07c83d0b6b14891cbbc669241",
+      "bytes": 53746
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+      "sha256": "b6b1410c7292912793e8eec012bec8cbe1d32a961be0641534ee378cae7fdaf4",
+      "bytes": 23570
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_join.rs": {
+      "sha256": "14f91174fe2cd07af7804c30be9e1ec5f7aacb678a261ec50cb628130c72bffe",
+      "bytes": 13981
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+      "sha256": "8f0728ce9d7c70abff40fc0d5861f4124815526445797c0f8c0b2bee0fbc27ed",
+      "bytes": 14370
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_key_cache.rs": {
+      "sha256": "ab748f59922f9c9fbcf01718a6b91b275403de8a8f9fa8c134e33aea4d0041c1",
+      "bytes": 3946
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+      "sha256": "656a939fe7adece787898e3c2b5fef83fb22fa8899e40b32ee76d42950aa8bb0",
+      "bytes": 40502
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+      "sha256": "8607376791bc43e650e6d36c7f14b0e16ca59605efd43dd8fb1f3a4010fea3f0",
+      "bytes": 2609
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+      "sha256": "899a41c807bf210f9265e257ab9f7c1d54c21ba58930c8bc2b9ac82629e0ff65",
+      "bytes": 7249
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_set_cache_tests.rs": {
+      "sha256": "338d7b328b7ab2d75f361c58e7e6b54def1f2e4b66d34325c702b753c4d62020",
+      "bytes": 13029
+    }
+  },
+  "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CLIPPY_CONF_DIR": null,
+    "SHARDLOOM_PIP_AUDIT_PYTHON": null
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "timeout_seconds": 600.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 15795,
+  "output_bytes": 1244,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 1,
+  "seconds": 0.588091958,
+  "log_sha256": "55528557f5a66d6ac1c8e0adf07c12f043b3a520de1f027e23b12991e42de9f5"
+}
