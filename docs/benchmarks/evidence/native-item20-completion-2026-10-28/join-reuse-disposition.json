@@ -1,0 +1,1828 @@
+{
+  "schema_version": 1,
+  "candidate": "Exact join probe-result reuse and transient gather coordinates",
+  "decision": "dropped_no_prospective_benefit",
+  "benefit_gate_passed": false,
+  "complete_comparisons": 347,
+  "complete_rows": 12565,
+  "baseline_engine_seconds": 18.304092867,
+  "candidate_engine_seconds": 18.527516365,
+  "overall_change_fraction": 0.012206204351312255,
+  "materially_improved_declared_families": [],
+  "material_case_regressions": [],
+  "material_family_regressions": [],
+  "declared_family_observations": {
+    "joins": {
+      "reduction_fraction": 0.0026349169243754522,
+      "improvement_percent": 0.26349
+    },
+    "multiway_joins": {
+      "reduction_fraction": 0.00028030488634722683,
+      "improvement_percent": 0.02803
+    }
+  },
+  "baseline_checkpoint": {
+    "source_revision": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+    "engine_seconds": 18.304092867,
+    "disposition": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/payload-validation-disposition.json",
+      "bytes": 29692,
+      "sha256": "f566923911337d96d600611dce6fbc10d4a0bf350ed5a3f95b233e017c77c96d"
+    }
+  },
+  "prospective_mechanisms": [
+    "batch-local no-residual join probe-result reuse",
+    "transient resolved gather-coordinate reuse"
+  ],
+  "candidate_mechanism_removal_status": "primary_reported_removed_by_rollback; e119/e120 post-drop workspace checks are included; no new performance observation was taken",
+  "public_regression_test": {
+    "status": "passed",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "public_interfaces": 5,
+    "may_remain": true,
+    "removal_status": "pending_primary_rollback"
+  },
+  "native_and_correctness_gates": {
+    "e95_strict_clippy_status": "passed",
+    "e96_join_focused_tests": {
+      "passed": 21,
+      "failed": 0,
+      "ignored": 0
+    },
+    "e97_gather_focused_tests": {
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0
+    },
+    "e98_native_suite": {
+      "passed": 3478,
+      "failed": 0,
+      "ignored": 32
+    },
+    "e100_release_build_status": "passed",
+    "e104_public": {
+      "status": "passed",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "public_interfaces": 5
+    },
+    "e114_correctness_replay": {
+      "status": "passed",
+      "observations": 160,
+      "complete_rows": 7331860,
+      "complete_input_readback_rows": 134228,
+      "independent_reference_rows": 1466372,
+      "public_interfaces": 5,
+      "cli_streamed_missing_engine_clocks": 24,
+      "held_out_engine_total_claimed": false
+    },
+    "e115_format_status": "passed",
+    "e118_broad_replay": {
+      "status": "passed",
+      "complete_comparisons": 347,
+      "complete_rows": 12565,
+      "benefit_gate_passed": false
+    },
+    "e119_retained_workspace_clippy_status": "passed",
+    "e120_retained_workspace_tests": {
+      "passed": 3274,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "preserved_failed_checks": [
+    {
+      "id": "e91-join-reuse-native-clippy",
+      "reason": "Initial strict clippy failed on a missing Value::Utf8 variant plus clippy lints; see linked receipt and log.",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e91-join-reuse-native-clippy.json",
+        "bytes": 3740,
+        "sha256": "6b0e6e78391bca1a01580f2a0f265362a0e062a9ea490677439cd2e7925a5dbf"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e91-join-reuse-native-clippy.log",
+        "bytes": 2583,
+        "sha256": "32787d6b92c97356da64acd5b269e4ecfc1c0f03f2f5ab8d390f9dfdca6b39e3"
+      }
+    },
+    {
+      "id": "e94-join-reuse-native-clippy",
+      "reason": "Strict clippy failed on a single-pattern match lint in tests; see linked receipt and log.",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e94-join-reuse-native-clippy.json",
+        "bytes": 3740,
+        "sha256": "610aefaacee39b67c3c2e59c795bfe3acc7a9e7b70752c2ce01e9713ee56e014"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e94-join-reuse-native-clippy.log",
+        "bytes": 1908,
+        "sha256": "15ec7043afda85d8f2a1c0cc00746cf9502f7f3255501b178e3c65eeb97b57b3"
+      }
+    },
+    {
+      "id": "e99-join-reuse-heldout-freeze",
+      "reason": "Initial held-out freeze rejected a complete result exceeding the portable replay bound; preserved failed receipt and log.",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e99-join-reuse-heldout-freeze.json",
+        "bytes": 4215,
+        "sha256": "e30f98f4a50e9b535319203d3475b349e93f163ae0809aef401a922b047e602d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e99-join-reuse-heldout-freeze.log",
+        "bytes": 1435,
+        "sha256": "f79c278836f109782d0142e28fc9735a5ad2b30ca926f5b542498255f46c2f40"
+      }
+    }
+  ],
+  "preserved_failed_heldout_summaries": [
+    {
+      "id": "e106-original-heldout",
+      "observations": 152,
+      "successes": 129,
+      "harness_errors": 23,
+      "cli_streaming_storage_refusals": 23,
+      "storage_refusal": "retained log budget exceeded; stop preserved",
+      "evidence": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/observations.json",
+        "bytes": 102933,
+        "sha256": "e6e7e5d1bd28af98076fd8679d87d9f2053725a47f0523ef75ae623e44fd563d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e106-join-reuse-heldout-observe.log",
+        "bytes": 54712,
+        "sha256": "409fa0bb84ef3903be95c8e8d7281cd98d2f27b0a29aa348575ef6a4e797db76"
+      }
+    },
+    {
+      "id": "e109-continuation",
+      "observations": 31,
+      "successes": 7,
+      "client_lifecycle_harness_errors": 24,
+      "evidence": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/continuation-observations.json",
+        "bytes": 18545,
+        "sha256": "fd32995a43a83d969832af418359f79df8394621b3261cb79f07f03b39dead6a"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e109-join-heldout-continuation-observe.log",
+        "bytes": 12283,
+        "sha256": "22d3c2d6d8c88de45114a4b4d8decb90e194f372e653d712d1d659cf5da86ac5"
+      }
+    },
+    {
+      "id": "e111-stream-clock-correction",
+      "missing_stream_clock_harness_errors": 1,
+      "evidence": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/cli-delivery-correction-observations.json",
+        "bytes": 1490,
+        "sha256": "c7b4671fca42383ec5ef24c735cb3cffe4a558d84d6aa3e090a118748e431acc"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e111-join-cli-delivery-correction-observe.log",
+        "bytes": 1264,
+        "sha256": "4bf7fe7c9c3e90bd05e8103af6c63e63072b961691dd8ba046deec84364e634c"
+      }
+    }
+  ],
+  "heldout_corrected_replay": {
+    "status": "passed",
+    "observations": 160,
+    "complete_rows": 7331860,
+    "public_interfaces": 5,
+    "complete_input_readback_rows": 134228,
+    "independent_reference_rows": 1466372,
+    "original_successes_preserved": 129,
+    "continuation_successes_preserved": 7,
+    "cli_streamed_correctness_observations": 24,
+    "original_cli_refusals_preserved": 23,
+    "delivery_setup_failures_preserved": 24,
+    "missing_clock_refusals_preserved": 1,
+    "original_storage_refusal_preserved": true,
+    "no_successful_observation_repeated": true,
+    "held_out_engine_total_claimed": false
+  },
+  "cli_stream_timing": "engine clocks unavailable for 24 correctness-only CLI streaming observations; no held-out timing total accepted",
+  "no_statistical_or_causal_claim": true,
+  "accepted_new_engine_time": null,
+  "candidate_release": {
+    "build_receipt": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e100-join-reuse-release-build.json",
+      "bytes": 4183,
+      "sha256": "827e25ea3bd94ef3e304aa49cabffc89217ebbdcb39f20eaa754f8c9c313e796"
+    },
+    "manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/manifest.json",
+      "bytes": 3590,
+      "sha256": "5a354200127036e4cdcfa051ac625b90f192bc6d251bd035417e2b65bd242ed6"
+    },
+    "profile": "release",
+    "source_snapshot": {
+      "python/tests/test_native_shared_provider_binding.py": {
+        "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+        "bytes": 178765
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+        "sha256": "e1273e8d6e2c4ee37b4c85274c7640b77e3e4ee6c41ef05ff0b02f6125f335cb",
+        "bytes": 25223
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_gather_tests.rs": {
+        "sha256": "6f1041e75975176675958f6ffc5060b4490c3b96e5715c7772678a360a0ec167",
+        "bytes": 6913
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_join.rs": {
+        "sha256": "5fd5cdac34235a7a555f51f86c6ae43b914cb962bbd0e4e362ac09b417587c1a",
+        "bytes": 16013
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_join_cache_tests.rs": {
+        "sha256": "cf0f60fa16f73f4a92714d023dbdcdb60cbad7e4c2911c7fbcf3d4ca15cc4116",
+        "bytes": 17215
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+        "sha256": "79552d80d66e28baacc0366a7a87201047b2683e6580e85b76eb95769262294a",
+        "bytes": 14438
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+        "sha256": "1da9ecc7cb1adbf2a76205587f8423585d5dd8d300be3e0015848a4916116e91",
+        "bytes": 3500
+      }
+    },
+    "retained_source_files": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/python/tests/test_native_shared_provider_binding.py",
+        "bytes": 178765,
+        "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+        "label": "frozen candidate source: python/tests/test_native_shared_provider_binding.py"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+        "bytes": 25223,
+        "sha256": "e1273e8d6e2c4ee37b4c85274c7640b77e3e4ee6c41ef05ff0b02f6125f335cb",
+        "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_batch.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_gather_tests.rs",
+        "bytes": 6913,
+        "sha256": "6f1041e75975176675958f6ffc5060b4490c3b96e5715c7772678a360a0ec167",
+        "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_gather_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_join.rs",
+        "bytes": 16013,
+        "sha256": "5fd5cdac34235a7a555f51f86c6ae43b914cb962bbd0e4e362ac09b417587c1a",
+        "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_join.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_join_cache_tests.rs",
+        "bytes": 17215,
+        "sha256": "cf0f60fa16f73f4a92714d023dbdcdb60cbad7e4c2911c7fbcf3d4ca15cc4116",
+        "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_join_cache_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_join_tests.rs",
+        "bytes": 14438,
+        "sha256": "79552d80d66e28baacc0366a7a87201047b2683e6580e85b76eb95769262294a",
+        "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_join_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+        "bytes": 3500,
+        "sha256": "1da9ecc7cb1adbf2a76205587f8423585d5dd8d300be3e0015848a4916116e91",
+        "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+      }
+    ],
+    "post_drop_workspace_validation": {
+      "e119_clippy": "passed",
+      "e120_tests": {
+        "passed": 3274,
+        "failed": 0,
+        "ignored": 0
+      },
+      "new_performance_observation": false
+    }
+  },
+  "receipts_and_logs": [
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e89-join-reuse-format.json",
+        "bytes": 3205,
+        "sha256": "65fd6d8b9e40ec7c59b52e2938d6a8ee34ee49c90f496363a104427b06a4f46b"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e89-join-reuse-format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e90-join-reuse-test-format.json",
+        "bytes": 3474,
+        "sha256": "2e6fac87ffaaa13be2ee831b33eb81ef24016d0e8ac846eee2cc640ec6179c09"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e90-join-reuse-test-format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e91-join-reuse-native-clippy.json",
+        "bytes": 3740,
+        "sha256": "6b0e6e78391bca1a01580f2a0f265362a0e062a9ea490677439cd2e7925a5dbf"
+      },
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "32787d6b92c97356da64acd5b269e4ecfc1c0f03f2f5ab8d390f9dfdca6b39e3",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e91-join-reuse-native-clippy.log",
+        "bytes": 2583,
+        "sha256": "32787d6b92c97356da64acd5b269e4ecfc1c0f03f2f5ab8d390f9dfdca6b39e3"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e92-join-reuse-format.json",
+        "bytes": 3474,
+        "sha256": "ac0cd92aaef5149ea7f00e9fb130467bad7b1fd474116a00a5dec95668f0a6c5"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e92-join-reuse-format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e93-join-reuse-test-format.json",
+        "bytes": 3474,
+        "sha256": "4ac6b9634b175d729dac8cb8e7605296581c37a33c9b0f05b8587694d86951d9"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e93-join-reuse-test-format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e94-join-reuse-native-clippy.json",
+        "bytes": 3740,
+        "sha256": "610aefaacee39b67c3c2e59c795bfe3acc7a9e7b70752c2ce01e9713ee56e014"
+      },
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "15ec7043afda85d8f2a1c0cc00746cf9502f7f3255501b178e3c65eeb97b57b3",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e94-join-reuse-native-clippy.log",
+        "bytes": 1908,
+        "sha256": "15ec7043afda85d8f2a1c0cc00746cf9502f7f3255501b178e3c65eeb97b57b3"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e95-join-reuse-native-clippy.json",
+        "bytes": 3736,
+        "sha256": "0db30584d3b6f2b953d1180f93b8ee1932b98f6d1f9d1480ae14d2e62a17640e"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "8faf0180462bae1c37930c9851211bb6c68f0a53ba739d2a9d329de8d7400921",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e95-join-reuse-native-clippy.log",
+        "bytes": 200,
+        "sha256": "8faf0180462bae1c37930c9851211bb6c68f0a53ba739d2a9d329de8d7400921"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e96-join-reuse-focused.json",
+        "bytes": 3691,
+        "sha256": "afe6ca00d0c9ffc5c228ffb623a5d225707aca9d2bb4aee7bf1c63f5cf9fba48"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--lib",
+        "native_relational_join",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "093752509df8a68cf5208366326db4bd8cd2361f97262a492fd89c91bbc0a327",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e96-join-reuse-focused.log",
+        "bytes": 3498,
+        "sha256": "093752509df8a68cf5208366326db4bd8cd2361f97262a492fd89c91bbc0a327",
+        "test_totals": [
+          {
+            "passed": 21,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e97-join-gather-focused.json",
+        "bytes": 3935,
+        "sha256": "412c319a7a773017062a5b2ec5f03eeae97cd438b71c246372cf68a40167d962"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--lib",
+        "native_relational_batch::gather_tests",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "d7c00d73ecc20ccbb147e669bc02d50729031faafd7b086cff3903ac7ad3e7c9",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e97-join-gather-focused.log",
+        "bytes": 736,
+        "sha256": "d7c00d73ecc20ccbb147e669bc02d50729031faafd7b086cff3903ac7ad3e7c9",
+        "test_totals": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e98-join-reuse-native-suite.json",
+        "bytes": 3892,
+        "sha256": "57647a7f67772a6d02cb8fefe01e786eafd35778bf79aa164dded5a047fd3141"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "f698c0558bb26f718fba68fc3fc13c52092d7f16059870b4759a2e16e7f57647",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e98-join-reuse-native-suite.log",
+        "bytes": 435971,
+        "sha256": "f698c0558bb26f718fba68fc3fc13c52092d7f16059870b4759a2e16e7f57647",
+        "test_totals": [
+          {
+            "passed": 3478,
+            "failed": 0,
+            "ignored": 32
+          }
+        ]
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e99-join-reuse-heldout-freeze.json",
+        "bytes": 4215,
+        "sha256": "e30f98f4a50e9b535319203d3475b349e93f163ae0809aef401a922b047e602d"
+      },
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/join_reuse_heldout.py",
+        "freeze"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "f79c278836f109782d0142e28fc9735a5ad2b30ca926f5b542498255f46c2f40",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e99-join-reuse-heldout-freeze.log",
+        "bytes": 1435,
+        "sha256": "f79c278836f109782d0142e28fc9735a5ad2b30ca926f5b542498255f46c2f40"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e100-join-reuse-release-build.json",
+        "bytes": 4183,
+        "sha256": "827e25ea3bd94ef3e304aa49cabffc89217ebbdcb39f20eaa754f8c9c313e796"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--release"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "dc2ac8f3ae88dac13b87311125c35c93c9247fa6715975057f3163269cfb61b9",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e100-join-reuse-release-build.log",
+        "bytes": 426,
+        "sha256": "dc2ac8f3ae88dac13b87311125c35c93c9247fa6715975057f3163269cfb61b9"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e101-join-evidence-parts-controls.json",
+        "bytes": 4206,
+        "sha256": "07d361420f85f577a62f67be969cb0833c1289c862ec597b345bfb9dc9d3236f"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_join_packed_evidence.py"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "bda9254d8e00ec35a2ae7063c9fb802c0c5767a9b5729e15aaa35c7be86fda0b",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e101-join-evidence-parts-controls.log",
+        "bytes": 494,
+        "sha256": "bda9254d8e00ec35a2ae7063c9fb802c0c5767a9b5729e15aaa35c7be86fda0b"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e102-join-reuse-heldout-freeze.json",
+        "bytes": 4214,
+        "sha256": "a9a50f446c0736d715a60661fab6660cf18c94400f48a91d51bd0f4b8acd164c"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/join_reuse_heldout.py",
+        "freeze"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "34aec082c9ae7fbd4c2e2b5937f1c6e1c43769a5fac729ab6bef942fb89b72e7",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e102-join-reuse-heldout-freeze.log",
+        "bytes": 290,
+        "sha256": "34aec082c9ae7fbd4c2e2b5937f1c6e1c43769a5fac729ab6bef942fb89b72e7"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e103-join-reuse-runtime-freeze.json",
+        "bytes": 4312,
+        "sha256": "b03c5a79c22a63f0ab8dd4b6d613da9f10ce3beeb59754a0a607e0a135d06d70"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_runtime.py",
+        "--build-receipt",
+        "e100-join-reuse-release-build.json",
+        "--destination",
+        "candidate-join-reuse-release-r1",
+        "--profile",
+        "release"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "92cda9c0ce22f55dbb15d5a192f010fd2811510938cf3295bc97666bc94de085",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e103-join-reuse-runtime-freeze.log",
+        "bytes": 308,
+        "sha256": "92cda9c0ce22f55dbb15d5a192f010fd2811510938cf3295bc97666bc94de085"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e104-public-join-reuse.json",
+        "bytes": 4204,
+        "sha256": "75920dcd7d62a797255ff2d56a669ed4f5525598380e4afd8c4bc4408cb03e47"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_public_join_reuse.py"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "8ef7187da8ab6770abf3e9cf09e2fea71487de94dc489207b8262fcb24aa6b0b",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e104-public-join-reuse.log",
+        "bytes": 1955,
+        "sha256": "8ef7187da8ab6770abf3e9cf09e2fea71487de94dc489207b8262fcb24aa6b0b"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e105-join-reuse-heldout-bind.json",
+        "bytes": 4210,
+        "sha256": "756e963cbc176b5ff01f7d0135ff4a8a688a593c184260d604d655dddf73bd1a"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/join_reuse_heldout.py",
+        "bind"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e105-join-reuse-heldout-bind.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e106-join-reuse-heldout-observe.log",
+        "bytes": 54712,
+        "sha256": "409fa0bb84ef3903be95c8e8d7281cd98d2f27b0a29aa348575ef6a4e797db76",
+        "summary": {
+          "observations": 152,
+          "passed": 129,
+          "harness_errors": 23,
+          "termination": "storage retained-log budget refusal"
+        }
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e107-join-completed-evidence-compaction.json",
+        "bytes": 4171,
+        "sha256": "297f6bfe6345dfeea256e9bcefcbd980f9aaeafcc930cba2423ce0051fc8efba"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/compact_join_completed_evidence.py"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "4381070d46c6ffd1de9ffedd1a3f85e492e9da730b01a4d10f53583627f48826",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e107-join-completed-evidence-compaction.log",
+        "bytes": 151,
+        "sha256": "4381070d46c6ffd1de9ffedd1a3f85e492e9da730b01a4d10f53583627f48826"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e108-join-heldout-continuation-freeze.json",
+        "bytes": 4221,
+        "sha256": "fdad6185920d6b0fc8b756e0fa77a828d72c07acb14706b3768d6501ca39b599"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/continue_join_reuse_heldout.py",
+        "freeze"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "d3b4d21782ddf7687d2c6b21825cb07b69873fa4d7978d9261ae8e0eb9f55462",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e108-join-heldout-continuation-freeze.log",
+        "bytes": 80,
+        "sha256": "d3b4d21782ddf7687d2c6b21825cb07b69873fa4d7978d9261ae8e0eb9f55462"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e109-join-heldout-continuation-observe.log",
+        "bytes": 12283,
+        "sha256": "22d3c2d6d8c88de45114a4b4d8decb90e194f372e653d712d1d659cf5da86ac5",
+        "summary": {
+          "continued_observations": 31,
+          "passed": 7,
+          "harness_errors": 24
+        }
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e110-join-cli-delivery-correction-freeze.json",
+        "bytes": 4219,
+        "sha256": "fffa6249e1989732162b4437a8a76b31ebbea3b71ea1d3e8822d3700b4595bc9"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/continue_join_cli_delivery.py",
+        "freeze"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "1c6935f9ba7eadfa72fb4f5c19720c338e1da8ab5accbdf174523f7ef4375470",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e110-join-cli-delivery-correction-freeze.log",
+        "bytes": 82,
+        "sha256": "1c6935f9ba7eadfa72fb4f5c19720c338e1da8ab5accbdf174523f7ef4375470"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e111-join-cli-delivery-correction-observe.log",
+        "bytes": 1264,
+        "sha256": "4bf7fe7c9c3e90bd05e8103af6c63e63072b961691dd8ba046deec84364e634c",
+        "summary": {
+          "missing_stream_engine_clock_refusals": 1,
+          "termination": "stopped under frozen correction policy"
+        }
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e112-join-cli-correctness-final-freeze.json",
+        "bytes": 4222,
+        "sha256": "2490aaffb8e3bd87b3afe51c59460c4c4bef9a1024dce763e7b75036c6cb3743"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/complete_join_cli_correctness.py",
+        "freeze"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "9b7055962f7905160496c77f3c9e57ddc56e130e1672151b9cf2d15417b62237",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e112-join-cli-correctness-final-freeze.log",
+        "bytes": 76,
+        "sha256": "9b7055962f7905160496c77f3c9e57ddc56e130e1672151b9cf2d15417b62237"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e113-join-cli-correctness-final-observe.log",
+        "bytes": 9351,
+        "sha256": "edb5595d236eb0b775c3db50bfd29437198e90019cbe465e71a08d799aa739c1",
+        "summary": {
+          "cli_streamed_correctness_observations": 24,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e114-join-heldout-complete-replay.json",
+        "bytes": 4211,
+        "sha256": "5645d9581f21c2760f35f62b850411858765ff38da0880d1cf10ff229a144c28"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_join_final_correctness.py"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "0e4ea631e8d43ee581227d47f76e07ab21bafe58bfa677b66ea56628542d8163",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e114-join-heldout-complete-replay.log",
+        "bytes": 767,
+        "sha256": "0e4ea631e8d43ee581227d47f76e07ab21bafe58bfa677b66ea56628542d8163"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e115-join-reuse-fmt-check.json",
+        "bytes": 4053,
+        "sha256": "db7e90165ed761d0147c4e5ef0d7ed7ece1072487bad52887e6ae29d8556982b"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e115-join-reuse-fmt-check.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e116-join-reuse-broad-freeze.json",
+        "bytes": 4223,
+        "sha256": "9e66ca55286040c6cfde7f5f752a00a92cc696e39d0d179a2443f37e8921f426"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_join_reuse_checkpoint.py",
+        "freeze"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "55de3781d814ea90b321abfc8f1ed65594c1f2929b28f7b66ce09a6e66244dd0",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e116-join-reuse-broad-freeze.log",
+        "bytes": 149,
+        "sha256": "55de3781d814ea90b321abfc8f1ed65594c1f2929b28f7b66ce09a6e66244dd0"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e117-join-reuse-broad-observe.log",
+        "bytes": 38741,
+        "sha256": "d09aff7336790c6a6931a18b5d9075b0a61a7b7babb4948f8c8d8174f360830d",
+        "summary": {
+          "observations": 347,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e118-join-reuse-broad-replay.json",
+        "bytes": 4224,
+        "sha256": "441b1d4cfb3fc0894f3cdd4df810e22e2f5d6c950fc04eea87f68b4582dc895a"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_join_reuse_checkpoint.py",
+        "compare"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "d613425ef2b5c884ebfe92cceb91869f75f4ec41d3c54fe0f234b41793f1797b",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e118-join-reuse-broad-replay.log",
+        "bytes": 585,
+        "sha256": "d613425ef2b5c884ebfe92cceb91869f75f4ec41d3c54fe0f234b41793f1797b"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e119-retained-workspace-clippy.json",
+        "bytes": 2545,
+        "sha256": "434b53618e537064fd0200c10d6d915a08ccd6e12c1668a3ecf13bc7a7406bd0"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "8950be1e8f4499f41b8e38ef15f09a0e2671be53a43aa5dec4d794320908881d",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e119-retained-workspace-clippy.log",
+        "bytes": 72,
+        "sha256": "8950be1e8f4499f41b8e38ef15f09a0e2671be53a43aa5dec4d794320908881d"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e120-retained-workspace-tests.json",
+        "bytes": 2546,
+        "sha256": "870e5dfea71c584ff241545dafec944c568353507193adbbf61d71c74af781a5"
+      },
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+      "log_sha256": "10dcdcc2d9bdf5a7f7f6936df4b6228814899f47853bf0be53806515ce72b433",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e120-retained-workspace-tests.log",
+        "bytes": 468460,
+        "sha256": "10dcdcc2d9bdf5a7f7f6936df4b6228814899f47853bf0be53806515ce72b433",
+        "test_totals": [
+          {
+            "passed": 830,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 26,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 21,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 11,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 11,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 29,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 13,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 4,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 18,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 13,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 58,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 2,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 723,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 317,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 120,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 759,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      "log_hash_verified": true
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-protocol.json",
+      "bytes": 7127,
+      "sha256": "e23f4db81b4e81e94eaceda146a57b66daff0b5cc2bf4b399385c0a844af6c3e",
+      "label": "join-reuse-protocol.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-provider-reference-correction.json",
+      "bytes": 751,
+      "sha256": "2b0a8254d597333338d57d8b4096a90ba0d8b510600600b20b567ae5d7402166",
+      "label": "join-provider-reference-correction.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-join-reuse-r1-comparison.json",
+      "bytes": 158765,
+      "sha256": "bd35e7b499ac0aba4c3feb2422fe0b18b258b606b3ff4aef4e02923778462ef3",
+      "label": "broad-join-reuse-r1-comparison.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-join-reuse-r1/inputs.json",
+      "bytes": 7905361,
+      "sha256": "3ba87dcadf897df3f145dff88be8e23c5e0e162086dd4653567670e63b7e9249",
+      "label": "broad-join-reuse-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-join-reuse-r1/native-observations.json",
+      "bytes": 955457,
+      "sha256": "60ae39a12de2615194a4cd8daf74df1b51bc69446b511b941eb9a69cdd733c65",
+      "label": "broad-join-reuse-r1/native-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-join-reuse-r1/native-observations.jsonl",
+      "bytes": 836783,
+      "sha256": "3a7d5332e1f9c866328c1fdf6311a7106736288636d3bb487db8c0c2c71a2cdd",
+      "label": "broad-join-reuse-r1/native-observations.jsonl"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/inputs.json",
+      "bytes": 7886615,
+      "sha256": "0b6b1eee007b6e67686dbdf8df5c8586934daa51f1261b2b15ba034dbc5224db",
+      "label": "broad-payload-validation-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/native-observations.json",
+      "bytes": 961048,
+      "sha256": "2a6a6e92c7096e2ead40f5efe978d86161a2c63467619954eee5893f95e92910",
+      "label": "broad-payload-validation-r1/native-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/payload-validation-disposition.json",
+      "bytes": 29692,
+      "sha256": "f566923911337d96d600611dce6fbc10d4a0bf350ed5a3f95b233e017c77c96d",
+      "label": "payload-validation-disposition.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/manifest.json",
+      "bytes": 3590,
+      "sha256": "5a354200127036e4cdcfa051ac625b90f192bc6d251bd035417e2b65bd242ed6",
+      "label": "candidate-join-reuse-release-r1/manifest.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/_native.abi3.so",
+      "bytes": 79900608,
+      "sha256": "a6691c605a18ef2748820dc4fa15b4a3d617cc4beaca93a2833e795b7c015089",
+      "label": "candidate-join-reuse-release-r1/_native.abi3.so"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/shardloom",
+      "bytes": 79605072,
+      "sha256": "2ca43762dcb45740fd3105979a6bbcbe1e56d62ce4e5c9aee58564cad917d7c1",
+      "label": "candidate-join-reuse-release-r1/shardloom"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/public-join-reuse-r1.json",
+      "bytes": 1471,
+      "sha256": "3e0bf696f14bd8bbba31df2d4f7d44e9a663401b122d04bddbe1cb24c39d7c55",
+      "label": "public-join-reuse-r1.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-corrected-replay.json",
+      "bytes": 807,
+      "sha256": "5ae05fd2afe9f9aacae1329e72986059a5af87b578351846cff0f6b7a73c4f83",
+      "label": "join-reuse-heldout-corrected-replay.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/observations.json",
+      "bytes": 102933,
+      "sha256": "e6e7e5d1bd28af98076fd8679d87d9f2053725a47f0523ef75ae623e44fd563d",
+      "label": "join-reuse-heldout-r2/observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/continuation-observations.json",
+      "bytes": 18545,
+      "sha256": "fd32995a43a83d969832af418359f79df8394621b3261cb79f07f03b39dead6a",
+      "label": "join-reuse-heldout-r2/continuation-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/cli-delivery-correction-observations.json",
+      "bytes": 1490,
+      "sha256": "c7b4671fca42383ec5ef24c735cb3cffe4a558d84d6aa3e090a118748e431acc",
+      "label": "join-reuse-heldout-r2/cli-delivery-correction-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-heldout-r2/cli-correctness-final-observations.json",
+      "bytes": 23385,
+      "sha256": "58cea2d712d989bf8562cc15000ddcd9518af9318f40fde8eee111343f3abd24",
+      "label": "join-reuse-heldout-r2/cli-correctness-final-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-completed-evidence-compaction.json",
+      "bytes": 1218884,
+      "sha256": "ed98fb08e663c17acf714227b39cccb8dbc3b856f30c465d1bdd7145ec15bbfb",
+      "label": "join-completed-evidence-compaction.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-e99-evidence-correction.json",
+      "bytes": 4978,
+      "sha256": "b7da4fc85d979edd8011c4f0196ebead37f85b0a1279ac60cdf95c3e04fc09ba",
+      "label": "join-e99-evidence-correction.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-heldout-continuation-plan.json",
+      "bytes": 1198297,
+      "sha256": "0799f3227def136305b22318b8078a3c0d30822f16e1789a5eb486b42f76a6ea",
+      "label": "join-heldout-continuation-plan.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-cli-delivery-correction-plan.json",
+      "bytes": 1291283,
+      "sha256": "9f524179941feeba01c359515d556042e1bfadd3b2266b745c263de95f7ca958",
+      "label": "join-cli-delivery-correction-plan.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-cli-correctness-final-plan.json",
+      "bytes": 1284018,
+      "sha256": "8a0cb8ded4742061459d3e895bab1d3b52bb4c27b227f4d6eaaa3aa8637efd6e",
+      "label": "join-cli-correctness-final-plan.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/python/tests/test_native_shared_provider_binding.py",
+      "bytes": 178765,
+      "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+      "label": "frozen candidate source: python/tests/test_native_shared_provider_binding.py"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+      "bytes": 25223,
+      "sha256": "e1273e8d6e2c4ee37b4c85274c7640b77e3e4ee6c41ef05ff0b02f6125f335cb",
+      "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_batch.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_gather_tests.rs",
+      "bytes": 6913,
+      "sha256": "6f1041e75975176675958f6ffc5060b4490c3b96e5715c7772678a360a0ec167",
+      "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_gather_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_join.rs",
+      "bytes": 16013,
+      "sha256": "5fd5cdac34235a7a555f51f86c6ae43b914cb962bbd0e4e362ac09b417587c1a",
+      "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_join.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_join_cache_tests.rs",
+      "bytes": 17215,
+      "sha256": "cf0f60fa16f73f4a92714d023dbdcdb60cbad7e4c2911c7fbcf3d4ca15cc4116",
+      "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_join_cache_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_join_tests.rs",
+      "bytes": 14438,
+      "sha256": "79552d80d66e28baacc0366a7a87201047b2683e6580e85b76eb95769262294a",
+      "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_join_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-join-reuse-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+      "bytes": 3500,
+      "sha256": "1da9ecc7cb1adbf2a76205587f8423585d5dd8d300be3e0015848a4916116e91",
+      "label": "frozen candidate source: shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+    }
+  ],
+  "pending_gates": [
+    "combined_item20_acceptance",
+    "workspace_acceptance",
+    "installed_package_acceptance",
+    "portable_acceptance",
+    "hosted_acceptance"
+  ],
+  "combined_item20_complete": false,
+  "publication_attempted": false
+}

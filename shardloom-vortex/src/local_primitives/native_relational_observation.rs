@@ -32,6 +32,7 @@ pub(crate) struct Counts {
     pub(crate) payload_boolean_validation_columns: u64,
     pub(crate) payload_boolean_validation_rows: u64,
     pub(crate) payload_validation_scalar_calls: u64,
+    pub(crate) payload_recursive_typed_validation_columns: u64,
     pub(crate) aggregate_filter_selections: u64,
     pub(crate) aggregate_numeric_state_reuses: u64,
     pub(crate) aggregate_numeric_reused_rows: u64,

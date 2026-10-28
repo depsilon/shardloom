@@ -1,0 +1,15 @@
+{
+  "protocol_sha256": "e23f4db81b4e81e94eaceda146a57b66daff0b5cc2bf4b399385c0a844af6c3e",
+  "incorrect_reference": "vendor/vortex-array/src/builtins/take",
+  "correction": "ArrayRef take is defined in array/erased.rs; the chunked implementation is arrays/chunked/compute/take.rs. This corrects a path reference only; no mechanism, input, resource, acceptance threshold or execution policy changes.",
+  "verified_sources": [
+    {
+      "path": "vendor/vortex-array/src/array/erased.rs",
+      "sha256": "28b4ddda60fc64d20f3df93c1890b78465a8ec00bd9f5b1bbb0fad6cdace602d"
+    },
+    {
+      "path": "vendor/vortex-array/src/arrays/chunked/compute/take.rs",
+      "sha256": "b96128fd2076685cb428e4ca307daf4bba58c7068e5955c4b10f4fb596ee78c8"
+    }
+  ]
+}

@@ -373,6 +373,91 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 self.assertEqual(table.schema.field("value").type, pa.uint64())
                 self.assertTrue(table.schema.field("right_id").nullable)
 
+    def test_join_repeated_matches_misses_and_owned_payloads_match_five_surfaces(self):
+        import struct
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{"id": index, "key": None if index % 17 == 0 else index % 19 - 4,
+                 "value": None if index % 13 == 0 else (-0.0 if index % 3 == 0 else index * .25),
+                 "text": None if index % 11 == 0 else f"independent selected text {index} 東京"}
+                for index in range(2053)]
+        right_rows = [{"key": key, "id": index, "text": f"build {index} λ"}
+                      for index, key in enumerate((None, -7, -3, -3, -1, 0, 0, 2, 4, 9, 20))]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False), pa.field("key", pa.int16()),
+                            pa.field("value", pa.float64()), pa.field("text", pa.string())])
+        right_schema = pa.schema([pa.field("key", pa.int16()), pa.field("id", pa.int64(), nullable=False),
+                                  pa.field("text", pa.string(), nullable=False)])
+
+        def check(table, wanted, fields):
+            self.assertEqual(table.schema, pa.schema(fields))
+            actual = table.to_pylist()
+            self.assertEqual(actual, wanted)
+            for row, expected in zip(actual, wanted):
+                if row["value"] is not None:
+                    self.assertEqual(struct.pack("!d", row["value"]), struct.pack("!d", expected["value"]))
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-join-reuse-") as directory:
+            path, right_path = Path(directory) / "left.parquet", Path(directory) / "right.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=1021)
+            parquet.write_table(pa.Table.from_pylist(right_rows, schema=right_schema), right_path, row_group_size=2)
+            source, right_source = native.Relation.scan(str(path)), native.Relation.scan(str(right_path))
+            for kind in ("inner", "left", "right", "full", "semi", "anti"):
+                columns = [("left", "id", "left_id"), ("left", "value", "value"), ("left", "text", "left_text")]
+                fields = [pa.field("left_id", pa.int64(), nullable=kind in ("right", "full")),
+                          pa.field("value", pa.float64()), pa.field("left_text", pa.string())]
+                order = ["left_id"]
+                if kind not in ("semi", "anti"):
+                    columns += [("right", "id", "right_id"), ("right", "text", "right_text")]
+                    fields += [pa.field("right_id", pa.int64(), nullable=kind in ("left", "full")),
+                               pa.field("right_text", pa.string(), nullable=kind in ("left", "full"))]
+                    order.append("right_id")
+                wanted, matched = [], set()
+                def output(left, right):
+                    return {alias: (left if side == "left" else right).get(name) for side, name, alias in columns}
+                for row in rows:
+                    matches = [other for other in right_rows if row["key"] is not None and row["key"] == other["key"]]
+                    if kind in ("semi", "anti"):
+                        if bool(matches) == (kind == "semi"):
+                            wanted.append(output(row, {}))
+                    elif matches:
+                        wanted.extend(output(row, other) for other in matches)
+                        matched.update(other["id"] for other in matches)
+                    elif kind in ("left", "full"):
+                        wanted.append(output(row, {}))
+                if kind in ("right", "full"):
+                    wanted.extend(output({}, other) for other in right_rows if other["id"] not in matched)
+                wanted.sort(key=lambda row: tuple((row[name] is None, row[name] or 0) for name in order))
+                selects = [f"{'f' if side == 'left' else 'd'}.{name} AS {alias}" for side, name, alias in columns]
+                dataframe = sl.read_parquet(path, client=client).join(sl.read_parquet(right_path, client=client),
+                    on="key", how=kind).select(*selects).sort(*order, nulls="last")
+                native_kind = {"semi": "left_semi", "anti": "left_anti"}.get(kind, kind)
+                relation = source.join(right_source, [("key", "key")], columns, kind=native_kind)
+                relation = relation.sort([(name, False, "last") for name in order])
+                sql_kind = {"semi": "LEFT SEMI", "anti": "LEFT ANTI"}.get(kind, kind.upper())
+                sql = f"SELECT {','.join(selects)} FROM '{path}' AS f {sql_kind} JOIN '{right_path}' AS d ON f.key=d.key"
+                sql += " ORDER BY " + ",".join(f"{name} NULLS LAST" for name in order)
+                with self.subTest(kind=kind):
+                    for table in self.all_surfaces(dataframe, relation, sql):
+                        check(table, wanted, fields)
+                if kind == "full":
+                    retained_sql, retained_expected, retained_fields = sql, wanted, fields
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.sql(retained_sql).collect()
+            path.unlink()
+            right_path.unlink()
+            retained_source = retained.as_source()
+            reused = producer.sql("SELECT * FROM 'memory://retained' ORDER BY left_id NULLS LAST,right_id NULLS LAST",
+                sources=[("memory://retained", retained_source)]).collect()
+            del retained_source
+            producer.close()
+            check(self.table(retained), retained_expected, retained_fields)
+            check(self.table(reused), retained_expected, retained_fields)
+
     def test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces(self):
         from decimal import Decimal
         import shardloom as sl

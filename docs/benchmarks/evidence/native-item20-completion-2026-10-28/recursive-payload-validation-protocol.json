@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 typed complete-payload validation at eligible recursive leaves",
+  "source_before_runtime_edits": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/inputs.json",
+  "baseline_inputs_sha256": "0b6b1eee007b6e67686dbdf8df5c8586934daa51f1261b2b15ba034dbc5224db",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/native-observations.json",
+  "baseline_observations_sha256": "2a6a6e92c7096e2ead40f5efe978d86161a2c63467619954eee5893f95e92910",
+  "baseline_engine_seconds": 18.304092867,
+  "baseline_policy": "Reuse the complete retained typed-payload checkpoint and independently validated references. Focused native, strict lint and fresh five-interface correctness gates pass. Combined full native/workspace/package, portable and hosted acceptance remain open in PR 1619. Replay saved results; do not rerun baseline queries.",
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/payload-validation-disposition.json",
+    "sha256": "f566923911337d96d600611dce6fbc10d4a0bf350ed5a3f95b233e017c77c96d"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "Share the existing exact dtype/row checked typed numeric, Boolean and native variable-width validator between flat-record validation and the recursive copy_rows validation-only path. A rich or decimal sibling must not prevent eligible scalar leaves from reusing that same validator.",
+    "Reuse the existing recursive struct/list owner, parent masks, selected row coordinates, native take and canonicalization before leaf admission. Admit only ValidateValues with RETAIN=false, every selected coordinate present, matching complete row count and matching declared dtype. Missing coordinates, unsupported views and decimal leaves retain their original validation path. No field, row, child or dictionary domain outside the ordinary selected obligation is evaluated.",
+    "Return the same credited empty typed leaf required by the validation-only recursive result. Retained payload copying, private PreserveUnobserved movement, metadata ownership and source/output contracts remain under their existing owners. No new provider, concurrency, source route or validation memoization is added."
+  ],
+  "activation_evidence": [
+    "Debug-test counters prove recursive typed-leaf admission and fewer scalar construction calls; existing numeric/Boolean/variable counters prove complete leaf row coverage.",
+    "Compare validation with the retained ordinary copier for every dtype/null/selection combination, exact first diagnostic and complete discarded-row coverage.",
+    "Prove masked nonnullable child and decimal decline paths, native dictionary and selected list domains, null and empty nested parents, changing batches and lazy unselected values.",
+    "Verify finite numeric and temporal domains, signed-zero output bits, field order across invalid decimal/numeric siblings, schema identity, cancellation cadence, pressure refusal and credit release.",
+    "Verify independent retained results after source and producer closure through five public interfaces; preserve all original failures and all observations."
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "projection",
+      "ordering"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag. Substantial complete-cohort benefit may outweigh a small isolated timing regression under the October 28 maintainer policy. Additional execution needs a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete values, schema, selected-domain and hidden-parent semantics, first error order, discarded rows, ownership, pressure/refusal and cancellation must pass. Otherwise drop the mechanism and preserve every observation.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610286103,
+      202610286307
+    ],
+    "rows": 8197,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "wide_rich_ordered_prefix",
+      "nullable_struct_siblings",
+      "variable_list_leaves",
+      "nested_struct_list",
+      "decimal_temporal_siblings",
+      "filtered_rich_prefix",
+      "empty_rich_selection",
+      "retained_rich_projection"
+    ],
+    "scope": "Freeze eight composed rich-payload workflows, fresh independent complete references and source identities before 160 observations through five public interfaces. Native checks cover invalid values, first errors, hidden parents, encoded domains, activation, pressure and cancellation. No additional benefit cohort."
+  },
+  "execution_policy": "One isolated sequential execution of every original case in original order with the existing guard, storage limits, deadlines, complete result validation and process cleanup. Finish task-owned builds/tests/agents before queries. Full hashes and recursive inventories stay outside query execution. No cache manipulation, artificial pacing or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/observations.json",
+    "bytes": 33206,
+    "sha256": "b0d682455f2e475538ba4126380c3869eddb7046c5d9b01f2447459383b79bdc",
+    "protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/protocol.json",
+      "bytes": 208705,
+      "sha256": "b5f724ae0009c329a27add972ad3b07485fe617b364eb7f2e083eece65063941"
+    },
+    "finding": "All seven refreshed diagnostic queries pass complete results. Complete payload validation remains the dominant measured stage in projection_wide. Source inspection shows that any nested/decimal field selects recursive copy_rows for the entire record, whose scalar leaves do not reach the retained typed validator. Diagnostic elapsed spans are not a replacement performance observation."
+  },
+  "vortex_first_check": {
+    "decision": "use_vortex_native_provider",
+    "reused": [
+      "native_payload recursive copy/validation owner and parent coordinates",
+      "validate_numeric_column and existing typed Boolean/variable validators",
+      "Vortex Columnar/Primitive/VarBinView native owners, validity, struct fields and take",
+      "ReservedVec and existing schema/output host-allocator credits"
+    ],
+    "upstream_checked": [
+      "vendor/vortex-array/src/columnar.rs",
+      "vendor/vortex-array/src/arrays/struct_/array.rs",
+      "vendor/vortex-array/src/arrays/struct_/compute/take.rs",
+      "vendor/vortex-array/src/array/erased.rs"
+    ],
+    "boundary": "Extend reachability inside the existing admitted native payload validator. Preserve recursive selection before leaf canonicalization and provider validation. The pinned Vortex provider supplies physical arrays/masks; ShardLoom retains semantic finite/temporal checks and deterministic field order. No external evaluator, dependency or decode-to-Arrow substrate is introduced."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false,
+  "audit_evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/count-cohort-shape-inventory.md",
+      "bytes": 10492,
+      "sha256": "f004abe9a9ad15fba1b01bb5a38876b277df52772faf2ea2635fb4bec9e59085"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/count-consumer-current-inventory.md",
+      "bytes": 7957,
+      "sha256": "807df7591a95602aa659e0537a005779880ddfa1a711b24cb7e12ce123d154da"
+    }
+  ]
+}

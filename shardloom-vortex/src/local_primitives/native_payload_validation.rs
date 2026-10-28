@@ -7,8 +7,8 @@ use super::{
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use vortex::array::{
-    ArrayRef, Columnar, IntoArray, VortexSessionExecute as _, arrays::PrimitiveArray, dtype::DType,
-    memory::HostMemorySessionExt as _,
+    ArrayRef, Columnar, ExecutionCtx, IntoArray, VortexSessionExecute as _, arrays::PrimitiveArray,
+    dtype::DType, memory::HostMemorySessionExt as _,
 };
 
 #[path = "native_payload_validation_typed.rs"]
@@ -65,20 +65,15 @@ pub(in crate::local_primitives) fn validate_record(
         } else {
             None
         };
-        if column.dtype() == dtype && column.len() == array.len() {
-            if let Some(numeric) = &numeric {
-                result_batch::validate_numeric_column(
-                    dtype,
-                    numeric.primitive(),
-                    numeric.validity(),
-                    &context.native_session().host_allocator(),
-                    || context.check_cancelled(),
-                )?;
-                continue;
-            }
-            if typed::validate(&column, &mut execution, context)? {
-                continue;
-            }
+        if validate_typed_column(
+            &column,
+            dtype,
+            array.len(),
+            numeric.as_ref(),
+            &mut execution,
+            context,
+        )? {
+            continue;
         }
         drop(result_batch::build_column_prefix(
             dtype,
@@ -100,4 +95,31 @@ pub(in crate::local_primitives) fn validate_record(
         )?);
     }
     context.check_cancelled()
+}
+
+/// Reuse the same complete leaf validator after an owner has resolved its
+/// observed selection. False leaves unsupported or changed domains with the
+/// caller's original scalar path; it never certifies a partial column.
+pub(super) fn validate_typed_column(
+    column: &ArrayRef,
+    dtype: &DType,
+    rows: usize,
+    numeric: Option<&NativeNumericOwner>,
+    execution: &mut ExecutionCtx,
+    context: &NativeExecutionContext<'_>,
+) -> Result<bool> {
+    if column.dtype() != dtype || column.len() != rows {
+        return Ok(false);
+    }
+    if let Some(numeric) = numeric {
+        result_batch::validate_numeric_column(
+            dtype,
+            numeric.primitive(),
+            numeric.validity(),
+            &context.native_session().host_allocator(),
+            || context.check_cancelled(),
+        )?;
+        return Ok(true);
+    }
+    typed::validate(column, execution, context)
 }

@@ -8,7 +8,7 @@ use shardloom_core::ColumnRef;
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::{
     array::{
-        arrays::{DecimalArray, DictArray, VarBinViewArray},
+        arrays::{BoolArray, DecimalArray, DictArray, VarBinViewArray},
         dtype::{DecimalDType, FieldNames},
         extension::datetime::{Time, TimeUnit},
     },
@@ -330,4 +330,176 @@ fn streamed_rich_prefix_byte_counts_include_nested_offsets_validity_and_repeated
         })
         .unwrap();
     assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
+#[cfg(debug_assertions)]
+fn observe_validation(array: &ArrayRef) -> super::super::native_relational_observation::Counts {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let counts = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let before = context.memory().snapshot().reserved_bytes;
+            let observed = super::super::native_relational_observation::Session::start();
+            validate_record(array, &fields(array), context)?;
+            let counts = observed.finish();
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+            Ok(counts)
+        })
+        .unwrap();
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+    counts
+}
+
+#[test]
+fn recursive_payload_leaves_reuse_complete_typed_validation_for_all_flat_widths() {
+    let mut arrays = Vec::new();
+    macro_rules! integer {
+        ($($t:ty),+) => { $(
+            arrays.push(PrimitiveArray::from_option_iter((0..2053).map(|row| match row % 4 {
+                0 => Some(<$t>::MIN), 1 => Some(<$t>::MAX), 2 => None, _ => Some(0),
+            })).into_array());
+        )+ };
+    }
+    integer!(u8, u16, u32, u64, i8, i16, i32, i64);
+    arrays.push(
+        PrimitiveArray::from_option_iter((0..2053).map(|row| {
+            [
+                None,
+                Some(-0.0_f32),
+                Some(f32::from_bits(1)),
+                Some(f32::MIN),
+            ][row % 4]
+        }))
+        .into_array(),
+    );
+    arrays.push(
+        PrimitiveArray::from_option_iter((0..2053).map(|row| {
+            [
+                None,
+                Some(-0.0_f64),
+                Some(f64::from_bits(1)),
+                Some(f64::MAX),
+            ][row % 4]
+        }))
+        .into_array(),
+    );
+    arrays.push(
+        BoolArray::from_iter((0..2053).map(|row| [None, Some(false), Some(true)][row % 3]))
+            .into_array(),
+    );
+    arrays.push(
+        VarBinViewArray::from_iter_nullable_str((0..2053).map(|row| {
+            [
+                None,
+                Some(""),
+                Some("東京\0é"),
+                Some("long native text outside inline λ"),
+            ][row % 4]
+        }))
+        .into_array(),
+    );
+    arrays.push(
+        VarBinViewArray::from_iter_nullable_bin((0..2053).map(|row| {
+            [
+                None,
+                Some(b"".as_slice()),
+                Some(b"\0\xff"),
+                Some(&[0xff; 31]),
+            ][row % 4]
+        }))
+        .into_array(),
+    );
+    for source in arrays {
+        for source in [
+            source.clone(),
+            source.slice(1..2052).unwrap(),
+            source.slice(1..1).unwrap(),
+        ] {
+            let rows = source.len();
+            let nested = record(vec![("leaf", source.clone())], Validity::NonNullable);
+            let array = record(
+                vec![
+                    ("flat", source),
+                    ("nested", nested),
+                    ("amount", decimal(&vec![7; rows])),
+                ],
+                Validity::NonNullable,
+            );
+            check_copy_agreement(&array, None);
+            #[cfg(debug_assertions)]
+            {
+                let counts = observe_validation(&array);
+                assert_eq!(counts.payload_validation_scalar_calls, 0);
+                assert_eq!(counts.numeric_output_copy_rows, 0);
+                assert_eq!(
+                    counts.payload_numeric_validation_rows
+                        + counts.payload_variable_validation_rows
+                        + counts.payload_boolean_validation_rows,
+                    (2 * rows) as u64
+                );
+                assert_eq!(
+                    counts.payload_recursive_typed_validation_columns,
+                    if rows == 0 { 0 } else { 2 }
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn recursive_payload_validation_uses_only_selected_list_and_dictionary_domains() {
+    let dictionary = DictArray::try_new(
+        PrimitiveArray::from_iter([2_u8, 0, 2]).into_array(),
+        PrimitiveArray::from_iter([1.0_f64, f64::NAN, -0.0]).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    let list = list(
+        PrimitiveArray::from_iter([f64::NAN, -0.0, 1.0, f64::INFINITY]).into_array(),
+        &[1, 2, 2, 3],
+        Validity::NonNullable,
+    );
+    let array = record(
+        vec![("encoded", dictionary), ("selected", list)],
+        Validity::NonNullable,
+    );
+    check_copy_agreement(&array, None);
+    #[cfg(debug_assertions)]
+    {
+        let counts = observe_validation(&array);
+        assert_eq!(counts.payload_recursive_typed_validation_columns, 2);
+        assert_eq!(counts.payload_numeric_validation_rows, 5);
+        assert_eq!(counts.payload_validation_scalar_calls, 0);
+    }
+}
+
+#[test]
+fn recursive_payload_validation_keeps_missing_parent_coordinates_on_original_path() {
+    let child = record(
+        vec![(
+            "hidden",
+            PrimitiveArray::from_iter([f64::NAN, -0.0]).into_array(),
+        )],
+        Validity::from_iter([false, true]),
+    );
+    let fixed = FixedSizeListArray::try_new(
+        PrimitiveArray::from_iter([f64::NAN, f64::INFINITY, -0.0, 1.0]).into_array(),
+        2,
+        Validity::from_iter([false, true]),
+        2,
+    )
+    .unwrap()
+    .into_array();
+    let visible = PrimitiveArray::from_iter([1_i64, 2]).into_array();
+    let array = record(
+        vec![("child", child), ("fixed", fixed), ("visible", visible)],
+        Validity::NonNullable,
+    );
+    check_copy_agreement(&array, None);
+    #[cfg(debug_assertions)]
+    {
+        let counts = observe_validation(&array);
+        assert_eq!(counts.payload_recursive_typed_validation_columns, 1);
+        assert_eq!(counts.payload_numeric_validation_rows, 2);
+        assert_eq!(counts.payload_validation_scalar_calls, 6);
+    }
 }

@@ -1,0 +1,717 @@
+{
+  "schema_version": 1,
+  "candidate": "Recursive typed-leaf complete payload validation",
+  "decision": "retained_for_combined_item20_acceptance",
+  "benefit_gate_passed": true,
+  "complete_comparisons": 347,
+  "complete_rows": 12565,
+  "baseline_engine_seconds": 18.304092867,
+  "candidate_engine_seconds": 17.729495249,
+  "reduction_fraction": 0.03139175605014166,
+  "reduction_percent": 3.139175605014166,
+  "materially_improved_declared_families": [
+    "projection"
+  ],
+  "projection_reduction_fraction": 0.18072127004950167,
+  "projection_reduction_percent": 18.07212700495017,
+  "material_case_regressions": [],
+  "material_family_regressions": [],
+  "comparison_scope": "Same 347 cases, same five Parquet files, one native observation per case per candidate. Engine clocks only for retention; no statistical confidence claim.",
+  "statistical_confidence_claim": false,
+  "causal_claim": false,
+  "failed_candidate_attempts": [],
+  "failure_history_note": "No recursive validation correction or failed candidate attempt is present in e127-e141; prior payload-validation and join-candidate histories remain linked as prior evidence.",
+  "public": {
+    "status": "passed",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "posthash_verified": true,
+    "public_interfaces": 5,
+    "test_names": [
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_numeric_extrema_and_selected_outputs_match_all_five_surfaces",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_join_repeated_matches_misses_and_owned_payloads_match_five_surfaces",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces"
+    ],
+    "regression_scope": "Includes the six-kind join ownership regression after the join candidate was removed."
+  },
+  "focused_native_tests": {
+    "passed": 26,
+    "failed": 0,
+    "ignored": 0
+  },
+  "heldout": {
+    "status": "passed",
+    "observations": 160,
+    "complete_rows": 33260,
+    "complete_input_readback_rows": 32788,
+    "independent_reference_rows": 6652,
+    "public_interfaces": 5,
+    "comparison_engine_invoked": false,
+    "observation_status_counts": {
+      "passed": 160
+    }
+  },
+  "candidate_release": {
+    "profile": "release",
+    "manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/manifest.json",
+      "bytes": 3589,
+      "sha256": "a037c82979865d072d8fa25d3be1e9488d9e5fa02138edefed6c64674352edf2"
+    },
+    "source_snapshot": {
+      "python/tests/test_native_shared_provider_binding.py": {
+        "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+        "bytes": 178765
+      },
+      "shardloom-vortex/src/local_primitives/native_payload.rs": {
+        "sha256": "936c850c4dc4048d5783eeff89a4a45c32bc39b9c06900ea78b7c45143d4af0d",
+        "bytes": 23450
+      },
+      "shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+        "sha256": "2c5a7632d6b5dd4e05aa719d5aaf422b9f3d6d57e0d5de9b94255712c7ba627c",
+        "bytes": 4535
+      },
+      "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+        "sha256": "2437de5410e5558eb3cb6ad3b6adb177d760d240ae7b1f8ab4801a307e1abc13",
+        "bytes": 17977
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+        "sha256": "de1e0bc7f36737bbf8a0bc6717347e3bbb8f5a346319831ce10879ae9862a516",
+        "bytes": 3342
+      }
+    },
+    "source_files": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/python/tests/test_native_shared_provider_binding.py",
+        "bytes": 178765,
+        "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+        "label": "python/tests/test_native_shared_provider_binding.py"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_payload.rs",
+        "bytes": 23450,
+        "sha256": "936c850c4dc4048d5783eeff89a4a45c32bc39b9c06900ea78b7c45143d4af0d",
+        "label": "shardloom-vortex/src/local_primitives/native_payload.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+        "bytes": 4535,
+        "sha256": "2c5a7632d6b5dd4e05aa719d5aaf422b9f3d6d57e0d5de9b94255712c7ba627c",
+        "label": "shardloom-vortex/src/local_primitives/native_payload_validation.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+        "bytes": 17977,
+        "sha256": "2437de5410e5558eb3cb6ad3b6adb177d760d240ae7b1f8ab4801a307e1abc13",
+        "label": "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+        "bytes": 3342,
+        "sha256": "de1e0bc7f36737bbf8a0bc6717347e3bbb8f5a346319831ce10879ae9862a516",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+      }
+    ],
+    "runtime_files": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/_native.abi3.so",
+        "bytes": 79900560,
+        "sha256": "b0c6d984d9d05bc992979cdfa03347aba3a2ac69c1129f67a9c61f7369d921c8",
+        "label": "candidate runtime _native.abi3.so"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/shardloom",
+        "bytes": 79605280,
+        "sha256": "9f2b6c7405cc2b2dd98910e812f83c1d6e0f41b9bfdbf3c939c610daacb7fbcb",
+        "label": "candidate runtime shardloom"
+      }
+    ]
+  },
+  "diagnostic_profile": {
+    "status": "passed",
+    "diagnostic_only": true,
+    "queries": 7,
+    "protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/protocol.json",
+      "bytes": 208705,
+      "sha256": "b5f724ae0009c329a27add972ad3b07485fe617b364eb7f2e083eece65063941"
+    },
+    "observations": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/observations.json",
+      "bytes": 33206,
+      "sha256": "b0d682455f2e475538ba4126380c3869eddb7046c5d9b01f2447459383b79bdc"
+    },
+    "use": "Stage diagnosis only; not a replacement or addition to the accepted 347-case cohort time."
+  },
+  "preserved_prior_join_drop": {
+    "decision": "dropped_no_prospective_benefit",
+    "evidence": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-disposition.json",
+      "bytes": 63211,
+      "sha256": "7cf38509c70956ae626d9239e540f574fa4e96a996b123689a652441e4aae45c"
+    }
+  },
+  "receipts": [
+    {
+      "id": "e127-recursive-validation-protocol",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e127-recursive-validation-protocol.json",
+        "bytes": 3355,
+        "sha256": "03fefd0745169cc18118978193f7e28f23413e29a15bccaf4dee0cb188b5c32e"
+      },
+      "returncode": 0,
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_recursive_validation_protocol.py"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e127-recursive-validation-protocol.log",
+        "bytes": 137,
+        "sha256": "5cc371c868ef38980592841e2484e0046f22abfbdbcf5c6f854ce0eeb4b961f2"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e128-recursive-validation-format",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e128-recursive-validation-format.json",
+        "bytes": 4570,
+        "sha256": "7b3df189e8d1e3b045c2565c0275ce458bcb4393171bf3b546091acbdd64b19d"
+      },
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e128-recursive-validation-format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e129-recursive-validation-native-clippy",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e129-recursive-validation-native-clippy.json",
+        "bytes": 4834,
+        "sha256": "580b74e96341069200a1d8642d75e65505bc2878be660011c3cf197f986b3b7f"
+      },
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e129-recursive-validation-native-clippy.log",
+        "bytes": 440,
+        "sha256": "174a01cc3200b9e0bbc8e738e6c609fe949d921d7a7a1bec5f787aababcde86b"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e130-recursive-validation-focused",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e130-recursive-validation-focused.json",
+        "bytes": 4782,
+        "sha256": "7c9b0f756ee19a9a9c9b1a7e6c61cc878aff169eb363eb91d85e2255785fd14a"
+      },
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--lib",
+        "native_payload::",
+        "--",
+        "--test-threads=2"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e130-recursive-validation-focused.log",
+        "bytes": 4121,
+        "sha256": "15a48d06a04301649b86dd51fedbc99cab3de7ff6ebf49ef89653dc6c3e67eda"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e131-recursive-validation-release",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e131-recursive-validation-release.json",
+        "bytes": 4724,
+        "sha256": "2a0c35088e18f9323318900bb0ecf471a071cd54a563eda99968746ad1eaa2bb"
+      },
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--release"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e131-recursive-validation-release.log",
+        "bytes": 426,
+        "sha256": "92b354c1e4d8f9818694b8957553c1f56fffbaf55f458c263ebb8e3fc8b7965c"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e132-recursive-validation-fmt-check",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e132-recursive-validation-fmt-check.json",
+        "bytes": 4595,
+        "sha256": "28c8dc446b1a1163cf4bff92799fd8d023268c20b300b80f5d5f7b9e4bf3605e"
+      },
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e132-recursive-validation-fmt-check.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e133-recursive-runtime-freeze",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e133-recursive-runtime-freeze.json",
+        "bytes": 4868,
+        "sha256": "e27d396e920f78015a9bd3f8da42226096bcbc2a7df33e889e948cc593347d91"
+      },
+      "returncode": 0,
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_runtime.py",
+        "--build-receipt",
+        "e131-recursive-validation-release.json",
+        "--destination",
+        "candidate-recursive-validation-release-r1",
+        "--profile",
+        "release"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e133-recursive-runtime-freeze.log",
+        "bytes": 318,
+        "sha256": "bb45f7df9357a699a90db350f528f9795a2405885e0921d5bf6c430415570781"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e134-public-recursive-validation",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e134-public-recursive-validation.json",
+        "bytes": 4757,
+        "sha256": "f87750b68d93d983ea0b2bc19e2a71c55d6da150b57adb8ca4e8ca3485223236"
+      },
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_public_recursive_validation.py"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e134-public-recursive-validation.log",
+        "bytes": 2780,
+        "sha256": "2fca78823c4ba8f44c83bfe850424377edcdeedc29e1abfbf6564b86c2f58515"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e135-recursive-heldout-freeze",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e135-recursive-heldout-freeze.json",
+        "bytes": 4765,
+        "sha256": "18709301ec44b02d6fd8307cec7359b28aeb885adf7af651511fe4d0867807c2"
+      },
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/recursive_validation_heldout.py",
+        "freeze"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e135-recursive-heldout-freeze.log",
+        "bytes": 286,
+        "sha256": "33bbca9725308df2224ac96ffb8e1f1a3befa445fd43171f5bc2e7a5ede92d6c"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e136-recursive-heldout-bind",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e136-recursive-heldout-bind.json",
+        "bytes": 4762,
+        "sha256": "afdb2c69f7c3ac7acd04ea2b95ba7b13f868b89c93dd795ae6a9308bce51d78b"
+      },
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/recursive_validation_heldout.py",
+        "bind"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e136-recursive-heldout-bind.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e137-recursive-heldout-observe",
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e137-recursive-heldout-observe.log",
+        "bytes": 53900,
+        "sha256": "0ce92a2f6ef438cf37dfed199e0b4549db7299e18e68f08c263a2af10ec1cb8a"
+      }
+    },
+    {
+      "id": "e138-recursive-heldout-replay",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e138-recursive-heldout-replay.json",
+        "bytes": 4758,
+        "sha256": "12f0682d232d00a392bc14f2909a4a47e2b72d01905c7d03512eab98601c0402"
+      },
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_recursive_validation_heldout.py"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e138-recursive-heldout-replay.log",
+        "bytes": 334,
+        "sha256": "c23b83597fe9467d32d936e66d9574621a03a1e77b75195c19ada4b99bbbb200"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e139-recursive-broad-freeze",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e139-recursive-broad-freeze.json",
+        "bytes": 4774,
+        "sha256": "f371a3a62a6e7a700038f3c864b5b6135c1085a4a0c63b6c7f2ad13494d964ac"
+      },
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_recursive_validation_checkpoint.py",
+        "freeze"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e139-recursive-broad-freeze.log",
+        "bytes": 159,
+        "sha256": "b2c367b6419899b73fe1cc49e62c2a72d6a0d610057b15df917467e66d741dbd"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e140-recursive-broad-observe",
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e140-recursive-broad-observe.log",
+        "bytes": 38741,
+        "sha256": "d09aff7336790c6a6931a18b5d9075b0a61a7b7babb4948f8c8d8174f360830d"
+      }
+    },
+    {
+      "id": "e141-recursive-broad-replay",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e141-recursive-broad-replay.json",
+        "bytes": 4776,
+        "sha256": "009b0d654c335401af9d004c9239c164cb54b465f37a4849542168dfe2b97193"
+      },
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_recursive_validation_checkpoint.py",
+        "compare"
+      ],
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e141-recursive-broad-replay.log",
+        "bytes": 602,
+        "sha256": "012ab5d99cf44060ce6b25621217b3b3c171df54f4564fa696c0639e0b4dd712"
+      },
+      "log_hash_verified": true
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-payload-validation-protocol.json",
+      "bytes": 8336,
+      "sha256": "ac07a17bc9e96e0414d2b545872394afea78df20dc1831b2ad8f8b948b724c57",
+      "label": "recursive-payload-validation-protocol.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-recursive-validation-r1-comparison.json",
+      "bytes": 158784,
+      "sha256": "ac0e011e6aae177f880f4a0e1af62d150fa1fc26db4977b45eb626c8464f53f1",
+      "label": "broad-recursive-validation-r1-comparison.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-recursive-validation-r1/inputs.json",
+      "bytes": 7900377,
+      "sha256": "27afdda95c26fbc271580644cfa06a1a3d693c30a463a295ce5f348c7131fe0c",
+      "label": "broad-recursive-validation-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-recursive-validation-r1/native-observations.json",
+      "bytes": 962529,
+      "sha256": "83f162577099e91d1a6835f3cedec327cc0a2834b61edc976b613bd76bb13a3b",
+      "label": "broad-recursive-validation-r1/native-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/inputs.json",
+      "bytes": 7886615,
+      "sha256": "0b6b1eee007b6e67686dbdf8df5c8586934daa51f1261b2b15ba034dbc5224db",
+      "label": "broad-payload-validation-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/native-observations.json",
+      "bytes": 961048,
+      "sha256": "2a6a6e92c7096e2ead40f5efe978d86161a2c63467619954eee5893f95e92910",
+      "label": "broad-payload-validation-r1/native-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-validation-heldout-r1/inputs.json",
+      "bytes": 383753,
+      "sha256": "d411431406a136ffc40278ca409eefe5581c6f90ee707ebf178a505db18f05a8",
+      "label": "recursive-validation-heldout-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-validation-heldout-r1/runtime.json",
+      "bytes": 2148,
+      "sha256": "4568117ca67a524ada653ad3e3dd8acbad286c592d50b2be72186893daed2794",
+      "label": "recursive-validation-heldout-r1/runtime.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-validation-heldout-r1/observations.json",
+      "bytes": 62270,
+      "sha256": "f8ddbdc1e1e049848c1c89d6c4dbb642947716c87300784ea16f77cdee94d1fd",
+      "label": "recursive-validation-heldout-r1/observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-validation-heldout-r1-replay.json",
+      "bytes": 352,
+      "sha256": "f05a071671f6c96cc5d39b974a6a0e2a5445954b3fcefbfa384c57aeac8bceb9",
+      "label": "recursive-validation-heldout-r1-replay.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/public-recursive-validation-r1.json",
+      "bytes": 1860,
+      "sha256": "ceed0dcf37c6ce105a1a1f62e9914c566846376420046006702ab26c84eba51b",
+      "label": "public-recursive-validation-r1.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/manifest.json",
+      "bytes": 3589,
+      "sha256": "a037c82979865d072d8fa25d3be1e9488d9e5fa02138edefed6c64674352edf2",
+      "label": "candidate-recursive-validation-release-r1/manifest.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/protocol.json",
+      "bytes": 208705,
+      "sha256": "b5f724ae0009c329a27add972ad3b07485fe617b364eb7f2e083eece65063941",
+      "label": "native-stage-profile-r2/protocol.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/observations.json",
+      "bytes": 33206,
+      "sha256": "b0d682455f2e475538ba4126380c3869eddb7046c5d9b01f2447459383b79bdc",
+      "label": "native-stage-profile-r2/observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/join-reuse-disposition.json",
+      "bytes": 63211,
+      "sha256": "7cf38509c70956ae626d9239e540f574fa4e96a996b123689a652441e4aae45c",
+      "label": "join-reuse-disposition.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/payload-validation-disposition.json",
+      "bytes": 29692,
+      "sha256": "f566923911337d96d600611dce6fbc10d4a0bf350ed5a3f95b233e017c77c96d",
+      "label": "payload-validation-disposition.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/python/tests/test_native_shared_provider_binding.py",
+      "bytes": 178765,
+      "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+      "label": "python/tests/test_native_shared_provider_binding.py"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_payload.rs",
+      "bytes": 23450,
+      "sha256": "936c850c4dc4048d5783eeff89a4a45c32bc39b9c06900ea78b7c45143d4af0d",
+      "label": "shardloom-vortex/src/local_primitives/native_payload.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+      "bytes": 4535,
+      "sha256": "2c5a7632d6b5dd4e05aa719d5aaf422b9f3d6d57e0d5de9b94255712c7ba627c",
+      "label": "shardloom-vortex/src/local_primitives/native_payload_validation.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+      "bytes": 17977,
+      "sha256": "2437de5410e5558eb3cb6ad3b6adb177d760d240ae7b1f8ab4801a307e1abc13",
+      "label": "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+      "bytes": 3342,
+      "sha256": "de1e0bc7f36737bbf8a0bc6717347e3bbb8f5a346319831ce10879ae9862a516",
+      "label": "shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/_native.abi3.so",
+      "bytes": 79900560,
+      "sha256": "b0c6d984d9d05bc992979cdfa03347aba3a2ac69c1129f67a9c61f7369d921c8",
+      "label": "candidate runtime _native.abi3.so"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-recursive-validation-release-r1/shardloom",
+      "bytes": 79605280,
+      "sha256": "9f2b6c7405cc2b2dd98910e812f83c1d6e0f41b9bfdbf3c939c610daacb7fbcb",
+      "label": "candidate runtime shardloom"
+    }
+  ],
+  "harness_sources": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_recursive_validation_protocol.py",
+      "bytes": 7071,
+      "sha256": "a6412847112b41369100b400e69b0654b9347b96f66f1d43ed0d2705c50f5bbd",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/recursive_validation_heldout.py",
+      "bytes": 15405,
+      "sha256": "ca0d85738a80bea7367603d48fe8745539517d852db0fb3a6c4d4c4a17600a7d",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/recursive_validation_heldout_cases.py",
+      "bytes": 3826,
+      "sha256": "f841c2fc2473702855cf6bb644e4664af331d9423be962037d2fad071989d4a0",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_recursive_validation_heldout.py",
+      "bytes": 10500,
+      "sha256": "4fdb5eafcde74a8338934718a9cf54f39aa9c2095c0f74cf6ae7376dc6e3545b",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_recursive_validation_checkpoint.py",
+      "bytes": 17525,
+      "sha256": "6ecdb04f4dbf0e9a222a8ae27be4109df7115629e870c1e69bd5d4cfbe3cc168",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_public_recursive_validation.py",
+      "bytes": 3041,
+      "sha256": "edcb85747ba54e76a7850a8213fd264db05935e199b724adf168d01251a36ddb",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/payload_validation_heldout_cases.py",
+      "bytes": 9368,
+      "sha256": "14af702a254cc7c0c9a0af8d91bf4eeeda113d0741616209f2d9acc9bc0c9c37",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_runtime.py",
+      "bytes": 3744,
+      "sha256": "0b25d3f0d45a90bb38dbb3012fc98cc4bc6456810c5bb845eb3287306d12d5ae",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/parquet-demand-completion-2026-10-26/tools/broad_candidate.py",
+      "bytes": 11475,
+      "sha256": "291d3a580b30cace5475e1c51e870806afe64d3b0b812ea27ba499871659eab1",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/parquet_demand_completion_replay.py",
+      "bytes": 10161,
+      "sha256": "6f137c31fa22bdb79f23a834bbad341079ec7bcc28a185642fdd677f180bbd02",
+      "label": "fresh validation harness source"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/native_workflow_protocol.py",
+      "bytes": 7464,
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855",
+      "label": "fresh validation harness source"
+    }
+  ],
+  "in_flight_follow_up": {
+    "e142": "Excluded from this disposition; the native workspace suite was still compiling when this record was assembled. The primary may add a later supplement after that run completes."
+  },
+  "pending_gates": [
+    "combined_full_native_acceptance",
+    "combined_workspace_acceptance",
+    "installed_package_acceptance",
+    "portable_acceptance",
+    "hosted_acceptance"
+  ],
+  "combined_item20_complete": false,
+  "new_competitor_observations": 0,
+  "publication_attempted": false
+}

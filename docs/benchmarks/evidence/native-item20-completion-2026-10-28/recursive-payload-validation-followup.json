@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "type": "immutable_recursive_validation_followup",
+  "original_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-payload-validation-disposition.json",
+    "bytes": 31097,
+    "sha256": "14bee5020ea99e155ac78f8d0a5aa679caa9562402719133eb5efdf58206ebb5"
+  },
+  "followup_status": "passed",
+  "current_native_and_workspace_checks_complete": true,
+  "checks": {
+    "e142_native_suite": {
+      "groups": 95,
+      "passed": 5011,
+      "failed": 0,
+      "ignored": 35
+    },
+    "e143_workspace_clippy": {
+      "status": "passed",
+      "returncode": 0
+    },
+    "e144_workspace_tests": {
+      "groups": 107,
+      "passed": 3274,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "source_integrity": {
+    "code_test_paths": [
+      "python/tests/test_native_shared_provider_binding.py",
+      "shardloom-vortex/src/local_primitives/native_payload.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+    ],
+    "receipt_code_inventories_match_each_other": true,
+    "current_code_source_matches_all_three_receipts": [
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_shared_provider_binding.py",
+        "bytes": 178765,
+        "sha256": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f",
+        "label": "python/tests/test_native_shared_provider_binding.py"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload.rs",
+        "bytes": 23450,
+        "sha256": "936c850c4dc4048d5783eeff89a4a45c32bc39b9c06900ea78b7c45143d4af0d",
+        "label": "shardloom-vortex/src/local_primitives/native_payload.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+        "bytes": 4535,
+        "sha256": "2c5a7632d6b5dd4e05aa719d5aaf422b9f3d6d57e0d5de9b94255712c7ba627c",
+        "label": "shardloom-vortex/src/local_primitives/native_payload_validation.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+        "bytes": 17977,
+        "sha256": "2437de5410e5558eb3cb6ad3b6adb177d760d240ae7b1f8ab4801a307e1abc13",
+        "label": "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+        "bytes": 3342,
+        "sha256": "de1e0bc7f36737bbf8a0bc6717347e3bbb8f5a346319831ce10879ae9862a516",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+      }
+    ],
+    "docs_only_changes": [
+      {
+        "path": "docs/architecture/native-analytical-completion-2026-10-27.md",
+        "receipt_snapshots": {
+          "e142-recursive-validation-native-suite": {
+            "sha256": "73f7be1efa893ac0f806e76e692654fe6efbaf2a5545f8058cbb247cbb4bba73",
+            "bytes": 81017
+          },
+          "e143-recursive-workspace-clippy": {
+            "sha256": "09a5f96af3265f60872a82dd1dd0cf6a15d6bc156f3c0c2f2bd5660daadb36da",
+            "bytes": 82178
+          },
+          "e144-recursive-workspace-tests": {
+            "sha256": "09a5f96af3265f60872a82dd1dd0cf6a15d6bc156f3c0c2f2bd5660daadb36da",
+            "bytes": 82178
+          }
+        }
+      },
+      {
+        "path": "docs/architecture/phased-execution-plan.md",
+        "receipt_snapshots": {
+          "e142-recursive-validation-native-suite": {
+            "sha256": "65a86bf1916ac9d0a00433b95eb7a38e450c6d721ebbe51709fc83813b251e11",
+            "bytes": 154832
+          },
+          "e143-recursive-workspace-clippy": {
+            "sha256": "116b385ac4ff7b5bc9d788692c0d7a54b209100bf330d9a007f8a7b76e2ef467",
+            "bytes": 155498
+          },
+          "e144-recursive-workspace-tests": {
+            "sha256": "116b385ac4ff7b5bc9d788692c0d7a54b209100bf330d9a007f8a7b76e2ef467",
+            "bytes": 155498
+          }
+        }
+      },
+      {
+        "path": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json",
+        "receipt_snapshots": {
+          "e142-recursive-validation-native-suite": null,
+          "e143-recursive-workspace-clippy": {
+            "sha256": "14bee5020ea99e155ac78f8d0a5aa679caa9562402719133eb5efdf58206ebb5",
+            "bytes": 31097
+          },
+          "e144-recursive-workspace-tests": {
+            "sha256": "14bee5020ea99e155ac78f8d0a5aa679caa9562402719133eb5efdf58206ebb5",
+            "bytes": 31097
+          }
+        }
+      }
+    ],
+    "docs_only_change_note": "The two architecture documents changed between e142 and e143; the already-created recursive disposition appears in e143/e144 but not e142. All current docs match the latest e144 inventory."
+  },
+  "receipt_logs": [
+    {
+      "id": "e142-recursive-validation-native-suite",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e142-recursive-validation-native-suite.json",
+        "bytes": 4833,
+        "sha256": "81f45360598ed63652f7597bf4b18d36bb2fce54c93b7a723b46722b4d79f79d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e142-recursive-validation-native-suite.log",
+        "bytes": 1016829,
+        "sha256": "10c273cdbcacec5324a79e2ff209335930e200b6cb9f701d6c0d9db0709693a5"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e143-recursive-workspace-clippy",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e143-recursive-workspace-clippy.json",
+        "bytes": 5055,
+        "sha256": "7491826af070db3181498d5b47731020a20b2c5a96e1116f40f2d62ec767b4e6"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e143-recursive-workspace-clippy.log",
+        "bytes": 562,
+        "sha256": "669d3f5d7b8b558c44759b1909042bd5d27f6411757af0a9fc2a78b92982c7ce"
+      },
+      "log_hash_verified": true
+    },
+    {
+      "id": "e144-recursive-workspace-tests",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e144-recursive-workspace-tests.json",
+        "bytes": 5054,
+        "sha256": "a90abe5c3c418b485e33459acaff07643d414b9c7c8d19b8483c82be844687fe"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e144-recursive-workspace-tests.log",
+        "bytes": 468448,
+        "sha256": "ffc017258b6f4b822faf4ae0ab76c18112dddf790f8bcb8a44e14de004b8cdef"
+      },
+      "log_hash_verified": true
+    }
+  ],
+  "open_acceptance": [
+    "installed_package_acceptance",
+    "remaining_combined_item20_capability_work",
+    "complete_portable_packet",
+    "hosted_acceptance_of_new_source"
+  ],
+  "new_timing_or_performance_claim": false,
+  "original_disposition_modified": false
+}

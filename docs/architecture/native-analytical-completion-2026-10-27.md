@@ -60,14 +60,14 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The numeric candidate records 23.079365459 seconds, so this requires about
-56.7% further reduction; it is a stretch target, not an achieved result or a
-reason to reduce correctness/coverage. Grouped aggregation contributes
-9.969800537 seconds, projection 4.468361084 seconds, and ordinary plus multiway
-joins 2.855853169 seconds. Use these complete family totals to prioritize
-profiling of shared work, not as an attribution of removable overhead. Complete
-the active exact group-key experiment, then follow the shared-owner reuse
-sequence below. Select further numeric/temporal specializations only from
+The latest retained checkpoint records 17.729495249 seconds, so this requires
+about 43.6% further reduction; it is a stretch target, not an achieved result or
+a reason to reduce correctness/coverage. Grouped aggregation contributes
+6.824433458 seconds, projection 3.183748958 seconds, and ordinary plus multiway
+joins 2.720761958 seconds. Use these complete family totals to prioritize
+profiling of shared work, not as an attribution of removable overhead. The
+shared-owner sequence below records the retained and dropped candidates.
+Select further numeric/temporal specializations only from
 demonstrated costs. Added capability cases retain
 their own coverage and cannot change the original comparison denominator.
 Larger-volume and complex-plan acceptance must measure resource behavior and
@@ -86,26 +86,26 @@ must identify the existing owner reused, the blocked or repeated execution
 path, the work removed, prospective admission, activation/work counters,
 complete errors/results, ownership and the frozen benefit decision.
 
-1. Finish and evaluate the current exact group-key candidate before selecting
-   another grouping mechanism.
-2. Implement typed complete-payload validation through existing native numeric,
-   temporal and variable-width owners. The flat
-   `native_payload_validation::validate_record` path currently validates through
-   `build_column_prefix` with no retained rows; eliminate proved repeated scalar
-   conversion or scratch writes while preserving the entire input obligation,
-   field/row failure order, NULL masks, cancellation and discarded-row checks.
-   Rich/nullable records retain their existing recursive ownership and parent
-   masks until equivalent handling is proved. This is separate from the dropped
-   expression construction candidate.
-3. Evaluate exact join-probe identity reuse and once-resolved gather coordinates.
+1. The exact short/composite group-key candidate is retained; use its updated
+   grouping profile before selecting another mechanism.
+2. Typed complete-payload validation is retained for flat records and eligible
+   recursive leaves through the existing numeric, temporal and variable-width
+   owners. Rich/nullable records keep their recursive owner, field order, parent
+   masks and selected-domain obligations. Missing parent coordinates and decimal
+   leaves keep their original validation paths. This removes repeated scalar
+   construction without relaxing complete-input validation and is separate from
+   the dropped expression construction candidate.
+3. Exact join-probe identity reuse and once-resolved gather coordinates were
+   evaluated and dropped under the prospective benefit gate; do not repeat the
+   same mechanisms unchanged.
    The ordinary no-residual `Join::consume` path still hashes/probes each left
    row, and `Table::gather` resolves rows while finding touched segments and
-   again while constructing take indices. Reuse existing directory/index,
-   table/gather and reserved-vector owners. Distinguish uninitialized entries
-   from proved misses; preserve NULL policy, complete duplicate chains, output
-   order and matched-row bookkeeping. Residual predicates remain an independent
-   gate. Retain the touched-chunks-only take contract and account for descriptors
-   as part of the bounded work unit.
+   again while constructing take indices. The candidate reused existing
+   directory/index, table/gather and reserved-vector owners, distinguishing
+   uninitialized entries from proved misses and preserving NULL policy, complete
+   duplicate chains, output order and matched-row bookkeeping. Residual
+   predicates stayed outside admission. The touched-chunks-only take contract
+   and descriptor memory were included in its bounded work unit.
 4. Audit specialized-consumer reachability before refactoring a shared batch
    consumer. Both general relational preparation entry points currently admit
    the file provider only for exactly one file source and no memory/batch
@@ -149,8 +149,64 @@ declarations failed before execution; their corrected DataFrame declarations
 use nullable Boolean equality before predicate negation. The original failures
 and all 156 successful observations remain intact. This is a candidate checkpoint;
 combined native/workspace/package, portable and hosted acceptance remain open.
-The next measured work is join identity and gather-coordinate reuse. Grouping,
-projection and combined joins still exceed their one-second targets.
+The subsequent join identity and gather-coordinate candidate is dropped:
+its single unchanged-cohort pass records 18.527516365 engine seconds, 1.22%
+above the retained checkpoint. Ordinary joins improve 0.26349% and multiway
+joins 0.02803%; neither meets the frozen 10% family benefit gate. All 347
+complete results pass without material regression flags. The
+[join disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/join-reuse-disposition.json)
+preserves the candidate, complete replay of 160 fresh observations and
+7,331,860 result rows, initial failures and corrected continuations. Twenty-four
+large CLI correctness observations use acknowledged streaming delivery without
+an engine clock; they support correctness only. Both runtime mechanisms have
+been removed. The independent six-kind join/ownership public regression remains;
+workspace lint and all 3,274 workspace tests pass after removal. No replacement
+performance pass was taken for that removal; the retained result at that point
+remained 18.304092867 seconds.
+
+The source and cohort reachability audit does not admit a broad provider bypass.
+The existing grouped `CountWorkers` consume `GroupedAggregateStates`, whereas
+general memory, Parquet-demand and intermediate arrays reach the shared
+`native_relational_aggregate::Aggregate`. The 347 discovery queries contain
+no count-only grouped aggregate: their grouped cases use SUM alone or mixed
+SUM/AVG/MIN/MAX/COUNT. Seventeen direct-scan scalar count cases total
+0.367273915 retained engine seconds; two further scalar counts consume joins.
+Merely exposing grouped count workers to those inputs would not address the
+measured mixed-aggregate cost. Scalar COUNT(*) already adds batch cardinality
+without a row loop; COUNT(column) uses native validity. Source equivalence,
+first-occurrence group order, exact arithmetic, cancellation and ownership still
+need proof for any consumer extension.
+
+The refreshed seven-case diagnostic profile on the retained group-cache and
+typed-payload implementation passes complete results with unchanged inputs,
+references, resources and isolated guards. It identifies a remaining validation
+gap: a rich or decimal sibling routes the entire record through the recursive
+owner, where eligible scalar leaves still used scalar construction. Temporary
+instrumentation was removed before the candidate; diagnostic spans do not
+replace full-cohort evidence.
+
+The recursive-leaf extension reuses the same typed validator only after the
+existing owner resolves the observed selection. Its
+[prospective protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-protocol.json)
+and [disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json)
+retain all 347 complete results and 12,565 rows at **17.729495249 engine seconds**,
+a 3.14% complete-cohort reduction from 18.304092867. Projection improves 18.07%,
+meeting the alternative family-benefit gate with positive overall balance and
+no material case/family regression flags. Twenty-six payload checks, strict
+native lint, four public regressions and 160 fresh five-interface observations
+pass; complete replay checks 33,260 result rows against independent references.
+The four public regressions also verify the retained six-kind join/ownership
+test after the dropped join implementation. This remains a checkpoint inside
+PR #1619; combined acceptance and the remaining analytical capabilities are
+open. Grouping, projection and combined joins still exceed their one-second
+targets. No new competitor observation or superiority claim is made.
+
+The subsequent [validation supplement](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-followup.json)
+records 5,011 passing native tests with 35 existing opt-in tests ignored,
+strict workspace lint and all 3,274 workspace tests passing. Source inventories
+match the measured candidate; intervening changes are documentation only.
+Installed-package acceptance, the complete portable packet and hosted acceptance
+of this new source remain open alongside the remaining item-20 implementation.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.

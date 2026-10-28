@@ -622,8 +622,31 @@ visible and independent; this implementation does not automatically close them.
     Preserve four initial DataFrame declaration failures and their four corrected
     retries; the 156 original successful observations are reused. Full combined
     native/workspace/package, portable and hosted acceptance remain pending.
-    Continue with exact join-probe identity reuse and resolved gather coordinates
-    under their prospective gate, then the recorded consumer-reachability audit.
+    The subsequent join-probe/gather-coordinate candidate is dropped under its
+    prospective gate: 18.527516365 engine seconds, with only 0.26349% ordinary-join
+    and 0.02803% multiway-join improvement. Complete 347-case results and 160 fresh
+    correctness observations pass; preserve the original failures, streaming
+    clock unavailability and corrected continuations in its
+    [disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/join-reuse-disposition.json).
+    Both runtime mechanisms are removed; post-removal workspace lint and 3,274
+    workspace tests pass. The retained time at that removal stays 18.304092867
+    seconds without a new performance observation. The consumer audit finds no count-only grouped
+    query in this cohort, so merely extending grouped CountWorkers to batch inputs
+    would miss its mixed-aggregate cost. The refreshed seven-case diagnostic
+    profile identifies scalar validation of eligible leaves when a rich sibling
+    selects the recursive owner. The
+    [recursive typed-leaf checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json)
+    reuses the retained validator after the existing parent masks and selected
+    domains are resolved. All 347 cases and 12,565 rows pass at 17.729495249 engine
+    seconds: 3.14% complete-cohort reduction and 18.07% projection-family benefit,
+    with no material regression flags. Twenty-six native payload checks, strict
+    lint, four public regressions and complete replay of 160 fresh observations
+    (33,260 result rows) pass. The subsequent
+    [validation supplement](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-followup.json)
+    records 5,011 native tests passing (35 existing opt-in tests ignored), strict
+    workspace lint and 3,274 passing workspace tests on the same runtime source.
+    Combined implementation, installed-package, portable and hosted acceptance
+    remain open.
     Continue the full item-20 work in the same PR #1619. Retain the dropped
     counted-join, fused-measure, retained-output and borrowed-output decisions.
     This sequence does not replace the wider temporal/time-series,

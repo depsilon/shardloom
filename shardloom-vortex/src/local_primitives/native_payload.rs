@@ -468,8 +468,37 @@ fn copy_rows<const RETAIN: bool>(
                     NativeNumericOwner::new(primitive, &mut execution)
                 })
                 .transpose()?;
+            if !RETAIN
+                && copy.policy == CopyPolicy::ValidateValues
+                && rows.iter().all(Option::is_some)
+                && let Some(selected) = &selected
+                && validation::validate_typed_column(
+                    selected,
+                    dtype,
+                    rows.len(),
+                    numeric.as_ref(),
+                    &mut execution,
+                    context,
+                )?
+            {
+                // Selection, parent masks and field order belong to this
+                // recursive owner. Reuse typed validation only after those
+                // obligations have produced a complete observed leaf domain.
+                // Missing coordinates still use the existing placeholder path.
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.payload_recursive_typed_validation_columns += 1;
+                });
+                return result_batch::build_column(dtype, 0, allocator, |_| default_value(dtype));
+            }
             let value = |row: usize| {
                 check(row, context)?;
+                #[cfg(all(test, debug_assertions))]
+                if !RETAIN {
+                    super::native_relational_observation::record(|counts| {
+                        counts.payload_validation_scalar_calls += 1;
+                    });
+                }
                 let value = if rows[row].is_none() {
                     default_value(dtype)
                 } else if let Some(numeric) = &numeric {
