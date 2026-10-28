@@ -43,6 +43,10 @@ mod numeric_tests;
 #[path = "native_payload_validation_tests.rs"]
 mod validation_tests;
 
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_payload_validation_typed_tests.rs"]
+mod typed_validation_tests;
+
 /// Private window records can retain measures that no frame ever observes.
 /// Moving them must not evaluate them. Public result construction still validates.
 #[derive(Clone, Copy, PartialEq, Eq)]

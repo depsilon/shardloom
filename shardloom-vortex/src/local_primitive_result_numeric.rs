@@ -19,6 +19,28 @@ pub(super) fn copy_column(
     allocator: &HostAllocatorRef,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<ArrayRef> {
+    visit_column::<true>(dtype, values, valid, allocator, check_cancelled)
+        .map(|array| array.expect("copy mode constructs an owned column"))
+}
+
+/// The same ordered typed checks without allocating or writing result buffers.
+pub(super) fn validate_column(
+    dtype: &DType,
+    values: &PrimitiveArray,
+    valid: &Mask,
+    allocator: &HostAllocatorRef,
+    check_cancelled: impl FnMut() -> Result<()>,
+) -> Result<()> {
+    visit_column::<false>(dtype, values, valid, allocator, check_cancelled).map(drop)
+}
+
+fn visit_column<const COPY: bool>(
+    dtype: &DType,
+    values: &PrimitiveArray,
+    valid: &Mask,
+    allocator: &HostAllocatorRef,
+    check_cancelled: impl FnMut() -> Result<()>,
+) -> Result<Option<ArrayRef>> {
     let temporal = crate::native_payload_schema::temporal_storage(dtype);
     let ptype = match dtype {
         DType::Primitive(ptype, _) if *ptype != PType::F16 => *ptype,
@@ -34,33 +56,35 @@ pub(super) fn copy_column(
         .as_host_opt()
         .ok_or_else(|| failed("numeric copy requires selected host storage"))?;
     #[cfg(all(test, debug_assertions))]
-    super::super::native_relational_observation::record(|counts| {
-        counts.numeric_output_copy_batches += 1;
-        counts.numeric_output_copy_rows += values.len() as u64;
-    });
-    macro_rules! copy {
+    if COPY {
+        super::super::native_relational_observation::record(|counts| {
+            counts.numeric_output_copy_batches += 1;
+            counts.numeric_output_copy_rows += values.len() as u64;
+        });
+    }
+    macro_rules! visit {
         ($validate:expr) => {
-            copy_validated(dtype, source, valid, allocator, $validate, check_cancelled)
+            visit_validated::<COPY>(dtype, source, valid, allocator, $validate, check_cancelled)
         };
     }
     match ptype {
         PType::F32 => {
             let values = values.as_slice::<f32>();
-            copy!(|row| finite(values[row].is_finite()))
+            visit!(|row| finite(values[row].is_finite()))
         }
         PType::F64 => {
             let values = values.as_slice::<f64>();
-            copy!(|row| finite(values[row].is_finite()))
+            visit!(|row| finite(values[row].is_finite()))
         }
         PType::I32 if temporal.is_some() => {
             let values = values.as_slice::<i32>();
-            copy!(|row| crate::native_temporal::validate_ticks(dtype, i64::from(values[row])))
+            visit!(|row| crate::native_temporal::validate_ticks(dtype, i64::from(values[row])))
         }
         PType::I64 if temporal.is_some() => {
             let values = values.as_slice::<i64>();
-            copy!(|row| crate::native_temporal::validate_ticks(dtype, values[row]))
+            visit!(|row| crate::native_temporal::validate_ticks(dtype, values[row]))
         }
-        _ => copy!(|_| Ok(())),
+        _ => visit!(|_| Ok(())),
     }
 }
 
@@ -74,14 +98,14 @@ fn finite(valid: bool) -> Result<()> {
     }
 }
 
-fn copy_validated(
+fn visit_validated<const COPY: bool>(
     dtype: &DType,
     source: &ByteBuffer,
     valid: &Mask,
     allocator: &HostAllocatorRef,
     mut validate: impl FnMut(usize) -> Result<()>,
     mut check_cancelled: impl FnMut() -> Result<()>,
-) -> Result<ArrayRef> {
+) -> Result<Option<ArrayRef>> {
     let rows = valid.len();
     let stride = width(dtype)?;
     let bytes = multiply(rows, stride)?;
@@ -89,11 +113,12 @@ fn copy_validated(
         return Err(failed("selected numeric buffer changed byte count"));
     }
     // Keep the existing allocation and refusal order: validity, then values.
-    let mut validity = dtype
-        .is_nullable()
+    let mut validity = (COPY && dtype.is_nullable())
         .then(|| allocate(allocator, rows.div_ceil(8), 1))
         .transpose()?;
-    let mut data = allocate(allocator, bytes, stride)?;
+    let mut data = COPY
+        .then(|| allocate(allocator, bytes, stride))
+        .transpose()?;
     if valid.all_true() {
         if let Some(validity) = validity.as_mut() {
             validity.as_mut_slice().fill(u8::MAX);
@@ -107,8 +132,10 @@ fn copy_validated(
             for row in start..end {
                 validate(row)?;
             }
-            data.as_mut_slice()[start * stride..end * stride]
-                .copy_from_slice(&source[start * stride..end * stride]);
+            if let Some(data) = data.as_mut() {
+                data.as_mut_slice()[start * stride..end * stride]
+                    .copy_from_slice(&source[start * stride..end * stride]);
+            }
         }
     } else {
         for row in 0..rows {
@@ -120,17 +147,27 @@ fn copy_validated(
                 if let Some(validity) = validity.as_mut() {
                     set_bit(validity, row);
                 }
-                let start = row * stride;
-                data.as_mut_slice()[start..start + stride]
-                    .copy_from_slice(&source[start..start + stride]);
+                if let Some(data) = data.as_mut() {
+                    let start = row * stride;
+                    data.as_mut_slice()[start..start + stride]
+                        .copy_from_slice(&source[start..start + stride]);
+                }
             } else if !dtype.is_nullable() {
                 return Err(failed("null in a nonnullable output column"));
             }
         }
     }
+    let Some(data) = data else {
+        #[cfg(all(test, debug_assertions))]
+        super::super::native_relational_observation::record(|counts| {
+            counts.payload_numeric_validation_columns += 1;
+            counts.payload_numeric_validation_rows += rows as u64;
+        });
+        return Ok(None);
+    };
     let validity = validity
         .map(|buffer| finish_validity(buffer.freeze(), rows, allocator))
         .transpose()?
         .unwrap_or(Validity::NonNullable);
-    finish_column(dtype, rows, data.freeze(), validity, None, allocator)
+    finish_column(dtype, rows, data.freeze(), validity, None, allocator).map(Some)
 }

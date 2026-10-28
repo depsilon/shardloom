@@ -611,6 +611,19 @@ visible and independent; this implementation does not automatically close them.
     <=1 engine second for each of the grouped-aggregation, projection and
     combined-join family totals remains a target, not an achieved result; the
     347-case candidate aggregate timing does not establish those family targets.
+    The exact short/composite group-key cache is retained for combined acceptance
+    at 19.754020577 engine seconds, with grouped aggregation at 6.837246991
+    seconds. The subsequent
+    [typed complete-payload validation checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/payload-validation-disposition.json)
+    passes all 347 cases and 12,565 rows at 18.304092867 engine seconds, a 7.34%
+    further reduction. Projection improves 13.60% and ordering 22.92%; no
+    material case/family flags occur. Focused native checks, strict native lint,
+    two five-interface regressions and 160 fresh correctness observations pass.
+    Preserve four initial DataFrame declaration failures and their four corrected
+    retries; the 156 original successful observations are reused. Full combined
+    native/workspace/package, portable and hosted acceptance remain pending.
+    Continue with exact join-probe identity reuse and resolved gather coordinates
+    under their prospective gate, then the recorded consumer-reachability audit.
     Continue the full item-20 work in the same PR #1619. Retain the dropped
     counted-join, fused-measure, retained-output and borrowed-output decisions.
     This sequence does not replace the wider temporal/time-series,

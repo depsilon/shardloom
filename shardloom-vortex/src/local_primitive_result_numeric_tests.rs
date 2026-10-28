@@ -34,6 +34,26 @@ fn compare_copy(source: &ArrayRef, dtype: &DType) {
             let expected = build_column(dtype, source.len(), &allocator, |row| {
                 owner.stat_value(row).map(Value::from)
             });
+            let held_before_validation = memory.snapshot().reserved_bytes;
+            let mut validation_checks = 0;
+            let validated = validate_column(
+                dtype,
+                owner.primitive(),
+                owner.validity(),
+                &allocator,
+                || {
+                    validation_checks += 1;
+                    Ok(())
+                },
+            );
+            assert_eq!(
+                validated.as_ref().err().map(ToString::to_string),
+                expected.as_ref().err().map(ToString::to_string)
+            );
+            if validated.is_ok() {
+                assert_eq!(validation_checks, source.len().div_ceil(1024));
+            }
+            assert_eq!(memory.snapshot().reserved_bytes, held_before_validation);
             let mut checks = 0;
             let actual = copy_column(
                 dtype,

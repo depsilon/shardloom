@@ -133,6 +133,25 @@ including retained source bytes and producer-close lifetime proof. This does
 not revive previously dropped candidates, bypass provider admission, reduce the
 remaining analytical capability checklist or close any competitive gate.
 
+The exact group-key checkpoint is retained for combined acceptance at
+19.754020577 engine seconds for 347 cases, followed by typed complete-payload
+validation at 18.304092867 seconds. The latter reuses numeric finite/domain
+validation without output buffers and canonical Boolean/variable views without
+per-row scalar construction. It preserves the established recursive path for
+rich values and nullable parents. Complete projection and ordering families
+improve 13.60% and 22.92%, respectively, with a positive 7.34% whole-cohort
+balance and no material regression flags. The
+[disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/payload-validation-disposition.json)
+records 28 payload checks, seven numeric checks, strict native lint, two public
+regressions across all five interfaces and complete independent replay of 160
+fresh observations (28,940 output rows). Four original Boolean-column negation
+declarations failed before execution; their corrected DataFrame declarations
+use nullable Boolean equality before predicate negation. The original failures
+and all 156 successful observations remain intact. This is a candidate checkpoint;
+combined native/workspace/package, portable and hosted acceptance remain open.
+The next measured work is join identity and gather-coordinate reuse. Grouping,
+projection and combined joins still exceed their one-second targets.
+
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
 - [ ] Complete statistical and richer aggregates, including their type/null,

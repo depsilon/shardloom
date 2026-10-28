@@ -333,7 +333,7 @@ fn failed(reason: &str) -> ShardLoomError {
     ))
 }
 
-fn add(left: usize, right: usize) -> Result<usize> {
+pub(super) fn add(left: usize, right: usize) -> Result<usize> {
     left.checked_add(right)
         .ok_or_else(|| failed("buffer size overflow"))
 }
@@ -493,6 +493,18 @@ pub(super) fn copy_numeric_column(
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<ArrayRef> {
     numeric::copy_column(dtype, values, valid, allocator, check_cancelled)
+}
+
+/// Validate the complete typed domain without constructing an output column.
+#[cfg(unix)]
+pub(super) fn validate_numeric_column(
+    dtype: &DType,
+    values: &PrimitiveArray,
+    valid: &vortex::mask::Mask,
+    allocator: &HostAllocatorRef,
+    check_cancelled: impl FnMut() -> Result<()>,
+) -> Result<()> {
+    numeric::validate_column(dtype, values, valid, allocator, check_cancelled)
 }
 
 /// Construct a prefix while preserving validation of every scalar in its
