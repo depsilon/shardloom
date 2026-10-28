@@ -17,6 +17,39 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Rich bounded streamed retention — local acceptance`
+  — the [October 28 decision](../benchmarks/native-rich-bounded-retention-2026-10-28.md)
+  retains complete validation with bounded independent decimal/list/struct
+  payload retention through the existing native ordering owner. The single
+  347-case observation validates all 12,565 rows at 27.374316659 engine seconds
+  against a fresh 28.118399295-second temporal baseline. Projection improves
+  10.36%, passing its declared benefit gate without candidate material flags.
+  Earlier observations and the two temporal-baseline flags remain intact.
+  - Fresh held-out acceptance passes 176 cases and 624,906 complete output rows;
+    local gates pass 3,433 native Vortex tests (32 existing ignores), 3,274
+    workspace tests, 1,032 CLI tests, 30 public-interface cases and 200
+    installed-wheel tests without skips. Portable replay and 22 corruption
+    controls pass. Seven failed original attempts and the corrected verifier
+    test assumptions remain recorded.
+  - Hosted checks and merge remain separate. Item 20 and CG-1 through CG-23
+    remain open; no competitor rerun, Full43 pass or package publication occurs.
+
+- [x] `Temporal fidelity — merged acceptance`
+  — [PR #1616](https://github.com/depsilon/shardloom/pull/1616) merges at
+  `51cf54fd` after all 57 hosted checks pass at `34d7ee14`. The
+  [acceptance](../benchmarks/native-temporal-fidelity-2026-10-27.md) records
+  temporal metadata/unit preservation, fixed durations, full-domain timestamp
+  compression and explicit calendar/timezone semantics through shared native
+  owners and all five interfaces. Local gates pass 6,301 native workspace tests
+  (35 existing ignores), 3,274 default tests, 89 provider tests, 22 public-matrix
+  tests and 199 installed-wheel tests without skips. Portable replay and 24
+  corruption controls pass from an isolated source-only copy; 67 original
+  observations, including 28 failed attempts, remain. Cleanup retires 11,823
+  generated regular files and six environment links while preserving current
+  inputs, the tested runtime/wheel and compact proof. No new benchmark or package
+  publication occurs. Item 20 and its later analytical/workflow obligations remain
+  open; CG-1 through CG-23 are not closed by this work unit.
+
 - [x] `Shared numeric aggregation and bounded ordering — local acceptance`
   — the [October 27 decision](../benchmarks/native-shared-analytical-performance-2026-10-27.md)
   retains typed numeric update/reuse and bounded streamed ordering under their

@@ -1,0 +1,210 @@
+{
+  "schema_version": "shardloom.rich_retention_verification_supplement.v1",
+  "status": "passed",
+  "files": {
+    "r37-portable-packet.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r37-portable-packet.json",
+      "bytes": 15092,
+      "sha256": "abe90250847758816eb6e5c1aadff4825fc3336c45b7408ad57a8e0b1da0b9bc"
+    },
+    "r37-portable-packet.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r37-portable-packet.log",
+      "bytes": 178,
+      "sha256": "e5bdde1f5e61ed8512bd276788bdd1df75cbb941e19f5372c00a0b318f76dd62"
+    },
+    "r38-portable-controls.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r38-portable-controls.json",
+      "bytes": 15231,
+      "sha256": "14b8a2710b6e01763f2af39a1adb0b25342b4defa4f8e259e40560c446277e41"
+    },
+    "r38-portable-controls.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r38-portable-controls.log",
+      "bytes": 5443,
+      "sha256": "61e82451052afaa602fd17cd13c8ce29a43245d50e867bada512cc1985e41f57"
+    },
+    "r39-portable-controls.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r39-portable-controls.json",
+      "bytes": 15231,
+      "sha256": "91f2e7f951111a15975f81f114171aa545f85593f205ad889dec8d5b78473933"
+    },
+    "r39-portable-controls.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r39-portable-controls.log",
+      "bytes": 3782,
+      "sha256": "2e6b90c2ae9fb6a8d355ff39f2b06bbff12308e460f34f12e742ebe45ea9621c"
+    },
+    "r40-final-portable-packet.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r40-final-portable-packet.json",
+      "bytes": 15553,
+      "sha256": "db8c6d01e769c0eedb91efde789395d71e8fa893a8eef93f1de8a423f6fb7914"
+    },
+    "r40-final-portable-packet.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r40-final-portable-packet.log",
+      "bytes": 178,
+      "sha256": "dab918b5f2ddc2c53c4a6a25521c0299552fe36e677519a3e332a4ca1e5e06d0"
+    },
+    "r41-isolated-portable-replay.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r41-isolated-portable-replay.json",
+      "bytes": 16151,
+      "sha256": "843356abd13b46a122b7a5e298afdae597966a9ed8e68505f641e7d708c11b75"
+    },
+    "r41-isolated-portable-replay.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r41-isolated-portable-replay.log",
+      "bytes": 3997,
+      "sha256": "e72b961f194df38c5e0a56a230ecdebc408b026cba0d1cecd3c00384f17bdaae"
+    },
+    "r42-final-static.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r42-final-static.json",
+      "bytes": 16148,
+      "sha256": "29c92f25bc2244fae77760f2dc7104b55f644675b841fc456c11f1c4127f86fd"
+    },
+    "r42-final-static.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r42-final-static.log",
+      "bytes": 3060,
+      "sha256": "c97ef8f5a044a7041fcecc95b0620e39b7ed02cda601cb640145dcad91dfe84c"
+    },
+    "r43-architecture-ci-mode.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r43-architecture-ci-mode.json",
+      "bytes": 16349,
+      "sha256": "e14f27fa641b6d79c9801d039ca56bb4fa9ff09e42a44ac4e5cf7e25cd9ac779"
+    },
+    "r43-architecture-ci-mode.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r43-architecture-ci-mode.log",
+      "bytes": 110,
+      "sha256": "4c1e65c54250a02b91d910c68043f811ae01afe6b71abfc85fe7e1e951c60440"
+    },
+    "r44-verified-payload-retirement.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r44-verified-payload-retirement.json",
+      "bytes": 16157,
+      "sha256": "fd5c530bebbfdc05d851a2594b75f3c2bbb7b84dd6288d38e5cb226b993485fa"
+    },
+    "r44-verified-payload-retirement.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r44-verified-payload-retirement.log",
+      "bytes": 1018,
+      "sha256": "12c1c7eb1cf90c86fb61c3d8acd826c23434964a97b545b85be7ba1d15a3aae4"
+    },
+    "r45-verified-payload-retirement.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r45-verified-payload-retirement.json",
+      "bytes": 16152,
+      "sha256": "be3b012e695229b6df47db9f4c1bc2228deda5754db69f3a094425e6984270d0"
+    },
+    "r45-verified-payload-retirement.log": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/r45-verified-payload-retirement.log",
+      "bytes": 167,
+      "sha256": "56c223b777e95ee6d5f72f7a7ee6ea9e57a40b62e1fd5e304980b34ad03efbcd"
+    },
+    "portable-verification-r1.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/portable-verification-r1.json",
+      "bytes": 54299,
+      "sha256": "8d89a033f825f6d6fe2ea42c9d92ae6f643d7f028fb17f961159f50e99b30463"
+    },
+    "final-static-r1.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/final-static-r1.json",
+      "bytes": 5182,
+      "sha256": "7b1063f216df3da8b0e01d4c06713171af2f24cd682af987fd2df71e1be6a83d"
+    },
+    "check_release_architecture_tracker-r1.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/check_release_architecture_tracker-r1.json",
+      "bytes": 46024,
+      "sha256": "4c7da0a271acd3e14ca111b072b286cb4ea8747d179417f68a243954bc97475a"
+    },
+    "check_release_architecture_tracker-r2.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/check_release_architecture_tracker-r2.json",
+      "bytes": 46024,
+      "sha256": "4c7da0a271acd3e14ca111b072b286cb4ea8747d179417f68a243954bc97475a"
+    },
+    "check_v1_docs_productization-r1.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/check_v1_docs_productization-r1.json",
+      "bytes": 2811,
+      "sha256": "a3a64934e38c770b6ac354bc5b49db3e466f304c02075062a74224e64a13af2e"
+    },
+    "check_public_status_docs-r1.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/check_public_status_docs-r1.json",
+      "bytes": 93560,
+      "sha256": "8de8e92b38561105c6bf55e5394f019d0d8faafa9df7de894e797ef0407fa3f7"
+    },
+    "original-packet-r1/manifest.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/packet-r1/manifest.json",
+      "bytes": 1404047,
+      "sha256": "ffcbf17c7affd30e0af2a5f6f64c4479c207c4a4f3de840ef662c832f32ca07e"
+    },
+    "original-packet-r1/acceptance.json": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/packet-r1/acceptance.json",
+      "bytes": 411009,
+      "sha256": "ac96fbccaf7ec8339cdbd07e9ab4a6ead6f53e9cfd5eb5f9060d5d6f37b2c6fc"
+    },
+    "tools/build_rich_retention_packet.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/build_rich_retention_packet.py",
+      "bytes": 2706,
+      "sha256": "3a1580a4ed5cf8097a0fa339359ff9c404f4c9ed439dfa2093d15ea86515919f",
+      "encoding": "gzip",
+      "uncompressed_bytes": 7501,
+      "uncompressed_sha256": "7abcae6205c613e2d610143db6ad276b773365eef8962e5f9b2314420fef0830"
+    },
+    "tools/verify_portable_copy.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/verify_portable_copy.py",
+      "bytes": 1371,
+      "sha256": "416208dc701e04e73782064e84401efafe81a9d03a91045f629cd6863c98a51d",
+      "encoding": "gzip",
+      "uncompressed_bytes": 2943,
+      "uncompressed_sha256": "841fbdc1301e85d4142a0891913ae75cf608858088334bbda0fc1ad67274517b"
+    },
+    "tools/check_final_static.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/check_final_static.py",
+      "bytes": 697,
+      "sha256": "6506bd332da578bcda3199df1458f692e8cb3ff42fe278ad45a34f8741ecf3c8",
+      "encoding": "gzip",
+      "uncompressed_bytes": 1354,
+      "uncompressed_sha256": "dc6a64d73578102ca85a04d8714478468da5e1ef947e0b37159886c374832d33"
+    },
+    "tools/retire_completed_payloads.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/retire_completed_payloads.py",
+      "bytes": 3484,
+      "sha256": "5e0391feda90cc5ebfb2db69bb92d9ae09a8cd46cba760064b9358d42ba446b1",
+      "encoding": "gzip",
+      "uncompressed_bytes": 10383,
+      "uncompressed_sha256": "7134cab049d092c2e263a2ba7ee8978b832febb2e2f90428a09cd9e5b99edb08"
+    },
+    "tools/retire_completed_payloads-r1.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/retire_completed_payloads-r1.py",
+      "bytes": 3351,
+      "sha256": "e2db9f66df65200693ab2614a9c05cd9953aef8317b8bfe7e9aa382b1e4958ac",
+      "encoding": "gzip",
+      "uncompressed_bytes": 9831,
+      "uncompressed_sha256": "d01f7890ce24084ea0ecccd2351663a2ce028f6386a7d629eee3199b11db3c5f"
+    },
+    "tools/run_guarded.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/run_guarded.py",
+      "bytes": 2200,
+      "sha256": "c16a9d05c6bcc215e9dadb376756170dad9b36f13302697ec8c33342f326a8c8",
+      "encoding": "gzip",
+      "uncompressed_bytes": 4942,
+      "uncompressed_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9"
+    },
+    "tools/retirement_primitives.py.gz": {
+      "source": "/Users/dylan/LocalData/ShardLoom/shared-aggregate-performance-2026-10-27/tools/retire_completed_performance_payloads.py",
+      "bytes": 3333,
+      "sha256": "93afd3827f07a10bde0579122f742501bdddc7dbee0a4a5e659deb38d5bff0e7",
+      "encoding": "gzip",
+      "uncompressed_bytes": 10184,
+      "uncompressed_sha256": "22d6fe6cc64f2e3eb2314bfc87cb69437b38f8884e6e24e902abca0331e77b56"
+    }
+  },
+  "unsuccessful_attempts": [
+    38,
+    42,
+    44
+  ],
+  "explanations": {
+    "38": "Two corruption tests expected a later integrity check; original failures are preserved and corrected controls pass.",
+    "42": "Release tracker default blocked on 76 open phase entries; all other static checks passed. The unchanged CI --allow-blocked mode passes in r43 and still reports blocked release claims.",
+    "44": "Cleanup refused before deletion because raw PID files were outside the main archive. All 870 files are retained byte-for-byte as ASCII in cleanup-inventory.json.gz; r45 passes."
+  },
+  "isolated_source_replay": {
+    "status": "passed",
+    "assertions_disabled": true,
+    "complete_replays": 1,
+    "corruption_controls": 22
+  },
+  "retirement": "passed",
+  "core_packet_unchanged": true
+}

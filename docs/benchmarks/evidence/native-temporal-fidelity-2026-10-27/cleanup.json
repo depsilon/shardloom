@@ -1,0 +1,128 @@
+{
+  "schema_version": "shardloom.generated_artifact_retirement.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/wheel-build-tools",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-proof-wheelhouse",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r1/source",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r1/_native.abi3.so",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r1/shardloom",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r2/source",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r2/_native.abi3.so",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r2/shardloom",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r3/source",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r3/_native.abi3.so",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r3/shardloom",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/source",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/_native.abi3.so",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/shardloom"
+  ],
+  "retained_sha256": {
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r5/_native.abi3.so": "a83753c46fa9981fcad20f423109ed51069ff05481c0555cbd1bbd64ab314929",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r5/shardloom": "2d40698a567ab8155b0721c6c4fa950c9c457939ea62253a4b5faeaf94f2a887",
+    "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "a404aaf44322d8ad69ca8bc89abf08d68ceec3c47984f78bd6c920c9aadc8446"
+  },
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/wheel-build-tools",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-proof-wheelhouse",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r1/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r1/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r1/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r2/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r2/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r2/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r3/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r3/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r3/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/source",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/_native.abi3.so",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/shardloom",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "removed_entries": 13512,
+  "source_inputs_retained": true,
+  "packet_final_preserved": true,
+  "reports_manifests_and_tools_preserved": true,
+  "original_external_baselines_untouched": true,
+  "user_files_untouched": true,
+  "cargo_cache_untouched": true,
+  "symlink_targets_followed": false,
+  "payload_backups_created": false,
+  "regeneration_basis": "Final temporal packet verified against its manifest, archive and acceptance; retained r5 runtime and installed wheel identities are preserved. No rebuild identity is claimed.",
+  "inventory": "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/cleanup-inventory.json.gz",
+  "inventory_sha256": "6ea930d058bdf1c24b324948a03db7e3b95e68564c9e64010e19d07c4fb82bd1",
+  "free_bytes_before": 78988292096,
+  "regular_files": 11823,
+  "symlinks": 6,
+  "retired_regular_bytes": 1643378850,
+  "retired_allocated_bytes": 1673633792,
+  "all_proof_files_unchanged": true,
+  "free_bytes_after": 80670273536
+}

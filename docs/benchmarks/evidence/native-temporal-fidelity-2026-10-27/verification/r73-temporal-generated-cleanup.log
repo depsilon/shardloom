@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/retire_temporal_payloads.py", line 269, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/retire_temporal_payloads.py", line 170, in main
+    verify_source_snapshot(number, runtime_manifest, files)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/retire_temporal_payloads.py", line 110, in verify_source_snapshot
+    assert payload is not None and payload == Path(item['path']).read_bytes(), member
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: evidence/temporal-native-r4/source/vendor/vortex-datetime-parts/Cargo.toml.orig

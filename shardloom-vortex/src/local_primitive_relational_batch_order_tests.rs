@@ -13,6 +13,9 @@ mod spill_tests;
 #[path = "local_primitive_relational_batch_order_prefix_tests.rs"]
 mod prefix_tests;
 
+#[path = "local_primitive_relational_batch_order_rich_prefix_tests.rs"]
+mod rich_prefix_tests;
+
 fn key(name: &str, descending: bool, nulls: NullOrder) -> VortexRelationalOrderKey {
     VortexRelationalOrderKey {
         column: ColumnRef::new(name).unwrap(),

@@ -1,0 +1,12 @@
+test_changed_archive (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_changed_archive) ... ok
+test_changed_native_log (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_changed_native_log) ... ok
+test_changed_packet_head (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_changed_packet_head) ... ok
+test_changed_records_are_refused (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_changed_records_are_refused) ... ok
+test_changed_test_coverage_with_relinked_log_digest (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_changed_test_coverage_with_relinked_log_digest) ... ok
+test_complete_packet_reproduces_original_acceptance (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_complete_packet_reproduces_original_acceptance) ... ok
+test_missing_historical_failure (test_native_temporal_fidelity_packet.NativeTemporalFidelityPacketTests.test_missing_historical_failure) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.130s
+
+OK

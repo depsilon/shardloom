@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/retire_completed_payloads.py", line 154, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/retire_completed_payloads.py", line 94, in main
+    need(Path(row['path']).suffix == '.parquet' and
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         (row['path'], row['sha256'], row['generation'][3]) in external,
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         'unrepresented generated payload: ' + row['path'])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/tools/retire_completed_payloads.py", line 27, in need
+    raise ValueError(message)
+ValueError: unrepresented generated payload: /Users/dylan/LocalData/ShardLoom/rich-bounded-retention-2026-10-28/broad-baseline-r1/logs/native/0000-projection_narrow.pid

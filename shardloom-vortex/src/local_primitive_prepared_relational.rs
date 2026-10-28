@@ -933,6 +933,10 @@ struct Metrics<'a> {
     input: Option<&'a dyn batch_input::Input>,
     ordering_batches_detached: Cell<u64>,
     ordering_rows_detached: Cell<u64>,
+    ordering_payload_buffer_bytes_copied: Cell<u64>,
+    ordering_prefix_batches: Cell<u64>,
+    ordering_prefix_rows_validated: Cell<u64>,
+    ordering_prefix_peak_retained_buffer_bytes: Cell<u64>,
     join_build_batches_detached: Cell<u64>,
     join_build_rows_detached: Cell<u64>,
     window_batches_detached: Cell<u64>,
@@ -1026,13 +1030,14 @@ impl Metrics<'_> {
             return Ok(array);
         }
         let detached = detach_batch(&array, context)?;
-        self.record_ordering_copy(array.len())?;
+        self.record_ordering_copy(array.len(), detached.nbytes())?;
         Ok(detached)
     }
 
-    fn record_ordering_copy(&self, rows: usize) -> Result<()> {
+    fn record_ordering_copy(&self, rows: usize, buffer_bytes: u64) -> Result<()> {
         add(&self.ordering_batches_detached, 1)?;
-        add(&self.ordering_rows_detached, rows as u64)
+        add(&self.ordering_rows_detached, rows as u64)?;
+        add(&self.ordering_payload_buffer_bytes_copied, buffer_bytes)
     }
 
     fn detach_join_build(
@@ -1425,6 +1430,12 @@ impl PreparedVortexRelational {
         if let Some(input) = &mut input {
             input.ordering_batches_detached = metrics.ordering_batches_detached.get();
             input.ordering_rows_detached = metrics.ordering_rows_detached.get();
+            input.ordering_payload_buffer_bytes_copied =
+                metrics.ordering_payload_buffer_bytes_copied.get();
+            input.ordering_prefix_batches = metrics.ordering_prefix_batches.get();
+            input.ordering_prefix_rows_validated = metrics.ordering_prefix_rows_validated.get();
+            input.ordering_prefix_peak_retained_buffer_bytes =
+                metrics.ordering_prefix_peak_retained_buffer_bytes.get();
             input.join_build_batches_detached = metrics.join_build_batches_detached.get();
             input.join_build_rows_detached = metrics.join_build_rows_detached.get();
             input.window_batches_detached = metrics.window_batches_detached.get();

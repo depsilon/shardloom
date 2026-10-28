@@ -1,6 +1,9 @@
 //! Preserve streaming payload validation without retaining a copied population.
 
-use super::{NativeNumericOwner, Value, check, detach, result_batch, vortex_error};
+use super::{
+    CopyPolicy, CopyState, NativeNumericOwner, ReservedVec, Value, check, copy_rows, result_batch,
+    vortex_error,
+};
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use vortex::array::{
@@ -8,20 +11,39 @@ use vortex::array::{
     memory::HostMemorySessionExt as _,
 };
 
-/// Visit the same flat fields and typed writes as `detach`, keeping no rows.
-/// The bounded result builder still checks every value, validity and text offset.
-/// Nested/decimal leaves are excluded by the caller's ordering admission.
-pub(in crate::local_primitives) fn validate_flat_record(
+/// Visit the same fields and typed writes as `detach`, keeping no payload rows.
+/// Rich and nullable records share the copier's parent masks and field order;
+/// flat nonnullable records retain their existing direct field resolution.
+pub(in crate::local_primitives) fn validate_record(
     array: &ArrayRef,
     fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
     context.check_cancelled()?;
-    if array.dtype().is_nullable() {
-        // Nullable records use the existing parent-validity/default semantics.
-        // This temporary copy is released before the bounded ordering state.
-        drop(detach(array, context)?);
-        return Ok(());
+    if array.dtype().is_nullable()
+        || fields
+            .iter()
+            .any(|(_, dtype)| super::is_nested(dtype) || matches!(dtype, DType::Decimal(..)))
+    {
+        let metadata =
+            crate::native_payload_schema::reserve_schema(array.dtype(), context.memory())?;
+        let allocator =
+            crate::owned_buffers::with_credit(context.native_session().host_allocator(), metadata);
+        let mut rows = ReservedVec::new(context.memory())?;
+        rows.reserve(array.len())?;
+        for row in 0..array.len() {
+            check(row, context)?;
+            rows.values.push(Some(row));
+        }
+        drop(copy_rows::<false>(
+            Some(array),
+            &rows.values,
+            array.dtype(),
+            CopyState::unmeasured(CopyPolicy::ValidateValues),
+            context,
+            &allocator,
+        )?);
+        return context.check_cancelled();
     }
     let mut execution = context.native_session().create_execution_ctx();
     for (name, dtype) in fields {

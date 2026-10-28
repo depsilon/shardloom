@@ -4,7 +4,7 @@ use super::super::native_relational_keys::Cell as KeyCell;
 use super::{
     ArrayRef, FieldNames, LocalSelection, Metrics, NativeExecutionContext, Node, NodeKind,
     PipelineKind, PipelineStage, PreparedVortexRelational, ReservedVec, Result, StructArray,
-    Validity, failed, native_relational_expression, native_relational_sort, vortex_error,
+    Validity, add, failed, native_relational_expression, native_relational_sort, vortex_error,
 };
 
 impl PreparedVortexRelational {
@@ -228,10 +228,19 @@ impl PreparedVortexRelational {
                 batch_rows,
                 parameter,
                 &mut |array| {
+                    let rows = array.len() as u64;
                     let copied = sort.build(array, context)?;
-                    if copied != 0 {
-                        metrics.record_ordering_copy(copied)?;
+                    if copied.rows != 0 || copied.buffer_bytes != 0 {
+                        metrics.record_ordering_copy(copied.rows, copied.buffer_bytes)?;
                     }
+                    add(&metrics.ordering_prefix_batches, 1)?;
+                    add(&metrics.ordering_prefix_rows_validated, rows)?;
+                    metrics.ordering_prefix_peak_retained_buffer_bytes.set(
+                        metrics
+                            .ordering_prefix_peak_retained_buffer_bytes
+                            .get()
+                            .max(copied.retained_buffer_bytes),
+                    );
                     Ok(())
                 },
             )?;

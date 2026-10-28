@@ -1,0 +1,793 @@
+{
+  "build_profile": "ci-native",
+  "ignored_native_tests": [
+    "test non_unix_cli_reports_refusal_without_admitted_resource_fields ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+    "test non_unix_primitives_refuse_before_existing_or_missing_source_access ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+    "test non_unix_writer_refusal_preserves_existing_destination_and_creates_nothing ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+    "test local_primitives::bounded_numeric_reduction_experiment::tests::bounded_numeric_measured_scalar_consumers ... ignored, manual release-mode bounded-native-consumer feasibility measurement",
+    "test local_primitives::columnar_compat_sink::tests::benchmark::columnar_compatibility_release_lifecycle ... ignored, bounded serial native compatibility lifecycle; root owns release timing",
+    "test local_primitives::compact_string_state::benchmark::paired::compact_string_state_actual_retained_paired_release ... ignored, paired release state benchmark; run serially with --release --ignored --nocapture",
+    "test local_primitives::encoded_numeric_reduction::tests::encoded_numeric_reduction_measured_native_scalar_consumers ... ignored, manual release-mode scalar-consumer benchmark; emits paired complete-value evidence",
+    "test local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen ... ignored, native sink attribution; release, guarded local TMPDIR and serial execution required",
+    "test local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen ... ignored, extended-boundary release screen; guarded local root and serial execution required",
+    "test local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen ... ignored, held-out release screen; guarded local root and serial execution required",
+    "test local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen ... ignored, bounded public-call selector screen; guarded local root, release and serial execution required",
+    "test local_primitives::prepared_relational::tests::compact_index_cost_tests::native_compact_local_indices_screen ... ignored, frozen compact local indices protocol; serial guarded execution only",
+    "test local_primitives::prepared_relational::tests::engine_cost_tests::native_engine_optimization_cost_screen ... ignored, frozen native engine decision screen; guarded serial execution only",
+    "test local_primitives::prepared_relational::tests::prepared_sample_cost_tests::native_prepared_sampling_cost_screen ... ignored, frozen prepared-sampling protocol; serial guarded comparison only",
+    "test local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen ... ignored, frozen complete-operation resource/cost screen; use serial guarded release execution",
+    "test local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release ... ignored, requires isolated release timing; root owns serial benchmark gate",
+    "test local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic ... ignored, requires an explicitly supplied resident Vortex file and exact reference values",
+    "test local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture ... ignored, fixture regeneration helper; writes shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+    "test local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows ... ignored, bounded spill ownership screen; guarded local TMPDIR, release and serial execution required",
+    "test native_provider_memory::builder_tests::cost::native_builder_lifecycle_cost_screen ... ignored, native builder lifecycle screen; guarded serial release execution required",
+    "test native_provider_memory::builder_tests::decoder_cost::native_decoder_lifecycle_cost_sample ... ignored, native decoder lifecycle screen; guarded serial release execution required",
+    "test native_provider_memory::zstd_tests::compression_cost_tests::native_zstd_complete_compression_cost_screen ... ignored, explicit frozen compression lifecycle cost screen; not a routine unit test",
+    "test resident_memory_source::encoded_transfer::tests::varbin_metadata_cost_tests::native_varbin_metadata_complete_lifecycle_cost_screen ... ignored, frozen complete buffer-table lifecycle screen; guarded serial release execution only",
+    "test resident_session::composition_bench::native_composition_producer_memory_attribution ... ignored, bounded R5.a producer memory attribution; requires SHARDLOOM_R5A_SOURCE",
+    "test resident_session::composition_bench::native_memory_file_composition_baseline ... ignored, bounded R5.a native baseline; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact",
+    "test resident_session::composition_bench::native_owned_array_composition_candidate ... ignored, bounded R5.a owned-array candidate; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact",
+    "test resident_session::concurrent_serving_tests::load_harness::serving_fixed_arrival_load_receipt ... ignored, explicit bounded fixed-arrival load run; prints complete JSON receipts",
+    "test resident_session::segment_reuse::tests::io_tests::release_bench::scan_segment_reuse_release_lifecycle_pairs ... ignored, paired release-mode native query lifecycle experiment; run serially with --release --ignored --exact",
+    "test resident_session::source_reuse_bench::concurrent_source_reuse_attribution ... ignored, bounded release-only concurrent native source attribution screen; run serially with --release --ignored --exact",
+    "test resident_session::source_reuse_bench::fanout::existing_owned_producer_fanout_pairs ... ignored, bounded release-only owned producer fanout screen; run serially with --release --ignored --exact",
+    "test vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers ... ignored, bounded paired release writer lifecycle; root owns serial timings",
+    "test vortex_ingest::dictionary_preservation::source_dictionary_bench::clickbench_source_dictionary_admission_screen ... ignored, manual bounded R1.b source-dictionary admission screen; requires SHARDLOOM_R1B_SOURCE",
+    "test vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen ... ignored, manual bounded R6.b FSST admission; requires SHARDLOOM_R1B_SOURCE",
+    "test vortex_ingest::dictionary_preservation::source_dictionary_bench::zstd_size_screen::clickbench_zstd_size_admission_screen ... ignored, manual bounded native text-size screen; requires SHARDLOOM_R1B_SOURCE",
+    "test vortex_ingest::text_codec_portfolio::text_codec_portfolio_release_reuse_1_10_100 ... ignored, bounded serial native text lifecycle portfolio; release only, root owns timing"
+  ],
+  "installed_package_tests": 199,
+  "item_20_complete": false,
+  "limitations": [
+    "Current-host optimized checked build; hosted platform gates are recorded separately.",
+    "Earlier local gates retain their actual HEAD and dirty-source inventories; they are not relabelled as clean builds.",
+    "Thirty-two native ignores are explicit measurement/fixture helpers; three require Windows CI.",
+    "No new 347-case or Full43 timing observation; prior measurements remain unchanged.",
+    "Raw timestamp storage covers i64; calendar evaluation has its separately declared bounded domain.",
+    "Later as-of/time-series, numeric, recursive-composition and explicit batch-function work remains open.",
+    "Content hashes establish internal consistency, not signed provenance; large runtime/wheel payloads remain external."
+  ],
+  "observations": {
+    "evidence/r01-core-temporal-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r02-core-temporal-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r03-core-temporal-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r04-native-temporal-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r05-native-temporal-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r06-native-temporal-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r07-temporal-owner-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r08-temporal-cast-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r09-temporal-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r10-temporal-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r11-temporal-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r12-python-temporal-compat.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r13-temporal-workspace-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r14-temporal-workspace-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r15-temporal-native-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r16-calendar-core-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r17-calendar-native-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r18-temporal-integration-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r19-temporal-integrated-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r20-temporal-edition-check.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r21-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r22-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r23-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r24-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r25-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r27-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r28-temporal-integration-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r29-temporal-native-build.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r30-freeze-temporal-runtime.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r31-temporal-public-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 1,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r32-temporal-boundary-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r33-temporal-boundary-build.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r34-freeze-temporal-boundary-runtime.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r35-temporal-public-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 1,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r36-temporal-source-backtrace.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 1,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r37-temporal-footer-build.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r38-freeze-temporal-footer-runtime.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r39-temporal-public-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 1,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r40-temporal-boundary-diagnostic.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r41-temporal-compression-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r42-temporal-compression-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r43-temporal-compression-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r44-temporal-compression-build.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r45-freeze-temporal-compression-runtime.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r46-temporal-public-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r47-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r48-native-workspace-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r49-default-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r50-temporal-whitespace-before-fix.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 1,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r51-native-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r52-default-workspace-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r53-native-workspace-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r54-jsonl-regression.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r55-jsonl-concurrency-before.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r56-native-workspace-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r57-datetime-provider-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r58-datetime-provider-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r59-datetime-provider-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r60-datetime-provider-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 101,
+      "status": "failed",
+      "timed_out": false
+    },
+    "evidence/r61-datetime-provider-clippy.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r62-catalog-adapter-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r63-native-workspace-tests.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r64-final-temporal-build.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r65-freeze-final-temporal-runtime.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r66-final-temporal-public.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r67-wheel-tools.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    },
+    "evidence/r68-installed-wheel.json": {
+      "error": null,
+      "interrupted_signal": null,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false
+    }
+  },
+  "package_publication_attempted": false,
+  "performance_claim": false,
+  "required_local_gates": {
+    "r49-default-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--offline",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "715832cc344259064b2195c146504cf242206d04e69c3ca1f20d30f981d62e16",
+      "receipt_sha256": "1b5e94584efb7fbf987d5401c8131d1e95dbfe95ae9b3c30b44538b14101001a",
+      "status": "passed"
+    },
+    "r51-native-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--offline",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "f76186137b041e8d88aea1279fb5f56605db6933c7259d13e7260d1c211055df",
+      "receipt_sha256": "810ef7488115d061f815c2140ea529d74feb69c18fc3ff1d4705b6c4fb479fda",
+      "status": "passed"
+    },
+    "r52-default-workspace-tests": {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--offline",
+        "--locked",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "1effa2e2de53658eb74b0158c549abaf6592e08b19fccb0d52a8d37c5c6f252f",
+      "receipt_sha256": "3bf7ca660f93dc320eac77749bb6e1646506af8888040e4831fe023e0e04aa3d",
+      "status": "passed"
+    },
+    "r59-datetime-provider-tests": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "vendor/vortex-datetime-parts/Cargo.toml",
+        "--config",
+        "patch.crates-io.vortex-array.path=\"vendor/vortex-array\"",
+        "--features",
+        "vortex-array/table-display",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "57451d84238537b18ef2effadeac3de0c66d627d8eb5e156fbed34e80a0f19d1",
+      "receipt_sha256": "44af0024774ecfe24e86cc3829143109771c0946e516306e71cfb108d503e0e9",
+      "status": "passed"
+    },
+    "r61-datetime-provider-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--manifest-path",
+        "vendor/vortex-datetime-parts/Cargo.toml",
+        "--config",
+        "patch.crates-io.vortex-array.path=\"vendor/vortex-array\"",
+        "--features",
+        "vortex-array/table-display",
+        "--lib",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "82b99229a36c5a2d665662fbd50f9e813025ff95caec958ba51a889dcc7c574f",
+      "receipt_sha256": "5baa143837bed37451a59c61f39e36d5d3d69fafb9532d2e5027a45ca0fbbec8",
+      "status": "passed"
+    },
+    "r62-catalog-adapter-tests": {
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/_native.abi3.so",
+        "SHARDLOOM_SURFACE_TEST_BINARY=/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r4/shardloom",
+        "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/python-proof/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "python.tests.test_native_function_catalog",
+        "python.tests.test_native_standard_adapters.NativeStandardAdapterTests.test_parameter_schema_preserves_unsigned_decimal_and_typed_null"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "0b589093a81e2d89e978cf4a18f87b33b719e6a19c9443cdef50525de481d4dc",
+      "receipt_sha256": "11c7865951f3ff84cc03865c2f1c6b586356848f069c390e82e266495a0cc7fe",
+      "status": "passed"
+    },
+    "r63-native-workspace-tests": {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--offline",
+        "--locked",
+        "--",
+        "--test-threads=2"
+      ],
+      "head": "2a8c301c3094bcc84ca1567131c8aaa7fc3b7f67",
+      "log_sha256": "f79e6471a128c0060e3dee6d23a06b918011581b603508d493db0d8550edca12",
+      "receipt_sha256": "f76a177bb91a60314343de5e5ffcb40570d8635801ed9b87c4f76a3e8282c17d",
+      "status": "passed"
+    },
+    "r64-final-temporal-build": {
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native"
+      ],
+      "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+      "log_sha256": "1ffd0840bc9ba90b26abb106c4d683c7f196dc61714c0dbc089f85fb48a76f32",
+      "receipt_sha256": "324d82eee2bdc9e9bc4e154c2f73f9c81e14aa1eafaf1712034a0834a988a884",
+      "status": "passed"
+    },
+    "r65-freeze-final-temporal-runtime": {
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/freeze_temporal_runtime.py",
+        "--build-receipt",
+        "r64-final-temporal-build.json",
+        "--destination",
+        "temporal-native-r5"
+      ],
+      "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+      "log_sha256": "7cf0f5435a9ecd617e4ebab2416001c4a7221f77588dfa8d0a9a81d7e4119f68",
+      "receipt_sha256": "b7fcbf770c95605610b64a010c333e4fce52961d298b230782917de5b87ef2e3",
+      "status": "passed"
+    },
+    "r66-final-temporal-public": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/analytical-completion-2026-10-27/python-proof/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/test_temporal_surfaces.py",
+        "--runtime",
+        "temporal-native-r5",
+        "--report",
+        "temporal-public-r5.json"
+      ],
+      "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+      "log_sha256": "6336faf1f26a9b7e73ea0d24224301c3774b96d7cd28d55d797cd22cbcc831ea",
+      "receipt_sha256": "7051a402ccb55e1abdd5740d821fe65661b2fe945e5c18769cfe258651e4129d",
+      "status": "passed"
+    },
+    "r67-wheel-tools": {
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/tools/prepare_wheel_tools.py"
+      ],
+      "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+      "log_sha256": "bcef0cc3e3dcd1508ca392947aeb5b0886ba42c3a72140111fbbeb371064af8c",
+      "receipt_sha256": "0cd65a8a040c0ad18485af83fde544dc34f5859f74de60614f528d22c23f8ade",
+      "status": "passed"
+    },
+    "r68-installed-wheel": {
+      "command": [
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "--output-dir",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-wheel-r1",
+        "--native-library",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r5/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/temporal-native-r5/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/installed-proof-wheelhouse"
+      ],
+      "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+      "log_sha256": "03bf143234c5a74a26ee123ea97c9eb6b347aa74537cb6279918ef5d2883a87d",
+      "receipt_sha256": "9bbf3c7dc71201d22579679e9cdf9fe8ba6f8294e2e09439f58614b0e1ae8a86",
+      "status": "passed"
+    }
+  },
+  "runtime_files": {
+    "_native.abi3.so": {
+      "bytes": 114548704,
+      "sha256": "a83753c46fa9981fcad20f423109ed51069ff05481c0555cbd1bbd64ab314929"
+    },
+    "shardloom": {
+      "bytes": 111551816,
+      "sha256": "2d40698a567ab8155b0721c6c4fa950c9c457939ea62253a4b5faeaf94f2a887"
+    }
+  },
+  "schema_version": "shardloom.temporal_fidelity_acceptance.v1",
+  "source_head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+  "status": "passed",
+  "temporal_public_tests": 22,
+  "test_totals": {
+    "r52-default-workspace-tests": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3274
+    },
+    "r59-datetime-provider-tests": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 89
+    },
+    "r63-native-workspace-tests": {
+      "failed": 0,
+      "ignored": 35,
+      "passed": 6301
+    }
+  },
+  "wheel": {
+    "cli_sha256": "2d40698a567ab8155b0721c6c4fa950c9c457939ea62253a4b5faeaf94f2a887",
+    "licenses": {
+      "license_file_records": 827,
+      "registry_packages": 435,
+      "status": "passed",
+      "unique_text_files": 249,
+      "vendored_packages": 12
+    },
+    "linux_audit_verified": false,
+    "load_verified": false,
+    "native_library_sha256": "a83753c46fa9981fcad20f423109ed51069ff05481c0555cbd1bbd64ab314929",
+    "published": false,
+    "python_source_files": 30,
+    "schema_version": "shardloom.native_python_wheel_integrity.v1",
+    "status": "passed",
+    "tag": "cp310-abi3-macosx_27_0_arm64",
+    "wheel": "shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "wheel_bytes": 62286461,
+    "wheel_sha256": "a404aaf44322d8ad69ca8bc89abf08d68ceec3c47984f78bd6c920c9aadc8446"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "command": [
+    "env",
+    "SHARDLOOM_TEMPORAL_PACKET=/Users/dylan/LocalData/ShardLoom/native-temporal-fidelity-2026-10-27/packet-final-r2",
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "scripts",
+    "-p",
+    "test_native_temporal_fidelity_packet.py",
+    "-v"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "34d7ee14a6e22734fbb400bae67eaf8a225b64ac",
+  "working_tree": "?? scripts/test_native_temporal_fidelity_packet.py\n?? scripts/verify_native_temporal_fidelity_packet.py\n",
+  "changed_source_inventory": {
+    "scripts/test_native_temporal_fidelity_packet.py": {
+      "sha256": "9b921fdec5df7f6748215d2077140e5d911d11688425636a847789ceb6d1ae40",
+      "bytes": 5400
+    },
+    "scripts/verify_native_temporal_fidelity_packet.py": {
+      "sha256": "5632f1dfa8e603c1f3fa34d287e8059408dcfba28bcd0ce9aba8922f1bef0d34",
+      "bytes": 9980
+    }
+  },
+  "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CLIPPY_CONF_DIR": null,
+    "SHARDLOOM_PIP_AUDIT_PYTHON": null
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "timeout_seconds": 2400,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 97731,
+  "output_bytes": 1136,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 0.23342804099999998,
+  "log_sha256": "da011b32a239de0e2b27d3f25e83cd37b5500e4d702c58aef1810c38ea20510b"
+}

@@ -29,7 +29,7 @@ pub(super) use storage::decimal_key;
 
 #[path = "native_payload_validation.rs"]
 mod validation;
-pub(super) use validation::validate_flat_record;
+pub(super) use validation::validate_record;
 
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_storage_tests.rs"]
@@ -38,6 +38,10 @@ mod storage_tests;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_numeric_tests.rs"]
 mod numeric_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_payload_validation_tests.rs"]
+mod validation_tests;
 
 /// Private window records can retain measures that no frame ever observes.
 /// Moving them must not evaluate them. Public result construction still validates.
@@ -225,7 +229,7 @@ fn take_admitted(
         };
         rows.values.push(index);
     }
-    copy_rows(Some(source), &rows.values, dtype, copy, context, &allocator)
+    copy_rows::<true>(Some(source), &rows.values, dtype, copy, context, &allocator)
 }
 
 /// Typed empty/null output, including a missing outer-join side. Nonnullable
@@ -259,7 +263,7 @@ fn defaults_admitted(
     let mut indices = ReservedVec::new(context.memory())?;
     indices.reserve(rows)?;
     indices.values.resize(rows, None);
-    copy_rows(
+    copy_rows::<true>(
         None,
         &indices.values,
         dtype,
@@ -342,7 +346,11 @@ pub(super) fn default_value(dtype: &DType) -> Result<Value<'static>> {
     })
 }
 
-fn validity(dtype: &DType, valid: &[bool], allocator: &HostAllocatorRef) -> Result<Validity> {
+fn validity<const RETAIN: bool>(
+    dtype: &DType,
+    valid: &[bool],
+    allocator: &HostAllocatorRef,
+) -> Result<Validity> {
     if !dtype.is_nullable() {
         if valid.iter().any(|valid| !valid) {
             return Err(failed("null in a nonnullable nested payload"));
@@ -351,13 +359,14 @@ fn validity(dtype: &DType, valid: &[bool], allocator: &HostAllocatorRef) -> Resu
     }
     Ok(Validity::Array(result_batch::build_column(
         &DType::Bool(Nullability::NonNullable),
-        valid.len(),
+        if RETAIN { valid.len() } else { 0 },
         allocator,
         |row| Ok(Value::Bool(valid[row])),
     )?))
 }
 
-fn copy_rows(
+#[allow(clippy::too_many_lines)] // Copying and validation share one field-major visitation order.
+fn copy_rows<const RETAIN: bool>(
     source: Option<&ArrayRef>,
     rows: &[Option<usize>],
     dtype: &DType,
@@ -367,7 +376,8 @@ fn copy_rows(
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
     if matches!(dtype, DType::Decimal(..)) {
-        let array = storage::decimal(source, rows, dtype, copy.policy, context, allocator)?;
+        let array =
+            storage::decimal::<RETAIN>(source, rows, dtype, copy.policy, context, allocator)?;
         copy.record_scalars(rows.len())?;
         return Ok(array);
     }
@@ -387,24 +397,37 @@ fn copy_rows(
     let mut execution = context.native_session().create_execution_ctx();
     let selected = if rows.iter().any(Option::is_some) {
         let source = source.ok_or_else(|| failed("payload source is absent"))?;
-        let nullable = rows.iter().any(Option::is_none);
-        let indices = result_batch::build_column(
-            &DType::Primitive(PType::U64, Nullability::from(nullable)),
-            rows.len(),
-            allocator,
-            |row| Ok(rows[row].map_or(Value::Null, |index| Value::UInt(index as u64))),
-        )?;
-        Some(source.take(indices).map_err(vortex_error)?)
+        if !RETAIN
+            && rows.len() == source.len()
+            && rows
+                .iter()
+                .enumerate()
+                .all(|(row, index)| *index == Some(row))
+        {
+            // Complete validation already has the entire source domain. Keep
+            // selection for any masked/nonidentity child so hidden values do
+            // not reach a provider's canonicalization or validation boundary.
+            Some(source.clone())
+        } else {
+            let nullable = rows.iter().any(Option::is_none);
+            let indices = result_batch::build_column(
+                &DType::Primitive(PType::U64, Nullability::from(nullable)),
+                rows.len(),
+                allocator,
+                |row| Ok(rows[row].map_or(Value::Null, |index| Value::UInt(index as u64))),
+            )?;
+            Some(source.take(indices).map_err(vortex_error)?)
+        }
     } else {
         None
     };
 
     match dtype {
         DType::Struct(fields, _) => {
-            copy_struct(selected, rows, dtype, fields, copy, context, allocator)
+            copy_struct::<RETAIN>(selected, rows, dtype, fields, copy, context, allocator)
         }
         DType::List(element, _) | DType::FixedSizeList(element, _, _) => {
-            copy_list(selected, rows, dtype, element, copy, context, allocator)
+            copy_list::<RETAIN>(selected, rows, dtype, element, copy, context, allocator)
         }
         _ => {
             // Selection precedes leaf canonicalization: hidden or unselected
@@ -417,7 +440,8 @@ fn copy_rows(
                         .map_err(vortex_error)
                 })
                 .transpose()?;
-            if copy.policy == CopyPolicy::PreserveUnobserved
+            if RETAIN
+                && copy.policy == CopyPolicy::PreserveUnobserved
                 && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
                 && let Some(selected) = &selected
             {
@@ -440,7 +464,7 @@ fn copy_rows(
                     NativeNumericOwner::new(primitive, &mut execution)
                 })
                 .transpose()?;
-            result_batch::build_column(dtype, rows.len(), allocator, |row| {
+            let value = |row: usize| {
                 check(row, context)?;
                 let value = if rows[row].is_none() {
                     default_value(dtype)
@@ -455,12 +479,17 @@ fn copy_rows(
                 }?;
                 copy.record_scalars(1)?;
                 Ok(value)
-            })
+            };
+            if RETAIN {
+                result_batch::build_column(dtype, rows.len(), allocator, value)
+            } else {
+                result_batch::build_column_prefix(dtype, rows.len(), 0, allocator, value)
+            }
         }
     }
 }
 
-fn copy_struct(
+fn copy_struct<const RETAIN: bool>(
     selected: Option<ArrayRef>,
     rows: &[Option<usize>],
     dtype: &DType,
@@ -501,7 +530,7 @@ fn copy_struct(
     let mut children = ReservedVec::new(context.memory())?;
     children.reserve(fields.nfields())?;
     for (index, child) in fields.fields().enumerate() {
-        children.values.push(copy_rows(
+        children.values.push(copy_rows::<RETAIN>(
             selected.as_ref().map(|array| array.unmasked_field(index)),
             &active.values,
             &child,
@@ -510,15 +539,20 @@ fn copy_struct(
             allocator,
         )?);
     }
-    let validity = validity(dtype, &valid.values, allocator)?;
+    let validity = validity::<RETAIN>(dtype, &valid.values, allocator)?;
     let (children, _ownership) = children.into_parts();
-    StructArray::try_new(fields.names().clone(), children, rows.len(), validity)
-        .map(IntoArray::into_array)
-        .and_then(|array| crate::owned_buffers::retain_empty_array_credit(array, allocator))
-        .map_err(vortex_error)
+    StructArray::try_new(
+        fields.names().clone(),
+        children,
+        if RETAIN { rows.len() } else { 0 },
+        validity,
+    )
+    .map(IntoArray::into_array)
+    .and_then(|array| crate::owned_buffers::retain_empty_array_credit(array, allocator))
+    .map_err(vortex_error)
 }
 
-fn copy_list(
+fn copy_list<const RETAIN: bool>(
     selected: Option<ArrayRef>,
     rows: &[Option<usize>],
     dtype: &DType,
@@ -534,11 +568,13 @@ fn copy_list(
     let mut children = ReservedVec::new(context.memory())?;
     let mut offsets = ReservedVec::new(context.memory())?;
     let mut valid = ReservedVec::new(context.memory())?;
-    offsets.reserve(
+    offsets.reserve(if RETAIN {
         rows.len()
             .checked_add(1)
-            .ok_or_else(|| failed("list offset overflow"))?,
-    )?;
+            .ok_or_else(|| failed("list offset overflow"))?
+    } else {
+        1
+    })?;
     valid.reserve(rows.len())?;
     offsets.values.push(0usize);
     for (row, original) in rows.iter().enumerate() {
@@ -565,9 +601,11 @@ fn copy_list(
                 .values
                 .push(coordinates.map(|(start, _)| start + offset));
         }
-        offsets.values.push(children.values.len());
+        if RETAIN {
+            offsets.values.push(children.values.len());
+        }
     }
-    let child = copy_rows(
+    let child = copy_rows::<RETAIN>(
         selected.as_ref().map(|column| &column.elements),
         &children.values,
         element,
@@ -575,9 +613,9 @@ fn copy_list(
         context,
         allocator,
     )?;
-    let validity = validity(dtype, &valid.values, allocator)?;
+    let validity = validity::<RETAIN>(dtype, &valid.values, allocator)?;
     if let DType::FixedSizeList(_, size, _) = dtype {
-        FixedSizeListArray::try_new(child, *size, validity, rows.len())
+        FixedSizeListArray::try_new(child, *size, validity, if RETAIN { rows.len() } else { 0 })
             .map(IntoArray::into_array)
             .map_err(vortex_error)
     } else {
