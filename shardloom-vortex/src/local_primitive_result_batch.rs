@@ -503,6 +503,23 @@ pub(super) fn build_column<'a>(
     build_column_prefix_inner::<false>(dtype, rows, rows, allocator, value)
 }
 
+#[cfg(unix)]
+pub(super) fn build_numeric_column<
+    T: vortex::array::dtype::NativePType + vortex::array::memory::HostBufferElement,
+>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    value: impl FnMut(usize) -> Result<Option<T>>,
+) -> Result<ArrayRef> {
+    numeric::build_column(dtype, rows, allocator, value)
+}
+
+#[cfg(unix)]
+pub(super) fn validate_finite_numeric_output(value: f64) -> Result<()> {
+    numeric::finite(value.is_finite())
+}
+
 /// Copy already selected numeric storage into independently credited buffers.
 /// Selection/casting and owner preparation remain the caller's responsibility.
 #[cfg(unix)]

@@ -668,14 +668,29 @@ visible and independent; this implementation does not automatically close them.
     pass, including 33,260 complete result rows. Preserve its source, original
     observations and failures; remove both optimization mechanisms. Retain the
     independently required malformed-text correction and regression tests.
-    Its cost is not isolated by the combined candidate timing; the last accepted
-    optimization checkpoint remains 17.42942424 seconds. The
+    Its cost is not isolated by the combined candidate timing; the accepted
+    optimization checkpoint at removal is 17.42942424 seconds. The
     [post-removal source validation](../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json)
     passes formatting, strict native/workspace lint, 5,016 native tests (35
     existing opt-in ignores) and 3,274 workspace tests. The unchanged provider
     source has 146 passing tests, one existing ignore and strict lint. The
     combined candidate's public/fresh-cohort results do not establish new
     retained-source installed-package acceptance; that combined gate stays open.
+    The next [typed numeric expression checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-disposition.json)
+    retains same-storage I64/U64/F64 arithmetic and column/literal COALESCE
+    construction at **16.249797458 engine seconds** for all 347 queries and
+    12,565 complete rows, a 6.77% reduction. Grouped aggregation improves 13.75%
+    and global aggregation 21.31%, passing the frozen family-benefit gate.
+    One arithmetic-group query adds 0.021396124 seconds while the cohort saves
+    1.179626782 seconds; preserve that flag under the proportionate-regression
+    policy. No family regression threshold is crossed. The comparison includes
+    the previously untimed UTF-8 correctness repair and establishes no cause or
+    statistical confidence. Nine focused and 198 relational tests, four public
+    regressions, 160 fresh five-interface observations (410,420 result rows),
+    formatting, strict native/workspace lint, 5,025 native tests (35 existing
+    opt-in ignores) and 3,274 workspace tests pass. The source-linked record
+    preserves all failed attempts and the exact candidate patch. Combined
+    installed-package, portable and hosted acceptance stay open.
     The October 28 maintainer follow-up prioritizes measured shared grouping,
     projection and join costs, then shared-intermediate reuse and plan traversal
     where source and workload evidence warrants them. Recursive CTEs and structural

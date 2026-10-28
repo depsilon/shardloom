@@ -60,11 +60,11 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The latest retained checkpoint records 17.42942424 seconds, so this requires
-about 42.6% further reduction; it is a stretch target, not an achieved result or
+The latest retained checkpoint records 16.249797458 seconds, so this requires
+about 38.5% further reduction; it is a stretch target, not an achieved result or
 a reason to reduce correctness/coverage. Grouped aggregation contributes
-6.598215708 seconds, projection 3.168085623 seconds, and ordinary plus multiway
-joins 2.689858626 seconds. Use these complete family totals to prioritize
+5.690822797 seconds, projection 3.108211289 seconds, and ordinary plus multiway
+joins 2.85217179 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. The
 shared-owner sequence below records the retained and dropped candidates.
 Select further numeric/temporal specializations only from
@@ -79,7 +79,7 @@ this objective does not authorize another competitor cohort.
 
 The October 28 maintainer follow-up delegates the execution order to measured
 impact. Prioritize shared grouped aggregation, projection and joins: their
-retained family totals sum to 12.456159957 of the 17.42942424 engine seconds.
+retained family totals sum to 11.651205876 of the 16.249797458 engine seconds.
 This is workload concentration, not a claim that all of that time is removable.
 After each frozen candidate decision, target demonstrated repeated preparation,
 validation, copying or operator work in those shared owners. Explicit materialized
@@ -272,8 +272,8 @@ optimizations and their counters. The
 [correctness addendum](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-correctness-addendum.md)
 records the root cause and the disproved initial hypothesis. The combined
 candidate timing cannot isolate this repair's cost. No replacement performance
-observation is taken merely for optimization removal: 17.42942424 seconds remains
-the last accepted optimization checkpoint, not an independent measurement of
+observation is taken merely for optimization removal: at this checkpoint,
+17.42942424 seconds is the last accepted optimization measurement, not a measurement of
 the additional correctness repair. The [post-removal validation record](../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json)
 binds the six retained source files to passing formatting, strict native and
 workspace lint, 5,016 native tests (35 existing opt-in ignores), and 3,274
@@ -282,6 +282,42 @@ one existing ignore and strict lint. Both rejected mechanisms and their modules
 are absent. The earlier public and fresh-cohort results belong to the combined
 dropped candidate; they are not new package acceptance of this retained source.
 Combined item-20 acceptance stays open.
+
+The [typed numeric expression protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-protocol.json)
+and [retained disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-disposition.json)
+remove per-row generic value construction for binary arithmetic over identical
+I64/U64/F64 input/output storage. Exactly `COALESCE(column, finite non-null
+same-type literal)` uses the existing numeric owner to construct an independent
+native output directly, avoiding general selected-branch coordinates and gathers.
+The shared arithmetic helpers, left-before-right preparation, finite-operand
+observation before NULL propagation, first-error order, output allocation and
+validity rules remain authoritative. Other widths, decimal/temporal values and
+general lazy forms retain their existing owners. No dependency, provider,
+public schema or external evaluator is introduced.
+
+All **347 queries and 12,565 complete rows** pass at **16.249797458 engine seconds**,
+6.77% below 17.42942424. Grouped aggregation improves 13.75% and global aggregation
+21.31%, meeting the prospective family-benefit gate with a positive overall
+balance. The single material case flag is
+`aggregate_optional_value_group_key_category_mixed_arithmetic_all`: it adds
+0.021396124 seconds while the cohort saves 1.179626782 seconds. Complete results
+and physical read demand are unchanged; no family crosses its regression
+threshold. Retain this observed tradeoff under the October 28 proportionate
+regression policy, preserving the case for the continuing grouping work.
+One observation does not establish its cause or statistical confidence. This
+comparison includes the previously untimed UTF-8 correctness repair.
+
+Nine focused numeric tests, 198 relational tests, four existing five-interface
+regressions and 160 fresh five-interface observations pass. Complete fresh replay
+checks 410,420 result rows and 17,364 input rows. Formatting, strict native and
+workspace lint, 5,025 native tests (35 existing opt-in ignores), and 3,274
+workspace tests pass on the measured source. The immutable patch reconstructs
+all six changed source files from the recorded commit. Preserve the initial
+lint failure and three failed focused-test attempts: cancellation, temporal and
+error-order fixtures required correction; the invalid dictionary panic and
+disproved constant-array refusal assumption are not claimed as runtime fixes.
+Combined installed-package, portable and hosted acceptance remain open, as do
+the speed targets and every remaining item-20 capability/workflow obligation.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.

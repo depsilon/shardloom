@@ -51,6 +51,10 @@ pub(crate) struct Counts {
     pub(crate) predicate_compile_attempts: u64,
     pub(crate) predicate_boolean_rows: u64,
     pub(crate) expression_output_reuses: u64,
+    pub(crate) expression_numeric_binary_batches: u64,
+    pub(crate) expression_numeric_binary_rows: u64,
+    pub(crate) expression_numeric_coalesce_batches: u64,
+    pub(crate) expression_numeric_coalesce_rows: u64,
     pub(crate) join_retained_right_rows: u64,
 }
 

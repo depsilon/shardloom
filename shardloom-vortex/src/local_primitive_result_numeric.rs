@@ -6,11 +6,53 @@ use super::{
     ArrayRef, DType, HostAllocatorRef, PType, PrimitiveArray, Result, Validity, allocate, failed,
     finish_column, finish_validity, multiply, set_bit, width,
 };
+use vortex::array::{dtype::NativePType, memory::HostBufferElement};
 use vortex::{array::arrays::primitive::PrimitiveArrayExt as _, buffer::ByteBuffer, mask::Mask};
 
 #[cfg(test)]
 #[path = "local_primitive_result_numeric_tests.rs"]
 mod tests;
+
+/// Write already-admitted numeric values without reconstructing a generic
+/// result value for each row. The caller owns arithmetic and finite-value
+/// semantics; this owner retains schema, NULL, allocation and lifetime checks.
+pub(super) fn build_column<T: NativePType + HostBufferElement>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    mut value: impl FnMut(usize) -> Result<Option<T>>,
+) -> Result<ArrayRef> {
+    if !matches!(dtype, DType::Primitive(ptype, _) if *ptype == T::PTYPE) {
+        return Err(failed(
+            "typed numeric construction changed its declared dtype",
+        ));
+    }
+    let mut validity = dtype
+        .is_nullable()
+        .then(|| allocate(allocator, rows.div_ceil(8), 1))
+        .transpose()?;
+    let mut data = allocate(allocator, multiply(rows, size_of::<T>())?, align_of::<T>())?;
+    for (row, slot) in data
+        .as_mut_slice_typed::<T>()
+        .map_err(super::vortex_error)?
+        .iter_mut()
+        .enumerate()
+    {
+        if let Some(value) = value(row)? {
+            *slot = value;
+            if let Some(validity) = &mut validity {
+                set_bit(validity, row);
+            }
+        } else if !dtype.is_nullable() {
+            return Err(failed("null in a nonnullable output column"));
+        }
+    }
+    let validity = validity
+        .map(|buffer| finish_validity(buffer.freeze(), rows, allocator))
+        .transpose()?
+        .unwrap_or(Validity::NonNullable);
+    finish_column(dtype, rows, data.freeze(), validity, None, allocator)
+}
 
 pub(super) fn copy_column(
     dtype: &DType,
@@ -88,7 +130,7 @@ fn visit_column<const COPY: bool>(
     }
 }
 
-fn finite(valid: bool) -> Result<()> {
+pub(super) fn finite(valid: bool) -> Result<()> {
     if valid {
         Ok(())
     } else {
