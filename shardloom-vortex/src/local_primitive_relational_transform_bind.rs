@@ -45,6 +45,7 @@ impl Binder<'_> {
                     Kind::Cast {
                         input: Box::new(expression),
                         tolerant: false,
+                        temporal: None,
                     },
                 );
             }

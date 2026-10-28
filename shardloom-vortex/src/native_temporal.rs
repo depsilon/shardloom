@@ -1,27 +1,220 @@
-//! Shared recognition of the admitted native temporal storage domains.
+//! Typed temporal metadata at native input, execution and output boundaries.
 
+use shardloom_core::{
+    Result,
+    temporal::{TemporalDType, TemporalKind, TemporalUnit, timezone},
+};
 use vortex::array::{
     dtype::{DType, PType},
-    extension::datetime::{Date, TimeUnit, Timestamp},
+    extension::datetime::{Date, Time, TimeUnit, Timestamp},
 };
+
+#[path = "native_duration.rs"]
+mod duration;
+pub(crate) use duration::Duration;
+
+#[path = "native_temporal_edition.rs"]
+mod edition;
+
+#[cfg(feature = "universal-format-io")]
+#[path = "native_duration_arrow.rs"]
+pub(crate) mod arrow;
 
 /// Recognize provider metadata, never an extension name or its storage alone.
 pub(crate) fn temporal_storage(dtype: &DType) -> Option<PType> {
     let DType::Extension(extension) = dtype else {
         return None;
     };
-    let storage = if extension.metadata_opt::<Date>() == Some(&TimeUnit::Days) {
-        PType::I32
-    } else if extension
-        .metadata_opt::<Timestamp>()
-        .is_some_and(|metadata| metadata.unit == TimeUnit::Microseconds && metadata.tz.is_none())
-    {
+    let storage = if let Some(unit) = extension.metadata_opt::<Date>() {
+        match unit {
+            TimeUnit::Days => PType::I32,
+            TimeUnit::Milliseconds => PType::I64,
+            _ => return None,
+        }
+    } else if let Some(unit) = extension.metadata_opt::<Time>() {
+        match unit {
+            TimeUnit::Seconds | TimeUnit::Milliseconds => PType::I32,
+            TimeUnit::Microseconds | TimeUnit::Nanoseconds => PType::I64,
+            TimeUnit::Days => return None,
+        }
+    } else if let Some(metadata) = extension.metadata_opt::<Timestamp>() {
+        fixed_unit(metadata.unit)?;
+        if let Some(zone) = &metadata.tz {
+            timezone::validate_name(zone).ok()?;
+        }
+        PType::I64
+    } else if extension.metadata_opt::<Duration>().is_some() {
         PType::I64
     } else {
         return None;
     };
     matches!(extension.storage_dtype(), DType::Primitive(ptype, _) if *ptype == storage)
         .then_some(storage)
+}
+
+/// Construct owned logical metadata once at binding/schema boundaries.
+pub(crate) fn temporal_dtype(dtype: &DType) -> Option<TemporalDType> {
+    temporal_storage(dtype)?;
+    let DType::Extension(extension) = dtype else {
+        return None;
+    };
+    let kind = if let Some(unit) = extension.metadata_opt::<Date>() {
+        if *unit == TimeUnit::Days {
+            TemporalKind::Date32
+        } else {
+            TemporalKind::Date64
+        }
+    } else if let Some(unit) = extension.metadata_opt::<Time>() {
+        TemporalKind::Time(fixed_unit(*unit)?)
+    } else if let Some(metadata) = extension.metadata_opt::<Timestamp>() {
+        TemporalKind::Timestamp {
+            unit: fixed_unit(metadata.unit)?,
+            timezone: metadata.tz.as_deref().map(str::to_owned),
+        }
+    } else {
+        TemporalKind::Duration(*extension.metadata_opt::<Duration>()?)
+    };
+    TemporalDType::new(kind).ok()
+}
+
+pub(crate) fn vortex_dtype(
+    dtype: &TemporalDType,
+    nullable: vortex::array::dtype::Nullability,
+) -> Result<DType> {
+    let extension = match dtype.kind() {
+        TemporalKind::Date32 => Date::new(TimeUnit::Days, nullable).erased(),
+        TemporalKind::Date64 => Date::new(TimeUnit::Milliseconds, nullable).erased(),
+        TemporalKind::Time(unit) => Time::new(provider_unit(*unit), nullable).erased(),
+        TemporalKind::Timestamp {
+            unit,
+            timezone: zone,
+        } => {
+            if let Some(zone) = zone {
+                timezone::validate_name(zone)?;
+            }
+            Timestamp::new_with_tz(
+                provider_unit(*unit),
+                zone.as_deref().map(std::sync::Arc::from),
+                nullable,
+            )
+            .erased()
+        }
+        TemporalKind::Duration(unit) => Duration::new(*unit, nullable).erased(),
+    };
+    Ok(DType::Extension(extension))
+}
+
+pub(crate) fn register(session: &vortex::session::VortexSession) {
+    use vortex::array::dtype::session::DTypeSessionExt as _;
+    session.dtypes().register(Duration);
+    edition::register(session);
+    #[cfg(feature = "universal-format-io")]
+    arrow::register(session);
+}
+
+pub(crate) fn fixed_unit(unit: TimeUnit) -> Option<TemporalUnit> {
+    Some(match unit {
+        TimeUnit::Seconds => TemporalUnit::Seconds,
+        TimeUnit::Milliseconds => TemporalUnit::Milliseconds,
+        TimeUnit::Microseconds => TemporalUnit::Microseconds,
+        TimeUnit::Nanoseconds => TemporalUnit::Nanoseconds,
+        TimeUnit::Days => return None,
+    })
+}
+
+pub(crate) const fn provider_unit(unit: TemporalUnit) -> TimeUnit {
+    match unit {
+        TemporalUnit::Seconds => TimeUnit::Seconds,
+        TemporalUnit::Milliseconds => TimeUnit::Milliseconds,
+        TemporalUnit::Microseconds => TimeUnit::Microseconds,
+        TemporalUnit::Nanoseconds => TimeUnit::Nanoseconds,
+    }
+}
+
+/// Validate restricted raw domains without constructing calendar scalars or
+/// allocating metadata per row. Full timestamp/duration tick domains stay exact.
+pub(crate) fn validate_ticks(dtype: &DType, value: i64) -> Result<()> {
+    let DType::Extension(extension) = dtype else {
+        return Err(failed("temporal ticks require extension metadata"));
+    };
+    if extension.metadata_opt::<Date>() == Some(&TimeUnit::Milliseconds) && value % 86_400_000 != 0
+    {
+        return Err(failed("date64 requires whole epoch days in milliseconds"));
+    }
+    if let Some(unit) = extension.metadata_opt::<Time>() {
+        let unit = fixed_unit(*unit)
+            .ok_or_else(|| failed("time-of-day requires a fixed temporal unit"))?;
+        if !(0..86_400 * unit.ticks_per_second()).contains(&value) {
+            return Err(failed(
+                "time-of-day ticks must be in [midnight, next midnight)",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Exact retained-row key tags, with no metadata allocation on a row visit.
+/// Preserve the historical aliases; frame every new canonical type name.
+pub(crate) fn write_key(
+    output: &mut impl std::fmt::Write,
+    dtype: &DType,
+    value: i64,
+) -> std::fmt::Result {
+    let DType::Extension(extension) = dtype else {
+        return Err(std::fmt::Error);
+    };
+    if let Some(unit) = extension.metadata_opt::<Date>() {
+        return match unit {
+            TimeUnit::Days => write!(output, "d32:{value}"),
+            TimeUnit::Milliseconds => write!(output, "temporal:6:date64:{value}"),
+            _ => Err(std::fmt::Error),
+        };
+    }
+    if let Some(unit) = extension.metadata_opt::<Time>() {
+        let unit = fixed_unit(*unit).ok_or(std::fmt::Error)?.as_str();
+        return write!(output, "temporal:{}:time({unit}):{value}", 6 + unit.len());
+    }
+    if let Some(metadata) = extension.metadata_opt::<Timestamp>() {
+        let unit = fixed_unit(metadata.unit).ok_or(std::fmt::Error)?.as_str();
+        if let Some(zone) = &metadata.tz {
+            return write!(
+                output,
+                "temporal:{}:timestamp({unit},{zone}):{value}",
+                12 + unit.len() + zone.len()
+            );
+        }
+        if metadata.unit == TimeUnit::Microseconds {
+            return write!(output, "tsus:{value}");
+        }
+        return write!(
+            output,
+            "temporal:{}:timestamp({unit}):{value}",
+            11 + unit.len()
+        );
+    }
+    if let Some(unit) = extension.metadata_opt::<Duration>() {
+        let unit = unit.as_str();
+        return write!(
+            output,
+            "temporal:{}:duration({unit}):{value}",
+            10 + unit.len()
+        );
+    }
+    Err(std::fmt::Error)
+}
+
+fn failed(message: &str) -> shardloom_core::ShardLoomError {
+    shardloom_core::ShardLoomError::InvalidOperation(message.to_owned())
+}
+
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn arrow_dtype(dtype: &TemporalDType) -> arrow_schema::DataType {
+    crate::temporal_arrow::data_type(dtype)
+}
+
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn from_arrow_dtype(dtype: &arrow_schema::DataType) -> Option<TemporalDType> {
+    crate::temporal_arrow::dtype(dtype)
 }
 
 #[cfg(test)]
@@ -127,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn full_domain_timestamp_admission_does_not_expand_other_temporal_contracts() {
+    fn temporal_admission_rejects_invalid_metadata_and_storage() {
         let options = TimestampOptions {
             unit: TimeUnit::Microseconds,
             tz: None,
@@ -141,13 +334,6 @@ mod tests {
         );
         for (unit, timezone, value) in [
             (TimeUnit::Days, None, 0),
-            (TimeUnit::Seconds, None, 300_000_000_000),
-            (TimeUnit::Milliseconds, None, 300_000_000_000_000),
-            (
-                TimeUnit::Microseconds,
-                Some(Arc::from("UTC")),
-                300_000_000_000_000_000,
-            ),
             (TimeUnit::Microseconds, Some(Arc::from("Not/A/Timezone")), 0),
         ] {
             let dtype = DType::Extension(
@@ -165,8 +351,77 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)] // Keep the shared encoding/predicate fixture and its checks together.
+    fn temporal_units_preserve_full_storage_domains_and_logical_identity() {
+        for unit in [
+            TemporalUnit::Seconds,
+            TemporalUnit::Milliseconds,
+            TemporalUnit::Microseconds,
+            TemporalUnit::Nanoseconds,
+        ] {
+            for kind in [
+                TemporalKind::Timestamp {
+                    unit,
+                    timezone: None,
+                },
+                TemporalKind::Timestamp {
+                    unit,
+                    timezone: Some("America/New_York".into()),
+                },
+                TemporalKind::Timestamp {
+                    unit,
+                    timezone: Some("+05:30".into()),
+                },
+                TemporalKind::Duration(unit),
+            ] {
+                let logical = TemporalDType::new(kind).unwrap();
+                let dtype = vortex_dtype(&logical, Nullability::Nullable).unwrap();
+                assert_eq!(temporal_dtype(&dtype), Some(logical));
+                let values = [i64::MIN, -1, 0, 1, i64::MAX].map(|v| scalar(&dtype, v));
+                for (value, expected) in values.iter().zip([i64::MIN, -1, 0, 1, i64::MAX]) {
+                    assert_eq!(value.dtype(), &dtype);
+                    assert_eq!(
+                        value
+                            .as_extension()
+                            .to_storage_scalar()
+                            .as_primitive()
+                            .as_::<i64>(),
+                        Some(expected)
+                    );
+                    assert_ne!(value.as_extension().to_string(), "");
+                }
+                for pair in values.windows(2) {
+                    assert_eq!(pair[0].partial_cmp(&pair[1]), Some(Ordering::Less));
+                }
+                assert!(Scalar::try_new(dtype, None).unwrap().is_null());
+            }
+        }
+        assert!(Duration.deserialize_metadata(&[4]).is_err());
+        assert!(Duration.deserialize_metadata(&[0, 0]).is_err());
+        assert!(
+            ExtDType::<Duration>::try_new(
+                TemporalUnit::Seconds,
+                DType::Primitive(PType::U64, Nullability::Nullable)
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn full_domain_timestamp_compression_preserves_storage_statistics_and_predicates() {
+        for unit in [
+            TimeUnit::Seconds,
+            TimeUnit::Milliseconds,
+            TimeUnit::Microseconds,
+            TimeUnit::Nanoseconds,
+        ] {
+            for timezone in [None, Some(Arc::from("America/New_York"))] {
+                assert_full_domain_timestamp_compression(unit, timezone);
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_lines)] // Keep the shared encoding/predicate fixture and its checks together.
+    fn assert_full_domain_timestamp_compression(unit: TimeUnit, timezone: Option<Arc<str>>) {
         use vortex::{
             VortexSessionDefault as _,
             array::{
@@ -183,9 +438,9 @@ mod tests {
 
         let session = VortexSession::default();
         let compressor = BtrBlocksCompressorBuilder::from_session(&session).build();
-        let dtype = Timestamp::new(TimeUnit::Microseconds, Nullability::Nullable).erased();
+        let dtype = Timestamp::new_with_tz(unit, timezone, Nullability::Nullable).erased();
         let mut execution = session.create_execution_ctx();
-        let boundary = [
+        let mut boundary = vec![
             i64::MIN,
             i64::MIN + 1,
             -631_107_417_600_000_001,
@@ -201,8 +456,18 @@ mod tests {
             i64::MAX - 1,
             i64::MAX,
         ];
+        let scale = match unit {
+            TimeUnit::Seconds => 1,
+            TimeUnit::Milliseconds => 1_000,
+            TimeUnit::Microseconds => 1_000_000,
+            TimeUnit::Nanoseconds => 1_000_000_000,
+            TimeUnit::Days => unreachable!(),
+        };
+        if let Some(day_limit) = (i64::from(i32::MAX) + 1).checked_mul(86_400 * scale) {
+            boundary.extend([day_limit - 1, day_limit, -day_limit, -day_limit - 1]);
+        }
         let profiles = [
-            boundary.into_iter().map(Some).chain([None]).collect(),
+            boundary.iter().copied().map(Some).chain([None]).collect(),
             vec![Some(i64::MAX); 64],
             (0..257)
                 .map(|offset| Some(i64::MIN + offset))
@@ -233,9 +498,23 @@ mod tests {
             for encoded in [decomposed, compressed] {
                 assert_eq!(encoded.dtype(), source.dtype());
                 assert_eq!(encoded.len(), expected.len());
+                let canonical = encoded
+                    .clone()
+                    .execute::<ExtensionArray>(&mut execution)
+                    .unwrap();
                 for (row, value) in expected.iter().enumerate() {
                     assert_eq!(
                         encoded
+                            .execute_scalar(row, &mut execution)
+                            .unwrap()
+                            .as_extension()
+                            .to_storage_scalar()
+                            .as_primitive()
+                            .as_::<i64>(),
+                        *value
+                    );
+                    assert_eq!(
+                        canonical
                             .execute_scalar(row, &mut execution)
                             .unwrap()
                             .as_extension()
@@ -262,7 +541,7 @@ mod tests {
                         });
                     assert_eq!(actual, expected_bound);
                 }
-                for threshold in boundary.into_iter().map(Some).chain([None]) {
+                for threshold in boundary.iter().copied().map(Some).chain([None]) {
                     for operator in [
                         Operator::Eq,
                         Operator::NotEq,

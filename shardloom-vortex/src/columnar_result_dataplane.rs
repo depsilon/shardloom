@@ -866,6 +866,9 @@ fn scalar_value_payload_bytes(value: &ScalarValue) -> u64 {
         ScalarValue::Binary(value) => u64::try_from(value.len()).unwrap_or(u64::MAX),
         ScalarValue::Decimal128 { .. } => 16,
         ScalarValue::Date32(_) => 4,
+        ScalarValue::Temporal(value) => {
+            8_u64.saturating_add(u64::try_from(value.dtype().as_str().len()).unwrap_or(u64::MAX))
+        }
         ScalarValue::List(values) => values
             .iter()
             .map(scalar_value_payload_bytes)

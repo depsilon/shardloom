@@ -136,6 +136,22 @@ impl NativeExpression {
         Self::scalar(ScalarValue::TimestampMicros(microseconds))
     }
 
+    /// Explicit typed ticks; this is not an implicit integer-to-time cast.
+    #[staticmethod]
+    fn temporal(ticks: i64, dtype: &str) -> PyResult<Self> {
+        use shardloom_core::temporal::{TemporalDType, TemporalValue};
+        let dtype = TemporalDType::parse_declaration(dtype)
+            .ok_or_else(|| PyValueError::new_err("invalid temporal scalar dtype"))?;
+        if let Some(zone) = dtype.timezone() {
+            shardloom_core::temporal::timezone::validate_name(zone).map_err(native_error)?;
+        }
+        Self::scalar(
+            TemporalValue::new(ticks, dtype)
+                .map_err(native_error)?
+                .into_scalar(),
+        )
+    }
+
     #[staticmethod]
     fn list(values: Vec<PyRef<'_, Self>>) -> PyResult<Self> {
         let depth = values
@@ -214,7 +230,10 @@ impl NativeExpression {
             "binary" => LogicalDType::Binary,
             "date32" => LogicalDType::Date32,
             "timestamp_micros" => LogicalDType::TimestampMicros,
-            name => LogicalDType::Extension(name.to_owned()),
+            name => shardloom_core::temporal::TemporalDType::parse_declaration(name).map_or_else(
+                || LogicalDType::Extension(name.to_owned()),
+                |dtype| dtype.logical(),
+            ),
         };
         let expr = Box::new((*self.value).clone());
         Self::node(

@@ -13,7 +13,8 @@ import time
 from ci_build_artifact import ROOT, sha, write_json
 
 GROUPS = {
-    "arrays": ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-zstd"),
+    "arrays": ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-zstd",
+               "vortex-datetime-parts"),
     "io": ("vortex-layout", "vortex-file", "vortex-io"),
     "buffer": ("vortex-buffer",),
 }
@@ -22,6 +23,8 @@ CONFIGURATIONS = {
     "vortex-fsst": {"features": "vortex-array/table-display", "patches": ["vortex-array"]},
     "vortex-runend": {"features": "vortex-array/table-display", "patches": ["vortex-array"]},
     "vortex-zstd": {"features": "vortex-array/table-display", "patches": ["vortex-array"]},
+    "vortex-datetime-parts": {"features": "vortex-array/table-display",
+                               "patches": ["vortex-array"]},
     "vortex-layout": {"features": "tokio,vortex-io/tokio,vortex-array/_test-harness",
                       "patches": ["vortex-array", "vortex-io"], "clippy_tests": True},
     "vortex-file": {"features": "tokio,vortex-array/table-display",

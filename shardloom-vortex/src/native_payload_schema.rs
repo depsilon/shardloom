@@ -199,7 +199,14 @@ fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
             DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
             DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
-            DType::Extension(_) if temporal_storage(dtype).is_some() => {}
+            DType::Extension(extension) if temporal_storage(dtype).is_some() => {
+                if let Some(metadata) =
+                    extension.metadata_opt::<vortex::array::extension::datetime::Timestamp>()
+                    && let Some(zone) = &metadata.tz
+                {
+                    budget.add((zone.len() as u64).saturating_mul(2))?;
+                }
+            }
             DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
                 visit(child, depth + 1, budget, allow_null)?;
             }
@@ -218,11 +225,29 @@ fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
     Ok(budget.bytes)
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool {
+    match (
+        field.metadata().get("ARROW:extension:name"),
+        field.metadata().get("ARROW:extension:metadata"),
+    ) {
+        (None, None) => true,
+        (Some(name), metadata)
+            if name == "shardloom.duration.v1"
+                && matches!(field.data_type(), arrow_schema::DataType::Duration(_))
+                && metadata.is_none_or(String::is_empty) =>
+        {
+            true
+        }
+        _ => false,
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
 pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64> {
     use arrow_schema::DataType as A;
     fn field(child: &arrow_schema::Field, depth: usize, budget: &mut Budget) -> Result<()> {
-        if child.metadata().contains_key("ARROW:extension:name") {
+        if !arrow_field_metadata_admitted(child) {
             return Err(unsupported());
         }
         visit(child.data_type(), depth, budget)
@@ -246,9 +271,8 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
             | A::Utf8View
             | A::Binary
             | A::LargeBinary
-            | A::BinaryView
-            | A::Date32
-            | A::Timestamp(arrow_schema::TimeUnit::Microsecond, None) => {}
+            | A::BinaryView => {}
+            dtype if crate::native_temporal::from_arrow_dtype(dtype).is_some() => {}
             A::Decimal128(precision, scale)
                 if (1..=38).contains(precision)
                     && *scale >= 0
@@ -328,7 +352,7 @@ fn encoded_arrow_leaf(dtype: &arrow_schema::DataType) -> bool {
 
 fn unsupported() -> ShardLoomError {
     failed(
-        "payload requires bool, integer, F32/F64, UTF8, binary, decimal128(precision 1..38, scale 0..precision), Date32, timezone-free TimestampMicros or static list/struct fields",
+        "payload requires bool, integer, F32/F64, UTF8, binary, decimal128(precision 1..38, scale 0..precision), admitted date/time/timestamp/duration metadata or static list/struct fields",
     )
 }
 

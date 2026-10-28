@@ -217,11 +217,18 @@ pub(super) fn leaf<'a>(dtype: &DType, value: Option<&'a Json>) -> Result<Value<'
             Ok(Value::Decimal(coefficient, *decimal))
         }
         DType::Primitive(ptype, _) => primitive(*ptype, value),
-        DType::Extension(_) => primitive(
-            crate::native_payload_schema::temporal_storage(dtype)
-                .ok_or_else(|| failed("unsupported input temporal storage"))?,
-            value,
-        ),
+        DType::Extension(_) => {
+            let value = primitive(
+                crate::native_payload_schema::temporal_storage(dtype)
+                    .ok_or_else(|| failed("unsupported input temporal storage"))?,
+                value,
+            )?;
+            let Value::Int(ticks) = value else {
+                return Err(failed("temporal input requires signed integer ticks"));
+            };
+            crate::native_temporal::validate_ticks(dtype, ticks)?;
+            Ok(Value::Int(ticks))
+        }
         _ => Err(failed("typed input scalar requires an admitted leaf dtype")),
     }
 }

@@ -32,13 +32,12 @@ use std::{
 };
 
 use arrow_array::{
-    Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array, Decimal128Array,
-    DictionaryArray, FixedSizeBinaryArray, FixedSizeListArray, Float32Array, Float64Array,
-    Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray, LargeListArray,
-    LargeStringArray, ListArray, PrimitiveArray, RecordBatch, RecordBatchReader, StringArray,
-    StringViewArray, StructArray, TimestampMicrosecondArray, TimestampMillisecondArray,
-    TimestampNanosecondArray, TimestampSecondArray, UInt8Array, UInt16Array, UInt32Array,
-    UInt64Array,
+    Array, ArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Decimal128Array, DictionaryArray,
+    FixedSizeBinaryArray, FixedSizeListArray, Float32Array, Float64Array, Int8Array, Int16Array,
+    Int32Array, Int64Array, LargeBinaryArray, LargeListArray, LargeStringArray, ListArray,
+    PrimitiveArray, RecordBatch, RecordBatchReader, StringArray, StringViewArray, StructArray,
+    TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+    TimestampSecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
     builder::{
         ArrayBuilder, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
         Float64Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder, StructBuilder,
@@ -3278,7 +3277,11 @@ pub fn stream_flat_parquet_columnar_source(
 }
 
 fn parquet_metadata_first_reader_options() -> parquet::arrow::arrow_reader::ArrowReaderOptions {
-    parquet::arrow::arrow_reader::ArrowReaderOptions::new().with_skip_arrow_metadata(true)
+    // Embedded Arrow metadata carries duration, timezone and other logical
+    // identities that Parquet's physical/logical columns cannot express alone.
+    // Reading this footer metadata does not decode any row pages. The source
+    // owner admits its bytes before parsing and validates the resulting schema.
+    parquet::arrow::arrow_reader::ArrowReaderOptions::new()
 }
 
 fn parquet_reader_options_with_optional_schema_hint(
@@ -4337,6 +4340,9 @@ fn source_schema_column_arrow_dtypes(schema: &Schema) -> Vec<Option<DataType>> {
 }
 
 fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
+    if let Some(dtype) = crate::temporal_arrow::dtype(data_type) {
+        return Some(dtype.logical());
+    }
     match data_type {
         DataType::Binary
         | DataType::LargeBinary
@@ -4356,6 +4362,9 @@ fn source_schema_dtype_hint(data_type: &DataType) -> Option<LogicalDType> {
 }
 
 fn source_schema_arrow_dtype_hint(data_type: &DataType) -> Option<DataType> {
+    if crate::temporal_arrow::dtype(data_type).is_some() {
+        return Some(data_type.clone());
+    }
     match data_type {
         DataType::Boolean => Some(DataType::Boolean),
         DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -5026,6 +5035,7 @@ fn logical_dtype_arrow_hint(
         LogicalDType::Binary => Some(DataType::Binary),
         LogicalDType::Date32 => Some(DataType::Date32),
         LogicalDType::TimestampMicros => Some(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        LogicalDType::Temporal(dtype) => Some(crate::temporal_arrow::data_type(dtype)),
         LogicalDType::List | LogicalDType::Struct => {
             Some(infer_arrow_dtype_from_scalar_values(column, values, context)?)
         }
@@ -5222,7 +5232,8 @@ impl TextRecordBatchBuilder {
                     | DataType::Binary
                     | DataType::Date32
                     | DataType::Timestamp(TimeUnit::Microsecond, None)
-            ) {
+            ) && crate::temporal_arrow::dtype(field.data_type()).is_none()
+            {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "{context} column '{column}' has unsupported text builder dtype {:?}",
                     field.data_type()
@@ -5474,6 +5485,24 @@ fn flat_output_column_array(
     let nullable = values
         .iter()
         .any(|value| matches!(value, ScalarValue::Null));
+    let temporal = column_dtype
+        .and_then(shardloom_core::temporal::TemporalDType::from_logical)
+        .or_else(|| column_arrow_dtype.and_then(crate::temporal_arrow::dtype))
+        .or_else(|| {
+            values.iter().find_map(|value| match value {
+                ScalarValue::Temporal(value) => Some(value.dtype().clone()),
+                _ => None,
+            })
+        });
+    if let Some(dtype) = temporal {
+        return nested_arrow_column_with_data_type(
+            column,
+            &values,
+            nullable,
+            &crate::temporal_arrow::data_type(&dtype),
+            context,
+        );
+    }
     if let Some(complex_kind) = declared_complex {
         if let Some((arrow_kind, arrow_dtype)) = declared_complex_arrow_dtype {
             if arrow_kind != complex_kind {
@@ -5910,7 +5939,7 @@ fn infer_arrow_dtype_from_scalar_values(
     values: &[&ScalarValue],
     context: &str,
 ) -> Result<DataType> {
-    let mut inferred_kind: Option<&'static str> = None;
+    let mut inferred_kind: Option<&str> = None;
     let mut primitive_dtype: Option<DataType> = None;
     let mut list_child_values = Vec::new();
     let mut struct_field_names: Option<Vec<String>> = None;
@@ -6066,6 +6095,7 @@ fn primitive_arrow_dtype(path: &str, value: &ScalarValue, context: &str) -> Resu
         ))),
         ScalarValue::Date32(_) => Ok(DataType::Date32),
         ScalarValue::TimestampMicros(_) => Ok(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        ScalarValue::Temporal(value) => Ok(crate::temporal_arrow::data_type(value.dtype())),
         ScalarValue::Null | ScalarValue::List(_) | ScalarValue::Struct(_) => {
             Err(ShardLoomError::InvalidOperation(format!(
                 "{context} nested output path '{path}' expected a non-null primitive value for Arrow dtype inference but found {}",
@@ -6084,6 +6114,17 @@ fn append_scalar_to_arrow_builder(
 ) -> Result<()> {
     if matches!(value, ScalarValue::Null) {
         return append_null_to_arrow_builder(builder, data_type, path, context);
+    }
+    if let ScalarValue::Temporal(temporal) = value {
+        if crate::temporal_arrow::data_type(temporal.dtype()) != *data_type {
+            return Err(unexpected_sink_value(
+                context,
+                path,
+                "matching temporal metadata",
+                value,
+            ));
+        }
+        return crate::temporal_arrow::append(builder, data_type, Some(temporal.value()));
     }
     match (data_type, value) {
         (DataType::Boolean, ScalarValue::Boolean(value)) => {
@@ -6175,6 +6216,9 @@ fn append_null_to_arrow_builder(
     path: &str,
     context: &str,
 ) -> Result<()> {
+    if crate::temporal_arrow::dtype(data_type).is_some() {
+        return crate::temporal_arrow::append(builder, data_type, None);
+    }
     match data_type {
         DataType::Boolean => bool_builder_mut(builder, path, context)?.append_null(),
         DataType::Int64 => int64_builder_mut(builder, path, context)?.append_null(),
@@ -6381,7 +6425,7 @@ fn arrow_builder_downcast_error(context: &str, path: &str, data_type: &DataType)
     ))
 }
 
-fn scalar_family(value: &ScalarValue) -> &'static str {
+fn scalar_family(value: &ScalarValue) -> &str {
     match value {
         ScalarValue::Boolean(_) => "boolean",
         ScalarValue::Int64(_) => "int64",
@@ -6390,6 +6434,7 @@ fn scalar_family(value: &ScalarValue) -> &'static str {
         ScalarValue::Utf8(_) => "utf8",
         ScalarValue::Date32(_) => "date32",
         ScalarValue::TimestampMicros(_) => "timestamp_micros",
+        ScalarValue::Temporal(value) => value.dtype().as_str(),
         ScalarValue::Null => "null",
         ScalarValue::Binary(_) => "binary",
         ScalarValue::Decimal128 { .. } => "decimal128",
@@ -6418,6 +6463,9 @@ fn arrow_scalar_to_shardloom(
     path: &Path,
     source_label: &str,
 ) -> Result<ScalarValue> {
+    if crate::temporal_arrow::dtype(array.data_type()).is_some() {
+        return crate::temporal_arrow::scalar(array, row_index);
+    }
     if array.is_null(row_index) {
         return Ok(ScalarValue::Null);
     }
@@ -6474,12 +6522,6 @@ fn arrow_scalar_to_shardloom(
     }
     if let Some(values) = array.as_any().downcast_ref::<BinaryViewArray>() {
         return Ok(ScalarValue::Binary(values.value(row_index).to_vec()));
-    }
-    if let Some(values) = array.as_any().downcast_ref::<Date32Array>() {
-        return Ok(ScalarValue::Date32(values.value(row_index)));
-    }
-    if let Some(values) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
-        return Ok(ScalarValue::TimestampMicros(values.value(row_index)));
     }
     if let Some(values) = array.as_any().downcast_ref::<Decimal128Array>() {
         let DataType::Decimal128(precision, scale) = values.data_type() else {

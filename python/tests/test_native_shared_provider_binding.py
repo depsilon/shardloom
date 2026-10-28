@@ -135,6 +135,251 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_temporal_calendar_workflows_match_all_five_surfaces(self):
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        native, session, pa = self.native, self.session, self.pa
+        expr = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        zone = pa.timestamp("s", tz="America/New_York")
+        inputs = [
+            ("instant", zone, [1_710_046_800, 1_730_606_400, None]),
+            ("span", pa.duration("s"), [86_400, 86_400, None]),
+            ("naive", pa.timestamp("s"), [0, 0, None]),
+            ("date", pa.date64(), [1_706_659_200_000, 1_706_659_200_000, None]),
+        ]
+        table = pa.Table.from_arrays([pa.array(values, type=kind) for _, kind, values in inputs],
+                                    names=[name for name, _, _ in inputs])
+        expected = [
+            ("hour", pa.int64(), [0, 0, None]),
+            ("day", zone, [1_710_046_800, 1_730_606_400, None]),
+            ("calendar", zone, [1_710_129_600, 1_730_696_400, None]),
+            ("fixed", zone, [1_710_133_200, 1_730_692_800, None]),
+            ("back", zone, [1_709_960_400, 1_730_520_000, None]),
+            ("elapsed", pa.duration("s"), [82_800, 90_000, None]),
+            ("utc", pa.timestamp("s", tz="UTC"), [1_710_046_800, 1_730_606_400, None]),
+            ("civil", pa.timestamp("s"), [1_710_028_800, 1_730_592_000, None]),
+            ("assigned", zone, [18_000, 18_000, None]),
+            ("month", pa.date64(), [1_709_164_800_000, 1_709_164_800_000, None]),
+        ]
+        c = sl.col("instant")
+        expressions = [
+            c.temporal_extract("hour"), c.temporal_trunc("day"), c.calendar_add_days(1),
+            c.temporal_add_duration(sl.col("span")), c.temporal_sub_duration(sl.col("span")),
+            c.calendar_add_days(1).timestamp_difference(c), c.timestamp_convert_timezone("UTC"),
+            c.timestamp_remove_timezone(), sl.col("naive").timestamp_assign_timezone("America/New_York"),
+            sl.col("date").calendar_add_months(1, month_end="clamp"),
+        ]
+        n = expr.column("instant")
+        typed = [
+            expr.call("temporal_extract", [n, expr.literal("hour")]),
+            expr.call("temporal_trunc", [n, expr.literal("day")]),
+            expr.call("calendar_add_days", [n, expr.literal(1)]),
+            expr.call("temporal_add_duration", [n, expr.column("span")]),
+            expr.call("temporal_sub_duration", [n, expr.column("span")]),
+            expr.call("timestamp_difference", [expr.call("calendar_add_days", [n, expr.literal(1)]), n]),
+            expr.call("timestamp_convert_timezone", [n, expr.literal("UTC")]),
+            expr.call("timestamp_remove_timezone", [n]),
+            expr.call("timestamp_assign_timezone", [expr.column("naive"), expr.literal("America/New_York")]),
+            expr.call("calendar_add_months", [expr.column("date"), expr.literal(1), expr.literal("clamp")]),
+        ]
+        sql_expressions = [
+            "temporal_extract(instant,'hour')", "temporal_trunc(instant,'day')", "calendar_add_days(instant,1)",
+            "temporal_add_duration(instant,span)", "temporal_sub_duration(instant,span)",
+            "timestamp_difference(calendar_add_days(instant,1),instant)",
+            "timestamp_convert_timezone(instant,'UTC')", "timestamp_remove_timezone(instant)",
+            "timestamp_assign_timezone(naive,'America/New_York')", "calendar_add_months(date,1,'clamp')",
+        ]
+        with tempfile.TemporaryDirectory(prefix="shardloom-temporal-surfaces-") as directory:
+            for empty in (False, True):
+                data = table.slice(0, 0) if empty else table
+                for fmt, reader in (("vortex", sl.read_vortex), ("parquet", sl.read_parquet),
+                                    ("arrow_ipc", sl.read_arrow_ipc)):
+                    with self.subTest(empty=empty, format=fmt):
+                        extension = "arrow" if fmt == "arrow_ipc" else fmt
+                        path = Path(directory) / f"input-{empty}.{extension}"
+                        if fmt == "vortex":
+                            source = session.from_arrow(data)
+                            session.plan(native.Relation.scan("memory://temporal"),
+                                sources=[("memory://temporal", source)]).write(path, "write_vortex")
+                        elif fmt == "parquet":
+                            parquet.write_table(data, path, row_group_size=1)
+                        else:
+                            with pa.OSFile(str(path), "wb") as output, pa.ipc.new_file(output, data.schema) as writer:
+                                writer.write_table(data)
+                        frame = reader(path, client=client).select(*[
+                            expression.alias(name) for (name, _, _), expression in zip(expected, expressions, strict=True)])
+                        relation = native.Relation.scan(str(path)).project([
+                            (name, expression) for (name, _, _), expression in zip(expected, typed, strict=True)])
+                        statement = "SELECT " + ",".join(
+                            f"{expression} AS {name}" for (name, _, _), expression in zip(expected, sql_expressions, strict=True)
+                        ) + f" FROM '{path}'"
+                        # PyArrow writes second timestamps as Parquet milliseconds.
+                        # Preserve that stored unit and the original zone, without
+                        # reinterpreting its integer payload as seconds.
+                        checks = expected
+                        if fmt == "parquet":
+                            checks = [(name, pa.timestamp("ms", tz=kind.tz) if pa.types.is_timestamp(kind)
+                                       else pa.duration("ms") if name == "elapsed" else kind,
+                                       [None if value is None else value * 1000 for value in values]
+                                       if pa.types.is_timestamp(kind) or name == "elapsed" else values)
+                                      for name, kind, values in expected]
+                        for result in self.all_surfaces(frame, relation, statement):
+                            self.assertEqual(result.column_names, [name for name, _, _ in expected])
+                            for name, kind, values in checks:
+                                self.assertEqual(result.schema.field(name).type, kind)
+                                self.assertEqual(result[name].cast(pa.int64()).to_pylist(), [] if empty else values, name)
+
+    def test_temporal_text_casts_preserve_whitespace_on_all_five_surfaces(self):
+        import shardloom as sl
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        source = pa.table({
+            "day": [" \t1970-01-02\r", "\u20031969-12-31\u00a0", None],
+            "instant": [" \n1970-01-01T00:00:00.000001Z\t", "\u20031969-12-31T23:59:59.999999Z\u00a0", None],
+            "bad": ["1970- 01-01", "1970-01-01T00: 00:00Z", " \t"],
+        })
+        declarations = [
+            ("day", "date32", False, [1, -1, None]),
+            ("day", "date32", True, [1, -1, None]),
+            ("instant", "timestamp_micros", False, [1, -1, None]),
+            ("instant", "timestamp_micros", True, [1, -1, None]),
+            ("bad", "date32", True, [None, None, None]),
+            ("bad", "timestamp_micros", True, [None, None, None]),
+        ]
+        with tempfile.TemporaryDirectory(prefix="shardloom-temporal-text-") as directory:
+            path = Path(directory) / "source.arrow"
+            with pa.OSFile(str(path), "wb") as output, pa.ipc.new_file(output, source.schema) as writer:
+                writer.write_table(source)
+            frame = sl.read_arrow_ipc(path, client=client).select(*[
+                (sl.col(column).try_cast(kind) if tolerant else sl.col(column).cast(kind)).alias(f"v{index}")
+                for index, (column, kind, tolerant, _) in enumerate(declarations)
+            ])
+            relation = native.Relation.scan(str(path)).project([
+                (f"v{index}", native.Expression.column(column).cast(kind, tolerant=tolerant))
+                for index, (column, kind, tolerant, _) in enumerate(declarations)
+            ])
+            statement = "SELECT " + ",".join(
+                f"{'TRY_CAST' if tolerant else 'CAST'}({column} AS {kind}) AS v{index}"
+                for index, (column, kind, tolerant, _) in enumerate(declarations)
+            ) + f" FROM '{path}'"
+            for result in self.all_surfaces(frame, relation, statement):
+                for index, (_, kind, _, expected) in enumerate(declarations):
+                    physical = pa.int32() if kind == "date32" else pa.int64()
+                    self.assertEqual(result[f"v{index}"].cast(physical).to_pylist(), expected)
+
+    def test_temporal_python_rows_batches_and_retained_arrow_keep_exact_ticks(self):
+        import shardloom as sl
+        from shardloom import types as t
+        from shardloom.errors import ShardLoomError
+
+        pa = self.pa
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        declarations = [("date64", t.date64(), pa.date64(), -86_400_000, 86_400_000)]
+        for unit in ("s", "ms", "us", "ns"):
+            time_type = pa.time32(unit) if unit in ("s", "ms") else pa.time64(unit)
+            declarations += [(f"time_{unit}", t.time(unit), time_type, 0, 1),
+                (f"stamp_{unit}", t.timestamp(unit), pa.timestamp(unit), -(1 << 63), (1 << 63) - 1),
+                (f"duration_{unit}", t.duration(unit), pa.duration(unit), -(1 << 63), (1 << 63) - 1)]
+        declarations.append(("zoned", t.timestamp("ns", "America/New_York"),
+                             pa.timestamp("ns", "America/New_York"), -1, 1))
+        schema = {name: declared for name, declared, _, _, _ in declarations}
+        rows = [{name: values[index] for name, _, _, *values in declarations} for index in (0, 1)]
+        rows.append(dict.fromkeys(schema))
+        for frame in (sl.from_rows(rows, schema=schema, client=client),
+                      sl.from_batches([rows[:1], rows[1:]], schema=schema, client=client, streaming=True)):
+            result = frame.collect(check=True)
+            self.assertFalse(result.envelope.fallback.attempted)
+            table = result.to_arrow()
+            for name, _, kind, low, high in declarations:
+                self.assertEqual(table.schema.field(name).type, kind)
+                physical = pa.int32() if pa.types.is_time32(kind) else pa.int64()
+                self.assertEqual(table[name].cast(physical).to_pylist(), [low, high, None], name)
+        for name, value in (("date64", 1), ("time_ns", 86_400_000_000_000)):
+            with self.subTest(invalid=name), self.assertRaises((ValueError, ShardLoomError)):
+                sl.from_rows([{name: value}], schema={name: schema[name]}, client=client).collect(check=True)
+
+    def test_temporal_nested_null_parents_persist_exact_types_and_ticks(self):
+        import shardloom as sl
+        from shardloom import types as t
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        fields = {"date32": t.date32(), "date64": t.date64()}
+        low = {"date32": -(1 << 31), "date64": -9_223_372_036_828_800_000}
+        high = {"date32": (1 << 31) - 1, "date64": 9_223_372_036_828_800_000}
+        for unit, scale in (("s", 1), ("ms", 1000), ("us", 1_000_000), ("ns", 1_000_000_000)):
+            fields[f"time_{unit}"] = t.time(unit)
+            low[f"time_{unit}"], high[f"time_{unit}"] = 0, 86_400 * scale - 1
+            for name, declared in (("stamp", t.timestamp(unit)), ("span", t.duration(unit))):
+                fields[f"{name}_{unit}"] = declared
+                low[f"{name}_{unit}"], high[f"{name}_{unit}"] = -(1 << 63), (1 << 63) - 1
+        fields["zoned"] = t.timestamp("ns", "America/New_York")
+        low["zoned"], high["zoned"] = -1, 1
+        schema = {"record": t.struct(fields), "spans": t.list_(t.duration("ns")),
+                  "fixed": t.fixed_size_list(t.timestamp("ns", "America/New_York"), 2)}
+        rows = [
+            {"record": low, "spans": [-1, None, (1 << 63) - 1], "fixed": [-1, 1]},
+            {"record": None, "spans": None, "fixed": None},
+            {"record": dict.fromkeys(fields), "spans": [], "fixed": [None, None]},
+            {"record": high, "spans": [-(1 << 63)], "fixed": [0, None]},
+        ]
+        frame = sl.from_rows(rows, schema=schema, client=client)
+        result = frame.collect(check=True)
+        self.assertEqual(result.result_schema, tuple(schema.items()))
+        self.assertEqual(result.result_rows, tuple(rows))
+        with tempfile.TemporaryDirectory(prefix="shardloom-temporal-nested-") as directory:
+            for fmt, reader in (("vortex", sl.read_vortex), ("parquet", sl.read_parquet),
+                                ("arrow-ipc", sl.read_arrow_ipc)):
+                with self.subTest(format=fmt):
+                    path = Path(directory) / f"nested.{fmt}"
+                    written = frame.write(path, output_format=fmt, check=True)
+                    self.assertFalse(written.envelope.fallback.attempted)
+                    reopened = reader(path, client=client).collect(check=True)
+                    self.assertEqual(reopened.result_schema, tuple(schema.items()))
+                    self.assertEqual(reopened.result_rows, tuple(rows))
+
+    def test_temporal_bad_streamed_values_preserve_destination_and_zone_admission(self):
+        import shardloom as sl
+        from shardloom.errors import ShardLoomError
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        with tempfile.TemporaryDirectory(prefix="shardloom-temporal-validation-") as directory:
+            target = Path(directory) / "prior.vortex"
+            for name, invalid in (("date64", 1), ("time(s)", -1), ("time(ns)", 86_400_000_000_000)):
+                demanded = []
+                def batches():
+                    demanded.append("valid")
+                    yield [{"value": 0}]
+                    demanded.append("invalid")
+                    yield [{"value": invalid}]
+                frame = sl.from_batches(batches, schema={"value": name}, client=client, streaming=True).limit(1)
+                target.write_bytes(b"preserve existing destination")
+                with self.subTest(dtype=name), self.assertRaises((ValueError, ShardLoomError)):
+                    frame.write_vortex(target, check=True)
+                self.assertEqual(demanded, [])
+                self.assertEqual(target.read_bytes(), b"preserve existing destination")
+                target.unlink()
+                demanded.clear()
+                destination = Path(directory) / f"rejected-{name}.vortex"
+                with self.subTest(dtype=name, destination="new"), self.assertRaises((ValueError, ShardLoomError)):
+                    frame.write_vortex(destination, check=True)
+                self.assertEqual(demanded, ["valid", "invalid"])
+                self.assertFalse(destination.exists())
+                self.assertEqual(list(Path(directory).iterdir()), [])
+            with self.assertRaises((ValueError, ShardLoomError)):
+                sl.from_rows([{"value": 0}], schema={"value": "timestamp(ns,No/Such_Zone)"},
+                             client=client).collect(check=True)
+            # A rejected value must not poison the session's later operations.
+            self.assertEqual(sl.from_rows([{"value": 0}], schema={"value": "duration(ns)"},
+                                         client=client).collect(check=True).result_rows, ({"value": 0},))
+
     def test_grouping_sets_match_all_five_surfaces(self):
         import shardloom as sl
         from shardloom import functions as f

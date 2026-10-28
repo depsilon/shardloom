@@ -1063,6 +1063,7 @@ struct SchemaDeclaredTextRecordBatchReader {
     schema: SchemaRef,
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
+    temporal_columns: Vec<Option<BoundTextTemporalColumn>>,
     source_format: LocalSourceFormat,
     reader: BufReader<fs::File>,
     read_plan: LocalSourceReadPlan,
@@ -1080,6 +1081,33 @@ struct TextRecordBatchReaderConfig {
     max_input_rows: Option<usize>,
     batch_size: usize,
     cancellation: CancellationToken,
+    memory: shardloom_exec::live_memory::LiveMemoryPool,
+}
+
+/// The schema owns each parsed timezone and its admission for the reader's
+/// entire lifetime. No row may create an unaccounted calendar provider.
+struct BoundTextTemporalColumn {
+    codec: shardloom_core::temporal::text::TemporalTextCodec,
+    _memory: shardloom_exec::live_memory::MemoryLease,
+}
+
+impl BoundTextTemporalColumn {
+    fn bind(
+        dtype: &LogicalDType,
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    ) -> Result<Option<Self>, ShardLoomError> {
+        use shardloom_core::temporal::text::TemporalTextCodec;
+        let LogicalDType::Temporal(dtype) = dtype else {
+            return Ok(None);
+        };
+        let bytes = u64::try_from(TemporalTextCodec::admission_bytes(dtype)?)
+            .map_err(|_| unsupported_sql_error("temporal input admission overflow"))?;
+        let lease = memory.reserve(bytes)?;
+        Ok(Some(Self {
+            codec: TemporalTextCodec::new(dtype.clone())?,
+            _memory: lease,
+        }))
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -1092,7 +1120,15 @@ impl SchemaDeclaredTextRecordBatchReader {
         reader: BufReader<fs::File>,
         config: TextRecordBatchReaderConfig,
         context: String,
-    ) -> Self {
+    ) -> Result<Self, ShardLoomError> {
+        let temporal_columns = column_dtypes
+            .iter()
+            .map(|dtype| {
+                dtype.as_ref().map_or(Ok(None), |dtype| {
+                    BoundTextTemporalColumn::bind(dtype, &config.memory)
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let required_columns = header.iter().cloned().collect::<BTreeSet<_>>();
         let column_indices = header
             .iter()
@@ -1100,10 +1136,11 @@ impl SchemaDeclaredTextRecordBatchReader {
             .enumerate()
             .map(|(index, name)| (name, index))
             .collect();
-        Self {
+        Ok(Self {
             schema,
             header,
             column_dtypes,
+            temporal_columns,
             source_format,
             reader,
             read_plan: LocalSourceReadPlan::required(
@@ -1116,7 +1153,7 @@ impl SchemaDeclaredTextRecordBatchReader {
             next_row_number: 0,
             context,
             cancellation: config.cancellation,
-        }
+        })
     }
 
     fn next_record_batch(&mut self) -> Result<Option<RecordBatch>, ShardLoomError> {
@@ -1198,7 +1235,8 @@ impl SchemaDeclaredTextRecordBatchReader {
             .iter()
             .zip(fields.iter())
             .zip(self.column_dtypes.iter())
-            .map(|((column, raw), dtype)| {
+            .zip(&self.temporal_columns)
+            .map(|(((column, raw), dtype), temporal)| {
                 let dtype = dtype.as_ref().ok_or_else(|| {
                     ShardLoomError::InvalidOperation(format!(
                         "{} missing declared dtype for CSV column '{column}'; no fallback execution was attempted",
@@ -1207,7 +1245,8 @@ impl SchemaDeclaredTextRecordBatchReader {
                 })?;
                 Ok((
                     column.clone(),
-                    parse_schema_declared_text_scalar(raw, dtype, column, &self.context)?,
+                    parse_schema_declared_text_scalar(raw, dtype, column, &self.context,
+                        temporal.as_ref().map(|bound| &bound.codec))?,
                 ))
             })
             .collect()
@@ -1290,7 +1329,13 @@ impl SchemaDeclaredTextRecordBatchReader {
                 self.context, self.next_row_number
             ))
         })?;
-        for ((column, dtype), value) in self.header.iter().zip(&self.column_dtypes).zip(values) {
+        for (((column, dtype), value), temporal) in self
+            .header
+            .iter()
+            .zip(&self.column_dtypes)
+            .zip(values)
+            .zip(&self.temporal_columns)
+        {
             let dtype = dtype.as_ref().ok_or_else(|| {
                     ShardLoomError::InvalidOperation(format!(
                         "{} missing declared dtype for JSONL column '{column}'; no fallback execution was attempted",
@@ -1302,6 +1347,7 @@ impl SchemaDeclaredTextRecordBatchReader {
                 dtype,
                 column,
                 &self.context,
+                temporal.as_ref().map(|bound| &bound.codec),
             )?;
         }
         Ok(())
@@ -1536,6 +1582,7 @@ impl InferredTextColumnKind {
             | ScalarValue::Decimal128 { .. }
             | ScalarValue::Date32(_)
             | ScalarValue::TimestampMicros(_)
+            | ScalarValue::Temporal(_)
             | ScalarValue::List(_)
             | ScalarValue::Struct(_) => Self::Utf8,
             ScalarValue::Binary(_) => Self::Binary,
@@ -1785,6 +1832,7 @@ fn schema_declared_text_dtype_supported(dtype: &LogicalDType) -> bool {
             | LogicalDType::Binary
             | LogicalDType::Date32
             | LogicalDType::TimestampMicros
+            | LogicalDType::Temporal(_)
     )
 }
 
@@ -1812,6 +1860,7 @@ fn parse_schema_declared_text_scalar(
     dtype: &LogicalDType,
     column: &str,
     context: &str,
+    temporal: Option<&shardloom_core::temporal::text::TemporalTextCodec>,
 ) -> Result<ScalarValue, ShardLoomError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("null") {
@@ -1852,6 +1901,7 @@ fn parse_schema_declared_text_scalar(
         LogicalDType::TimestampMicros => {
             parse_iso_timestamp_micros(trimmed).map(ScalarValue::TimestampMicros)
         }
+        LogicalDType::Temporal(dtype) => bound_temporal_text_scalar(trimmed, dtype, temporal),
         LogicalDType::Unknown | LogicalDType::List | LogicalDType::Struct | LogicalDType::Extension(_) => {
             Err(ShardLoomError::InvalidOperation(format!(
                 "{context} column '{column}' declares unsupported schema dtype {}; no fallback execution was attempted",
@@ -1861,12 +1911,26 @@ fn parse_schema_declared_text_scalar(
     }
 }
 
+fn bound_temporal_text_scalar(
+    text: &str,
+    dtype: &shardloom_core::temporal::TemporalDType,
+    codec: Option<&shardloom_core::temporal::text::TemporalTextCodec>,
+) -> Result<ScalarValue, ShardLoomError> {
+    let codec = codec
+        .filter(|codec| codec.dtype() == dtype)
+        .ok_or_else(|| {
+            unsupported_sql_error("temporal input is missing its admitted schema codec")
+        })?;
+    codec.parse_scalar(text)
+}
+
 #[allow(clippy::cast_precision_loss)]
 fn coerce_schema_declared_json_scalar(
     value: ScalarValue,
     dtype: &LogicalDType,
     column: &str,
     context: &str,
+    temporal: Option<&shardloom_core::temporal::text::TemporalTextCodec>,
 ) -> Result<ScalarValue, ShardLoomError> {
     if matches!(value, ScalarValue::Null) {
         return Ok(ScalarValue::Null);
@@ -1902,6 +1966,13 @@ fn coerce_schema_declared_json_scalar(
         (LogicalDType::TimestampMicros, ScalarValue::Utf8(value)) => {
             parse_iso_timestamp_micros(&value).map(ScalarValue::TimestampMicros)
         }
+        (LogicalDType::Temporal(dtype), ScalarValue::Utf8(value)) => {
+            bound_temporal_text_scalar(&value, dtype, temporal)
+        }
+        (LogicalDType::Temporal(dtype), ScalarValue::Int64(value)) => {
+            shardloom_core::temporal::TemporalValue::new(value, dtype.clone())
+                .map(shardloom_core::temporal::TemporalValue::into_scalar)
+        }
         (dtype, value) => Err(ShardLoomError::InvalidOperation(format!(
             "{context} column '{column}' declared {} but JSON value was {}; no fallback execution was attempted",
             dtype.as_str(),
@@ -1925,6 +1996,7 @@ fn schema_declared_text_arrow_dtype(
         LogicalDType::Binary => Ok(DataType::Binary),
         LogicalDType::Date32 => Ok(DataType::Date32),
         LogicalDType::TimestampMicros => Ok(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        LogicalDType::Temporal(dtype) => Ok(shardloom_vortex::temporal_arrow::data_type(dtype)),
         LogicalDType::Unknown
         | LogicalDType::List
         | LogicalDType::Struct
@@ -2097,7 +2169,7 @@ pub(crate) fn parse_vortex_ingest_schema_hints(
     }
     let mut seen = BTreeSet::new();
     let mut hints = Vec::new();
-    for item in trimmed.split(',') {
+    for item in split_sql_csv(trimmed)? {
         let item = item.trim();
         if item.is_empty() {
             continue;
@@ -2119,10 +2191,77 @@ pub(crate) fn parse_vortex_ingest_schema_hints(
     Ok(hints)
 }
 
+// Shared with SQL syntax: commas inside type arguments and quoted zones are
+// part of one declaration. Keep a single checked top-level splitter.
+fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    let mut values = Vec::new();
+    let mut current = String::new();
+    let mut chars = raw.chars().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    let mut bracket_depth = 0_u32;
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\'' if in_quote && chars.peek() == Some(&'\'') => {
+                current.push('\'');
+                current.push('\'');
+                let _ = chars.next();
+            }
+            '\'' => {
+                in_quote = !in_quote;
+                current.push(ch);
+            }
+            '(' if !in_quote => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' if !in_quote => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression parentheses are not balanced")
+                })?;
+                current.push(ch);
+            }
+            '[' if !in_quote => {
+                bracket_depth += 1;
+                current.push(ch);
+            }
+            ']' if !in_quote => {
+                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression square brackets are not balanced")
+                })?;
+                current.push(ch);
+            }
+            ',' if !in_quote && depth == 0 && bracket_depth == 0 => {
+                values.push(current.trim().to_string());
+                current = String::new();
+            }
+            _ => current.push(ch),
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "SQL expression parentheses are not balanced",
+        ));
+    }
+    if bracket_depth != 0 {
+        return Err(unsupported_sql_error(
+            "SQL expression square brackets are not balanced",
+        ));
+    }
+    if !current.trim().is_empty() {
+        values.push(current.trim().to_string());
+    }
+    Ok(values)
+}
+
 fn apply_vortex_ingest_schema_hints(
     source: &mut CsvSourceData,
     hints: &[(String, LogicalDType)],
     cancellation: &CancellationToken,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<(), ShardLoomError> {
     cancellation.check()?;
     if hints.is_empty() {
@@ -2136,6 +2275,7 @@ fn apply_vortex_ingest_schema_hints(
         )));
     }
     for (name, dtype) in hints {
+        let temporal = BoundTextTemporalColumn::bind(dtype, memory)?;
         let Some(index) = source.header.iter().position(|column| column == name) else {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "vortex_ingest schema column {name:?} is not present in source header {}; no fallback execution was attempted",
@@ -2155,6 +2295,7 @@ fn apply_vortex_ingest_schema_hints(
                         dtype,
                         name,
                         "schema-declared JSON input",
+                        temporal.as_ref().map(|bound| &bound.codec),
                     )?;
                 }
             }
@@ -4550,7 +4691,16 @@ fn run_scalar_vortex_prepare(
         source_adapter,
         request.runtime_profile.read_limits(),
     )?;
-    apply_vortex_ingest_schema_hints(&mut source, source_schema_hints, &request.cancellation)?;
+    let memory = request.shared_memory_pool.clone().map_or_else(
+        || shardloom_exec::live_memory::LiveMemoryPool::new(request.resources.memory_bytes()),
+        Ok,
+    )?;
+    apply_vortex_ingest_schema_hints(
+        &mut source,
+        source_schema_hints,
+        &request.cancellation,
+        &memory,
+    )?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
         run_text_streaming_vortex_prepare(request, source, prepare_start)
@@ -4730,6 +4880,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         max_input_rows: read_limits.input_rows,
         batch_size: text_stream_record_batch_size(read_limits.input_rows),
         cancellation: request.cancellation.clone(),
+        memory: request.native_memory_pool()?,
     };
     let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
         contract.source_format,
@@ -4739,7 +4890,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         contract.reader,
         reader_config.clone(),
         context,
-    );
+    )?;
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: contract.header.clone(),
         column_dtypes: contract.column_dtypes.clone(),
@@ -4969,6 +5120,7 @@ fn try_run_inferred_text_vortex_prepare(
         max_input_rows: read_limits.input_rows,
         batch_size: text_stream_record_batch_size(read_limits.input_rows),
         cancellation: request.cancellation.clone(),
+        memory: request.native_memory_pool()?,
     };
     let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
         contract.source_format,
@@ -4978,7 +5130,7 @@ fn try_run_inferred_text_vortex_prepare(
         contract.reader,
         reader_config.clone(),
         context,
-    );
+    )?;
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: contract.header.clone(),
         column_dtypes: contract.column_dtypes.clone(),
@@ -10351,6 +10503,9 @@ fn partition_file_matches_source_format(path: &Path, source_format: LocalSourceF
 
 fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
     let trimmed = raw.trim();
+    if let Some(dtype) = shardloom_core::temporal::TemporalDType::parse_declaration(trimmed) {
+        return Ok(dtype.logical());
+    }
     if let Some((precision, scale)) = parse_decimal_cast_target_dtype(trimmed)? {
         return Ok(decimal128_dtype(precision, scale));
     }

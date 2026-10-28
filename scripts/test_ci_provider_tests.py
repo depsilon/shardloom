@@ -15,6 +15,7 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
+NEW_PROVIDERS = ("vortex-datetime-parts",)
 
 
 # Cargo commands as they appeared in the frozen workflow, before the intentional
@@ -66,13 +67,25 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 
 
 class ProviderCommandTests(unittest.TestCase):
-    def test_all_eight_providers_are_assigned_once_to_three_groups(self) -> None:
+    def test_all_providers_are_assigned_once_to_three_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 8)
-        self.assertEqual(set(assigned), set(FROZEN_CRATES))
+        self.assertEqual(len(assigned), 9)
+        self.assertEqual(set(assigned), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
         self.assertEqual(len(set(assigned)), len(assigned))
-        self.assertEqual(set(providers.CONFIGURATIONS), set(FROZEN_CRATES))
+        self.assertEqual(set(providers.CONFIGURATIONS), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
         self.assertEqual(set(providers.GROUPS), {"arrays", "io", "buffer"})
+
+    def test_new_datetime_parts_provider_is_configured_without_rewriting_frozen_history(self) -> None:
+        self.assertEqual(providers.GROUPS["arrays"][-1:], NEW_PROVIDERS)
+        self.assertEqual(providers.CONFIGURATIONS["vortex-datetime-parts"], {
+            "features": "vortex-array/table-display", "patches": ["vortex-array"]})
+        test_command, clippy_command = providers.commands("vortex-datetime-parts")
+        expected = normalize_frozen_command(FROZEN_COMMANDS["vortex-zstd"][0].replace(
+            "vortex-zstd", "vortex-datetime-parts").split())
+        self.assertEqual(test_command, expected)
+        expected_clippy = normalize_frozen_command(FROZEN_COMMANDS["vortex-zstd"][1].replace(
+            "vortex-zstd", "vortex-datetime-parts").split())
+        self.assertEqual(clippy_command, expected_clippy)
 
     def test_generated_commands_preserve_frozen_feature_patch_target_and_thread_behavior(self) -> None:
         self.assertEqual(set(FROZEN_COMMANDS), set(FROZEN_CRATES))

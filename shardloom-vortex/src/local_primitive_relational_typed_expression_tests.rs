@@ -9,6 +9,9 @@ use vortex::array::arrays::{ConstantArray, DictArray};
 #[path = "local_primitive_relational_reference_tests.rs"]
 mod reference_tests;
 
+#[path = "local_primitive_relational_temporal_tests.rs"]
+mod temporal_tests;
+
 fn expr(kind: ExpressionKind) -> Expression {
     Expression::new(ExprId::new("typed-expression").unwrap(), kind)
 }

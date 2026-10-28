@@ -59,6 +59,7 @@ pub(super) enum Kind {
     Cast {
         input: Box<Expression>,
         tolerant: bool,
+        temporal: Option<Box<scalar::TemporalCast>>,
     },
     Function {
         function: scalar::Function,
@@ -209,28 +210,45 @@ impl Expression {
             Kind::Cast {
                 input: expression,
                 tolerant,
+                temporal,
             } => {
                 let values = keys(&expression.evaluate(input, context)?, context)?;
                 let mut scratch = context.memory().reserve(0)?;
                 self.build(input.len(), context, |row| {
-                    scalar::cast(values.raw_cell(row)?, &self.dtype, *tolerant, &mut scratch)
+                    scalar::cast(
+                        values.raw_cell(row)?,
+                        &self.dtype,
+                        *tolerant,
+                        temporal.as_deref(),
+                        &mut scratch,
+                    )
                 })?
             }
             Kind::Function { function, args } => {
-                let mut values = ReservedVec::new(context.memory())?;
-                values.reserve(args.len())?;
-                for arg in args {
-                    values
-                        .values
-                        .push(keys(&arg.evaluate(input, context)?, context)?);
-                }
-                let mut scratch = context.memory().reserve(0)?;
-                self.build(input.len(), context, |row| {
-                    function.evaluate(&values.values, row, &self.dtype, &mut scratch)
-                })?
+                self.evaluate_function(input, context, function, args)?
             }
         };
         self.checked_result(result, input.len(), context)
+    }
+
+    fn evaluate_function(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        function: &scalar::Function,
+        args: &[Self],
+    ) -> Result<ArrayRef> {
+        let mut values = ReservedVec::new(context.memory())?;
+        values.reserve(args.len())?;
+        for arg in args {
+            values
+                .values
+                .push(keys(&arg.evaluate(input, context)?, context)?);
+        }
+        let mut scratch = context.memory().reserve(0)?;
+        self.build(input.len(), context, |row| {
+            function.evaluate(&values.values, row, &self.dtype, &mut scratch)
+        })
     }
 
     fn completed_result(
@@ -602,7 +620,7 @@ fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                scalar::cast(values.raw_cell(row)?, dtype, false, &mut scratch)
+                scalar::cast(values.raw_cell(row)?, dtype, false, None, &mut scratch)
             },
         )
     } else {

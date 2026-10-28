@@ -38,11 +38,9 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
             DataType::Decimal128(decimal.precision(), decimal.scale())
         }
-        DType::Extension(_) => match crate::native_payload_schema::temporal_storage(dtype)? {
-            PType::I32 => DataType::Date32,
-            PType::I64 => DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, None),
-            _ => return None,
-        },
+        DType::Extension(_) => {
+            crate::native_temporal::arrow_dtype(&crate::native_temporal::temporal_dtype(dtype)?)
+        }
         DType::Primitive(ptype, _) => match ptype {
             PType::I8 => DataType::Int8,
             PType::I16 => DataType::Int16,

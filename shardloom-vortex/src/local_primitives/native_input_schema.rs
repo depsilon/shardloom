@@ -6,8 +6,11 @@ use serde_json::{Map, Value, value::RawValue};
 use shardloom_core::Result;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::{
-    dtype::{DType, DecimalDType, FieldNames, Nullability, PType, StructFields},
-    extension::datetime::{Date, TimeUnit, Timestamp},
+    dtype::{
+        DType, DecimalDType, FieldNames, Nullability, PType, StructFields,
+        extension::{ExtDType, ExtVTable},
+    },
+    extension::datetime::{Date, Time, Timestamp},
 };
 
 use super::{native_typed_input::failed, vortex_error};
@@ -247,23 +250,65 @@ fn temporal_dtype(value: &Value) -> Result<DType> {
         .filter(|parts| parts.len() == 2)
         .ok_or_else(|| failed("temporal input requires primitive storage"))?;
     let nullable = nullability(&storage[1])?;
-    match (extension["id"].as_str(), storage[0].as_str()) {
-        (Some("vortex.date"), Some("i32")) if extension["metadata"] == serde_json::json!([4]) => {
-            Ok(DType::Extension(
-                Date::new(TimeUnit::Days, nullable).erased(),
-            ))
-        }
-        (Some("vortex.timestamp"), Some("i64"))
-            if extension["metadata"] == serde_json::json!([1, 0, 0]) =>
-        {
-            Ok(DType::Extension(
-                Timestamp::new(TimeUnit::Microseconds, nullable).erased(),
-            ))
-        }
-        _ => Err(failed(
-            "unsupported native input extension metadata or storage",
-        )),
+    let storage = DType::Primitive(
+        match storage[0].as_str() {
+            Some("i32") => PType::I32,
+            Some("i64") => PType::I64,
+            _ => return Err(failed("temporal input requires signed native storage")),
+        },
+        nullable,
+    );
+    // Timestamp metadata is one unit byte, a u16 length and at most 255
+    // timezone bytes. All other admitted temporal metadata has one byte.
+    let metadata = extension["metadata"]
+        .as_array()
+        .filter(|bytes| !bytes.is_empty() && bytes.len() <= 258)
+        .ok_or_else(|| failed("temporal metadata requires 1..=258 bytes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("temporal metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    macro_rules! decode {
+        ($provider:expr, $ty:ty) => {{
+            let decoded = $provider
+                .deserialize_metadata(&metadata)
+                .map_err(vortex_error)?;
+            if $provider
+                .serialize_metadata(&decoded)
+                .map_err(vortex_error)?
+                != metadata
+            {
+                return Err(failed(
+                    "temporal metadata must use its exact canonical encoding",
+                ));
+            }
+            DType::Extension(
+                ExtDType::<$ty>::try_new(decoded, storage)
+                    .map_err(vortex_error)?
+                    .erased(),
+            )
+        }};
     }
+    let dtype = match extension["id"].as_str() {
+        Some("vortex.date") => decode!(Date, Date),
+        Some("vortex.time") => decode!(Time, Time),
+        Some("vortex.timestamp") => decode!(Timestamp, Timestamp),
+        Some("shardloom.duration.v1") => decode!(
+            crate::native_temporal::Duration,
+            crate::native_temporal::Duration
+        ),
+        _ => return Err(failed("unsupported native input extension metadata")),
+    };
+    if crate::native_temporal::temporal_storage(&dtype).is_none() {
+        return Err(failed(
+            "unsupported native input temporal domain or timezone",
+        ));
+    }
+    Ok(dtype)
 }
 
 fn nullability(value: &Value) -> Result<Nullability> {

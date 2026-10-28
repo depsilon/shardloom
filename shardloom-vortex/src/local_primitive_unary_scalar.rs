@@ -69,6 +69,7 @@ pub(super) fn coerce(
             numeric_cell(value)?,
             target,
             false,
+            None,
             &mut scratch,
         )?;
         return OwnedScalar::from_native(converted, target, memory);

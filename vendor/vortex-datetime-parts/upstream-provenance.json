@@ -1,0 +1,83 @@
+{
+  "provider": "vortex-datetime-parts",
+  "version": "0.90.0",
+  "license": "Apache-2.0",
+  "registry_archive_sha256": "a67e541dca82970bf5ea3ad5ea47b02ab46f60cd53a2ada94e561aeabef74d2d",
+  "registry_archive_file_count": 21,
+  "registry_archive_uncompressed_bytes": 163699,
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "30ecf064d33715a9a7afe200e77d73dbd8ea2676356fc0b9427632d3ad156107",
+    "Cargo.lock": "e06e1c583aea224ec2e4bbee5287fa231dc4fb590215e085f3f27e3414f513b7",
+    "Cargo.toml": "be97c1d653f77448477ce82a076150d3c3de89310f23984ad9bfb247e09a5506",
+    "Cargo.toml.orig": "186ec9cc59446a27132a8f2e5cbb8e262bf35139fe3b7c70692bb2c42341bd08",
+    "README.md": "cd899987b96ab2c72c73b619e0a456553b01ab35776f177a8eeb52a3fcc8110e",
+    "src/array.rs": "f243e2e80c5d5da605a7736d3c728c6d20b5506e120acd45d8c3c063b7a1c570",
+    "src/canonical.rs": "197b1450191c79d2f521522f334fb3add39b676b3c26d2db2e33307b96525b2c",
+    "src/compress.rs": "df3656769d4f30fe05382626c9434945c38c78f62545528eb76a01a938efd7b6",
+    "src/compute/cast.rs": "099c580ea78edeaf2ef5f9edb9bd8b969615a65a0c416e11f0cc359da9c5d2a0",
+    "src/compute/compare.rs": "bbd57794207c7fbfabade17537d572ec5e482b201c41ce6c1a780ef64cc61041",
+    "src/compute/filter.rs": "ba57aed687980711bea1b427001393ce504b046ab20f263e6f663e404ed8271a",
+    "src/compute/is_constant.rs": "b3b1a60b49914acdd09e50165ab34bf66bcf3c77f08b851bfdf0d36e3a75f5d7",
+    "src/compute/kernel.rs": "9a60b238238d9a6b9bf348a473267acc79c51e074f7100a302619ef0440e6b52",
+    "src/compute/mask.rs": "ca8f98e7216a419d9982d0e40846fc27fa2f720ed8cfb12ed9914af61c122b04",
+    "src/compute/mod.rs": "af3e36314c909402497174ade8c0ad56c09604f3f3164e623dcd164ba428a61a",
+    "src/compute/rules.rs": "822fba70d337095679a4750f8de188e7ebc3acc2a61df4a21c9360fd827ce80d",
+    "src/compute/slice.rs": "2d1e19642b4255ede8783e099ff742f104456989667a360f5875988c891a94a4",
+    "src/compute/take.rs": "67231ff000fb0d19ad84564f66d789f7b7ae2b089d4063495cff131084bd4717",
+    "src/lib.rs": "563660d9fd24dec844496df1e4d71071b210fbc7d732d0b0062bc36ebec2148f",
+    "src/ops.rs": "0796b2f3d26691e08bdaba2b35891390e1ebbb8b618a3f7b4d5b5f1b08bdda7a",
+    "src/timestamp.rs": "4d9b5319499e4267e391e10aaf0dd5b36a39c12227c300c2e5d50e115656563c"
+  },
+  "vcs_info": {
+    "git": {
+      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/datetime-parts"
+  },
+  "source_of_truth": "https://static.crates.io/crates/vortex-datetime-parts/vortex-datetime-parts-0.90.0.crate",
+  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "migration_status": "full_domain_timestamp_days_correction",
+  "modified_files_sha256": {
+    "Cargo.toml": "88fe98c5930b37c621611b0fd91aa934b8bdc9c177f9aa54b594ea129faf8693",
+    "src/compress.rs": "47c7b3dd14e36f5c504cf54e4712ade0f2a147128c531007a48a6f0bfad494a6",
+    "src/canonical.rs": "70183f21bc924f54e7876a0fe035c369974eb20cb3f7b2984196743caf108043",
+    "src/compute/compare.rs": "523b21c152442fe9cddb5a8a606d5bf25cea68fb974a85c6dbc8244a6ec9fd6f",
+    "src/compute/rules.rs": "3f1b87bf0aff53d384a0f7ff14b6ece51beb51ffcc39667b7440788d93bde514",
+    "src/lib.rs": "f6cf9aed876ac9abbe5de0d2c91799d74e9e587198188612c0ec4653b5efdae0",
+    "src/ops.rs": "0970974ba4c9d504731bda364982dc411d0f782183e523e5fa24312074bbc588",
+    "src/timestamp.rs": "b6731f0c30dbf9f650711032384b7ee226896512f1c27d40242db9e4f6ec9ead"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "b5bbb2542ff6c4ae1889f248df60b4754628ca74c8e436e915da896701dad045",
+    "goldenfiles/datetimeparts.metadata": "9881d91556463b5d85bd82beb6f32670fb5fb5fb60ad5cbec7e13f36811cf07d",
+    "src/test_support.rs": "eda635f847c6188e07bf43af88e76de38f8981ddaac977e5ed5e8915d8fb5ad9"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "b5bbb2542ff6c4ae1889f248df60b4754628ca74c8e436e915da896701dad045"
+  },
+  "supplemental_test_files": {
+    "goldenfiles/datetimeparts.metadata": {
+      "provider": "vortex-datetime-parts",
+      "path": "goldenfiles/datetimeparts.metadata",
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/encodings/datetime-parts/goldenfiles/datetimeparts.metadata",
+      "git_blob_sha1": "0b1c0ff496f365821c9e00b2e5ac58438e38200b",
+      "sha256": "9881d91556463b5d85bd82beb6f32670fb5fb5fb60ad5cbec7e13f36811cf07d",
+      "bytes": 6,
+      "test_source": "src/lib.rs",
+      "test_source_matches_published_archive": false,
+      "test_source_sha256": "563660d9fd24dec844496df1e4d71071b210fbc7d732d0b0062bc36ebec2148f",
+      "test_source_published_archive_sha256": "563660d9fd24dec844496df1e4d71071b210fbc7d732d0b0062bc36ebec2148f",
+      "test_source_current_sha256": "f6cf9aed876ac9abbe5de0d2c91799d74e9e587198188612c0ec4653b5efdae0",
+      "retained_test_module": {
+        "marker": "#[cfg(test)]\nmod test {",
+        "bytes": 569,
+        "sha256": "5d05f630e5836ee8bc15c63c5cd2482dad2541430edc6c2cdbde892f50fbac21",
+        "matches_published_archive": true
+      }
+    }
+  }
+}

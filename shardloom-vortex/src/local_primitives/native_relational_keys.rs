@@ -49,16 +49,24 @@ pub(super) enum Cell {
     Decimal(i128, DecimalDType),
     Date(i32),
     Timestamp(i64),
+    Temporal(i64),
 }
 
 pub(super) enum KeyColumn {
     Null(usize),
     Numeric(NativeNumericOwner),
-    Boolean { values: BoolArray, valid: Mask },
+    Boolean {
+        values: BoolArray,
+        valid: Mask,
+    },
     Variable(VariableColumn),
     Decimal(DecimalColumn),
     Date(NativeNumericOwner),
     Timestamp(NativeNumericOwner),
+    Temporal {
+        values: NativeNumericOwner,
+        dtype: shardloom_core::temporal::TemporalDType,
+    },
     Nested(Box<nested::Column>),
 }
 
@@ -188,19 +196,22 @@ impl KeyColumn {
                 )?)
             }
             DType::Extension(_) => {
-                let ptype = crate::native_payload_schema::temporal_storage(array.dtype())
-                    .ok_or_else(|| {
-                        failed("temporal key requires Date32 or timezone-free TimestampMicros")
+                let dtype =
+                    crate::native_temporal::temporal_dtype(array.dtype()).ok_or_else(|| {
+                        failed("temporal key requires admitted logical unit and timezone metadata")
                     })?;
                 let storage = super::result_batch::scalar_storage(array, context)?;
                 if storage.len() != array.len() {
                     return Err(failed("temporal execution changed row count"));
                 }
                 let values = numeric_owner(&storage, context)?;
-                match ptype {
-                    PType::I32 => Self::Date(values),
-                    PType::I64 => Self::Timestamp(values),
-                    _ => return Err(failed("temporal key has an unsupported storage type")),
+                match dtype.kind() {
+                    shardloom_core::temporal::TemporalKind::Date32 => Self::Date(values),
+                    shardloom_core::temporal::TemporalKind::Timestamp {
+                        unit: shardloom_core::temporal::TemporalUnit::Microseconds,
+                        timezone: None,
+                    } => Self::Timestamp(values),
+                    _ => Self::Temporal { values, dtype },
                 }
             }
             DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..) => {
@@ -226,7 +237,10 @@ impl KeyColumn {
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Null(rows) => *rows,
-            Self::Numeric(values) | Self::Date(values) | Self::Timestamp(values) => values.len(),
+            Self::Numeric(values)
+            | Self::Date(values)
+            | Self::Timestamp(values)
+            | Self::Temporal { values, .. } => values.len(),
             Self::Boolean { values, .. } => values.len(),
             Self::Variable(values) => values.rows,
             Self::Decimal(values) => values.values.len(),
@@ -261,6 +275,14 @@ impl KeyColumn {
             }),
             Self::Timestamp(values) => {
                 Ok(temporal_value(values, row)?.map_or(Cell::Null, Cell::Timestamp))
+            }
+            Self::Temporal { values, dtype } => {
+                if let Some(value) = temporal_value(values, row)? {
+                    dtype.validate_value(value)?;
+                    Ok(Cell::Temporal(value))
+                } else {
+                    Ok(Cell::Null)
+                }
             }
             Self::Nested(_) => Err(failed(
                 "nested keys require native comparison or selection, not a scalar cell",
@@ -322,9 +344,10 @@ impl KeyColumn {
         }
         Ok(match self {
             Self::Null(_) => true,
-            Self::Numeric(values) | Self::Date(values) | Self::Timestamp(values) => {
-                values.is_null(row)?
-            }
+            Self::Numeric(values)
+            | Self::Date(values)
+            | Self::Timestamp(values)
+            | Self::Temporal { values, .. } => values.is_null(row)?,
             Self::Boolean { valid, .. } => !valid.value(row),
             Self::Variable(values) => values.index(row)?.is_none(),
             Self::Decimal(values) => !values.valid.value(row),
@@ -430,6 +453,10 @@ impl KeyColumn {
                 hash.write_u8(9);
                 hash.write_i64(value);
             }
+            Cell::Temporal(value) => {
+                hash.write_u8(10);
+                hash.write_i64(value);
+            }
         }
         Ok(true)
     }
@@ -486,6 +513,7 @@ impl KeyColumn {
             }
             Cell::Date(value) => write!(output, "D{value};"),
             Cell::Timestamp(value) => write!(output, "T{value};"),
+            Cell::Temporal(value) => write!(output, "t{value};"),
         }
         .map_err(vortex_error)
     }
@@ -493,16 +521,16 @@ impl KeyColumn {
 
 pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
     use Cell::{
-        Binary, Boolean, Date, Decimal, Float, NegativeInteger, NonnegativeInteger, Null,
+        Binary, Boolean, Date, Decimal, Float, NegativeInteger, NonnegativeInteger, Null, Temporal,
         Timestamp, Utf8,
     };
     Ok(match (left, right) {
         (Null, Null) => Ordering::Equal,
         (Null, _) | (NegativeInteger(_), NonnegativeInteger(_)) => Ordering::Less,
         (_, Null) | (NonnegativeInteger(_), NegativeInteger(_)) => Ordering::Greater,
-        (NegativeInteger(left), NegativeInteger(right)) | (Timestamp(left), Timestamp(right)) => {
-            left.cmp(&right)
-        }
+        (NegativeInteger(left), NegativeInteger(right))
+        | (Timestamp(left), Timestamp(right))
+        | (Temporal(left), Temporal(right)) => left.cmp(&right),
         (NonnegativeInteger(left), NonnegativeInteger(right)) => left.cmp(&right),
         (NegativeInteger(left), Float(right)) => {
             integer_float_order(i128::from(left), f64::from_bits(right))?

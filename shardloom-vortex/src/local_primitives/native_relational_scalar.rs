@@ -13,6 +13,17 @@ use vortex::{
 #[path = "native_relational_text.rs"]
 pub(in crate::local_primitives) mod text_kernels;
 
+#[path = "native_relational_temporal.rs"]
+mod temporal;
+pub(in crate::local_primitives) use temporal::Cast as TemporalCast;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(in crate::local_primitives) enum TemporalArgument {
+    None,
+    Integer,
+    Temporal,
+}
+
 pub(in crate::local_primitives) enum Function {
     Abs,
     Floor,
@@ -40,16 +51,10 @@ pub(in crate::local_primitives) enum Function {
     },
     Unhex,
     FromBase64,
-    DateExtract(fn(i32) -> i64),
-    TimestampExtract(fn(i64) -> i64),
-    DateOffset {
-        subtract: bool,
+    Temporal {
+        kernel: Box<shardloom_core::temporal::operations::Kernel>,
+        second: TemporalArgument,
     },
-    TimestampOffset {
-        subtract: bool,
-    },
-    DateDifference,
-    TimestampDifference,
     JsonExtract(text_kernels::JsonPath),
     Strptime {
         format: text_kernels::TimestampFormat,
@@ -213,32 +218,16 @@ impl Function {
                 }
                 Value::Binary(Cow::Owned(decoded))
             }
-            Self::DateExtract(extract) => Value::Int(extract(date(&columns[0].raw_cell(row)?)?)),
-            Self::TimestampExtract(extract) => {
-                Value::Int(extract(timestamp(&columns[0].raw_cell(row)?)?))
+            Self::Temporal { kernel, second } => {
+                let right = match second {
+                    TemporalArgument::None => None,
+                    TemporalArgument::Integer => Some(integer(&columns[1].raw_cell(row)?)?),
+                    TemporalArgument::Temporal => {
+                        Some(i128::from(temporal_ticks(&columns[1].raw_cell(row)?)?))
+                    }
+                };
+                Value::Int(kernel.apply(temporal_ticks(&columns[0].raw_cell(row)?)?, right)?)
             }
-            Self::DateOffset { subtract } => {
-                let offset = integer(&columns[1].raw_cell(row)?)?;
-                Value::Int(i64::from(typed::date32_add_days(
-                    date(&columns[0].raw_cell(row)?)?,
-                    if *subtract { -offset } else { offset },
-                )?))
-            }
-            Self::TimestampOffset { subtract } => {
-                let offset = integer(&columns[1].raw_cell(row)?)?;
-                Value::Int(typed::timestamp_micros_add_seconds(
-                    timestamp(&columns[0].raw_cell(row)?)?,
-                    if *subtract { -offset } else { offset },
-                )?)
-            }
-            Self::DateDifference => Value::Int(
-                i64::from(date(&columns[0].raw_cell(row)?)?)
-                    - i64::from(date(&columns[1].raw_cell(row)?)?),
-            ),
-            Self::TimestampDifference => Value::Int(typed::timestamp_micros_diff_seconds(
-                timestamp(&columns[0].raw_cell(row)?)?,
-                timestamp(&columns[1].raw_cell(row)?)?,
-            )),
             _ => return Ok(None),
         };
         Ok(Some(value))
@@ -322,17 +311,13 @@ fn epoch_minute(
     }
 }
 
-fn date(value: &Cell) -> Result<i32> {
+fn temporal_ticks(value: &Cell) -> Result<i64> {
     match value {
-        Cell::Date(value) => Ok(*value),
-        _ => Err(failed("calendar function requires Date32")),
-    }
-}
-
-fn timestamp(value: &Cell) -> Result<i64> {
-    match value {
-        Cell::Timestamp(value) => Ok(*value),
-        _ => Err(failed("calendar function requires TimestampMicros")),
+        Cell::Date(value) => Ok(i64::from(*value)),
+        Cell::Timestamp(value) | Cell::Temporal(value) => Ok(*value),
+        _ => Err(failed(
+            "temporal function requires its declared logical domain",
+        )),
     }
 }
 
@@ -437,10 +422,21 @@ pub(in crate::local_primitives) fn cast(
     value: Cell,
     dtype: &DType,
     tolerant: bool,
+    temporal: Option<&TemporalCast>,
     scratch: &mut MemoryLease,
 ) -> Result<Value<'static>> {
     if value == Cell::Null {
         return Ok(Value::Null);
+    }
+    if let Some(temporal) = temporal {
+        if temporal.formats_text() {
+            reserve(scratch, 1024)?;
+        }
+        return match temporal.evaluate(&value) {
+            Ok(value) => Ok(value),
+            Err(_) if tolerant => Ok(Value::Null),
+            Err(error) => Err(error),
+        };
     }
     // Conversion failures alone become NULL for TRY_CAST. Cancellation and
     // memory failures occur outside this branch and always propagate.
@@ -606,19 +602,6 @@ fn convert(value: &Cell, dtype: &DType) -> Option<Value<'static>> {
             }
             Value::Float(value)
         }
-        DType::Extension(_) => match crate::native_payload_schema::temporal_storage(dtype)? {
-            PType::I32 => Value::Int(i64::from(match value {
-                Cell::Date(value) => *value,
-                Cell::Timestamp(value) => typed::timestamp_micros_date32(*value),
-                _ => typed::parse_iso_date32(string?).ok()?,
-            })),
-            PType::I64 => Value::Int(match value {
-                Cell::Date(value) => typed::date32_timestamp_micros(*value).ok()?,
-                Cell::Timestamp(value) => *value,
-                _ => typed::parse_iso_timestamp_micros(string?).ok()?,
-            }),
-            _ => return None,
-        },
         _ => return None,
     })
 }

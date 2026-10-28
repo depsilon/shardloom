@@ -9,11 +9,13 @@ Both pass their prospective benefit gates, complete-result checks, resource and
 ownership tests, and installed-package validation. A separate borrowed text/binary
 output candidate misses its benefit gate and is removed.
 
-This is a locally accepted work unit within
+This is an accepted and merged work unit within
 [item 20](../architecture/native-analytical-completion-2026-10-27.md).
-Its remaining analytical and performance obligations stay open. Hosted PR
-acceptance is separate; no new package release or external-engine victory is
-claimed.
+Its remaining analytical and performance obligations stay open. PR #1615 merged
+at `5a0b8c0f` after all 57 hosted checks passed and automated review completed
+without findings. The [hosted receipt](evidence/native-shared-analytical-performance-2026-10-27/hosted.json)
+records the accepted head and individual checks. No new package release or
+external-engine victory is claimed.
 
 ## Retained execution changes
 

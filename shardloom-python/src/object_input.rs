@@ -246,6 +246,7 @@ pub(super) fn convert_batch(
         source,
         decimal: PyModule::import(py, "decimal")?.getattr("Decimal")?,
         datetime: PyModule::import(py, "datetime")?,
+        temporal_input: None,
         cancellation,
     };
     let mut columns = schema
@@ -294,6 +295,9 @@ fn builder(dtype: &DataType) -> PyResult<Box<dyn ArrayBuilder>> {
         DataType::Float64 => simple!(Float64Builder),
         DataType::Date32 => simple!(Date32Builder),
         DataType::Timestamp(TimeUnit::Microsecond, None) => simple!(TimestampMicrosecondBuilder),
+        dtype if shardloom_vortex::temporal_arrow::dtype(dtype).is_some() => {
+            arrow_array::builder::make_builder(dtype, 0)
+        }
         DataType::Decimal128(precision, scale) => Box::new(
             Decimal128Builder::with_capacity(0)
                 .with_precision_and_scale(*precision, *scale)
@@ -326,6 +330,7 @@ struct Conversion<'a, 'py> {
     source: &'a MemoryBatchSourceBuilder,
     decimal: Bound<'py, PyAny>,
     datetime: Bound<'py, PyModule>,
+    temporal_input: Option<Bound<'py, PyAny>>,
     cancellation: &'a CancellationToken,
 }
 
@@ -466,6 +471,31 @@ impl Conversion<'_, '_> {
                 } else {
                     column.append_value(self.temporal(value, false)?);
                 }
+            }
+            dtype if shardloom_vortex::temporal_arrow::dtype(dtype).is_some() => {
+                let temporal =
+                    shardloom_vortex::temporal_arrow::dtype(dtype).expect("admitted temporal type");
+                let ticks = if missing {
+                    None
+                } else if placeholder {
+                    Some(0)
+                } else {
+                    if self.temporal_input.is_none() {
+                        self.temporal_input = Some(
+                            PyModule::import(self.py, "shardloom._input_schema")?
+                                .getattr("temporal_input_value")?,
+                        );
+                    }
+                    Some(
+                        self.temporal_input
+                            .as_ref()
+                            .expect("initialized converter")
+                            .call1((temporal.as_str(), value))?
+                            .extract::<i64>()?,
+                    )
+                };
+                shardloom_vortex::temporal_arrow::append(output, dtype, ticks)
+                    .map_err(native_error)?;
             }
             DataType::List(child) => {
                 let column = downcast::<ListBuilder<Box<dyn ArrayBuilder>>>(output)?;

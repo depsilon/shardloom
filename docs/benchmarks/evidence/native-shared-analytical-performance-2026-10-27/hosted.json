@@ -1,0 +1,478 @@
+{
+  "schema_version": "shardloom.hosted_pr_acceptance.v1",
+  "observed_date": "2026-10-27",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1615",
+  "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+  "base": "690a671e155072f9afa7c5938412c94f173ef553",
+  "merge_commit": "5a0b8c0ff42b0fb1ccdf0dfecb1fd73e2c6d83ef",
+  "merge_method": "merge",
+  "merged": true,
+  "check_count": 57,
+  "all_checks_passed": true,
+  "reviews": [],
+  "review_threads": [],
+  "automated_review": {
+    "status": "completed",
+    "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+    "findings": false,
+    "url": "https://github.com/depsilon/shardloom/pull/1615#issuecomment-6454032221"
+  },
+  "checks": [
+    {
+      "id": 122503448909,
+      "name": "Release readiness reports",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122503448909"
+    },
+    {
+      "id": 122502576261,
+      "name": "Native Python wheel acceptance",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122502576261"
+    },
+    {
+      "id": 122500216369,
+      "name": "Native Python wheel (py313_macos)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122500216369"
+    },
+    {
+      "id": 122493077865,
+      "name": "Native Python wheel (py310_ubuntu)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122493077865"
+    },
+    {
+      "id": 122493077859,
+      "name": "Native Python wheel (py313_ubuntu)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122493077859"
+    },
+    {
+      "id": 122489049159,
+      "name": "Rust feature matrix (native_vortex_tests)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122489049159"
+    },
+    {
+      "id": 122487026421,
+      "name": "Build native Python package (linux)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122487026421"
+    },
+    {
+      "id": 122487026369,
+      "name": "Release user-surface evidence",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122487026369"
+    },
+    {
+      "id": 122486545835,
+      "name": "Release package and governance evidence",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122486545835"
+    },
+    {
+      "id": 122486455317,
+      "name": "Native test partition (0)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122486455317"
+    },
+    {
+      "id": 122486455141,
+      "name": "Native test partition (2)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122486455141"
+    },
+    {
+      "id": 122486455116,
+      "name": "Native test partition (3)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122486455116"
+    },
+    {
+      "id": 122486455092,
+      "name": "Native test partition (1)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122486455092"
+    },
+    {
+      "id": 122483962120,
+      "name": "Python tests",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122483962120"
+    },
+    {
+      "id": 122483312895,
+      "name": "Workers Builds: shardloom",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/5f51acb7-d71d-4903-bf7e-dde589b5a788"
+    },
+    {
+      "id": 122482795483,
+      "name": "CodeQL",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/runs/122482795483"
+    },
+    {
+      "id": 122482545185,
+      "name": "Rust feature matrix (all_features)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482545185"
+    },
+    {
+      "id": 122482545062,
+      "name": "Rust feature matrix (preparation_resource_profile)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482545062"
+    },
+    {
+      "id": 122482544909,
+      "name": "Rust feature matrix (upstream_vortex)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544909"
+    },
+    {
+      "id": 122482544825,
+      "name": "Rust feature matrix (native_release_clippy)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544825"
+    },
+    {
+      "id": 122482544803,
+      "name": "Rust feature matrix (default_features)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544803"
+    },
+    {
+      "id": 122482544791,
+      "name": "Rust feature matrix (native_vortex_observation)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544791"
+    },
+    {
+      "id": 122482544783,
+      "name": "Python compatibility (ubuntu-latest, 3.13)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544783"
+    },
+    {
+      "id": 122482544748,
+      "name": "Rust feature matrix (no_default_features)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544748"
+    },
+    {
+      "id": 122482544733,
+      "name": "Rust feature matrix (release_user_surfaces)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544733"
+    },
+    {
+      "id": 122482544731,
+      "name": "Release runtime core evidence",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544731"
+    },
+    {
+      "id": 122482544725,
+      "name": "Rust feature matrix (synthetic_spill_resources)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544725"
+    },
+    {
+      "id": 122482544722,
+      "name": "Rust feature matrix (vortex_encoded_read_spike)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544722"
+    },
+    {
+      "id": 122482544712,
+      "name": "Rust feature matrix (vortex_local_primitives)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544712"
+    },
+    {
+      "id": 122482544707,
+      "name": "Rust feature matrix (packaging_deployment)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544707"
+    },
+    {
+      "id": 122482544704,
+      "name": "Rust MSRV validation",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544704"
+    },
+    {
+      "id": 122482544674,
+      "name": "Python compatibility (ubuntu-latest, 3.11)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544674"
+    },
+    {
+      "id": 122482544641,
+      "name": "Patched Vortex providers (arrays)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544641"
+    },
+    {
+      "id": 122482544627,
+      "name": "Python compatibility (ubuntu-latest, 3.10)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544627"
+    },
+    {
+      "id": 122482544624,
+      "name": "Python and package smoke",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544624"
+    },
+    {
+      "id": 122482544595,
+      "name": "Rust feature matrix (vortex_file_io)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544595"
+    },
+    {
+      "id": 122482544593,
+      "name": "Python compatibility (windows-latest, 3.11)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544593"
+    },
+    {
+      "id": 122482544535,
+      "name": "Python compatibility (macos-latest, 3.11)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544535"
+    },
+    {
+      "id": 122482544517,
+      "name": "Dependency and security gates",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544517"
+    },
+    {
+      "id": 122482544465,
+      "name": "Patched Vortex providers (buffer)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544465"
+    },
+    {
+      "id": 122482544447,
+      "name": "Patched Vortex providers (io)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544447"
+    },
+    {
+      "id": 122482544444,
+      "name": "Python compatibility (ubuntu-latest, 3.12)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544444"
+    },
+    {
+      "id": 122482544374,
+      "name": "Build native Python package (macos)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544374"
+    },
+    {
+      "id": 122482544274,
+      "name": "Build checked optimized native tests",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544274"
+    },
+    {
+      "id": 122482544171,
+      "name": "Rust feature matrix (native_public_surface_tests)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544171"
+    },
+    {
+      "id": 122482544167,
+      "name": "Native release CLI build",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122482544167"
+    },
+    {
+      "id": 122481692215,
+      "name": "Rust baseline (fmt)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692215"
+    },
+    {
+      "id": 122481692196,
+      "name": "Website and docs validation",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692196"
+    },
+    {
+      "id": 122481692194,
+      "name": "Rust baseline (test)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692194"
+    },
+    {
+      "id": 122481692186,
+      "name": "Python test shard (front_door_benchmark_publication)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692186"
+    },
+    {
+      "id": 122481692168,
+      "name": "Python test shard (release_scripts)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692168"
+    },
+    {
+      "id": 122481692151,
+      "name": "Rust baseline (clippy)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692151"
+    },
+    {
+      "id": 122481692112,
+      "name": "CI work shaping plan",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692112"
+    },
+    {
+      "id": 122481692031,
+      "name": "Python test shard (core)",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481692031"
+    },
+    {
+      "id": 122481691819,
+      "name": "CI gate matrix contract",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192220/job/122481691819"
+    },
+    {
+      "id": 122481690956,
+      "name": "CodeQL python",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192124/job/122481690956"
+    },
+    {
+      "id": 122481690513,
+      "name": "CodeQL rust",
+      "head": "95a6eedddface7833040f6aa767a8a1d6740e9f1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/depsilon/shardloom/actions/runs/40587192124/job/122481690513"
+    }
+  ]
+}

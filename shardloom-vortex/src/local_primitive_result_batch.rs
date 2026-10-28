@@ -591,16 +591,22 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
                         },
                     )?;
                 }
-                (DType::Extension(_), value) => write_primitive(
-                    crate::native_payload_schema::temporal_storage(dtype)
-                        .ok_or_else(|| failed("unsupported temporal output dtype"))?,
-                    value,
-                    if keep {
-                        &mut data.as_mut_slice()[row * stride..(row + 1) * stride]
-                    } else {
-                        &mut discarded[..stride]
-                    },
-                )?,
+                (DType::Extension(_), value) => {
+                    let Value::Int(ticks) = &value else {
+                        return Err(failed("temporal output requires signed integer ticks"));
+                    };
+                    crate::native_temporal::validate_ticks(dtype, *ticks)?;
+                    write_primitive(
+                        crate::native_payload_schema::temporal_storage(dtype)
+                            .ok_or_else(|| failed("unsupported temporal output dtype"))?,
+                        value,
+                        if keep {
+                            &mut data.as_mut_slice()[row * stride..(row + 1) * stride]
+                        } else {
+                            &mut discarded[..stride]
+                        },
+                    )?;
+                }
                 (DType::Decimal(dtype, _), Value::Decimal(value, actual))
                     if *dtype == actual
                         && value.unsigned_abs() < 10_u128.pow(u32::from(dtype.precision())) =>

@@ -17,7 +17,7 @@ use vortex::array::{
         Chunked, ChunkedArray, Dict, DictArray, ScalarFn, chunked::ChunkedArrayExt as _,
         dict::DictArraySlotsExt as _,
     },
-    dtype::{DType, PType},
+    dtype::DType,
     matcher::Matcher,
 };
 
@@ -517,6 +517,7 @@ fn payload_capacity(value: &ScalarValue) -> Result<usize> {
     Ok(match value {
         ScalarValue::Utf8(value) => value.capacity(),
         ScalarValue::Binary(value) => value.capacity(),
+        ScalarValue::Temporal(value) => value.dtype().heap_bytes(),
         ScalarValue::List(_) | ScalarValue::Struct(_) => {
             return Err(failed("nested retained scalar state is not admitted"));
         }
@@ -554,6 +555,7 @@ impl OwnedScalar {
         let bytes = match value {
             ScalarValue::Utf8(value) => value.len(),
             ScalarValue::Binary(value) => value.len(),
+            ScalarValue::Temporal(value) => value.dtype().heap_bytes(),
             _ => 0,
         };
         Self::produce(memory, bytes, || {
@@ -604,6 +606,7 @@ pub(super) fn borrowed(value: &ScalarValue) -> Result<Value<'_>> {
         ScalarValue::Null => Value::Null,
         ScalarValue::Boolean(value) => Value::Bool(*value),
         ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => Value::Int(*value),
+        ScalarValue::Temporal(value) => Value::Int(value.value()),
         ScalarValue::UInt64(value) => Value::UInt(*value),
         ScalarValue::Float64(value) => Value::Float(*value),
         ScalarValue::Utf8(value) => Value::Text(std::borrow::Cow::Borrowed(value)),
@@ -682,6 +685,13 @@ fn write_scalar_key(output: &mut impl std::fmt::Write, value: &ScalarValue) -> R
     match value {
         ScalarValue::Date32(value) => write!(output, "d32:{value}"),
         ScalarValue::TimestampMicros(value) => write!(output, "tsus:{value}"),
+        ScalarValue::Temporal(value) => write!(
+            output,
+            "temporal:{}:{}:{}",
+            value.dtype().as_str().len(),
+            value.dtype().as_str(),
+            value.value()
+        ),
         _ => write_value_key(output, &borrowed(value)?, &DType::Null),
     }
     .map_err(vortex_error)
@@ -691,11 +701,43 @@ fn owned_scalar(value: Value<'_>, dtype: &DType, lease: &mut MemoryLease) -> Res
     Ok(match value {
         Value::Null => ScalarValue::Null,
         Value::Bool(value) => ScalarValue::Boolean(value),
-        Value::Int(value) => match crate::native_payload_schema::temporal_storage(dtype) {
-            Some(PType::I32) => ScalarValue::Date32(i32::try_from(value).map_err(vortex_error)?),
-            Some(PType::I64) => ScalarValue::TimestampMicros(value),
-            _ => ScalarValue::Int64(value),
-        },
+        Value::Int(value) if matches!(dtype, DType::Extension(_)) => {
+            use shardloom_core::temporal::{TemporalKind, TemporalUnit, TemporalValue};
+            // Admit owned names and zone metadata before constructing them.
+            let initial = lease.bytes();
+            let allowance = crate::native_payload_schema::metadata_bytes(dtype)?;
+            lease.resize(
+                initial
+                    .checked_add(allowance)
+                    .ok_or_else(|| failed("temporal metadata size overflow"))?,
+            )?;
+            let temporal = crate::native_temporal::temporal_dtype(dtype)
+                .ok_or_else(|| failed("retained temporal requires admitted logical metadata"))?;
+            temporal.validate_value(value)?;
+            let result = match temporal.kind() {
+                TemporalKind::Date32 => {
+                    ScalarValue::Date32(i32::try_from(value).map_err(vortex_error)?)
+                }
+                TemporalKind::Timestamp {
+                    unit: TemporalUnit::Microseconds,
+                    timezone: None,
+                } => ScalarValue::TimestampMicros(value),
+                _ => ScalarValue::Temporal(TemporalValue::new(value, temporal)?),
+            };
+            let bytes = u64::try_from(payload_capacity(&result)?).map_err(vortex_error)?;
+            if bytes > allowance {
+                return Err(failed(
+                    "retained temporal exceeded its metadata reservation",
+                ));
+            }
+            lease.resize(
+                initial
+                    .checked_add(bytes)
+                    .ok_or_else(|| failed("temporal metadata size overflow"))?,
+            )?;
+            result
+        }
+        Value::Int(value) => ScalarValue::Int64(value),
         Value::UInt(value) => ScalarValue::UInt64(value),
         Value::Float(value) => ScalarValue::Float64(value),
         Value::Text(value) => ScalarValue::Utf8(copy_text(&value, lease)?),
@@ -734,7 +776,7 @@ impl OwnedStat {
     pub(super) fn from_scalar(value: &ScalarValue, memory: &LiveMemoryPool) -> Result<Self> {
         if matches!(
             value,
-            ScalarValue::Date32(_) | ScalarValue::TimestampMicros(_)
+            ScalarValue::Date32(_) | ScalarValue::TimestampMicros(_) | ScalarValue::Temporal(_)
         ) {
             return Err(failed(
                 "legacy predicate requires primitive statistics scalar values",
@@ -800,11 +842,10 @@ fn write_value_key(
     match value {
         Value::Null => output.write_str("n:null"),
         Value::Bool(value) => write!(output, "b:{value}"),
-        Value::Int(value) => match crate::native_payload_schema::temporal_storage(dtype) {
-            Some(PType::I32) => write!(output, "d32:{value}"),
-            Some(PType::I64) => write!(output, "tsus:{value}"),
-            _ => write!(output, "i:{value}"),
-        },
+        Value::Int(value) if matches!(dtype, DType::Extension(_)) => {
+            crate::native_temporal::write_key(output, dtype, *value)
+        }
+        Value::Int(value) => write!(output, "i:{value}"),
         Value::UInt(value) => write!(output, "u:{value}"),
         Value::Float(value) => write!(output, "f:{:016x}", value.to_bits()),
         Value::Text(value) => write!(output, "s:{}:{value}", value.len()),

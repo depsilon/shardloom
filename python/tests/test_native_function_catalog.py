@@ -1,6 +1,6 @@
 """Shared native function discovery, SQL aliases and DataFrame semantics."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
 from pathlib import Path
@@ -16,7 +16,24 @@ except ImportError:
 # than comparing two spellings that could both return the same wrong result.
 DAY = "CAST('2024-02-29' AS DATE)"
 STAMP = "CAST('2024-02-29T13:14:15.123456Z' AS TIMESTAMP)"
+EPOCH = "CAST('1970-01-01T00:00:00Z' AS TIMESTAMP)"
+ZONED_EPOCH = "CAST('1970-01-01T00:00:00Z' AS TIMESTAMP(us,'UTC'))"
+SPAN = "CAST('2s' AS DURATION(s))"
+TEMPORAL_CASES = {
+    "temporal_extract": ([STAMP, "'hour'"], 13),
+    "temporal_trunc": ([STAMP, "'day'"], datetime(2024, 2, 29)),
+    "calendar_add_days": ([DAY, "1"], date(2024, 3, 1)),
+    "calendar_add_months": ([DAY, "1"], date(2024, 3, 29)),
+    "temporal_add_duration": ([STAMP, SPAN], datetime(2024, 2, 29, 13, 14, 17, 123456)),
+    "temporal_sub_duration": ([STAMP, SPAN], datetime(2024, 2, 29, 13, 14, 13, 123456)),
+    "timestamp_difference": ([STAMP, "CAST('2024-02-29T13:14:13.500000Z' AS TIMESTAMP)"],
+                             timedelta(seconds=1, microseconds=623456)),
+    "timestamp_assign_timezone": ([EPOCH, "'Asia/Tokyo'"], -32_400_000_000),
+    "timestamp_convert_timezone": ([ZONED_EPOCH, "'Asia/Tokyo'"], 0),
+    "timestamp_remove_timezone": ([ZONED_EPOCH], datetime(1970, 1, 1)),
+}
 CASES = {
+    **TEMPORAL_CASES,
     "abs": (["-7"], 7), "floor": (["-1.2"], -2.0),
     "ceil": (["-1.2"], -1.0), "round": (["-1.5"], -2.0),
     "lower": (["'É猫'"], "é猫"), "upper": (["'é猫'"], "É猫"),
@@ -100,13 +117,20 @@ class NativeFunctionCatalogTests(unittest.TestCase):
         self.assertEqual((root / TARGET.with_suffix(".md")).read_text(), render(recorded))
 
     def test_every_scalar_dataframe_constructor_matches_independent_values(self):
+        from shardloom.query import ColumnExpression
+
         context, f = self.context(), self.f
         def literal(text):
             dates = {DAY: date(2024, 2, 29), "CAST('2024-02-27' AS DATE)": date(2024, 2, 27),
+                EPOCH: datetime(1970, 1, 1),
                 STAMP: datetime(2024, 2, 29, 13, 14, 15, 123456),
                 "CAST('2024-02-29T13:14:13.500000Z' AS TIMESTAMP)": datetime(2024, 2, 29, 13, 14, 13, 500000)}
             if text in dates:
                 return dates[text]
+            if text == SPAN:
+                return f.lit("2s").cast("duration(s)")
+            if text == ZONED_EPOCH:
+                return f.lit("1970-01-01T00:00:00Z").cast("timestamp(us,UTC)")
             if text in {"TRUE", "FALSE", "NULL"}:
                 return {"TRUE": True, "FALSE": False, "NULL": None}[text]
             if text.startswith("'"):
@@ -115,8 +139,15 @@ class NativeFunctionCatalogTests(unittest.TestCase):
 
         projected, expected = [], {}
         for name, (arguments, value) in CASES.items():
-            constructor = getattr(f, "null_if" if name == "nullif" else name)
             values = [literal(argument) for argument in arguments]
+            if name in TEMPORAL_CASES:
+                first = values[0] if isinstance(values[0], ColumnExpression) else f.lit(values[0])
+                if name == "timestamp_difference":
+                    values[1] = f.lit(values[1])
+                projected.append(getattr(first, name)(*values[1:]).alias(name))
+                expected[name] = value
+                continue
+            constructor = getattr(f, "null_if" if name == "nullif" else name)
             if name in {"concat", "coalesce", "nullif", "case_when", "date_diff_days", "timestamp_diff_seconds"}:
                 values = [f.lit(value) for value in values]
             else:
@@ -172,7 +203,13 @@ class NativeFunctionCatalogTests(unittest.TestCase):
             if not entry["null_rule"].startswith("null input"):
                 continue
             arguments = list(CASES[entry["name"]][0])
-            arguments[0] = "NULL"
+            if entry["name"] in TEMPORAL_CASES:
+                # New temporal functions require an explicit logical domain even
+                # for nulls; metadata and literal policies still bind normally.
+                dtype = arguments[0].rsplit(" AS ", 1)[1][:-1]
+                arguments[0] = f"CAST(NULL AS {dtype})"
+            else:
+                arguments[0] = "NULL"
             expressions.append(f"{entry['name']}({','.join(arguments)}) AS result_{len(expressions)}")
         query = context.sql("SELECT " + ",".join(expressions))
         self.assertTrue(all(dtype.nullable for _, dtype in query.schema()))

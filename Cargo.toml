@@ -8,7 +8,7 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/arrow-ipc", "vendor/orc-rust", "vendor/parquet", "vendor/vortex-array", "vendor/vortex-buffer", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-ipc", "vendor/orc-rust", "vendor/parquet", "vendor/vortex-array", "vendor/vortex-buffer", "vendor/vortex-datetime-parts", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
@@ -17,6 +17,7 @@ orc-rust = { path = "vendor/orc-rust" }
 parquet = { path = "vendor/parquet" }
 vortex-array = { path = "vendor/vortex-array" }
 vortex-buffer = { path = "vendor/vortex-buffer" }
+vortex-datetime-parts = { path = "vendor/vortex-datetime-parts" }
 vortex-file = { path = "vendor/vortex-file" }
 vortex-fsst = { path = "vendor/vortex-fsst" }
 vortex-io = { path = "vendor/vortex-io" }
@@ -51,6 +52,8 @@ arrow-schema = "=59.3.1"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
+jiff = { version = "=0.2.35", default-features = false, features = ["std"] }
+jiff-tzdb = "=0.1.6"
 memchr = "2.8.3"
 parquet = "=59.3.1"
 pyo3 = "=0.29.3"

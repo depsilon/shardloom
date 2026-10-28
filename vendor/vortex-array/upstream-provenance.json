@@ -831,7 +831,7 @@
     "provenance_path": "vendor/vortex-array/upstream-provenance.json"
   },
   "modified_files_sha256": {
-    "Cargo.toml": "5a5bc97fecc508460ae6d7d6c2c51d211eb5914ff8075da12a5fc90c75000853",
+    "Cargo.toml": "fd87569efbab476134e1df92da1c8e6ecdb51f07c9efd20b0299fb68859aa256",
     "src/aggregate_fn/fns/is_constant/primitive.rs": "479054ab3c2890378c926342c7717408c35003ff5fd7788db7409973945626b4",
     "src/array/erased.rs": "28b4ddda60fc64d20f3df93c1890b78465a8ec00bd9f5b1bbb0fad6cdace602d",
     "src/array/mod.rs": "7f6b0b32226538e1ffa614c88be6b4a79bb1787395a0f24c1041799484f512c9",
@@ -854,7 +854,9 @@
     "src/builders/varbinview.rs": "1f012411a67fc9a775131494073bd905acbf84c3de210a3dcdb699efc82cc6fe",
     "src/canonical.rs": "40114707b20752c47612d88bf85170921ef445955e4f55d1c58629cd203f088a",
     "src/executor.rs": "9bf3b9b66393ff88ad4b0ecbd8a65f20c4a0f2fdf2476993a5e3118e3f3f6982",
-    "src/extension/datetime/timestamp.rs": "f5255a5c4badd9e17faaaf534180b81a82cc06cd45f47b2d3e2ed9950b476136",
+    "src/extension/datetime/date.rs": "951a053c7582465d8b377f4e138b15e49478e964133579f7b4b447383d790c3d",
+    "src/extension/datetime/time.rs": "ca978b2d23fc34142c66f6092e7ff1d749ac0f63d1ee69d5123468cb2eb7d968",
+    "src/extension/datetime/timestamp.rs": "66bea8458449509a70193635b590116dfe81cb64dc5d355b71c2fec649e975f4",
     "src/lib.rs": "bff6e5094ded969507725dce53581073a5932f09790bdf6daf818f8edeaabbc2",
     "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
     "src/scalar_fn/fns/zip/mod.rs": "2ae924fe13abb1c3565364c6e5ccf067f345ded8a1097ea7420edca72aba2c98",
@@ -864,7 +866,7 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "10e52733326ab13c808df21a48a35902e424774a75f52a893da1fc7f9737e9b2",
+    "README.shardloom.md": "36de77212e662e0c6d70f6acd4c05b0b1f26d24aec1b4318df35116113e68450",
     "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
     "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
     "src/array/owner_tests.rs": "3d05af8ec24e82d605cf78209f65e96827710b31fdbef51fca7cec9f67f23ee3",
@@ -874,7 +876,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "10e52733326ab13c808df21a48a35902e424774a75f52a893da1fc7f9737e9b2"
+    "sha256": "36de77212e662e0c6d70f6acd4c05b0b1f26d24aec1b4318df35116113e68450"
   },
   "supplemental_test_files": {
     "goldenfiles/dict.metadata": {

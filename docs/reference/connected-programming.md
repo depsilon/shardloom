@@ -2,8 +2,10 @@
 
 # SQL, DataFrames and local clients
 
-This page describes the source implementation. It does not change the published
-1.0.0 artifacts; use a native build from this checkout for these APIs.
+This page describes the source implementation, including temporal fidelity work
+whose source-build acceptance is still in progress. Published packages retain
+the support shipped with each release; source changes do not change published
+artifacts. Use a native build from this checkout for source-only APIs.
 
 Readers, `sql()`, `table()` and transformations return one lazy DataFrame class,
 `LazyFrame`. Naming a plan or changing syntax does not execute it,
@@ -108,10 +110,28 @@ names, aliases, arities and type/null rules without opening data. The generated
 JSON extraction returns JSON text, including quotes around strings and `null`
 for JSON null; an absent path produces SQL null.
 
-`shardloom.types` describes decimal precision/scale, nested child types and
-nullability. The supported timestamp metadata is naive microsecond precision;
-broader units and timezone-preserving operations remain separate work.
-`f.lit()` accepts a naive Python datetime with those fields.
+`shardloom.types` declares temporal metadata with `date32()` and
+`timestamp_micros()` retained as compatibility names, plus `date64()`,
+`time(unit)`, `timestamp(unit, timezone=None)` and `duration(unit)` for the
+`s`, `ms`, `us` and `ns` units. Explicit integer ticks preserve nanoseconds and
+the full signed-64-bit timestamp/duration range; Python calendar objects have
+their own range and precision limits. Exact unit casts reject overflow or
+discarded precision.
+
+Temporal expression declarations lower to the shared native registry:
+`temporal_extract`, `temporal_trunc`, `calendar_add_days`,
+`calendar_add_months`, `temporal_add_duration`, `temporal_sub_duration`,
+`timestamp_difference`, `timestamp_assign_timezone`,
+`timestamp_convert_timezone` and `timestamp_remove_timezone`. A naive timestamp
+is a civil value. Assigning a timezone resolves it into an instant; converting
+the timezone preserves the instant; removing it preserves local civil fields.
+Calendar operations use pinned IANA 2026a rules, with `reject` defaults and
+explicit `earlier`/`later` ambiguity or `clamp` month-end choices. Fixed-duration
+arithmetic remains distinct from calendar-day and calendar-month arithmetic.
+The declarations do not perform calendar evaluation in Python. The source-build
+acceptance checklist remains open; these additions do not claim as-of joins,
+resampling or gap-fill completion. `f.lit()` continues to accept a naive Python
+datetime for its existing microsecond literal contract.
 
 Window specifications are immutable reusable values. For example,
 `sl.Window.partition_by("group").order_by("time").rows_between(-2, 0)`

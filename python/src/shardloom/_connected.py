@@ -6,8 +6,9 @@ import re
 import threading
 from collections.abc import Mapping
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from ._temporal import temporal_parts
 
 
 def identifier(value, *, label="relation name"):
@@ -46,9 +47,10 @@ def normalize_parameters(parameters):
     for name, value in parameters.items():
         identifier(name, label="parameter name")
         scalar = value.value if type(value) is _ScalarParameter else value
-        if type(scalar) not in (type(None), bool, int, float, str, bytes, date, datetime, Decimal):
+        temporal_parameter = type(value) is _ScalarParameter and temporal_parts(value.dtype.name) is not None
+        if type(scalar) not in (type(None), bool, int, float, str, bytes, date, datetime, Decimal) and not (temporal_parameter and type(scalar) in (time, timedelta)):
             raise TypeError(f"parameter {name!r} requires a supported scalar value")
-        if type(scalar) is datetime and scalar.tzinfo is not None:
+        if type(scalar) is datetime and scalar.tzinfo is not None and not temporal_parameter:
             raise ValueError("timestamp parameters currently require a naive microsecond timestamp; timezone conversion is explicit")
         if type(scalar) is Decimal and not scalar.is_finite():
             raise ValueError("decimal parameters must be finite")
@@ -62,6 +64,14 @@ def native_parameter(module, value):
     if type(value) is _ScalarParameter:
         dtype = value.dtype
         name = f"decimal128({dtype.parameters[0]},{dtype.parameters[1]})" if dtype.name == "decimal128" else dtype.name
+        if value.value is not None and temporal_parts(name) is not None:
+            from ._input_schema import temporal_input_value
+            ticks = temporal_input_value(name, value.value)
+            if name == "date32":
+                return expression.date32(ticks)
+            if name == "timestamp_micros":
+                return expression.timestamp_micros(ticks)
+            return expression.temporal(ticks, name)
         return native_parameter(module, value.value).cast(name)
     if type(value) is Decimal:
         sign, digits, exponent = value.as_tuple()

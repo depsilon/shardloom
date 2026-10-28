@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom, 2026-10-27: validate ticks before bounded calendar construction.
 
 use std::fmt;
 
-use jiff::Span;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -63,16 +63,25 @@ pub enum TimeValue {
 
 impl fmt::Display for TimeValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let min = jiff::civil::Time::MIN;
-
-        let time = match self {
-            TimeValue::Seconds(s) => min + Span::new().seconds(*s),
-            TimeValue::Milliseconds(ms) => min + Span::new().milliseconds(*ms),
-            TimeValue::Microseconds(us) => min + Span::new().microseconds(*us),
-            TimeValue::Nanoseconds(ns) => min + Span::new().nanoseconds(*ns),
+        let (ticks, scale, unit) = match self {
+            TimeValue::Seconds(v) => (i64::from(*v), 1, "s"),
+            TimeValue::Milliseconds(v) => (i64::from(*v), 1_000, "ms"),
+            TimeValue::Microseconds(v) => (*v, 1_000_000, "us"),
+            TimeValue::Nanoseconds(v) => (*v, 1_000_000_000, "ns"),
         };
-
-        write!(f, "{}", time)
+        if !(0..86_400 * scale).contains(&ticks) {
+            return write!(f, "{ticks}{unit} since midnight (out of range)");
+        }
+        let seconds = ticks / scale;
+        let time = jiff::civil::Time::new(
+            i8::try_from(seconds / 3_600).map_err(|_| fmt::Error)?,
+            i8::try_from(seconds / 60 % 60).map_err(|_| fmt::Error)?,
+            i8::try_from(seconds % 60).map_err(|_| fmt::Error)?,
+            i32::try_from((ticks % scale) * (1_000_000_000 / scale))
+                .map_err(|_| fmt::Error)?,
+        )
+        .map_err(|_| fmt::Error)?;
+        write!(f, "{time}")
     }
 }
 
@@ -117,32 +126,29 @@ impl ExtVTable for Time {
     ) -> VortexResult<Self::NativeValue<'a>> {
         let length_of_time = storage_value.as_primitive().cast::<i64>()?;
 
-        let (span, value) = match *ext_dtype.metadata() {
+        let per_second = match *ext_dtype.metadata() {
+            TimeUnit::Seconds => 1,
+            TimeUnit::Milliseconds => 1_000,
+            TimeUnit::Microseconds => 1_000_000,
+            TimeUnit::Nanoseconds => 1_000_000_000,
+            TimeUnit::Days => vortex_bail!("Time type does not support Days time unit"),
+        };
+        vortex_ensure!((0..86_400 * per_second).contains(&length_of_time), "Time scalar must be within [midnight, next midnight)");
+        let value = match *ext_dtype.metadata() {
             TimeUnit::Seconds => {
                 let v = i32::try_from(length_of_time)
                     .map_err(|e| vortex_err!("Time seconds value out of i32 range: {e}"))?;
-                (Span::new().seconds(v), TimeValue::Seconds(v))
+                TimeValue::Seconds(v)
             }
             TimeUnit::Milliseconds => {
                 let v = i32::try_from(length_of_time)
                     .map_err(|e| vortex_err!("Time milliseconds value out of i32 range: {e}"))?;
-                (Span::new().milliseconds(v), TimeValue::Milliseconds(v))
+                TimeValue::Milliseconds(v)
             }
-            TimeUnit::Microseconds => (
-                Span::new().microseconds(length_of_time),
-                TimeValue::Microseconds(length_of_time),
-            ),
-            TimeUnit::Nanoseconds => (
-                Span::new().nanoseconds(length_of_time),
-                TimeValue::Nanoseconds(length_of_time),
-            ),
+            TimeUnit::Microseconds => TimeValue::Microseconds(length_of_time),
+            TimeUnit::Nanoseconds => TimeValue::Nanoseconds(length_of_time),
             d @ TimeUnit::Days => vortex_bail!("Time type does not support time unit {d}"),
         };
-
-        // Validate the storage value is within the valid range for Time.
-        jiff::civil::Time::MIN
-            .checked_add(span)
-            .map_err(|e| vortex_err!("Invalid time scalar: {}", e))?;
 
         Ok(value)
     }

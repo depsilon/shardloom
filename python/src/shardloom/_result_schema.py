@@ -14,6 +14,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from .errors import ShardLoomProtocolError
+from ._temporal import decode_temporal_dtype, temporal_parts, validate_temporal_ticks, arrow_temporal_type
 
 _PRIMITIVES = {
     "i8": "int8", "i16": "int16", "i32": "int32", "i64": "int64",
@@ -66,10 +67,8 @@ def _dtype(wire: Any, depth: int) -> ResultType:
         if not isinstance(payload, dict):
             raise ValueError("invalid extension dtype parameters")
         storage = _dtype(payload["storage_dtype"], depth + 1)
-        if payload["id"] == "vortex.date" and payload["metadata"] == [4] and storage.name == "int32":
-            return ResultType("date32", storage.nullable)
-        if payload["id"] == "vortex.timestamp" and payload["metadata"] == [1, 0, 0] and storage.name == "int64":
-            return ResultType("timestamp_micros", storage.nullable)
+        if name := decode_temporal_dtype(payload, storage.name, storage.nullable):
+            return ResultType(name, storage.nullable)
         raise ValueError(f"unsupported result extension: {payload.get('id')!r}")
     if not isinstance(payload, list) or len(payload) != (3 if kind == "FixedSizeList" else 2):
         raise ValueError("invalid native dtype parameters")
@@ -145,19 +144,12 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
                 raise ValueError("decimal coefficient exceeds its declared precision")
             coefficient = int(value[len(prefix):])
             return Decimal((int(coefficient < 0), tuple(int(digit) for digit in str(abs(coefficient))), -scale))
-        if dtype.name in {"date32", "timestamp_micros"}:
-            bits = 32 if dtype.name == "date32" else 64
-            if type(value) is not int or not -(1 << (bits - 1)) <= value < (1 << (bits - 1)):
-                raise ValueError("temporal result requires an integer in its declared domain")
-            if temporal:
-                try:
-                    if dtype.name == "date32":
-                        return dt.date(1970, 1, 1) + dt.timedelta(days=value)
-                    return dt.datetime(1970, 1, 1) + dt.timedelta(microseconds=value)
-                except OverflowError:
-                    # Python's calendar is narrower than validated native storage.
-                    # Preserve exact epoch days/microseconds outside that calendar.
-                    return value
+        if parts := temporal_parts(dtype.name):
+            try:
+                value = validate_temporal_ticks(dtype.name, value)
+            except (TypeError, ValueError) as error:
+                raise ValueError(f"temporal result requires an integer in its declared domain: {error}") from error
+            return temporal_python_value(value, parts) if temporal else value
         if dtype.name in {"list", "fixed_size_list"}:
             if not isinstance(value, list) or (dtype.name == "fixed_size_list" and len(value) != dtype.parameters[1]):
                 raise ValueError("invalid native list payload")
@@ -185,9 +177,31 @@ def _arrow_type(dtype: ResultType, pyarrow: Any) -> Any:
         return pyarrow.list_(field, dtype.parameters[1]) if dtype.name == "fixed_size_list" else pyarrow.list_(field)
     if dtype.name == "decimal128":
         return pyarrow.decimal128(*dtype.parameters)
-    if dtype.name == "timestamp_micros":
-        return pyarrow.timestamp("us")
+    if (temporal := arrow_temporal_type(dtype.name, pyarrow)) is not None:
+        return temporal
     if dtype.name == "variant":
         raise ShardLoomProtocolError("Arrow conversion does not admit native variant result fields")
     name = {"bool": "bool_", "utf8": "string"}.get(dtype.name, dtype.name)
     return getattr(pyarrow, name)()
+
+
+def temporal_python_value(value: int, parts: tuple[str, str | None, str | None]) -> Any:
+    """Keep exact ticks when Python objects cannot preserve the logical value.
+
+    Zoned values retain ticks and their schema instead of consulting the host
+    timezone database. Native temporal formatting supplies pinned-zone text.
+    """
+    family, unit, zone = parts
+    try:
+        if family in {"date32", "date64"}:
+            days = value if family == "date32" else value // 86_400_000
+            return dt.date(1970, 1, 1) + dt.timedelta(days=days)
+        if zone is not None or (unit == "ns" and value % 1_000):
+            return value
+        micros = value // 1_000 if unit == "ns" else value * {"s": 1_000_000, "ms": 1_000, "us": 1}[unit]
+        if family == "duration":
+            return dt.timedelta(microseconds=micros)
+        date = dt.datetime(1970, 1, 1) + dt.timedelta(microseconds=micros)
+        return date.time() if family == "time" else date
+    except OverflowError:
+        return value

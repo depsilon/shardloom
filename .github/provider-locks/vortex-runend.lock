@@ -1643,6 +1643,7 @@ dependencies = [
  "humansize",
  "inventory",
  "itertools",
+ "jiff-tzdb",
  "jiff",
  "memchr",
  "num-traits",

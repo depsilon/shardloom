@@ -51,6 +51,7 @@ pub mod security;
 pub mod session;
 pub mod stateful_reuse;
 pub mod table_intelligence;
+pub mod temporal;
 pub mod translation;
 pub mod universal_harness;
 pub mod unstructured_workflow;

@@ -99,6 +99,7 @@ impl Fixture {
         let fixture = Self(directory);
         let runtime = CurrentThreadRuntime::new();
         let session = VortexSession::default().with_handle(runtime.handle());
+        crate::native_temporal::register(&session);
         let mut file = fs::File::create(fixture.path()).unwrap();
         let mut writer = session
             .write_options()

@@ -2622,6 +2622,7 @@ fn local_vortex_session(
         .with_host_allocator(std::sync::Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory),
         ));
+    crate::native_temporal::register(&session);
     Ok((session, control))
 }
 
@@ -6654,6 +6655,7 @@ fn scalar_value_to_json_value(value: &ScalarValue) -> Result<serde_json::Value> 
             "decimal128({precision},{scale}):{value}"
         ))),
         ScalarValue::Date32(value) => Ok(serde_json::Value::Number((*value).into())),
+        ScalarValue::Temporal(value) => Ok(serde_json::Value::Number(value.value().into())),
         ScalarValue::List(values) => values
             .iter()
             .map(scalar_value_to_json_value)
@@ -6691,6 +6693,7 @@ fn scalar_value_to_csv_cell(value: &ScalarValue) -> Result<String> {
         | ScalarValue::Decimal128 { .. }
         | ScalarValue::Date32(_)
         | ScalarValue::TimestampMicros(_)
+        | ScalarValue::Temporal(_)
         | ScalarValue::List(_)
         | ScalarValue::Struct(_) => {
             scalar_value_to_json_value(value).map(|json| csv_escape(&json.to_string()))
@@ -14380,6 +14383,10 @@ fn push_scalar_value_key(out: &mut String, value: &ScalarValue) {
         }
         ScalarValue::TimestampMicros(value) => {
             let _ = write!(out, "tsmicros:{value}");
+        }
+        ScalarValue::Temporal(value) => {
+            let dtype = value.dtype().as_str();
+            let _ = write!(out, "temporal:{}:{dtype}:{}", dtype.len(), value.value());
         }
         ScalarValue::List(values) => {
             let _ = write!(out, "l:{}:", values.len());

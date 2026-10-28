@@ -204,15 +204,27 @@ fn native_typed_payload_schema_rejects_other_metadata_and_decimal_domains() {
     for dtype in [
         DType::Decimal(DecimalDType::new(39, 0), n),
         DType::Decimal(DecimalDType::new(10, -1), n),
+        DType::Extension(
+            Timestamp::new_with_tz(TimeUnit::Microseconds, Some("ShardLoom/Invalid".into()), n)
+                .erased(),
+        ),
+    ] {
+        assert!(native_payload::metadata_bytes(&dtype).is_err(), "{dtype}");
+        assert!(
+            native_payload::metadata_bytes(&DType::List(std::sync::Arc::new(dtype), n)).is_err()
+        );
+    }
+
+    for dtype in [
         DType::Extension(Date::new(TimeUnit::Milliseconds, n).erased()),
         DType::Extension(Timestamp::new(TimeUnit::Nanoseconds, n).erased()),
         DType::Extension(
             Timestamp::new_with_tz(TimeUnit::Microseconds, Some("UTC".into()), n).erased(),
         ),
     ] {
-        assert!(native_payload::metadata_bytes(&dtype).is_err(), "{dtype}");
+        assert!(native_payload::metadata_bytes(&dtype).is_ok(), "{dtype}");
         assert!(
-            native_payload::metadata_bytes(&DType::List(std::sync::Arc::new(dtype), n)).is_err()
+            native_payload::metadata_bytes(&DType::List(std::sync::Arc::new(dtype), n)).is_ok()
         );
     }
 }

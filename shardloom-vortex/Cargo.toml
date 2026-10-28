@@ -41,7 +41,9 @@ release-user-surfaces = [
     "vortex-encoded-read-spike",
 ]
 upstream-vortex = ["dep:vortex", "dep:bytes"]
+native-temporal = ["shardloom-core/temporal-calendar"]
 universal-format-io = [
+    "native-temporal",
     "dep:bytes",
     "dep:arrow-array",
     "dep:arrow-buffer",
@@ -54,8 +56,8 @@ universal-format-io = [
 ]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
-vortex-write = ["vortex-file-io", "dep:vortex-zstd", "dep:vortex-compressor", "dep:flatbuffers"]
-vortex-local-primitives = ["vortex-file-io", "dep:hashbrown", "dep:lending-iterator", "dep:serde", "vortex/serde"]
+vortex-write = ["vortex-file-io", "native-temporal", "dep:vortex-zstd", "dep:vortex-compressor", "dep:flatbuffers"]
+vortex-local-primitives = ["vortex-file-io", "native-temporal", "dep:hashbrown", "dep:lending-iterator", "dep:serde", "vortex/serde"]
 vortex-staged-output-fs = []
 vortex-metadata-executor = []
 vortex-encoded-read-executor = []

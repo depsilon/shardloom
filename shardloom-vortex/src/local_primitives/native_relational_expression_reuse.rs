@@ -119,10 +119,12 @@ fn same(left: &Expression, right: &Expression, remaining: &mut usize) -> bool {
             Kind::Cast {
                 input: left,
                 tolerant: lt,
+                ..
             },
             Kind::Cast {
                 input: right,
                 tolerant: rt,
+                ..
             },
         ) => lt == rt && same(left, right, remaining),
         (Kind::Coalesce(left), Kind::Coalesce(right))
