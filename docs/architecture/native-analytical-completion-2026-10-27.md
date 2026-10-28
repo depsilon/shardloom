@@ -345,6 +345,37 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    numeric and temporal typed loops before selecting any specialization; do not
    infer that generic source shape alone warrants one.
 
+The expression checkpoint is now specified by the prospective
+[October 28 protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/expression-protocol.json).
+It reuses the complete 23.079365459-second numeric observation; it does not
+rerun a baseline or change the original 347-case denominator. The current
+candidate remains unmeasured and unaccepted.
+
+The single-evaluation boundary is the existing bound expression's UTF8/binary
+output construction. Use native fallible host allocations, offsets, validity
+and `VarBinArray` ownership. The pinned Vortex append builder grows through
+infallible buffer allocation; it cannot by itself preserve ShardLoom's memory
+refusal contract. Wrap existing native buffers with admitted growth and account
+for the old/new overlap. Copy each completed scalar into owned output before
+its scratch credit can be reused; do not retain uncredited per-row strings or
+source slices. The callback order and first semantic failure remain stable;
+actual allocation failures remain explicit. Primitive and prefix-validation
+construction retain their existing owners.
+
+Function reuse compares the complete bound function identity, including regex
+pattern and fixed compilation policy, JSON path, parse tolerance/format,
+temporal input/output domains, timezone, ambiguity and month-end policy.
+Identical functions and full-input argument trees may reuse earlier completed
+projection outputs. Selected branches of CASE/COALESCE retain isolated scopes;
+no expression is moved before its original evaluation point. This is an
+extension of the current reuse binder, not an answer cache or new evaluator.
+
+Vortex-first classification: use the already admitted native host-buffer,
+validity and variable-array providers, with ShardLoom construction and semantic
+identity policy. No dependency, provider permission, Arrow execution path or
+external query engine is introduced. Acceptance includes independently owned
+buffers, producer closure, exact lazy/error behavior and complete-query proof.
+
 For each candidate, freeze a record naming the removed operation, existing
 native owner reused, activation counter or profile, targeted cases and
 unrelated controls, plus the current prospective whole-query benefit and

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 single-evaluation variable-width expression output and exact deterministic function reuse",
+  "source_before_runtime_edits": "702341bdfed224980c06fcf87aa56dfa8ef4a285",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/broad-numeric-r1/inputs.json",
+  "baseline_inputs_sha256": "3aaa9ff9b1edb254f7ec44d7e5095af4b6672ab279567073bd35576a8836989b",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/broad-numeric-r1/native-observations.json",
+  "baseline_observations_sha256": "85666a11baf23f862f779a77204b67bed804cf70d4e800485f26b76e168ae880",
+  "baseline_engine_seconds": 23.079365459,
+  "baseline_policy": "Reuse the complete locally accepted numeric observation and independently validated references. Hosted PR 1619 acceptance remains a separate prerequisite to merging the consolidated follow-up; do not rerun the baseline.",
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {"memory_bytes": 2147483648, "parallelism": 2},
+  "frozen_mechanisms": [
+    "Evaluate each UTF8/binary expression result once, in original row order, into independently owned fallible host buffers; admit growth and replacement overlap, keep source buffers independent, and retain existing typed error, selected-domain and cancellation behavior.",
+    "Extend the existing projection reuse binder to identical pure native functions and their full-input arguments, comparing all bound semantic parameters and exact literal bits. Reuse only earlier completed outputs from the same input batch; lazy selected domains remain isolated."
+  ],
+  "activation_evidence": ["variable expression callbacks and rows", "completed deterministic function and argument reuse", "native output credits after producer closure", "unchanged earliest semantic failure and selected domains"],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.10,
+    "alternative_minimum_declared_family_reduction_fraction": 0.10,
+    "declared_families": ["projection", "grouped_aggregation", "global_aggregation", "composite"],
+    "material_case_regression": {"fraction": 0.20, "absolute_seconds": 0.01, "rule": "flag when both exceeded"},
+    "material_family_regression": {"fraction": 0.20, "absolute_seconds": 0.05, "rule": "flag when both exceeded"},
+    "flag_disposition": "Preserve and assess every original flag. Under the October 28 maintainer policy, substantial complete-cohort benefit may outweigh a small isolated timing regression without an automatic blocker. Any extra execution requires a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete typed results, literal bits, nulls, lazy/error order, independent output lifetime, memory refusal, cancellation and existing spill behavior must pass. Otherwise drop the affected mechanism and retain all evidence."
+  },
+  "held_out_correctness": {
+    "seeds": [202610282031, 202610282219],
+    "rows": 32779,
+    "layouts": ["shuffled", "clustered"],
+    "domains": ["unicode_growth", "empty_null_long_values", "binary_decode", "regex_and_json_parameters", "timestamp_units_and_timezones", "signed_zero_and_exact_literals"],
+    "compositions": ["nested_and_repeated_functions", "lazy_case_coalesce", "filter_project_aggregate", "selected_reordered_results", "retained_result_reuse"],
+    "scope": "Freeze fresh complete independent values and source identities before execution. Correctness and activation only; no additional timed benefit cohort."
+  },
+  "execution_policy": "One isolated sequential pass over each unchanged case in original order, using the existing guard, storage limits, deadlines, complete validation and process cleanup. Finish all task-owned builds, tests and agents before queries; full hashes and recursive inventories occur outside execution. No cache manipulation or artificial pacing.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false
+}
