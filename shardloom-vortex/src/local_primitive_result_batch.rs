@@ -24,6 +24,10 @@ use crate::owned_buffers::{bool_array_with_retained_buffer, retain_empty_array_c
 #[path = "local_primitive_variant_result.rs"]
 mod variant;
 
+#[cfg(unix)]
+#[path = "local_primitive_result_numeric.rs"]
+mod numeric;
+
 #[cfg(all(test, unix))]
 #[path = "local_primitive_result_batch_prefix_tests.rs"]
 mod prefix_tests;
@@ -476,6 +480,19 @@ pub(super) fn build_column<'a>(
     value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     build_column_prefix_inner::<false>(dtype, rows, rows, allocator, value)
+}
+
+/// Copy already selected numeric storage into independently credited buffers.
+/// Selection/casting and owner preparation remain the caller's responsibility.
+#[cfg(unix)]
+pub(super) fn copy_numeric_column(
+    dtype: &DType,
+    values: &PrimitiveArray,
+    valid: &vortex::mask::Mask,
+    allocator: &HostAllocatorRef,
+    check_cancelled: impl FnMut() -> Result<()>,
+) -> Result<ArrayRef> {
+    numeric::copy_column(dtype, values, valid, allocator, check_cancelled)
 }
 
 /// Construct a prefix while preserving validation of every scalar in its

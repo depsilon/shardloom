@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_diagnostic_execution",
+  "reason": "Investigate the only original material case flag before candidate acceptance.",
+  "case": "aggregate_signed_value_group_key_sum_arithmetic_one_percent",
+  "original_baseline_engine_seconds": 0.022846667,
+  "original_candidate_engine_seconds": 0.036019708,
+  "cases": [
+    "aggregate_signed_value_group_key_sum_direct_one_percent",
+    "aggregate_signed_value_group_key_sum_arithmetic_one_percent",
+    "aggregate_signed_value_group_key_sum_coalesce_one_percent"
+  ],
+  "pair_orders": [["baseline", "candidate"], ["candidate", "baseline"], ["baseline", "candidate"]],
+  "expected_observations": 18,
+  "resources": {"memory_bytes": 2147483648, "parallelism": 2, "timeout": 180},
+  "decision": "Use each case's baseline and candidate role medians with the unchanged material rule: increase exceeds both 20 percent and 0.010 engine seconds. Any reproduced flag prevents advancement without further diagnosis or repair. Preserve every sample; a non-reproduction does not establish the original cause or statistical confidence.",
+  "inputs_and_workers": "Unchanged five Parquet files, exact original case identities and independent references, frozen original baseline/candidate release products, existing worker and isolation/storage/deadline/cleanup guards.",
+  "original_complete_observations_replaced": false,
+  "complete_cohort_rerun": false,
+  "runtime_edits": false,
+  "cache_manipulation": false,
+  "comparison_engine_invoked": false,
+  "publication_attempted": false
+}

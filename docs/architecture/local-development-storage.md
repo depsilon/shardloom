@@ -29,6 +29,16 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [October 28 numeric-value cleanup](../benchmarks/evidence/native-shared-numeric-values-2026-10-28/cleanup.json)
+retires 23,269 completed regular files and six environment symlinks after complete
+portable replay, 30 corruption controls and isolated source-only acceptance.
+Repeated identities and closed-handle checks cover completed environments,
+staged packets, archived outputs and the superseded key-lookup runtime/wheel.
+The latest accepted numeric runtime and installed-tested wheel, five current
+Parquet inputs, 347 independent references and complete compact results remain.
+Replay passes after retirement. Shared compiler outputs and unrelated files
+are untouched; no payload backup or storage-ceiling change occurs.
+
 The [1.0.0 release cleanup](../release/evidence/v1.0.0-local-generated-cleanup-2026-10-25.json)
 retires 30,484 generated regular files and 21 environment links after release,
 installed-package and documentation verification. It covers seven completed

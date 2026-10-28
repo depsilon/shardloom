@@ -406,8 +406,19 @@ held-out variations, applicable public interfaces, unrelated representative
 families and relevant larger/resource checks. Maintain ClickBench protection with
 its existing proof or a specifically justified observation. New capabilities need
 semantic, composition, performance and resource coverage plus discovery/reference
-updates. A correct capability need not be faster than an unsupported predecessor;
-it must avoid an unexplained material regression in existing supported work.
+updates. A correct capability need not be faster than an unsupported predecessor.
+
+The October 28 maintainer decision treats performance retention as an overall
+workload tradeoff. Substantial complete-cohort gains, or substantial declared
+family gains with a positive overall balance, can justify retaining a change
+despite a small isolated timing regression. Record the original slowdown, its
+absolute contribution, affected workload and remaining uncertainty. Investigate
+in proportion to that impact and track a bounded follow-up when warranted;
+an individual threshold flag is not an automatic implementation blocker.
+Evaluate broad or consequential workload harm separately. Correctness, resource,
+ownership and no-fallback requirements remain acceptance conditions. Preserve
+frozen protocols and original observations; record this decision separately
+instead of rewriting an earlier measurement or replacing a slower sample.
 
 The specifically authorized single-observation Polars cohort may run during
 baseline discovery. Only after ShardLoom's expanded surface passes its declared

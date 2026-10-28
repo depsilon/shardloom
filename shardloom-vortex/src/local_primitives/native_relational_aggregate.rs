@@ -17,6 +17,9 @@ mod numeric_reuse_tests;
 #[path = "native_relational_aggregate_numeric_reuse.rs"]
 mod numeric_reuse;
 
+#[path = "native_relational_aggregate_extrema.rs"]
+mod extrema;
+
 #[path = "native_relational_collections.rs"]
 mod collections;
 #[path = "native_relational_aggregate_filter.rs"]
@@ -701,6 +704,20 @@ impl<'a> Aggregate<'a> {
                     )?;
                 }
                 numeric_reuse_from = reuse_next.then_some(measure_index);
+                continue;
+            }
+            if matches!(measure.function, Function::Min | Function::Max)
+                && let Some(KeyColumn::Numeric(owner)) = values
+            {
+                extrema::accumulate(
+                    &mut self.states.values,
+                    ordinals,
+                    self.spec.measures.len(),
+                    measure_index,
+                    measure.function == Function::Min,
+                    owner,
+                    context,
+                )?;
                 continue;
             }
             for (row, group) in ordinals.iter() {

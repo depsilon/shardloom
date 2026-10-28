@@ -135,6 +135,102 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_numeric_extrema_and_selected_outputs_match_all_five_surfaces(self):
+        import struct
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        expression = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        columns = [(prefix + str(bits), getattr(pa, kind + str(bits))(), bits, prefix == "i")
+                   for prefix, kind in (("i", "int"), ("u", "uint")) for bits in (8, 16, 32, 64)]
+        rows = []
+        for index in range(2053):
+            row = {"id": index, "g": index % 7}
+            for name, _, bits, signed in columns:
+                low, high = (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
+                row[name] = None if index % 17 == 0 else (low, high, 0, 1)[index % 4]
+            row.update(f32=None if index % 13 == 0 else (-0.0, 0.0, 2.0 ** -149, -1.5)[index % 4],
+                       f64=None if index % 11 == 0 else (-0.0, 0.0, 2.0 ** -1074, 1.5)[index % 4],
+                       negative_zero=None if index % 19 == 0 else -0.0)
+            rows.append(row)
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("g", pa.int32(), nullable=False),
+                            *(pa.field(name, dtype) for name, dtype, _, _ in columns),
+                            pa.field("f32", pa.float32()), pa.field("f64", pa.float64()),
+                            pa.field("negative_zero", pa.float64())])
+
+        def check_values(table, wanted):
+            actual = table.to_pylist()
+            self.assertEqual(actual, wanted)
+            for observed, expected_row in zip(actual, wanted, strict=True):
+                for name, value in expected_row.items():
+                    if isinstance(value, float):
+                        self.assertEqual(struct.pack(">d", observed[name]), struct.pack(">d", value), name)
+
+        names = [name for name, *_ in columns] + ["f32", "f64", "negative_zero"]
+        measures = [(function, name, name + "_" + function)
+                    for name in names for function in ("min", "max")]
+        declarations = [f"{function.upper()}({name}) AS {alias}" for function, name, alias in measures]
+        with tempfile.TemporaryDirectory(prefix="shardloom-numeric-values-") as directory:
+            path = Path(directory) / "numbers.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=257)
+            frame, relation = sl.read_parquet(path, client=client), native.Relation.scan(str(path))
+            for grouped in (False, True):
+                groups = range(7) if grouped else (None,)
+                wanted = []
+                for key in groups:
+                    members = [row for row in rows if not grouped or row["g"] == key]
+                    result = {"g": key} if grouped else {}
+                    for function, name, alias in measures:
+                        values = [row[name] for row in members if row[name] is not None]
+                        result[alias] = (min if function == "min" else max)(values)
+                    wanted.append(result)
+                declaration = frame.group_by("g").agg(*declarations).sort("g") if grouped else frame.agg(*declarations)
+                typed = relation.aggregate(["g"] if grouped else [], measures)
+                if grouped:
+                    typed = typed.sort([("g", False, None)])
+                sql = "SELECT " + ("g," if grouped else "") + ",".join(declarations) + f" FROM '{path}'"
+                if grouped:
+                    sql += " GROUP BY g ORDER BY g"
+                with self.subTest(operation="extrema", grouped=grouped):
+                    tables = self.all_surfaces(declaration, typed, sql)
+                    for table in tables:
+                        check_values(table, wanted)
+                        self.assertEqual(table.schema, tables[0].schema)
+                        for _, name, alias in measures:
+                            self.assertEqual(table.schema.field(alias).type, schema.field(name).type)
+                            self.assertTrue(table.schema.field(alias).nullable)
+
+            projection = [("id", "id"), *((name, name) for name in reversed(names)), ("i8", "copied_i8")]
+            projected = relation.project([(alias, expression.column(name)) for name, alias in projection])
+            projected = projected.sort([("id", True, None)]).limit(103, offset=7)
+            sql = "SELECT " + ",".join(f"{name} AS {alias}" for name, alias in projection)
+            sql += f" FROM '{path}' ORDER BY id DESC LIMIT 103 OFFSET 7"
+            selected = frame.select(*(f"{name} AS {alias}" for name, alias in projection))
+            selected = selected.sort("id", descending=True).limit(103, offset=7)
+            wanted = [{alias: row[name] for name, alias in projection} for row in list(reversed(rows))[7:110]]
+            tables = self.all_surfaces(selected, projected, sql)
+            for table in tables:
+                check_values(table, wanted)
+                self.assertEqual(table.schema, tables[0].schema)
+
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.sql(sql).collect()
+            path.unlink()
+            retained_source = retained.as_source()
+            for _ in range(2):
+                reused = producer.sql("SELECT * FROM 'memory://retained' ORDER BY id DESC",
+                                      sources=[("memory://retained", retained_source)]).collect()
+                check_values(self.table(reused), wanted)
+            del retained_source
+            producer.close()
+            check_values(self.table(retained), wanted)
+            check_values(self.table(reused), wanted)
+
     def test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces(self):
         from collections import defaultdict
         import shardloom as sl

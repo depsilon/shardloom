@@ -662,21 +662,23 @@ fn take_column_with_policy(
     } else {
         None
     };
-    let output = result_batch::build_column(
-        dtype,
-        indices.len(),
-        &context.native_session().host_allocator(),
-        |row| {
+    let allocator = context.native_session().host_allocator();
+    let output = if let Some(numeric) = &numeric {
+        result_batch::copy_numeric_column(
+            dtype,
+            numeric.primitive(),
+            numeric.validity(),
+            &allocator,
+            || context.check_cancelled(),
+        )?
+    } else {
+        result_batch::build_column(dtype, indices.len(), &allocator, |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            if let Some(numeric) = &numeric {
-                numeric.stat_value(row).map(result_batch::Value::from)
-            } else {
-                result_batch::scalar_value(&selected, row, &mut execution)
-            }
-        },
-    )?;
+            result_batch::scalar_value(&selected, row, &mut execution)
+        })?
+    };
     context.check_cancelled()?;
     Ok(output)
 }

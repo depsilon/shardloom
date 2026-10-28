@@ -48,6 +48,33 @@ CG-1 through CG-23 retain their independent acceptance and authorization.
 
 ## Remaining completion checklist
 
+After the shared-numeric-values PR, deliver the remaining item-20 obligations
+as one consolidated completion PR by default. Use logical commits, prospective
+measurement protocols and validation checkpoints inside that PR; individual
+optimizations or public interfaces do not require separate PRs. Split only for
+a concrete compatibility, dependency, generated-artifact or verification boundary
+that makes the combined change harder to review or trust. This delivery decision
+does not reduce the checklist or move item 18's I/O work or the 1.1.0 release into
+item 20.
+
+The October 28 performance objective is to pursue **under 10 engine seconds**
+for the unchanged 347-query cohort within the remaining optimization work.
+The numeric candidate records 23.079365459 seconds, so this requires about
+56.7% further reduction; it is a stretch target, not an achieved result or a
+reason to reduce correctness/coverage. Grouped aggregation contributes
+9.969800537 seconds, projection 4.468361084 seconds, and ordinary plus multiway
+joins 2.855853169 seconds. Use these complete family totals to prioritize
+profiling of shared work, not as an attribution of removable overhead. Complete
+the expression construction/reuse package and select further numeric/temporal
+specializations only from demonstrated costs. Added capability cases retain
+their own coverage and cannot change the original comparison denominator.
+Larger-volume and complex-plan acceptance must measure resource behavior and
+complete results; the encoded/pruning/streaming architecture alone establishes
+no general advantage over Polars. Preserve the original Polars IPC/API-clock
+observations and native Parquet/engine-clock observations as distinct evidence.
+A later comparative claim requires matched input, resources and clock boundaries;
+this objective does not authorize another competitor cohort.
+
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
 - [ ] Complete statistical and richer aggregates, including their type/null,
@@ -296,9 +323,17 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    join build addressing: 25.508976866 engine seconds for all 347 cases versus
    the reused 27.374316659-second checkpoint, with no material regression flags.
    Grouped aggregation improves 12.44% and DISTINCT 17.39%. Complete fresh
-   correctness, native/public/package gates and portable replay pass. Hosted
-   acceptance remains separate; typed MIN/MAX and independently owned numeric
-   gathering are the next measured candidates within this package.
+   correctness, native/public/package gates and portable replay pass. PR #1618
+   merged at `685f16c7` with all 57 checks passing and no review findings.
+   The subsequent [numeric acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+   retains original-width MIN/MAX and independently owned numeric gathering at
+   23.079365459 engine seconds for all 347 cases and 12,565 complete rows.
+   Global aggregation improves 25.44%, grouped aggregation 13.37% and joins
+   10.43%; the original isolated case flag remains, and its bounded diagnostic
+   does not reproduce it. Complete 80-case fresh correctness, 202 installed
+   package tests, 30 corruption controls and isolated portable replay pass.
+   Numeric hosted acceptance remains separate; continue the remaining item-20
+   work, including the expression package, in the consolidated completion PR.
 3. **Reduce expression construction and reuse work.** For UTF-8/binary
    results, replace repeated callback evaluation in sizing and writing with
    single evaluation using bounded, accounted staging or a native append path.
@@ -335,6 +370,13 @@ diagnostics, resource/failure behavior and format/interface parity.
 
 #### Typed numeric values candidate contract
 
+The October 28 maintainer update permits retaining a substantial net workload
+improvement while recording a small isolated timing regression as follow-up
+work. Apply the [program's tradeoff policy](native-broad-query-program-2026-10-26.md)
+to subsequent acceptance decisions. Original prospective protocols and complete
+observations remain unchanged; a threshold flag does not by itself block
+implementation when the overall benefit clearly outweighs its impact.
+
 The next candidate retains the accepted shared-key runtime and its complete
 25.508976866-second observation as the baseline. Its
 [prospective protocol](../benchmarks/evidence/native-shared-numeric-values-2026-10-28/protocol.json)
@@ -369,7 +411,9 @@ Tests must compare every original-width result and error/partial-state outcome
 against the existing scalar route, exercise encoded/null/empty inputs, and prove
 independent output lifetime and cleanup through ordinary consumers. The frozen
 complete-query gate determines retention; source shape alone is not proof of a
-bottleneck or performance benefit.
+bottleneck or performance benefit. The [local acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+meets the declared family-benefit gate with a 9.52% whole-cohort reduction;
+the maintainer's net-benefit disposition and unchanged original flag are recorded.
 
 #### Shared key lookup and addressing candidate contract
 

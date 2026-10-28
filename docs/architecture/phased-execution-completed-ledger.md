@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Shared numeric values — local acceptance`
+  — the [October 28 acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+  combines original-width numeric MIN/MAX updates with independently owned, validated numeric
+  output copying. Its one isolated 347-case observation validates 12,565 rows at 23.079365459
+  engine seconds versus the reused 25.508976866-second baseline, a 9.52% cohort reduction. The
+  frozen declared-family gate passes for global aggregation (25.44%), grouped aggregation (13.37%)
+  and joins (10.43%); no material family flags occur. One original case flag remains, while its
+  bounded 18-execution diagnostic does not reproduce it; cause is unassigned. Fresh held-out
+  correctness passes 80 cases and 508,176 complete rows. Local native, workspace, CLI, public
+  interface and installed-wheel checks pass, including 202 installed tests without skips. Complete
+  portable replay, 30 corruption controls and an isolated source-only replay with assertions
+  disabled pass. Original failed attempts and the one corrected control assertion are preserved;
+  verified retirement removes 23,269 completed regular files and six environment links while
+  retaining the accepted runtime/wheel, current inputs and complete evidence. Hosted acceptance
+  remains separate. The maintainer accepts the substantial net gain with the
+  original flag recorded. Item 20 and CG-1 through CG-23 remain open; the remaining item-20 work
+  is consolidated into one completion PR by default. No competitor/Full43 run or publication occurs.
+
 - [x] `Shared key lookup and join build addressing — local acceptance`
   — the [October 28 decision](../benchmarks/native-shared-key-lookup-2026-10-28.md)
   retains a bounded exact per-batch directory in the existing membership owner,
@@ -34,9 +52,16 @@ phase plan first.
     the installed native wheel passes 201 integration tests without skips.
     Twenty-three corruption controls and isolated source-only replay pass with
     Python assertions disabled. Original failures and corrections are preserved.
-  - Hosted checks and merge remain separate. Typed MIN/MAX, independent numeric
-    gathering and expression work remain queued. Item 20 and CG-1 through CG-23
-    stay open; no new baseline, Polars or Full43 run or publication occurs.
+  - PR #1618 merges at `685f16c7362eb07115f37db4992c89a3ac5cdaa5` from reviewed
+    head `74c7cd652b2fccaeb4fa12292be40137b2dd6a58`; the merge tree matches the
+    reviewed tree. All 57 hosted checks complete successfully, the review summary
+    has no findings, and review threads are empty. The
+    [hosted receipt](../benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json)
+    preserves the merge, check-count and review evidence. Typed MIN/MAX and
+    independent numeric gathering were pending at that checkpoint and are accepted
+    in the numeric record above; expression work remains queued. Item 20 and
+    CG-1 through CG-23 stay open; no new baseline, Polars or Full43 run or
+    publication occurs.
 
 - [x] `Rich bounded streamed retention — merged acceptance`
   — the [October 28 decision](../benchmarks/native-rich-bounded-retention-2026-10-28.md)

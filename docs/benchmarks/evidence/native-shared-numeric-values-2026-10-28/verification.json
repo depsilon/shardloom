@@ -1,0 +1,2481 @@
+{
+  "schema_version": "shardloom.shared_numeric_final_verification.v1",
+  "status": "passed",
+  "complete_controls": 30,
+  "initial_passing_controls": 29,
+  "corrected_controls": 1,
+  "correction": "Exact comparator rejected the changed value; only the expected exception wording was corrected.",
+  "initial_control_source_sha256": "64902b9f94931b93d25f718bc2cbe2138820870010cc408e9991cb997a1eb953",
+  "final_control_source_sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3",
+  "checks": {
+    "r23-packet-build": {
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/tools/build_numeric_packet.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/packet-r1"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "dad151b2c238b946fe2b0f575a940f8945e39c61c0f482e4fb8c8e48d4f80439",
+            "bytes": 65725
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "32853d4b41fbd6652d7abc51b4c32f0828463b743cf1b106e893e84d776fa22a",
+            "bytes": 4044455
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "2c46130d5633d8caa9e7495d31d980d407cd5919e787f4c6022059142ab23a46",
+            "bytes": 151159
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "147120ceca579f27f90a81456fbed6eb7a38cb74c7b8e65108920ad7e51d099d",
+            "bytes": 9087
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "a7ff96827463fd5cac88f3e306451655437c39bad09dc9c073152ac9f017519b",
+            "bytes": 4270
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "64902b9f94931b93d25f718bc2cbe2138820870010cc408e9991cb997a1eb953",
+            "bytes": 15697
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1106694327,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 77017006080,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 77017092096,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 27609,
+        "output_bytes": 178,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 71.62042162497528,
+        "log_sha256": "5f4d71f82924aa493967ab2b3220894cb4157b1baae8c26fd180c4dcb80fded0"
+      },
+      "log_utf8": "{\"status\": \"passed\", \"files\": 2898, \"expanded_bytes\": 143979912, \"archive_bytes\": 92541352, \"archive_sha256\": \"662a22fc94b5440daf1c27c867669c2823580c9846489060179a610e1092998c\"}\n"
+    },
+    "r24-packet-controls": {
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "env",
+          "SHARDLOOM_SHARED_NUMERIC_PACKET=/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/packet-r1",
+          "python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "scripts",
+          "-p",
+          "test_shared_numeric_values_packet.py",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "dad151b2c238b946fe2b0f575a940f8945e39c61c0f482e4fb8c8e48d4f80439",
+            "bytes": 65725
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "32853d4b41fbd6652d7abc51b4c32f0828463b743cf1b106e893e84d776fa22a",
+            "bytes": 4044455
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "2c46130d5633d8caa9e7495d31d980d407cd5919e787f4c6022059142ab23a46",
+            "bytes": 151159
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "147120ceca579f27f90a81456fbed6eb7a38cb74c7b8e65108920ad7e51d099d",
+            "bytes": 9087
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "a7ff96827463fd5cac88f3e306451655437c39bad09dc9c073152ac9f017519b",
+            "bytes": 4270
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "64902b9f94931b93d25f718bc2cbe2138820870010cc408e9991cb997a1eb953",
+            "bytes": 15697
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1200246967,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76923994112,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76923994112,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 2400.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 27689,
+        "output_bytes": 6214,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 1204.0780617089476,
+        "log_sha256": "3ebf711d98be50913d038867d3f5053c840fd8a3209db52d67b99a84b03e7647"
+      },
+      "log_utf8": "test_baseline_observation_digest_cannot_be_altered (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_baseline_observation_digest_cannot_be_altered) ... ok\ntest_changed_actual_dtype_after_repacking (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_dtype_after_repacking) ... ok\ntest_changed_actual_schema_or_nullability_after_repacking (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_schema_or_nullability_after_repacking) ... ok\ntest_changed_actual_value_after_repacking_and_relinking (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_value_after_repacking_and_relinking) ... FAIL\ntest_changed_archive_bytes (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_archive_bytes) ... ok\ntest_changed_runtime_binding (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_runtime_binding) ... ok\ntest_chunked_evidence_keeps_the_archive_size_bound (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_chunked_evidence_keeps_the_archive_size_bound) ... ok\ntest_complete_packet_preserves_acceptance (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_complete_packet_preserves_acceptance) ... ok\ntest_diagnostic_order_cannot_be_relabelled (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_diagnostic_order_cannot_be_relabelled) ... ok\ntest_diagnostic_protocol_cannot_change_after_observation (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_diagnostic_protocol_cannot_change_after_observation) ... ok\ntest_diagnostic_result_is_checked_after_rehash_and_relink (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_diagnostic_result_is_checked_after_rehash_and_relink) ... ok\ntest_diagnostic_runtime_cannot_be_relinked_to_candidate_only (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_diagnostic_runtime_cannot_be_relinked_to_candidate_only) ... ok\ntest_diagnostic_summary_cannot_replace_observed_clocks (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_diagnostic_summary_cannot_replace_observed_clocks) ... ok\ntest_duplicate_heldout_observation (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_duplicate_heldout_observation) ... ok\ntest_empty_public_runtime_test_digest_map_is_rejected (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_empty_public_runtime_test_digest_map_is_rejected) ... ok\ntest_engine_clock_must_match_reported_fields (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_engine_clock_must_match_reported_fields) ... ok\ntest_external_engine_cannot_be_claimed (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_external_engine_cannot_be_claimed) ... ok\ntest_external_execution_field_cannot_be_relinked (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_external_execution_field_cannot_be_relinked) ... ok\ntest_historical_failed_attempt_cannot_be_deleted_or_marked_passed (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_historical_failed_attempt_cannot_be_deleted_or_marked_passed) ... ok\ntest_incomplete_source_end_and_false_detached_ownership (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_incomplete_source_end_and_false_detached_ownership) ... ok\ntest_missing_candidate_source_snapshot_entry (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_missing_candidate_source_snapshot_entry) ... ok\ntest_missing_heldout_observation (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_missing_heldout_observation) ... ok\ntest_missing_runtime_binding (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_missing_runtime_binding) ... ok\ntest_negative_zero_cannot_be_normalized_after_repacking (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_negative_zero_cannot_be_normalized_after_repacking) ... ok\ntest_original_regression_flag_cannot_be_removed (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_original_regression_flag_cannot_be_removed) ... ok\ntest_packed_expansion_above_limit_is_rejected (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_packed_expansion_above_limit_is_rejected) ... ok\ntest_previous_archive_chunk_order_is_verified (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_previous_archive_chunk_order_is_verified) ... ok\ntest_required_gate_command_cannot_be_changed (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_required_gate_command_cannot_be_changed) ... ok\ntest_worker_runtime_or_resources_cannot_be_relinked_to_a_different_job (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_worker_runtime_or_resources_cannot_be_relinked_to_a_different_job) ... ok\ntest_wrong_actual_row_count (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_wrong_actual_row_count) ... ok\n\n======================================================================\nFAIL: test_changed_actual_value_after_repacking_and_relinking (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_value_after_repacking_and_relinking)\n----------------------------------------------------------------------\nquery_surface.semantics.ResultMismatch: unordered rows or duplicate multiplicities differ\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/test_shared_numeric_values_packet.py\", line 151, in test_changed_actual_value_after_repacking_and_relinking\n    with self.assertRaisesRegex(ResultMismatch, 'exact fields or NULL multiplicities differ'):\n         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: \"exact fields or NULL multiplicities differ\" does not match \"unordered rows or duplicate multiplicities differ\"\n\n----------------------------------------------------------------------\nRan 30 tests in 1203.959s\n\nFAILED (failures=1)\n"
+    },
+    "r25-corrected-value-control": {
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "python3",
+          "-B",
+          "-m",
+          "unittest",
+          "test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_value_after_repacking_and_relinking",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M docs/skills/benchmarking.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "95063c8ad9b775ae6a08bb848e480a9fdd17090d6942b256b427de8878f3a4cd",
+            "bytes": 63586
+          },
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "028f0c8b6fa0098eb0e762af08f96a4801a20d79cc2ca3c8296d3d6d3f883cf6",
+            "bytes": 67588
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "32853d4b41fbd6652d7abc51b4c32f0828463b743cf1b106e893e84d776fa22a",
+            "bytes": 4044455
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "06d946fd315eecc9638ca6ed21356b60caf690786bb15631c32aa39db13d9e63",
+            "bytes": 151549
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "147120ceca579f27f90a81456fbed6eb7a38cb74c7b8e65108920ad7e51d099d",
+            "bytes": 9087
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "a7ff96827463fd5cac88f3e306451655437c39bad09dc9c073152ac9f017519b",
+            "bytes": 4270
+          },
+          "docs/skills/benchmarking.md": {
+            "sha256": "178622277d2688a06b16c8b2a8eb0dee6f6a91bf672acc7ba401d5e6323ea3b5",
+            "bytes": 13638
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3",
+            "bytes": 15704
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1200255159,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76924108800,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76924108800,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 300.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 28515,
+        "output_bytes": 1456,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 0.1097212911117822,
+        "log_sha256": "2913f795a7d077c69d32d3dec05a769303616aa26fc97a85c634e2aa45fe456c"
+      },
+      "log_utf8": "setUpClass (test_shared_numeric_values_packet.SharedNumericValuesPacketTests) ... ERROR\n\n======================================================================\nERROR: setUpClass (test_shared_numeric_values_packet.SharedNumericValuesPacketTests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/test_shared_numeric_values_packet.py\", line 21, in setUpClass\n    cls.manifest = strict_json((PACKET / 'manifest.json').read_bytes())\n                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/pathlib/_abc.py\", line 625, in read_bytes\n    with self.open(mode='rb') as f:\n         ~~~~~~~~~^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/pathlib/_local.py\", line 537, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/manifest.json'\n\n----------------------------------------------------------------------\nRan 0 tests in 0.001s\n\nFAILED (errors=1)\n"
+    },
+    "r25b-corrected-value-control": {
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "env",
+          "SHARDLOOM_SHARED_NUMERIC_PACKET=/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/packet-r1",
+          "python3",
+          "-B",
+          "-m",
+          "unittest",
+          "test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_value_after_repacking_and_relinking",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M docs/skills/benchmarking.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "95063c8ad9b775ae6a08bb848e480a9fdd17090d6942b256b427de8878f3a4cd",
+            "bytes": 63586
+          },
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "028f0c8b6fa0098eb0e762af08f96a4801a20d79cc2ca3c8296d3d6d3f883cf6",
+            "bytes": 67588
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "32853d4b41fbd6652d7abc51b4c32f0828463b743cf1b106e893e84d776fa22a",
+            "bytes": 4044455
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "06d946fd315eecc9638ca6ed21356b60caf690786bb15631c32aa39db13d9e63",
+            "bytes": 151549
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "147120ceca579f27f90a81456fbed6eb7a38cb74c7b8e65108920ad7e51d099d",
+            "bytes": 9087
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "a7ff96827463fd5cac88f3e306451655437c39bad09dc9c073152ac9f017519b",
+            "bytes": 4270
+          },
+          "docs/skills/benchmarking.md": {
+            "sha256": "178622277d2688a06b16c8b2a8eb0dee6f6a91bf672acc7ba401d5e6323ea3b5",
+            "bytes": 13638
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3",
+            "bytes": 15704
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1200271543,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76924084224,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76924084224,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 300.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 28530,
+        "output_bytes": 284,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 42.96739829215221,
+        "log_sha256": "07cacd2b395f515f2edc394a7bbbe330ba5937cdb54b0de63bba7363471b74e5"
+      },
+      "log_utf8": "test_changed_actual_value_after_repacking_and_relinking (test_shared_numeric_values_packet.SharedNumericValuesPacketTests.test_changed_actual_value_after_repacking_and_relinking) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 42.871s\n\nOK\n"
+    },
+    "r26-final-packet-build": {
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/tools/build_numeric_packet.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/packet-r2"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M docs/skills/benchmarking.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "95063c8ad9b775ae6a08bb848e480a9fdd17090d6942b256b427de8878f3a4cd",
+            "bytes": 63586
+          },
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "028f0c8b6fa0098eb0e762af08f96a4801a20d79cc2ca3c8296d3d6d3f883cf6",
+            "bytes": 67588
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "32853d4b41fbd6652d7abc51b4c32f0828463b743cf1b106e893e84d776fa22a",
+            "bytes": 4044455
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "06d946fd315eecc9638ca6ed21356b60caf690786bb15631c32aa39db13d9e63",
+            "bytes": 151549
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "147120ceca579f27f90a81456fbed6eb7a38cb74c7b8e65108920ad7e51d099d",
+            "bytes": 9087
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "a7ff96827463fd5cac88f3e306451655437c39bad09dc9c073152ac9f017519b",
+            "bytes": 4270
+          },
+          "docs/skills/benchmarking.md": {
+            "sha256": "178622277d2688a06b16c8b2a8eb0dee6f6a91bf672acc7ba401d5e6323ea3b5",
+            "bytes": 13638
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3",
+            "bytes": 15704
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1200279735,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76922806272,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76922937344,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 28566,
+        "output_bytes": 178,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 72.67340254108422,
+        "log_sha256": "b94ec0729271ca404e59e86060984c01c5fb1b603d48f6ae1b2e319c74fc05bc"
+      },
+      "log_utf8": "{\"status\": \"passed\", \"files\": 2901, \"expanded_bytes\": 143997838, \"archive_bytes\": 92551824, \"archive_sha256\": \"8d647945a45fcf58b4402ddb9259eb623d23292072f53e20e9f2054c65723f36\"}\n"
+    },
+    "r27-isolated-portable-replay": {
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/tools/verify_portable_copy.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M docs/skills/benchmarking.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "95063c8ad9b775ae6a08bb848e480a9fdd17090d6942b256b427de8878f3a4cd",
+            "bytes": 63586
+          },
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "028f0c8b6fa0098eb0e762af08f96a4801a20d79cc2ca3c8296d3d6d3f883cf6",
+            "bytes": 67588
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "32853d4b41fbd6652d7abc51b4c32f0828463b743cf1b106e893e84d776fa22a",
+            "bytes": 4044455
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "06d946fd315eecc9638ca6ed21356b60caf690786bb15631c32aa39db13d9e63",
+            "bytes": 151549
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "147120ceca579f27f90a81456fbed6eb7a38cb74c7b8e65108920ad7e51d099d",
+            "bytes": 9087
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "a7ff96827463fd5cac88f3e306451655437c39bad09dc9c073152ac9f017519b",
+            "bytes": 4270
+          },
+          "docs/skills/benchmarking.md": {
+            "sha256": "178622277d2688a06b16c8b2a8eb0dee6f6a91bf672acc7ba401d5e6323ea3b5",
+            "bytes": 13638
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3",
+            "bytes": 15704
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1393782967,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76644491264,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76644491264,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 28631,
+        "output_bytes": 205,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 56.82447895919904,
+        "log_sha256": "bf214abdc1c862bcb9d4d8d5acfe19085a67d02ab269f3b87813fde17396a184"
+      },
+      "log_utf8": "{\"status\": \"passed\", \"files\": 2901, \"broad_cases\": 347, \"heldout_cases\": 80, \"heldout_rows\": 508176, \"candidate_engine_seconds\": 23.079365459, \"public_interface_cases\": 15, \"installed_package_tests\": 202}\n"
+    },
+    "r28-final-static": {
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/tools/check_final_static.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+        "head": "e13fe9d36b9ff3cca3a51733dc49b14bee356aec",
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-broad-query-program-2026-10-26.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/benchmarks/native-shared-key-lookup-2026-10-28.md\n M docs/skills/benchmarking.md\n M python/tests/test_native_shared_provider_binding.py\n M shardloom-vortex/src/local_primitive_result_batch.rs\n M shardloom-vortex/src/local_primitives/native_numeric_owner.rs\n M shardloom-vortex/src/local_primitives/native_relational_aggregate.rs\n M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/acceptance.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/manifest.json\n?? docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/packet.tar.xz\n?? docs/benchmarks/native-shared-numeric-values-2026-10-28.md\n?? scripts/numeric_values_replay.py\n?? scripts/test_shared_numeric_values_packet.py\n?? scripts/verify_shared_numeric_values_packet.py\n?? shardloom-vortex/src/local_primitive_result_numeric.rs\n?? shardloom-vortex/src/local_primitive_result_numeric_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs\n?? shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "95063c8ad9b775ae6a08bb848e480a9fdd17090d6942b256b427de8878f3a4cd",
+            "bytes": 63586
+          },
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "sha256": "85dc0881a20a5f5f0fde4c5987a61d43d53886d347ea166fd5c185d5d58dc7b3",
+            "bytes": 68474
+          },
+          "docs/architecture/native-broad-query-program-2026-10-26.md": {
+            "sha256": "2d4d94d664dce15d7bafce2ca8e523fddcb36ace9a334a651d32304ed2c73055",
+            "bytes": 32512
+          },
+          "docs/architecture/phased-execution-completed-ledger.md": {
+            "sha256": "f27a5b06190daad9dff6027e20ec7197e23c8e69df47b4bb3e28c767b4b9539c",
+            "bytes": 4044883
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "sha256": "a7822374d5b315b2e5695b63abf450b2b8ca2f22b7f55c247d4a9f5936ec12c4",
+            "bytes": 152156
+          },
+          "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/hosted.json": {
+            "sha256": "145e2f2d44b9873c79bf9560b3c083d6052adaf5266a2d3c7e37990a2fbf2961",
+            "bytes": 22542
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/acceptance.json": {
+            "sha256": "f88ad8fa4cd5d1fb7a11a4e8c445b1f525335a5a92787eace76b990c92ac55a4",
+            "bytes": 173311
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/diagnostic-plan.json": {
+            "sha256": "ed296f8dd04af50f946b7bf637dce3140867c450f69a86245ca30f9e7e49e8aa",
+            "bytes": 1561
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/manifest.json": {
+            "sha256": "4b396b31faedc292eedd716e7dcdeb8d7a5de61efe1fc6a3092d92d94e92b84d",
+            "bytes": 779191
+          },
+          "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/packet.tar.xz": {
+            "sha256": "8d647945a45fcf58b4402ddb9259eb623d23292072f53e20e9f2054c65723f36",
+            "bytes": 92551824
+          },
+          "docs/benchmarks/native-shared-key-lookup-2026-10-28.md": {
+            "sha256": "61a511394e72596ae4b268d53f3d875bc2fee1845f1846b98d2f296402ae2e0c",
+            "bytes": 9223
+          },
+          "docs/benchmarks/native-shared-numeric-values-2026-10-28.md": {
+            "sha256": "88d1fd43214917e28c3ae31f320cd3aef063765ec943e6119cd48d2c9ee04787",
+            "bytes": 6078
+          },
+          "docs/skills/benchmarking.md": {
+            "sha256": "178622277d2688a06b16c8b2a8eb0dee6f6a91bf672acc7ba401d5e6323ea3b5",
+            "bytes": 13638
+          },
+          "python/tests/test_native_shared_provider_binding.py": {
+            "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+            "bytes": 168686
+          },
+          "scripts/numeric_values_replay.py": {
+            "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+            "bytes": 8384
+          },
+          "scripts/test_shared_numeric_values_packet.py": {
+            "sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3",
+            "bytes": 15704
+          },
+          "scripts/verify_shared_numeric_values_packet.py": {
+            "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50",
+            "bytes": 18317
+          },
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+            "bytes": 28706
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+            "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+            "bytes": 4965
+          },
+          "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+            "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+            "bytes": 17076
+          },
+          "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+            "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+            "bytes": 36323
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+            "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+            "bytes": 54326
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+            "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+            "bytes": 3715
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+            "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+            "bytes": 13801
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+            "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+            "bytes": 23671
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+            "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+            "bytes": 2807
+          }
+        },
+        "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 1393848503,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76655771648,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 45480140800,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76655771648,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 28695,
+        "output_bytes": 3152,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 4.824300833977759,
+        "log_sha256": "21fd6b909c6fcdb641d732879f81715669dab13395949717d3d417399bc6b4c3"
+      },
+      "log_utf8": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_release_architecture_tracker-r1.json\n/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_v1_docs_productization-r1.json\n/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_public_status_docs-r1.json\n/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_ci_gate_matrix-r1.json\ntest_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad (test_ci_execution_plan.ClassificationTests.test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad) ... ok\ntest_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation (test_ci_execution_plan.ClassificationTests.test_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation) ... ok\ntest_comma_and_newline_paths_are_ambiguous_and_force_broad_validation (test_ci_execution_plan.ClassificationTests.test_comma_and_newline_paths_are_ambiguous_and_force_broad_validation) ... ok\ntest_make_plan_never_removes_a_job_recommended_by_rust (test_ci_execution_plan.ClassificationTests.test_make_plan_never_removes_a_job_recommended_by_rust) ... ok\ntest_malformed_planner_json_and_unclosed_or_bad_schema_are_broad (test_ci_execution_plan.ClassificationTests.test_malformed_planner_json_and_unclosed_or_bad_schema_are_broad) ... ok\ntest_plain_existing_readme_and_getting_started_wording_can_be_narrow (test_ci_execution_plan.ClassificationTests.test_plain_existing_readme_and_getting_started_wording_can_be_narrow) ... ok\ntest_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad (test_ci_execution_plan.ClassificationTests.test_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad) ... ok\ntest_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy (test_ci_execution_plan.ClassificationTests.test_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy) ... ok\ntest_summary_accepts_exact_all_success_results (test_ci_execution_plan.SummaryTests.test_summary_accepts_exact_all_success_results) ... ok\ntest_summary_command_preserves_failure_evidence_and_exits_unsuccessfully (test_ci_execution_plan.SummaryTests.test_summary_command_preserves_failure_evidence_and_exits_unsuccessfully) ... ok\ntest_summary_rejects_missing_invented_duplicate_and_unclassified_omissions (test_ci_execution_plan.SummaryTests.test_summary_rejects_missing_invented_duplicate_and_unclassified_omissions) ... ok\ntest_summary_rejects_wrong_workflow_or_revision (test_ci_execution_plan.SummaryTests.test_summary_rejects_wrong_workflow_or_revision) ... ok\ntest_summary_requires_selected_jobs_success_and_omitted_jobs_skipped (test_ci_execution_plan.SummaryTests.test_summary_requires_selected_jobs_success_and_omitted_jobs_skipped) ... ok\ntest_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job (test_ci_execution_plan.WorkflowTests.test_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 4.364s\n\nOK\n"
+    }
+  },
+  "original_failed_checks": [
+    "r24-packet-controls",
+    "r25-corrected-value-control"
+  ],
+  "runtime_source_snapshot": {
+    "python/tests/test_native_shared_provider_binding.py": {
+      "sha256": "009fd9b5580579e3182795f8fd5be12d7a968b203a7da07a5beb00e715d7496b",
+      "bytes": 168686
+    },
+    "scripts/numeric_values_replay.py": {
+      "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5",
+      "bytes": 8384
+    },
+    "shardloom-vortex/src/local_primitive_result_batch.rs": {
+      "sha256": "7dc3d7864a5055ea812f62122fbaed7e978a0b18b91da0d148d366fc606b5ee4",
+      "bytes": 28706
+    },
+    "shardloom-vortex/src/local_primitive_result_numeric.rs": {
+      "sha256": "1b96e12e90b85d53a6c1bfcc335bb0425189a6936f024ee3b7e5811973871b28",
+      "bytes": 4965
+    },
+    "shardloom-vortex/src/local_primitive_result_numeric_tests.rs": {
+      "sha256": "af39916ce9dabd67405e00b3b186a5ce6aa1b33a7561a686b5bf2d208c3ee726",
+      "bytes": 17076
+    },
+    "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": {
+      "sha256": "f74784d3c6f73f05f821cf027597c55e670bcca5c732dccddb88d40e5bcc57a8",
+      "bytes": 36323
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+      "sha256": "b26028cd83f35ca59a2a77960318725f480e8abd3a36874fee6e0593aedc26db",
+      "bytes": 54326
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+      "sha256": "3cda40236d8889c0ac5c317781cc20d6097374a25e9b6ca131414af424891c10",
+      "bytes": 3715
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_tests.rs": {
+      "sha256": "997123f6eaf2af48b339853ae14ef0185d8549ded3b4436df09581d3b0fab1c6",
+      "bytes": 13801
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+      "sha256": "4e52bd675d8758a71f0fbb05a1e0391e9e866215c918b8b99a563d8dee89c6c9",
+      "bytes": 23671
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+      "sha256": "b1627a9b2b3147396e3432916521c26e506e857488fec52e688b191946b3c022",
+      "bytes": 2807
+    }
+  },
+  "isolated_source_copy": {
+    "schema_version": "shardloom.shared_numeric_portable_copy.v1",
+    "status": "passed",
+    "source_files": {
+      "benchmarks/traditional_analytics/baseline_catalog.py": {
+        "bytes": 277,
+        "sha256": "d40e2feb03763c3c6906ac1061bbb445fb8085c798754a694824c238c2cca453"
+      },
+      "benchmarks/traditional_analytics/baselines.py": {
+        "bytes": 107936,
+        "sha256": "a168ae01944eb8b0b7f15aebd69b8ffe543454ab86bf72a8de7bb4daccc47243"
+      },
+      "benchmarks/traditional_analytics/benchmark_models.py": {
+        "bytes": 3291,
+        "sha256": "630fd9bc9fe2fe28a9e681bd09738f135c4783141a95dc513afd25db46464a62"
+      },
+      "benchmarks/traditional_analytics/comparison.py": {
+        "bytes": 3232,
+        "sha256": "6383786b470fb1c1b4f32e4afdfe007fad99d1529496b3107319353dcb0f1d49"
+      },
+      "benchmarks/traditional_analytics/fixtures.py": {
+        "bytes": 33586,
+        "sha256": "635909a98ef2b13f08612959113d7ae30b4ce46d18879d7e4f061a1fa3bb77ce"
+      },
+      "benchmarks/traditional_analytics/native_public_runner.py": {
+        "bytes": 17143,
+        "sha256": "8737e763db1683d39522455644cb6ececc3903eaa98a9746f5faab096abb51fc"
+      },
+      "benchmarks/traditional_analytics/query_surface/__init__.py": {
+        "bytes": 273,
+        "sha256": "00b24d3eb534096b9b1f2ec7e022e27ebee44125dd1c0737373490ad0272b471"
+      },
+      "benchmarks/traditional_analytics/query_surface/adapters.py": {
+        "bytes": 17775,
+        "sha256": "b09527e58458b9e5d1cb0c7fc75f09976f924f9a406cae9377aefd571c963ee4"
+      },
+      "benchmarks/traditional_analytics/query_surface/corpus.py": {
+        "bytes": 21241,
+        "sha256": "8eb6554c580d9c3f228902f8959c54e76da52b61690496dabd164023193ce390"
+      },
+      "benchmarks/traditional_analytics/query_surface/coverage.py": {
+        "bytes": 2175,
+        "sha256": "3ef87299341acdf568972949495f446e2e76ae99ddcd189ff61d48e5b08f6ec9"
+      },
+      "benchmarks/traditional_analytics/query_surface/datasets.py": {
+        "bytes": 20182,
+        "sha256": "328f71d55942ea22144b71a8f894210f37d21c0b8f9edd8942b46a71ee6698ff"
+      },
+      "benchmarks/traditional_analytics/query_surface/diagnostics.py": {
+        "bytes": 3257,
+        "sha256": "f2137e0d6595b01ecc2d42730d58da2dd0327710c0df605afee94b72c0b46600"
+      },
+      "benchmarks/traditional_analytics/query_surface/evidence.py": {
+        "bytes": 9363,
+        "sha256": "45e82e34fcbbaba99c029a5e9b2b1a27ddc9f0fd80f2805da69021253d9bcc21"
+      },
+      "benchmarks/traditional_analytics/query_surface/polars_adapter.py": {
+        "bytes": 9311,
+        "sha256": "3fe8503c51711daa025bdbf5ebe56c98cbd883e606d1a952c3134ac86182d1e8"
+      },
+      "benchmarks/traditional_analytics/query_surface/polars_run.py": {
+        "bytes": 14914,
+        "sha256": "c0d2117ec724e1e4fd73d207b73c0d31007173175cab9e423b6add4d4b1651e2"
+      },
+      "benchmarks/traditional_analytics/query_surface/reference.py": {
+        "bytes": 11455,
+        "sha256": "a30bd04f95cda8fbe52adc2bc2ea0c31af94164d404c4553858e2744c5bcb362"
+      },
+      "benchmarks/traditional_analytics/query_surface/replay.py": {
+        "bytes": 20591,
+        "sha256": "9a1974e233f58bd312844a03cb6138883af291a343a19b1885a40d6541254ed0"
+      },
+      "benchmarks/traditional_analytics/query_surface/report.py": {
+        "bytes": 5527,
+        "sha256": "7e47454caa4db9e9fd7536cbc1b1cf83b382be2ae3fcdec20e21f190609eb5fc"
+      },
+      "benchmarks/traditional_analytics/query_surface/run.py": {
+        "bytes": 17353,
+        "sha256": "e9304eb02a0a08c007bae3549c371af83742cabf95b489f6b8e1738cd39c623b"
+      },
+      "benchmarks/traditional_analytics/query_surface/semantics.py": {
+        "bytes": 18504,
+        "sha256": "e6f0eff612506c129b64188e4916968281feecdedb855043a1ce2f69768bf074"
+      },
+      "benchmarks/traditional_analytics/query_surface/specification.py": {
+        "bytes": 11184,
+        "sha256": "d5320307d497e17be12874188b0e020a7b1c7b22a348bae970bfb3f973623401"
+      },
+      "benchmarks/traditional_analytics/query_surface/worker.py": {
+        "bytes": 9264,
+        "sha256": "deaadf718fc51f8340e196b28622e3539f32df8d873ee9a9770c2dd61c968107"
+      },
+      "benchmarks/traditional_analytics/resources.py": {
+        "bytes": 2987,
+        "sha256": "68a44a5c837bf6d639cc7f506a9f9fabcee3f1ab24db436fc081fa97d7efcdd0"
+      },
+      "benchmarks/traditional_analytics/run.py": {
+        "bytes": 19990,
+        "sha256": "fb79dc2068ceec71cc8d31ac7ee5606b0612c4c3269df9f9c25b009dfe5eacc3"
+      },
+      "benchmarks/traditional_analytics/worker.py": {
+        "bytes": 2314,
+        "sha256": "53d44bc54aa6bde84c0dd2f4e65810f5d0c442fd2681de88e3cf21a2ff1623a5"
+      },
+      "benchmarks/traditional_analytics/workloads.py": {
+        "bytes": 9188,
+        "sha256": "07e3e40d3d2ee7b32f2d01265e46bbea4f99decac1ea784e358154b426860969"
+      },
+      "python/src/shardloom/__init__.py": {
+        "bytes": 2795,
+        "sha256": "3c3bd9f73a86b74ed8678e4ee62a82c8ba4dd1d9943ee36c869f6130e94ae971"
+      },
+      "python/src/shardloom/_batches.py": {
+        "bytes": 20358,
+        "sha256": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a"
+      },
+      "python/src/shardloom/_compat.py": {
+        "bytes": 802,
+        "sha256": "e45cc0674b26eaae5b9992affc180092e2957d1d9e6e064940d8a4bc98cdce0f"
+      },
+      "python/src/shardloom/_connected.py": {
+        "bytes": 14483,
+        "sha256": "6d894a7b828bc18e3f19448be19759087cff0312092b46b73d6f97f8fb7c0fa2"
+      },
+      "python/src/shardloom/_exports.py": {
+        "bytes": 15609,
+        "sha256": "e240641a663fc8a17cdfa256a3969f76aacc31348791f9fdc8909d35e2837a54"
+      },
+      "python/src/shardloom/_input_schema.py": {
+        "bytes": 15826,
+        "sha256": "1bbc8195c63c277a9a458abceff06f496b6f87ec37db21c5228b239886c35756"
+      },
+      "python/src/shardloom/_native_backend.py": {
+        "bytes": 26904,
+        "sha256": "9c1105ba8021d0e1b33fcda0c8cc37b0bc147fecfe365a260703851be20e2d26"
+      },
+      "python/src/shardloom/_relational_sql.py": {
+        "bytes": 11588,
+        "sha256": "7207a2c02be72fd2dba76a4e8305160121ede18312df0ea94eb0c1f1b1f64c7c"
+      },
+      "python/src/shardloom/_result_schema.py": {
+        "bytes": 10782,
+        "sha256": "d174b14d2c08b896a5b3e96fbd489b6b830f0c0d245b236bfa16b2eb7a54cb1b"
+      },
+      "python/src/shardloom/_temporal.py": {
+        "bytes": 9389,
+        "sha256": "b3779de1a6dc8c5504dbfa3a32b98e078173194e27fde4e08ebced4c96240fea"
+      },
+      "python/src/shardloom/_version.py": {
+        "bytes": 169,
+        "sha256": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82"
+      },
+      "python/src/shardloom/_window.py": {
+        "bytes": 5238,
+        "sha256": "a9bceffed98349bda217a6f37e79e31c74900af87448d507f61a7f4eecb6a5e8"
+      },
+      "python/src/shardloom/adbc.py": {
+        "bytes": 11200,
+        "sha256": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d"
+      },
+      "python/src/shardloom/client.py": {
+        "bytes": 356269,
+        "sha256": "4520fd52d9ea279f549e2e2c4cf52d3fa848abfb99982fe9932ef8f9cada9f16"
+      },
+      "python/src/shardloom/context.py": {
+        "bytes": 481571,
+        "sha256": "86149e9545dd650347f6c8e60688bb643f1318d70723325e7625172ab538daa1"
+      },
+      "python/src/shardloom/dbapi.py": {
+        "bytes": 1728,
+        "sha256": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31"
+      },
+      "python/src/shardloom/diagnostics.py": {
+        "bytes": 590,
+        "sha256": "b8f9a81b1723bd8c08dc025e5028a0e232496b428b5e6a085fc5f2f01ab312c1"
+      },
+      "python/src/shardloom/errors.py": {
+        "bytes": 9096,
+        "sha256": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955"
+      },
+      "python/src/shardloom/execution_resources.py": {
+        "bytes": 11808,
+        "sha256": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549"
+      },
+      "python/src/shardloom/functions.py": {
+        "bytes": 21817,
+        "sha256": "d38abc0f93568a9a793bdb0d9c7e3486b2f2bb9b31f110e9aeb1431de648ab58"
+      },
+      "python/src/shardloom/models.py": {
+        "bytes": 64175,
+        "sha256": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825"
+      },
+      "python/src/shardloom/native.py": {
+        "bytes": 1764,
+        "sha256": "0a84f6fe8f4b7230787d9124db05fa4cbd744e530b61c17fa32f8352e3f2b2ae"
+      },
+      "python/src/shardloom/notebook.py": {
+        "bytes": 3096,
+        "sha256": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab"
+      },
+      "python/src/shardloom/query.py": {
+        "bytes": 503819,
+        "sha256": "b80da1ea7c4997d098bf8d3dfd89fd005e9d44ead91ad61194f75e9f6768d6bb"
+      },
+      "python/src/shardloom/quickstart.py": {
+        "bytes": 5605,
+        "sha256": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7"
+      },
+      "python/src/shardloom/runtime_defaults.py": {
+        "bytes": 401,
+        "sha256": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a"
+      },
+      "python/src/shardloom/session.py": {
+        "bytes": 39185,
+        "sha256": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59"
+      },
+      "python/src/shardloom/testing.py": {
+        "bytes": 589,
+        "sha256": "ee05e4b62eb245f763d7aea6c6098a29be74f186473aaed2415ff8cd5f5b4f90"
+      },
+      "python/src/shardloom/types.py": {
+        "bytes": 5619,
+        "sha256": "71f2c9d225e59d9a090aea71db052ea6914e78c331a01be221cc6fbf3eae668b"
+      },
+      "scripts/audit_native_python_wheel.py": {
+        "bytes": 3927,
+        "sha256": "bb1e8f67a00313bc08cd4ba30ec472d757f1aaca5678c4decac7a5767d58083f"
+      },
+      "scripts/build_native_python.py": {
+        "bytes": 5799,
+        "sha256": "47ad0e730ff3adc87d2d7a0c1f936ce0ad3974af63d5025ef7184aaf964485e0"
+      },
+      "scripts/build_shardloom_pgo.py": {
+        "bytes": 225,
+        "sha256": "53e3e85df011a7ddba6f5cc219c65a6e21772b60dfa15dcca07dc97d24c20e88"
+      },
+      "scripts/check_admitted_semantics_matrix.py": {
+        "bytes": 176966,
+        "sha256": "743579d4867b2a8b2f72294f6e01883009cfc96fb694c6a99a7988784f9ab108"
+      },
+      "scripts/check_benchmark_artifact_completeness.py": {
+        "bytes": 28662,
+        "sha256": "6aeecae7890154a924a18e6053815e33518c383ed0384103712205576948e0cd"
+      },
+      "scripts/check_benchmark_constitution.py": {
+        "bytes": 17430,
+        "sha256": "0e639b7c303261d96ed159508d02ee6bd21c25d9fb7a3712e8c12207910b0aff"
+      },
+      "scripts/check_benchmark_optimization_targets.py": {
+        "bytes": 24667,
+        "sha256": "1841c0cd8df41a9c16938cb9a84ee72d8850d7a2149046164ea67d34dd164f2c"
+      },
+      "scripts/check_benchmark_publication_claim_gate.py": {
+        "bytes": 6477,
+        "sha256": "a843a50d64dfac77e231467a7973570f74bdaa621236a72851512d662cfa03ec"
+      },
+      "scripts/check_benchmark_publish_doctor.py": {
+        "bytes": 4142,
+        "sha256": "b03e5424471721da80432e951f7e2327935b847eb2670a053e99cdf14bd6a0f8"
+      },
+      "scripts/check_ci_gate_matrix.py": {
+        "bytes": 37298,
+        "sha256": "b3a88f87ae47b629d793081bc3bbe6a52abf543fa7e694e3ce7a52425451757c"
+      },
+      "scripts/check_clickbench_olap_runtime_coverage.py": {
+        "bytes": 31015,
+        "sha256": "4762045198fc98432ea8cace28b1ee2c8409f0502669d35435a5664d8c98807b"
+      },
+      "scripts/check_compatibility_output_translation_reports.py": {
+        "bytes": 8492,
+        "sha256": "c33e4e7a9d32555e29f62fb40ace20c32e2ce3a9efc3b7448c32b177ae32a5cc"
+      },
+      "scripts/check_compute_engine_completion_gate.py": {
+        "bytes": 7213,
+        "sha256": "bc69ef689daec1a7e8b89e419312f7f5694d3f995775b088be03a27ea31b39ae"
+      },
+      "scripts/check_contribution_governance.py": {
+        "bytes": 8445,
+        "sha256": "bede0c51e0f3df07dd6b6fbb359be66e872c183ac9df5db2e05b4b6aebc2ef2a"
+      },
+      "scripts/check_dependency_audit.py": {
+        "bytes": 23149,
+        "sha256": "0bbc640bcedab8ab315c8690ef3a31648c346197e3d640575392ccb6748b34d0"
+      },
+      "scripts/check_enterprise_evidence_export_pack.py": {
+        "bytes": 11083,
+        "sha256": "0ff0fadc9cd99433aa444e15971ef7099707ce53f2e7ddda572f89b57f9485ba"
+      },
+      "scripts/check_evidence_schema_registry.py": {
+        "bytes": 3804,
+        "sha256": "b69ed5d518e17d2a58ecebc86d1a8ba47e1adccd61c189dc5cf4bc51d12762cb"
+      },
+      "scripts/check_final_release_approval.py": {
+        "bytes": 8391,
+        "sha256": "14f59b31f9ed8678fd8a8252911af0b24f16b1dc1c518927e52095629baf8cfc"
+      },
+      "scripts/check_finished_product_readiness.py": {
+        "bytes": 18871,
+        "sha256": "df8509d3d360ba630e537d897a988129f8dfdec91773d3ffe4e902522bad3ee4"
+      },
+      "scripts/check_foundry_dev_stack_starter.py": {
+        "bytes": 13102,
+        "sha256": "0be6bd3eb0fb3571accbbb2541afe14a413e307dec3241510f9bd76c3bea8342"
+      },
+      "scripts/check_foundry_package_proof_boundary.py": {
+        "bytes": 5351,
+        "sha256": "c2b7a30c2a05b7d7045a8424cd54c013b2a082b8004327d40682f8330dbe2b54"
+      },
+      "scripts/check_front_door_benchmark_publication.py": {
+        "bytes": 3523,
+        "sha256": "af026f97018d08ca8f658e1f1f757d933a8d40887917eb00caf53d9483c83d9f"
+      },
+      "scripts/check_golden_workflows.py": {
+        "bytes": 51175,
+        "sha256": "2a44e784c73974b0b4aa7031024b190a18d0c92a29ae7bec9bbea4a7f5cbac09"
+      },
+      "scripts/check_local_format_edge_case_fixtures.py": {
+        "bytes": 10520,
+        "sha256": "893b16627ede33d39c8dd2a00b1f2724c13d106cd3af0d93875386a40468c760"
+      },
+      "scripts/check_local_format_production_profiles.py": {
+        "bytes": 8383,
+        "sha256": "a221ecb96a20d0dbed0f15f37480e4e9b119e4358f9f6879220499bcf023af62"
+      },
+      "scripts/check_local_format_pushdown_fidelity.py": {
+        "bytes": 5708,
+        "sha256": "37afed385573acf735d7e5f01ed98f338a6dbc1325e7d41753b7cc686a33238f"
+      },
+      "scripts/check_native_python_wheel.py": {
+        "bytes": 7462,
+        "sha256": "8075f53f1df9d8d183df64f4552d28a81276c48e802bd51f0bd6f36bc0515197"
+      },
+      "scripts/check_package_channel_readiness.py": {
+        "bytes": 81098,
+        "sha256": "8c5379f32da03a22f59e8d73469192974152bc2ba50a09471bfd1adc39628710"
+      },
+      "scripts/check_pre_5j_dependency_freshness.py": {
+        "bytes": 30664,
+        "sha256": "0d392ebd16c26607acd1bffa307820da2aade6d72734c7ca5c00dacdc2a269f4"
+      },
+      "scripts/check_production_certification_gate.py": {
+        "bytes": 36163,
+        "sha256": "f9af3bee87267aec826f28d1ffa685a76f8b4bdafcadb065ed8d6520a792f35a"
+      },
+      "scripts/check_production_usability_gate.py": {
+        "bytes": 37281,
+        "sha256": "7c43fe7eeda866d566b402186bafe071defe5d84cb6f8c167dcc3f332bc99243"
+      },
+      "scripts/check_public_claim_language.py": {
+        "bytes": 10772,
+        "sha256": "5e5c1f425d3f641bd45f92406e1d3d356c0a608c68d6156677fa04c112c47307"
+      },
+      "scripts/check_public_status_docs.py": {
+        "bytes": 14020,
+        "sha256": "1b61588708b2517c127312b69cda8e4233e322efd7160f08897de14c38d71452"
+      },
+      "scripts/check_published_channel_proofs.py": {
+        "bytes": 4903,
+        "sha256": "e6310edd7d48f6a3c17c9662f6f81affd568faf5c29a4aa8b24d8fcb1ab4986c"
+      },
+      "scripts/check_python_license_bundle.py": {
+        "bytes": 9971,
+        "sha256": "b545c509e9e06e85acd2bcd362e30051fc46c994b04b5555c6d134bc9d6e58af"
+      },
+      "scripts/check_python_user_surface_completion.py": {
+        "bytes": 73109,
+        "sha256": "574234d091400c1ddf89b0369ed5e53fb2af051b347331119d89dede6d780f2a"
+      },
+      "scripts/check_registry_bundled_proof.py": {
+        "bytes": 17513,
+        "sha256": "4be4f7c12489a216d226f55b7bd29fc6687a50f028204474ab4482f37cd265bd"
+      },
+      "scripts/check_release_architecture_tracker.py": {
+        "bytes": 15223,
+        "sha256": "543c936d2b34e51b1ac731e4da36cc8cdd77f715dadbdaf77855c950d96558e2"
+      },
+      "scripts/check_release_readiness.py": {
+        "bytes": 118881,
+        "sha256": "9309479fb93f74a51a756358402cf5d8ecac230a323a49575250344d278ed2b7"
+      },
+      "scripts/check_release_security_gate.py": {
+        "bytes": 9022,
+        "sha256": "dc7b1bc01bb4b327468320734244660c8bb415f05ef10ed99e76e2773c7f0413"
+      },
+      "scripts/check_repo_wide_audit.py": {
+        "bytes": 11998,
+        "sha256": "3be5e9d0c88a5caaa45e48ce27141b5521b1f7580f33ed20f6381858c936694d"
+      },
+      "scripts/check_runtime_execution_envelopes.py": {
+        "bytes": 35471,
+        "sha256": "6d3b3de7def710359e42e3ed09e3d6762ae61ef322493e1b019ed009f9358895"
+      },
+      "scripts/check_runtime_gap_family_burn_down.py": {
+        "bytes": 33259,
+        "sha256": "2921ece6404781fb57827887832498626ff129a0c5880d4fea38a59d71f35978"
+      },
+      "scripts/check_security_posture.py": {
+        "bytes": 6946,
+        "sha256": "87a2a2a0efa656b1f9c327bb115f1fc53f9719a8025e9338d677a4f0ffbeacf5"
+      },
+      "scripts/check_sql_python_dataframe_parity.py": {
+        "bytes": 44273,
+        "sha256": "71f4e0ef4912656d841218684c60cb25d9a8e3642fdd298f2b5291917edd6651"
+      },
+      "scripts/check_universal_ingress_routes.py": {
+        "bytes": 6243,
+        "sha256": "5883fa08227568cad84317d4e2d9bcdf293a9d434972f85df2b3bd9c232e89b1"
+      },
+      "scripts/check_use_case_backlinks.py": {
+        "bytes": 7159,
+        "sha256": "b016df37077cdec4fc9b070d2d4d816e545f3c42753fa0ac44e2a291bee87912"
+      },
+      "scripts/check_use_case_coverage.py": {
+        "bytes": 7166,
+        "sha256": "f71d622441372f9b26426bee6cf9858b48c26e48b16ed357b04c18de4c950737"
+      },
+      "scripts/check_use_case_glossary.py": {
+        "bytes": 2123,
+        "sha256": "6445bbf564e2ffc59778c047aceeccdca61b0e83c232d93db1715c09ae60a4de"
+      },
+      "scripts/check_use_case_index.py": {
+        "bytes": 10976,
+        "sha256": "37b73d6dd6378ce35ad97e7acf48351046c0c7b6339140530abd495b4ed24988"
+      },
+      "scripts/check_user_route_capability_report.py": {
+        "bytes": 17504,
+        "sha256": "7e3efd3a31491c7b39ff2a7fbf37051671c3e1113394ff067a4835b09c681da5"
+      },
+      "scripts/check_user_surface_graduation_matrix.py": {
+        "bytes": 21137,
+        "sha256": "9b6fef81e8a00c8cee6c9e447bf6ed6aab73e070a5cb5971c8477f1bb74fc757"
+      },
+      "scripts/check_user_surface_reference.py": {
+        "bytes": 36630,
+        "sha256": "96009e228fe67a34e73b5ee0120c28eca02ca3aaac96f04991012ffc5b4c0a43"
+      },
+      "scripts/check_user_surface_runtime_gap_inventory.py": {
+        "bytes": 46480,
+        "sha256": "7ed49ff2c1f151a3f4247696e7bf7e2df4203f6202bd1df4daf7776ac625a028"
+      },
+      "scripts/check_v1_api_schema_stability.py": {
+        "bytes": 11709,
+        "sha256": "d68af55464344ffba140cdbf8f97488f607249dbca2e473fb2e91ba61cd08f94"
+      },
+      "scripts/check_v1_correctness_conformance.py": {
+        "bytes": 77790,
+        "sha256": "4de29dd62453e302de1e135e54c1843aed93d715066d79ba0bb946b3b90acaa6"
+      },
+      "scripts/check_v1_docs_productization.py": {
+        "bytes": 16348,
+        "sha256": "921a580d7cbf192b1b204710e4e4fe01383ec9b459cb9646fd17097ed38c6feb"
+      },
+      "scripts/check_v1_example_replay.py": {
+        "bytes": 28545,
+        "sha256": "9e95f9b857f1f1ec6ab43e15317303260e6eeff97dbead43c9759d8fb41d3865"
+      },
+      "scripts/check_v1_front_door_runtime_scope.py": {
+        "bytes": 18427,
+        "sha256": "2285ff2f2a6230a5e865e04f695f43fd03c48ea1228f5ec3ad65a87517d3ca27"
+      },
+      "scripts/check_v1_inclusion_scope.py": {
+        "bytes": 10387,
+        "sha256": "40e388d6ffe8b73eb881378bec5905728e8161672b8d1066cbcbc535187b6a5f"
+      },
+      "scripts/check_v1_local_output_sink_scope.py": {
+        "bytes": 18038,
+        "sha256": "a9fbbc797ab8e2758410256f3e658502285171901076548f017447ab07ffc346"
+      },
+      "scripts/check_v1_local_resource_safety.py": {
+        "bytes": 36444,
+        "sha256": "813a47979626f4fe3d944b37c213ccf3f1f5cc9b297635773b4f16b65316e2c0"
+      },
+      "scripts/check_v1_local_source_package_release.py": {
+        "bytes": 12466,
+        "sha256": "c847327ccd3277729f23b3aa0d994632d9b2835506c8558ad36a6556d050f80b"
+      },
+      "scripts/check_v1_observability_support.py": {
+        "bytes": 47135,
+        "sha256": "5da1db9c5cb43766114869ccfaf96b1251f315605b8a57c1c6956f333ee38201"
+      },
+      "scripts/check_v1_release_boundary.py": {
+        "bytes": 19725,
+        "sha256": "ccc0bbf499eb7367dfe6236a131b4bfc97ad537b6bbf76018686a12a3285992d"
+      },
+      "scripts/check_v1_security_ci_hardening.py": {
+        "bytes": 16918,
+        "sha256": "7fa436f8fe71287fc6baf2494a5b63a93b10b02149033da646cc6c1da1976661"
+      },
+      "scripts/check_v1_source_prepared_state_scope.py": {
+        "bytes": 16355,
+        "sha256": "65630b0d37b1ace78ed707d0e86a16d022fd73251e21f612dcb48feb52ec52ed"
+      },
+      "scripts/check_v1_vortex_runtime_scope.py": {
+        "bytes": 19906,
+        "sha256": "d3c4986f664c3a291a173658b87bc147632bde45ad236587b021cff04f7d2ada"
+      },
+      "scripts/check_website_readiness.py": {
+        "bytes": 26555,
+        "sha256": "21d20efc23b27f87d3766d4713a3f24420fd0467dee7c3f201869faf486817c0"
+      },
+      "scripts/check_workflow_recipes.py": {
+        "bytes": 8942,
+        "sha256": "52eb120643c59fb63d317c5437868238572f4eb020341f60bf420f8d4a6dc70f"
+      },
+      "scripts/check_workspace_version_sources.py": {
+        "bytes": 21078,
+        "sha256": "2ce07443700ebdf95f047ed2c602c9c94d0427dad536f7d419d8438bc40d64dd"
+      },
+      "scripts/ci_build_artifact.py": {
+        "bytes": 11775,
+        "sha256": "53096ec298328803b86167092b5b03cae885e45eef6153b6953a5363de987ebe"
+      },
+      "scripts/ci_execution_plan.py": {
+        "bytes": 11385,
+        "sha256": "59e77f8d952ac19d6414284baa8cbffd2d738ee2ce610c9027bdde73e0633eb6"
+      },
+      "scripts/ci_native_package.py": {
+        "bytes": 9955,
+        "sha256": "a4bfb3efe2ec19196ef1c0a1a2236c442609680f5b8a9533966decfb73c15de5"
+      },
+      "scripts/ci_native_tests.py": {
+        "bytes": 12856,
+        "sha256": "028b4ac6ab1c1745d927c4fb156f8cd8321b7eb1a0fe02e8de0e5f829410eb1d"
+      },
+      "scripts/ci_provider_tests.py": {
+        "bytes": 5095,
+        "sha256": "6cddc700364726c958ee9579120d93537dc419ac75cf170189eebb57aa0de1e8"
+      },
+      "scripts/clickbench_independent_reference.py": {
+        "bytes": 14384,
+        "sha256": "55cf9ae12d36d53e4449716388ebc287f5e688a7b25c146f9dbf46ce14e435b6"
+      },
+      "scripts/clickbench_native_sql.py": {
+        "bytes": 3061,
+        "sha256": "6ac0d1042aca1089bc9d9e3c7ea21bcacda8f341d90532178ccfe782acd328cd"
+      },
+      "scripts/clickbench_reference_packet.py": {
+        "bytes": 4863,
+        "sha256": "8d20759e0b2d41dcdba4b9d4033abfa7961f888d62cdf3e3e2545d8482ba5102"
+      },
+      "scripts/export_runs_today_support_matrix.py": {
+        "bytes": 11199,
+        "sha256": "aa7152a528518116d06b2563c5ca1358e9d488b2f420f3c814d1d95735510977"
+      },
+      "scripts/final_release_rehearsal.py": {
+        "bytes": 20356,
+        "sha256": "5fdbbf2d41f93a002d7551b44c6f7cd0c8266fb456a46d2124d07cea62cf91eb"
+      },
+      "scripts/foundry_proof_of_use.py": {
+        "bytes": 32156,
+        "sha256": "c1bdb2711037f1f2d95002644ccd343b18b590cbabb754e69705d05ec9bd14c9"
+      },
+      "scripts/generate_native_sampling_population_reference.py": {
+        "bytes": 2536,
+        "sha256": "3adbebaf5ab4afb46ee4f7968697b297ac6c2eef5e3c84a66e9f71963c01edc2"
+      },
+      "scripts/generate_native_window_float_reference.py": {
+        "bytes": 2712,
+        "sha256": "5080b4d6d773a7f115628c210a628ad2a102b1c0f01906dd48fd5cd0da985d5f"
+      },
+      "scripts/golden_workflow_contract.py": {
+        "bytes": 509,
+        "sha256": "31c2538c892896845933843acb6b88eb7f7c9761be2de1bf7be3480f8a80b8a0"
+      },
+      "scripts/local_python_example_evidence.py": {
+        "bytes": 1921,
+        "sha256": "afb43da3a5098c5bacc4af614fa8e35b161e9a1185d07e10ed607fb4967242c5"
+      },
+      "scripts/local_uat_storage.py": {
+        "bytes": 8451,
+        "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+      },
+      "scripts/merge_python_test_shard_evidence.py": {
+        "bytes": 6022,
+        "sha256": "6902c88db9b692e102a11b4b1020ca55fa2cdf42e674c901aae85decf069c05e"
+      },
+      "scripts/merge_release_evidence_artifacts.py": {
+        "bytes": 9362,
+        "sha256": "1907a7af3227345b05ef5ea9e60b287f780e97fa067a6fdd658b4a7d9b91db11"
+      },
+      "scripts/native_aggregate_ordering_cases.py": {
+        "bytes": 10811,
+        "sha256": "11c383d33c39788bf826fc0e0694b011e67ff79c2bd1316cd2f0627e2c1e2e0e"
+      },
+      "scripts/native_batch_preparation_cases.py": {
+        "bytes": 6589,
+        "sha256": "cf13c256b1c03fe1beaea857c8bec787e79a118b854044a8d2b41daf243935f1"
+      },
+      "scripts/native_cyclic_existence_compare.py": {
+        "bytes": 19238,
+        "sha256": "5ea9a50fe07b44c1e24e145bff3ea0dd23a8367c1abcdf7826e197f02892b9f0"
+      },
+      "scripts/native_cyclic_existence_probe.py": {
+        "bytes": 7422,
+        "sha256": "81eea23dada3b606a15398f0511b0a256540aa3b18edddfb66087776274947f7"
+      },
+      "scripts/native_cyclic_existence_workload.py": {
+        "bytes": 8272,
+        "sha256": "ac3e9581700b236831d0441bce57296fb871a1eee1fa8f7f25d9630d3117d807"
+      },
+      "scripts/native_dynamic_pivot_cases.py": {
+        "bytes": 25695,
+        "sha256": "6055586f10eb34063c87e653012376e06829c8468a355ed88c48f9f8256a261f"
+      },
+      "scripts/native_input_growth_cases.py": {
+        "bytes": 10001,
+        "sha256": "159b681c51385728cc506ba2ea73c809bee7511c3d3f5c8dd06dbb8f8f138e29"
+      },
+      "scripts/native_memory_cases.py": {
+        "bytes": 10089,
+        "sha256": "35eea06e3a18440c4427effaa7997573a6e7b296373884246ef1e410a8f33145"
+      },
+      "scripts/native_nested_composition_cases.py": {
+        "bytes": 16480,
+        "sha256": "78d6c37b993fff18d0efd26b08abc69dc6b7aaa07582525ad31ec45709da5510"
+      },
+      "scripts/native_nested_key_state_cases.py": {
+        "bytes": 9972,
+        "sha256": "766039b624d22e780e63d98e66343406057f8546b4c82b78ff96040b68479086"
+      },
+      "scripts/native_nested_pivot_cases.py": {
+        "bytes": 23156,
+        "sha256": "7bb8611c650e6bcdb4312bcd8c98557897401d2e3cd400272e82d1c9c9bc7735"
+      },
+      "scripts/native_nested_pivot_reference.py": {
+        "bytes": 3398,
+        "sha256": "c1dbee37629a3429bc5527bab82c03e9c1a298a5066f99d4c77e981cf48d181d"
+      },
+      "scripts/native_output_reuse.py": {
+        "bytes": 9793,
+        "sha256": "117b366bde37ae4c93716ac9f74591e51d8e58fef478ed902d86182c54587684"
+      },
+      "scripts/native_relational_composition_cases.py": {
+        "bytes": 8560,
+        "sha256": "75a813a30ea86abbe2a267b59564d4f42be99024b36b78d4eb4acc3ebf18856d"
+      },
+      "scripts/native_relational_resource_cases.py": {
+        "bytes": 11979,
+        "sha256": "861d5361cde48646b3d4f7e8cdbc4c03b4b1f30e519be5be2a198d97dc9117a8"
+      },
+      "scripts/native_report_evidence.py": {
+        "bytes": 7849,
+        "sha256": "89e9a8eaffa5525b52fe28eae8046496d69ea95ffadcdd1f509e5709750ccbf2"
+      },
+      "scripts/native_scalar_subquery_cases.py": {
+        "bytes": 13693,
+        "sha256": "2dbbf22091562bff3f91634a1b82c8941a08c74f582f30763822f4a0de74fc0f"
+      },
+      "scripts/native_source_demand_checkpoint_replay.py": {
+        "bytes": 7514,
+        "sha256": "fe34c530f7d14660fda64b93a27426ea6dcb69008b21c9b5aa5319ed33ce44c6"
+      },
+      "scripts/native_streaming_aggregate_cases.py": {
+        "bytes": 11129,
+        "sha256": "2a862884d01d8264d5a1ef1cc49d5065e5c7cd9904a92dc6ee0862b9846115c2"
+      },
+      "scripts/native_streaming_aggregate_pressure_cases.py": {
+        "bytes": 12055,
+        "sha256": "a22f9cca5aae424d672ff4be8d254362b527c782b9b21e78c5ce664edf0ebaa6"
+      },
+      "scripts/native_streaming_destination_cases.py": {
+        "bytes": 8389,
+        "sha256": "c064ec3596e1f3debf9f18c1cc296f74f39179fcd302eb64b810676f187765b4"
+      },
+      "scripts/native_streaming_dynamic_cases.py": {
+        "bytes": 14491,
+        "sha256": "85d656a99545cdec3e775062e9f3f3507c6e993cfee45ae69dafe658b0abb90a"
+      },
+      "scripts/native_streaming_dynamic_pressure_cases.py": {
+        "bytes": 9976,
+        "sha256": "20159db2ad9d36238ffdbf44bbf78436f2c495ec1c1683bba54329eea01a99a3"
+      },
+      "scripts/native_streaming_dynamic_subquery_cases.py": {
+        "bytes": 13579,
+        "sha256": "f781f81e33667749d6c55db109b813ffd92de9de2ef2f84a41f808ef291f82b7"
+      },
+      "scripts/native_streaming_dynamic_subquery_composition_cases.py": {
+        "bytes": 11076,
+        "sha256": "28df312582c75f8b0f8c982746d0c4097f0eeef9c744aeadb79623183486ed57"
+      },
+      "scripts/native_streaming_dynamic_subquery_fault_cases.py": {
+        "bytes": 10535,
+        "sha256": "c121b8e1c5429fb623cbc27e981dcf8b9f0e1e8c52361336f5cedf5587aa9d54"
+      },
+      "scripts/native_streaming_dynamic_subquery_pressure_cases.py": {
+        "bytes": 7643,
+        "sha256": "a3e39d62b711b49599cfd220b0384819204a3b45811116a5cd1c2649969378e9"
+      },
+      "scripts/native_streaming_dynamic_subquery_reference_cases.py": {
+        "bytes": 4414,
+        "sha256": "88966a816e66272f53a0dfdc5b600c0dcd989fde95e7306f29eeadf594e0894d"
+      },
+      "scripts/native_streaming_input_cases.py": {
+        "bytes": 12599,
+        "sha256": "57d80c20e01e11ce6bc91c3e7397d35d145374f524b870864156db6d6824099b"
+      },
+      "scripts/native_streaming_join_cases.py": {
+        "bytes": 11658,
+        "sha256": "b31bd93d30642e505833cc3c44fc4660345ca08ca3c8ce1c974630daf7833028"
+      },
+      "scripts/native_streaming_join_pressure_cases.py": {
+        "bytes": 11021,
+        "sha256": "5bcf2122439409e5f9ba747d9a6aeb844778bfaaaedeee3fdd59cd00da75ffc3"
+      },
+      "scripts/native_streaming_multiple_cases.py": {
+        "bytes": 9346,
+        "sha256": "25ea363bee8d63c121c6025f8b6d24484cb7169d146334169784153001021843"
+      },
+      "scripts/native_streaming_multiple_pressure_cases.py": {
+        "bytes": 10251,
+        "sha256": "0f4e5c3ecc80d4f9e57dfac4f1affa1ad370d9e2eec31393eff6bf07ef702750"
+      },
+      "scripts/native_streaming_order_cases.py": {
+        "bytes": 10409,
+        "sha256": "58968b3d149a8baaf7f6184dc0db1ea1f0b92a986fa1a0b07501407dd05a79d1"
+      },
+      "scripts/native_streaming_order_pressure_cases.py": {
+        "bytes": 9136,
+        "sha256": "5887df2d8fc4eada8eb823a90b873cc9ce02ca6b129af39407e1d1c42ce75e4d"
+      },
+      "scripts/native_streaming_protocol_cases.py": {
+        "bytes": 6845,
+        "sha256": "9fa65201ac05ce30749397b31fd01f8b13af6d3b971a4be53cf0ced0181f7c73"
+      },
+      "scripts/native_streaming_replay_cases.py": {
+        "bytes": 15015,
+        "sha256": "f6a4b61f869c439cff28d0244a9ef6289b966ac42069474c3710f822bbc12267"
+      },
+      "scripts/native_streaming_replay_pressure_cases.py": {
+        "bytes": 10085,
+        "sha256": "93eb8c77717c3513271f317c05e773e891325f32347a18eaba8ad181cba884ff"
+      },
+      "scripts/native_streaming_sampling_population_cases.py": {
+        "bytes": 16467,
+        "sha256": "4ddbf7e6a9ad5321e27b0cb17d881171bf9f85b5100c54d0807cd68e56d587d4"
+      },
+      "scripts/native_streaming_set_boundary_cases.py": {
+        "bytes": 8157,
+        "sha256": "7a9de794bb95337f27be4f42436268907c3bc1bca290f309712a3d04740711cd"
+      },
+      "scripts/native_streaming_set_cases.py": {
+        "bytes": 10058,
+        "sha256": "6678db485b43dee2e4c4d194843682669d5dd60663377ef752ebe44df631e729"
+      },
+      "scripts/native_streaming_set_composition_cases.py": {
+        "bytes": 10947,
+        "sha256": "ee2ecff91ddd9eba03238fcd26a1671546a7cece5bdbb4fdfd1fa9d6b6ab27c7"
+      },
+      "scripts/native_streaming_set_pressure_cases.py": {
+        "bytes": 11753,
+        "sha256": "333cec2b0d522bbab4fa913a28c3a8e0a1336846306f61cea0b6223a10d12a72"
+      },
+      "scripts/native_streaming_set_spill_cases.py": {
+        "bytes": 10865,
+        "sha256": "3e3bdf8c04b04c4d96648c78e6a371c0dec7482684cf9ff686b46d8df2dfd04c"
+      },
+      "scripts/native_streaming_subquery_cases.py": {
+        "bytes": 15284,
+        "sha256": "52fe905e2eb6d5913e1ed3b499f84cb542711b62a7ad606e23afdacaba6ce08a"
+      },
+      "scripts/native_streaming_subquery_composition_cases.py": {
+        "bytes": 9950,
+        "sha256": "d8a63206448941030705598f9d43386d014f9ac8caead5b978cef4ef5e87c3ea"
+      },
+      "scripts/native_streaming_subquery_fault_cases.py": {
+        "bytes": 11252,
+        "sha256": "cd0c26c6f624f5b302c6934293e34ee21898eb852546d3a9668442c9f8934406"
+      },
+      "scripts/native_streaming_subquery_membership_cases.py": {
+        "bytes": 16716,
+        "sha256": "e045af1848eadd6c370e9fd9deb6184d8b46e2d39d3d42b2c3d27fb52e16d969"
+      },
+      "scripts/native_streaming_subquery_pressure_cases.py": {
+        "bytes": 9614,
+        "sha256": "fcecdfb43d318252e2dfda044b5d002603b2a8067a575a554fc9f953c6363e25"
+      },
+      "scripts/native_streaming_unary_cases.py": {
+        "bytes": 12189,
+        "sha256": "b534112d9d5ee6e0c039558931bf86c7bf3767d2c2e14eda0d7cfd00ad59d335"
+      },
+      "scripts/native_streaming_unary_composition_cases.py": {
+        "bytes": 14021,
+        "sha256": "b64e1bda2cb5991cef142ca76b539a292aa36122acde9c9e865d69268c2852c6"
+      },
+      "scripts/native_streaming_unary_fault_cases.py": {
+        "bytes": 7230,
+        "sha256": "3610a986472b2400977f8d2c426ded2cb3bfdb2ce2c3fa1bf32cb7526ca8b305"
+      },
+      "scripts/native_streaming_unary_membership_cases.py": {
+        "bytes": 12326,
+        "sha256": "bb857b3d156c4b59b779ba5aefbf311a798d7319dd19075b0db8d760e5eef659"
+      },
+      "scripts/native_streaming_unary_pressure_cases.py": {
+        "bytes": 18146,
+        "sha256": "ec5870f2d6a0f5e21c1c7b80e3668870f6a2eb413d365d9b506db52fcc95e6d0"
+      },
+      "scripts/native_streaming_unary_reference_cases.py": {
+        "bytes": 4430,
+        "sha256": "583789fdfd9996c3c2fc4b84ce1236e9e413cb4037ddd23e5f568217805f7434"
+      },
+      "scripts/native_streaming_window_cases.py": {
+        "bytes": 12452,
+        "sha256": "602671c7d2d4bca2f4b922790caa3101ef53ea8b05b050b1dac2438518181547"
+      },
+      "scripts/native_streaming_window_pressure_cases.py": {
+        "bytes": 11300,
+        "sha256": "cabf9cf101195ad6b0b459a981cfe3be837ca02d214aad5434b21a350ebf43d4"
+      },
+      "scripts/native_typed_expression_cases.py": {
+        "bytes": 13772,
+        "sha256": "4a1d9ce6a741edc2cf44f1936edef6f04fd7fdd8472c2a526296fedfabc66274"
+      },
+      "scripts/native_typed_input_cases.py": {
+        "bytes": 20951,
+        "sha256": "6b2e470a8ce62b8cf37ebe766bb60525e8fc16b359740d98d53713b227b92cc0"
+      },
+      "scripts/native_typed_input_fixtures.py": {
+        "bytes": 5576,
+        "sha256": "01f4125d84e3473d2cfc1758d5d25bab9015c0c4be198ada88302dee3674fef1"
+      },
+      "scripts/native_typed_key_cases.py": {
+        "bytes": 7636,
+        "sha256": "dbc01a1c3578e2194ea9765437bf30601ed0e72d05c0c1d22c0544cd0f16fd05"
+      },
+      "scripts/native_typed_payload_cases.py": {
+        "bytes": 18641,
+        "sha256": "60fcd176b658aba42ce23ee7292f007aeed0972805448a31a6102d796d2a295a"
+      },
+      "scripts/native_typed_reduction_cases.py": {
+        "bytes": 13567,
+        "sha256": "fa0fc28070c2cc2b9458040e36baffc8e862299225fabc88d030d57cbe748536"
+      },
+      "scripts/native_typed_unary_cases.py": {
+        "bytes": 7757,
+        "sha256": "600a05564f253a7a73c8ba4d9af1496fe1d7855512525ab1cd0b48b30a169cb3"
+      },
+      "scripts/native_uat_envelope_archive.py": {
+        "bytes": 5182,
+        "sha256": "986572ec98c89c432bfd6542ea1a082783f30f6a48ea67edd10fac5b37dc8d5b"
+      },
+      "scripts/native_unary_composition_cases.py": {
+        "bytes": 20243,
+        "sha256": "a8c71b3d6b23b976a6832f083e40ae856b37ae650ec87e3151f60ed1ceca4b1c"
+      },
+      "scripts/native_unary_reference.py": {
+        "bytes": 3361,
+        "sha256": "f3322b1b4db2a8e02f36f9017bf772362f7d937139995fb8aed09c6f3a962266"
+      },
+      "scripts/native_window_frame_cases.py": {
+        "bytes": 18220,
+        "sha256": "1db51b98a239f541e82bddb7ed21d215dbab5b0c8ddea91827417bfedc1dd9da"
+      },
+      "scripts/native_window_frame_reference.py": {
+        "bytes": 4727,
+        "sha256": "25ad89018812209518b4d4ec5cf648e9e4f105b60a1a6808a97f56eedc9e515c"
+      },
+      "scripts/native_workflow_materialization.py": {
+        "bytes": 2783,
+        "sha256": "24c76e53c1fc3ce696ffe6da4308f7630721e3783c6716d82229213239d54220"
+      },
+      "scripts/native_workflow_outputs.py": {
+        "bytes": 4078,
+        "sha256": "dec0853502e83a8bae918d0c84e88fb989521e25cd19e8f254c9fda1253dbd4f"
+      },
+      "scripts/native_workflow_protocol.py": {
+        "bytes": 7464,
+        "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855"
+      },
+      "scripts/native_workflow_test_support.py": {
+        "bytes": 2024,
+        "sha256": "45eabc378e6e190438783dd75330c95920176dc54ef118e1a383c634769cba14"
+      },
+      "scripts/numeric_values_replay.py": {
+        "bytes": 8384,
+        "sha256": "c8d6551c970b810bd7507d0b7f9d2e2e1bdfdc507b7017132ed76e832a952fb5"
+      },
+      "scripts/parquet_demand_completion_replay.py": {
+        "bytes": 10161,
+        "sha256": "6f137c31fa22bdb79f23a834bbad341079ec7bcc28a185642fdd677f180bbd02"
+      },
+      "scripts/pgo_local_experiment.py": {
+        "bytes": 23825,
+        "sha256": "cf85103d6d1e07ccf2653977102d5c1af607982f0d6e1abb2bf06e677d6e36e7"
+      },
+      "scripts/prove_native_python_wheel.py": {
+        "bytes": 11959,
+        "sha256": "4d2cac56a7218acb48d7a0cc5b455e104e80d9ebcf1bc8d4c46a80f1130d54f5"
+      },
+      "scripts/python_registry_package_proof.py": {
+        "bytes": 23443,
+        "sha256": "59ae39efe627a346ed6029771e8e8342acf52865e7124e54d7cafc25524d91df"
+      },
+      "scripts/query_timing_report.py": {
+        "bytes": 4235,
+        "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1"
+      },
+      "scripts/r7_conditional_dictionary_screen.py": {
+        "bytes": 30880,
+        "sha256": "316d223f9aaba4a64bd6869e4cf97fa1cd4672198cde795fb3b5d48e39305f59"
+      },
+      "scripts/r7_numeric_residual_screen.py": {
+        "bytes": 21570,
+        "sha256": "f5b872f1f2a67bc2a0555c0b87c2d4de57ddbf0d7e0f751e0c25e59c30a5ffa0"
+      },
+      "scripts/registry_release_evidence.py": {
+        "bytes": 40893,
+        "sha256": "274cb3eb8c14c3d83381eaee3de2bfcad015de1403b6f9b2c45b2cbb97899e42"
+      },
+      "scripts/release_channel_contract.py": {
+        "bytes": 19609,
+        "sha256": "2ec333bfd4b7f1d09226e684f89d9de1e8b824500219539370805ddbe11bac27"
+      },
+      "scripts/release_dry_run_proof.py": {
+        "bytes": 44385,
+        "sha256": "e23ddc50aec2a177f9fbac99a87cd7f510042aa9a9899f67489c266743134745"
+      },
+      "scripts/release_feature_contract.py": {
+        "bytes": 236,
+        "sha256": "eda7a1305bcf26477a81765795c8f6ceed2ba383b8a71fe45328d1806d89701b"
+      },
+      "scripts/release_provenance_dry_run.py": {
+        "bytes": 18008,
+        "sha256": "3ce06290f7039472749739d38cc0808343bdba5a04fadc4d81123e2bb7c67ca6"
+      },
+      "scripts/release_report_utils.py": {
+        "bytes": 10205,
+        "sha256": "3235ff631931c64081c782d3677776e3b333e5880ebd8dd11058c7478fa831af"
+      },
+      "scripts/rich_ordering_replay.py": {
+        "bytes": 10766,
+        "sha256": "4e523c638229f577494c74f7aba4ef0f1acc702a4a0f4a184a97554243397888"
+      },
+      "scripts/run_clickbench_paired_query_uat.py": {
+        "bytes": 20892,
+        "sha256": "4b50588d9d1dbe38a9d276eb4a8913b06dcd3afce785c1600d6d210e1d2f1297"
+      },
+      "scripts/run_clickbench_query_uat.py": {
+        "bytes": 28355,
+        "sha256": "8194080ef372182c930a8077d5a38aaf89599141e96b7fd943c0aa2f9d35c5db"
+      },
+      "scripts/run_focused_checks.py": {
+        "bytes": 10001,
+        "sha256": "9da19d6dad43ffb832b2cd9d8a00efe50767f85987339c43c79f9ec9d3df7662"
+      },
+      "scripts/run_front_door_control_plane_probe.py": {
+        "bytes": 7157,
+        "sha256": "75a3282900b46014fdc76888edee4e2ba1e950bf656435e6291c85787a10798f"
+      },
+      "scripts/run_front_door_performance_equivalence.py": {
+        "bytes": 19132,
+        "sha256": "73ec339a1bd71cc6b60f7d2c22f3dd483f69d10a85b67d6525bb74c82a8168df"
+      },
+      "scripts/run_heldout_operator_uat.py": {
+        "bytes": 33108,
+        "sha256": "a9fe682f67cc60d69946da1935d20085e43b733fc71890142b0801fabb00dad4"
+      },
+      "scripts/run_local_readonly_proof.py": {
+        "bytes": 5379,
+        "sha256": "fe6e2b57ecf9f8b6d6c2f1b648bf9c00e796fb7ae1723b8c2f8612ef104588ca"
+      },
+      "scripts/run_native_output_uat.py": {
+        "bytes": 16324,
+        "sha256": "97b2ca694d502ad0fc9667604ade26193383e260ae3b11f9476f53807182c902"
+      },
+      "scripts/run_native_relational_suite.py": {
+        "bytes": 11787,
+        "sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824"
+      },
+      "scripts/run_native_relational_uat.py": {
+        "bytes": 25621,
+        "sha256": "e559477118084aa698d4148a0d00b07825cd882c8b028d595f79277132eef60b"
+      },
+      "scripts/run_native_result_stream_uat.py": {
+        "bytes": 10529,
+        "sha256": "22e4eaf1754563da5edc6358438e38426938691920a7aed8840e0130e7300253"
+      },
+      "scripts/run_native_streaming_input_pressure.py": {
+        "bytes": 9803,
+        "sha256": "e3199567a30a34de8e75a1440305cf9e35c9dbb817cae09f28f7cd4a069e2166"
+      },
+      "scripts/run_native_streaming_input_uat.py": {
+        "bytes": 16885,
+        "sha256": "0be6e0fb653e7aa04ca8b3d4b4f5e3e34bf4fd500b93802f7db5b7e356df3c2b"
+      },
+      "scripts/run_native_unary_uat.py": {
+        "bytes": 16915,
+        "sha256": "4ab32a3e254334ea4a68cd59bb836f6cd1ac7800c626c88f3633f2144755bd51"
+      },
+      "scripts/run_python_test_shard.py": {
+        "bytes": 4233,
+        "sha256": "bfda19b1b1c894979bbd01b880da4228344a5a1bc98792cf31a380be419cc563"
+      },
+      "scripts/run_release_validation_evidence.py": {
+        "bytes": 17631,
+        "sha256": "695f3711019c4963914666a8f49104be336124d9befa858d3ed0d0a8d49abe65"
+      },
+      "scripts/run_resident_call_path_uat.py": {
+        "bytes": 25574,
+        "sha256": "d08aeda3c1a8edf20b36a69124d078c9a318ca85688da212f33bf4144370f0f2"
+      },
+      "scripts/shared_key_replay.py": {
+        "bytes": 8366,
+        "sha256": "c2f7b6b1a5c50b85ac4238c8fea998625cc09d40e449275036184700eaf86f36"
+      },
+      "scripts/stage_native_python_package.py": {
+        "bytes": 3086,
+        "sha256": "416060fefa5ea26339d9ece91a239c77c52cfcacc5e702d034b06faea001f08f"
+      },
+      "scripts/sync_workspace_package_versions.py": {
+        "bytes": 5397,
+        "sha256": "5dc11a73231592ffdb4aeaaa1b782abb13b3b91a1b76656c31cd9c80e544b4a9"
+      },
+      "scripts/test_analytical_aggregate_packet.py": {
+        "bytes": 5932,
+        "sha256": "2fe591be792fefdcb6ca58a8632f7d39652bbfd6e308984eea054c8df19af00b"
+      },
+      "scripts/test_audit_native_python_wheel.py": {
+        "bytes": 7086,
+        "sha256": "127229db6bccec05e369b2ab062336ec7b59c0a84ac484b1b05238254eb9aa02"
+      },
+      "scripts/test_build_native_python.py": {
+        "bytes": 3561,
+        "sha256": "327287e4afbf4ccf6cd192546ec5f67a6e2aa7cc41c2852fe54a9338e47ffa2c"
+      },
+      "scripts/test_build_shardloom_pgo.py": {
+        "bytes": 17481,
+        "sha256": "a7a019f29c061d3b83b95758d84d7341df89c6a2a93b0a6a3470a0db21423f4d"
+      },
+      "scripts/test_check_native_python_wheel.py": {
+        "bytes": 4979,
+        "sha256": "1b2fbdcacebc954ba6987e27bd54f7023eea30efb5954a1f4ce8d0bd3db8dec8"
+      },
+      "scripts/test_ci_build_artifact.py": {
+        "bytes": 10931,
+        "sha256": "c465e7395454c6d56e2272861f361db708fe9976a4c9da3e2b7bc9939b5fe17f"
+      },
+      "scripts/test_ci_execution_plan.py": {
+        "bytes": 19868,
+        "sha256": "3cf7d5f4462dc731c2b19242aecba6bc8057a801391ebb26e3eb567048d8b705"
+      },
+      "scripts/test_ci_native_package.py": {
+        "bytes": 24908,
+        "sha256": "07b5ee0777e300cbfc32a6d266f832adf8c7ba190c37416443a8824c258ff225"
+      },
+      "scripts/test_ci_native_tests.py": {
+        "bytes": 11188,
+        "sha256": "759965469c424174e6c99530e923289831e2e26ccae80faa0fe9621a2620b46f"
+      },
+      "scripts/test_ci_provider_tests.py": {
+        "bytes": 10258,
+        "sha256": "54c548dfd9bb1aab181781e72f179e661488d80c6f0c8e6d2bd076d88c277db5"
+      },
+      "scripts/test_clickbench_independent_reference.py": {
+        "bytes": 11155,
+        "sha256": "47777627c56c7b940281eb355570c35fe728d1ddd15796852918de6ec1ba9ba2"
+      },
+      "scripts/test_clickbench_native_sql.py": {
+        "bytes": 3383,
+        "sha256": "c2e1c6c095494570ef727e674ea6106c2d0108dce3687be1125e86804930a283"
+      },
+      "scripts/test_clickbench_paired_query_uat.py": {
+        "bytes": 12316,
+        "sha256": "b979117dca12b928dd2ce0ca43a445cf7b9c0aed9bab4ecea83f69f5b3384d59"
+      },
+      "scripts/test_clickbench_query_timing.py": {
+        "bytes": 4105,
+        "sha256": "f26db07afc773b635a01122ce2a5795c596efabc4c4f92500a339377fc06cf38"
+      },
+      "scripts/test_clickbench_query_uat.py": {
+        "bytes": 45123,
+        "sha256": "e01ce7e08c692899377c6e2b275334173e247e1d49dd130a707bed068c859546"
+      },
+      "scripts/test_clickbench_reference_packet.py": {
+        "bytes": 5519,
+        "sha256": "1f2a19646f49933a62a1942ec1c0e2bb002752d6e18f95047c7a70bb82762c8a"
+      },
+      "scripts/test_heldout_operator_uat.py": {
+        "bytes": 18138,
+        "sha256": "7dbfe5d9341859bc099196bb72be2dc22414fea3cae93a5e8ebdf7f42f291ca0"
+      },
+      "scripts/test_local_uat_storage.py": {
+        "bytes": 18695,
+        "sha256": "4b6fc8860aabce5ebf53d458bb867ff9ad96bb17171eda87e0a9a41319a0ca9b"
+      },
+      "scripts/test_native_cyclic_existence_compare.py": {
+        "bytes": 9032,
+        "sha256": "fb820d6ae518a38eb6ada6499e3896db18d429b355c4af3e59cd21fb1ab7afa7"
+      },
+      "scripts/test_native_cyclic_existence_workload.py": {
+        "bytes": 6819,
+        "sha256": "6c2e6c3f72e8bab4ec003a2af50beb5730358b8663e110964fd5d57ae5ed3830"
+      },
+      "scripts/test_native_output_uat.py": {
+        "bytes": 7969,
+        "sha256": "00d9da2dcc7bda21e44341abab323c5563d5a442e2466bc70cd35f829096f0d6"
+      },
+      "scripts/test_native_relational_suite.py": {
+        "bytes": 7542,
+        "sha256": "a1d72a552a0946c58bf975c8b90453b8676e1dc78bb9d5cb77cd79663c7ea04d"
+      },
+      "scripts/test_native_report_evidence.py": {
+        "bytes": 14990,
+        "sha256": "f4dbb225e3fda5dd76d3dd58858f21e5d05b7b531f7cbabe466ad8e22073466e"
+      },
+      "scripts/test_native_temporal_fidelity_packet.py": {
+        "bytes": 5400,
+        "sha256": "9b921fdec5df7f6748215d2077140e5d911d11688425636a847789ceb6d1ae40"
+      },
+      "scripts/test_native_uat_envelope_archive.py": {
+        "bytes": 10233,
+        "sha256": "0bbc9681b3cc263511cdfdfd875df3c493d9ae88ed8291459e47281938f89f72"
+      },
+      "scripts/test_parquet_demand_completion_packet.py": {
+        "bytes": 4641,
+        "sha256": "039cb4bc540106d020503d3ec56f3778df1879e2e013c8d43ddb0ae1a142f315"
+      },
+      "scripts/test_prove_native_python_wheel.py": {
+        "bytes": 6307,
+        "sha256": "512a9c90d296c6497b8d4a8eee18ae1bc83adc8e9896e1fe160109e561e34344"
+      },
+      "scripts/test_python_license_bundle.py": {
+        "bytes": 8219,
+        "sha256": "ab37634d160b9fa49f964f8d7264ee130616cc0f9f91062cfec25068e822af12"
+      },
+      "scripts/test_resident_call_path_uat.py": {
+        "bytes": 15195,
+        "sha256": "7d098dd4382884fedafa6ed5d23bf290f357b608dfb6de37e49318aec73b16a9"
+      },
+      "scripts/test_rich_bounded_retention_packet.py": {
+        "bytes": 14756,
+        "sha256": "ef4b1287d6e5770a85831039aba13cb360de39ed8c759033248ae93b88c6a270"
+      },
+      "scripts/test_run_local_readonly_proof.py": {
+        "bytes": 6571,
+        "sha256": "1474080d3cb13c8cc867e5c490b1f17856efeb7e9aefb913cad2419d734f25bb"
+      },
+      "scripts/test_shared_analytical_performance_packet.py": {
+        "bytes": 9332,
+        "sha256": "245b17f3383fc22aa5d318c5d818b905eaff823f542f8a8fc349e6613cb92428"
+      },
+      "scripts/test_shared_key_lookup_packet.py": {
+        "bytes": 11857,
+        "sha256": "267f78bf537523fb430165507e5a5faba1a2f30ec82fb9f51b00814eff3ab297"
+      },
+      "scripts/test_shared_numeric_values_packet.py": {
+        "bytes": 15704,
+        "sha256": "8b1b807e6e54e937569087fcbddc859d3d190d5086b537e6216b880b0268b2f3"
+      },
+      "scripts/test_website_links.py": {
+        "bytes": 4564,
+        "sha256": "37fa262a2f43c0c3eb56ca65d639e058e300289f11be6dfa1e6fb9e3fba32331"
+      },
+      "scripts/timed_native_command.py": {
+        "bytes": 3632,
+        "sha256": "a174e86eb6e0d525ceb5d6427c7f152642f57842fbd74c69551fc20deafb40e4"
+      },
+      "scripts/verify_analytical_aggregate_packet.py": {
+        "bytes": 10471,
+        "sha256": "976a467ff4ebd6adda3322be4afb649819bcf140b0b56a9ffdccd8718ed5a2b4"
+      },
+      "scripts/verify_native_source_demand_packet.py": {
+        "bytes": 20866,
+        "sha256": "58f8fef1c158391358d1c02d49e49b1060e0525e825327548137210ab6a9da51"
+      },
+      "scripts/verify_native_temporal_fidelity_packet.py": {
+        "bytes": 9976,
+        "sha256": "dddb494465f0289ed5b615f84ceeecb1e3f77a4936729971ee9f7e9564b48d61"
+      },
+      "scripts/verify_parquet_demand_completion_packet.py": {
+        "bytes": 8569,
+        "sha256": "962d0fd0bc0df6d4b7532bd3cf57e6e8c73062fa0e277b3e04a0e0505c9eddc8"
+      },
+      "scripts/verify_rich_bounded_retention_packet.py": {
+        "bytes": 16979,
+        "sha256": "da8a19a5a0579477887669deaa56d2016a0de86bd9414a6f40a1a600a5edc100"
+      },
+      "scripts/verify_shared_analytical_performance_packet.py": {
+        "bytes": 21412,
+        "sha256": "26048ee15d8cbf804050732281a7e070febe4f42b7b2e85e0f199bf973508f04"
+      },
+      "scripts/verify_shared_key_lookup_packet.py": {
+        "bytes": 15874,
+        "sha256": "f975192a907f719c5f130e61ef98bf965d7677517684f26631fbc6585c21efff"
+      },
+      "scripts/verify_shared_numeric_values_packet.py": {
+        "bytes": 18317,
+        "sha256": "33c307b43a58f3c31778eba389033505db413ceaf0b8bf1cd71e6b06a6817e50"
+      },
+      "scripts/website_links.py": {
+        "bytes": 5156,
+        "sha256": "20887c8289aabee79fc7752ac0389441de739632858e9843522a9a0f3a6d3c9f"
+      },
+      "scripts/write_ci_version_env.py": {
+        "bytes": 2504,
+        "sha256": "994ca1007889055a2961cc4a8812352992ae9674bb98abc9fe89f2da000761f9"
+      },
+      "scripts/write_native_function_reference.py": {
+        "bytes": 4975,
+        "sha256": "711d189b8a06800dbc7e4ba7d63113b933223a525b567ba04a5dadc4f6fc4d9d"
+      },
+      "scripts/write_public_api_reference.py": {
+        "bytes": 18942,
+        "sha256": "4581741974f87462145d875c3f4929447b48ad7ee63381248d0b3100e18cfdc0"
+      },
+      "scripts/write_python_api_exports.py": {
+        "bytes": 3987,
+        "sha256": "d80326f7dca19c93c72395014406fe97f641cd9ec8a89a812481e9907c419608"
+      },
+      "scripts/write_release_compatibility_lane_report.py": {
+        "bytes": 2361,
+        "sha256": "e337176aaaa26e6d3cd7f6e044933f354289fd4e70dae170e16df3bcc5d761fa"
+      },
+      "scripts/write_v1_supported_unsupported_docs.py": {
+        "bytes": 4301,
+        "sha256": "83c5158ab55d88b58de147f36bd6fdcd6fe890f31046508208609d4726530f1d"
+      },
+      "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/manifest.json": {
+        "bytes": 779191,
+        "sha256": "4b396b31faedc292eedd716e7dcdeb8d7a5de61efe1fc6a3092d92d94e92b84d"
+      },
+      "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/acceptance.json": {
+        "bytes": 173311,
+        "sha256": "f88ad8fa4cd5d1fb7a11a4e8c445b1f525335a5a92787eace76b990c92ac55a4"
+      },
+      "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/packet.tar.xz": {
+        "bytes": 92551824,
+        "sha256": "8d647945a45fcf58b4402ddb9259eb623d23292072f53e20e9f2054c65723f36"
+      }
+    },
+    "source_copy": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/portable-verification-r1",
+    "isolated_python": true,
+    "assertions_disabled": true,
+    "source_copy_limit_bytes": 67108864,
+    "evidence_archive_limit_bytes": 335544320,
+    "dataset_or_runtime_payloads_copied": false,
+    "archived_code_executed": false,
+    "steps": [
+      {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "-O",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/portable-verification-r1/scripts/verify_shared_numeric_values_packet.py",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/portable-verification-r1/docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28"
+        ],
+        "returncode": 0,
+        "stdout": "{\"status\": \"passed\", \"files\": 2901, \"broad_cases\": 347, \"heldout_cases\": 80, \"heldout_rows\": 508176, \"candidate_engine_seconds\": 23.079365459, \"public_interface_cases\": 15, \"installed_package_tests\": 202}\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "static_checks": {
+    "status": "passed",
+    "steps": [
+      {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "returncode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_release_architecture_tracker.py",
+          "--repo-root",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_release_architecture_tracker-r1.json",
+          "--allow-blocked"
+        ],
+        "returncode": 0,
+        "stdout": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_release_architecture_tracker-r1.json\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_v1_docs_productization.py",
+          "--repo-root",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_v1_docs_productization-r1.json"
+        ],
+        "returncode": 0,
+        "stdout": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_v1_docs_productization-r1.json\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_public_status_docs.py",
+          "--repo-root",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_public_status_docs-r1.json"
+        ],
+        "returncode": 0,
+        "stdout": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_public_status_docs-r1.json\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/check_ci_gate_matrix.py",
+          "--repo-root",
+          "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_ci_gate_matrix-r1.json"
+        ],
+        "returncode": 0,
+        "stdout": "/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28/check_ci_gate_matrix-r1.json\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "scripts",
+          "-p",
+          "test_ci_execution_plan.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad (test_ci_execution_plan.ClassificationTests.test_add_delete_rename_mode_symlink_json_other_docs_and_unknown_paths_are_broad) ... ok\ntest_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation (test_ci_execution_plan.ClassificationTests.test_code_directives_front_matter_and_shell_or_sql_snippets_force_full_validation) ... ok\ntest_comma_and_newline_paths_are_ambiguous_and_force_broad_validation (test_ci_execution_plan.ClassificationTests.test_comma_and_newline_paths_are_ambiguous_and_force_broad_validation) ... ok\ntest_make_plan_never_removes_a_job_recommended_by_rust (test_ci_execution_plan.ClassificationTests.test_make_plan_never_removes_a_job_recommended_by_rust) ... ok\ntest_malformed_planner_json_and_unclosed_or_bad_schema_are_broad (test_ci_execution_plan.ClassificationTests.test_malformed_planner_json_and_unclosed_or_bad_schema_are_broad) ... ok\ntest_plain_existing_readme_and_getting_started_wording_can_be_narrow (test_ci_execution_plan.ClassificationTests.test_plain_existing_readme_and_getting_started_wording_can_be_narrow) ... ok\ntest_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad (test_ci_execution_plan.ClassificationTests.test_push_release_bad_planner_schema_recommendations_paths_and_flags_are_broad) ... ok\ntest_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy (test_ci_execution_plan.ClassificationTests.test_website_source_can_use_narrow_plan_while_retaining_website_rust_python_policy) ... ok\ntest_summary_accepts_exact_all_success_results (test_ci_execution_plan.SummaryTests.test_summary_accepts_exact_all_success_results) ... ok\ntest_summary_command_preserves_failure_evidence_and_exits_unsuccessfully (test_ci_execution_plan.SummaryTests.test_summary_command_preserves_failure_evidence_and_exits_unsuccessfully) ... ok\ntest_summary_rejects_missing_invented_duplicate_and_unclassified_omissions (test_ci_execution_plan.SummaryTests.test_summary_rejects_missing_invented_duplicate_and_unclassified_omissions) ... ok\ntest_summary_rejects_wrong_workflow_or_revision (test_ci_execution_plan.SummaryTests.test_summary_rejects_wrong_workflow_or_revision) ... ok\ntest_summary_requires_selected_jobs_success_and_omitted_jobs_skipped (test_ci_execution_plan.SummaryTests.test_summary_requires_selected_jobs_success_and_omitted_jobs_skipped) ... ok\ntest_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job (test_ci_execution_plan.WorkflowTests.test_real_ci_inventory_excludes_triggers_and_release_readiness_needs_every_other_job) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 4.364s\n\nOK\n"
+      }
+    ]
+  },
+  "generator": {
+    "sha256": "3e1977d34cfff7abd21c4c0d31207cba9d1fc016b5eeeb2057a49d038fd76ce3",
+    "utf8": "\"\"\"Preserve final source-only checks and their original failed attempts.\"\"\"\nfrom pathlib import Path\nimport hashlib\nimport json\nimport re\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nROOT = Path(__file__).resolve().parents[1]\nPACKET = REPO / 'docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28'\nsys.path[:0] = [str(REPO / 'scripts'), str(REPO / 'benchmarks/traditional_analytics')]\nfrom query_surface.replay import MAX_ARCHIVE, MAX_FILE, bounded_bytes, object_files, sha\n\n\ndef need(value, message):\n    if not value:\n        raise ValueError(message)\n\n\ndef read(path):\n    return json.loads(path.read_text())\n\n\nnames = ['r23-packet-build', 'r24-packet-controls', 'r25-corrected-value-control',\n         'r25b-corrected-value-control', 'r26-final-packet-build',\n         'r27-isolated-portable-replay', 'r28-final-static']\nfailed = {'r24-packet-controls', 'r25-corrected-value-control'}\nchecks = {}\nfor name in names:\n    receipt = read(ROOT / (name + '.json'))\n    log = bounded_bytes(ROOT / (name + '.log'), MAX_FILE)\n    need(sha(log) == receipt['log_sha256'] and receipt['process_group_drained']\n         and receipt['direct_child_reaped'] and not receipt['timed_out']\n         and receipt['interrupted_signal'] is None, 'check identity or cleanup changed')\n    expected = 'failed' if name in failed else 'passed'\n    need(receipt['status'] == expected and (receipt['returncode'] == 0) == (expected == 'passed'),\n         'unexpected check outcome: ' + name)\n    checks[name] = dict(receipt=receipt, log_utf8=log.decode())\noriginal = checks['r24-packet-controls']['log_utf8']\ncorrected = checks['r25b-corrected-value-control']['log_utf8']\nneed(len(re.findall(r' \\.\\.\\. ok$', original, re.MULTILINE)) == 29\n     and re.findall(r'^FAIL: (\\w+) ', original, re.MULTILINE)\n         == ['test_changed_actual_value_after_repacking_and_relinking']\n     and 'Ran 30 tests in ' in original and 'FAILED (failures=1)' in original,\n     'original control coverage changed')\nneed('Ran 1 test in ' in corrected and corrected.endswith('\\nOK\\n'), 'corrected control incomplete')\nneed('FileNotFoundError' in checks['r25-corrected-value-control']['log_utf8']\n     and 'Ran 0 tests in ' in checks['r25-corrected-value-control']['log_utf8'],\n     'staging-path error history changed')\nprior_manifest = read(ROOT / 'packet-r1/manifest.json')\nprior_files = object_files(prior_manifest, bounded_bytes(ROOT / 'packet-r1/packet.tar.xz', MAX_ARCHIVE))\nrelative = 'scripts/test_shared_numeric_values_packet.py'\nold = prior_files['source/' + relative]\ncurrent = (REPO / relative).read_bytes()\nbefore = b\"assertRaisesRegex(ResultMismatch, 'exact fields or NULL multiplicities differ')\"\nafter = b\"assertRaisesRegex(ResultMismatch, 'unordered rows or duplicate multiplicities differ')\"\nneed(old.count(before) == 1 and old.replace(before, after) == current,\n     'correction changed more than the exact-comparator message assertion')\nneed(checks['r24-packet-controls']['receipt']['changed_source_inventory'][relative]['sha256'] == sha(old)\n     and checks['r25b-corrected-value-control']['receipt']['changed_source_inventory'][relative]['sha256'] == sha(current),\n     'tested control source changed')\nisolated, static = read(ROOT / 'portable-verification-r1.json'), read(ROOT / 'final-static-r1.json')\nneed(isolated['status'] == static['status'] == 'passed', 'final verification incomplete')\nruntime = read(ROOT / 'candidate-numeric-release-r1/manifest.json')\nruntime_sources = {}\nfor name, item in runtime['source_snapshot'].items():\n    data = (REPO / name).read_bytes()\n    need(sha(data) == item['sha256'] and len(data) == item['bytes'], 'tested runtime source changed: ' + name)\n    runtime_sources[name] = item\nrecord = dict(schema_version='shardloom.shared_numeric_final_verification.v1', status='passed',\n    complete_controls=30, initial_passing_controls=29, corrected_controls=1,\n    correction='Exact comparator rejected the changed value; only the expected exception wording was corrected.',\n    initial_control_source_sha256=sha(old), final_control_source_sha256=sha(current),\n    checks=checks, original_failed_checks=sorted(failed), runtime_source_snapshot=runtime_sources,\n    isolated_source_copy=isolated, static_checks=static,\n    generator=dict(sha256=sha(Path(__file__).read_bytes()), utf8=Path(__file__).read_text()),\n    final_helpers={name: dict(sha256=sha((ROOT / 'tools' / name).read_bytes()),\n                             utf8=(ROOT / 'tools' / name).read_text())\n                   for name in ('verify_portable_copy.py', 'check_final_static.py', 'retire_completed_payloads.py')},\n    packet_sha256={name: sha((PACKET / name).read_bytes())\n                   for name in ('manifest.json', 'packet.tar.xz', 'acceptance.json')},\n    new_query_executions=0, hosted_acceptance=False)\nwith (PACKET / 'verification.json').open('x') as stream:\n    json.dump(record, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps(dict(status='passed', complete_controls=30, preserved_failed_checks=sorted(failed))))\n"
+  },
+  "final_helpers": {
+    "verify_portable_copy.py": {
+      "sha256": "24361a33c5c180bd4d973afe1c209b89e2203ca744ab6582f485d5a330eeddf8",
+      "utf8": "\"\"\"Replay numeric acceptance from bounded copied source and its portable packet.\"\"\"\nfrom pathlib import Path\nimport hashlib\nimport json\nimport os\nimport shutil\nimport subprocess\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nOUT = Path(__file__).resolve().parents[1]\nDEST = OUT / 'portable-verification-r1'\nEVIDENCE = Path('docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28')\nsys.path.insert(0, str(REPO / 'benchmarks/traditional_analytics'))\nfrom query_surface.replay import MAX_ARCHIVE, MAX_FILE, bounded_bytes\nfrom local_uat_storage import require_local_path\n\n\ndef require(condition, message):\n    if not condition:\n        raise ValueError(message)\n\n\nrequire(not DEST.exists(), 'source copy already exists')\nrequire_local_path(REPO / EVIDENCE, Path.home(), sys.platform)\nfor name in ('manifest.json', 'acceptance.json', 'packet.tar.xz'):\n    data = bounded_bytes(OUT / 'packet-r2' / name,\n                         MAX_ARCHIVE if name == 'packet.tar.xz' else MAX_FILE)\n    target = REPO / EVIDENCE / name\n    with target.open('xb') as stream:\n        stream.write(data)\n    require(hashlib.sha256(target.read_bytes()).digest() == hashlib.sha256(data).digest(),\n            'installed packet identity')\nsource_files = sorted(set(path for root in ('scripts', 'python/src', 'benchmarks/traditional_analytics')\n                         for path in (REPO / root).rglob('*.py') if '__pycache__' not in path.parts))\nrequire(all(path.is_file() and not path.is_symlink() for path in source_files), 'non-regular source')\n# Keep the existing source-copy budget. The one evidence archive has its own\n# established replay bound, independent of source and runtime payload storage.\nrequire(sum(path.stat().st_size for path in source_files) < 64 << 20, 'source-copy byte budget')\npacket_files = [REPO / EVIDENCE / name for name in ('manifest.json', 'acceptance.json', 'packet.tar.xz')]\nfor path in packet_files:\n    bounded_bytes(path, MAX_ARCHIVE if path.name == 'packet.tar.xz' else MAX_FILE)\nrecords = {}\nfor path in source_files + packet_files:\n    relative = path.relative_to(REPO)\n    target = DEST / relative\n    target.parent.mkdir(parents=True, exist_ok=True)\n    shutil.copy2(path, target)\n    digest = hashlib.sha256(path.read_bytes()).hexdigest()\n    require(hashlib.sha256(target.read_bytes()).hexdigest() == digest, 'source-copy identity')\n    records[str(relative)] = dict(bytes=target.stat().st_size, sha256=digest)\ncommand = [sys.executable, '-I', '-O', '-B', str(DEST / 'scripts/verify_shared_numeric_values_packet.py'),\n           str(DEST / EVIDENCE)]\nenv = {key: value for key, value in os.environ.items()\n       if not key.startswith(('PYTHON', 'SHARDLOOM_'))}\nresult = subprocess.run(command, cwd=DEST, env=env, capture_output=True, text=True, timeout=600)\nprint(result.stdout, end='')\nprint(result.stderr, end='')\nreport = dict(schema_version='shardloom.shared_numeric_portable_copy.v1',\n              status='passed' if result.returncode == 0 else 'failed',\n              source_files=records, source_copy=str(DEST), isolated_python=True,\n              assertions_disabled=True, source_copy_limit_bytes=64 << 20,\n              evidence_archive_limit_bytes=MAX_ARCHIVE,\n              dataset_or_runtime_payloads_copied=False, archived_code_executed=False,\n              steps=[dict(command=command, returncode=result.returncode,\n                          stdout=result.stdout, stderr=result.stderr)])\nwith (OUT / 'portable-verification-r1.json').open('x') as stream:\n    json.dump(report, stream, indent=2)\n    stream.write('\\n')\nrequire(report['status'] == 'passed', 'isolated replay failed')\n"
+    },
+    "check_final_static.py": {
+      "sha256": "cbfecd248909e728d549af436bc05976e874572e654522cd9be3c80940fbf65f",
+      "utf8": "\"\"\"Check final documentation and CI contracts without query execution.\"\"\"\nfrom pathlib import Path\nimport ast\nimport json\nimport subprocess\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nOUT = Path(__file__).resolve().parents[1]\ncommands = [['git', 'diff', '--check']]\nfor script in ('check_release_architecture_tracker', 'check_v1_docs_productization',\n               'check_public_status_docs', 'check_ci_gate_matrix'):\n    command = [sys.executable, '-B', str(REPO / 'scripts' / (script + '.py')),\n               '--repo-root', str(REPO), '--output', str(OUT / (script + '-r1.json'))]\n    if script == 'check_release_architecture_tracker':\n        command.append('--allow-blocked')\n    commands.append(command)\ncommands.append([sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'scripts',\n                 '-p', 'test_ci_execution_plan.py', '-v'])\nfor path in (REPO / 'scripts' / name for name in\n             ('verify_shared_numeric_values_packet.py', 'numeric_values_replay.py', 'test_shared_numeric_values_packet.py')):\n    ast.parse(path.read_text())\nsteps = []\nfor command in commands:\n    result = subprocess.run(command, cwd=REPO, capture_output=True, text=True, timeout=120)\n    print(result.stdout, end='')\n    print(result.stderr, end='')\n    steps.append(dict(command=command, returncode=result.returncode,\n                      stdout=result.stdout, stderr=result.stderr))\nstatus = 'passed' if all(step['returncode'] == 0 for step in steps) else 'failed'\nwith (OUT / 'final-static-r1.json').open('x') as stream:\n    json.dump(dict(status=status, steps=steps), stream, indent=2)\n    stream.write('\\n')\nraise SystemExit(0 if status == 'passed' else 1)\n"
+    },
+    "retire_completed_payloads.py": {
+      "sha256": "ee1a4149267fb764339e2612ef777a29e50a439f85a75f2817225f676086c39d",
+      "utf8": "\"\"\"Retire exact completed numeric-value artifacts after independent replay.\"\"\"\nfrom pathlib import Path\nimport gzip\nimport hashlib\nimport importlib.util\nimport json\nimport re\nimport shutil\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo')\nROOT = Path(__file__).resolve().parents[1]\nOLD = (ROOT.parent / 'shared-key-value-2026-10-28').resolve()\nPACKET = REPO / 'docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28'\nHELPER = ROOT.parent / 'shared-aggregate-performance-2026-10-27/tools/retire_completed_performance_payloads.py'\nspec = importlib.util.spec_from_file_location('retirement_primitives', HELPER)\nhelper = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(helper)\nhelper.ROOT, helper.OLD = ROOT, OLD\nfrom query_surface.replay import object_files\nfrom verify_shared_numeric_values_packet import verify\nfrom release_validation_guard import WorkloadGuard\n\nread, digest, inventory, identity, closed = helper.read, helper.digest, helper.inventory, helper.identity, helper.closed\n\n\ndef need(condition, message):\n    if not condition:\n        raise ValueError(message)\n\n\ndef main():\n    need(__debug__, 'retirement primitives require assertions enabled')\n    need(ROOT == Path('/Users/dylan/LocalData/shardloom/shared-numeric-values-2026-10-28').resolve(), 'wrong task root')\n    need(not (PACKET / 'cleanup.json').exists(), 'existing cleanup receipt')\n    manifest = read(PACKET / 'manifest.json')\n    files = object_files(manifest, (PACKET / 'packet.tar.xz').read_bytes())\n    need(verify(files, manifest) == read(PACKET / 'acceptance.json'), 'portable replay mismatch')\n    original = read(ROOT / 'r24-packet-controls.json')\n    original_log = (ROOT / 'r24-packet-controls.log').read_text()\n    need(original['status'] == 'failed' and original['returncode'] == 1\n         and original['process_group_drained'] and original['direct_child_reaped']\n         and digest(ROOT / 'r24-packet-controls.log') == original['log_sha256'],\n         'original controls receipt changed')\n    need(len(re.findall(r' \\.\\.\\. ok$', original_log, re.MULTILINE)) == 29\n         and re.findall(r'^FAIL: (\\w+) ', original_log, re.MULTILINE)\n             == ['test_changed_actual_value_after_repacking_and_relinking']\n         and re.search(r'Ran 30 tests in ', original_log)\n         and 'FAILED (failures=1)' in original_log, 'unexpected original control failure')\n    for name in ('r25b-corrected-value-control', 'r27-isolated-portable-replay', 'r28-final-static'):\n        gate = read(ROOT / (name + '.json'))\n        need(gate['status'] == 'passed' and gate['process_group_drained']\n             and digest(ROOT / (name + '.log')) == gate['log_sha256'], 'missing passed gate ' + name)\n    corrected = (ROOT / 'r25b-corrected-value-control.log').read_text()\n    need('test_changed_actual_value_after_repacking_and_relinking' in corrected\n         and re.search(r'Ran 1 test in ', corrected) and corrected.endswith('\\nOK\\n'),\n         'corrected value-control evidence incomplete')\n    control_name = 'scripts/test_shared_numeric_values_packet.py'\n    control = read(ROOT / 'r25b-corrected-value-control.json')['changed_source_inventory'][control_name]\n    need(control['sha256'] == digest(REPO / control_name)\n         and control['sha256'] == hashlib.sha256(files['source/' + control_name]).hexdigest(),\n         'final control source differs from tested source')\n    need(read(ROOT / 'final-static-r1.json')['status'] == 'passed', 'static checks incomplete')\n    package = read(ROOT / 'installed-wheel-r1/report.json')\n    need(package['status'] == package['uninstall_status'] == 'passed', 'package proof incomplete')\n    current = read(ROOT / 'candidate-numeric-release-r1/manifest.json')\n    retained = {ROOT / 'candidate-numeric-release-r1' / name: item['sha256'] for name, item in current['files'].items()}\n    retained[ROOT / 'installed-wheel-r1/dist' / package['integrity']['wheel']] = package['integrity']['wheel_sha256']\n    frozen = read(ROOT / 'broad-numeric-r1/inputs.json')\n    sources = {p for group in frozen['sources'].values() for p in group}\n    references = [x for x in frozen['frozen_files'] if x['path'].endswith('-reference.stdout.json')]\n    need(len(sources) == 5 and len(references) == 347, 'original input/reference coverage')\n    retained.update({Path(x['path']): x['sha256'] for x in frozen['frozen_files']\n                     if x['path'] in sources or x in references})\n    need(all(p.is_file() and not p.is_symlink() and digest(p) == d for p, d in retained.items()), 'retained identity mismatch')\n    for name in ('manifest.json', 'acceptance.json', 'packet.tar.xz'):\n        need(digest(ROOT / 'packet-r2' / name) == digest(PACKET / name), 'final packet differs')\n    isolated = read(ROOT / 'portable-verification-r1.json')\n    need(isolated['status'] == 'passed', 'isolated replay incomplete')\n    for name, item in isolated['source_files'].items():\n        need(digest(ROOT / 'portable-verification-r1' / name) == item['sha256'], 'isolated copy changed')\n    superseded = {}\n    previous = read(OLD / 'candidate-key-release-r1/manifest.json')\n    for name, item in previous['files'].items():\n        path = OLD / 'candidate-key-release-r1' / name\n        need(digest(path) == item['sha256'], 'superseded runtime changed')\n        superseded[path] = item['sha256']\n    previous_package = read(OLD / 'installed-wheel-r1/report.json')['integrity']\n    old_wheel = OLD / 'installed-wheel-r1/dist' / previous_package['wheel']\n    need(digest(old_wheel) == previous_package['wheel_sha256'], 'superseded wheel changed')\n    superseded[old_wheel] = previous_package['wheel_sha256']\n    roots = [(ROOT / name, False) for name in (\n        'installed-wheel-r1/package', 'installed-wheel-r1/venv', 'wheel-build-tools',\n        'installed-proof-wheelhouse', 'portable-verification-r1')]\n    roots += [(ROOT / name, True) for name in (\n        'candidate-numeric-release-r1/source', 'broad-numeric-r1/harness', 'broad-numeric-r1/logs',\n        'heldout-r1/inputs', 'heldout-r1/references', 'heldout-r1/logs',\n        'numeric-aggregate-diagnostic-r1/logs')]\n    roots += [(path, False) for path in superseded]\n    packet_sources, packet_identities = {}, {}\n    for directory in [ROOT / ('packet-r' + str(number)) for number in (1, 2)]:\n        stage_manifest = read(directory / 'manifest.json')\n        stage_archive = (directory / 'packet.tar.xz').read_bytes()\n        stage_files = object_files(stage_manifest, stage_archive)\n        need(read(directory / 'acceptance.json')['status'] == 'passed', 'staged packet lacks complete acceptance')\n        packet_identities[str(directory)] = {name: digest(directory / name)\n                                            for name in ('manifest.json', 'acceptance.json', 'packet.tar.xz')}\n        # Preserve source versions from failed control/packaging attempts without\n        # retaining another backup of the complete generated result population.\n        for name, data in stage_files.items():\n            if name.startswith(('source/scripts/', 'evidence/tools/')) and name.endswith('.py'):\n                packet_sources.setdefault(hashlib.sha256(data).hexdigest(), dict(path=name, utf8=data.decode()))\n        roots.append((directory, False))\n    need(all(not (p == kept or p in kept.parents) for p, _ in roots for kept in retained), 'retained path selected')\n    external = {(x['path'], x['sha256'], x['bytes']) for x in manifest['external_artifacts']}\n    path_map = {path.casefold(): name for path, name in manifest['path_map'].items()}\n    rows, preserved_pid_files = [], {}\n    for path, archived in roots:\n        current_rows = inventory(path)\n        if archived:\n            for row in current_rows:\n                if row['kind'] != 'regular':\n                    continue\n                key = path_map.get(row['path'].casefold())\n                if key in files:\n                    need(hashlib.sha256(files[key]).hexdigest() == row['sha256']\n                         and len(files[key]) == row['generation'][3], 'archived payload differs: ' + row['path'])\n                elif Path(row['path']).suffix == '.pid':\n                    data = Path(row['path']).read_bytes()\n                    need(len(data) <= 32 and data.isdigit() and hashlib.sha256(data).hexdigest() == row['sha256'],\n                         'invalid raw process identifier')\n                    preserved_pid_files[row['path']] = dict(ascii=data.decode('ascii'), sha256=row['sha256'])\n                else:\n                    need(Path(row['path']).suffix == '.parquet' and\n                         any(p.casefold() == row['path'].casefold() and d == row['sha256'] and n == row['generation'][3]\n                             for p, d, n in external), 'unrepresented generated payload: ' + row['path'])\n        rows.extend(current_rows)\n    need(len({r['path'] for r in rows}) == len(rows), 'overlapping retirement roots')\n    proofs = {str(p): digest(p) for p in ROOT.glob('*.json') if p.is_file()}\n    proofs.update({str(PACKET / n): digest(PACKET / n) for n in ('manifest.json', 'packet.tar.xz', 'acceptance.json')})\n    proofs[str(HELPER)] = digest(HELPER)\n    record = dict(schema_version='shardloom.generated_artifact_retirement.v1', status='running',\n        roots=[str(p) for p, _ in roots], retained_sha256={str(p): d for p, d in retained.items()},\n        superseded_runtime_and_wheel_sha256={str(p): d for p, d in superseded.items()},\n        retired_staging_packet_sha256=packet_identities,\n        closed_handle_checks=[], removed_entries=0, source_inputs_retained=True,\n        original_external_baselines_untouched=True, user_files_and_item18_untouched=True,\n        cargo_cache_untouched=True, payload_backups_created=False, symlink_targets_followed=False,\n        regeneration_basis='Frozen recipes, seeds, complete results, source/build identities and locked package requirements; latest tested runtime and wheel retained. No bit-identical rebuild claim.')\n    raw = json.dumps(dict(entries=rows, retained=record['retained_sha256'], proof_sha256=proofs,\n                         preserved_pid_files=preserved_pid_files, historical_packet_sources=packet_sources), sort_keys=True).encode()\n    need(len(raw) <= 32 << 20, 'inventory exceeds bound')\n    packed = gzip.compress(raw, mtime=0)\n    need(gzip.decompress(packed) == raw, 'inventory roundtrip failed')\n    out = PACKET / 'cleanup-inventory.json.gz'\n    with out.open('xb') as stream:\n        stream.write(packed)\n    record.update(inventory=str(out), inventory_sha256=digest(out), free_bytes_before=shutil.disk_usage(ROOT).free)\n    try:\n        WorkloadGuard().check()\n        record['closed_handle_checks'] = [closed(p) for p, _ in roots]\n        need(all(digest(Path(p)) == d for p, d in proofs.items()), 'proof changed before retirement')\n        need([row for p, _ in roots for row in inventory(p)] == rows, 'retirement inventory changed')\n        WorkloadGuard().check()\n        print(json.dumps(dict(stage='identities_and_closed_handles_verified', entries=len(rows))), flush=True)\n        for row in sorted(rows, key=lambda r: len(Path(r['path']).parts), reverse=True):\n            path = Path(row['path'])\n            if row['kind'] == 'directory':\n                state = path.lstat()\n                need([state.st_dev, state.st_ino, state.st_mode] == row['generation'][:3], 'directory identity changed')\n                path.rmdir()\n            else:\n                need(identity(path) == row, 'file identity changed')\n                path.unlink()\n            record['removed_entries'] += 1\n        need(all(not p.exists() and not p.is_symlink() for p, _ in roots), 'retirement incomplete')\n        need(all(p.is_file() and not p.is_symlink() and digest(p) == d for p, d in retained.items()), 'retained payload changed')\n        need(all(digest(Path(p)) == d for p, d in proofs.items()), 'proof changed after retirement')\n        need(verify(files, manifest) == read(PACKET / 'acceptance.json'), 'replay after retirement failed')\n        record.update(status='passed', regular_files=sum(r['kind'] == 'regular' for r in rows),\n            symlinks=sum(r['kind'] == 'symlink' for r in rows),\n            retired_regular_bytes=sum(r['generation'][3] for r in rows if r['kind'] == 'regular'),\n            retired_allocated_bytes=sum(r.get('allocated_bytes', 0) for r in rows),\n            all_proof_files_unchanged=True, portable_replay_after_retirement=True,\n            raw_pid_files_preserved=len(preserved_pid_files), historical_source_versions_preserved=len(packet_sources),\n            free_bytes_after=shutil.disk_usage(ROOT).free)\n    except BaseException as error:\n        record.update(status='failed', error=repr(error))\n        raise\n    finally:\n        (PACKET / 'cleanup.json').write_text(json.dumps(record, indent=2) + '\\n')\n        (ROOT / 'cleanup.json').write_text(json.dumps(record, indent=2) + '\\n')\n    print(json.dumps({k: record[k] for k in ('status', 'regular_files', 'symlinks', 'retired_regular_bytes')}), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n"
+    }
+  },
+  "packet_sha256": {
+    "manifest.json": "4b396b31faedc292eedd716e7dcdeb8d7a5de61efe1fc6a3092d92d94e92b84d",
+    "packet.tar.xz": "8d647945a45fcf58b4402ddb9259eb623d23292072f53e20e9f2054c65723f36",
+    "acceptance.json": "f88ad8fa4cd5d1fb7a11a4e8c445b1f525335a5a92787eace76b990c92ac55a4"
+  },
+  "new_query_executions": 0,
+  "hosted_acceptance": false
+}

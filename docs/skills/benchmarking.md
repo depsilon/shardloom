@@ -123,6 +123,18 @@ required correctness changes from avoidable execution overhead. Keep the isolate
 procedure and existing rules for additional diagnostic comparisons; do not
 silently repeat runs or substitute another clock.
 
+Standing maintainer decision, October 28, 2026: assess timing regressions in
+proportion to their workload impact. Substantial complete-cohort gains, or
+substantial declared-family gains with a positive overall balance, can justify
+retaining an implementation with a small isolated slowdown. Preserve the
+original observation, its absolute contribution and uncertainty; investigate
+proportionately and track warranted follow-up work. A timing threshold flag is
+not an automatic blocker. Correctness, resource, ownership and no-fallback
+requirements remain acceptance conditions, and broad or consequential workload
+harm still requires a separate decision. Record this maintainer disposition
+without changing frozen protocols, deleting slower samples or rerunning solely
+to obtain a different result.
+
 ## Local end-to-end observations
 
 - Freeze the source revision, build command/features, executable hash, workload,

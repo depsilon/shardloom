@@ -429,6 +429,12 @@ own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
+After the shared-numeric-values PR, the default delivery unit is one consolidated
+PR for the remaining item-20 checklist, with logical commits and validation
+checkpoints inside it. Split only at a concrete compatibility, dependency,
+generated-artifact or verification boundary; size alone is not a reason. Item 18
+and the subsequent 1.1.0 release retain their separate scope and sequence.
+
 The October 22 maintainer instruction is to finish the required work and gated
 investigations above, with one isolated standard Full43 pass after each coherent
 implementation; optional items stay deferred. The subsequently frozen
@@ -532,6 +538,10 @@ visible and independent; this implementation does not automatically close them.
       complete physical-plan and byte instrumentation remain unfinished.
     - [ ] Correct demonstrated shared correctness, reachability, composition,
       repeated-work or algorithm causes using prospective retain/drop gates.
+      Apply the October 28 maintainer tradeoff: substantial overall gains can
+      outweigh small isolated timing regressions. Preserve their observations
+      and assess proportionate follow-up without automatically blocking the
+      implementation; correctness and resource/ownership contracts still apply.
     - [ ] Complete the analytical requirements below through shared runtime families,
       preserving the six end-to-end workflows and separate connector ownership.
     - [ ] Validate unchanged reproducers, neighboring/held-out variations, public
@@ -578,10 +588,18 @@ visible and independent; this implementation does not automatically close them.
     the reused 27.374316659-second checkpoint. Grouped aggregation improves
     12.44% and DISTINCT 17.39%, with no material regression flags. Complete
     160-case fresh correctness, 201 installed-wheel tests, 23 corruption controls
-    and isolated replay pass; hosted acceptance remains separate. Continue the
-    shared-performance queue in the existing item-20 completion document with
-    typed MIN/MAX and independently owned numeric gathering, then reduce
-    expression construction/reuse work. Reuse existing
+    and isolated replay pass; PR #1618 merged at `685f16c7` with all 57 checks
+    passing and no review findings. The subsequent
+    [numeric acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+    retains typed MIN/MAX and independently owned numeric gathering. All 347
+    cases and 12,565 rows validate at 23.079365459 engine seconds, with a 9.52%
+    whole-cohort reduction and the declared family gate passing in global/grouped
+    aggregation and joins. One original case flag remains; its bounded diagnostic
+    does not reproduce it. Complete fresh correctness, 202 installed tests,
+    30 corruption controls and isolated portable replay pass. Numeric hosted
+    acceptance remains separate. Continue the consolidated item-20 completion
+    PR, including expression construction/reuse and the unchanged-cohort
+    under-10-second stretch objective. Reuse existing
     native owners and the current frozen benefit/regression protocol; retain the
     dropped counted-join, fused-measure, retained-output and borrowed-output
     decisions. This sequence does not replace the wider temporal/time-series,

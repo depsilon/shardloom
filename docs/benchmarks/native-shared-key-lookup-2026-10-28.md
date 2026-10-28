@@ -113,6 +113,17 @@ five Parquet files and 347 independent reference files remain. Complete observat
 507 raw process identifiers and 24 historical helper/control source versions are preserved.
 Full replay passes after retirement; no payload backup or storage-limit change occurs.
 
+PR [#1618](https://github.com/depsilon/shardloom/pull/1618) merged at
+`685f16c7362eb07115f37db4992c89a3ac5cdaa5` from reviewed head
+`74c7cd652b2fccaeb4fa12292be40137b2dd6a58`. The merge tree matches the reviewed head tree.
+All 57 hosted checks completed successfully (57 success, zero neutral or failing); the review
+summary completed at the reviewed head with no findings, and no review threads remained. The
+[hosted receipt](evidence/native-shared-key-lookup-2026-10-28/hosted.json) records these identities.
+This closes hosted integration for the local acceptance unit without changing the 25.508976866
+engine-second observation. Item 20 remains active; numeric candidates were unaccepted at this
+checkpoint. Their subsequent [acceptance](native-shared-numeric-values-2026-10-28.md) is separate. No
+package publication or CG-1 through CG-23 closure follows.
+
 Replay complete results without the native runtime, PyArrow or historical absolute paths:
 
 ```sh
@@ -120,6 +131,7 @@ python3 -B scripts/verify_shared_key_lookup_packet.py docs/benchmarks/evidence/n
 python3 -B -m unittest discover -s scripts -p test_shared_key_lookup_packet.py -v
 ```
 
-Hashes establish internal consistency, not signed provenance. Typed MIN/MAX, value gathering, and
-expression candidates remain pending. Item 20 remains open; CG-1 through CG-23 are unchanged. No
-hosted acceptance or package publication is claimed by this local record.
+Hashes establish internal consistency, not signed provenance. Typed MIN/MAX and value gathering
+continue in the numeric acceptance record; expression work remains pending. Item 20 remains open;
+CG-1 through CG-23 are unchanged. No
+package publication is claimed by this local record.

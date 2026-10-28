@@ -99,9 +99,13 @@ impl NativeNumericOwner {
     pub(super) fn nbytes_estimate(&self) -> u64 {
         self.primitive.nbytes()
     }
-    #[cfg(test)]
+    #[cfg(any(test, unix))]
     pub(super) fn primitive(&self) -> &PrimitiveArray {
         &self.primitive
+    }
+    #[cfg(unix)]
+    pub(super) fn validity(&self) -> &Mask {
+        &self.valid
     }
     pub(super) fn u64_values(&self) -> Option<&[u64]> {
         (self.all_valid() && self.ptype() == PType::U64).then(|| self.primitive.as_slice::<u64>())
@@ -254,6 +258,36 @@ impl NativeNumericOwner {
         for (row, value) in self.primitive.as_slice::<T>().iter().enumerate() {
             let value = (ALL_VALID || self.valid.value(row)).then(|| value.widen().numeric());
             visit(row, value, T::Wide::INTEGER)?;
+        }
+        Ok(())
+    }
+
+    /// Visit original-width storage with exact integer values and floating bits.
+    /// Type/validity dispatch surrounds the loop; no scalar array calls, key
+    /// owners or column-sized widened values are constructed. NULL rows remain
+    /// visible to the consumer's ordered cancellation and validation boundary.
+    #[cfg(unix)]
+    pub(super) fn visit_values(
+        &self,
+        visit: impl FnMut(usize, StatValue) -> Result<()>,
+    ) -> Result<()> {
+        numeric_dispatch!(self, visit_values_typed, visit)
+    }
+
+    #[cfg(unix)]
+    fn visit_values_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        mut visit: impl FnMut(usize, StatValue) -> Result<()>,
+    ) -> Result<()> {
+        for (row, value) in self.primitive.as_slice::<T>().iter().enumerate() {
+            visit(
+                row,
+                if ALL_VALID || self.valid.value(row) {
+                    value.widen().stat()
+                } else {
+                    StatValue::Null
+                },
+            )?;
         }
         Ok(())
     }
