@@ -48,8 +48,9 @@ CG-1 through CG-23 retain their independent acceptance and authorization.
 
 ## Remaining completion checklist
 
-After the shared-numeric-values PR, deliver the remaining item-20 obligations
-as one consolidated completion PR by default. Use logical commits, prospective
+The October 28 maintainer continuation keeps the shared-numeric-values work
+and the remaining item-20 obligations together in PR #1619. Hold that PR open
+through implementation and combined acceptance. Use logical commits, prospective
 measurement protocols and validation checkpoints inside that PR; individual
 optimizations or public interfaces do not require separate PRs. Split only for
 a concrete compatibility, dependency, generated-artifact or verification boundary
@@ -333,7 +334,7 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    does not reproduce it. Complete 80-case fresh correctness, 202 installed
    package tests, 30 corruption controls and isolated portable replay pass.
    Numeric hosted acceptance remains separate; continue the remaining item-20
-   work, including the expression package, in the consolidated completion PR.
+   work, including the expression package, in the same consolidated PR #1619.
 3. **Reduce expression construction and reuse work.** For UTF-8/binary
    results, replace repeated callback evaluation in sizing and writing with
    single evaluation using bounded, accounted staging or a native append path.
@@ -345,11 +346,28 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    numeric and temporal typed loops before selecting any specialization; do not
    infer that generic source shape alone warrants one.
 
-The expression checkpoint is now specified by the prospective
-[October 28 protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/expression-protocol.json).
-It reuses the complete 23.079365459-second numeric observation; it does not
-rerun a baseline or change the original 347-case denominator. The current
-candidate remains unmeasured and unaccepted.
+The [October 28 expression protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/expression-protocol.json)
+records the prospective gate. The October 28 expression disposition drops
+this candidate under that frozen benefit gate. The unchanged 347-case
+comparison completed all 12,565 rows at 23.079365459 engine seconds for the
+accepted numeric baseline and 22.941843204 seconds for the candidate, a 0.596%
+reduction. No declared target family reached 10%; projection improved 2.897%,
+while grouped aggregation, global aggregation and composite did not improve.
+The undeclared strings-family result is not used for retention. There are no
+material case or family regression flags. Held-out replay passed all 160
+observations and 3,280,220 complete result rows. Candidate runtime and test
+changes were removed, restoring the accepted numeric implementation; local evidence retains the
+removal patch and source inventory for the consolidated acceptance packet.
+The accepted numeric baseline is unchanged.
+Full item 20 continues in consolidated PR #1619.
+
+The next group-key cache candidate has a frozen
+[prospective protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/group-key-cache-protocol.json).
+Its local implementation and validation are in progress. It has no accepted
+performance result and is not included in this documentation checkpoint.
+
+The following construction and reuse details preserve the evaluated proposal;
+they are not an accepted runtime change or a current-runtime description.
 
 The single-evaluation boundary is the existing bound expression's UTF8/binary
 output construction. Use native fallible host allocations, offsets, validity
@@ -376,7 +394,7 @@ identity policy. No dependency, provider permission, Arrow execution path or
 external query engine is introduced. Acceptance includes independently owned
 buffers, producer closure, exact lazy/error behavior and complete-query proof.
 
-For each candidate, freeze a record naming the removed operation, existing
+For any future expression candidate, freeze a record naming the removed operation, existing
 native owner reused, activation counter or profile, targeted cases and
 unrelated controls, plus the current prospective whole-query benefit and
 material-regression gates from the [shared-performance protocol](../benchmarks/native-shared-analytical-performance-2026-10-27.md).
@@ -392,9 +410,10 @@ IPC input and complete-API clock. ShardLoom's retained engine observations use
 Parquet; do not combine those clocks into a new speed ratio. No new performance
 claim follows from this queue.
 
-The counted-join, fused-measure, retained-output and borrowed-output mechanisms
-remain dropped. The borrowed-output result is documented above; the others
-retain their prior drop records. Broader item-20 obligations remain active,
+The counted-join, fused-measure, retained-output, borrowed-output and this
+expression candidate have failed their respective retention gates. The
+borrowed-output result is documented above; the others retain their drop
+records. Broader item-20 obligations remain active,
 including temporal/time-series workflows, statistical and richer aggregates,
 numeric semantics, recursive composition, explicit batch functions,
 diagnostics, resource/failure behavior and format/interface parity.

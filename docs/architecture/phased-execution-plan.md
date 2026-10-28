@@ -429,8 +429,9 @@ own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
-After the shared-numeric-values PR, the default delivery unit is one consolidated
-PR for the remaining item-20 checklist, with logical commits and validation
+The latest October 28 maintainer instruction keeps the shared-numeric-values
+work and remaining item-20 checklist together in PR #1619, held open through
+implementation and combined acceptance, with logical commits and validation
 checkpoints inside it. Split only at a concrete compatibility, dependency,
 generated-artifact or verification boundary; size alone is not a reason. Item 18
 and the subsequent 1.1.0 release retain their separate scope and sequence.
@@ -598,11 +599,21 @@ visible and independent; this implementation does not automatically close them.
     does not reproduce it. Complete fresh correctness, 202 installed tests,
     30 corruption controls and isolated portable replay pass. Numeric hosted
     acceptance remains separate. Continue the consolidated item-20 completion
-    PR, including expression construction/reuse and the unchanged-cohort
-    under-10-second stretch objective. Reuse existing
-    native owners and the current frozen benefit/regression protocol; retain the
-    dropped counted-join, fused-measure, retained-output and borrowed-output
-    decisions. This sequence does not replace the wider temporal/time-series,
+    PR, with the expression construction/reuse candidate explicitly dropped
+    under its frozen benefit gate. Its unchanged-cohort comparison completed
+    347 cases and 12,565 rows at 22.941843204 engine seconds versus the accepted
+    numeric baseline of 23.079365459 seconds (0.596% reduction); no declared
+    target family reached 10%, and there were no material regression flags.
+    Held-out replay passed 160 observations and 3,280,220 result rows. The
+    candidate runtime and test changes were removed, restoring the accepted
+    numeric implementation, as
+    recorded by the expression removal patch and source inventory. The requested
+    <=1 engine second for each of the grouped-aggregation, projection and
+    combined-join family totals remains a target, not an achieved result; the
+    347-case candidate aggregate timing does not establish those family targets.
+    Continue the full item-20 work in the same PR #1619. Retain the dropped
+    counted-join, fused-measure, retained-output and borrowed-output decisions.
+    This sequence does not replace the wider temporal/time-series,
     rich-aggregate, numeric, composition, batch-function, diagnostics, or
     format/interface obligations.
     Incremental persistence remains deferred; this does not close the broader
