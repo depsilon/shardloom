@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 original-width MIN/MAX and independently owned numeric output copying",
+  "source_before_runtime_edits": "24dde184",
+  "baseline_head": "74c7cd652b2fccaeb4fa12292be40137b2dd6a58",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/broad-key-r1/inputs.json",
+  "baseline_inputs_sha256": "05ee092e57d27d0bdfba8d0a8a6ebdddad1ba3970f0a774889328c3cabe22c0b",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/shared-key-value-2026-10-28/broad-key-r1/native-observations.json",
+  "baseline_observations_sha256": "24a1d0d26c1fd66156d7bc3e56ad493707ff60435b2ec75347b3c11b94f788f5",
+  "baseline_engine_seconds": 25.508976866,
+  "baseline_policy": "Reuse the accepted complete observation and independent references; no new baseline execution.",
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {"memory_bytes": 2147483648, "parallelism": 2},
+  "frozen_mechanisms": [
+    "Bind original-width numeric storage and validity once for ordered scalar and grouped MIN/MAX updates; preserve exact values, count/error order, partial state and first-value signed-zero ties.",
+    "Retain Vortex take/cast and independently owned allocator-backed output, replacing per-value scalar reconstruction with validated original-width copying; preserve null payload initialization, finite/temporal checks, ownership and cancellation."
+  ],
+  "activation_evidence": ["numeric extrema batches and rows", "independent numeric copy batches and rows", "reference-route state and error equality", "source/output owner and credit separation"],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.10,
+    "alternative_minimum_declared_family_reduction_fraction": 0.10,
+    "declared_families": ["grouped_aggregation", "global_aggregation", "joins", "multiway_joins", "composite"],
+    "material_case_regression": {"fraction": 0.20, "absolute_seconds": 0.01, "rule": "flag when both exceeded"},
+    "material_family_regression": {"fraction": 0.20, "absolute_seconds": 0.05, "rule": "flag when both exceeded"},
+    "flag_disposition": "Investigate every original material flag before advancing. Preserve all observations. Any additional execution requires a separately frozen bounded diagnostic reason and protocol.",
+    "correctness": "Complete typed outputs/schema, exact integer/float values, nulls, first ties, ordered errors/partial state, output lifetime, resource refusal/cancellation and admitted spill controls must pass. Otherwise drop and retain evidence."
+  },
+  "held_out_correctness": {
+    "seeds": [202610281711, 202610281927],
+    "rows": 32779,
+    "layouts": ["shuffled", "clustered"],
+    "domains": ["every_integer_width", "integer_extrema", "f32_f64_signed_zero", "empty_all_null", "encoded_and_changing_batches", "skewed_high_cardinality"],
+    "compositions": ["scalar_and_grouped_min_max_count_sum", "filtered_extrema", "inner_left_full_join", "duplicated_reordered_numeric_outputs", "retained_result_reuse"],
+    "scope": "Freeze actual inputs and complete independent expected values before execution. Correctness and activation only; no additional timed benefit cohort."
+  },
+  "execution_policy": "One isolated sequential 347-case pass with the existing worker, BenchmarkGuard, storage limits, deadlines, complete validation and process cleanup. Finish task-owned builds/tests/agents and keep task work idle during queries. Full hashes and recursive inventories only before/after execution. No cache manipulation or artificial pacing.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "prior_dropped_candidates": ["counted_join", "fused_measure", "retained_output", "borrowed_output"],
+  "new_competitor_observations": 0,
+  "full43_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false
+}

@@ -333,6 +333,44 @@ including temporal/time-series workflows, statistical and richer aggregates,
 numeric semantics, recursive composition, explicit batch functions,
 diagnostics, resource/failure behavior and format/interface parity.
 
+#### Typed numeric values candidate contract
+
+The next candidate retains the accepted shared-key runtime and its complete
+25.508976866-second observation as the baseline. Its
+[prospective protocol](../benchmarks/evidence/native-shared-numeric-values-2026-10-28/protocol.json)
+is frozen before runtime edits. Reuse the complete 347-case cohort once, without
+another baseline run; fresh correctness cases and activation tests remain
+separate from the benefit observation.
+
+Source inspection identifies two repeated operations in existing shared owners.
+Numeric MIN/MAX currently dispatches the physical type, constructs a scalar key
+and compares cloned generic cells for each row. Selected output copying already
+uses native Vortex take/cast and then reconstructs each numeric value through
+`StatValue`, `Value` and scalar writes. Retain native selection and independently
+owned output buffers; remove the repeated scalar dispatch/conversion, not the
+ownership copy. The earlier borrowed-output candidate remains dropped.
+
+Bind original-width numeric slices and validity once for scalar/grouped MIN/MAX.
+Preserve ordered updates, exact signed/unsigned limits, NULL skipping, finite
+float checks, first-value ties including signed zero, checked counts, partial
+state on failure and the original cancellation cadence. Other scalar, nested,
+decimal, temporal and distinct reducer paths retain their existing contracts.
+Copy selected numeric storage into the existing credited result buffers, with
+the same NULL slot initialization, declared dtype, selected-row validation,
+temporal tick checks and empty/clone/slice lifetime. Do not retain source buffers
+or move validation across a lazy observation boundary.
+
+Vortex-first decision: **use_vortex_native_provider** for the already-admitted
+PrimitiveArray, validity Mask, native take/cast and host allocation; extend the
+existing ShardLoom aggregate consumer and result builder. Pinned provider
+`to_buffer`/`as_slice` methods retain their physical-type/host preconditions.
+No provider, public schema, dependency, scheduler or external evaluator changes.
+Tests must compare every original-width result and error/partial-state outcome
+against the existing scalar route, exercise encoded/null/empty inputs, and prove
+independent output lifetime and cleanup through ordinary consumers. The frozen
+complete-query gate determines retention; source shape alone is not proof of a
+bottleneck or performance benefit.
+
 #### Shared key lookup and addressing candidate contract
 
 The accepted candidate extends `RowSet`, `RowIndex`, `Batch` and `Table` rather

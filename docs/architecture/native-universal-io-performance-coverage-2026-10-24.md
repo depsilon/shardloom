@@ -345,10 +345,38 @@ Before advancing to the version bump:
   complete result/readback checks, coverage gaps and retain/drop decisions.
 - [ ] Complete applicable workspace, native, installed-package and regression
   gates, merge the accepted work, and reconcile docs/capabilities and the ledger.
+- [ ] Refresh the README, field guide and website against that accepted state,
+  align generated surfaces, and pass documentation, site and runnable-example
+  checks before preparing the version bump.
 
 This is a future acceptance requirement, not a claim that the matrix has run or
 that performance parity is established. The version bump follows this evidence;
 package/channel proof and publication authorization retain their own gates.
+
+### Documentation and example closeout before 1.1.0
+
+At item-18 closeout, before preparing the 1.1.0 version bump, refresh the README,
+field guide and website to describe the accepted state through that point. This
+is a required pre-bump acceptance step; the full refresh belongs at closeout
+when the implemented scope and evidence are known. Keep generated website and
+documentation surfaces aligned with their maintained sources.
+
+The refreshed material must accurately cover accepted capabilities and ordinary
+default demand behavior; provide ordinary, runnable examples for each supported
+surface (CLI SQL, embedded workflow, Python SQL, DataFrame and typed native);
+explain admitted format and fidelity boundaries, unsupported combinations and
+diagnostics; report the current accepted performance evidence with its workload,
+clock and comparison limitations; and identify remaining gaps without implying
+that optional or unsupported work is complete. Examples must use the shared
+native execution path and preserve the no-fallback, Vortex-native and explicit
+compatibility-output contracts.
+
+Required closeout verification includes documentation, generated-site/website
+consistency, and example checks against the accepted runtime/package. Record the
+exact commands and results with item-18 acceptance evidence. Publication keeps
+its separate authorization and channel-proof requirements.
+
+### Shared execution and provider boundaries
 
 ShardLoom technique review: use metadata-first source pruning, retained source
 and result ownership, bounded capillary work units, existing PulseWeave producer
