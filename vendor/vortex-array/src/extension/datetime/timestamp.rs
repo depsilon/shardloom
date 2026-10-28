@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-// Modified by ShardLoom, 2026-10-11: preserve the full timezone-free microsecond
-// storage domain and format out-of-calendar values without panicking.
+// Modified by ShardLoom, 2026-10-27: preserve the full signed tick domain for
+// every timestamp unit and format out-of-calendar values without panicking.
+// Resolve named zones from the pinned embedded rules, never the host database.
 
 //! Temporal extension data types.
 
 use std::fmt;
 use std::sync::Arc;
 
-use jiff::Span;
 use jiff::fmt::temporal::DateTimeParser;
 use jiff::tz::TimeZone;
 use vortex_error::VortexExpect;
@@ -85,7 +85,12 @@ pub(crate) fn resolve_time_zone(name: Option<&str>) -> VortexResult<TimeZone> {
         Some(name) if name.starts_with('+') || name.starts_with('-') => {
             DateTimeParser::new().parse_time_zone(name)?
         }
-        Some(name) => TimeZone::get(name)?,
+        Some(name) => {
+            let (canonical, bytes) = jiff_tzdb::get(name)
+                .filter(|(canonical, _)| *canonical == name)
+                .ok_or_else(|| vortex_err!("Timezone is absent from the pinned IANA database"))?;
+            TimeZone::tzif(canonical, bytes)?
+        }
         None => TimeZone::UTC,
     })
 }
@@ -106,28 +111,27 @@ pub enum TimestampValue<'a> {
 
 impl fmt::Display for TimestampValue<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let TimestampValue::Microseconds(value, None) = self {
-            return match jiff::Timestamp::from_microsecond(*value) {
-                Ok(timestamp) => write!(f, "{timestamp}"),
-                Err(_) => write!(f, "{value}us since Unix epoch"),
-            };
-        }
-        let (span, tz) = match self {
-            TimestampValue::Seconds(v, tz) => (Span::new().seconds(*v), *tz),
-            TimestampValue::Milliseconds(v, tz) => (Span::new().milliseconds(*v), *tz),
-            TimestampValue::Microseconds(v, tz) => (Span::new().microseconds(*v), *tz),
-            TimestampValue::Nanoseconds(v, tz) => (Span::new().nanoseconds(*v), *tz),
+        let (value, unit, timestamp, tz) = match self {
+            TimestampValue::Seconds(v, tz) => (*v, "s", jiff::Timestamp::from_second(*v), *tz),
+            TimestampValue::Milliseconds(v, tz) => (*v, "ms", jiff::Timestamp::from_millisecond(*v), *tz),
+            TimestampValue::Microseconds(v, tz) => (*v, "us", jiff::Timestamp::from_microsecond(*v), *tz),
+            TimestampValue::Nanoseconds(v, tz) => (*v, "ns", jiff::Timestamp::new(*v / 1_000_000_000, (*v % 1_000_000_000) as i32), *tz),
         };
-        let ts = jiff::Timestamp::UNIX_EPOCH + span;
-
-        match tz {
-            None => write!(f, "{ts}"),
-            Some(tz) => {
-                let zone = resolve_time_zone(Some(tz)).vortex_expect("unknown timezone");
-                let adjusted_ts = ts.to_zoned(zone);
-                write!(f, "{adjusted_ts}",)
+        if let Ok(timestamp) = timestamp {
+            match tz {
+                None => return write!(f, "{timestamp}"),
+                Some(tz) => {
+                    if let Ok(zone) = resolve_time_zone(Some(tz)) {
+                        return write!(f, "{}", timestamp.to_zoned(zone));
+                    }
+                }
             }
         }
+        write!(f, "{value}{unit} since Unix epoch")?;
+        if let Some(tz) = tz {
+            write!(f, " [{tz}]")?;
+        }
+        Ok(())
     }
 }
 
@@ -219,40 +223,27 @@ impl ExtVTable for Timestamp {
         let ts_value = storage_value.as_primitive().cast::<i64>()?;
         let tz = metadata.tz.as_ref();
 
-        // Calendar formatting has a narrower domain than the physical storage.
-        // These scalars also represent exact min/max statistics and constants.
-        if metadata.unit == TimeUnit::Microseconds && tz.is_none() {
-            return Ok(TimestampValue::Microseconds(ts_value, None));
-        }
-
-        let (span, value) = match metadata.unit {
-            TimeUnit::Nanoseconds => (
-                Span::new().nanoseconds(ts_value),
-                TimestampValue::Nanoseconds(ts_value, tz),
-            ),
-            TimeUnit::Microseconds => (
-                Span::new().microseconds(ts_value),
-                TimestampValue::Microseconds(ts_value, tz),
-            ),
-            TimeUnit::Milliseconds => (
-                Span::new().milliseconds(ts_value),
-                TimestampValue::Milliseconds(ts_value, tz),
-            ),
-            TimeUnit::Seconds => (
-                Span::new().seconds(ts_value),
-                TimestampValue::Seconds(ts_value, tz),
-            ),
+        // Calendar operations have a narrower domain than storage, constants
+        // and statistics. Never construct a bounded Span to validate raw ticks.
+        let value = match metadata.unit {
+            TimeUnit::Nanoseconds => TimestampValue::Nanoseconds(ts_value, tz),
+            TimeUnit::Microseconds => TimestampValue::Microseconds(ts_value, tz),
+            TimeUnit::Milliseconds => TimestampValue::Milliseconds(ts_value, tz),
+            TimeUnit::Seconds => TimestampValue::Seconds(ts_value, tz),
             TimeUnit::Days => vortex_bail!("Timestamp does not support Days time unit"),
         };
 
-        // Validate the storage value is within the valid range for Timestamp.
-        jiff::Timestamp::UNIX_EPOCH
-            .checked_add(span)
-            .map_err(|e| vortex_err!("Invalid timestamp scalar: {}", e))?;
-
         if let Some(tz) = tz {
-            resolve_time_zone(Some(tz))
-                .map_err(|e| vortex_err!("Invalid timezone for timestamp scalar: {}", e))?;
+            // Scalar/statistics construction must not parse rule tables on
+            // every row. Native admission owns the stricter metadata contract.
+            if tz.starts_with('+') || tz.starts_with('-') {
+                DateTimeParser::new().parse_time_zone(tz.as_ref())?;
+            } else {
+                vortex_ensure!(
+                    jiff_tzdb::get(tz).is_some_and(|(canonical, _)| canonical == tz.as_ref()),
+                    "Timezone is absent from the pinned IANA database"
+                );
+            }
         }
 
         Ok(value)
@@ -279,6 +270,21 @@ mod tests {
         let dtype = DType::Extension(Timestamp::new(TimeUnit::Seconds, Nullable).erased());
         Scalar::try_new(dtype, Some(ScalarValue::Primitive(PValue::I64(0))))?;
 
+        Ok(())
+    }
+
+    #[test]
+    fn timestamp_storage_endpoints_do_not_require_a_calendar_value() -> VortexResult<()> {
+        for unit in [TimeUnit::Seconds, TimeUnit::Milliseconds, TimeUnit::Microseconds, TimeUnit::Nanoseconds] {
+            for timezone in [None, Some(Arc::from("UTC")), Some(Arc::from("+05:30"))] {
+                let dtype = DType::Extension(Timestamp::new_with_tz(unit, timezone, Nullable).erased());
+                for value in [i64::MIN, i64::MIN + 1, -1, 0, 1, i64::MAX - 1, i64::MAX] {
+                    let scalar = Scalar::try_new(dtype.clone(), Some(ScalarValue::Primitive(PValue::I64(value))))?;
+                    assert_eq!(scalar.as_extension().to_storage_scalar().as_primitive().as_::<i64>(), Some(value));
+                    assert!(!scalar.as_extension().to_string().is_empty());
+                }
+            }
+        }
         Ok(())
     }
 

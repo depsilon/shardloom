@@ -572,6 +572,7 @@ impl ResidentVortexSession {
             .with_handle(runtime.handle())
             .with_host_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
         crate::native_provider_memory::install(&session, memory.clone());
+        crate::native_temporal::register(&session);
         Ok(Self(Arc::new(RuntimeOwner {
             session,
             runtime,

@@ -17,7 +17,8 @@ impl ResidentMemorySource {
     /// Every referenced Arrow buffer is copied because its visible capacity does
     /// not establish its producer's complete retained allocation or immutability.
     /// The native `DType` retains field names, nullability and admitted logical types;
-    /// arbitrary Arrow application metadata is not retained. Extension fields fail.
+    /// arbitrary Arrow application metadata is not retained. Only the declared
+    /// `ShardLoom` duration extension marker is admitted on an Arrow duration field.
     /// # Errors
     /// Rejects unsupported schemas, malformed arrays, nonfinite logical values,
     /// cancellation, overflow or shared-memory denial before publishing the source.
@@ -49,7 +50,7 @@ impl ResidentMemorySource {
         let mut metadata_bytes = metadata.bytes();
         for field in schema.fields() {
             context.check_cancelled()?;
-            if field.metadata().contains_key("ARROW:extension:name") {
+            if !crate::native_payload_schema::arrow_field_metadata_admitted(field) {
                 return Err(memory_error(
                     "direct columnar intake does not admit Arrow extension fields",
                 ));
@@ -74,10 +75,11 @@ impl ResidentMemorySource {
         );
         let retained = arrow_ownership::copy_batch(batch, allocator.as_ref())?;
         context.check_cancelled()?;
+        let schema = crate::native_temporal::arrow::schema(schema.as_ref())?;
         let array = context
             .native_session()
             .arrow()
-            .from_arrow_record_batch(retained, schema.as_ref())
+            .from_arrow_record_batch(retained, &schema)
             .map_err(native_error)?;
         let input_logical_bytes = usize::try_from(array.nbytes()).map_err(native_error)?;
         context.check_cancelled()?;

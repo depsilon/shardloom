@@ -33,19 +33,23 @@ malformed framing and selected text fail explicitly. Canonical Vortex Zstd text
 uses this builder without changing compressed source bytes or serialization.
 
 This is the Apache-2.0 `vortex-array` 0.90.0 published source with a focused
-correction for timezone-free microsecond timestamp scalars. Vortex's timestamp
+correction for full-domain timestamp scalars. Vortex's timestamp
 extension uses Int64 storage, but the original scalar validator constructs a
 calendar span that can panic on valid storage values. Its display path repeats
 the conversion. This prevents safe extrema statistics and compression for the
 full storage domain already admitted by ShardLoom.
 
-The timestamp changes are confined to `src/extension/datetime/timestamp.rs`:
+The October 27 extension covers `src/extension/datetime/{timestamp,date,time}.rs`:
 
-- `Timestamp::unpack_native` retains every Int64 value for microseconds without
-  a timezone after the existing storage type validation.
-- `TimestampValue::fmt` uses Jiff's checked direct microsecond conversion for
-  that case. In-calendar display stays unchanged; other values render exactly
-  as `<integer>us since Unix epoch`.
+- `Timestamp::unpack_native` retains every Int64 value in seconds, milliseconds,
+  microseconds and nanoseconds after validating storage and timezone metadata.
+- `TimestampValue::fmt` uses checked calendar constructors. In-calendar display
+  retains the unit and presentation zone; out-of-calendar values render exact
+  ticks and metadata without panicking.
+- Date formatting uses checked calendar arithmetic; time-of-day admission
+  validates the half-open daily range before invoking a bounded constructor.
+- Zone validation uses the already-pinned bundled `jiff-tzdb` dependency rather
+  than a mutable host database. No dependency version is changed.
 
 The persisted-output work also changes count and byte-size merges in
 `src/stats/stats_set.rs` to checked `u64` addition. Overflow invalidates the
@@ -73,7 +77,7 @@ and rejects conflicting owners. On the tested 64-bit target, the hook adds
 The [transfer contract](../../docs/architecture/native-encoded-interchange-2026-10-12.md)
 requires lifetime, allocation, footprint and complete-lifecycle regression proof.
 
-Other temporal units and timezone policy are unchanged. The extension identity,
+The extension identity,
 metadata serialization, comparison rules, native arrays and file format are
 unchanged by this timestamp correction. There is no Arrow intermediate, new query
 engine or unchecked scalar construction in that correction. Ordinary calendar operations can
@@ -93,7 +97,9 @@ space escape in an ordinary string to preserve exactly the original expected
 snapshot bytes. Neither normalization changes provider behavior.
 
 The adapter regressions live in `shardloom-vortex/src/native_temporal.rs` and
-the existing writer tests. The full acceptance contract is
+the existing writer tests. The October 27 extension follows the
+[temporal fidelity contract](../../docs/architecture/native-analytical-completion-2026-10-27.md#temporal-fidelity-implementation-contract).
+The original acceptance contract is
 [`native-timestamp-provider-2026-10-11.md`](../../docs/architecture/native-timestamp-provider-2026-10-11.md).
 External readers built with the unpatched provider can still inherit its calendar
 restriction; this patch does not certify them.

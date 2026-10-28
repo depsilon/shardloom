@@ -3072,6 +3072,8 @@ dependencies = [
 name = "shardloom-core"
 version = "1.0.0"
 dependencies = [
+ "jiff",
+ "jiff-tzdb",
  "regex",
  "sha2",
 ]
@@ -3773,6 +3775,7 @@ dependencies = [
  "inventory",
  "itertools 0.14.0",
  "jiff",
+ "jiff-tzdb",
  "memchr",
  "num-traits",
  "num_enum",
@@ -3925,8 +3928,6 @@ dependencies = [
 [[package]]
 name = "vortex-datetime-parts"
 version = "0.90.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a67e541dca82970bf5ea3ad5ea47b02ab46f60cd53a2ada94e561aeabef74d2d"
 dependencies = [
  "num-traits",
  "prost 0.14.4",

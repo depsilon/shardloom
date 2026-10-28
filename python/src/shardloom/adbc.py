@@ -63,23 +63,52 @@ def _arrow_schema(frame):
 def _parameter_values(batch):
     import pyarrow as pa
     from .types import scalar
+    from ._temporal import canonical_temporal_name
+
+    def temporal_dtype(dtype):
+        if pa.types.is_date32(dtype):
+            return "date32"
+        if pa.types.is_date64(dtype):
+            return "date64"
+        if pa.types.is_time32(dtype) or pa.types.is_time64(dtype):
+            return canonical_temporal_name(f"time({dtype.unit})")
+        if pa.types.is_timestamp(dtype):
+            if dtype.unit == "us" and dtype.tz is None:
+                return "timestamp_micros"
+            zone = f",{dtype.tz}" if dtype.tz is not None else ""
+            return canonical_temporal_name(f"timestamp({dtype.unit}{zone})")
+        if pa.types.is_duration(dtype):
+            return canonical_temporal_name(f"duration({dtype.unit})")
+        return None
+
     values = {}
     supported = {pa.bool_(): "bool", pa.int64(): "int64", pa.uint64(): "uint64",
-                 pa.float64(): "float64", pa.string(): "utf8", pa.binary(): "binary", pa.date32(): "date32"}
+                 pa.float64(): "float64", pa.string(): "utf8", pa.binary(): "binary"}
     for index, field in enumerate(batch.schema):
         dtype = field.type
         if pa.types.is_null(dtype):
             values[field.name] = None
             continue
-        if pa.types.is_decimal128(dtype):
+        temporal = temporal_dtype(dtype)
+        if temporal is not None:
+            native = temporal
+        elif pa.types.is_decimal128(dtype):
             native = f"decimal128({dtype.precision},{dtype.scale})"
-        elif pa.types.is_timestamp(dtype) and dtype.unit == "us" and dtype.tz is None:
-            native = "timestamp_micros"
         else:
             native = supported.get(dtype)
         if native is None:
-            raise ValueError(f"ADBC parameter type {dtype} has no exact native scalar contract; cast it explicitly before binding")
-        values[field.name] = scalar(batch.column(index)[0].as_py(), {"type": native, "nullable": field.nullable})
+            raise ValueError(
+                f"ADBC parameter type {dtype} has no exact native scalar contract; "
+                "cast it explicitly before binding"
+            )
+        value = batch.column(index)[0]
+        if temporal is not None:
+            # PyArrow's Python conversion can truncate sub-microsecond timestamps
+            # and cannot represent the full signed 64-bit temporal domain.
+            value = value.value if value.is_valid else None
+        else:
+            value = value.as_py()
+        values[field.name] = scalar(value, {"type": native, "nullable": field.nullable})
     return values
 
 

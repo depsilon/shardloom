@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom, 2026-10-27: checked display for full physical date domains.
 
 use std::fmt;
 
@@ -68,11 +69,16 @@ pub enum DateValue {
 
 impl fmt::Display for DateValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let date = match self {
-            DateValue::Days(days) => EPOCH + Span::new().days(*days),
-            DateValue::Milliseconds(ms) => EPOCH + Span::new().milliseconds(*ms),
+        let (value, unit, days) = match self {
+            DateValue::Days(days) => (i64::from(*days), "d", Some(i64::from(*days))),
+            DateValue::Milliseconds(ms) => (*ms, "ms", (ms % 86_400_000 == 0).then_some(ms / 86_400_000)),
         };
-        write!(f, "{}", date)
+        if let Some(days) = days
+            && let Ok(date) = Span::new().try_days(days).and_then(|span| EPOCH.checked_add(span))
+        {
+            return write!(f, "{date}");
+        }
+        write!(f, "{value}{unit} since Unix epoch")
     }
 }
 

@@ -121,6 +121,7 @@ fn expression_reuse_keeps_lazy_branches_and_selected_inputs_out_of_scope() {
         Kind::Cast {
             input: Box::new(product()),
             tolerant: false,
+            temporal: None,
         },
         Kind::List(vec![product()]),
         Kind::Struct(vec![product()]),
@@ -211,6 +212,7 @@ fn expression_reuse_complete_lazy_results_preserve_branch_errors_and_cast_policy
             Kind::Cast {
                 input: Box::new(column("a")),
                 tolerant,
+                temporal: None,
             },
         )
     };

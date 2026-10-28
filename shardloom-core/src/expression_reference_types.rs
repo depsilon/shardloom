@@ -282,7 +282,7 @@ fn function_result_dtype(
                 _ => Utf8,
             })
         }
-        T::EpochMinute | T::EpochTruncate | T::JsonText | T::TimestampParse => {
+        T::EpochMinute | T::EpochTruncate | T::JsonText | T::TimestampParse | T::Temporal => {
             Err(EvalFailure::unsupported(
                 "function_call",
                 "function has no admitted reference result type",

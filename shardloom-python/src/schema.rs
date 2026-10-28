@@ -18,6 +18,7 @@ pub(super) fn fields(py: Python<'_>, fields: &Fields) -> PyResult<Py<PyList>> {
 fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
     let result = PyDict::new(py);
     result.set_item("nullable", field.is_nullable())?;
+    let temporal = shardloom_vortex::temporal_arrow::dtype(field.data_type());
     let name = match field.data_type() {
         DataType::Boolean => "bool",
         DataType::Int8 => "int8",
@@ -34,6 +35,10 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         DataType::Binary => "binary",
         DataType::Date32 => "date32",
         DataType::Timestamp(TimeUnit::Microsecond, None) => "timestamp_micros",
+        _ if temporal.is_some() => temporal
+            .as_ref()
+            .expect("present temporal metadata")
+            .as_str(),
         DataType::Decimal128(precision, scale) => {
             result.set_item("precision", precision)?;
             result.set_item("scale", scale)?;

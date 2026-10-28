@@ -10655,70 +10655,6 @@ fn strip_sql_binary_literal_keyword<'a>(raw: &'a str, keyword: &str) -> Option<&
 
 /// Split raw SQL expressions without decoding their string literals. Each
 /// expression parser owns the single unescape, including nested query arguments.
-fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
-    let mut values = Vec::new();
-    let mut current = String::new();
-    let mut chars = raw.chars().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut bracket_depth = 0_u32;
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\'' if in_quote && chars.peek() == Some(&'\'') => {
-                current.push('\'');
-                current.push('\'');
-                let _ = chars.next();
-            }
-            '\'' => {
-                in_quote = !in_quote;
-                current.push(ch);
-            }
-            '(' if !in_quote => {
-                depth += 1;
-                current.push(ch);
-            }
-            ')' if !in_quote => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression parentheses are not balanced")
-                })?;
-                current.push(ch);
-            }
-            '[' if !in_quote => {
-                bracket_depth += 1;
-                current.push(ch);
-            }
-            ']' if !in_quote => {
-                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression square brackets are not balanced")
-                })?;
-                current.push(ch);
-            }
-            ',' if !in_quote && depth == 0 && bracket_depth == 0 => {
-                values.push(current.trim().to_string());
-                current = String::new();
-            }
-            _ => current.push(ch),
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression parentheses are not balanced",
-        ));
-    }
-    if bracket_depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression square brackets are not balanced",
-        ));
-    }
-    if !current.trim().is_empty() {
-        values.push(current.trim().to_string());
-    }
-    Ok(values)
-}
-
 fn split_whitespace_outside_quotes(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     let mut values = Vec::new();
     let mut current = String::new();
@@ -13566,9 +13502,11 @@ mod tests {
                 max_input_rows,
                 batch_size,
                 cancellation: CancellationToken::default(),
+                memory: shardloom_exec::live_memory::LiveMemoryPool::new(1 << 20).unwrap(),
             },
             "direct JSONL test".into(),
-        );
+        )
+        .unwrap();
         (root, reader)
     }
 
@@ -13650,6 +13588,127 @@ mod tests {
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
+    fn direct_jsonl_temporal_schema_preserves_exact_ticks_and_zone_metadata() {
+        use shardloom_core::temporal::TemporalDType;
+        let declarations = [
+            "timestamp(ns,America/New_York)",
+            "time(ns)",
+            "duration(ns)",
+            "date64",
+        ];
+        let names = ["instant", "clock", "elapsed", "day"];
+        let columns = names
+            .iter()
+            .zip(declarations)
+            .map(|(name, dtype)| (*name, TemporalDType::parse(dtype).unwrap().logical()))
+            .collect::<Vec<_>>();
+        let (root, mut reader) = direct_jsonl_test_reader(
+            concat!(
+                r#"{"instant":9223372036854775807,"clock":"23:59:59.999999999","elapsed":"-17ns","day":"1969-12-31"}"#,
+                "\n",
+                r#"{"instant":null,"clock":null,"elapsed":null,"day":null}"#,
+                "\n"
+            ),
+            &columns,
+            2,
+            None,
+        );
+        let batch = reader.next().unwrap().unwrap();
+        for (index, (declaration, expected)) in declarations
+            .into_iter()
+            .zip([i64::MAX, 86_399_999_999_999, -17, -86_400_000])
+            .enumerate()
+        {
+            let column = batch.column(index);
+            assert_eq!(
+                shardloom_vortex::temporal_arrow::dtype(column.data_type())
+                    .unwrap()
+                    .as_str(),
+                declaration
+            );
+            assert_eq!(
+                shardloom_vortex::temporal_arrow::value(column.as_ref(), 0).unwrap(),
+                Some(expected)
+            );
+            assert_eq!(
+                shardloom_vortex::temporal_arrow::value(column.as_ref(), 1).unwrap(),
+                None
+            );
+        }
+        assert!(reader.next().is_none());
+        drop(reader);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn temporal_text_schema_admission_and_csv_json_semantics_agree() {
+        use shardloom_core::temporal::TemporalDType;
+        use shardloom_exec::live_memory::LiveMemoryPool;
+        let declarations = parse_vortex_ingest_schema_hints(
+            "instant:TIMESTAMP( NS, 'America/New_York' ), elapsed:duration(ns), day:date64",
+        )
+        .unwrap();
+        assert_eq!(declarations.len(), 3);
+        assert_eq!(declarations[0].1.as_str(), "timestamp(ns,America/New_York)");
+        assert!(parse_vortex_ingest_schema_hints("a:timestamp(ns,UTC").is_err());
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let dtype = &declarations[0].1;
+        assert!(BoundTextTemporalColumn::bind(dtype, &LiveMemoryPool::new(1).unwrap()).is_err());
+        let column = BoundTextTemporalColumn::bind(dtype, &memory)
+            .unwrap()
+            .unwrap();
+        assert!(memory.snapshot().reserved_bytes > 0);
+        let raw = "1970-01-01T00:00:00";
+        let csv =
+            parse_schema_declared_text_scalar(raw, dtype, "instant", "test", Some(&column.codec))
+                .unwrap();
+        let json = coerce_schema_declared_json_scalar(
+            ScalarValue::Utf8(raw.into()),
+            dtype,
+            "instant",
+            "test",
+            Some(&column.codec),
+        )
+        .unwrap();
+        assert_eq!(csv, json);
+        assert_eq!(
+            csv,
+            shardloom_core::temporal::TemporalValue::new(
+                18_000_000_000_000,
+                TemporalDType::parse("timestamp(ns,America/New_York)").unwrap()
+            )
+            .unwrap()
+            .into_scalar()
+        );
+        for raw in ["2024-03-10T02:30:00", "2024-11-03T01:30:00"] {
+            assert!(
+                parse_schema_declared_text_scalar(
+                    raw,
+                    dtype,
+                    "instant",
+                    "test",
+                    Some(&column.codec)
+                )
+                .is_err()
+            );
+        }
+        drop(column);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert!(
+            BoundTextTemporalColumn::bind(
+                &TemporalDType::parse("timestamp(ns,No/Such_Zone)")
+                    .unwrap()
+                    .logical(),
+                &memory
+            )
+            .is_err()
+        );
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
     fn direct_jsonl_builder_rejects_invalid_rows_before_emitting_a_batch() {
         let cases = [
             (r#"{"v":-1}"#, LogicalDType::UInt64),
@@ -13660,6 +13719,24 @@ mod tests {
             (r#"{"v":1}"#, LogicalDType::Binary),
             (r#"{"v":"not-date"}"#, LogicalDType::Date32),
             (r#"{"v":"not-time"}"#, LogicalDType::TimestampMicros),
+            (
+                r#"{"v":1}"#,
+                shardloom_core::temporal::TemporalDType::parse("date64")
+                    .unwrap()
+                    .logical(),
+            ),
+            (
+                r#"{"v":86400}"#,
+                shardloom_core::temporal::TemporalDType::parse("time(s)")
+                    .unwrap()
+                    .logical(),
+            ),
+            (
+                r#"{"v":"00:00:00.000000001"}"#,
+                shardloom_core::temporal::TemporalDType::parse("time(us)")
+                    .unwrap()
+                    .logical(),
+            ),
             (r#"{"v":"\x","v":"okay"}"#, LogicalDType::Utf8),
             (r#"{"v":1} trailing"#, LogicalDType::Int64),
             (r#"{"ignored":[1,}"#, LogicalDType::Int64),

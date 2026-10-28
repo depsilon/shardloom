@@ -235,7 +235,13 @@ pub(super) fn prepare_plan(
         && schema.fields().iter().any(|field| {
             matches!(
                 field.data_type(),
-                DataType::Decimal128(..) | DataType::Date32 | DataType::Timestamp(..)
+                DataType::Decimal128(..)
+                    | DataType::Date32
+                    | DataType::Date64
+                    | DataType::Time32(..)
+                    | DataType::Time64(..)
+                    | DataType::Timestamp(..)
+                    | DataType::Duration(..)
             )
         })
     {
@@ -276,7 +282,11 @@ fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
             return None;
         }
         let kind = nested::data_type(&dtype)?;
-        arrow_fields.push(Field::new(name.as_ref(), kind, dtype.is_nullable()));
+        arrow_fields.push(crate::native_temporal::arrow::field(&Field::new(
+            name.as_ref(),
+            kind,
+            dtype.is_nullable(),
+        )));
     }
     Some(Arc::new(Schema::new(arrow_fields)))
 }

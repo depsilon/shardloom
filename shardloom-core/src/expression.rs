@@ -54,6 +54,7 @@ pub enum ScalarValue {
     },
     Date32(i32),
     TimestampMicros(i64),
+    Temporal(crate::temporal::TemporalValue),
     List(Vec<ScalarValue>),
     Struct(Vec<(String, ScalarValue)>),
 }
@@ -73,6 +74,7 @@ impl ScalarValue {
             } => decimal128_dtype(*precision, *scale),
             Self::Date32(_) => LogicalDType::Date32,
             Self::TimestampMicros(_) => LogicalDType::TimestampMicros,
+            Self::Temporal(value) => value.dtype().logical(),
             Self::List(_) => LogicalDType::List,
             Self::Struct(_) => LogicalDType::Struct,
         }
@@ -101,6 +103,7 @@ impl ScalarValue {
             ),
             Self::Date32(v) => format!("date32:{v}"),
             Self::TimestampMicros(v) => format!("ts_micros:{v}"),
+            Self::Temporal(value) => format!("{}:{}", value.dtype().as_str(), value.value()),
             Self::List(v) => format!("list[len={}]", v.len()),
             Self::Struct(v) => format!("struct[fields={}]", v.len()),
         }

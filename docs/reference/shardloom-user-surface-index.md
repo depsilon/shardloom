@@ -44,7 +44,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `4029b12a60b59488f8cd9a2449d5d29cf523802e493de19290f80b397d185118` (SHA-256 of the listed source inputs).
+Source identity: `0697af169cfbc9288d2818177c283d4187aef10957a5b363632dc5029652115c` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -275,6 +275,10 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.string`](../../python/src/shardloom/types.py) | function | Declare string metadata for the native binder. |
 | [`shardloom.types.binary`](../../python/src/shardloom/types.py) | function | Declare binary metadata for the native binder. |
 | [`shardloom.types.date32`](../../python/src/shardloom/types.py) | function | Declare date32 metadata for the native binder. |
+| [`shardloom.types.date64`](../../python/src/shardloom/types.py) | function | Whole epoch days stored as signed millisecond ticks. |
+| [`shardloom.types.time`](../../python/src/shardloom/types.py) | function | Time of day in s, ms, us or ns, without timezone inference. |
+| [`shardloom.types.timestamp`](../../python/src/shardloom/types.py) | function | Civil ticks when naive; epoch ticks with an explicit presentation zone. |
+| [`shardloom.types.duration`](../../python/src/shardloom/types.py) | function | Signed elapsed ticks; calendar months and days are separate operations. |
 | [`shardloom.types.timestamp_micros`](../../python/src/shardloom/types.py) | function | Declare timestamp_micros metadata for the native binder. |
 | [`shardloom.types.decimal128`](../../python/src/shardloom/types.py) | function | Declare decimal128 metadata for the native binder. |
 | [`shardloom.types.list_`](../../python/src/shardloom/types.py) | function | Declare list_ metadata for the native binder. |

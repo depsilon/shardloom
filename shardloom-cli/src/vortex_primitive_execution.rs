@@ -4382,10 +4382,12 @@ fn parse_expression_scalar(
     null_policy: NullScalarPolicy,
 ) -> Result<ScalarValue, ShardLoomError> {
     if let Some(object) = value.as_object() {
-        let dtype = json_string_field(object, "type")?
-            .trim()
-            .to_ascii_lowercase()
-            .replace('-', "_");
+        let raw_dtype = json_string_field(object, "type")?.trim();
+        let dtype = shardloom_core::temporal::TemporalDType::parse_declaration(raw_dtype)
+            .map_or_else(
+                || raw_dtype.to_ascii_lowercase().replace('-', "_"),
+                |dtype| dtype.as_str().to_owned(),
+            );
         let Some(raw) = object.get("value") else {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "expression-project scalar {field} requires a value"
@@ -4465,7 +4467,8 @@ fn parse_exact_expression_scalar(
         parse_iso_timestamp_micros,
     };
     let decimal = decimal128_dtype_parts(&shardloom_core::LogicalDType::Extension(dtype.into()));
-    if !matches!(dtype, "binary" | "date32" | "timestamp_micros") && decimal.is_none() {
+    let temporal = shardloom_core::temporal::TemporalDType::parse(dtype);
+    if dtype != "binary" && temporal.is_none() && decimal.is_none() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "expression-project scalar {field} has unsupported type {dtype}"
         )));
@@ -4494,6 +4497,16 @@ fn parse_exact_expression_scalar(
             .map(ScalarValue::TimestampMicros)
             .or_else(|_| parse_iso_timestamp_micros(raw).map(ScalarValue::TimestampMicros))
             .map_err(|reason| invalid(reason.to_string())),
+        _ if temporal.is_some() => {
+            use shardloom_core::temporal::{TemporalValue, text::TemporalTextCodec};
+            let dtype = temporal.expect("admitted temporal type");
+            if let Ok(ticks) = raw.parse::<i64>() {
+                TemporalValue::new(ticks, dtype).map(TemporalValue::into_scalar)
+            } else {
+                TemporalTextCodec::new(dtype)?.parse_scalar(raw)
+            }
+            .map_err(|reason| invalid(reason.to_string()))
+        }
         _ => {
             let (precision, scale) = decimal.expect("admitted decimal type above");
             parse_decimal128_text(raw, precision, scale)

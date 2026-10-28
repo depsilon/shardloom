@@ -16,6 +16,13 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+default = []
+# Deterministic calendar provider, admitted only by native execution features.
+temporal-calendar = ["dep:jiff", "dep:jiff-tzdb"]
+
 [dependencies]
+jiff = { workspace = true, optional = true }
+jiff-tzdb = { workspace = true, optional = true }
 regex = { workspace = true }
 sha2 = { workspace = true }

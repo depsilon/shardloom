@@ -14,6 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+// Modified by ShardLoom, 2026-10-27: preserve timestamp presentation zones
+// when the stored Parquet unit differs from its Arrow schema hint.
 
 use crate::basic::{
     ConvertedType, IntType, LogicalType, TimeUnit as ParquetTimeUnit, Type as PhysicalType,
@@ -32,14 +34,18 @@ pub fn convert_primitive(
 ) -> Result<DataType> {
     let physical_type = from_parquet(parquet_type)?;
     Ok(match arrow_type_hint {
-        Some(hint) => apply_hint(physical_type, hint),
+        Some(hint) => apply_hint(
+            physical_type,
+            hint,
+            parquet_type.get_physical_type() == PhysicalType::INT96,
+        ),
         None => physical_type,
     })
 }
 
 /// Uses an type hint from the embedded arrow schema to aid in faithfully
 /// reproducing the data as it was written into parquet
-fn apply_hint(parquet: DataType, hint: DataType) -> DataType {
+fn apply_hint(parquet: DataType, hint: DataType, int96: bool) -> DataType {
     match (&parquet, &hint) {
         // Not all time units can be represented as LogicalType / ConvertedType
         (DataType::Int32 | DataType::Int64, DataType::Timestamp(_, _)) => hint,
@@ -55,6 +61,14 @@ fn apply_hint(parquet: DataType, hint: DataType) -> DataType {
 
         // Timestamps of the same resolution can be converted to a a different timezone.
         (DataType::Timestamp(p, _), DataType::Timestamp(h, Some(_))) if p == h => hint,
+
+        // Writers can rescale Arrow seconds to Parquet milliseconds while
+        // retaining the original Arrow schema. Keep the stored unit and the
+        // declared presentation zone; never reinterpret unchanged ticks as the
+        // hinted unit. INT96 retains its separate explicit conversion below.
+        (DataType::Timestamp(unit, _), DataType::Timestamp(_, Some(zone))) if !int96 => {
+            DataType::Timestamp(*unit, Some(zone.clone()))
+        }
 
         // INT96 default to Timestamp(TimeUnit::Nanosecond, None) (see from_parquet below).
         // Allow different resolutions to support larger date ranges.
@@ -95,7 +109,7 @@ fn apply_hint(parquet: DataType, hint: DataType) -> DataType {
         // Potentially preserve dictionary encoding
         (_, DataType::Dictionary(_, value)) => {
             // Apply hint to inner type
-            let hinted = apply_hint(parquet, value.as_ref().clone());
+            let hinted = apply_hint(parquet, value.as_ref().clone(), int96);
 
             // If matches dictionary value - preserve dictionary
             // otherwise use hinted inner type
@@ -351,6 +365,41 @@ mod tests {
     use super::*;
     use crate::basic::{DecimalType, Repetition};
     use crate::schema::types::Type;
+
+    #[test]
+    fn temporal_zone_hint_preserves_stored_units_and_int96_conversion() {
+        let zone = Some("America/New_York".into());
+        for stored in [
+            TimeUnit::Second,
+            TimeUnit::Millisecond,
+            TimeUnit::Microsecond,
+            TimeUnit::Nanosecond,
+        ] {
+            for hinted in [
+                TimeUnit::Second,
+                TimeUnit::Millisecond,
+                TimeUnit::Microsecond,
+                TimeUnit::Nanosecond,
+            ] {
+                assert_eq!(
+                    apply_hint(
+                        DataType::Timestamp(stored, None),
+                        DataType::Timestamp(hinted, zone.clone()),
+                        false
+                    ),
+                    DataType::Timestamp(stored, zone.clone())
+                );
+            }
+        }
+        assert_eq!(
+            apply_hint(
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+                DataType::Timestamp(TimeUnit::Second, zone.clone()),
+                true
+            ),
+            DataType::Timestamp(TimeUnit::Second, zone)
+        );
+    }
 
     // The PrimitiveTypeBuilder rejects bad lengths at construction. To exercise
     // the reader-side checks, build a valid type then overwrite its type_length,

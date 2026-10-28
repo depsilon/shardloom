@@ -54,20 +54,25 @@ define exact types, resource bounds and failure behavior.
 Current source builds after v0.5.1 admit explicit exact-width signed and unsigned
 integers, finite Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32,
 timezone-free microsecond timestamps, lists, fixed-size lists and ordered structs
-in native memory input. The original four scalar declarations, aliases and
-inference remain compatible; rich types require an explicit schema. Published
-v0.5.1 artifacts retain their release-time input types and limits. Input batches
-contain up to 2,048 row mappings; each frame is at most 8 MiB. An iterable is used
-once; a factory supplies fresh input on repeated execution. Current source builds
+in native memory input. Temporal fidelity work in the source tree extends the
+declared temporal metadata to Date64, time and timestamp units from seconds
+through nanoseconds, optional timestamp zones, and fixed durations. The
+source-build acceptance is in progress: declarations and boundary support do not
+alone establish complete workflow acceptance. Existing published packages keep
+their release-time type support and limits. The original four scalar declarations,
+aliases and inference remain compatible; rich types require an explicit schema.
+Input batches contain up to 2,048 row mappings; each frame is at most 8 MiB. An
+iterable is used once; a factory supplies fresh input on repeated execution. Current source builds
 admit growing field and batch metadata through the shared grant, without fixed
 total field or batch counts. In default resident mode (`streaming=False`), total
 native input must fit the shared grant.
 The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
 their release-time limits. Schema declarations still have an 8 MiB envelope.
-See the [typed native input contract](../architecture/native-typed-input-2026-10-10.md)
-for schema syntax, value conversion, nullability and the exact admitted recursive
-types.
+The original [typed native input contract](../architecture/native-typed-input-2026-10-10.md)
+records its date32 and timestamp-microsecond scope. The temporal fidelity
+continuation below describes the expanded source-build declarations; its
+acceptance remains open.
 
 Opt-in `streaming=True` consumes distinct finite batch sources once each, retaining at
 most one native input batch across the transaction. Current source composes
@@ -245,9 +250,9 @@ writer retention/metadata grants. It does not establish a total RSS bound or
 account for every existing aggregate state and upstream allocation. The
 [static nested contract](../architecture/native-nested-composition-2026-10-02.md)
 extends shared payload ownership, relational delivery and representable writers.
-The [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md)
-adds binary, exact Decimal128, Date32 and timezone-free microsecond timestamps,
-including nested leaves, to this delivery path. The subsequent [typed key contract](../architecture/native-typed-keys-2026-10-03.md)
+The original October 3 [typed payload acceptance](../architecture/native-typed-payloads-2026-10-03.md)
+was limited to binary, exact Decimal128, Date32 and timezone-free microsecond
+timestamps, including nested leaves. The dated [typed key contract](../architecture/native-typed-keys-2026-10-03.md)
 admits flat binary, exact Decimal128 with matching precision/scale, Date32 and
 timezone-free timestamp-microsecond equality, hashing and ordering through
 relational joins, sets, groups, windows and subqueries, plus COUNT/COUNT
@@ -274,7 +279,24 @@ zero discarded digits. Key compatibility still requires matching decimal
 precision/scale and preserves distinct temporal types. Wider analytic-window
 semantics, broader adapters and state spill remain separate. See the [typed
 expression contract](../architecture/native-typed-expressions-2026-10-03.md).
-Retained unary state also admits those four flat scalar domains for DISTINCT,
+The source-build temporal fidelity continuation declares `date64`, `time(s|ms|us|ns)`,
+`timestamp(s|ms|us|ns[,zone])` and `duration(s|ms|us|ns)`, retaining the
+`date32` and `timestamp_micros` aliases. Explicit integer ticks preserve
+nanoseconds and full signed-64-bit timestamp/duration values outside Python's
+calendar range. Unit casts are exact: overflow and nonzero discarded precision
+fail. Date64 ticks must land on whole epoch days, and time-of-day ticks must stay
+within one day.
+
+Timezone assignment resolves a naive civil timestamp using pinned IANA 2026a
+rules; timezone conversion keeps the instant, while removing the zone keeps its
+local civil fields. Assignment defaults to rejecting daylight-saving gaps/folds;
+`earlier` or `later` must be explicit. Fixed-duration arithmetic and
+calendar-day/month arithmetic are distinct; month-end policy defaults to
+`reject`, with `clamp` explicit. These are source-build APIs whose complete
+acceptance is still in progress; they do not establish as-of joins, resampling
+or gap-fill support.
+The dated [retained-unary acceptance](../architecture/native-typed-unary-2026-10-03.md)
+also admits those four flat scalar domains for DISTINCT,
 duplicate selection/masks, tail, sampling, scalar replacement/forward-fill,
 lossless melt, rolling COUNT and scoped pivot first/first-unique/COUNT. The
 nested contract adds the finite selected-value operations listed above; nested

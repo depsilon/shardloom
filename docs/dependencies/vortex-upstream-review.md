@@ -1,5 +1,19 @@
 # Vortex Upstream Dependency Review
 
+## October 27, 2026 temporal fidelity corrections
+
+The [temporal provider review](temporal-calendar-provider-review.md) retains the
+pinned dependency versions while expanding scalar storage admission and
+metadata fidelity. It adds the existing Jiff and bundled timezone database to
+the feature-gated core temporal boundary; extends the reviewed Vortex array
+patch; preserves presentation zones when Parquet timestamp hints use a different
+unit; and adds a separate DateTimeParts path patch for full-domain i64 day counts.
+The October 24 retirement of the old comparison patch remains valid: this new
+patch fixes a different truncation exposed by full-domain public readback.
+Archive/member provenance, Apache-2.0 notices and the package bundle track each
+change. Acceptance remains governed by the temporal work unit, without a new
+dependency version, external execution provider or publication claim.
+
 ## October 26, 2026 compression correction
 
 The [compression intake](../architecture/compression-dependency-intake-2026-10-26.md)

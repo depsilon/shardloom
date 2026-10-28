@@ -22,6 +22,7 @@ pub enum ScalarTypeRule {
     TimestampOffset,
     DateDifference,
     TimestampDifference,
+    Temporal,
     JsonText,
     TimestampParse,
     Coalesce,
@@ -56,6 +57,9 @@ impl ScalarTypeRule {
             Self::DateOffset => "Date32 and integer days -> Date32 with checked overflow",
             Self::TimestampOffset => {
                 "naive TimestampMicros and integer seconds -> TimestampMicros with checked overflow"
+            }
+            Self::Temporal => {
+                "typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow"
             }
             Self::JsonText => {
                 "UTF8 JSON and literal path -> nullable UTF8 JSON text, preserving string quotes and JSON null; missing path -> SQL null"
@@ -130,6 +134,116 @@ macro_rules! definitions {
 }
 
 definitions!(
+    (
+        "temporal_extract",
+        [],
+        2,
+        2,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Extract a literal calendar field from a typed date, time or timestamp."
+    ),
+    (
+        "temporal_trunc",
+        [],
+        2,
+        3,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Truncate a typed date, time or timestamp to a literal calendar boundary."
+    ),
+    (
+        "calendar_add_days",
+        [],
+        2,
+        3,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Add local calendar days with an explicit optional gap/fold policy."
+    ),
+    (
+        "calendar_add_months",
+        [],
+        2,
+        4,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Add calendar months with explicit optional month-end and gap/fold policies."
+    ),
+    (
+        "temporal_add_duration",
+        [],
+        2,
+        2,
+        Temporal,
+        Propagate,
+        "temporal_arithmetic",
+        false,
+        "Add a typed fixed duration exactly, retaining the left operand's unit."
+    ),
+    (
+        "temporal_sub_duration",
+        [],
+        2,
+        2,
+        Temporal,
+        Propagate,
+        "temporal_arithmetic",
+        false,
+        "Subtract a typed fixed duration exactly, retaining the left operand's unit."
+    ),
+    (
+        "timestamp_difference",
+        [],
+        2,
+        2,
+        Temporal,
+        Propagate,
+        "temporal_arithmetic",
+        false,
+        "Subtract timestamps with identical metadata to produce a typed duration."
+    ),
+    (
+        "timestamp_assign_timezone",
+        [],
+        2,
+        3,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Resolve naive civil ticks in a declared timezone, rejecting ambiguity by default."
+    ),
+    (
+        "timestamp_convert_timezone",
+        [],
+        2,
+        2,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Change an instant's presentation timezone without changing its ticks."
+    ),
+    (
+        "timestamp_remove_timezone",
+        [],
+        1,
+        1,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Remove a timezone while preserving the instant's local civil fields."
+    ),
     (
         "abs",
         ["numeric_abs"],

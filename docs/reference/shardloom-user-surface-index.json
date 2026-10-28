@@ -1390,18 +1390,18 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "4029b12a60b59488f8cd9a2449d5d29cf523802e493de19290f80b397d185118",
+    "source_identity": "0697af169cfbc9288d2818177c283d4187aef10957a5b363632dc5029652115c",
     "source_inputs": {
-      "Cargo.lock": "50bf3ecb0186991fdd485b84504688daa55809d4a3248f5704f9a6739154ffb2",
-      "Cargo.toml": "3a69e393d98a223cb408b591a9942546905256985323c86aca74b3b253595f28",
+      "Cargo.lock": "8e6ce74a58bb8c7a122f26d50b3f6289e63dd0bfe579924910050594af980ff5",
+      "Cargo.toml": "27f8efc2fe7d2f1775a24a4365a505a743eff309becbda7b1a104420bf9a8d0e",
       "docs/release/channel-proofs/pypi-v1.0.0-provenance.json": "0683b7562ba59fb40594d179a29d45c44fa51c564f9a03ecb55aa5b234505eba",
       "docs/release/package-channel-readiness-matrix.json": "a2ad776726a5eb9516e72f8e40d1894c2724e0da6c88b70358ec8fa1ebbfc5d9",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
       "python/src/shardloom/_exports.py": "e240641a663fc8a17cdfa256a3969f76aacc31348791f9fdc8909d35e2837a54",
-      "python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
+      "python/src/shardloom/_result_schema.py": "d174b14d2c08b896a5b3e96fbd489b6b830f0c0d245b236bfa16b2eb7a54cb1b",
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
       "python/src/shardloom/_window.py": "a9bceffed98349bda217a6f37e79e31c74900af87448d507f61a7f4eecb6a5e8",
-      "python/src/shardloom/adbc.py": "964357797727c1b71c4cde0dd4fe8da139cd636404511e9fcd3977f851889dad",
+      "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
       "python/src/shardloom/client.py": "4520fd52d9ea279f549e2e2c4cf52d3fa848abfb99982fe9932ef8f9cada9f16",
       "python/src/shardloom/context.py": "86149e9545dd650347f6c8e60688bb643f1318d70723325e7625172ab538daa1",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
@@ -1410,13 +1410,13 @@
       "python/src/shardloom/functions.py": "d38abc0f93568a9a793bdb0d9c7e3486b2f2bb9b31f110e9aeb1431de648ab58",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "2da2d7d8b50a9c555534c1c184bcd7a233a9aaf7b815ce2ceeb537226350c7a6",
+      "python/src/shardloom/query.py": "b80da1ea7c4997d098bf8d3dfd89fd005e9d44ead91ad61194f75e9f6768d6bb",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
-      "python/src/shardloom/types.py": "6911d19ba0cffca4db539644031fed7232b390c05f45f1f1a290334d3fcef348",
+      "python/src/shardloom/types.py": "71f2c9d225e59d9a090aea71db052ea6914e78c331a01be221cc6fbf3eae668b",
       "shardloom-cli/src/command_registry.rs": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2",
-      "shardloom-vortex/Cargo.toml": "f6ca60abf844ac2a2a9462d9464798f56fdd596e464130fbaf1b894ec9afd0fd"
+      "shardloom-vortex/Cargo.toml": "f43c4eba832bb9fe185e40a05d7773ad5cee6b38b6a65f3e234aaf4bb8d0b83a"
     },
     "python_symbols": [
       {
@@ -4847,6 +4847,42 @@
         "source": "python/src/shardloom/types.py",
         "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
         "summary": "Declare date32 metadata for the native binder."
+      },
+      {
+        "name": "date64",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Whole epoch days stored as signed millisecond ticks."
+      },
+      {
+        "name": "time",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(unit: 'str' = 'us', *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Time of day in s, ms, us or ns, without timezone inference."
+      },
+      {
+        "name": "timestamp",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(unit: 'str' = 'us', timezone: 'str | None' = None, *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Civil ticks when naive; epoch ticks with an explicit presentation zone."
+      },
+      {
+        "name": "duration",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(unit: 'str' = 'us', *, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Signed elapsed ticks; calendar months and days are separate operations."
       },
       {
         "name": "timestamp_micros",

@@ -110,7 +110,7 @@ pub(super) fn certificate(
         metrics.spilled_pivot_lookup_blocks.get(),
         metrics.spilled_pivot_reader_opens.get(),
     );
-    NativeIoCertificate::new(
+    let mut certificate = NativeIoCertificate::new(
         "native_relational.execution.v1",
         "native_vortex_sources_to_relational_batches",
         NativeIoSourceCapabilityReport {
@@ -267,5 +267,10 @@ pub(super) fn certificate(
             fallback_execution_allowed: false,
         },
         vec![],
-    )
+    )?;
+    let proof = &mut certificate.source_pushdown_report.proof_basis;
+    proof.push_str(" temporal_calendar_provider=jiff-0.2.35 temporal_timezone_database=");
+    proof.push_str(shardloom_core::temporal::timezone::database_version());
+    proof.push_str(" temporal_timezone_policy=pinned_embedded");
+    Ok(certificate)
 }

@@ -21,6 +21,7 @@ from typing import Any, Iterable, Mapping, Sequence, Union, cast
 from ._compat import dataclass
 from ._native_backend import NativePlanState
 from ._result_schema import ResultType, arrow_table, python_rows, schema_fields
+from ._temporal import parse_temporal_declaration
 from .errors import ShardLoomProtocolError
 from .client import (
     Binary,
@@ -843,19 +844,19 @@ class ColumnExpression:
         return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_add_days(self, days: object) -> "ColumnExpression":
-        """Return a scoped Date32 day-add expression for date predicates."""
+        """Return a scoped typed-date day-add expression; native admission checks its domain."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
         return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days), resource_limits=_predicate_limits(self, days))
 
     def date_sub_days(self, days: object) -> "ColumnExpression":
-        """Return a scoped Date32 day-subtract expression for date predicates."""
+        """Return a scoped typed-date day-subtract expression; native admission checks its domain."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
         return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days), resource_limits=_predicate_limits(self, days))
 
     def timestamp_add_seconds(self, seconds: object) -> "ColumnExpression":
-        """Return a scoped UTC timestamp second-add expression for predicates."""
+        """Return a scoped typed-timestamp second-add expression; native admission checks its domain."""
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
@@ -864,7 +865,7 @@ class ColumnExpression:
         )
 
     def timestamp_sub_seconds(self, seconds: object) -> "ColumnExpression":
-        """Return a scoped UTC timestamp second-subtract expression for predicates."""
+        """Return a scoped typed-timestamp second-subtract expression; native admission checks its domain."""
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
@@ -873,7 +874,7 @@ class ColumnExpression:
         )
 
     def date_diff_days(self, other: object) -> "ColumnExpression":
-        """Return a scoped Date32 day-difference expression."""
+        """Return a scoped typed-date day-difference expression."""
 
         return ColumnExpression(
             f"DATE_DIFF_DAYS({self.sql}, {_sql_temporal_difference_arg(other, 'date32')})",
@@ -882,7 +883,7 @@ class ColumnExpression:
         )
 
     def timestamp_diff_seconds(self, other: object) -> "ColumnExpression":
-        """Return a scoped UTC timestamp second-difference expression."""
+        """Return a scoped typed-timestamp second-difference expression."""
 
         return ColumnExpression(
             f"TIMESTAMP_DIFF_SECONDS({self.sql}, {_sql_temporal_difference_arg(other, 'timestamp_micros')})",
@@ -891,42 +892,42 @@ class ColumnExpression:
         )
 
     def date_year(self) -> "ColumnExpression":
-        """Return a scoped Date32 year-extract expression for date predicates."""
+        """Return a scoped typed-date year-extract expression for predicates."""
 
         return ColumnExpression(f"DATE_YEAR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_month(self) -> "ColumnExpression":
-        """Return a scoped Date32 month-extract expression for date predicates."""
+        """Return a scoped typed-date month-extract expression for predicates."""
 
         return ColumnExpression(f"DATE_MONTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_day(self) -> "ColumnExpression":
-        """Return a scoped Date32 day-of-month extract expression for date predicates."""
+        """Return a scoped typed-date day-of-month extract expression for predicates."""
 
         return ColumnExpression(f"DATE_DAY({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_year(self) -> "ColumnExpression":
-        """Return a scoped UTC timestamp year-extract expression for predicates."""
+        """Return a scoped typed-timestamp year-extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_month(self) -> "ColumnExpression":
-        """Return a scoped UTC timestamp month-extract expression for predicates."""
+        """Return a scoped typed-timestamp month-extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_day(self) -> "ColumnExpression":
-        """Return a scoped UTC timestamp day-of-month extract expression for predicates."""
+        """Return a scoped typed-timestamp day-of-month extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_DAY({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_hour(self) -> "ColumnExpression":
-        """Return a scoped UTC timestamp hour extract expression for predicates."""
+        """Return a scoped typed-timestamp hour extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_minute(self) -> "ColumnExpression":
-        """Return a scoped UTC timestamp minute extract expression for predicates."""
+        """Return a scoped typed-timestamp minute extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
@@ -944,9 +945,85 @@ class ColumnExpression:
         return ColumnExpression(f"DATE_TRUNC_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_second(self) -> "ColumnExpression":
-        """Return a scoped UTC timestamp second extract expression for predicates."""
+        """Return a scoped typed-timestamp second extract expression for predicates."""
 
         return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def temporal_extract(self, part: str) -> "ColumnExpression":
+        """Declare extraction of a literal calendar part; native admission validates support."""
+
+        return self._temporal_call("temporal_extract", _temporal_control_literal("part", part))
+
+    def temporal_trunc(self, part: str, *, ambiguity: str = "reject") -> "ColumnExpression":
+        """Declare truncation to a calendar part with an explicit ambiguity policy."""
+
+        return self._temporal_call(
+            "temporal_trunc", _temporal_control_literal("part", part),
+            _temporal_control_literal("ambiguity", ambiguity),
+        )
+
+    def calendar_add_days(self, days: object, *, ambiguity: str = "reject") -> "ColumnExpression":
+        """Declare local calendar-day arithmetic with explicit ambiguity policy."""
+
+        return self._temporal_call(
+            "calendar_add_days", _temporal_value_sql(days),
+            _temporal_control_literal("ambiguity", ambiguity), sources=(days,),
+        )
+
+    def calendar_add_months(
+        self, months: object, *, month_end: str = "reject", ambiguity: str = "reject"
+    ) -> "ColumnExpression":
+        """Declare calendar-month arithmetic with explicit month-end and ambiguity policies."""
+
+        return self._temporal_call(
+            "calendar_add_months", _temporal_value_sql(months),
+            _temporal_control_literal("month_end", month_end),
+            _temporal_control_literal("ambiguity", ambiguity), sources=(months,),
+        )
+
+    def temporal_add_duration(self, other: object) -> "ColumnExpression":
+        """Declare typed temporal addition by a fixed duration."""
+
+        return self._temporal_call("temporal_add_duration", _temporal_value_sql(other), sources=(other,))
+
+    def temporal_sub_duration(self, other: object) -> "ColumnExpression":
+        """Declare typed temporal subtraction by a fixed duration."""
+
+        return self._temporal_call("temporal_sub_duration", _temporal_value_sql(other), sources=(other,))
+
+    def timestamp_difference(self, other: object) -> "ColumnExpression":
+        """Declare a typed difference between timestamps."""
+
+        return self._temporal_call("timestamp_difference", _temporal_value_sql(other), sources=(other,))
+
+    def timestamp_assign_timezone(
+        self, timezone: str, *, ambiguity: str = "reject"
+    ) -> "ColumnExpression":
+        """Declare timezone assignment with explicit ambiguity policy."""
+
+        return self._temporal_call(
+            "timestamp_assign_timezone", _temporal_control_literal("timezone", timezone),
+            _temporal_control_literal("ambiguity", ambiguity),
+        )
+
+    def timestamp_convert_timezone(self, timezone: str) -> "ColumnExpression":
+        """Change a zoned instant's presentation zone while preserving its ticks."""
+
+        return self._temporal_call(
+            "timestamp_convert_timezone", _temporal_control_literal("timezone", timezone)
+        )
+
+    def timestamp_remove_timezone(self) -> "ColumnExpression":
+        """Remove a timestamp's zone while preserving its local civil fields."""
+
+        return self._temporal_call("timestamp_remove_timezone")
+
+    def _temporal_call(
+        self, name: str, *arguments: str, sources: tuple[object, ...] = ()
+    ) -> "ColumnExpression":
+        sql = f"{name.upper()}({', '.join((self.sql, *arguments))})"
+        values = (self, *sources)
+        return ColumnExpression(sql, _predicate_sources(*values), resource_limits=_predicate_limits(*values))
 
 
 @dataclass(frozen=True, slots=True)
@@ -10127,7 +10204,11 @@ def _format_named_aggregate(name: object, expression: object) -> str:
 def _normalize_cast_dtype(value: object) -> str:
     if isinstance(value, ResultType):
         value = "boolean" if value.name == "bool" else value.label
-    dtype = _require_non_empty("cast dtype", value).lower()
+    raw_dtype = _require_non_empty("cast dtype", value)
+    temporal = parse_temporal_declaration(raw_dtype)
+    if temporal is not None:
+        return temporal
+    dtype = raw_dtype.lower()
     if dtype == "timestamp":
         dtype = "timestamp_micros"
     if dtype in {"blob", "varbinary"}:
@@ -10362,6 +10443,20 @@ def _sql_literal(value: object) -> str:
     )
 
 
+def _temporal_control_literal(name: str, value: object) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"temporal {name} must be a string literal")
+    return _sql_literal(value)
+
+
+def _temporal_value_sql(value: object) -> str:
+    if isinstance(value, ColumnExpression):
+        if not value.sql.strip():
+            raise ValueError("temporal expression must not be empty")
+        return value.sql
+    return _sql_literal(value)
+
+
 def _sql_decimal_literal(value: Decimal) -> str:
     """Carry exact declared decimal values; the native kernel owns evaluation."""
     precision, scale = _decimal_literal_metadata(value)
@@ -10416,7 +10511,8 @@ def _vortex_expression_scalar_payload(
         if isinstance(value, str):
             return {"type": "utf8", "value": value}
         return _vortex_exact_scalar_payload(value)
-    dtype = target_dtype.strip().lower().replace("-", "_")
+    temporal = parse_temporal_declaration(target_dtype)
+    dtype = temporal or target_dtype.strip().lower().replace("-", "_")
     decimal_dtype = _normalize_decimal_cast_dtype(dtype)
     supported_dtype = dtype in {
         "bool",
@@ -10436,7 +10532,7 @@ def _vortex_expression_scalar_payload(
         "binary",
         "date32",
         "timestamp_micros",
-    } or decimal_dtype is not None
+    } or decimal_dtype is not None or temporal is not None
     if value is None:
         if not allow_null:
             return None
@@ -10447,6 +10543,15 @@ def _vortex_expression_scalar_payload(
         if isinstance(value, int) and not isinstance(value, bool) and -(1 << 63) <= value < (1 << 64):
             return {"type": "int64" if value < (1 << 63) else "uint64", "value": value}
         return None
+    if temporal is not None:
+        if temporal in {"date32", "timestamp_micros"}:
+            literal = _vortex_exact_scalar_payload(value)
+            return literal if literal is not None and literal["type"] == temporal else None
+        from ._input_schema import temporal_input_value
+        try:
+            return {"type": temporal, "value": str(temporal_input_value(temporal, value))}
+        except (ValueError, TypeError):
+            return None
     if dtype in {"binary", "date32", "timestamp_micros"}:
         literal = _vortex_exact_scalar_payload(value)
         return literal if literal is not None and literal["type"] == dtype else None
@@ -12734,6 +12839,8 @@ def _infer_python_scalar_dtype(value: object) -> str:
 def _normalize_schema_dtype_token(value: str | None) -> str | None:
     if value is None:
         return None
+    if temporal := parse_temporal_declaration(value):
+        return temporal
     normalized = value.strip().lower().replace("-", "_")
     aliases = {
         "boolean": "bool",

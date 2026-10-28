@@ -168,6 +168,8 @@ pub mod specialized_kernel_registry;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod streaming_batch_runtime;
+#[cfg(feature = "universal-format-io")]
+pub mod temporal_arrow;
 pub mod top_level_facade;
 #[cfg(feature = "universal-format-io")]
 pub mod universal_format_io;

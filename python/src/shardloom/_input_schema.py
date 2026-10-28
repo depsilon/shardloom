@@ -11,6 +11,7 @@ import struct
 from typing import Mapping, Sequence
 
 from ._result_schema import ResultType
+from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
 _MAX_BYTES = 8 << 20
@@ -79,7 +80,8 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
     token = parameters.get("type")
     if not isinstance(token, str):
         raise TypeError("native input type requires a string type name")
-    token = _ALIASES.get(token.lower(), token.lower())
+    temporal = parse_temporal_declaration(token)
+    token = temporal or _ALIASES.get(token.lower(), token.lower())
     nullable = parameters.get("nullable", True)
     if type(nullable) is not bool:
         raise TypeError("native input nullable must be a bool")
@@ -92,7 +94,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         allowed.add("fields")
     if set(parameters) - allowed:
         raise ValueError("unknown native input type parameters")
-    if token in _PRIMITIVES | {"bool", "utf8", "binary", "date32", "timestamp_micros"}:
+    if temporal is not None or token in _PRIMITIVES | {"bool", "utf8", "binary"}:
         return ResultType(token, nullable)
     if match := re.fullmatch(r"decimal128\(([0-9]+),\s*([0-9]+)\)", token):
         # Bound text before integer conversion, including hostile giant digits.
@@ -152,11 +154,8 @@ def _wire_type(dtype: ResultType) -> object:
     if name == "decimal128":
         precision, scale = dtype.parameters
         return {"Decimal": [{"precision": precision, "scale": scale}, nullable]}
-    if name in {"date32", "timestamp_micros"}:
-        date = name == "date32"
-        return {"Extension": {"id": "vortex.date" if date else "vortex.timestamp",
-                "storage_dtype": {"Primitive": ["i32" if date else "i64", nullable]},
-                "metadata": [4] if date else [1, 0, 0]}}
+    if temporal := encode_temporal_dtype(name, nullable):
+        return temporal
     if name in {"list", "fixed_size_list"}:
         child = _wire_type(dtype.parameters[0])
         return {"List": [child, nullable]} if name == "list" else {
@@ -266,19 +265,8 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         return bytes(value).hex()
     if name == "decimal128":
         return _decimal(value, dtype)
-    if name == "date32":
-        if isinstance(value, dt.datetime):
-            raise TypeError("native date32 input requires a date, not a datetime")
-        if isinstance(value, dt.date):
-            value = (value - dt.date(1970, 1, 1)).days
-        return _integer(value, 32, True)
-    if name == "timestamp_micros":
-        if isinstance(value, dt.datetime):
-            if value.tzinfo is not None:
-                raise ValueError("native timestamp_micros input requires a naive datetime")
-            delta = value - dt.datetime(1970, 1, 1)
-            value = ((delta.days * 86400 + delta.seconds) * 1_000_000 + delta.microseconds)
-        return _integer(value, 64, True)
+    if temporal_parts(name) is not None:
+        return temporal_input_value(name, value)
     if name in {"list", "fixed_size_list"}:
         if isinstance(value, (str, bytes, bytearray, memoryview)) or not isinstance(value, Sequence):
             raise TypeError("native list input requires a sequence")
@@ -296,3 +284,41 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
             result[field] = _value(value[field], child, budget)
         return result
     raise ValueError("unsupported native input value")
+
+
+def temporal_input_value(name: str, value: object) -> int:
+    """Normalize explicitly supplied objects or ticks without a host-zone lookup."""
+    parts = temporal_parts(name)
+    if parts is None:
+        raise ValueError("unsupported temporal input type")
+    family, unit, zone = parts
+    micros = None
+    if family in {"date32", "date64"}:
+        if isinstance(value, dt.datetime):
+            raise TypeError("native date input requires a date, not a datetime")
+        if isinstance(value, dt.date):
+            value = (value - dt.date(1970, 1, 1)).days * (86_400_000 if family == "date64" else 1)
+    elif family == "timestamp" and isinstance(value, dt.datetime):
+        offset = value.utcoffset()
+        if (zone is None) != (offset is None):
+            raise ValueError("naive and timezone-bearing timestamp inputs require matching datetime awareness")
+        # The caller explicitly supplied this offset. The declared zone is
+        # presentation metadata; input does not infer or assign a host zone.
+        civil = value.replace(tzinfo=None)
+        delta = civil - dt.datetime(1970, 1, 1)
+        if offset is not None:
+            delta -= offset
+        micros = (delta.days * 86_400 + delta.seconds) * 1_000_000 + delta.microseconds
+    elif family == "time" and isinstance(value, dt.time):
+        if value.tzinfo is not None:
+            raise ValueError("time-of-day input cannot carry timezone metadata")
+        micros = ((value.hour * 60 + value.minute) * 60 + value.second) * 1_000_000 + value.microsecond
+    elif family == "duration" and isinstance(value, dt.timedelta):
+        micros = (value.days * 86_400 + value.seconds) * 1_000_000 + value.microseconds
+    if micros is not None:
+        nanos = micros * 1_000
+        divisor = {"s": 1_000_000_000, "ms": 1_000_000, "us": 1_000, "ns": 1}[unit]
+        if nanos % divisor:
+            raise ValueError("temporal input conversion would discard fractional precision")
+        value = nanos // divisor
+    return validate_temporal_ticks(name, value)

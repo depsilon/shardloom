@@ -42,10 +42,10 @@ use shardloom_exec::{
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
-    Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array,
-    Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
-    LargeStringArray, RecordBatch, StringArray, StringViewArray, TimestampMicrosecondArray,
-    UInt8Array, UInt16Array, UInt32Array, UInt64Array, cast::AsArray as _,
+    Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Float32Array,
+    Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
+    LargeStringArray, RecordBatch, StringArray, StringViewArray, UInt8Array, UInt16Array,
+    UInt32Array, UInt64Array, cast::AsArray as _,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_schema::DataType as ArrowDataType;
@@ -156,6 +156,7 @@ impl NativeIngestMemory {
             .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 pool.clone(),
             )));
+        crate::native_temporal::register(&session);
         Self {
             pool,
             session,
@@ -11995,11 +11996,12 @@ fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::arra
     use vortex::VortexSessionDefault as _;
     use vortex::arrow::ArrowSessionExt as _;
 
-    let schema = batch.schema();
+    let schema = crate::native_temporal::arrow::schema(batch.schema().as_ref())?;
     let session = vortex::session::VortexSession::default();
+    crate::native_temporal::register(&session);
     session
         .arrow()
-        .from_arrow_record_batch(batch, schema.as_ref())
+        .from_arrow_record_batch(batch, &schema)
         .map_err(vortex_error)
 }
 
@@ -12104,11 +12106,11 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             memory.input_ownership,
         )?;
         timing.record_ownership(ownership_started.elapsed(), rows, ownership_counts);
-        let schema = retained.schema();
+        let schema = crate::native_temporal::arrow::schema(retained.schema().as_ref())?;
         let result = memory
             .session
             .arrow()
-            .from_arrow_record_batch(retained, schema.as_ref())
+            .from_arrow_record_batch(retained, &schema)
             .map_err(vortex_error);
         // Admitted copied/transferred input buffers and later allocator buffers
         // hold their own credits. Other source owners remain excluded;
@@ -12783,7 +12785,7 @@ fn scalar_column_families(
                     )));
                 };
                 if let Some(existing) = family {
-                    if let Some(merged) = existing.merge(candidate) {
+                    if let Some(merged) = existing.merge(&candidate) {
                         family = Some(merged);
                     } else {
                         let existing = existing.label();
@@ -12818,6 +12820,7 @@ fn scalar_family_from_dtype_hint(
         LogicalDType::Binary => Ok(Some(ScalarFamily::Binary)),
         LogicalDType::Date32 => Ok(Some(ScalarFamily::Date32)),
         LogicalDType::TimestampMicros => Ok(Some(ScalarFamily::TimestampMicros)),
+        LogicalDType::Temporal(dtype) => Ok(Some(ScalarFamily::Temporal(dtype.clone()))),
         LogicalDType::Extension(value) if value.starts_with("decimal128") => {
             let (precision, scale) =
                 scalar_decimal128_dtype_precision_scale(column, value)?.ok_or_else(|| {
@@ -12836,7 +12839,7 @@ fn scalar_family_from_dtype_hint(
 }
 
 #[cfg(feature = "vortex-write")]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum ScalarFamily {
     Boolean,
     Int64,
@@ -12850,6 +12853,7 @@ enum ScalarFamily {
     },
     Date32,
     TimestampMicros,
+    Temporal(shardloom_core::temporal::TemporalDType),
     #[cfg(feature = "universal-format-io")]
     List,
     #[cfg(feature = "universal-format-io")]
@@ -12858,7 +12862,7 @@ enum ScalarFamily {
 
 #[cfg(feature = "vortex-write")]
 impl ScalarFamily {
-    fn label(self) -> String {
+    fn label(&self) -> String {
         match self {
             Self::Boolean => "boolean".to_string(),
             Self::Int64 => "int64".to_string(),
@@ -12869,6 +12873,7 @@ impl ScalarFamily {
             Self::Decimal128 { precision, scale } => format!("decimal128({precision},{scale})"),
             Self::Date32 => "date32".to_string(),
             Self::TimestampMicros => "timestamp_micros".to_string(),
+            Self::Temporal(dtype) => dtype.as_str().to_owned(),
             #[cfg(feature = "universal-format-io")]
             Self::List => "list".to_string(),
             #[cfg(feature = "universal-format-io")]
@@ -12876,7 +12881,7 @@ impl ScalarFamily {
         }
     }
 
-    fn merge(self, candidate: Self) -> Option<Self> {
+    fn merge(&self, candidate: &Self) -> Option<Self> {
         if matches!(
             (self, candidate),
             (Self::Float64, Self::Int64 | Self::UInt64)
@@ -12887,13 +12892,16 @@ impl ScalarFamily {
             return Some(Self::Float64);
         }
         if self.label_eq(candidate) {
-            Some(self)
+            Some(self.clone())
         } else {
             None
         }
     }
 
-    fn label_eq(self, candidate: Self) -> bool {
+    fn label_eq(&self, candidate: &Self) -> bool {
+        if let (Self::Temporal(left), Self::Temporal(right)) = (self, candidate) {
+            return left == right;
+        }
         matches!(
             (self, candidate),
             (Self::Boolean, Self::Boolean)
@@ -12949,6 +12957,7 @@ fn scalar_family(value: &ScalarValue) -> Option<ScalarFamily> {
         }),
         ScalarValue::Date32(_) => Some(ScalarFamily::Date32),
         ScalarValue::TimestampMicros(_) => Some(ScalarFamily::TimestampMicros),
+        ScalarValue::Temporal(value) => Some(ScalarFamily::Temporal(value.dtype().clone())),
         #[cfg(feature = "universal-format-io")]
         ScalarValue::List(_) => Some(ScalarFamily::List),
         #[cfg(feature = "universal-format-io")]
@@ -13168,6 +13177,9 @@ fn columnar_column_families_from_schema(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) -> Result<String> {
+    if let Some(dtype) = crate::temporal_arrow::dtype(dtype) {
+        return Ok(dtype.as_str().to_owned());
+    }
     if let Some(family) = nested::family(dtype)? {
         return Ok(family.to_string());
     }
@@ -13194,10 +13206,6 @@ fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) ->
         ArrowDataType::Binary | ArrowDataType::LargeBinary | ArrowDataType::BinaryView => {
             Ok("binary".to_string())
         }
-        ArrowDataType::Date32 => Ok("date32".to_string()),
-        ArrowDataType::Timestamp(arrow_schema::TimeUnit::Microsecond, _) => {
-            Ok("timestamp_micros".to_string())
-        }
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted"
         ))),
@@ -13218,6 +13226,7 @@ fn columnar_family_from_dtype_hint(
         Some(LogicalDType::Binary) => Ok("binary".to_string()),
         Some(LogicalDType::Date32) => Ok("date32".to_string()),
         Some(LogicalDType::TimestampMicros) => Ok("timestamp_micros".to_string()),
+        Some(LogicalDType::Temporal(dtype)) => Ok(dtype.as_str().to_owned()),
         Some(LogicalDType::Extension(value)) if value.starts_with("decimal128") => {
             let (precision, scale) =
                 scalar_decimal128_dtype_precision_scale(column, value)?.ok_or_else(|| {
@@ -13264,6 +13273,9 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
+    if let Some(dtype) = crate::temporal_arrow::dtype(array.data_type()) {
+        return Ok(dtype.as_str().to_owned());
+    }
     if let Some(family) = nested::family(array.data_type())? {
         nested::validate_values(column, array)?;
         return Ok(family.to_string());
@@ -13308,12 +13320,6 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
         || array.as_any().is::<BinaryViewArray>()
     {
         return Ok("binary".to_string());
-    }
-    if array.as_any().is::<Date32Array>() {
-        return Ok("date32".to_string());
-    }
-    if array.as_any().is::<TimestampMicrosecondArray>() {
-        return Ok("timestamp_micros".to_string());
     }
     Err(ShardLoomError::InvalidOperation(format!(
         "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
@@ -13418,6 +13424,19 @@ fn columnar_column_to_vortex_array(
     use vortex::array::validity::Validity;
     use vortex::buffer::BitBuffer;
 
+    if let Some(dtype) = shardloom_core::temporal::TemporalDType::parse(family) {
+        if !arrays.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local vortex_ingest column '{column}' temporal arrays require the Arrow RecordBatch provider; no fallback execution was attempted"
+            )));
+        }
+        let native = crate::native_temporal::vortex_dtype(
+            &dtype,
+            vortex::array::dtype::Nullability::Nullable,
+        )?;
+        return Ok(vortex::array::Canonical::empty(&native).into_array());
+    }
+
     match family {
         "boolean" => Ok(BoolArray::new(
             BitBuffer::from(columnar_boolean_values(column, arrays)?),
@@ -13444,14 +13463,6 @@ fn columnar_column_to_vortex_array(
             let values = columnar_binary_values(column, arrays)?;
             Ok(VarBinViewArray::from_iter_bin(values.iter().map(Vec::as_slice)).into_array())
         }
-        "date32" => Ok(columnar_date32_values(column, arrays)?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
-        "timestamp_micros" => Ok(columnar_timestamp_micros_values(column, arrays)?
-            .into_iter()
-            .collect::<PrimitiveArray>()
-            .into_array()),
         family if family.starts_with("decimal128(") => {
             empty_columnar_decimal128_to_vortex_array(column, family, arrays)
         }
@@ -13608,36 +13619,6 @@ fn columnar_binary_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn columnar_date32_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i32>> {
-    let mut values = Vec::with_capacity(columnar_array_len(arrays));
-    for array in arrays {
-        if let Some(array) = array.as_any().downcast_ref::<Date32Array>() {
-            values.extend((0..array.len()).map(|index| array.value(index)));
-        } else {
-            return Err(unexpected_columnar_array(column, "date32", array.as_ref()));
-        }
-    }
-    Ok(values)
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn columnar_timestamp_micros_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i64>> {
-    let mut values = Vec::with_capacity(columnar_array_len(arrays));
-    for array in arrays {
-        if let Some(array) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
-            values.extend((0..array.len()).map(|index| array.value(index)));
-        } else {
-            return Err(unexpected_columnar_array(
-                column,
-                "timestamp_micros",
-                array.as_ref(),
-            ));
-        }
-    }
-    Ok(values)
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_array_len(arrays: &[ArrowArrayRef]) -> usize {
     arrays.iter().map(arrow_array::Array::len).sum()
 }
@@ -13756,6 +13737,39 @@ fn column_to_vortex_array(
     family: &str,
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<vortex::array::ArrayRef> {
+    if let Some(dtype) = shardloom_core::temporal::TemporalDType::parse(family) {
+        use vortex::array::{arrays::ExtensionArray, dtype::PType};
+        let value = |value: &ScalarValue| {
+            let ticks = match value {
+                ScalarValue::Date32(value) if family == "date32" => i64::from(*value),
+                ScalarValue::TimestampMicros(value) if family == "timestamp_micros" => *value,
+                ScalarValue::Temporal(value) if value.dtype() == &dtype => value.value(),
+                value => return Err(unexpected_vortex_ingest_value(column, family, value)),
+            };
+            dtype.validate_value(ticks)?;
+            Ok(ticks)
+        };
+        let native = crate::native_temporal::vortex_dtype(
+            &dtype,
+            vortex::array::dtype::Nullability::NonNullable,
+        )?;
+        let storage = if crate::native_temporal::temporal_storage(&native) == Some(PType::I32) {
+            scalar_primitive_to_vortex_array(column_index, rows, |scalar| {
+                i32::try_from(value(scalar)?)
+                    .map_err(|_| unexpected_vortex_ingest_value(column, family, scalar))
+            })?
+        } else {
+            scalar_primitive_to_vortex_array(column_index, rows, value)?
+        };
+        let vortex::array::dtype::DType::Extension(extension) =
+            crate::native_temporal::vortex_dtype(&dtype, storage.dtype().nullability())?
+        else {
+            return Err(unexpected_vortex_ingest_family(column, family));
+        };
+        return ExtensionArray::try_new(extension, storage)
+            .map(vortex::array::IntoArray::into_array)
+            .map_err(vortex_error);
+    }
     match family {
         "boolean" => scalar_boolean_to_vortex_array(column, column_index, family, rows),
         "int64" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
@@ -13774,16 +13788,6 @@ fn column_to_vortex_array(
         }),
         "utf8" => scalar_utf8_to_vortex_array(column, column_index, family, rows),
         "binary" => scalar_binary_to_vortex_array(column, column_index, family, rows),
-        "date32" => scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
-            ScalarValue::Date32(value) => Ok(*value),
-            value => Err(unexpected_vortex_ingest_value(column, family, value)),
-        }),
-        "timestamp_micros" => {
-            scalar_primitive_to_vortex_array(column_index, rows, |value| match value {
-                ScalarValue::TimestampMicros(value) => Ok(*value),
-                value => Err(unexpected_vortex_ingest_value(column, family, value)),
-            })
-        }
         family if family.starts_with("decimal128(") => {
             scalar_decimal128_to_vortex_array(column, column_index, family, rows)
         }
@@ -14117,6 +14121,7 @@ impl LocalVortexWriteContext {
         let open_start = Instant::now();
         let runtime = CurrentThreadRuntime::new();
         let session = VortexSession::default().with_handle(runtime.handle());
+        crate::native_temporal::register(&session);
         Self {
             runtime,
             session,
@@ -14135,6 +14140,7 @@ impl LocalVortexWriteContext {
         let started = Instant::now();
         let runtime = runtime.runtime().clone();
         let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
+        crate::native_temporal::register(&session);
         Self {
             runtime,
             session,
@@ -15554,6 +15560,7 @@ fn read_prepared_vortex_artifact_layout_inventory_with_memory(
 
     let runtime = SingleThreadRuntime::default();
     let mut session = VortexSession::default().with_handle(runtime.handle());
+    crate::native_temporal::register(&session);
     if let Some(memory) = memory {
         session = session.with_host_allocator(Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),

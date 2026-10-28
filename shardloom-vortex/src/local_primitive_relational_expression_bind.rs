@@ -4,7 +4,9 @@ use super::{
     Binder, DType, Nullability, PType, Result, common_dtype, failed, field, integer,
     validate_flat_operand, validate_key, validate_key_pair, validate_name,
 };
-use crate::local_primitives::native_relational_expression::scalar::{Function, decimal_operand};
+use crate::local_primitives::native_relational_expression::scalar::{
+    Function, TemporalCast, decimal_operand,
+};
 use crate::local_primitives::native_relational_expression::{Expression, Kind, PREPARATION_BYTES};
 use shardloom_core::expression::builtins::{
     self, ScalarDefinition, ScalarNullRule, ScalarTypeRule,
@@ -17,6 +19,9 @@ use vortex::array::{
     extension::datetime::{Date, TimeUnit, Timestamp},
     scalar::{DecimalValue, Scalar},
 };
+
+#[path = "local_primitive_relational_temporal_bind.rs"]
+mod temporal_functions;
 
 impl Binder<'_> {
     pub(super) fn join_condition(
@@ -113,10 +118,9 @@ impl Binder<'_> {
                 (dtype, Kind::Binary(left, *op, right))
             }
             ExpressionKind::Compare { left, op, right } => {
-                let (left, right) = comparison_operands(
-                    self.expression(left, fields, depth + 1)?,
-                    self.expression(right, fields, depth + 1)?,
-                )?;
+                let left = self.expression(left, fields, depth + 1)?;
+                let right = self.expression(right, fields, depth + 1)?;
+                let (left, right) = comparison_operands(self, left, right)?;
                 (
                     DType::Bool(nullable(&left.dtype, &right.dtype)),
                     Kind::Compare(left, *op, right),
@@ -133,11 +137,13 @@ impl Binder<'_> {
                     validate_flat_operand(&child.dtype)?;
                 }
                 let dtype = cast_dtype(&child.dtype, target_dtype, tolerant)?;
+                let temporal = bind_temporal_cast(self, &child.dtype, &dtype)?;
                 (
                     dtype,
                     Kind::Cast {
                         input: child,
                         tolerant,
+                        temporal,
                     },
                 )
             }
@@ -241,7 +247,7 @@ impl Binder<'_> {
             let mut value = self.expression(value, fields, depth + 1)?;
             selected_operand(&value.dtype)?;
             if value.dtype == DType::Null {
-                value = bound_cast(value, DType::Bool(Nullability::Nullable));
+                value = bound_cast(self, value, DType::Bool(Nullability::Nullable))?;
             }
             output_fields.push((name.clone(), value.dtype.clone()));
             values.push(value);
@@ -321,6 +327,18 @@ impl Binder<'_> {
         for argument in &args {
             scalar_operand(&argument.dtype)?;
         }
+        if matches!(
+            definition.type_rule,
+            ScalarTypeRule::Temporal
+                | ScalarTypeRule::DateField
+                | ScalarTypeRule::TimestampField
+                | ScalarTypeRule::DateOffset
+                | ScalarTypeRule::TimestampOffset
+                | ScalarTypeRule::DateDifference
+                | ScalarTypeRule::TimestampDifference
+        ) {
+            return temporal_functions::bind(self, definition, args);
+        }
         let name = definition.name;
         let function = match name {
             "abs" => F::Abs,
@@ -363,6 +381,8 @@ impl Binder<'_> {
             "byte_length" => F::ByteLength,
             "unhex" => F::Unhex,
             "from_base64" => F::FromBase64,
+            "extract_minute" => F::EpochMinute { truncate: false },
+            "date_trunc_minute" => F::EpochMinute { truncate: true },
             "json_extract" => {
                 use crate::local_primitives::native_relational_expression::scalar::text_kernels::JsonPath;
                 F::JsonExtract(JsonPath::parse(
@@ -378,13 +398,12 @@ impl Binder<'_> {
                     tolerant: name == "try_strptime",
                 }
             }
-            _ => calendar_function(name).ok_or_else(|| {
-                failed(&format!(
+            _ => {
+                return Err(failed(&format!(
                     "function '{name}' has no admitted native kernel for this arity"
-                ))
-            })?,
+                )));
+            }
         };
-        let args = calendar_arguments(&function, args);
         let nullable = function_nullability(definition.null_rule, &args);
         let dtype = typed_function_dtype(definition.type_rule, &args, nullable)?;
         Ok(Expression::new(dtype, Kind::Function { function, args }))
@@ -394,6 +413,7 @@ impl Binder<'_> {
         let bytes = match value {
             ScalarValue::Utf8(text) => text.len(),
             ScalarValue::Binary(bytes) => bytes.len(),
+            ScalarValue::Temporal(value) => value.dtype().heap_bytes(),
             _ => 0,
         };
         if bytes > 0 {
@@ -421,42 +441,6 @@ fn fixed_domain_replacement(args: &[Expression]) -> Result<Function> {
         ));
     }
     Ok(F::Domain { regex: true })
-}
-
-fn calendar_function(name: &str) -> Option<Function> {
-    use shardloom_core::expression as calendar;
-    Some(match name {
-        "extract_minute" => Function::EpochMinute { truncate: false },
-        "date_trunc_minute" => Function::EpochMinute { truncate: true },
-        "date_year" => Function::DateExtract(|value| i64::from(calendar::date32_year(value))),
-        "date_month" => Function::DateExtract(|value| i64::from(calendar::date32_month(value))),
-        "date_day" => Function::DateExtract(|value| i64::from(calendar::date32_day(value))),
-        "timestamp_year" => {
-            Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_year(value)))
-        }
-        "timestamp_month" => {
-            Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_month(value)))
-        }
-        "timestamp_day" => {
-            Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_day(value)))
-        }
-        "timestamp_hour" => {
-            Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_hour(value)))
-        }
-        "timestamp_minute" => {
-            Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_minute(value)))
-        }
-        "timestamp_second" => {
-            Function::TimestampExtract(|value| i64::from(calendar::timestamp_micros_second(value)))
-        }
-        "date_add_days" => Function::DateOffset { subtract: false },
-        "date_sub_days" => Function::DateOffset { subtract: true },
-        "timestamp_add_seconds" => Function::TimestampOffset { subtract: false },
-        "timestamp_sub_seconds" => Function::TimestampOffset { subtract: true },
-        "date_diff_days" => Function::DateDifference,
-        "timestamp_diff_seconds" => Function::TimestampDifference,
-        _ => return None,
-    })
 }
 
 fn literal_text<'a>(expression: &'a Expression, label: &str) -> Result<Option<&'a str>> {
@@ -487,6 +471,7 @@ fn cast_dtype(source: &DType, target: &LogicalDType, tolerant: bool) -> Result<D
         LogicalDType::TimestampMicros => {
             DType::Extension(Timestamp::new(TimeUnit::Microseconds, nullable).erased())
         }
+        LogicalDType::Temporal(dtype) => crate::native_temporal::vortex_dtype(dtype, nullable)?,
         LogicalDType::Extension(_) => {
             let (precision, scale) = shardloom_core::expression::decimal128_dtype_parts(target)
                 .ok_or_else(|| failed("cast target requires valid decimal128 precision/scale"))?;
@@ -547,6 +532,16 @@ fn literal(value: &ScalarValue) -> Result<Scalar> {
         // scalar validation uses a narrower calendar and can panic for valid i64
         // microseconds. Evaluation wraps the constant with its bound extension.
         ScalarValue::Date32(value) => Scalar::from(*value),
+        ScalarValue::Temporal(value) => {
+            let dtype =
+                crate::native_temporal::vortex_dtype(value.dtype(), Nullability::NonNullable)?;
+            value.dtype().validate_value(value.value())?;
+            if crate::native_temporal::temporal_storage(&dtype) == Some(PType::I32) {
+                Scalar::from(i32::try_from(value.value()).map_err(super::vortex_error)?)
+            } else {
+                Scalar::from(value.value())
+            }
+        }
         _ => {
             return Err(failed(
                 "scalar literal requires an admitted flat type and finite numeric value",
@@ -583,6 +578,10 @@ pub(in crate::local_primitives) fn literal_dtype(value: &ScalarValue) -> Result<
         ScalarValue::Date32(_) => DType::Extension(Date::new(TimeUnit::Days, nullability).erased()),
         ScalarValue::TimestampMicros(_) => {
             DType::Extension(Timestamp::new(TimeUnit::Microseconds, nullability).erased())
+        }
+        ScalarValue::Temporal(value) => {
+            value.dtype().validate_value(value.value())?;
+            crate::native_temporal::vortex_dtype(value.dtype(), nullability)?
         }
         _ => {
             return Err(failed(
@@ -734,30 +733,16 @@ fn typed_function_dtype(
             }
             DType::Binary(nullable)
         }
-        T::DateField | T::TimestampField | T::DateDifference | T::TimestampDifference => {
-            let ptype = if matches!(rule, T::DateField | T::DateDifference) {
-                PType::I32
-            } else {
-                PType::I64
-            };
-            for arg in args {
-                temporal_function_argument(&arg.dtype, ptype)?;
-            }
-            DType::Primitive(PType::I64, nullable)
-        }
-        T::DateOffset | T::TimestampOffset => {
-            let date = rule == T::DateOffset;
-            temporal_function_argument(first, if date { PType::I32 } else { PType::I64 })?;
-            if args[1].dtype != DType::Null
-                && !matches!(args[1].dtype, DType::Primitive(ptype, _) if integer(ptype).is_some())
-            {
-                return Err(failed("calendar offset requires an integer"));
-            }
-            DType::Extension(if date {
-                Date::new(TimeUnit::Days, nullable).erased()
-            } else {
-                Timestamp::new(TimeUnit::Microseconds, nullable).erased()
-            })
+        T::Temporal
+        | T::DateField
+        | T::TimestampField
+        | T::DateDifference
+        | T::TimestampDifference
+        | T::DateOffset
+        | T::TimestampOffset => {
+            return Err(failed(
+                "temporal functions require metadata-bound calendar admission",
+            ));
         }
         T::Utf8 | T::Utf8Offsets | T::Utf8Length | T::Utf8Predicate => {
             return text_function_dtype(rule, args, nullable);
@@ -769,17 +754,6 @@ fn typed_function_dtype(
         }
     };
     Ok(dtype)
-}
-
-fn temporal_function_argument(dtype: &DType, ptype: PType) -> Result<()> {
-    if dtype == &DType::Null || crate::native_payload_schema::temporal_storage(dtype) == Some(ptype)
-    {
-        Ok(())
-    } else {
-        Err(failed(
-            "calendar function requires its declared date/timestamp unit",
-        ))
-    }
 }
 
 fn text_function_dtype(
@@ -806,6 +780,7 @@ fn text_function_dtype(
 }
 
 fn comparison_operands(
+    binder: &mut Binder<'_>,
     mut left: Expression,
     mut right: Expression,
 ) -> Result<(Box<Expression>, Box<Expression>)> {
@@ -813,13 +788,13 @@ fn comparison_operands(
         && crate::native_payload_schema::temporal_storage(&right.dtype).is_some()
     {
         let dtype = right.dtype.with_nullability(left.dtype.nullability());
-        left = bound_cast(left, dtype);
+        left = bound_cast(binder, left, dtype)?;
     }
     if matches!(right.dtype, DType::Utf8(_))
         && crate::native_payload_schema::temporal_storage(&left.dtype).is_some()
     {
         let dtype = left.dtype.with_nullability(right.dtype.nullability());
-        right = bound_cast(right, dtype);
+        right = bound_cast(binder, right, dtype)?;
     }
     if matches!(
         (&left.dtype, &right.dtype),
@@ -828,53 +803,36 @@ fn comparison_operands(
         let dtype = common(&left.dtype, &right.dtype)?;
         let left_dtype = dtype.with_nullability(left.dtype.nullability());
         let right_dtype = dtype.with_nullability(right.dtype.nullability());
-        left = bound_cast(left, left_dtype);
-        right = bound_cast(right, right_dtype);
+        left = bound_cast(binder, left, left_dtype)?;
+        right = bound_cast(binder, right, right_dtype)?;
     }
     compatible(&left.dtype, &right.dtype)?;
     Ok((Box::new(left), Box::new(right)))
 }
 
-fn bound_cast(expression: Expression, dtype: DType) -> Expression {
+fn bind_temporal_cast(
+    binder: &mut Binder<'_>,
+    source: &DType,
+    target: &DType,
+) -> Result<Option<Box<TemporalCast>>> {
+    binder.charge(TemporalCast::admission_bytes(source, target)?)?;
+    TemporalCast::bind(source, target).map(|cast| cast.map(Box::new))
+}
+
+fn bound_cast(binder: &mut Binder<'_>, expression: Expression, dtype: DType) -> Result<Expression> {
     if expression.dtype == dtype {
-        return expression;
+        return Ok(expression);
     }
-    Expression::new(
+    binder.charge(PREPARATION_BYTES)?;
+    let temporal = bind_temporal_cast(binder, &expression.dtype, &dtype)?;
+    Ok(Expression::new(
         dtype,
         Kind::Cast {
             input: Box::new(expression),
             tolerant: false,
+            temporal,
         },
-    )
-}
-
-fn calendar_arguments(function: &Function, args: Vec<Expression>) -> Vec<Expression> {
-    use Function as F;
-    args.into_iter()
-        .enumerate()
-        .map(|(index, arg)| {
-            let target = match function {
-                F::DateExtract(_) | F::DateDifference => Some(true),
-                F::TimestampExtract(_) | F::TimestampDifference => Some(false),
-                F::DateOffset { .. } if index == 0 => Some(true),
-                F::TimestampOffset { .. } if index == 0 => Some(false),
-                _ => None,
-            };
-            if let Some(date) = target
-                && matches!(arg.dtype, DType::Utf8(_))
-            {
-                let nullable = arg.dtype.nullability();
-                let dtype = DType::Extension(if date {
-                    Date::new(TimeUnit::Days, nullable).erased()
-                } else {
-                    Timestamp::new(TimeUnit::Microseconds, nullable).erased()
-                });
-                bound_cast(arg, dtype)
-            } else {
-                arg
-            }
-        })
-        .collect()
+    ))
 }
 
 fn compatible(left: &DType, right: &DType) -> Result<()> {

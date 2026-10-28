@@ -2,18 +2,19 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "b52a54dce25f788d8c092781fb452393e2d5590f972eca4f134951aaee1e63e2"
+    "README.shardloom.md": "fcce540a784726784d3355699f643ec40b073d48d7a0a699d06c2108dacfeeb0"
   },
   "license": "Apache-2.0",
   "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
   "license_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "b52a54dce25f788d8c092781fb452393e2d5590f972eca4f134951aaee1e63e2"
+    "sha256": "fcce540a784726784d3355699f643ec40b073d48d7a0a699d06c2108dacfeeb0"
   },
   "migration_status": "manifest_only_dependency_pin",
   "modified_files_sha256": {
-    "Cargo.toml": "7aff4b45ac6a99f4688a1686016c51a509bac632fe43519199bcf57e80340e8d"
+    "Cargo.toml": "7aff4b45ac6a99f4688a1686016c51a509bac632fe43519199bcf57e80340e8d",
+    "src/arrow/schema/primitive.rs": "3fe5a0931d35e11a2205c09401de05b76dc0d137146e5c9a21b1e0751b2607e6"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#NOTICE.txt",

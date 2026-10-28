@@ -30,6 +30,8 @@ pub(super) fn append_batch(
         wire_values,
         datetime: PyModule::import(py, "datetime")?,
         decimal: PyModule::import(py, "decimal")?.getattr("Decimal")?,
+        temporal_to_python: PyModule::import(py, "shardloom._result_schema")?
+            .getattr("temporal_python_value")?,
         cancellation,
     };
     for index in 0..batch.num_rows() {
@@ -52,6 +54,7 @@ struct Conversion<'py> {
     wire_values: bool,
     datetime: Bound<'py, PyModule>,
     decimal: Bound<'py, PyAny>,
+    temporal_to_python: Bound<'py, PyAny>,
     cancellation: &'py CancellationToken,
 }
 
@@ -107,6 +110,37 @@ impl Conversion<'_> {
                 downcast::<TimestampMicrosecondArray>(array)?.value(row),
                 false,
             ),
+            dtype if shardloom_vortex::temporal_arrow::dtype(dtype).is_some() => {
+                use shardloom_core::temporal::TemporalKind;
+                let temporal =
+                    shardloom_vortex::temporal_arrow::dtype(dtype).expect("admitted temporal type");
+                let ticks = shardloom_vortex::temporal_arrow::value(array, row)
+                    .map_err(super::native_error)?
+                    .expect("nonnull row");
+                if !self.temporal_objects || self.wire_values {
+                    return ticks.into_py_any(py);
+                }
+                let family = match temporal.kind() {
+                    TemporalKind::Date32 => "date32",
+                    TemporalKind::Date64 => "date64",
+                    TemporalKind::Time(_) => "time",
+                    TemporalKind::Duration(_) => "duration",
+                    TemporalKind::Timestamp { .. } => "timestamp",
+                };
+                Ok(self
+                    .temporal_to_python
+                    .call1((
+                        ticks,
+                        (
+                            family,
+                            temporal
+                                .unit()
+                                .map(shardloom_core::temporal::TemporalUnit::as_str),
+                            temporal.timezone(),
+                        ),
+                    ))?
+                    .unbind())
+            }
             DataType::List(_) => self.list(downcast::<ListArray>(array)?.value(row).as_ref()),
             DataType::FixedSizeList(_, _) => {
                 self.list(downcast::<FixedSizeListArray>(array)?.value(row).as_ref())

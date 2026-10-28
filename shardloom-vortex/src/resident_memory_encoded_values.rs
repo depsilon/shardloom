@@ -1,13 +1,12 @@
 //! Bounded metadata and scalar copies used only after receiving admission.
 
 use super::{Copier, add, memory_error, mul, native_error};
-use crate::{native_temporal::temporal_storage, resident_session::NativeExecutionContext};
+use crate::{native_temporal, resident_session::NativeExecutionContext};
 use shardloom_core::Result;
 use std::sync::Arc;
 use vortex::{
     array::{
-        dtype::{DType, FieldNames, PType, StructFields},
-        extension::datetime::{Date, TimeUnit, Timestamp},
+        dtype::{DType, FieldNames, StructFields},
         scalar::{Scalar, ScalarValue},
     },
     buffer::BufferString,
@@ -75,15 +74,11 @@ pub(super) fn copy_dtype(dtype: &DType) -> Result<DType> {
         DType::FixedSizeList(child, size, nullability) => {
             DType::FixedSizeList(Arc::new(copy_dtype(child)?), *size, *nullability)
         }
-        DType::Extension(_) => match temporal_storage(dtype) {
-            Some(PType::I32) => {
-                DType::Extension(Date::new(TimeUnit::Days, dtype.nullability()).erased())
-            }
-            Some(PType::I64) => DType::Extension(
-                Timestamp::new(TimeUnit::Microseconds, dtype.nullability()).erased(),
-            ),
-            _ => return Err(memory_error("native transfer extension is not admitted")),
-        },
+        DType::Extension(_) => native_temporal::vortex_dtype(
+            &native_temporal::temporal_dtype(dtype)
+                .ok_or_else(|| memory_error("native transfer extension is not admitted"))?,
+            dtype.nullability(),
+        )?,
         DType::Map(..) | DType::Union(..) | DType::Variant(..) => {
             return Err(memory_error(
                 "native transfer requires an admitted static dtype",

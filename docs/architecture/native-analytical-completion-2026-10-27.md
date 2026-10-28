@@ -248,8 +248,10 @@ cause remains unassigned, and no statistical-confidence claim follows. The
 retains numeric reuse and bounded ordering after the 194-test installed-package
 gate, complete portable replay, 18 corruption controls, isolated source-only
 replay and verified generated-payload retirement. The borrowed-output candidate
-remains removed. Hosted PR acceptance and the broader item-20 obligations remain
-separate.
+remains removed. PR #1615 merged at `5a0b8c0f` after all 57 hosted checks passed
+and automated review completed without findings; its
+[hosted receipt](../benchmarks/evidence/native-shared-analytical-performance-2026-10-27/hosted.json)
+retains that evidence. The broader item-20 obligations remain open.
 
 The first expression extension admits reuse of a fully completed, identical,
 pure expression on the same input. Conditional/COALESCE/NULLIF branches retain
@@ -604,6 +606,138 @@ recursive-state and application-function additions need their concrete contracts
 in this implementation record before code. New dependencies require the
 existing Apache-compatible provenance and feature-boundary review. No existing
 unsupported path becomes an external-engine fallback.
+
+## Temporal fidelity implementation contract
+
+This continuation implements the temporal requirement of item 20 before the
+dependent as-of and time-series operators. The comparator is a typed columnar
+engine preserving the complete logical domain across native input, expressions,
+ordering, grouping, spill and independently read-back output. Admitting a dtype
+at one boundary alone does not establish support. This section is a prospective
+contract; the completion checklist remains open until its acceptance passes.
+
+### Representation and conversion
+
+Keep the existing `date32` and `timestamp_micros` names and behavior compatible.
+Introduce shared typed temporal metadata for date64 (epoch milliseconds at
+midnight), time-of-day and timestamps in seconds, milliseconds, microseconds
+and nanoseconds, timezone-bearing timestamps, and fixed durations. A physical
+integer width must never identify a logical temporal type. Canonical new type
+names are `date64`, `time(s|ms|us|ns)`, `timestamp(s|ms|us|ns[,zone])` and
+`duration(s|ms|us|ns)`; `timestamp(us)` is the existing `timestamp_micros` alias.
+SQL, Python and typed relations must resolve these through the shared owners.
+
+Timestamps and fixed durations preserve their complete signed-64-bit tick
+domain, including statistics and selected results outside a calendar library's
+formatting range. Date64 values must be whole epoch days; time-of-day values
+must be in the half-open interval from midnight to the following midnight.
+Validate value restrictions at the ordinary payload validation boundary,
+including discarded streamed payload, without evaluating unselected expressions.
+NULL, empty, constant, dictionary, chunked, sliced and nested-parent cases retain
+their established ownership and error contracts.
+
+Timestamp timezone metadata describes an instant's presentation zone. A naive
+timestamp is a civil value with no inferred system zone. Changing units is an
+explicit exact conversion: use widened integer arithmetic, reject overflow and
+nonzero discarded precision, and never reinterpret unchanged ticks as a new
+unit. Explicit timestamp-to-date conversion floors to the applicable calendar
+day. Converting a zoned timestamp to another named zone keeps the instant;
+assigning a zone to a naive civil timestamp is a separate operation. Comparisons
+and keys require compatible logical metadata or an explicit conversion; no
+hidden cross-unit or naive/zoned coercion is added.
+
+### Calendar and timezone policy
+
+Use pinned Jiff 0.2.35 with the already-resolved `jiff-tzdb` 0.1.6 rules,
+through an explicit native temporal feature. Query semantics use the bundled
+rules directly and report the database version; they do not consult the host
+timezone, environment, network or a mutable system timezone database. Jiff and
+its database have MIT/Unlicense licensing compatible with Apache-2.0. The
+default lightweight build does not enable this provider. Bind parsed zone rules
+once per expression under the existing memory admission, not once per row.
+
+Calendar conversion has an explicitly narrower range than raw timestamp
+transport. Values outside it fail the requested calendar operation with a
+deterministic error; their native storage remains usable. Preserve the existing
+full-domain naive date/timestamp arithmetic. Reject leap-second text rather
+than silently folding it. Local civil times in daylight-saving gaps or folds
+are rejected by default; callers can choose the documented earlier or later
+resolution explicitly. Fixed duration arithmetic and calendar day/month
+arithmetic are separate operations. Calendar month-end handling is explicit
+(`reject` or `clamp`); a fixed 24-hour duration is never relabeled a calendar day.
+These rules also govern later daily windows, resampling and gap filling.
+
+Bind the expanded calendar operations through the existing scalar-function
+registry and native expression owner. `temporal_extract(value, part)` and
+`temporal_trunc(value, part[, ambiguity])` preserve explicit units and apply the
+declared presentation zone. Week truncation starts on Monday; day-of-week
+extraction uses ISO Monday=1 through Sunday=7. Existing date/timestamp field,
+day/second-offset and difference functions retain their established names and
+extend to the corresponding admitted units. Whole-second differences truncate
+toward zero only after widened subtraction, preserving the existing contract.
+
+`timestamp_assign_timezone(value, zone[, ambiguity])` resolves a naive civil
+value; `timestamp_convert_timezone(value, zone)` preserves an existing instant;
+`timestamp_remove_timezone(value)` preserves its local civil fields. Fixed
+`temporal_add_duration`/`temporal_sub_duration` and `timestamp_difference` keep
+their typed units and reject precision loss or overflow. `calendar_add_days`
+and `calendar_add_months` operate on dates or local timestamp fields with
+explicit optional ambiguity/month-end policies. Defaults are `reject`;
+month-end `clamp` and ambiguity `earlier`/`later` are explicit literal choices.
+A zero calendar offset preserves the input identity, including a known fold
+instant. SQL and Python declarations lower to these same bound kernels; they
+do not perform calendar evaluation in their frontends.
+
+### Vortex-first decision and boundaries
+
+The pinned Vortex 0.90.0 provider already defines Date, Time and Timestamp
+extension metadata, primitive storage, validity, scalar/statistics ordering and
+Arrow-compatible temporal types. Use those native providers and preserve their
+metadata through the existing native array owners. Expand the existing vendored
+timestamp scalar correction to avoid calendar-range panics for every admitted
+unit and timezone; this is a provider correction, not a second array system.
+Vortex's current extension inventory has no fixed-duration type. Implement a
+versioned ShardLoom duration extension over the same native signed-64-bit
+storage and extension registry, with explicit Arrow duration translation.
+Calendar intervals are distinct from fixed durations and require their own
+admitted representation; do not smuggle months into a duration tick count.
+
+Classification: `use_vortex_native_provider` for the existing temporal dtypes,
+and `implement_shardloom_kernel` for ShardLoom conversion/calendar policy and
+the absent duration representation. Provider recognition, source fidelity,
+representation transitions and no-fallback evidence remain in their existing
+certificates. Arrow stays an explicit import/export boundary. No external
+query engine, additional execution evaluator, answer cache or scheduling pool
+is introduced. Explain and capability discovery remain side-effect-free.
+
+### Acceptance obligations
+
+Exercise every admitted unit and timezone through public input, expressions,
+selection/order/group/join, native persistence and compatibility readback.
+Cover full storage endpoints, pre-epoch fractions, precision loss and overflow,
+unknown zones, 23/25-hour days, half-hour transitions, gap/fold choices,
+month/year/leap boundaries, invalid time-of-day/date64 values, nullable nested
+parents, malformed metadata, pressure/cancellation and output cleanup.
+Pin independent expected values; round-tripping through the same conversion
+is insufficient. The timezone-aware daily workflow must cross both daylight-
+saving transitions. Record installed-package and required workspace/native
+checks before any support claim. Preserve existing 347-case observations;
+rerun a complete cohort only for a justified shared-runtime regression check.
+
+The focused native storage/compression matrix passes 13 tests after the
+DateTimeParts day-width correction, including every fixed timestamp unit,
+timezone metadata, endpoint statistics, scalar/canonical decoding and encoded
+comparisons. The rebuilt public matrix passes 21 tests without skips, exercising
+all five interfaces, both daylight-saving transitions, Vortex/Parquet/Arrow-file
+inputs, full-domain nested readback, declared Python rows and streamed batches,
+ADBC temporal parameters and failed-output cleanup. Earlier unsuccessful public
+runs remain in the validation record. Required broad checks, standalone-provider
+checks and installed-package acceptance are still pending; this targeted result
+does not close item 20 or its later as-of/time-series obligations.
+
+Provider references: the pinned local Vortex datetime extension sources,
+[Jiff timezone conversion and ambiguity semantics](https://docs.rs/jiff/0.2.35/jiff/tz/struct.TimeZone.html),
+and the pinned `jiff-tzdb` crate's data-version and licensing records.
 
 ## Acceptance and retention
 

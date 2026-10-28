@@ -399,6 +399,7 @@ pub fn local_preparation_identity_controlled(
         .with_host_allocator(std::sync::Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
+    crate::native_temporal::register(&session);
     let file = runtime
         .block_on(session.open_options().open_path(path))
         .map_err(error)?;

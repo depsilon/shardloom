@@ -1259,7 +1259,9 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
         }
         Function::Min | Function::Max => match &state.extreme {
             None | Some(Cell::Null) => Value::Null,
-            Some(Cell::NegativeInteger(value) | Cell::Timestamp(value)) => Value::Int(*value),
+            Some(Cell::NegativeInteger(value) | Cell::Timestamp(value) | Cell::Temporal(value)) => {
+                Value::Int(*value)
+            }
             Some(Cell::NonnegativeInteger(value)) => {
                 if matches!(
                     measure.dtype,
