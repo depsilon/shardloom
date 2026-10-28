@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 selected-child and bound-decimal complete payload validation",
+  "source_before_runtime_edits": "e166a7381a12ec229ae9e4fbeb865ed00c3904e7",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/inputs.json",
+  "baseline_inputs_sha256": "5190afafce2cf5fb52fdd7efbfdefca426aaa2dd3cdfc04d16d33e3a4c02e04e",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/native-observations.json",
+  "baseline_observations_sha256": "2fada27cfa9ecc6f495597a7d679756086b8af002feefb3cb26dec8d13df64fc",
+  "baseline_engine_seconds": 17.42942424,
+  "baseline_policy": "Reuse the retained demand-driven hashing checkpoint, complete independent references and immutable saved results. Full native/default workspace tests and strict lint pass. Do not rerun baseline queries. Combined installed-package, portable, hosted and remaining item-20 acceptance stay open.",
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-demand-disposition.json",
+    "bytes": 48930,
+    "sha256": "0caeb81e10fa0b5e539e990f201f8626079ef35f9d5c5c2241465eb7b7514a5c"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "For validation-only admitted scalar leaves with absent parent coordinates, compact the existing observed row coordinates into a credited vector in their original order and reuse the existing selection-before-canonicalization and typed leaf validator. Missing-coordinate defaults carry no observed value; retained copies keep their original placeholder and ownership behavior. Nested structure traversal, list bounds, field order and all present-row checks remain owned by the existing recursive copier.",
+    "For validation-only canonical host DecimalArray leaves with identical logical dtype, bind the existing typed buffer and validity once, visit every requested coordinate in order, and reuse Vortex Scalar::validate for the exact precision/null diagnostic contract without constructing a Scalar owner. Encoded/wrapped decimals and private movement retain the established resolver. No new decimal arithmetic, narrowed storage, or external evaluation."
+  ],
+  "activation_evidence": [
+    "Counters prove selected coordinate compaction, zero per-row placeholder scalar calls for admitted null-parent leaves, and complete coverage of all observed children, preserving duplicates and order.",
+    "Counters prove direct decimal activation and bound row coverage without repeated decimal resolver calls. Compare every physical decimal width, precision boundary, null, hidden invalid value and wrapped decline against the established retained-copy path.",
+    "Cover nullable and nonnullable children, all-null/empty parents, nested structs/lists/fixed lists, dictionary and slice selections, hidden malformed/nonfinite values, discarded invalid rows and first field/row error identity.",
+    "Preserve cancellation, refused/limited memory, source release and independently owned returned output. Check all five public interfaces against independent fresh complete schemas and results."
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "projection",
+      "ordering"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag. Substantial complete-cohort benefit may outweigh a small isolated timing regression under the October 28 maintainer policy. Additional execution needs a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete values, schema, selected-domain and hidden-parent semantics, first error order, discarded rows, ownership, pressure/refusal and cancellation must pass. Otherwise drop the mechanism and preserve every observation.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610288103,
+      202610288319
+    ],
+    "rows": 4099,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "wide_rich_ordered_prefix",
+      "nullable_struct_siblings",
+      "variable_list_leaves",
+      "nested_struct_list",
+      "decimal_temporal_siblings",
+      "filtered_rich_prefix",
+      "empty_rich_selection",
+      "retained_rich_projection"
+    ],
+    "scope": "Freeze unchanged eight rich-payload workflow declarations with fresh independent seeds/layouts before 160 observations through five interfaces. Native tests cover malformed hidden values, actual dictionaries, decimal widths, selected-row counters and ownership. No additional benefit cohort."
+  },
+  "execution_policy": "One isolated sequential execution of every original case in original order with the existing guard, storage limits, deadlines, complete result validation and process cleanup. Finish task-owned builds/tests/agents before queries. Full hashes and recursive inventories stay outside query execution. No cache manipulation, artificial pacing or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/observations.json",
+    "bytes": 33206,
+    "sha256": "b0d682455f2e475538ba4126380c3869eddb7046c5d9b01f2447459383b79bdc",
+    "protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/protocol.json",
+      "bytes": 208705,
+      "sha256": "b5f724ae0009c329a27add972ad3b07485fe617b364eb7f2e083eece65063941"
+    },
+    "finding": "The retained diagnostic identifies complete payload validation as material projection work. Current source inspection finds that absent parent coordinates decline typed validation, and decimal validation resolves storage and constructs a Scalar per row. This source evidence does not quantify removable time; activation tests and the unchanged complete cohort must establish benefit."
+  },
+  "vortex_first_check": {
+    "decision": "use_vortex_native_provider",
+    "reused": [
+      "Vortex 0.90.0 native selection, canonical DecimalArray buffers and validity",
+      "Vortex Scalar::validate and its exact decimal precision/null checks",
+      "native payload recursive selection owner, typed numeric/variable validators and ReservedVec leases"
+    ],
+    "upstream_checked": [
+      "vendor/vortex-array/src/scalar/validate.rs",
+      "vendor/vortex-array/src/scalar/typed_view/decimal/dvalue.rs",
+      "vendor/vortex-array/src/arrays/decimal/array.rs",
+      "docs/architecture/vortex-public-api-inventory.md"
+    ],
+    "boundary": "Reuse admitted array providers inside the existing native feature boundary and unchanged execution certificates. No provider bypass, new representation, arithmetic, dependency, scheduler or external fallback. Existing selection/canonicalization and native output contracts remain explicit."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false
+}
