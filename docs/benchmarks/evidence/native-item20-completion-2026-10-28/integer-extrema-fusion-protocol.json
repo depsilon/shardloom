@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 shared grouped integer MIN/MAX and adjacent COUNT traversal",
+  "source_before_runtime_edits": "c135f69e76459e7fd6aa877604ee3fb49a1dbf33",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-numeric-expression-r1/inputs.json",
+  "baseline_inputs_sha256": "b18910b5405059ecf3fe1cc0fa59746a6f97450bc5d7398dd9484667cb721fdb",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-numeric-expression-r1/native-observations.json",
+  "baseline_observations_sha256": "a22750cda8646049339f6f290c05fd14fe2ba3f527e467ea153b30e2fd162f88",
+  "baseline_engine_seconds": 16.249797458,
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/typed-numeric-expression-disposition.json",
+    "bytes": 84970,
+    "sha256": "2ccaba0d6e6bfdd51166c7eb2b2c6d7225ae1c9ff25467aa65f3c5b0007932ca"
+  },
+  "baseline_policy": "Reuse the accepted typed numeric expression observation, exact retained source and complete independent references. Replay saved results without rerunning baseline queries. All earlier observations, including the preserved arithmetic-group slowdown, remain intact. Combined package, portable, hosted and remaining item-20 acceptance stay open.",
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "At an ordinary grouped MIN or MAX measure, admit the adjacent opposite extremum over the same named primitive integer column, optionally followed immediately by plain COUNT of that column. No filter, distinct, secondary argument, decimal, temporal, floating, scalar-group or nonprimitive source is admitted. Reuse the existing numeric owner, exact group ordinals, aggregate states and native validity; add no intermediate values or allocations.",
+    "Inspect retained groups before any update. Admit only when both extremum states and optional COUNT start with identical counts, every count has room for all input rows, and retained extrema are absent or exact integer cells. Bound this optional admission scan to at most half the incoming row count. Decline without mutation to the existing ordered measure implementation whenever any proof fails. These conditions eliminate arithmetic/value failures that could distinguish first-measure-before-second error order.",
+    "Visit each input row once in original order with the existing original-width numeric owner. Resolve its group and validity once, update both exact extrema through the existing comparator/replacement helper, and publish one checked count increment to the admitted states. Preserve each measure's minimum/maximum direction, integer signedness and all-null/empty results. SUM/AVG and their compensated, ordered arithmetic remain untouched.",
+    "Skip only the successfully completed adjacent measures. If COUNT was included, transfer the already executed mask into the existing validity-only PreparedColumn state at that position, preserving later reuse and releasing numeric preparation. Check cancellation before admission, during bounded scans and rows, and after completion; cancelled execution never publishes a result. Existing allocation, result ownership, refusal and cleanup boundaries remain authoritative."
+  ],
+  "activation_evidence": [
+    "Debug-only batch/row/measure counters prove activation and removed traversals. Compare every State field against sequential original updates: exact counts, integer extrema, untouched floating/compensated sum bits and neighboring measures.",
+    "Cover all eight integer widths, NULL and all-NULL masks, empty and 2053-row arrays, first/last extrema, values around signed/unsigned limits, sliced arrays, changed group order and growing groups across batches, MIN/MAX reversal and optional COUNT.",
+    "Prove decline without mutation for different columns, filters, nonadjacent measures, scalar groups, floats including signed zero/nonfinite values, decimal/temporal and encoded nonprimitive inputs, high group cardinality, unequal starting counts, noninteger prior extrema and counters near overflow. Sequential first-error and later-state behavior must remain intact on declined paths.",
+    "Verify cancellation, pressure/refusal, no added memory reservations, output lifetime after producer closure, existing five-interface regressions and 160 fresh observations with complete independent schema/value and input readback checks."
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "grouped_aggregation"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag under the October 28 proportionate regression policy. A small isolated regression may be retained only with an explicit complete-cohort and declared-family balance assessment. Further execution requires a separately frozen diagnostic reason.",
+    "correctness": "All complete results, first errors on declined paths, admission/state proofs, ownership, pressure and cancellation checks must pass. Otherwise remove the candidate while preserving every observation.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610289527,
+      202610289731
+    ],
+    "rows": 4099,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "integer_extrema_mixed_group",
+      "integer_extrema_reverse_pair",
+      "integer_extrema_null_domains",
+      "integer_extrema_after_join",
+      "integer_extrema_filtered_input",
+      "integer_extrema_selected_reordered",
+      "integer_extrema_empty",
+      "integer_extrema_declined_compositions"
+    ],
+    "scope": "Freeze eight composed workflows and independent references before 160 observations across five public interfaces. Fresh public integer inputs include narrow, signed and high unsigned values; native tests establish actual encoded decline, precise error/state behavior, activation and memory ownership. No extra performance cohort."
+  },
+  "execution_policy": "One isolated sequential execution of each original case in original order with existing storage limits, deadlines, complete validation, concurrency guard and process cleanup. Finish other task jobs and agents before queries. Full hashing and recursive inventories stay outside execution. No cache manipulation, pacing, routine repeats or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r3/observations.json",
+    "bytes": 32753,
+    "sha256": "b71ecc1c5733ab31d6e72215df4beee002ab6823af6c75f40c45b6de40f5fcfb",
+    "protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r3/protocol.json",
+      "bytes": 209260,
+      "sha256": "ea7ce476058535c3ed475e31909e78211e1aa2537042fe89e51bf0a340145188"
+    },
+    "inventory": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/stage-r3-evidence-inventory.json",
+      "bytes": 42886,
+      "sha256": "4e3224e4e27c0359f4cccced732d8504b9a4857eb7ea7c553cb2a127c76c4b01"
+    },
+    "finding": "On the accepted source, aggregate.measure contributes 24.79% and 28.18% of diagnostic exclusive elapsed stages in the selected arithmetic and direct mixed-group cases. Group lookup also remains material. MIN/MAX/COUNT currently traverse the same prepared integer values and group ordinals separately. These observations locate work; they do not predict a removable fraction or establish benefit. All seven diagnostic cases and 607 rows replay completely, and the temporary overlay was removed byte-exactly before this protocol."
+  },
+  "vortex_first_check": {
+    "decision": "implement_shardloom_kernel",
+    "provider_version": "Vortex 0.90.0 pinned and vendored",
+    "upstream_checked": [
+      "vendor/vortex-array/src/aggregate_fn/fns/min_max/mod.rs",
+      "vendor/vortex-array/src/aggregate_fn/fns/min_max/primitive.rs",
+      "vendor/vortex-array/src/aggregate_fn/accumulator_grouped.rs",
+      "docs/architecture/vortex-public-api-inventory.md"
+    ],
+    "why_not_direct_provider": "Vortex supplies whole-array MinMax and grouped accumulation over pregrouped ListView or FixedSizeList values. This path already has flat primitive values and exact ShardLoom group ordinals/states; constructing grouped list domains would add gathering and would not preserve the existing per-measure count/error/state contract automatically. Retain the existing ShardLoom-native grouped reducer and comparator. Scalar aggregate provider admission is outside this candidate.",
+    "reused": [
+      "Vortex PrimitiveArray and executed Mask",
+      "Existing NativeNumericOwner original-width visitor",
+      "Existing RowSet group ordinals and reserved aggregate State storage",
+      "Existing exact integer extrema comparator/replacement and checked count helper"
+    ],
+    "boundary": "Existing feature-gated native relational boundary in shardloom-vortex. No provider/dependency/IR/schema changes, extra canonicalization, Arrow conversion, external execution or new unaccounted storage. Existing certificates report fallback_attempted=false and external_engine_invoked=false."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false,
+  "targeted_cases": "Original grouped mixed-measure integer aggregate cells, plus downstream grouped integer aggregates in joins. Floating, scalar, SUM-only, high-cardinality and other families remain unchanged-cohort controls."
+}
