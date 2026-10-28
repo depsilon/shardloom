@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 demand-driven text hashing in the existing native membership owner",
+  "source_before_runtime_edits": "df8ebd357fa90a54d9fcbc445efb4e5347149364",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-recursive-validation-r1/inputs.json",
+  "baseline_inputs_sha256": "27afdda95c26fbc271580644cfa06a1a3d693c30a463a295ce5f348c7131fe0c",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-recursive-validation-r1/native-observations.json",
+  "baseline_observations_sha256": "83f162577099e91d1a6835f3cedec327cc0a2834b61edc976b613bd76bb13a3b",
+  "baseline_engine_seconds": 17.729495249,
+  "baseline_policy": "Reuse the retained recursive typed-payload checkpoint and independently validated complete references. Full native and default workspace tests, strict native/workspace lint, focused activation checks and fresh five-interface correctness pass. Combined installed-package, portable, hosted and remaining item-20 acceptance remain open. Replay saved results; do not rerun baseline queries.",
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-payload-validation-disposition.json",
+    "bytes": 31097,
+    "sha256": "14bee5020ea99e155ac78f8d0a5aa679caa9562402719133eb5efdf58206ebb5"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "Add an explicit on-demand hash purpose to the existing native variable key owner. Retain complete UTF-8/value-domain validation and exact dictionary code observation, while avoiding per-domain hash storage and hash computation until the ordinary exact index actually asks for a row hash.",
+    "Admit it only for flat UTF-8/binary columns of null-equal RowSet ingest with no other-set membership predicate. Grouping and DISTINCT reuse their unchanged exact directory/inline cache and ordinary RowIndex. Numeric, nested, temporal and decimal columns, matching joins, retained group payloads and other-set probes keep their existing preparation. Cache decline and collisions retain exact row hashing/equality; no row validation is skipped.",
+    "For the on-demand UTF-8 purpose, reuse the checked borrowed VarBinView utf8_slice_at accessor for the complete validation walk instead of cloning a byte owner whose hash is never used. Binary values retain the existing native byte access during preparation. Existing value-only and eager-hash owners keep their admission and behavior."
+  ],
+  "activation_evidence": [
+    "Counters prove full value-domain coverage, on-demand hash activation, fewer actual value hashes and zero temporary per-domain hash slots for eligible grouping input; retained unique output keys remain independently owned and credited.",
+    "Compare exact hash bits, NULL handling, dictionary codebook independence and complete first-occurrence group ordinals against the established eager owner and independent value references.",
+    "Cover repeated and unique keys, sample-prefix repeats followed by unique/long tails, binary/Unicode/embedded NUL values, exact integer tuple partners, empty/all-null inputs, changing batches and composite dictionary decline.",
+    "Preserve unreferenced malformed UTF-8 domain rejection, late invalid codes, nonfinite/nested/temporal errors, cancellation, pressure/refusal and release of every source/state credit.",
+    "Verify grouped mixed measures, DISTINCT and neighboring joins/sets through all five interfaces with independently generated complete schemas and values and retained outputs after producer closure."
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "grouped_aggregation",
+      "distinct"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag. Substantial complete-cohort benefit may outweigh a small isolated timing regression under the October 28 maintainer policy. Additional execution needs a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete values, schema, selected-domain and hidden-parent semantics, first error order, discarded rows, ownership, pressure/refusal and cancellation must pass. Otherwise drop the mechanism and preserve every observation.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610287103,
+      202610287319
+    ],
+    "rows": 9217,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "short_text_mixed_group",
+      "integer_text_after_join",
+      "binary_tuple_membership",
+      "boolean_integer_filtered_group",
+      "long_tail_group",
+      "reuse_then_unique_group",
+      "unique_text_distinct",
+      "float_nested_decline"
+    ],
+    "scope": "Freeze eight composed native-key workflows, fresh seeds/layouts, complete independent references and all file identities before 160 observations through five public interfaces. Native checks add actual dictionary arrays, malformed-domain, late-code and activation/ownership controls. No extra benefit cohort."
+  },
+  "execution_policy": "One isolated sequential execution of every original case in original order with the existing guard, storage limits, deadlines, complete result validation and process cleanup. Finish task-owned builds/tests/agents before queries. Full hashes and recursive inventories stay outside query execution. No cache manipulation, artificial pacing or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/observations.json",
+    "bytes": 33206,
+    "sha256": "b0d682455f2e475538ba4126380c3869eddb7046c5d9b01f2447459383b79bdc",
+    "protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/protocol.json",
+      "bytes": 208705,
+      "sha256": "b5f724ae0009c329a27add972ad3b07485fe617b364eb7f2e083eece65063941"
+    },
+    "finding": "The three complete grouping diagnostics retain measurable keys.prepare and group.intern work. Source inspection proves Batch::new eagerly prepares every text-domain hash before RowSet consults its existing exact identity cache. The profile does not itself establish cache activation or isolate removable hashing time; focused counters and complete-cohort evidence must do so."
+  },
+  "vortex_first_check": {
+    "decision": "use_vortex_native_provider",
+    "reused": [
+      "Vortex 0.90.0 native VarBinView and dictionary code/domain owners, validity and checked utf8_slice_at",
+      "KeyColumn/VariableColumn preparation and exact byte hashing",
+      "RowSet/RowIndex first-occurrence membership and bounded key cache",
+      "existing native leases, cancellation and independently gathered retained keys"
+    ],
+    "upstream_checked": [
+      "vendor/vortex-array/src/arrays/varbinview/array.rs",
+      "docs/architecture/vortex-public-api-inventory.md",
+      "shardloom-vortex/src/local_primitives/compound_count_partial.rs"
+    ],
+    "boundary": "Reuse the admitted native value owners and checked borrowed text view. ShardLoom retains its exact hash tags, NULL/equality and first-occurrence state contract. No new array representation, dictionary synthesis, grouped-list construction, provider, scheduler, dependency or external evaluator."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false,
+  "audit_evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-preparation-source-inventory.md",
+      "bytes": 15831,
+      "sha256": "9b2ef1c0dc89370873f9395608691611530862b1f8d887580090e56cafee15f5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/dictionary-unary-reachability-inventory.md",
+      "bytes": 18834,
+      "sha256": "6236fc0517b93d06ebd9bf68ad1936c4c2495b25fd086018279554e24c0e501f"
+    }
+  ],
+  "baseline_validation_supplement": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-payload-validation-followup.json",
+    "bytes": 7921,
+    "sha256": "29644b4f033e4fce531b1fbe3195ce7d89452666c4792a9543d09a1ea1d71a9c"
+  }
+}

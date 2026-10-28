@@ -208,6 +208,21 @@ match the measured candidate; intervening changes are documentation only.
 Installed-package acceptance, the complete portable packet and hosted acceptance
 of this new source remain open alongside the remaining item-20 implementation.
 
+The next [prospective candidate](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-protocol.json)
+targets redundant text-key preparation inside that existing membership owner.
+`Batch::new` currently allocates and computes every variable-domain hash before
+`RowSet` consults its exact per-batch identity cache. Admit on-demand hashing for
+flat UTF-8/binary keys only in null-equal membership without an other-set probe;
+preserve complete domain validation, late dictionary-code errors, exact hash
+bits, first-occurrence ordinals and ordinary cache-decline lookup. Reuse Vortex's
+checked borrowed text view during that validation walk. Matching joins, nested
+keys and retained unique key payloads keep their existing preparation. The
+candidate must prove fewer hashes and hash-slot bytes plus complete-query benefit
+against 17.729495249 seconds; it is not yet retained. No worker or CPU-grant change
+is introduced. Dictionary unary execution remains conditional on actual encoded
+arguments reaching the function boundary; Parquet page encoding alone is not
+that evidence.
+
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
 - [ ] Complete statistical and richer aggregates, including their type/null,
