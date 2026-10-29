@@ -2,8 +2,8 @@
 //! Explicit expressions, grouping keys and set identity keep their full semantics.
 
 use super::{
-    BTreeSet, ColumnRef, Expression, Join, Lowerer, NativeResult, NativeWindowFunction, Plan,
-    ProjectionRequest, Side, Subquery, SubqueryKind, Window, expression_source_columns,
+    AsOfJoin, BTreeSet, ColumnRef, Expression, Join, Lowerer, NativeResult, NativeWindowFunction,
+    Plan, ProjectionRequest, Side, Subquery, SubqueryKind, Window, expression_source_columns,
     unsupported_sql_error,
 };
 use shardloom_vortex::relational_query::VortexRelationalStage as Stage;
@@ -113,6 +113,7 @@ impl Lowerer<'_, '_> {
                 self.prune_at(&mut aggregate.input, Some(needed), outer, depth + 1)
             }
             Plan::Join(join) => self.prune_join(join, required.as_ref(), outer, depth),
+            Plan::AsOfJoin(join) => self.prune_asof(join, required.as_ref(), outer, depth),
             Plan::Set(set) => {
                 // DISTINCT/INTERSECT/EXCEPT compare complete rows; pruning a set
                 // key because a later projection drops it would change results.
@@ -179,6 +180,39 @@ impl Lowerer<'_, '_> {
             }
         }
         self.prune_at(&mut window.input, Some(needed), outer, depth + 1)
+    }
+
+    fn prune_asof(
+        &mut self,
+        join: &mut AsOfJoin,
+        required: Option<&Columns>,
+        outer: &mut Columns,
+        depth: usize,
+    ) -> NativeResult<()> {
+        if let Some(required) = required {
+            let row_field = join.columns.first().cloned();
+            join.columns
+                .retain(|column| required.contains(&column.output_column));
+            if join.columns.is_empty() {
+                join.columns.extend(row_field);
+            }
+        }
+        let mut left = Columns::new();
+        let mut right = Columns::new();
+        for key in join.by.iter().chain(std::iter::once(&join.on)) {
+            left.insert(key.left.as_str().to_owned());
+            right.insert(key.right.as_str().to_owned());
+        }
+        for column in &join.columns {
+            let needed = if column.side == Side::Left {
+                &mut left
+            } else {
+                &mut right
+            };
+            needed.insert(column.column.as_str().to_owned());
+        }
+        self.prune_at(&mut join.left, Some(left), outer, depth + 1)?;
+        self.prune_at(&mut join.right, Some(right), outer, depth + 1)
     }
 
     fn prune_join(

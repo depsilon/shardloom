@@ -1434,6 +1434,41 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cross joins do not accept condition="):
             frame.join(dim, how="cross", condition="f.amount > d.threshold")
 
+    def test_asof_builder_preserves_composition_and_explicit_matching_without_execution(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary=["definitely-missing-shardloom"]))
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("unexpected execution")):
+            left = ctx.read_parquet("left.parquet").filter("id > 0").limit(7)
+            right = ctx.read_parquet("right.parquet").filter("eligible = true")
+            for strategy, matching in (("backward", "f.when > d.at"), ("forward", "f.when < d.at"),
+                                       ("nearest", "NEAREST(f.when,d.at,FALSE)")):
+                frame = left.join_asof(right, left_on="when", right_on="at", left_by=["entity", "currency"],
+                    right_by=["entity_id", "currency"], strategy=strategy, tolerance=0, allow_exact_matches=False)
+                statement = frame.select("f.id AS left_id", "d.id AS right_id").limit(3)._relation_statement()
+                self.assertIn("LIMIT 7)", statement)
+                self.assertIn("eligible = true", statement)
+                self.assertIn(f"MATCH_CONDITION ({matching})", statement)
+                self.assertIn("ON f.entity = d.entity_id AND f.currency = d.currency TOLERANCE 0", statement)
+                self.assertTrue(statement.endswith("LIMIT 3"))
+            self.assertIn("MATCH_CONDITION (f.key >= d.key)", left.join_asof(right, on="key")._relation_statement())
+
+    def test_asof_builder_rejects_ambiguous_or_lossy_options_before_execution(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary=["definitely-missing-shardloom"]))
+        left, right = ctx.read_parquet("left.parquet"), ctx.read_parquet("right.parquet")
+        for options in ({}, {"on":"key", "left_on":"key"}, {"left_on":"key"},
+                        {"on":"key", "by":"entity", "left_by":"entity"},
+                        {"on":"key", "left_by":["a","b"], "right_by":["a"]},
+                        {"on":"key", "strategy":"closest"}, {"on":"key", "tolerance":-1},
+                        {"on":"key", "tolerance":1 << 64}, {"on":"key", "tolerance":1.5},
+                        {"on":"key", "tolerance":True}, {"on":"key", "allow_exact_matches":1}):
+            with self.subTest(options=options), mock.patch("subprocess.Popen", side_effect=AssertionError("unexpected execution")):
+                with self.assertRaises((ValueError, TypeError)):
+                    left.join_asof(right, **options)
+        other = ShardLoomContext(ShardLoomClient(binary=["definitely-missing-shardloom"]))
+        with self.assertRaisesRegex(ValueError, "another context"):
+            left.join_asof(other.read_parquet("right.parquet"), on="key")
+        with self.assertRaisesRegex(TypeError, "another LazyFrame"):
+            left.join_asof("right.parquet", on="key")
+
 
     def test_local_csv_query_builder_invalid_join_how_is_deterministic(self) -> None:
         ctx = ShardLoomContext(ShardLoomClient(binary=self.fake_cli("")))

@@ -113,6 +113,10 @@ impl Binder<'_> {
                 self.validate_subquery_source_scope(&join.left, depth + 1)?;
                 self.validate_subquery_source_scope(&join.right, depth + 1)?;
             }
+            VortexRelationalPlan::AsOfJoin(join) => {
+                self.validate_subquery_source_scope(&join.left, depth + 1)?;
+                self.validate_subquery_source_scope(&join.right, depth + 1)?;
+            }
             VortexRelationalPlan::Set(set) => {
                 self.validate_subquery_source_scope(&set.left, depth + 1)?;
                 self.validate_subquery_source_scope(&set.right, depth + 1)?;

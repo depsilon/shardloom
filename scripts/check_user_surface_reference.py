@@ -121,6 +121,7 @@ REQUIRED_PYTHON_METHODS = (
     "rollup",
     "cube",
     "join",
+    "join_asof",
     "collect",
     "write_json",
     "write_jsonl",

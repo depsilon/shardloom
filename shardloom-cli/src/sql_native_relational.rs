@@ -14,17 +14,18 @@ use shardloom_vortex::{
     local_primitives::prepared_relational::VortexRelationalPreparation,
     query_primitive::VortexSimpleAggregateMeasure,
     relational_query::{
-        VortexRelationalAggregate as Aggregate, VortexRelationalFilter as Filter,
-        VortexRelationalJoin as Join, VortexRelationalJoinColumn as JoinColumn,
-        VortexRelationalJoinKey as JoinKey, VortexRelationalJoinKind as JoinKind,
-        VortexRelationalLimit as Limit, VortexRelationalNullOrder as NullOrder,
-        VortexRelationalOrderKey as OrderKey, VortexRelationalPlan as Plan,
-        VortexRelationalProject as Project, VortexRelationalQuantifier as Quantifier,
-        VortexRelationalScan as Scan, VortexRelationalSet as Set,
-        VortexRelationalSetKind as SetKind, VortexRelationalSide as Side,
-        VortexRelationalSort as Sort, VortexRelationalSubquery as Subquery,
-        VortexRelationalSubqueryKind as SubqueryKind, VortexRelationalUnary as Unary,
-        VortexRelationalWindow as Window, VortexRelationalWindowExpression as WindowExpression,
+        VortexRelationalAggregate as Aggregate, VortexRelationalAsOfJoin as AsOfJoin,
+        VortexRelationalFilter as Filter, VortexRelationalJoin as Join,
+        VortexRelationalJoinColumn as JoinColumn, VortexRelationalJoinKey as JoinKey,
+        VortexRelationalJoinKind as JoinKind, VortexRelationalLimit as Limit,
+        VortexRelationalNullOrder as NullOrder, VortexRelationalOrderKey as OrderKey,
+        VortexRelationalPlan as Plan, VortexRelationalProject as Project,
+        VortexRelationalQuantifier as Quantifier, VortexRelationalScan as Scan,
+        VortexRelationalSet as Set, VortexRelationalSetKind as SetKind,
+        VortexRelationalSide as Side, VortexRelationalSort as Sort,
+        VortexRelationalSubquery as Subquery, VortexRelationalSubqueryKind as SubqueryKind,
+        VortexRelationalUnary as Unary, VortexRelationalWindow as Window,
+        VortexRelationalWindowExpression as WindowExpression,
         VortexRelationalWindowFunction as NativeWindowFunction,
     },
 };
@@ -649,20 +650,35 @@ impl Lowerer<'_, '_> {
         if let Some(condition) = &condition {
             append_equality_keys(condition, &mut keys)?;
         }
+        let plan = if let Some(asof) = &join.asof {
+            Plan::AsOfJoin(Box::new(AsOfJoin {
+                left: left.plan,
+                right: right.plan,
+                by: keys,
+                on: JoinKey {
+                    left: ColumnRef::new(asof.on.left.column.clone())?,
+                    right: ColumnRef::new(asof.on.right.column.clone())?,
+                },
+                options: asof.options,
+                columns: columns.clone(),
+            }))
+        } else {
+            Plan::Join(Box::new(Join {
+                left: left.plan,
+                right: right.plan,
+                kind,
+                keys,
+                condition,
+                columns: columns.clone(),
+            }))
+        };
         Ok(Lowered {
             qualifiers: BTreeMap::new(),
             columns: columns
                 .iter()
                 .map(|column| column.output_column.clone())
                 .collect(),
-            plan: Plan::Join(Box::new(Join {
-                left: left.plan,
-                right: right.plan,
-                kind,
-                keys,
-                condition,
-                columns,
-            })),
+            plan,
         })
     }
 

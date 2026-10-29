@@ -82,6 +82,10 @@ pub(super) fn rebind(
                 pending.push(&mut node.right);
                 pending.push(&mut node.left);
             }
+            Plan::AsOfJoin(node) => {
+                pending.push(&mut node.right);
+                pending.push(&mut node.left);
+            }
             Plan::Set(node) => {
                 pending.push(&mut node.right);
                 pending.push(&mut node.left);
@@ -138,6 +142,13 @@ pub(super) fn columns(
                 return Ok(node.output_columns().map(str::to_owned).collect());
             }
             Plan::Join(node) => {
+                return Ok(node
+                    .columns
+                    .iter()
+                    .map(|column| column.output_column.clone())
+                    .collect());
+            }
+            Plan::AsOfJoin(node) => {
                 return Ok(node
                     .columns
                     .iter()

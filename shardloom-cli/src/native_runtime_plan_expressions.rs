@@ -28,6 +28,10 @@ pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
                 expression(value, 0, nodes)?;
             }
         }
+        Plan::AsOfJoin(node) => {
+            visit(&mut node.left, nodes)?;
+            visit(&mut node.right, nodes)?;
+        }
         Plan::Set(node) => {
             visit(&mut node.left, nodes)?;
             visit(&mut node.right, nodes)?;

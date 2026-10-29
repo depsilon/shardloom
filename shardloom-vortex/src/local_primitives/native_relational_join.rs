@@ -25,6 +25,8 @@ use vortex::array::{
 
 pub(super) struct Spec {
     pub(super) kind: Kind,
+    /// When present, the last key is ordered and preceding keys partition it.
+    pub(super) asof: Option<crate::relational_query::VortexRelationalAsOfOptions>,
     pub(super) left_keys: Vec<String>,
     pub(super) right_keys: Vec<String>,
     pub(super) right_key_fields: Vec<(String, DType)>,
@@ -39,6 +41,8 @@ pub(super) struct Condition {
     pub(super) columns: Vec<(Side, String)>,
 }
 
+#[path = "native_relational_asof_join.rs"]
+pub(super) mod asof;
 #[path = "native_relational_join_condition.rs"]
 mod condition;
 #[cfg(feature = "vortex-write")]
@@ -316,9 +320,6 @@ impl Spec {
             return Ok(());
         }
         context.check_cancelled()?;
-        let next = written
-            .checked_add(rows as u64)
-            .ok_or_else(|| failed("join cardinality overflow"))?;
         let right = self
             .columns
             .iter()
@@ -331,6 +332,32 @@ impl Spec {
                 )
             })
             .transpose()?;
+        self.flush_with_right(left, pairs, written, context, consume, |name, dtype, _| {
+            right
+                .as_ref()
+                .ok_or_else(|| failed("right gather is absent"))?
+                .column(name, dtype, context)
+        })
+    }
+
+    /// Resident tables and stored native orders share output ownership and null extension.
+    fn flush_with_right(
+        &self,
+        left: Option<&ArrayRef>,
+        pairs: &mut Pairs,
+        written: &mut u64,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+        mut right_column: impl FnMut(&str, &DType, &[Option<usize>]) -> Result<ArrayRef>,
+    ) -> Result<()> {
+        let rows = pairs.left.values.len();
+        if rows == 0 {
+            return Ok(());
+        }
+        context.check_cancelled()?;
+        let next = written
+            .checked_add(rows as u64)
+            .ok_or_else(|| failed("join cardinality overflow"))?;
         let left_indices = left
             .map(|_| {
                 index_array(
@@ -362,10 +389,7 @@ impl Spec {
                         |_| Ok(result_batch::Value::Null),
                     )?,
                 },
-                Side::Right => right
-                    .as_ref()
-                    .ok_or_else(|| failed("right gather is absent"))?
-                    .column(name, dtype, context)?,
+                Side::Right => right_column(name, dtype, &pairs.right.values)?,
             };
             columns.values.push(array);
         }

@@ -5,7 +5,8 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 use shardloom_core::{ColumnRef, ComparisonOp};
 use shardloom_runtime::native::NativeRelationDeclaration;
 use shardloom_vortex::relational_query::{
-    VortexRelationalAggregate, VortexRelationalFilter, VortexRelationalGroupingIndicator,
+    VortexRelationalAggregate, VortexRelationalAsOfDirection, VortexRelationalAsOfJoin,
+    VortexRelationalAsOfOptions, VortexRelationalFilter, VortexRelationalGroupingIndicator,
     VortexRelationalGroupingSets, VortexRelationalJoin, VortexRelationalJoinColumn,
     VortexRelationalJoinKey, VortexRelationalJoinKind, VortexRelationalLimit,
     VortexRelationalNullOrder, VortexRelationalOrderKey, VortexRelationalPlan as Plan,
@@ -336,25 +337,7 @@ impl NativeRelation {
             _ => return Err(PyValueError::new_err("unsupported native join kind")),
         };
         let keys = join_keys(keys)?;
-        let columns = columns
-            .into_iter()
-            .map(|(side, name, output_column)| {
-                let side = match side.as_str() {
-                    "left" => VortexRelationalSide::Left,
-                    "right" => VortexRelationalSide::Right,
-                    _ => {
-                        return Err(PyValueError::new_err(
-                            "join projection side must be left or right",
-                        ));
-                    }
-                };
-                Ok(VortexRelationalJoinColumn {
-                    side,
-                    column: column(name)?,
-                    output_column,
-                })
-            })
-            .collect::<PyResult<_>>()?;
+        let columns = join_columns(columns)?;
         self.compose(
             Plan::Join(Box::new(VortexRelationalJoin {
                 left: Plan::Input(0),
@@ -367,6 +350,76 @@ impl NativeRelation {
             Some(other),
         )
     }
+
+    /// Preserve left rows and choose one ordered right match in each by-key partition.
+    /// Tolerance is inclusive in ordering-key ticks. Backward chooses the last
+    /// equal right key; forward the first. Nearest prefers backward on equal
+    /// distance and follows the selected direction's duplicate rule.
+    #[pyo3(signature = (other, on, columns, *, by=Vec::new(), strategy="backward", tolerance=None, allow_exact_matches=true))]
+    #[allow(clippy::too_many_arguments)] // Required relation/columns plus named, orthogonal public matching options.
+    fn join_asof(
+        &self,
+        other: &Self,
+        on: (String, String),
+        columns: Vec<(String, String, String)>,
+        by: Vec<(String, String)>,
+        strategy: &str,
+        tolerance: Option<u64>,
+        allow_exact_matches: bool,
+    ) -> PyResult<Self> {
+        let direction = match strategy {
+            "backward" => VortexRelationalAsOfDirection::Backward,
+            "forward" => VortexRelationalAsOfDirection::Forward,
+            "nearest" => VortexRelationalAsOfDirection::Nearest,
+            _ => {
+                return Err(PyValueError::new_err(
+                    "as-of strategy must be backward, forward or nearest",
+                ));
+            }
+        };
+        self.compose(
+            Plan::AsOfJoin(Box::new(VortexRelationalAsOfJoin {
+                left: Plan::Input(0),
+                right: Plan::Input(1),
+                on: VortexRelationalJoinKey {
+                    left: column(on.0)?,
+                    right: column(on.1)?,
+                },
+                by: join_keys(by)?,
+                options: VortexRelationalAsOfOptions {
+                    direction,
+                    tolerance,
+                    allow_exact_matches,
+                },
+                columns: join_columns(columns)?,
+            })),
+            Some(other),
+        )
+    }
+}
+
+fn join_columns(
+    columns: Vec<(String, String, String)>,
+) -> PyResult<Vec<VortexRelationalJoinColumn>> {
+    columns
+        .into_iter()
+        .map(|(side, name, output_column)| {
+            let side = match side.as_str() {
+                "left" => VortexRelationalSide::Left,
+                "right" => VortexRelationalSide::Right,
+                _ => {
+                    return Err(PyValueError::new_err(
+                        "join projection side must be left or right",
+                    ));
+                }
+            };
+            Ok(VortexRelationalJoinColumn {
+                side,
+                column: column(name)?,
+                output_column,
+            })
+        })
+        .collect()
 }
 
 fn join_keys(keys: Vec<(String, String)>) -> PyResult<Vec<VortexRelationalJoinKey>> {

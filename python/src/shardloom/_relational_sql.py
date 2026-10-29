@@ -220,6 +220,28 @@ def _render_stages(
                 else:
                     columns = (payload["output_column"],)
             statement = f"SELECT * FROM {function}(({statement}), {argument}) AS _sl_stage_{index}"
+        elif kind == "join_asof":
+            if len(values) != 8:
+                return None
+            right, left_key, right_key, left_by, right_by, strategy, tolerance, exact = values
+            if strategy == "nearest":
+                match = f"NEAREST(f.{left_key},d.{right_key},{exact.upper()})"
+            else:
+                comparison = ">" if strategy == "backward" else "<"
+                if exact == "true":
+                    comparison += "="
+                match = f"f.{left_key} {comparison} d.{right_key}"
+            partitions = ""
+            if left_by:
+                partitions = " ON " + " AND ".join(
+                    f"f.{left} = d.{right}" for left, right in zip(left_by.split(","), right_by.split(","))
+                )
+            bound = f" TOLERANCE {tolerance}" if tolerance else ""
+            right_source = (f"({operation.right_statement})" if operation.right_statement is not None
+                            else q._quote_sql_local_source_path(right))
+            statement = (f"SELECT * FROM ({statement}) AS f ASOF LEFT JOIN {right_source} AS d "
+                         f"MATCH_CONDITION ({match}){partitions}{bound}")
+            columns = None
         elif kind == "join":
             if len(values) not in (6, 7):
                 return None

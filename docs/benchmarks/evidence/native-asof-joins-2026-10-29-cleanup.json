@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "retired": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/asof-public-r1/_native.abi3.so",
+      "sha256": "758303fb0f776d7c3d8ca54afeae144c800e59a5f92c02be325b3de3d9087668",
+      "bytes": 115010736,
+      "open_handle_check": "no_open_handles",
+      "build_receipt": "e368-asof-public-build.json",
+      "result": "retired"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/asof-public-r2/_native.abi3.so",
+      "sha256": "904cfd8dc4251034763a0653207a2cbbfe42fa0de54aca940bc1af30323ab7f7",
+      "bytes": 115010736,
+      "open_handle_check": "no_open_handles",
+      "build_receipt": "e376-asof-final-public-build.json",
+      "result": "retired"
+    }
+  ],
+  "bytes_recovered": 230021472,
+  "retained_final_native_library": "/Users/dylan/.cache/shardloom/cargo-target/ci-native/lib_native.dylib",
+  "regeneration": "Both build/source receipts and final source text remain in the immutable as-of evidence packet; r1 differs only in binding documentation. No failed attempt evidence or user data removed."
+}

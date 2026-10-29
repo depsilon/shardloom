@@ -743,6 +743,164 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             check(self.table(retained), retained_expected, retained_fields)
             check(self.table(reused), retained_expected, retained_fields)
 
+    def test_asof_matches_independent_partition_reference_on_all_five_surfaces(self):
+        from decimal import Decimal
+        import random
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rng = random.Random(202610290947)
+        def make_rows(count):
+            return [{"id": index, "key": None if index % 19 == 0 else rng.randrange(-19, 24),
+                     "entity": None if index % 17 == 0 else rng.randrange(4),
+                     "currency": None if index % 23 == 0 else ("USD" if index % 3 else "EUR"),
+                     "price": Decimal(index * 17 - 41).scaleb(-3),
+                     "items": None if index % 11 == 0 else [f"selected {index} 東京", None, ""]}
+                    for index in range(count)]
+        left, right = make_rows(257), make_rows(193)
+        # Duplicate keys span physical row groups; source position controls ties.
+        right[100].update({name: right[3][name] for name in ("key", "entity", "currency")})
+        columns = [("left", "id", "left_id"), ("right", "id", "right_id"),
+                   ("right", "price", "price"), ("right", "items", "items")]
+        expected_schema = pa.schema([pa.field("left_id", pa.int64(), nullable=False),
+            pa.field("right_id", pa.int64()), pa.field("price", pa.decimal128(18, 3)),
+            pa.field("items", pa.list_(pa.string()))])
+
+        def reference(strategy, exact, tolerance):
+            result = []
+            for row in left:
+                candidates = []
+                if all(row[name] is not None for name in ("key", "entity", "currency")):
+                    for position, other in enumerate(right):
+                        if other["key"] is None or any(row[name] != other[name] for name in ("entity", "currency")):
+                            continue
+                        delta = other["key"] - row["key"]
+                        if (not exact and delta == 0) or (strategy == "backward" and delta > 0) or (strategy == "forward" and delta < 0):
+                            continue
+                        if tolerance is not None and abs(delta) > tolerance:
+                            continue
+                        forward = delta > 0 or strategy == "forward"
+                        candidates.append(((abs(delta), forward, position if forward else -position), other))
+                selected = min(candidates, key=lambda item: item[0])[1] if candidates else {}
+                result.append({"left_id": row["id"], "right_id": selected.get("id"),
+                               "price": selected.get("price"), "items": selected.get("items")})
+            return result
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-asof-five-") as directory:
+            left_path, right_path = Path(directory) / "left.parquet", Path(directory) / "right.parquet"
+            for order_index, order_type in enumerate((pa.int64(), pa.timestamp("ns", "America/Chicago"))):
+                fields = pa.schema([pa.field("id", pa.int64(), nullable=False), pa.field("key", order_type),
+                    pa.field("entity", pa.int16()), pa.field("currency", pa.string()),
+                    pa.field("price", pa.decimal128(18, 3), nullable=False), pa.field("items", pa.list_(pa.string()))])
+                for path, rows in ((left_path, left), (right_path, right)):
+                    arrays = [pa.array([row[field.name] for row in rows], type=field.type)
+                              if field.name != "key" else pa.array([row["key"] for row in rows], type=pa.int64()).cast(order_type)
+                              for field in fields]
+                    parquet.write_table(pa.Table.from_arrays(arrays, schema=fields), path, row_group_size=17)
+                for strategy in ("backward", "forward", "nearest"):
+                    for exact in (True, False):
+                        for tolerance in (None, 3):
+                            kwargs = dict(strategy=strategy, tolerance=tolerance, allow_exact_matches=exact)
+                            frame = sl.read_parquet(left_path, client=client).join_asof(
+                                sl.read_parquet(right_path, client=client), on="key", by=["entity", "currency"], **kwargs)
+                            selects = [f"{'f' if side == 'left' else 'd'}.{name} AS {alias}" for side, name, alias in columns]
+                            frame = frame.select(*selects)
+                            relation = native.Relation.scan(str(left_path)).join_asof(
+                                native.Relation.scan(str(right_path)), ("key", "key"), columns,
+                                by=[("entity", "entity"), ("currency", "currency")], **kwargs)
+                            if strategy == "nearest":
+                                matching = f"NEAREST(f.key,d.key,{str(exact).upper()})"
+                            else:
+                                comparison = (">" if strategy == "backward" else "<") + ("=" if exact else "")
+                                matching = f"f.key {comparison} d.key"
+                            sql = (f"SELECT {','.join(selects)} FROM '{left_path}' AS f ASOF LEFT JOIN '{right_path}' AS d "
+                                   f"MATCH_CONDITION ({matching}) ON f.entity=d.entity AND f.currency=d.currency")
+                            if tolerance is not None:
+                                sql += f" TOLERANCE {tolerance}"
+                            with self.subTest(order_type=str(order_type), **kwargs):
+                                wanted = reference(strategy, exact, tolerance)
+                                for table in self.all_surfaces(frame, relation, sql):
+                                    self.assertEqual(table.schema, expected_schema)
+                                    self.assertEqual(table.to_pylist(), wanted)
+                retained = self.session.sql(sql).collect()
+                outputs = []
+                for fmt, reader in (("vortex", sl.read_vortex), ("parquet", sl.read_parquet),
+                                    ("arrow-ipc", sl.read_arrow_ipc)):
+                    destination = Path(directory) / f"output-{order_index}.{fmt}"
+                    written = frame.write(destination, output_format=fmt, check=True)
+                    self.assertFalse(written.envelope.fallback.attempted)
+                    self.assertEqual(written.envelope.field("external_engine_invoked"), "false")
+                    outputs.append((destination, reader))
+                left_path.unlink()
+                right_path.unlink()
+                for destination, reader in outputs:
+                    reopened = reader(destination, client=client).collect(check=True).to_arrow()
+                    self.assertEqual(reopened.schema, expected_schema)
+                    self.assertEqual(reopened.to_pylist(), wanted)
+                # Output and its rich children survive both source deletion and producer close.
+                producer = native.Session(native.ExecutionResources(128 << 20, 2))
+                reused = producer.sql("SELECT * FROM 'memory://asof'", sources=[("memory://asof", retained.as_source())]).collect()
+                producer.close()
+                self.assertEqual(self.table(reused).to_pylist(), wanted)
+                self.assertEqual(self.table(retained).to_pylist(), wanted)
+
+    def test_asof_rejects_implicit_temporal_conversion_and_invalid_declarations(self):
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+        from shardloom.errors import ShardLoomCommandError
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        with tempfile.TemporaryDirectory(prefix="shardloom-asof-refusals-") as directory:
+            paths = [Path(directory) / f"side-{side}.parquet" for side in range(2)]
+            for left_type, right_type in [(pa.timestamp("ms", "UTC"), pa.timestamp("us", "UTC")),
+                                         (pa.timestamp("us", "UTC"), pa.timestamp("us", "America/Chicago")),
+                                         (pa.int64(), pa.float64())]:
+                for path, dtype in zip(paths, (left_type, right_type)):
+                    parquet.write_table(pa.table({"key": pa.array([1, 2], type=pa.int64()).cast(dtype)}), path)
+                relation = native.Relation.scan(str(paths[0])).join_asof(native.Relation.scan(str(paths[1])),
+                    ("key", "key"), [("left", "key", "key")])
+                frame = sl.read_parquet(paths[0], client=client).join_asof(sl.read_parquet(paths[1], client=client), on="key")
+                sql = f"SELECT f.key FROM '{paths[0]}' AS f ASOF JOIN '{paths[1]}' AS d MATCH_CONDITION(f.key>=d.key)"
+                arguments = ["sql", "--sql", sql, "--request", "collect", "--bounded", "true",
+                             "--memory-bytes", str(128 << 20), "--max-parallelism", "2"]
+                actions = (
+                    ("typed", RuntimeError, lambda: self.session.plan(relation).collect()),
+                    ("sql", RuntimeError, lambda: self.session.sql(sql).collect()),
+                    ("dataframe", ShardLoomCommandError, lambda: frame.collect(check=True)),
+                    ("workflow", RuntimeError, lambda: self.session.workflow(arguments).collect()),
+                )
+                for surface, error_type, execute in actions:
+                    with self.subTest(surface=surface, left=str(left_type), right=str(right_type)):
+                        with self.assertRaisesRegex(error_type, "explicit lossless cast") as raised:
+                            execute()
+                        if isinstance(raised.exception, ShardLoomCommandError):
+                            self.assertFalse(raised.exception.envelope.fallback.attempted)
+                        else:
+                            self.assertIn("no fallback execution was attempted", str(raised.exception))
+                with patch("subprocess.Popen", self.real_popen):
+                    cli = sl.ShardLoomClient(binary=os.environ.get("SHARDLOOM_SURFACE_TEST_BINARY"),
+                                            transport="subprocess", use_persistent_worker=False,
+                                            memory_bytes=128 << 20, max_parallelism=2, timeout=30)
+                    try:
+                        with self.assertRaisesRegex(ShardLoomCommandError, "explicit lossless cast") as raised:
+                            sl.sql(sql, client=cli).collect(check=True)
+                        self.assertFalse(raised.exception.envelope.fallback.attempted)
+                    finally:
+                        cli.close()
+            left = sl.read_parquet(paths[0], client=client)
+            right = sl.read_parquet(paths[1], client=client)
+            for kwargs in ({}, {"on": "key", "strategy": "closest"}, {"on": "key", "tolerance": -1},
+                           {"on": "key", "tolerance": True}, {"on": "key", "allow_exact_matches": 1},
+                           {"on": "key", "left_by": ["key"], "right_by": []}):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises((TypeError, ValueError)):
+                        left.join_asof(right, **kwargs)
+
     def test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces(self):
         from decimal import Decimal
         import shardloom as sl
