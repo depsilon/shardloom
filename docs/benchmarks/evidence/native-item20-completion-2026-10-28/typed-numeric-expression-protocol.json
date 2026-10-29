@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 typed numeric binary and literal-coalesce expression construction",
+  "source_before_runtime_edits": "dbe7e17021c3da6c9277ed245c808ef0ed501f14",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/inputs.json",
+  "baseline_inputs_sha256": "5190afafce2cf5fb52fdd7efbfdefca426aaa2dd3cdfc04d16d33e3a4c02e04e",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/native-observations.json",
+  "baseline_observations_sha256": "2fada27cfa9ecc6f495597a7d679756086b8af002feefb3cb26dec8d13df64fc",
+  "baseline_engine_seconds": 17.42942424,
+  "baseline_policy": "Reuse the accepted demand-hashing observation and independent complete references; replay saved results without rerunning baseline queries. Current source additionally retains a checked UTF-8 correctness repair with 5016 native and 3274 default workspace tests, formatting and strict lint passing. Its additional cost is not separately measured; the next candidate comparison includes that repair. Combined package, portable, hosted and remaining item-20 acceptance stay open.",
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-demand-disposition.json",
+    "bytes": 48930,
+    "sha256": "0caeb81e10fa0b5e539e990f201f8626079ef35f9d5c5c2241465eb7b7514a5c"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "Reuse the existing left-before-right native numeric preparation. When both prepared owners and the bound output are the same I64, U64 or F64 physical type, dispatch once per batch into typed arithmetic/result construction, removing per-row key-enum/scalar-result/type dispatch. Keep the existing checked arithmetic semantics in shared helpers, including signed/unsigned overflow, finite-input observation before NULL propagation, signed zero, division/remainder diagnostics and input order. Other types and coercions retain the existing native scalar path.",
+    "For exactly COALESCE(numeric column, same-type finite non-null literal), build one owned typed output from the existing numeric owner and validity. Avoid the general lazy branch coordinate vectors, selected-input takes, chunked assembly and final gather. Preserve selected values and finite-output checks, skip hidden NULL payloads, retain exact output dtype/nullability, allocator ownership and cancellation. General lazy expressions, rich values, nonfinite/null literals, mixed widths and casts keep the original coalesce owner.",
+    "Extend the existing numeric result-construction module using Vortex WritableHostBuffer typed mutable access and the existing fallible allocator/validity finishing. No new expression IR, execution provider, intermediate row representation, uncharged numeric vector, unsafe code or output borrowing. NULL slots remain initialized and output credits survive producer closure."
+  ],
+  "activation_evidence": [
+    "Debug-only counters demonstrate numeric binary and literal-coalesce batch/row activation; exact compare against the unchanged scalar arithmetic and general coalesce paths includes complete dtypes, value bits, errors and zero residual credits.",
+    "Cover I64/U64/F64, signed zero, NULL masks, all-NULL and nullable-without-NULL domains, empty and 2053-row inputs, constants, selected/sliced/dictionary inputs, mixed-width and decimal/temporal decline, overflow, zero division, nonfinite operands opposite NULL, and first failing row.",
+    "Preserve left preparation before right evaluation, lazy branch selection, result refusal and cancellation. Verify that output buffers own their memory independently of inputs and the producing context, and check cleanup after errors.",
+    "Verify eight fresh composed workflows through all five public interfaces with independent standard-library references, complete schemas/values, fresh seeds/layouts and complete input readback. Existing public regressions and all unchanged 347 queries remain required."
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "grouped_aggregation",
+      "global_aggregation",
+      "projection"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag. Substantial complete-cohort benefit may outweigh a small isolated timing regression under the October 28 maintainer policy. Additional execution needs a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete values, schema, selected-domain and hidden-parent semantics, first error order, discarded rows, ownership, pressure/refusal and cancellation must pass. Otherwise drop the mechanism and preserve every observation.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610289103,
+      202610289319
+    ],
+    "rows": 4099,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "numeric_binary_projection",
+      "numeric_literal_coalesce",
+      "numeric_mixed_group",
+      "numeric_after_join",
+      "numeric_lazy_domains",
+      "numeric_selected_reordered",
+      "numeric_empty",
+      "numeric_mixed_width_decline"
+    ],
+    "scope": "Freeze eight composed numeric workflows, independent references and all input identities before 160 observations across five interfaces. Native tests establish boundary/error parity, actual encoded arrays, activation and ownership; no additional performance cohort."
+  },
+  "execution_policy": "One isolated sequential execution of every original case in original order with the existing guard, storage limits, deadlines, complete result validation and process cleanup. Finish task-owned builds/tests/agents before queries. Full hashes and recursive inventories stay outside query execution. No cache manipulation, artificial pacing or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/observations.json",
+    "bytes": 33206,
+    "sha256": "b0d682455f2e475538ba4126380c3869eddb7046c5d9b01f2447459383b79bdc",
+    "protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r2/protocol.json",
+      "bytes": 208705,
+      "sha256": "b5f724ae0009c329a27add972ad3b07485fe617b364eb7f2e083eece65063941"
+    },
+    "finding": "The saved diagnostic on the earlier 18.304-second source identifies expression.build as the largest exclusive stage in the arithmetic mixed-group case. Current source still prepares scalar keys and generic result values per row, while literal COALESCE uses general selected-branch coordinate/gather machinery. The diagnostic does not quantify current removable time. Activation checks and the unchanged complete cohort must establish benefit."
+  },
+  "vortex_first_check": {
+    "decision": "implement_shardloom_kernel",
+    "provider_version": "Vortex 0.90.0 pinned and vendored",
+    "upstream_checked": [
+      "vendor/vortex-array/src/builtins.rs",
+      "vendor/vortex-array/src/scalar_fn/fns/binary/numeric/row.rs",
+      "vendor/vortex-array/src/scalar_fn/fns/binary/numeric/checked.rs",
+      "vendor/vortex-array/src/host_memory.rs",
+      "docs/architecture/vortex-public-api-inventory.md"
+    ],
+    "why_not_direct_binary_provider": "Vortex ArrayBuiltins::binary preserves physical width and accepts nonfinite floating arithmetic, unlike ShardLoom promotion and strict operand/result validation. Provider integer diagnostics differ, and its input-NULL masking can suppress a nonfinite operand that ShardLoom observes before NULL propagation. A direct substitution would change semantics; the existing ShardLoom owners and checked arithmetic remain authoritative.",
+    "reused": [
+      "Vortex PrimitiveArray, Mask, exact dtype and original-width numeric owners",
+      "Existing native expression binding, KeyColumn preparation and scalar arithmetic policy",
+      "Existing fallible Vortex host allocation, WritableHostBuffer typed access and native result validity finishing"
+    ],
+    "boundary": "Feature-gated existing native relational runtime in shardloom-vortex. Existing numeric preparation retains its canonicalization/decode boundary; typed loops add no Arrow conversion. Certificates remain ShardLoom-native with fallback_attempted=false and external_engine_invoked=false. No query-engine integration, dependency, scheduler, public schema or external evaluator is added."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false,
+  "audit_evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/numeric-provider-source-inventory.md",
+      "bytes": 9311,
+      "sha256": "4ab11ba8e7ff205637853e1d0d05923881c2dbb96ef76e0457c53779dfdb25e1"
+    }
+  ],
+  "baseline_validation_supplement": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/retained-text-validation.json",
+    "bytes": 40721,
+    "sha256": "5ea0822fa8dc9189558dffa98dbf24fc85f91a87b23379a07eba6734b95498bc"
+  },
+  "targeted_cases": "Every original arithmetic/coalesce aggregate-composition cell plus arithmetic projections. Direct aggregate cells, joins, rich projection, ordering, sets and predicates are unchanged-cohort controls."
+}

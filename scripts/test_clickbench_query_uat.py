@@ -63,7 +63,7 @@ class ClickBenchUatTests(unittest.TestCase):
     def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
                            historical_bytes=0, check_storage=False, budget_probe=None,
                            query_ids="1", repeats=None, paired=False, engine_timing=True,
-                           pinned_queries=False):
+                           pinned_queries=False, input_format=None, profiled_commands=None):
         runner = paired_uat if paired else query_uat
         query_path, packet_path, binary, source, uat_root = self._runner_fixture(
             root, pinned_queries=pinned_queries)
@@ -75,6 +75,8 @@ class ClickBenchUatTests(unittest.TestCase):
                              "dtypes": [{"Primitive": ["i64", False]}]}, False]}
 
         def fake_profiled_command(command, prefix, timeout, guard):
+            if profiled_commands is not None:
+                profiled_commands.append(command)
             result_rows = [{"value": int(prefix.name[1:3])}]
             envelope = {
                 "status": "success",
@@ -86,6 +88,10 @@ class ClickBenchUatTests(unittest.TestCase):
                     {"key": "external_engine_invoked", "value": False},
                     {"key": "execution_backend", "value": "native_vortex"},
                     {"key": "execution_mode", "value": "native"},
+                    {"key": "native_source_demand_files", "value": "1"},
+                    {"key": "native_source_demand_projected_columns", "value": "2"},
+                    {"key": "native_input_end_observed", "value": "true"},
+                    {"key": "native_input_output_ownership_detached", "value": "true"},
                     {"key": "local_primitive_rows_scanned", "value": "0"},
                     {"key": "resident_native_preparation_reused", "value": "false"},
                     {"key": "relational_scan_rows_delivered", "value": "0"},
@@ -130,6 +136,7 @@ class ClickBenchUatTests(unittest.TestCase):
         argv = [
             str(runner.__file__), *binary_args,
             "--input", str(source),
+            *(["--input-format", input_format] if input_format is not None else []),
             "--uat-root", str(uat_root),
             "--queries", str(query_path),
             "--reference-packet", str(packet_path),
@@ -185,6 +192,9 @@ class ClickBenchUatTests(unittest.TestCase):
             "public_workflow_external_engine_invoked": "false",
             "execution_backend": "native_vortex",
             "execution_mode": "native",
+            "native_source_demand_files": "1",
+            "native_input_end_observed": "true",
+            "native_input_output_ownership_detached": "true",
             "result_values_json": '[{"value":1}]',
             "result_payload_complete": "true",
             "result_schema_json": '{"schema":[]}',
@@ -199,6 +209,9 @@ class ClickBenchUatTests(unittest.TestCase):
             "public_workflow_external_engine_invoked": "false",
             "execution_backend": "native_vortex",
             "execution_mode": "native",
+            "native_source_demand_files": "1",
+            "native_input_end_observed": "true",
+            "native_input_output_ownership_detached": "true",
         })
         self.assertEqual(execution_report({}), {})
 
@@ -214,6 +227,10 @@ class ClickBenchUatTests(unittest.TestCase):
             "public_workflow_external_engine_invoked": "false",
             "execution_backend": "native_vortex",
             "execution_mode": "native",
+            "native_source_demand_files": "1",
+            "native_source_demand_projected_columns": "2",
+            "native_input_end_observed": "true",
+            "native_input_output_ownership_detached": "true",
             "local_primitive_rows_scanned": "0",
             "resident_native_preparation_reused": "false",
             "relational_scan_rows_delivered": "0",
@@ -246,6 +263,10 @@ class ClickBenchUatTests(unittest.TestCase):
                             "public_workflow_external_engine_invoked": "false",
                             "execution_backend": "native_vortex",
                             "execution_mode": "native",
+                            "native_source_demand_files": "1",
+                            "native_source_demand_projected_columns": "2",
+                            "native_input_end_observed": "true",
+                            "native_input_output_ownership_detached": "true",
                             "local_primitive_rows_scanned": "0",
                             "resident_native_preparation_reused": "false",
                             "relational_scan_rows_delivered": "0",
@@ -600,6 +621,9 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertTrue(summary["complete"])
         self.assertTrue(summary["full_result_validation"])
         self.assertEqual(summary["repeats"], 1)
+        self.assertEqual(summary["input_format"], "vortex")
+        self.assertTrue(all(row["command"][row["command"].index("--input-format") + 1] == "vortex"
+                            for row in summary["records"]))
         self.assertEqual(summary["runs_completed"], 43)
         self.assertEqual(summary["runs_passed"], 43)
         self.assertEqual([(row["query"], row["run"]) for row in summary["records"]],
@@ -614,6 +638,58 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertEqual(summary["timing_metric"], "engine_execution_seconds")
         self.assertAlmostEqual(summary["query_total_seconds"], 43 * 0.06)
         self.assertAlmostEqual(summary["secondary_process_wall"]["query_total_seconds"], 43 * 0.1)
+
+    def test_parquet_full_suite_runs_each_query_once_and_retains_source_demand_evidence(self):
+        commands = []
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(
+                Path(directory), query_ids=None, input_format="parquet", profiled_commands=commands)
+        self.assertEqual(result, 0)
+        self.assertEqual(summary["input_format"], "parquet")
+        self.assertTrue(summary["complete"])
+        self.assertTrue(summary["full_result_validation"])
+        self.assertEqual(summary["selected_query_ids"], list(range(1, 44)))
+        self.assertEqual(summary["repeats"], 1)
+        self.assertEqual(len(commands), 43)
+        self.assertEqual(len({command[command.index("--sql") + 1] for command in commands}), 43)
+        self.assertEqual([(row["query"], row["run"]) for row in summary["records"]],
+                         [(query, 1) for query in range(1, 44)])
+        self.assertTrue(all(command[1:3] == ["run", "sql"] for command in commands))
+        self.assertTrue(all(command[command.index("--input-format") + 1] == "parquet"
+                            for command in commands))
+        self.assertTrue(all("prepare" not in command[1:] and "ingest" not in command[1:]
+                            for command in commands))
+        self.assertTrue(all(row["execution_report"]["native_source_demand_files"] == "1"
+                            and row["execution_report"]["native_input_end_observed"] == "true"
+                            and row["execution_report"]["native_input_output_ownership_detached"] == "true"
+                            for row in summary["records"]))
+
+    def test_unsupported_input_format_is_rejected_before_any_query_execution(self):
+        commands = []
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as error:
+                self._run_mocked_single(
+                    Path(directory), query_ids=None, input_format="csv", profiled_commands=commands)
+            self.assertFalse((Path(directory) / "uat/logs").exists())
+            self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
+        self.assertEqual(error.exception.code, 2)
+        self.assertEqual(commands, [])
+
+    def test_pinned_parquet_queries_submit_explicit_shared_binding_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(Path(directory), pinned_queries=True,
+                input_format="parquet", query_ids="3,19,33,43")
+        self.assertEqual(result, 0)
+        self.assertEqual(summary["query_dialect"]["input_format"], "parquet")
+        records = {row["query"]: row for row in summary["records"]}
+        self.assertIn("SUM(AdvEngineID) AS sum_AdvEngineID_0", records[3]["executed_query_statement"])
+        self.assertIn("extract_minute(EventTime)", records[19]["executed_query_statement"])
+        self.assertIn("WatchID ASC NULLS FIRST, ClientIP ASC NULLS FIRST", records[33]["executed_query_statement"])
+        self.assertIn("EventDate >= 15900", records[43]["executed_query_statement"])
+        for record in records.values():
+            self.assertNotEqual(record["query_statement"], record["executed_query_statement"])
+            self.assertEqual(record["command"][record["command"].index("--sql") + 1],
+                             record["executed_query_statement"])
 
     def test_repeats_are_explicit_and_persisted_by_both_runners(self):
         for paired in (False, True):

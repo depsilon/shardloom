@@ -17,6 +17,19 @@ mod numeric_reuse_tests;
 #[path = "native_relational_aggregate_numeric_reuse.rs"]
 mod numeric_reuse;
 
+#[path = "native_relational_aggregate_compact.rs"]
+mod compact;
+
+#[cfg(test)]
+#[path = "native_relational_aggregate_compact_tests.rs"]
+mod compact_tests;
+
+#[path = "native_relational_aggregate_extrema.rs"]
+mod extrema;
+
+#[path = "native_relational_aggregate_extrema_pair.rs"]
+mod extrema_pair;
+
 #[path = "native_relational_collections.rs"]
 mod collections;
 #[path = "native_relational_aggregate_filter.rs"]
@@ -158,6 +171,7 @@ pub(super) struct Aggregate<'a> {
     spec: &'a Spec,
     groups: Option<RowSet<'a>>,
     states: ReservedVec<State>,
+    compact: Option<compact::Table>,
     distinct: ReservedVec<Option<RowSet<'a>>>,
     nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,
     decimal_totals: Option<ReservedVec<native_decimal_reduce::Total>>,
@@ -244,6 +258,7 @@ impl<'a> Aggregate<'a> {
             spec,
             groups,
             states,
+            compact: None,
             distinct,
             nested_extrema,
             decimal_totals,
@@ -255,14 +270,25 @@ impl<'a> Aggregate<'a> {
         })
     }
 
-    fn reserve_states(&mut self, memory: &LiveMemoryPool) -> Result<()> {
+    fn reserve_states(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
+        let memory = context.memory();
         if let Some(groups) = &self.groups {
             let count = groups
                 .rows()
                 .checked_mul(self.spec.measures.len())
                 .ok_or_else(|| failed("aggregate state cardinality overflow"))?;
-            self.states.reserve(count - self.states.values.len())?;
-            self.states.values.resize_with(count, State::default);
+            if let Some(table) = &mut self.compact {
+                table.reserve_groups(groups.rows(), context)?;
+            } else if let Some(table) =
+                compact::Table::promote(self.spec, &self.states.values, groups.rows(), context)?
+            {
+                self.compact = Some(table);
+                // The new pages own complete old totals before these credits drop.
+                self.states = ReservedVec::new(memory)?;
+            } else {
+                self.states.reserve(count - self.states.values.len())?;
+                self.states.values.resize_with(count, State::default);
+            }
         }
         if let Some(extrema) = &mut self.nested_extrema {
             extrema.reserve(self.states.values.len() - extrema.values.len())?;
@@ -462,15 +488,19 @@ impl<'a> Aggregate<'a> {
         } else {
             GroupOrdinals::Scalar(array.len())
         };
-        self.reserve_states(context.memory())?;
+        self.reserve_states(context)?;
         let mut decimal_index = 0;
         let mut prepared: Option<PreparedColumn<'_>> = None;
         let mut selection_groups = None;
         let mut selected_filter = None;
         let mut selected = None;
         let mut numeric_reuse_from = None;
+        let mut completed_extrema_end = 0;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
+            if measure_index < completed_extrema_end {
+                continue;
+            }
             let reuse_from = numeric_reuse_from.take();
             let filter = measure.filter_column.as_deref();
             if selected_filter != Some(filter) {
@@ -572,6 +602,24 @@ impl<'a> Aggregate<'a> {
             let validity = prepared
                 .as_ref()
                 .and_then(|column| column.validity.as_ref());
+            if let Some(table) = &mut self.compact {
+                let reuse_next = matches!(measure.function, Function::Sum | Function::Avg)
+                    && matches!(values, Some(KeyColumn::Numeric(owner)) if owner.len() != 0)
+                    && table.admit_next(
+                        self.spec,
+                        measure_index,
+                        array,
+                        column.as_ref().expect("numeric input column is bound"),
+                        context,
+                    )?;
+                if let Some(source) = reuse_from {
+                    table.copy_completed(source, measure_index, ordinals.len(), context)?;
+                } else {
+                    table.consume(measure_index, measure, ordinals, values, validity, context)?;
+                }
+                numeric_reuse_from = reuse_next.then_some(measure_index);
+                continue;
+            }
             if measure.function.is_quantile() {
                 self.quantiles
                     .as_mut()
@@ -701,6 +749,43 @@ impl<'a> Aggregate<'a> {
                     )?;
                 }
                 numeric_reuse_from = reuse_next.then_some(measure_index);
+                continue;
+            }
+            if matches!(measure.function, Function::Min | Function::Max)
+                && let Some(KeyColumn::Numeric(owner)) = values
+            {
+                if let Some(end) = extrema_pair::accumulate(
+                    self.spec,
+                    measure_index,
+                    &mut self.states.values,
+                    ordinals,
+                    &prepared
+                        .as_ref()
+                        .expect("numeric column is prepared")
+                        .source,
+                    owner,
+                    context,
+                )? {
+                    completed_extrema_end = end;
+                    if end == measure_index + 3 {
+                        // COUNT would replace value preparation with this same
+                        // source's executed mask. Keep that ownership/reuse state.
+                        let valid = owner.validity().clone();
+                        let prepared = prepared.as_mut().expect("numeric column is prepared");
+                        prepared.values = None;
+                        prepared.validity = Some(valid);
+                    }
+                    continue;
+                }
+                extrema::accumulate(
+                    &mut self.states.values,
+                    ordinals,
+                    self.spec.measures.len(),
+                    measure_index,
+                    measure.function == Function::Min,
+                    owner,
+                    context,
+                )?;
                 continue;
             }
             for (row, group) in ordinals.iter() {
@@ -873,6 +958,9 @@ impl<'a> Aggregate<'a> {
         measure: &Measure,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Value<'_>> {
+        if let Some(table) = &self.compact {
+            return table.finish(index, group, measure.function);
+        }
         if measure.function.is_moment() {
             return self
                 .statistics
@@ -921,11 +1009,20 @@ fn accumulate_numeric(
 }
 
 fn update_numeric(state: &mut State, value: f64, integer: bool) -> Result<()> {
+    update_numeric_parts(&mut state.count, &mut state.sum, value, integer)
+}
+
+fn update_numeric_parts(
+    count: &mut u64,
+    sum: &mut NumericAggregateSum,
+    value: f64,
+    integer: bool,
+) -> Result<()> {
     // raw_cell validated a nonfinite input before update changed the count.
     validate_finite_scalar(value)?;
-    add_count(state, 1)?;
-    state.sum.add(value, integer);
-    if !state.sum.is_finite() {
+    update_count(count, 1)?;
+    sum.add(value, integer);
+    if !sum.is_finite() {
         return Err(failed("aggregate sum became nonfinite"));
     }
     Ok(())
@@ -1123,8 +1220,11 @@ fn update_distinct(
 }
 
 fn add_count(state: &mut State, count: u64) -> Result<()> {
-    state.count = state
-        .count
+    update_count(&mut state.count, count)
+}
+
+fn update_count(state: &mut u64, count: u64) -> Result<()> {
+    *state = state
         .checked_add(count)
         .ok_or_else(|| failed("aggregate count overflow"))?;
     Ok(())
@@ -1143,20 +1243,7 @@ fn update(
     match measure.function {
         Function::Count => Ok(()),
         Function::Sum | Function::Avg | Function::SumDistinct | Function::AvgDistinct => {
-            let value = value
-                .as_ref()
-                .ok_or_else(|| failed("numeric argument absent"))?;
-            state.sum.add(
-                number(value)?,
-                matches!(
-                    value,
-                    Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_)
-                ),
-            );
-            if !state.sum.is_finite() {
-                return Err(failed("aggregate sum became nonfinite"));
-            }
-            Ok(())
+            update_sum_parts(&mut state.sum, value.as_ref())
         }
         Function::Min | Function::Max => {
             let value = value.ok_or_else(|| failed("extremum argument absent"))?;
@@ -1196,6 +1283,21 @@ fn update(
             "statistical state must use its centered native owner",
         )),
     }
+}
+
+fn update_sum_parts(sum: &mut NumericAggregateSum, value: Option<&Cell>) -> Result<()> {
+    let value = value.ok_or_else(|| failed("numeric argument absent"))?;
+    sum.add(
+        number(value)?,
+        matches!(
+            value,
+            Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_)
+        ),
+    );
+    if !sum.is_finite() {
+        return Err(failed("aggregate sum became nonfinite"));
+    }
+    Ok(())
 }
 
 fn owned_extreme(value: Cell, context: &NativeExecutionContext<'_>) -> Result<Cell> {

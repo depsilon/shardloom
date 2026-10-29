@@ -1,0 +1,1177 @@
+{
+  "schema_version": 1,
+  "candidate": "Demand-driven text hashing in the existing native membership owner",
+  "decision": "retained_for_combined_item20_acceptance",
+  "benefit_gate_passed": true,
+  "complete_comparisons": 347,
+  "complete_rows": 12565,
+  "baseline_engine_seconds": 17.729495249,
+  "candidate_engine_seconds": 17.42942424,
+  "reduction_fraction": 0.01692496062553872,
+  "distinct_alternative_reduction_fraction": 0.10796729245402326,
+  "materially_improved_declared_families": [
+    "distinct"
+  ],
+  "material_case_regressions": [],
+  "material_family_regressions": [],
+  "comparison_scope": "Same 347 cases, same five Parquet files, one native observation per case per candidate. Engine clocks only for retention; no statistical confidence claim.",
+  "performance_claim_limit": "Single complete observation per case; no statistical confidence claim, no causal attribution, no new competitor observation, and no Full43 claim.",
+  "statistical_confidence_claim": false,
+  "causal_claim": false,
+  "full43_claim": false,
+  "correctness": {
+    "heldout": {
+      "status": "passed",
+      "observations": 160,
+      "complete_rows": 303260,
+      "complete_input_readback_rows": 36868,
+      "independent_reference_rows": 60652,
+      "public_interfaces": 5,
+      "comparison_engine_invoked": false
+    },
+    "public": {
+      "status": "passed",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "public_interfaces": 5,
+      "posthash_verified": true,
+      "test_names": [
+        "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_numeric_extrema_and_selected_outputs_match_all_five_surfaces",
+        "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces",
+        "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_join_repeated_matches_misses_and_owned_payloads_match_five_surfaces",
+        "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces"
+      ]
+    }
+  },
+  "release_source_linkage": {
+    "profile": "release",
+    "features": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "-p",
+      "shardloom-cli",
+      "-p",
+      "shardloom-python",
+      "--features",
+      "release-user-surfaces",
+      "--release"
+    ],
+    "build_receipt": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e155-group-hash-release-build.json",
+      "bytes": 3628,
+      "sha256": "c4011cd4a0da6869de346448f1dabd3099ca995ff893c364d0f689fb8869304d"
+    },
+    "manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/manifest.json",
+      "bytes": 3228,
+      "sha256": "88c8c83e9809729dd8a916ca0cd41d63e289c2cb2d281c8afb6c39f20affb24e"
+    },
+    "source_snapshot": {
+      "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+        "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+        "bytes": 24001
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+        "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+        "bytes": 4602
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+        "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+        "bytes": 43031
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+        "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+        "bytes": 3394
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+        "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+        "bytes": 7590
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+        "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+        "bytes": 17700
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+        "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+        "bytes": 8388
+      }
+    },
+    "current_rust_source_inventory": [
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+        "bytes": 24001,
+        "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_batch.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs",
+        "bytes": 4602,
+        "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+        "bytes": 43031,
+        "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_keys.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+        "bytes": 3394,
+        "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_set.rs",
+        "bytes": 7590,
+        "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_set.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs",
+        "bytes": 17700,
+        "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs",
+        "bytes": 8388,
+        "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+        "label": "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs"
+      }
+    ],
+    "source_receipt_inventories": {
+      "e154b-group-hash-native-clippy": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+          "bytes": 24001
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+          "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+          "bytes": 4602
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+          "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+          "bytes": 43031
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+          "bytes": 3394
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+          "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+          "bytes": 7590
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+          "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+          "bytes": 17700
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+          "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+          "bytes": 8388
+        }
+      },
+      "e154c-group-hash-relational": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+          "bytes": 24001
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+          "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+          "bytes": 4602
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+          "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+          "bytes": 43031
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+          "bytes": 3394
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+          "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+          "bytes": 7590
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+          "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+          "bytes": 17700
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+          "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+          "bytes": 8388
+        }
+      },
+      "e155-group-hash-release-build": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+          "bytes": 24001
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+          "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+          "bytes": 4602
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+          "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+          "bytes": 43031
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+          "bytes": 3394
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+          "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+          "bytes": 7590
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+          "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+          "bytes": 17700
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+          "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+          "bytes": 8388
+        }
+      },
+      "e166-group-hash-native-suite": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+          "bytes": 24001
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+          "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+          "bytes": 4602
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+          "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+          "bytes": 43031
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+          "bytes": 3394
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+          "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+          "bytes": 7590
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+          "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+          "bytes": 17700
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+          "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+          "bytes": 8388
+        }
+      },
+      "e167-group-hash-workspace-clippy": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+          "bytes": 24001
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+          "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+          "bytes": 4602
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+          "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+          "bytes": 43031
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+          "bytes": 3394
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+          "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+          "bytes": 7590
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+          "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+          "bytes": 17700
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+          "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+          "bytes": 8388
+        }
+      },
+      "e168-group-hash-workspace-tests": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+          "bytes": 24001
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+          "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+          "bytes": 4602
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+          "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+          "bytes": 43031
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+          "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+          "bytes": 3394
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+          "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+          "bytes": 7590
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+          "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+          "bytes": 17700
+        },
+        "shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+          "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+          "bytes": 8388
+        }
+      }
+    },
+    "public_runtime_and_test_hashes": {
+      "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/_native.abi3.so": "44d4ffc3365e296ab4c2c396cd2bf389a5aa269d444004dbb36af9aa2fd6d809",
+      "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/shardloom": "9de174d507f7e28b8d191ac6a07ccd0dff87df1a4b1dc435b118c52821aa14d4",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_shared_provider_binding.py": "644fd35ef79411f5c91544a57730677904da66fe5ac7b751f394cc9a75d2d93f"
+    }
+  },
+  "test_totals": {
+    "e152-group-hash-keys": {
+      "groups": 2,
+      "passed": 28,
+      "failed": 0,
+      "ignored": 0
+    },
+    "e153-group-hash-set": {
+      "groups": 2,
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0
+    },
+    "e154c-group-hash-relational": {
+      "groups": 1,
+      "passed": 189,
+      "failed": 0,
+      "ignored": 0
+    },
+    "e166-group-hash-native-suite": {
+      "groups": 95,
+      "passed": 5015,
+      "failed": 0,
+      "ignored": 35
+    },
+    "e168-group-hash-workspace-tests": {
+      "groups": 107,
+      "passed": 3274,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "preserved_failed_checks": [
+    {
+      "id": "e154-group-hash-native-clippy",
+      "reason": "Clippy rejected a 104-line function under too_many_lines (limit 100).",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154-group-hash-native-clippy.json",
+        "bytes": 3740,
+        "sha256": "e3bb72501472a09dde1a10a9ff12cb740b01e3963831b47cc667b2a8da73a874"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154-group-hash-native-clippy.log",
+        "bytes": 1026,
+        "sha256": "e4d4417028011f12d9882ff415a76fce3cb2e4090e634b4ee94a52b40694bbb5"
+      }
+    },
+    {
+      "id": "e157-public-group-hash",
+      "reason": "Public validation could not import pyarrow and completed zero tests; preserved initial report and log.",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e157-public-group-hash.json",
+        "bytes": 3569,
+        "sha256": "c03065b54d1a06ce92eb87360db15574834fcf232998aa568e9c68186712b9d1"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e157-public-group-hash.log",
+        "bytes": 2500,
+        "sha256": "28a18896c3be642b75b042ef4b93c019dff4e0ac31fe5f8e4b43d7004ba7230f"
+      },
+      "initial_public_report": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/public-group-hash-r1.json",
+        "bytes": 1888,
+        "sha256": "26c5a8319bbc20d3cd6380be8f6fced8c2bccd73646083e0a54b947a2309ee4c"
+      }
+    }
+  ],
+  "receipts_and_logs": [
+    {
+      "id": "e150-group-hash-protocol",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e150-group-hash-protocol.json",
+        "bytes": 1688,
+        "sha256": "c3a3a364d5d9c8d77868f20a65a7e2039b7aa4821c5d1e59fa6d3f680843bbf0"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e150-group-hash-protocol.log",
+        "bytes": 199,
+        "sha256": "7b4b975645b3c2e56e751aea440448758c74e9377865cd922c234f9551066cde"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_group_hash_protocol.py"
+      ]
+    },
+    {
+      "id": "e151-group-hash-format",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e151-group-hash-format.json",
+        "bytes": 3474,
+        "sha256": "13ae9deefedf53f377311ddd08e1938bcc40460bc6e82d624e36c6b37b65a06d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e151-group-hash-format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ]
+    },
+    {
+      "id": "e152-group-hash-keys",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e152-group-hash-keys.json",
+        "bytes": 3681,
+        "sha256": "b3161d0875c9d5d35116b8b2349bff0cfb1afa3a810500a78ebceee0a7c697e0"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e152-group-hash-keys.log",
+        "bytes": 4704,
+        "sha256": "55fc47d618f6a29f6f345b54dbe3f2d624c6751a260b0701a3fe862be10060f4"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "native_relational_keys::",
+        "--",
+        "--test-threads=2"
+      ]
+    },
+    {
+      "id": "e153-group-hash-set",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e153-group-hash-set.json",
+        "bytes": 3680,
+        "sha256": "24068756dddbead09856cc789b30de342526be528899df29eb8a0d89d85a7e10"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e153-group-hash-set.log",
+        "bytes": 2775,
+        "sha256": "59db3b1f4851a506df87ee364227099495605867a7390c70f64df321b11fe00d"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "native_relational_set::",
+        "--",
+        "--test-threads=2"
+      ]
+    },
+    {
+      "id": "e154-group-hash-native-clippy",
+      "status": "failed",
+      "returncode": 101,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154-group-hash-native-clippy.json",
+        "bytes": 3740,
+        "sha256": "e3bb72501472a09dde1a10a9ff12cb740b01e3963831b47cc667b2a8da73a874"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154-group-hash-native-clippy.log",
+        "bytes": 1026,
+        "sha256": "e4d4417028011f12d9882ff415a76fce3cb2e4090e634b4ee94a52b40694bbb5"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "id": "e154b-group-hash-native-clippy",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154b-group-hash-native-clippy.json",
+        "bytes": 3738,
+        "sha256": "3442f1a696dd8e6342d749f0600807cd0f71dd6d5545159ffc3dd86adfd552a6"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154b-group-hash-native-clippy.log",
+        "bytes": 440,
+        "sha256": "cf17d8fe65b208143f8f3f40bd8e9e49f1cdafdd4b558c0899a3234dd3b663a6"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "id": "e154c-group-hash-relational",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154c-group-hash-relational.json",
+        "bytes": 3689,
+        "sha256": "135e62d65f85438abfa3920ee0cc7412536f86b27fa883e7059d3599a5484aab"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e154c-group-hash-relational.log",
+        "bytes": 28394,
+        "sha256": "178dc858f222b6483bb8fb18bf830d5d8b09db5b69cd19c4c51b26cbe80f3065"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "native_relational_",
+        "--",
+        "--test-threads=2"
+      ]
+    },
+    {
+      "id": "e155-group-hash-release-build",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e155-group-hash-release-build.json",
+        "bytes": 3628,
+        "sha256": "c4011cd4a0da6869de346448f1dabd3099ca995ff893c364d0f689fb8869304d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e155-group-hash-release-build.log",
+        "bytes": 426,
+        "sha256": "83fc5e19b82131d363d8d94b4dbeb7d18ad4ae738e96444848cb695b788d43b8"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--release"
+      ]
+    },
+    {
+      "id": "e156-group-hash-runtime-freeze",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e156-group-hash-runtime-freeze.json",
+        "bytes": 3716,
+        "sha256": "f12344272ba09da1de61fa6e590c2b77e241748379ecc5287680ae2029f7df62"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e156-group-hash-runtime-freeze.log",
+        "bytes": 308,
+        "sha256": "dd5dcf087ebca1bf821422d30b2118a2234c939fd5db0cce97f7dc2ab37c227b"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_runtime.py",
+        "--build-receipt",
+        "e155-group-hash-release-build.json",
+        "--destination",
+        "candidate-group-hash-release-r1",
+        "--profile",
+        "release"
+      ]
+    },
+    {
+      "id": "e157-public-group-hash",
+      "status": "failed",
+      "returncode": 1,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e157-public-group-hash.json",
+        "bytes": 3569,
+        "sha256": "c03065b54d1a06ce92eb87360db15574834fcf232998aa568e9c68186712b9d1"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e157-public-group-hash.log",
+        "bytes": 2500,
+        "sha256": "28a18896c3be642b75b042ef4b93c019dff4e0ac31fe5f8e4b43d7004ba7230f"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_public_group_hash.py"
+      ]
+    },
+    {
+      "id": "e157b-public-group-hash",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e157b-public-group-hash.json",
+        "bytes": 3652,
+        "sha256": "f6f74220e4ef78202f8db92df8bebc2003328f5b973ea694bb047eb5b66e3e04"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e157b-public-group-hash.log",
+        "bytes": 2806,
+        "sha256": "06c8acf42b250274f237144ae8d00cc101083edb6f71e1793cf44915e436736b"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_public_group_hash.py"
+      ]
+    },
+    {
+      "id": "e158-group-hash-heldout-freeze",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e158-group-hash-heldout-freeze.json",
+        "bytes": 3660,
+        "sha256": "6fa95bf1aff80ac0f76040f143582ba876f96c5d561ab5a570f95759ad4330fc"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e158-group-hash-heldout-freeze.log",
+        "bytes": 286,
+        "sha256": "699a4e0dede7bc9027c2e64aae14379ae4c85ebaf9111d53aedde7e28ae950a2"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/group_hash_heldout.py",
+        "freeze"
+      ]
+    },
+    {
+      "id": "e159-group-hash-heldout-bind",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e159-group-hash-heldout-bind.json",
+        "bytes": 3655,
+        "sha256": "1809cced47bb38e727232c1f75ceca22336e555da5ace5708054df688e4a7168"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e159-group-hash-heldout-bind.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/group_hash_heldout.py",
+        "bind"
+      ]
+    },
+    {
+      "id": "e160-group-hash-heldout",
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e160-group-hash-heldout.log",
+        "bytes": 53180,
+        "sha256": "c607eedce603ea6694dc6419f922e9afd6e2b8dbfcb079d1fc9790ff1f7e7201"
+      }
+    },
+    {
+      "id": "e161-group-hash-heldout-replay",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e161-group-hash-heldout-replay.json",
+        "bytes": 3652,
+        "sha256": "7641579bd39cef1ab10b4a775c233ed5428e9aa4d464d32a186c7773d02ee141"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e161-group-hash-heldout-replay.log",
+        "bytes": 314,
+        "sha256": "1b2159054a26ccefb45c2b22cbda228b7db5fe0e44778e66fdc02c29ee82f81c"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_group_hash_heldout.py"
+      ]
+    },
+    {
+      "id": "e162-group-hash-broad-freeze",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e162-group-hash-broad-freeze.json",
+        "bytes": 3669,
+        "sha256": "68cc396c3ad88af7140c1f80f852407be15645dfae3d21cbb1e2faea3ead880e"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e162-group-hash-broad-freeze.log",
+        "bytes": 149,
+        "sha256": "d459cc53e581cdb8dd8c7e7f04f7b1373e5ae00cb450a900936e6616deb6ec30"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_group_hash_checkpoint.py",
+        "freeze"
+      ]
+    },
+    {
+      "id": "e163-group-hash-broad",
+      "status": "log_only",
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e163-group-hash-broad.log",
+        "bytes": 38741,
+        "sha256": "d09aff7336790c6a6931a18b5d9075b0a61a7b7babb4948f8c8d8174f360830d"
+      }
+    },
+    {
+      "id": "e164-group-hash-broad-replay",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e164-group-hash-broad-replay.json",
+        "bytes": 3671,
+        "sha256": "c53118d8b621016cfb2c42a6bcce91298d9f4d5e33d7010562add4b82eeebcbd"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e164-group-hash-broad-replay.log",
+        "bytes": 599,
+        "sha256": "5de31b527636a533ec79421a1d7de2b1d1397fc5c0f0ac51f86191fde8128625"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_group_hash_checkpoint.py",
+        "compare"
+      ]
+    },
+    {
+      "id": "e165-group-hash-fmt-check",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e165-group-hash-fmt-check.json",
+        "bytes": 3500,
+        "sha256": "c82a28fba04ac5d1e66069f395749a365db48c39a096770229647cf30facf6b2"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e165-group-hash-fmt-check.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ]
+    },
+    {
+      "id": "e166-group-hash-native-suite",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e166-group-hash-native-suite.json",
+        "bytes": 3737,
+        "sha256": "38de16547fbcc2643b66882c7a379d387f742cec2311b91a720985233c1f4ebc"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e166-group-hash-native-suite.log",
+        "bytes": 1017396,
+        "sha256": "23a7d88559fb33b30dd58889540b6963671257a40042c0507c79088011cd5262"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "--test-threads=2"
+      ]
+    },
+    {
+      "id": "e167-group-hash-workspace-clippy",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e167-group-hash-workspace-clippy.json",
+        "bytes": 4080,
+        "sha256": "df9a45229bd593c2ee87869a5e8ffcd6f66697f1638b586b9b2f8cc88cdbb24c"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e167-group-hash-workspace-clippy.log",
+        "bytes": 60,
+        "sha256": "8a10254974bbd1a52574924f2ba6e2e78269a27b8d61c996e00c4498f15edb56"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "env",
+        "CARGO_PROFILE_DEV_DEBUG=0",
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ]
+    },
+    {
+      "id": "e168-group-hash-workspace-tests",
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e168-group-hash-workspace-tests.json",
+        "bytes": 4078,
+        "sha256": "3afbe01f55c4428f08f3d3e2a8ed75b561d55d8d376a456c593ec23b7f63c53d"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e168-group-hash-workspace-tests.log",
+        "bytes": 467945,
+        "sha256": "9dd6a74b937785ec0a538a63bdf2215ee37628cae7c388451d2634e8bfb2b490"
+      },
+      "log_hash_verified": true,
+      "command": [
+        "env",
+        "CARGO_PROFILE_DEV_DEBUG=0",
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=2"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-demand-protocol.json",
+      "bytes": 8786,
+      "sha256": "f255abe9abb248c485dc6d65ef95232ca77b7556dfa5361bbdc036be0dc8a373",
+      "label": "group-hash-demand-protocol.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1-comparison.json",
+      "bytes": 158789,
+      "sha256": "fd7a59761823ad19183db5488c95b592b92b8e959359f212f0e9c88b3453c5b7",
+      "label": "broad-group-hash-r1-comparison.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/corpus.json",
+      "bytes": 7224096,
+      "sha256": "cbc261ffa2fb2c20b87a4cc11d093f9f996c4c9cfe6eb4a7e54e825f718c2e1e",
+      "label": "broad-group-hash-r1/corpus.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/inputs.json",
+      "bytes": 7908580,
+      "sha256": "5190afafce2cf5fb52fdd7efbfdefca426aaa2dd3cdfc04d16d33e3a4c02e04e",
+      "label": "broad-group-hash-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/native-observations.json",
+      "bytes": 955538,
+      "sha256": "2fada27cfa9ecc6f495597a7d679756086b8af002feefb3cb26dec8d13df64fc",
+      "label": "broad-group-hash-r1/native-observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-hash-r1/native-observations.jsonl",
+      "bytes": 836829,
+      "sha256": "9d640c30dc7684173591b2792ecd11457eab7bcdc31fdd54dd8193bea1bb2678",
+      "label": "broad-group-hash-r1/native-observations.jsonl"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-heldout-r1/inputs.json",
+      "bytes": 183440,
+      "sha256": "fae78d86953192f08bee0aba904cfff9b708513e6b9a11d94b8a38e9f79a3d56",
+      "label": "group-hash-heldout-r1/inputs.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-heldout-r1/runtime.json",
+      "bytes": 2104,
+      "sha256": "fceb812c7425b2c24f72ebcb2c42e83267d62b0e225bf144506f6d63df5cb307",
+      "label": "group-hash-heldout-r1/runtime.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-heldout-r1/observations.json",
+      "bytes": 61154,
+      "sha256": "57083309b0316f28096c7fb8efe6b515db955d3392a030c3e9d9e6a7b13e5d42",
+      "label": "group-hash-heldout-r1/observations.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-heldout-r1-replay.json",
+      "bytes": 332,
+      "sha256": "31978e334683f0b275684c7f99894a7d1e3739dc3afff143c4ea7114eda6fa2d",
+      "label": "group-hash-heldout-r1-replay.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/public-group-hash-r2.json",
+      "bytes": 1888,
+      "sha256": "9ef26efb85f948752a29eb73132af55d12f982f69b3173a7cdfd157651abd918",
+      "label": "public-group-hash-r2.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/public-group-hash-r1.json",
+      "bytes": 1888,
+      "sha256": "26c5a8319bbc20d3cd6380be8f6fced8c2bccd73646083e0a54b947a2309ee4c",
+      "label": "public-group-hash-r1.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/manifest.json",
+      "bytes": 3228,
+      "sha256": "88c8c83e9809729dd8a916ca0cd41d63e289c2cb2d281c8afb6c39f20affb24e",
+      "label": "candidate-group-hash-release-r1/manifest.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-payload-validation-disposition.json",
+      "bytes": 31097,
+      "sha256": "14bee5020ea99e155ac78f8d0a5aa679caa9562402719133eb5efdf58206ebb5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/recursive-payload-validation-followup.json",
+      "bytes": 7921,
+      "sha256": "29644b4f033e4fce531b1fbe3195ce7d89452666c4792a9543d09a1ea1d71a9c"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-protocol.json",
+      "bytes": 8786,
+      "sha256": "f255abe9abb248c485dc6d65ef95232ca77b7556dfa5361bbdc036be0dc8a373"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-protocol.json",
+      "bytes": 8336,
+      "sha256": "ac07a17bc9e96e0414d2b545872394afea78df20dc1831b2ad8f8b948b724c57"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+      "bytes": 24001,
+      "sha256": "6d191ad442fc6eabe43e6284f6888b3faa3dde7619067ddef35fee26eb4b1cec",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_batch.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs",
+      "bytes": 4602,
+      "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+      "bytes": 43031,
+      "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_keys.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+      "bytes": 3394,
+      "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_set.rs",
+      "bytes": 7590,
+      "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_set.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs",
+      "bytes": 17700,
+      "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/source/shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs",
+      "bytes": 8388,
+      "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745",
+      "label": "candidate source snapshot shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/_native.abi3.so",
+      "bytes": 79900896,
+      "sha256": "44d4ffc3365e296ab4c2c396cd2bf389a5aa269d444004dbb36af9aa2fd6d809",
+      "label": "candidate runtime _native.abi3.so"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-group-hash-release-r1/shardloom",
+      "bytes": 79605104,
+      "sha256": "9de174d507f7e28b8d191ac6a07ccd0dff87df1a4b1dc435b118c52821aa14d4",
+      "label": "candidate runtime shardloom"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/group_hash_heldout.py",
+      "bytes": 15144,
+      "sha256": "487272e2806484d8cfe46d23385f14b24657570ce7dea76450e5bdf7359f3f1e",
+      "label": "group-hash harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/group_hash_heldout_cases.py",
+      "bytes": 6367,
+      "sha256": "19f3e4b8fa5e790b3a5f188e55fd228894e98727f03f44ba2e97b47c0e624fe6",
+      "label": "group-hash harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/broad_group_hash_checkpoint.py",
+      "bytes": 26141,
+      "sha256": "bd74393133b628d29e1ab92dcc4b60007ef31f7fed4f4ac3ebe2c45ab0f2b64d",
+      "label": "group-hash harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_public_group_hash.py",
+      "bytes": 3767,
+      "sha256": "8deade528fd0408cc2864a126cfc5b17b5cf49a09392c4dbcfc3e30a5f6cdf73",
+      "label": "group-hash harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/freeze_group_hash_protocol.py",
+      "bytes": 7307,
+      "sha256": "0802c3a21c3f145d6ce88be2c171b2e91f6cc7a95d44deb34084c1f6d38e4f95",
+      "label": "group-hash harness source"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/record_group_hash_disposition.py",
+      "bytes": 22853,
+      "sha256": "9437b541bdaadca14654fff9a7f667b74ea975a2f96375abeff3eb63791eaff5",
+      "label": "disposition builder"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_group_hash_heldout.py",
+      "bytes": 10325,
+      "sha256": "abf7058df1294ebe6c4ae2e0e307d990ed309bdcdd2aa175159e372a270e219e",
+      "label": "group-hash harness source"
+    }
+  ],
+  "open_acceptance": [
+    "remaining_item20_capability_work",
+    "combined_installed_package_acceptance",
+    "complete_portable_packet",
+    "hosted_acceptance_of_new_source"
+  ],
+  "combined_item20_complete": false,
+  "publication_attempted": false,
+  "new_competitor_observations": 0
+}

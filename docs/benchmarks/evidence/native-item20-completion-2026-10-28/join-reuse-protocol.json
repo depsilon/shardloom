@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 exact join probe identities and resolved gather coordinates",
+  "source_before_runtime_edits": "2a97e6088436fb4bfc716fba5b0a0e0453883637",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/inputs.json",
+  "baseline_inputs_sha256": "0b6b1eee007b6e67686dbdf8df5c8586934daa51f1261b2b15ba034dbc5224db",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-payload-validation-r1/native-observations.json",
+  "baseline_observations_sha256": "2a6a6e92c7096e2ead40f5efe978d86161a2c63467619954eee5893f95e92910",
+  "baseline_engine_seconds": 18.304092867,
+  "baseline_policy": "Reuse the complete retained typed-payload checkpoint and independently validated references. Focused native, strict lint and fresh five-interface correctness gates pass. Combined full native/workspace/package, portable and hosted acceptance remain open in PR 1619. Replay saved results; do not rerun baseline queries.",
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/payload-validation-disposition.json",
+    "sha256": "f566923911337d96d600611dce6fbc10d4a0bf350ed5a3f95b233e017c77c96d"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "frozen_mechanisms": [
+    "Reuse the existing bounded exact KeyLookupCache in non-residual Join::consume. A batch-local cache value is a proved RowIndex entry or explicit miss; unseen remains distinct. The first visit uses the ordinary native hash/equality index or membership owner. Later visits reuse that result. Walk every duplicate, preserve probe/source ordering and matched-right bookkeeping. No cached result crosses a probe batch or build generation.",
+    "Use the already-retained integer/dictionary directory and admitted short/composite identity cache without broadening their domain or memory admission. Residual predicates and cross joins retain their existing path. Semi/anti membership may reuse a proved Boolean membership result. Small, unique, unsupported and memory-constrained inputs decline through existing admission.",
+    "In Table::gather retain each resolved segment/local-row pair once in a reserved transient vector and reuse it while building take indices. Admit this optional vector only for at least 64 rows, multiple retained segments, and descriptor bytes no more than one sixteenth of remaining memory after the existing segment-list reservation. Preserve touched-chunks-only Vortex take, nullable indices, complete payload validation and independently owned output. Declined cases retain the original lookup path."
+  ],
+  "activation_evidence": [
+    "Join exact probes, proved-match cache hits and proved-miss cache hits",
+    "Existing cache admission/decline across repeated/unique, integer/dictionary and inline/composite domains",
+    "One row-location search per non-null selected row on admitted gathering; original count on declined paths",
+    "Duplicate multiplicity, source order, nullable misses, unmatched outer rows and membership equality",
+    "Changing probe batches/build segments, residual-condition exclusion and fresh invocation isolation",
+    "Reserved descriptor lifetime, low-memory decline/refusal, cancellation/failed consumer cleanup and retained output after producer closure"
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": [
+      "joins",
+      "multiway_joins"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01,
+      "rule": "flag when both exceeded"
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05,
+      "rule": "flag when both exceeded"
+    },
+    "flag_disposition": "Preserve and assess every original flag. Substantial complete-cohort benefit may outweigh a small isolated timing regression under the October 28 maintainer policy. Additional execution needs a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete results, schema, multiplicity, NULL policy, output order, residual exclusion, independently owned outputs, pressure/refusal and cancellation must pass. Otherwise drop the mechanism and preserve all observations.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [
+      202610284501,
+      202610284733
+    ],
+    "rows": 32779,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "inner_duplicate_keys",
+      "left_nullable_misses",
+      "right_unmatched_build",
+      "full_changing_batch_domains",
+      "semi_membership",
+      "anti_membership",
+      "composite_short_keys",
+      "wide_multiway_outputs"
+    ],
+    "scope": "Freeze eight composed join workflows, fresh complete independent references and input identities before 160 correctness observations through five public interfaces. Native tests separately prove dictionary domains, invalid keys, exact order, work counters, pressure and lifecycle. No additional benefit cohort."
+  },
+  "execution_policy": "One isolated sequential execution of every original case in original order with the existing guard, storage limits, deadlines, complete result validation and process cleanup. Finish task-owned builds/tests/agents before queries. Full hashes and recursive inventories stay outside query execution. No cache manipulation, artificial pacing or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r1/observations.json",
+    "sha256": "e058650d51eb9efb75a3153e622634a558effa2761a5a524b5803f312e0e0961",
+    "finding": "The seven-case stage profile records matching and gathering costs in joins. Source audit finds repeated exact probing for admitted duplicate keys and repeated Table::locate calls for gathering. No per-stage percentage or prospective speedup is claimed."
+  },
+  "vortex_first_check": {
+    "decision": "use_vortex_native_provider",
+    "reused": [
+      "KeyLookupCache exact batch-local directory/inline identities",
+      "Batch/KeyColumn native value owners",
+      "RowIndex duplicate chains and RowSet membership",
+      "Table/ReservedVec/Gather bounded row owners",
+      "Vortex ChunkedArray, native take and owned numeric/payload gathering"
+    ],
+    "upstream_checked": [
+      "vendor/vortex-array/src/arrays/chunked",
+      "vendor/vortex-array/src/builtins/take"
+    ],
+    "boundary": "Existing feature-gated ShardLoom-native join/gather consumer over admitted Vortex arrays. No dependency/provider/Arrow substrate change, residual bypass, new join algorithm, concurrency or external evaluator."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false
+}

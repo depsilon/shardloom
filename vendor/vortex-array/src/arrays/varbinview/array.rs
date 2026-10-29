@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: retain admitted buffer-table ownership.
 // Modified by ShardLoom on 2026-10-17: carry checked native UTF-8 value validation.
+// Modified by ShardLoom on 2026-10-28: preserve selected-row UTF-8 diagnostics.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -1095,8 +1096,10 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
             // in bounds, and the outer logical dtype was checked above.
             Ok(unsafe { std::str::from_utf8_unchecked(bytes) })
         } else {
-            simdutf8::basic::from_utf8(bytes)
-                .map_err(|error| vortex_err!(InvalidArgument: "invalid UTF-8 value: {error}"))
+            simdutf8::basic::from_utf8(bytes).or_else(|_| {
+                std::str::from_utf8(bytes)
+                    .map_err(|detail| vortex_err!("invalid utf-8: {detail} at index {index}"))
+            })
         }
     }
 

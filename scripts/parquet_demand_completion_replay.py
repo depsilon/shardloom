@@ -20,6 +20,23 @@ def need(value, message):
         raise ValueError(message)
 
 
+def benefit_decision(retention, before, after, families):
+    """Honor the frozen rule without reinterpreting historical percentage gates."""
+    rule = retention.get('rule')
+    if rule == 'strict_complete_cohort_gain':
+        need(not any(key in retention for key in (
+            'minimum_complete_cohort_reduction_fraction',
+            'alternative_minimum_declared_family_reduction_fraction')),
+            'complete-cohort gain rule must not carry percentage floors')
+        return after < before, []
+    need(rule is None, 'unknown frozen benefit rule')
+    improved = [name for name in retention['declared_families']
+                if families[name]['reduction_fraction']
+                >= retention['alternative_minimum_declared_family_reduction_fraction']]
+    return (1 - after / before >= retention['minimum_complete_cohort_reduction_fraction']
+            or bool(improved)), improved
+
+
 def replay(raw, root):
     def read(path):
         return strict_json(raw(path))
@@ -117,11 +134,10 @@ def replay(raw, root):
     need(math.isclose(before, frozen['baseline_complete_result_replay']['engine_seconds'], rel_tol=0, abs_tol=1e-9), 'baseline clock changed')
     reduction = 1 - after / before
     retention = protocol['retention_decision']
-    improved_families = [name for name in retention['declared_families']
-        if families[name]['reduction_fraction'] >= retention['alternative_minimum_declared_family_reduction_fraction']]
+    benefit, improved_families = benefit_decision(retention, before, after, families)
     return {'status': 'passed', 'complete_comparisons': 347, 'complete_rows': complete_rows,
         'baseline_engine_seconds': before, 'candidate_engine_seconds': after, 'reduction_fraction': reduction,
-        'benefit_gate_passed': reduction >= retention['minimum_complete_cohort_reduction_fraction'] or bool(improved_families),
+        'benefit_gate_passed': benefit,
         'materially_improved_declared_families': improved_families,
         'material_case_regressions': [row['case_id'] for row in rows if row['material_regression']],
         'material_family_regressions': [name for name, row in families.items() if row['material_regression']],

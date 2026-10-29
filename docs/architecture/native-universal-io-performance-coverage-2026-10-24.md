@@ -2,7 +2,11 @@
 
 # Universal I/O performance and coverage
 
-Status: accepted October 24 maintainer handoff, queued after
+Status: accepted October 24 maintainer handoff, amended October 28. The current
+sequence is item 20, item 18, the 1.1.0 milestone, then item 19; the
+[phase plan](phased-execution-plan.md#planned) owns the execution order.
+
+The original handoff followed
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
 and [controlled provider refresh](native-vortex-provider-refresh-2026-10-24.md),
 then [warm source reuse](native-warm-source-reuse-2026-10-24.md),
@@ -32,11 +36,19 @@ The queued [Foundry integration](native-foundry-integration-2026-10-25.md)
 consumes these same multi-file, native writer and publication contracts after
 everyday analytical completion and before the AI-data package.
 
+**October 28 continuation:** finish active item 20 first, then complete this
+item's remaining I/O work with the shared demand-aware defaults and the
+[cross-surface and format acceptance gate](#cross-surface-and-format-acceptance-gate)
+below. The planned **1.1.0 minor version bump follows item 18 acceptance**,
+before item 19. Foundry and AI acceptance move to the later 1.2.0 and 1.3.0
+milestones respectively. This updates the earlier ordering without accepting
+the preserved `codex/universal-io` branch or claiming new runtime/timing proof.
+
 ## Contract and intake
 
-Reuse any source-encoding translation accepted by the preceding ingestion
-item, and carry its representation capabilities through the work-elimination
-package's existing native consumers. Extend proved type/validity/dictionary/
+Reuse source-encoding translation accepted by the preceding ingestion and
+analytical items, carrying its representation capabilities through the current
+shared native consumers. Extend proved type/validity/dictionary/
 offset mappings across adapters here; do not assume equal encodings or duplicate
 the earlier mechanism. Output adapters continue to report unavoidable
 normalization and metadata loss.
@@ -55,16 +67,49 @@ a selective one-off operation, while durable native preparation remains valuable
 for repeated broad work. This is an input strategy, not another query engine.
 The #1583 provider-selection and scalar-writer repairs are completed foundations.
 
-The October 25 work-elimination addition promotes explicit multi-output reuse
-into its earlier execute-once package. Reuse that shared producer contract here;
-do not duplicate its implementation. Immediate I/O work starts with bulk
-writer policy. Rich ORC output, long values, target-aware conversion and streaming
-JSON follow. Selective first-use reading, dataset layouts, variants and enterprise,
+The October 25 addition originally placed explicit multi-output reuse in item
+15, whose implementation has since been dropped. Ground the one-producer
+contract against current shared producer/replay owners here; do not assume that
+discarded implementation survives or restore it unchanged. Immediate I/O work
+starts with bulk writer policy. Rich ORC output, long values, target-aware
+conversion and streaming JSON follow. Selective first-use reading, dataset
+layouts, variants and enterprise,
 table and transport adapters remain later implementation groups; they must not
 delay the immediate local fixes. Audit complete families rather than assuming
 every listed feature is absent or making a format count a completion criterion.
 This explicit queue addition does not make every family a v1 release blocker or
 close independent CG-1 through CG-23 evidence gates.
+
+## Shared demand-aware defaults
+
+Carry the accepted [source-demand contract](native-source-demand-2026-10-26.md)
+and [Parquet completion](native-parquet-demand-completion-2026-10-26.md) into
+ordinary queries over every supported input family. Parquet's implementation
+is a completed foundation; audit the remaining adapters against current main
+and extend the existing source capabilities, backward demand planning, native
+batch ownership and operators. Do not revive the unfinished item-18 branch
+unchanged or add a separate engine mode, planner or per-interface fast path.
+
+- Bind schema and derive the complete required-column set, including hidden
+  filter, grouping, join, ordering, window and repeated-source dependencies.
+  Apply projection, statistics/region pruning and safe prefix/limit demand only
+  where the adapter and query semantics prove them valid. Preserve residual
+  predicates, source order, global limits and error semantics.
+- Declare each adapter's actual abilities. Where a format lacks usable metadata
+  or selective decoding, use conservative, bounded native reading and report
+  its required parse/decode work. Do not report physical pruning from merely
+  discarding decoded columns, or treat unavailable read counters as zero.
+- Use the same capability/strategy decision across CLI SQL, embedded workflow,
+  Python SQL, DataFrame and typed native declarations. Preserve source identity,
+  memory and I/O admission, cancellation, reader lifetime and final drain checks.
+  Read, decode, identity or resource failures terminate execution; they do not
+  retry through full preparation or an external engine.
+- Keep ordinary query validation scoped to metadata and demanded data. Explicit
+  full-source validation and durable complete-source Vortex preparation retain
+  their complete-input guarantees. A selective query result may be persisted,
+  but cannot be advertised or reused as a complete prepared copy of its source.
+  Prove these distinctions with demanded/undemanded corruption, late malformed
+  records and changed-source tests.
 
 ## Later conditional encoding research
 
@@ -82,7 +127,7 @@ rejected structural-text profile, without a new format or broad release promise.
 
 ## First: reuse explicit fanout and improve writer layout
 
-- **One producer for one multi-output request, owned by the earlier workflow package.** The reviewed single-use streaming
+- **One producer for one multi-output request.** The reviewed single-use streaming
   path already records/replays one native result. Ordinary non-streaming
   relational `write_many` and primitive per-destination `operation.write(...)`
   callbacks need reconciliation with that mechanism. Extend it to file-backed
@@ -142,8 +187,10 @@ and the recorded follow-up established one preparation per fresh suite.
 
 ## Then: first-use strategies, family coverage and dataset access
 
-Use existing projected Parquet/Avro helpers as building blocks, not proof that
-ordinary first-use queries already skip complete preparation. Inspect metadata,
+Reuse item 20's accepted Parquet demand reader and selected-chunk, conservative
+prefix and directory/content-identity work. Existing projected Avro helpers
+are building blocks, not proof of equivalent ordinary first-use behavior in
+that adapter or other formats. Inspect metadata,
 select required columns/eligible regions, decode admitted batches, retain native
 owners and invoke existing operators. Verify projection, row-group/row-selection
 and filtering support in the pinned Parquet reader and actual indexing support
@@ -152,11 +199,11 @@ or predicate-specific prepared artifact cannot masquerade as a complete source.
 Choose the input strategy internally; no separate user-facing fast/compatibility
 engine modes are requested.
 
-The earlier workflow work-elimination package owns shared setup/admission for
-appropriate first-use preparation. This I/O package owns the format-specific
-read/pushdown and streaming mechanisms plus their full consumer proof. Develop
-one shared implementation and extend it here instead of creating parallel
-source resolvers or treating the earlier plan as completed adapter coverage.
+Item 20's shared source-demand contract owns common planning, setup and admission.
+This I/O package extends the format-specific read/pushdown and streaming
+mechanisms plus their full consumer proof. Develop one shared implementation
+instead of creating parallel source resolvers or treating a plan or isolated
+helper as completed adapter coverage.
 
 | Family | Coverage to audit and complete with actual read/write/reopen evidence |
 | --- | --- |
@@ -219,6 +266,117 @@ pressure, cancellation/failure and publication-cleanup cases. Large-output tests
 must cover many batches and long documents/values: a 381-row suite cannot assess
 bulk file layout or parser memory behavior. Freeze finite correctness/resource/
 benefit decisions before each performance candidate and preserve every outcome.
+
+### Cross-surface and format acceptance gate
+
+The October 28 maintainer instruction makes correctness and timing across all
+execution surfaces and I/O scenarios a required item-18 acceptance deliverable
+before the 1.1.0 version bump. The objective is to eliminate avoidable performance
+differences on equivalent work. CSV parsing, compressed decoding and different
+output encodings need not take identical time; necessary physical work must be
+distinguished from redundant preparation, weaker planning or wrapper-specific
+execution. Existing smoke tests and declarative parity reports do not establish
+this gate, and the earlier failed surface timing screen stays failed.
+
+Freeze a coverage manifest against the accepted runtime and package, recording
+every applicable surface, input, output and scenario combination. Use all five
+surfaces: CLI SQL, embedded workflow, Python SQL, DataFrame and typed native
+relations. Cover Vortex, Parquet, Arrow IPC/Feather, ORC, Avro, CSV/TSV and
+JSON/JSONL/NDJSON; distinguish IPC file/stream framing and supported codecs,
+layouts and schema options. Audit aliases instead of multiplying identical
+implementation paths. Include admitted directory/multi-file and mixed-source
+workflows. Unsupported combinations need their diagnostic and reason in the
+manifest; missing measurements stay open, not passed or silently omitted.
+An advertised or admitted combination that fails remains a blocker, not an
+unsupported exemption.
+Later table, remote and enterprise adapters retain their separate implementation
+contracts and join the matrix when admitted; this gate does not make every
+optional adapter mandatory.
+
+| Scenario | Required matched evidence |
+| --- | --- |
+| Prepared native computation | The same native input and equivalent query/result semantics across all five surfaces, including narrow/selective and broad scans, aggregation, joins, ordering, windows and composed/retained results. |
+| Fresh source and demand | Each admitted source family with no prepared artifact: projection, selective and unprunable controls, safe limit, broad consumption and repeated/mixed-source consumers; record requested versus applied demand. Fresh source does not imply cold filesystem cache. |
+| Reuse and complete preparation | Explicit full preparation, repeated queries, separate-process reopening and changed-source rejection, keeping complete-source guarantees separate from query-scoped validation. |
+| Output and follow-on reads | Native and compatibility destinations, large multi-batch writes, one computation with multiple outputs, independent complete readback, then a follow-on query; exercise different input/output format pairs as well as same-format round trips. |
+| Fidelity and resources | Empty/null/unsigned/decimal/temporal/nested and long-value cases as admitted, small through large/skewed/wide inputs, pressure/spill, cancellation, partial failure and publication cleanup. Rich types added by item 19 extend this same matrix. |
+
+Reuse the 347-case declarations, independent complete-result comparators,
+existing native/public-interface tests and modular I/O runners. Add necessary
+adapter and surface cases without implementing another benchmark query engine.
+Run broad correctness on bounded fixtures; use a declared representative timing
+set across every admitted surface and format pair, with larger selective-read and
+bulk-output cases where scale changes behavior. Record the mapping and justified
+exclusions so a sampled large-scale suite cannot masquerade as an exhaustive
+surface × input × output × codec × type test. Full43 remains an isolated,
+single-pass regression check and cannot replace this matrix.
+
+Match logical values/schema, query semantics, output fidelity, resource grants,
+source generation and workload scale. Compare surface overhead on the same
+physical inputs; record physical encoding/layout differences when comparing
+formats. Freeze source/build/package identities, cache context and native
+strategy/worker evidence. Use the same engine-owned clock for engine comparisons;
+retain preparation, conversion, serialization/finalization, complete API/workflow
+clocks and read/decode/copy/memory observations separately in diagnostic evidence.
+Missing clocks or counters remain unavailable. Routine timing updates remain
+engine-only. Record complete values, schemas, nulls, ordering, metadata and native
+no-fallback certificates, with independent output readback.
+
+Define relative and absolute material-gap thresholds, controls, comparison order
+and a finite investigation/confirmation budget before candidate measurements.
+Compare case and family results, not only a suite total. Investigate material
+gaps in shared planning/operators first, then justified adapter policy; preserve
+every observation and original failed gate. A single sequential observation is
+not proof of timing equivalence. No routine repeated Full43, cache manipulation,
+artificial pacing or new competitor run follows from this addition; existing
+competitor observations retain their original formats and clocks.
+
+Before advancing to the version bump:
+
+- [ ] Freeze and execute the manifest's required correctness and timing coverage
+  across all five surfaces and every admitted format/scenario family.
+- [ ] Prove default demand decisions, complete-source boundaries, exact output
+  fidelity and lifecycle/resource behavior through ordinary public calls.
+- [ ] Fix demonstrated avoidable performance gaps and validate neighboring and
+  held-out controls. Keep unavoidable format costs and measurement uncertainty
+  explicit; unresolved material avoidable gaps block acceptance unless the
+  maintainer explicitly accepts a source/evidence-linked exception.
+- [ ] Produce a replayable report with per-case engine timings, work evidence,
+  complete result/readback checks, coverage gaps and retain/drop decisions.
+- [ ] Complete applicable workspace, native, installed-package and regression
+  gates, merge the accepted work, and reconcile docs/capabilities and the ledger.
+- [ ] Refresh the README, field guide and website against that accepted state,
+  align generated surfaces, and pass documentation, site and runnable-example
+  checks before preparing the version bump.
+
+This is a future acceptance requirement, not a claim that the matrix has run or
+that performance parity is established. The version bump follows this evidence;
+package/channel proof and publication authorization retain their own gates.
+
+### Documentation and example closeout before 1.1.0
+
+At item-18 closeout, before preparing the 1.1.0 version bump, refresh the README,
+field guide and website to describe the accepted state through that point. This
+is a required pre-bump acceptance step; the full refresh belongs at closeout
+when the implemented scope and evidence are known. Keep generated website and
+documentation surfaces aligned with their maintained sources.
+
+The refreshed material must accurately cover accepted capabilities and ordinary
+default demand behavior; provide ordinary, runnable examples for each supported
+surface (CLI SQL, embedded workflow, Python SQL, DataFrame and typed native);
+explain admitted format and fidelity boundaries, unsupported combinations and
+diagnostics; report the current accepted performance evidence with its workload,
+clock and comparison limitations; and identify remaining gaps without implying
+that optional or unsupported work is complete. Examples must use the shared
+native execution path and preserve the no-fallback, Vortex-native and explicit
+compatibility-output contracts.
+
+Required closeout verification includes documentation, generated-site/website
+consistency, and example checks against the accepted runtime/package. Record the
+exact commands and results with item-18 acceptance evidence. Publication keeps
+its separate authorization and channel-proof requirements.
+
+### Shared execution and provider boundaries
 
 ShardLoom technique review: use metadata-first source pruning, retained source
 and result ownership, bounded capillary work units, existing PulseWeave producer

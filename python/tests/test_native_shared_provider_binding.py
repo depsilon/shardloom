@@ -135,6 +135,454 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_expression_reuse_and_single_evaluation_match_all_five_surfaces(self):
+        import datetime as dt
+        import re
+        import struct
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native, expr = self.pa, self.native, self.native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        texts = [" Äbß\0東京 ", "İABC" * 257, "", None]
+        rows = [dict(id=i, text=text, encoded="00ff6162", guarded="00ff" if i < 2 else "invalid",
+                     document=json.dumps({"items": [i, "東京"]}, ensure_ascii=False),
+                     date="2024-02-29", zero=-0.0) for i, text in enumerate(texts)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("text", pa.string()),
+                            *(pa.field(name, pa.string(), nullable=False)
+                              for name in ("encoded", "guarded", "document", "date")),
+                            pa.field("zero", pa.float64(), nullable=False)])
+        call = lambda name, *args: expr.call(name, list(args))
+        col, lit = expr.column, expr.literal
+        lower = call("lower", col("text"))
+        decoded = call("unhex", col("encoded"))
+        declarations = [
+            ("id", "id", col("id")),
+            ("lowered", "lower(text)", lower),
+            ("again", "lower(text)", lower),
+            ("nested", "upper(lower(text))", call("upper", lower)),
+            ("combined", "concat(lower(text),lower(text))", call("concat", lower, lower)),
+            ("decoded", "unhex(encoded)", decoded),
+            ("decoded_again", "unhex(encoded)", decoded),
+            ("bytes", "byte_length(unhex(encoded))", call("byte_length", decoded)),
+            ("guarded", "case_when(id<2,unhex(guarded),unhex(encoded))",
+             call("case_when", col("id") < lit(2), call("unhex", col("guarded")), decoded)),
+            ("filled", "coalesce(lower(text),'missing')", call("coalesce", lower, lit("missing"))),
+            ("insensitive", "regex_match(text,'(?i)a')", call("regex_match", col("text"), lit("(?i)a"))),
+            ("sensitive", "regex_match(text,'a')", call("regex_match", col("text"), lit("a"))),
+            ("first", "json_extract(document,'$.items[0]')", call("json_extract", col("document"), lit("$.items[0]"))),
+            ("second", "json_extract(document,'$.items[1]')", call("json_extract", col("document"), lit("$.items[1]"))),
+            ("parsed", "strptime(date,'%Y-%m-%d')", call("strptime", col("date"), lit("%Y-%m-%d"))),
+            ("tolerant", "try_strptime(date,'%Y-%m-%dT%H:%M:%SZ')",
+             call("try_strptime", col("date"), lit("%Y-%m-%dT%H:%M:%SZ"))),
+            ("zero", "coalesce(zero,-0.0)", call("coalesce", col("zero"), lit(-0.0))),
+        ]
+        expected = []
+        for i, text in enumerate(texts):
+            lower_text = None if text is None else text.lower()
+            expected.append(dict(id=i, lowered=lower_text, again=lower_text,
+                nested=None if text is None else lower_text.upper(),
+                combined=None if text is None else lower_text * 2,
+                decoded=bytes.fromhex("00ff6162"), decoded_again=bytes.fromhex("00ff6162"), bytes=4,
+                guarded=bytes.fromhex("00ff" if i < 2 else "00ff6162"),
+                filled="missing" if text is None else lower_text,
+                insensitive=None if text is None else bool(re.search("(?i)a", text)),
+                sensitive=None if text is None else bool(re.search("a", text)),
+                first=str(i), second='"東京"', parsed=dt.datetime(2024, 2, 29), tolerant=None, zero=-0.0))
+        with tempfile.TemporaryDirectory(prefix="shardloom-expression-reuse-") as directory:
+            path = Path(directory) / "expressions.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=1)
+            statement = "SELECT " + ",".join(f"{sql} AS {name}" for name, sql, _ in declarations) + f" FROM '{path}'"
+            frame = sl.read_parquet(path, client=client).select(*(f"{sql} AS {name}" for name, sql, _ in declarations))
+            relation = native.Relation.scan(str(path)).project([(name, typed) for name, _, typed in declarations])
+            for empty in (False, True):
+                f = frame.filter("id < 0") if empty else frame
+                r = relation.filter(col("id") < lit(0)) if empty else relation
+                sql = f"SELECT * FROM ({statement}) AS expressions WHERE id < 0" if empty else statement
+                tables = self.all_surfaces(f, r, sql)
+                for table in tables:
+                    self.assertEqual(table.to_pylist(), [] if empty else expected)
+                    self.assertEqual(table.schema, tables[0].schema)
+                    for value in table["zero"].to_pylist():
+                        self.assertEqual(struct.pack(">d", value), struct.pack(">d", -0.0))
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.plan(relation).collect()
+            path.unlink()
+            source = retained.as_source()
+            reused = producer.sql("SELECT * FROM 'memory://retained'", sources=[("memory://retained", source)]).collect()
+            del source
+            producer.close()
+            self.assertEqual(self.table(retained).to_pylist(), expected)
+            self.assertEqual(self.table(reused).to_pylist(), expected)
+
+    def test_compact_grouped_additive_state_preserves_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [dict(id=i, g=i % 8193,
+                     zone=None if i % 8193 % 19 == 0 else i % 8193 % 17,
+                     value=None if i % 8193 % 11 == 0 or i % 29 == 0 else i % 1021 - 510,
+                     keep=None if i % 7 == 0 else i % 3 != 0)
+                for i in range(32779)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("g", pa.int32(), nullable=False),
+                            pa.field("zone", pa.uint16()), pa.field("value", pa.int64()),
+                            pa.field("keep", pa.bool_())])
+        with tempfile.TemporaryDirectory(prefix="shardloom-compact-groups-") as directory:
+            path = Path(directory) / "groups.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path,
+                                row_group_size=257, use_dictionary=True)
+            frame, source = sl.read_parquet(path, client=client), native.Relation.scan(str(path))
+            for filtered, keys in [(False, ["g"]), (True, ["g", "zone"])]:
+                def selected(measure):
+                    return measure.filter(f.col("keep")) if filtered else measure
+                declarations = [selected(f.count()).alias("rows"),
+                                selected(f.count("value")).alias("nonnull"),
+                                selected(f.sum("value")).alias("total"),
+                                selected(f.avg("value")).alias("average")]
+                typed = [native.AggregateMeasure(function, column, name,
+                            filter_column="keep" if filtered else None)
+                         for function, column, name in [("count", None, "rows"),
+                            ("count", "value", "nonnull"), ("sum", "value", "total"),
+                            ("avg", "value", "average")]]
+                relation = source.aggregate(keys, typed).sort([(key, False, "first") for key in keys])
+                suffix = " FILTER (WHERE keep)" if filtered else ""
+                expressions = [function + suffix + " AS " + name for function, name in
+                               [("COUNT(*)", "rows"), ("COUNT(value)", "nonnull"),
+                                ("SUM(value)", "total"), ("AVG(value)", "average")]]
+                statement = ("SELECT " + ",".join(keys + expressions) + f" FROM '{path}' GROUP BY "
+                             + ",".join(keys) + " ORDER BY "
+                             + ",".join(key + " ASC NULLS FIRST" for key in keys))
+                groups = {}
+                for row in rows:
+                    key = tuple(row[name] for name in keys)
+                    groups.setdefault(key, [])
+                    if not filtered or row["keep"] is True:
+                        groups[key].append(row["value"])
+                wanted = []
+                for key, values in sorted(groups.items(), key=lambda entry: entry[0][0]):
+                    numbers = [value for value in values if value is not None]
+                    wanted.append(dict(zip(keys, key), rows=len(values), nonnull=len(numbers),
+                        total=float(sum(numbers)) if numbers else None,
+                        average=float(Fraction(sum(numbers), len(numbers))) if numbers else None))
+                tables = self.all_surfaces(frame.group_by(*keys).agg(*declarations).sort(*keys, nulls="first"),
+                    relation, statement, {"native_source_demand_prepared_input_bytes_written": "0",
+                        "native_input_end_observed": "true", "native_input_output_ownership_detached": "true"})
+                expected_schema = pa.schema([*(schema.field(key) for key in keys),
+                    pa.field("rows", pa.uint64(), nullable=False), pa.field("nonnull", pa.uint64(), nullable=False),
+                    pa.field("total", pa.float64()), pa.field("average", pa.float64())])
+                with self.subTest(filtered=filtered):
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), wanted)
+                        self.assertEqual(table.schema, expected_schema)
+                # A completed result retains independent Vortex-native owners.
+                if filtered:
+                    retained = self.session.plan(relation).collect()
+                    path.unlink()
+                    memory_source = retained.as_source()
+                    reused = self.session.sql("SELECT * FROM 'memory://compact-result'",
+                        sources=[("memory://compact-result", memory_source)]).collect()
+                    del memory_source
+                    self.session.close()
+                    self.assertEqual(self.table(retained).to_pylist(), wanted)
+                    self.assertEqual(self.table(reused).to_pylist(), wanted)
+
+    def test_mixed_integer_expressions_and_wide_sums_match_all_five_surfaces(self):
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+        from shardloom.errors import ShardLoomCommandError
+
+        pa, native = self.pa, self.native
+        col, lit = native.Expression.column, native.Expression.literal
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [dict(id=i, g=i % 7,
+                     narrow=None if i % 7 == 0 or i % 17 == 0 else i % 65536,
+                     signed=None if i % 19 == 0 else i % 127 - 63,
+                     medium=None if i % 23 == 0 else i * 11 - 16384,
+                     wide=None if i % 29 == 0 else (1 << 40) + i,
+                     divisor=None if i % 31 == 0 else i % 7 + 1)
+                for i in range(2053)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("g", pa.int8(), nullable=False),
+                            pa.field("narrow", pa.uint16()), pa.field("signed", pa.int8()),
+                            pa.field("medium", pa.int32()), pa.field("wide", pa.uint64()),
+                            pa.field("divisor", pa.int16())])
+        def quotient(left, right):
+            value = abs(left) // abs(right)
+            return -value if (left < 0) != (right < 0) else value
+        operations = [
+            ("added", "narrow+3", col("narrow") + lit(3), lambda row: row["narrow"] + 3, ("narrow",)),
+            ("reversed", "7-signed", lit(7) - col("signed"), lambda row: 7 - row["signed"], ("signed",)),
+            ("multiplied", "medium*narrow", col("medium") * col("narrow"),
+             lambda row: row["medium"] * row["narrow"], ("medium", "narrow")),
+            ("divided", "CAST(wide AS BIGINT)/divisor", col("wide").cast("int64") / col("divisor"),
+             lambda row: quotient(row["wide"], row["divisor"]), ("wide", "divisor")),
+            ("unsigned_added", "wide+narrow", col("wide") + col("narrow"),
+             lambda row: row["wide"] + row["narrow"], ("wide", "narrow")),
+            ("remainder", "medium%divisor", col("medium") % col("divisor"),
+             lambda row: row["medium"] - quotient(row["medium"], row["divisor"]) * row["divisor"],
+             ("medium", "divisor")),
+        ]
+        with tempfile.TemporaryDirectory(prefix="shardloom-mixed-integer-") as directory:
+            path = Path(directory) / "numbers.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=257)
+            frame, source = sl.read_parquet(path, client=client), native.Relation.scan(str(path))
+            declarations = [f"{sql} AS {name}" for name, sql, *_ in operations]
+            projected = source.project([("id", col("id")),
+                                        *((name, expression) for name, _, expression, *_ in operations)])
+            statement = "SELECT id," + ",".join(declarations) + f" FROM '{path}' ORDER BY id"
+            wanted = [dict(id=row["id"], **{
+                name: None if any(row[key] is None for key in needed) else compute(row)
+                for name, _, _, compute, needed in operations}) for row in rows]
+            tables = self.all_surfaces(frame.select("id", *declarations).sort("id"),
+                                       projected.sort([("id", False, None)]), statement)
+            for table in tables:
+                self.assertEqual(table.to_pylist(), wanted)
+                self.assertEqual(table.schema, tables[0].schema)
+                for name, *_ in operations:
+                    self.assertEqual(table.schema.field(name).type,
+                                     pa.uint64() if name == "unsigned_added" else pa.int64())
+                    self.assertTrue(table.schema.field(name).nullable)
+
+            sums = [f"SUM(narrow+{offset}) AS sum_{offset}" for offset in range(90)]
+            expressions = [(f"argument_{offset}", col("narrow") + lit(offset)) for offset in range(90)]
+            measures = [("sum", f"argument_{offset}", f"sum_{offset}") for offset in range(90)]
+            for grouped, empty in [(False, False), (True, False), (False, True)]:
+                selected_frame = frame.filter("id<0") if empty else frame
+                selected_source = source.filter(col("id") < lit(0)) if empty else source
+                projected = selected_source.project([("g", col("g")), *expressions])
+                typed = projected.aggregate(["g"] if grouped else [], measures)
+                declaration = selected_frame.group_by("g").agg(*sums) if grouped else selected_frame.agg(*sums)
+                sql = "SELECT " + ("g," if grouped else "") + ",".join(sums) + f" FROM '{path}'"
+                if empty:
+                    sql += " WHERE id<0"
+                if grouped:
+                    declaration = declaration.sort("g")
+                    typed = typed.sort([("g", False, None)])
+                    sql += " GROUP BY g ORDER BY g"
+                wanted = []
+                for group in range(7) if grouped else [None]:
+                    values = [row["narrow"] for row in rows
+                              if not empty and row["narrow"] is not None and (not grouped or row["g"] == group)]
+                    result = {"g": group} if grouped else {}
+                    result.update({f"sum_{offset}": float(sum(value + offset for value in values))
+                                   if values else None for offset in range(90)})
+                    wanted.append(result)
+                with self.subTest(grouped=grouped, empty=empty):
+                    tables = self.all_surfaces(declaration, typed, sql, {
+                        "native_source_demand_prepared_input_bytes_written": "0",
+                        "native_input_end_observed": "true", "native_input_output_ownership_detached": "true"})
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), wanted)
+                        self.assertEqual(table.schema, tables[0].schema)
+                        for offset in range(90):
+                            self.assertEqual(table.schema.field(f"sum_{offset}").type, pa.float64())
+                            self.assertTrue(table.schema.field(f"sum_{offset}").nullable)
+
+            # Preserve the public binder's lossless-domain admission. Safe values
+            # alone do not permit implicit U64/signed arithmetic; callers cast.
+            rejected_sql = f"SELECT wide/divisor AS invalid FROM '{path}'"
+            rejected_relation = source.project([("invalid", col("wide") / col("divisor"))])
+            arguments = ["sql", "--sql", rejected_sql, "--request", "collect", "--bounded", "true",
+                         "--memory-bytes", str(128 << 20), "--max-parallelism", "2"]
+            message = "set integer domains have no lossless native common dtype"
+            actions = [
+                ("dataframe", ShardLoomCommandError,
+                 lambda: frame.select("wide/divisor AS invalid").collect(check=True)),
+                ("typed", RuntimeError, lambda: self.session.plan(rejected_relation).collect()),
+                ("sql", RuntimeError, lambda: self.session.sql(rejected_sql).collect()),
+                ("embedded", RuntimeError, lambda: self.session.workflow(arguments).collect()),
+            ]
+            for surface, error_type, action in actions:
+                with self.subTest(refused_surface=surface):
+                    with self.assertRaisesRegex(error_type, message) as raised:
+                        action()
+                    if isinstance(raised.exception, ShardLoomCommandError):
+                        self.assertFalse(raised.exception.envelope.fallback.attempted)
+                    else:
+                        self.assertIn("no fallback execution was attempted", str(raised.exception))
+            with patch("subprocess.Popen", self.real_popen):
+                cli = sl.ShardLoomClient(binary=os.environ.get("SHARDLOOM_SURFACE_TEST_BINARY"),
+                                        transport="subprocess", use_persistent_worker=False,
+                                        memory_bytes=128 << 20, max_parallelism=2, timeout=30)
+                try:
+                    with self.assertRaisesRegex(ShardLoomCommandError, message) as raised:
+                        sl.sql(rejected_sql, client=cli).collect(check=True)
+                    self.assertFalse(raised.exception.envelope.fallback.attempted)
+                finally:
+                    cli.close()
+
+    def test_numeric_extrema_and_selected_outputs_match_all_five_surfaces(self):
+        import struct
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        expression = native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        columns = [(prefix + str(bits), getattr(pa, kind + str(bits))(), bits, prefix == "i")
+                   for prefix, kind in (("i", "int"), ("u", "uint")) for bits in (8, 16, 32, 64)]
+        rows = []
+        for index in range(2053):
+            row = {"id": index, "g": index % 7}
+            for name, _, bits, signed in columns:
+                low, high = (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
+                row[name] = None if index % 17 == 0 else (low, high, 0, 1)[index % 4]
+            row.update(f32=None if index % 13 == 0 else (-0.0, 0.0, 2.0 ** -149, -1.5)[index % 4],
+                       f64=None if index % 11 == 0 else (-0.0, 0.0, 2.0 ** -1074, 1.5)[index % 4],
+                       negative_zero=None if index % 19 == 0 else -0.0)
+            rows.append(row)
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("g", pa.int32(), nullable=False),
+                            *(pa.field(name, dtype) for name, dtype, _, _ in columns),
+                            pa.field("f32", pa.float32()), pa.field("f64", pa.float64()),
+                            pa.field("negative_zero", pa.float64())])
+
+        def check_values(table, wanted):
+            actual = table.to_pylist()
+            self.assertEqual(actual, wanted)
+            for observed, expected_row in zip(actual, wanted, strict=True):
+                for name, value in expected_row.items():
+                    if isinstance(value, float):
+                        self.assertEqual(struct.pack(">d", observed[name]), struct.pack(">d", value), name)
+
+        names = [name for name, *_ in columns] + ["f32", "f64", "negative_zero"]
+        measures = [(function, name, name + "_" + function)
+                    for name in names for function in ("min", "max")]
+        declarations = [f"{function.upper()}({name}) AS {alias}" for function, name, alias in measures]
+        with tempfile.TemporaryDirectory(prefix="shardloom-numeric-values-") as directory:
+            path = Path(directory) / "numbers.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=257)
+            frame, relation = sl.read_parquet(path, client=client), native.Relation.scan(str(path))
+            for grouped in (False, True):
+                groups = range(7) if grouped else (None,)
+                wanted = []
+                for key in groups:
+                    members = [row for row in rows if not grouped or row["g"] == key]
+                    result = {"g": key} if grouped else {}
+                    for function, name, alias in measures:
+                        values = [row[name] for row in members if row[name] is not None]
+                        result[alias] = (min if function == "min" else max)(values)
+                    wanted.append(result)
+                declaration = frame.group_by("g").agg(*declarations).sort("g") if grouped else frame.agg(*declarations)
+                typed = relation.aggregate(["g"] if grouped else [], measures)
+                if grouped:
+                    typed = typed.sort([("g", False, None)])
+                sql = "SELECT " + ("g," if grouped else "") + ",".join(declarations) + f" FROM '{path}'"
+                if grouped:
+                    sql += " GROUP BY g ORDER BY g"
+                with self.subTest(operation="extrema", grouped=grouped):
+                    tables = self.all_surfaces(declaration, typed, sql)
+                    for table in tables:
+                        check_values(table, wanted)
+                        self.assertEqual(table.schema, tables[0].schema)
+                        for _, name, alias in measures:
+                            self.assertEqual(table.schema.field(alias).type, schema.field(name).type)
+                            self.assertTrue(table.schema.field(alias).nullable)
+
+            projection = [("id", "id"), *((name, name) for name in reversed(names)), ("i8", "copied_i8")]
+            projected = relation.project([(alias, expression.column(name)) for name, alias in projection])
+            projected = projected.sort([("id", True, None)]).limit(103, offset=7)
+            sql = "SELECT " + ",".join(f"{name} AS {alias}" for name, alias in projection)
+            sql += f" FROM '{path}' ORDER BY id DESC LIMIT 103 OFFSET 7"
+            selected = frame.select(*(f"{name} AS {alias}" for name, alias in projection))
+            selected = selected.sort("id", descending=True).limit(103, offset=7)
+            wanted = [{alias: row[name] for name, alias in projection} for row in list(reversed(rows))[7:110]]
+            tables = self.all_surfaces(selected, projected, sql)
+            for table in tables:
+                check_values(table, wanted)
+                self.assertEqual(table.schema, tables[0].schema)
+
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.sql(sql).collect()
+            path.unlink()
+            retained_source = retained.as_source()
+            for _ in range(2):
+                reused = producer.sql("SELECT * FROM 'memory://retained' ORDER BY id DESC",
+                                      sources=[("memory://retained", retained_source)]).collect()
+                check_values(self.table(reused), wanted)
+            del retained_source
+            producer.close()
+            check_values(self.table(retained), wanted)
+            check_values(self.table(reused), wanted)
+
+    def test_inline_composite_group_keys_match_five_surfaces_and_retained_reuse(self):
+        from collections import defaultdict
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        texts = (None, "", "a\0", "東京", "abcdefghijkl")
+        numbers = (None, -(1 << 63), (1 << 63) - 1, -1, 0, 1)
+        rows = [{"id": index, "number": numbers[index % len(numbers)],
+                 "tag": (f"late-outlined-{index}" if index >= 512 and index % 257 == 0
+                         else texts[(index // 6) % len(texts)]),
+                 "value": None if index % 17 == 0 else index % 31 - 15}
+                for index in range(2053)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("number", pa.int64()), pa.field("tag", pa.string()),
+                            pa.field("value", pa.int64())])
+        groups = defaultdict(list)
+        for row in rows:
+            groups[(row["number"], row["tag"])].append(row)
+        ordered = sorted(groups, key=lambda key: (
+            key[0] is None, key[0] or 0, key[1] is None, key[1] or ""))
+        wanted = [{"number": key[0], "tag": key[1], "rows": len(groups[key]),
+                   "total": float(sum(row["value"] for row in groups[key] if row["value"] is not None))}
+                  for key in ordered]
+        with tempfile.TemporaryDirectory(prefix="shardloom-inline-group-") as directory:
+            path = Path(directory) / "keys.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path,
+                                row_group_size=2053, use_dictionary=False)
+            frame = sl.read_parquet(path, client=client)
+            relation = native.Relation.scan(str(path))
+            grouped = frame.group_by("number", "tag").agg(rows="COUNT(*)", total="SUM(value)")
+            grouped = grouped.sort("number", "tag", nulls="last")
+            typed = relation.aggregate(["number", "tag"],
+                                       [("count", None, "rows"), ("sum", "value", "total")])
+            typed = typed.sort([("number", False, "last"), ("tag", False, "last")])
+            sql = (f"SELECT number,tag,COUNT(*) AS rows,SUM(value) AS total FROM '{path}' "
+                   "GROUP BY number,tag ORDER BY number NULLS LAST,tag NULLS LAST")
+            for table in self.all_surfaces(grouped, typed, sql):
+                self.assertEqual(table.to_pylist(), wanted)
+                self.assertEqual(table.schema.field("number").type, pa.int64())
+                self.assertEqual(table.schema.field("tag").type, pa.string())
+
+            distinct = frame.select("number", "tag").distinct().sort("number", "tag", nulls="last")
+            distinct_typed = relation.aggregate(["number", "tag"], []).sort(
+                [("number", False, "last"), ("tag", False, "last")])
+            distinct_sql = (f"SELECT number,tag FROM '{path}' GROUP BY number,tag "
+                            "ORDER BY number NULLS LAST,tag NULLS LAST")
+            for table in self.all_surfaces(distinct, distinct_typed, distinct_sql):
+                self.assertEqual(table.to_pylist(), [{"number": key[0], "tag": key[1]} for key in ordered])
+
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.sql(sql).collect()
+            path.unlink()
+            retained_source = retained.as_source()
+            for _ in range(2):
+                reused = producer.sql(
+                    "SELECT * FROM 'memory://retained' ORDER BY number NULLS LAST,tag NULLS LAST",
+                    sources=[("memory://retained", retained_source)]).collect()
+                self.assertEqual(self.table(reused).to_pylist(), wanted)
+            del retained_source
+            producer.close()
+            self.assertEqual(self.table(retained).to_pylist(), wanted)
+            self.assertEqual(self.table(reused).to_pylist(), wanted)
+
     def test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces(self):
         from collections import defaultdict
         import shardloom as sl
@@ -209,6 +657,91 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 self.assertEqual(table.to_pylist(), wanted)
                 self.assertEqual(table.schema.field("value").type, pa.uint64())
                 self.assertTrue(table.schema.field("right_id").nullable)
+
+    def test_join_repeated_matches_misses_and_owned_payloads_match_five_surfaces(self):
+        import struct
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [{"id": index, "key": None if index % 17 == 0 else index % 19 - 4,
+                 "value": None if index % 13 == 0 else (-0.0 if index % 3 == 0 else index * .25),
+                 "text": None if index % 11 == 0 else f"independent selected text {index} 東京"}
+                for index in range(2053)]
+        right_rows = [{"key": key, "id": index, "text": f"build {index} λ"}
+                      for index, key in enumerate((None, -7, -3, -3, -1, 0, 0, 2, 4, 9, 20))]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False), pa.field("key", pa.int16()),
+                            pa.field("value", pa.float64()), pa.field("text", pa.string())])
+        right_schema = pa.schema([pa.field("key", pa.int16()), pa.field("id", pa.int64(), nullable=False),
+                                  pa.field("text", pa.string(), nullable=False)])
+
+        def check(table, wanted, fields):
+            self.assertEqual(table.schema, pa.schema(fields))
+            actual = table.to_pylist()
+            self.assertEqual(actual, wanted)
+            for row, expected in zip(actual, wanted):
+                if row["value"] is not None:
+                    self.assertEqual(struct.pack("!d", row["value"]), struct.pack("!d", expected["value"]))
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-join-reuse-") as directory:
+            path, right_path = Path(directory) / "left.parquet", Path(directory) / "right.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=1021)
+            parquet.write_table(pa.Table.from_pylist(right_rows, schema=right_schema), right_path, row_group_size=2)
+            source, right_source = native.Relation.scan(str(path)), native.Relation.scan(str(right_path))
+            for kind in ("inner", "left", "right", "full", "semi", "anti"):
+                columns = [("left", "id", "left_id"), ("left", "value", "value"), ("left", "text", "left_text")]
+                fields = [pa.field("left_id", pa.int64(), nullable=kind in ("right", "full")),
+                          pa.field("value", pa.float64()), pa.field("left_text", pa.string())]
+                order = ["left_id"]
+                if kind not in ("semi", "anti"):
+                    columns += [("right", "id", "right_id"), ("right", "text", "right_text")]
+                    fields += [pa.field("right_id", pa.int64(), nullable=kind in ("left", "full")),
+                               pa.field("right_text", pa.string(), nullable=kind in ("left", "full"))]
+                    order.append("right_id")
+                wanted, matched = [], set()
+                def output(left, right):
+                    return {alias: (left if side == "left" else right).get(name) for side, name, alias in columns}
+                for row in rows:
+                    matches = [other for other in right_rows if row["key"] is not None and row["key"] == other["key"]]
+                    if kind in ("semi", "anti"):
+                        if bool(matches) == (kind == "semi"):
+                            wanted.append(output(row, {}))
+                    elif matches:
+                        wanted.extend(output(row, other) for other in matches)
+                        matched.update(other["id"] for other in matches)
+                    elif kind in ("left", "full"):
+                        wanted.append(output(row, {}))
+                if kind in ("right", "full"):
+                    wanted.extend(output({}, other) for other in right_rows if other["id"] not in matched)
+                wanted.sort(key=lambda row: tuple((row[name] is None, row[name] or 0) for name in order))
+                selects = [f"{'f' if side == 'left' else 'd'}.{name} AS {alias}" for side, name, alias in columns]
+                dataframe = sl.read_parquet(path, client=client).join(sl.read_parquet(right_path, client=client),
+                    on="key", how=kind).select(*selects).sort(*order, nulls="last")
+                native_kind = {"semi": "left_semi", "anti": "left_anti"}.get(kind, kind)
+                relation = source.join(right_source, [("key", "key")], columns, kind=native_kind)
+                relation = relation.sort([(name, False, "last") for name in order])
+                sql_kind = {"semi": "LEFT SEMI", "anti": "LEFT ANTI"}.get(kind, kind.upper())
+                sql = f"SELECT {','.join(selects)} FROM '{path}' AS f {sql_kind} JOIN '{right_path}' AS d ON f.key=d.key"
+                sql += " ORDER BY " + ",".join(f"{name} NULLS LAST" for name in order)
+                with self.subTest(kind=kind):
+                    for table in self.all_surfaces(dataframe, relation, sql):
+                        check(table, wanted, fields)
+                if kind == "full":
+                    retained_sql, retained_expected, retained_fields = sql, wanted, fields
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.sql(retained_sql).collect()
+            path.unlink()
+            right_path.unlink()
+            retained_source = retained.as_source()
+            reused = producer.sql("SELECT * FROM 'memory://retained' ORDER BY left_id NULLS LAST,right_id NULLS LAST",
+                sources=[("memory://retained", retained_source)]).collect()
+            del retained_source
+            producer.close()
+            check(self.table(retained), retained_expected, retained_fields)
+            check(self.table(reused), retained_expected, retained_fields)
 
     def test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces(self):
         from decimal import Decimal

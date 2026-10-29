@@ -5,11 +5,13 @@ use serde_json::value::RawValue;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
+#[derive(PartialEq, Eq)]
 pub(in crate::local_primitives) enum JsonStep {
     Field(String),
     Index(usize),
 }
 
+#[derive(PartialEq, Eq)]
 pub(in crate::local_primitives) struct JsonPath(Vec<JsonStep>);
 
 impl JsonPath {
@@ -98,6 +100,7 @@ impl JsonPath {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub(in crate::local_primitives) enum TimestampFormat {
     IsoUtc,
     DateTime,

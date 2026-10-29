@@ -24,6 +24,20 @@ use crate::owned_buffers::{bool_array_with_retained_buffer, retain_empty_array_c
 #[path = "local_primitive_variant_result.rs"]
 mod variant;
 
+#[cfg(unix)]
+#[path = "local_primitive_result_numeric.rs"]
+mod numeric;
+
+#[cfg(unix)]
+#[path = "local_primitive_result_variable.rs"]
+mod variable;
+#[cfg(unix)]
+pub(super) use variable::VariableValues;
+
+#[cfg(unix)]
+#[path = "local_primitive_result_expression_variable.rs"]
+mod expression_variable;
+
 #[cfg(all(test, unix))]
 #[path = "local_primitive_result_batch_prefix_tests.rs"]
 mod prefix_tests;
@@ -143,13 +157,34 @@ pub(super) fn scalar(
     context: &mut vortex::array::ExecutionCtx,
 ) -> Result<vortex::array::scalar::Scalar> {
     use vortex::array::{
-        arrays::decimal::DecimalArrayExt as _,
-        scalar::{DecimalValue, Scalar},
+        arrays::{VarBinView, decimal::DecimalArrayExt as _, varbinview::VarBinViewArrayExt as _},
+        scalar::{DecimalValue, Scalar, ScalarValue},
     };
     if row >= array.len() {
         return Err(failed("selected scalar exceeds its source domain"));
     }
     let array = scalar_storage(array, context)?;
+    if matches!(array.dtype(), DType::Utf8(_))
+        && let Some(text) = array.as_opt::<VarBinView>()
+    {
+        // Provider scalar extraction assumes text was validated at construction.
+        // Serialized or selected views can instead carry an unvalidated domain.
+        // Check observed bytes before constructing a BufferString, including when
+        // the output prefix discards this row and has no final text to validate.
+        let value = if array
+            .validity()
+            .map_err(vortex_error)?
+            .execute_is_valid(row, context)
+            .map_err(vortex_error)?
+        {
+            Some(ScalarValue::Utf8(
+                text.utf8_buffer_at(row).map_err(vortex_error)?,
+            ))
+        } else {
+            None
+        };
+        return Scalar::try_new(array.dtype().clone(), value).map_err(vortex_error);
+    }
     if let DType::Decimal(dtype, _) = array.dtype() {
         if !crate::native_payload_schema::admitted_decimal(*dtype) {
             return Err(failed(
@@ -329,7 +364,7 @@ fn failed(reason: &str) -> ShardLoomError {
     ))
 }
 
-fn add(left: usize, right: usize) -> Result<usize> {
+pub(super) fn add(left: usize, right: usize) -> Result<usize> {
     left.checked_add(right)
         .ok_or_else(|| failed("buffer size overflow"))
 }
@@ -476,6 +511,65 @@ pub(super) fn build_column<'a>(
     value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     build_column_prefix_inner::<false>(dtype, rows, rows, allocator, value)
+}
+
+/// Bound expression callbacks can construct expensive owned scalars. Evaluate
+/// variable values once; completed-state and prefix visitors retain their
+/// existing sizing/validation contract.
+#[cfg(unix)]
+pub(super) fn build_expression_column<'a>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
+    if matches!(dtype, DType::Utf8(_) | DType::Binary(_)) {
+        expression_variable::build_once(dtype, rows, allocator, value)
+    } else {
+        build_column(dtype, rows, allocator, value)
+    }
+}
+
+#[cfg(unix)]
+pub(super) fn build_numeric_column<
+    T: vortex::array::dtype::NativePType + vortex::array::memory::HostBufferElement,
+>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    value: impl FnMut(usize) -> Result<Option<T>>,
+) -> Result<ArrayRef> {
+    numeric::build_column(dtype, rows, allocator, value)
+}
+
+#[cfg(unix)]
+pub(super) fn validate_finite_numeric_output(value: f64) -> Result<()> {
+    numeric::finite(value.is_finite())
+}
+
+/// Copy already selected numeric storage into independently credited buffers.
+/// Selection/casting and owner preparation remain the caller's responsibility.
+#[cfg(unix)]
+pub(super) fn copy_numeric_column(
+    dtype: &DType,
+    values: &PrimitiveArray,
+    valid: &vortex::mask::Mask,
+    allocator: &HostAllocatorRef,
+    check_cancelled: impl FnMut() -> Result<()>,
+) -> Result<ArrayRef> {
+    numeric::copy_column(dtype, values, valid, allocator, check_cancelled)
+}
+
+/// Validate the complete typed domain without constructing an output column.
+#[cfg(unix)]
+pub(super) fn validate_numeric_column(
+    dtype: &DType,
+    values: &PrimitiveArray,
+    valid: &vortex::mask::Mask,
+    allocator: &HostAllocatorRef,
+    check_cancelled: impl FnMut() -> Result<()>,
+) -> Result<()> {
+    numeric::validate_column(dtype, values, valid, allocator, check_cancelled)
 }
 
 /// Construct a prefix while preserving validation of every scalar in its

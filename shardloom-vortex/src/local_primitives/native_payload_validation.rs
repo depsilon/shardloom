@@ -7,11 +7,14 @@ use super::{
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use vortex::array::{
-    ArrayRef, Columnar, IntoArray, VortexSessionExecute as _, arrays::PrimitiveArray, dtype::DType,
-    memory::HostMemorySessionExt as _,
+    ArrayRef, Columnar, ExecutionCtx, IntoArray, VortexSessionExecute as _, arrays::PrimitiveArray,
+    dtype::DType, memory::HostMemorySessionExt as _,
 };
 
-/// Visit the same fields and typed writes as `detach`, keeping no payload rows.
+#[path = "native_payload_validation_typed.rs"]
+mod typed;
+
+/// Visit the same complete field domains as `detach`, keeping no payload rows.
 /// Rich and nullable records share the copier's parent masks and field order;
 /// flat nonnullable records retain their existing direct field resolution.
 pub(in crate::local_primitives) fn validate_record(
@@ -62,6 +65,16 @@ pub(in crate::local_primitives) fn validate_record(
         } else {
             None
         };
+        if validate_typed_column(
+            &column,
+            dtype,
+            array.len(),
+            numeric.as_ref(),
+            &mut execution,
+            context,
+        )? {
+            continue;
+        }
         drop(result_batch::build_column_prefix(
             dtype,
             array.len(),
@@ -69,6 +82,10 @@ pub(in crate::local_primitives) fn validate_record(
             &context.native_session().host_allocator(),
             |row| {
                 check(row, context)?;
+                #[cfg(all(test, debug_assertions))]
+                super::super::native_relational_observation::record(|counts| {
+                    counts.payload_validation_scalar_calls += 1;
+                });
                 if let Some(numeric) = &numeric {
                     numeric.stat_value(row).map(Value::from)
                 } else {
@@ -78,4 +95,31 @@ pub(in crate::local_primitives) fn validate_record(
         )?);
     }
     context.check_cancelled()
+}
+
+/// Reuse the same complete leaf validator after an owner has resolved its
+/// observed selection. False leaves unsupported or changed domains with the
+/// caller's original scalar path; it never certifies a partial column.
+pub(super) fn validate_typed_column(
+    column: &ArrayRef,
+    dtype: &DType,
+    rows: usize,
+    numeric: Option<&NativeNumericOwner>,
+    execution: &mut ExecutionCtx,
+    context: &NativeExecutionContext<'_>,
+) -> Result<bool> {
+    if column.dtype() != dtype || column.len() != rows {
+        return Ok(false);
+    }
+    if let Some(numeric) = numeric {
+        result_batch::validate_numeric_column(
+            dtype,
+            numeric.primitive(),
+            numeric.validity(),
+            &context.native_session().host_allocator(),
+            || context.check_cancelled(),
+        )?;
+        return Ok(true);
+    }
+    typed::validate(column, execution, context)
 }

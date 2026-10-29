@@ -48,6 +48,431 @@ CG-1 through CG-23 retain their independent acceptance and authorization.
 
 ## Remaining completion checklist
 
+The latest maintainer instruction, after the direct-Parquet Full43 follow-up,
+closes PR #1619 at the validated shared-execution checkpoint and continues the
+remaining work in subsequent cohesive PRs as needed. This supersedes the earlier
+October 28 instruction to hold that PR open through all item-20 implementation
+and combined acceptance. Preserve prospective measurement protocols and logical
+validation checkpoints; individual optimizations or public interfaces still do
+not require separate PRs. The delivery change does not complete the checklist or
+move item 18's I/O work or the 1.1.0 release into item 20.
+
+The October 28 performance objective is to pursue **under 10 engine seconds**
+for the unchanged 347-query cohort within the remaining optimization work.
+The current memory-corrected runtime records 15.304317834 seconds, so this requires
+about 34.7% further reduction; it is a stretch target, not an achieved result or
+a reason to reduce correctness/coverage. Grouped aggregation contributes
+5.569372964 seconds, projection 2.836207667 seconds, and ordinary plus multiway
+joins 2.425630208 seconds. Use these complete family totals to prioritize
+profiling of shared work, not as an attribution of removable overhead. The
+shared-owner sequence below records the retained and dropped candidates.
+Select further numeric/temporal specializations only from
+demonstrated costs. Added capability cases retain
+their own coverage and cannot change the original comparison denominator.
+Larger-volume and complex-plan acceptance must measure resource behavior and
+complete results; the encoded/pruning/streaming architecture alone establishes
+no general advantage over Polars. Preserve the original Polars IPC/API-clock
+observations and native Parquet/engine-clock observations as distinct evidence.
+A later comparative claim requires matched input, resources and clock boundaries;
+this objective does not authorize another competitor cohort.
+
+The October 28 maintainer follow-up delegates the execution order to measured
+impact. Prioritize shared grouped aggregation, projection and joins: their
+current family totals sum to 10.831210839 of the 15.304317834 engine seconds.
+This is workload concentration, not a claim that all of that time is removable.
+After each frozen candidate decision, target demonstrated repeated preparation,
+validation, copying or operator work in those shared owners. Explicit materialized
+ownership and shared-intermediate reuse can move earlier when a repeated expensive
+subplan is demonstrated and resource/semantic admission is defined. Plan traversal
+work targets measured repeated work or large-plan scaling; recursive CTE support
+and relaxed structural limits are capability obligations, not assumed speedups for
+the existing cohort. Complete the remaining capability and acceptance checklist
+after this evidence-led performance work; no requirement is removed or deferred
+into items 18/19 by this ordering decision.
+
+The later October 28 [gain/loss decision](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
+removes percentage benefit cutoffs for the remaining analytical performance
+work. After correctness and resource checks pass, lower complete-cohort engine
+time ships; higher or unchanged time drops. Advance the baseline as gains
+compound. Keep original protocols and threshold results immutable and record
+each changed disposition separately. Audit earlier positive-gain drops and
+integrate still-applicable changes against the current implementation; do not
+add historical savings together as if measured on the same source.
+
+### Shared-owner reuse continuation
+
+The October 28 maintainer suggestions refine the optimization sequence inside
+this same item and PR. Preserve the 347-case discovery/regression denominator;
+freeze fresh seeds, layouts and compositions for correctness. Each candidate
+must identify the existing owner reused, the blocked or repeated execution
+path, the work removed, prospective admission, activation/work counters,
+complete errors/results, ownership and the frozen benefit decision.
+
+1. The exact short/composite group-key candidate is retained; use its updated
+   grouping profile before selecting another mechanism.
+2. Typed complete-payload validation is retained for flat records and eligible
+   recursive leaves through the existing numeric, temporal and variable-width
+   owners. Rich/nullable records keep their recursive owner, field order, parent
+   masks and selected-domain obligations. Missing parent coordinates and decimal
+   leaves keep their original validation paths. This removes repeated scalar
+   construction without relaxing complete-input validation and is separate from
+   the dropped expression construction candidate.
+3. Exact join-probe identity reuse and once-resolved gather coordinates were
+   evaluated and dropped under the prospective benefit gate; do not repeat the
+   same mechanisms unchanged.
+   The ordinary no-residual `Join::consume` path still hashes/probes each left
+   row, and `Table::gather` resolves rows while finding touched segments and
+   again while constructing take indices. The candidate reused existing
+   directory/index, table/gather and reserved-vector owners, distinguishing
+   uninitialized entries from proved misses and preserving NULL policy, complete
+   duplicate chains, output order and matched-row bookkeeping. Residual
+   predicates stayed outside admission. The touched-chunks-only take contract
+   and descriptor memory were included in its bounded work unit.
+4. Audit specialized-consumer reachability before refactoring a shared batch
+   consumer. Both general relational preparation entry points currently admit
+   the file provider only for exactly one file source and no memory/batch
+   sources; its input recognizer also requires `ScanSource::File(0)`. These
+   source restrictions do not establish semantic equivalence. Start with exact
+   count or another small typed family only after proving actual representation,
+   dtype/null, arithmetic, ordering, error, memory, cancellation and output
+   compatibility. File metadata shortcuts keep their original evidence needs.
+5. Use the remaining profiles and representation evidence to choose ordered
+   preparation workers or encoded unary expressions. Reuse `AggregateChunkJobs`,
+   resident worker grants and native leases where admitted; retain ownership
+   through queued, running, completed and unconsumed states. Do not duplicate
+   the CPU grant or parallelize ordered arithmetic without equivalence proof.
+   For unary dictionary expressions, first show actual dictionaries at that
+   boundary, then preserve referenced-domain coverage, selected branches,
+   Unicode behavior, NULLs and equality after distinct values map to the same
+   transformed result. Do not manufacture a dictionary solely for this path.
+
+PulseWeave inventory, scarcity and proof policies can govern measured choices
+among admitted paths. Their presence in a report does not establish active
+operator scheduling. Add adaptive feedback only after work/queue/wait/live-byte
+evidence warrants it. Selected-row handoff between joins and broader output
+credit windows remain conditional on measured copy or downstream pressure,
+including retained source bytes and producer-close lifetime proof. This does
+not revive previously dropped candidates, bypass provider admission, reduce the
+remaining analytical capability checklist or close any competitive gate.
+
+The exact group-key checkpoint is retained for combined acceptance at
+19.754020577 engine seconds for 347 cases, followed by typed complete-payload
+validation at 18.304092867 seconds. The latter reuses numeric finite/domain
+validation without output buffers and canonical Boolean/variable views without
+per-row scalar construction. It preserves the established recursive path for
+rich values and nullable parents. Complete projection and ordering families
+improve 13.60% and 22.92%, respectively, with a positive 7.34% whole-cohort
+balance and no material regression flags. The
+[disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/payload-validation-disposition.json)
+records 28 payload checks, seven numeric checks, strict native lint, two public
+regressions across all five interfaces and complete independent replay of 160
+fresh observations (28,940 output rows). Four original Boolean-column negation
+declarations failed before execution; their corrected DataFrame declarations
+use nullable Boolean equality before predicate negation. The original failures
+and all 156 successful observations remain intact. This is a candidate checkpoint;
+combined native/workspace/package, portable and hosted acceptance remain open.
+The subsequent join identity and gather-coordinate candidate is dropped:
+its single unchanged-cohort pass records 18.527516365 engine seconds, 1.22%
+above the retained checkpoint. Ordinary joins improve 0.26349% and multiway
+joins 0.02803%; neither meets the frozen 10% family benefit gate. All 347
+complete results pass without material regression flags. The
+[join disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/join-reuse-disposition.json)
+preserves the candidate, complete replay of 160 fresh observations and
+7,331,860 result rows, initial failures and corrected continuations. Twenty-four
+large CLI correctness observations use acknowledged streaming delivery without
+an engine clock; they support correctness only. Both runtime mechanisms have
+been removed. The independent six-kind join/ownership public regression remains;
+workspace lint and all 3,274 workspace tests pass after removal. No replacement
+performance pass was taken for that removal; the retained result at that point
+remained 18.304092867 seconds.
+
+The source and cohort reachability audit does not admit a broad provider bypass.
+The existing grouped `CountWorkers` consume `GroupedAggregateStates`, whereas
+general memory, Parquet-demand and intermediate arrays reach the shared
+`native_relational_aggregate::Aggregate`. The 347 discovery queries contain
+no count-only grouped aggregate: their grouped cases use SUM alone or mixed
+SUM/AVG/MIN/MAX/COUNT. Seventeen direct-scan scalar count cases total
+0.367273915 retained engine seconds; two further scalar counts consume joins.
+Merely exposing grouped count workers to those inputs would not address the
+measured mixed-aggregate cost. Scalar COUNT(*) already adds batch cardinality
+without a row loop; COUNT(column) uses native validity. Source equivalence,
+first-occurrence group order, exact arithmetic, cancellation and ownership still
+need proof for any consumer extension.
+
+The refreshed seven-case diagnostic profile on the retained group-cache and
+typed-payload implementation passes complete results with unchanged inputs,
+references, resources and isolated guards. It identifies a remaining validation
+gap: a rich or decimal sibling routes the entire record through the recursive
+owner, where eligible scalar leaves still used scalar construction. Temporary
+instrumentation was removed before the candidate; diagnostic spans do not
+replace full-cohort evidence.
+
+The recursive-leaf extension reuses the same typed validator only after the
+existing owner resolves the observed selection. Its
+[prospective protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-protocol.json)
+and [disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json)
+retain all 347 complete results and 12,565 rows at **17.729495249 engine seconds**,
+a 3.14% complete-cohort reduction from 18.304092867. Projection improves 18.07%,
+meeting the alternative family-benefit gate with positive overall balance and
+no material case/family regression flags. Twenty-six payload checks, strict
+native lint, four public regressions and 160 fresh five-interface observations
+pass; complete replay checks 33,260 result rows against independent references.
+The four public regressions also verify the retained six-kind join/ownership
+test after the dropped join implementation. This remains a checkpoint inside
+PR #1619; combined acceptance and the remaining analytical capabilities are
+open. Grouping, projection and combined joins still exceed their one-second
+targets. No new competitor observation or superiority claim is made.
+
+The subsequent [validation supplement](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-followup.json)
+records 5,011 passing native tests with 35 existing opt-in tests ignored,
+strict workspace lint and all 3,274 workspace tests passing. Source inventories
+match the measured candidate; intervening changes are documentation only.
+Installed-package acceptance, the complete portable packet and hosted acceptance
+of this new source remain open alongside the remaining item-20 implementation.
+
+The [demand-driven hashing protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-protocol.json)
+and [retained disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json)
+remove eager text-domain hashing before the existing exact membership cache.
+Flat UTF-8/binary keys use on-demand hashing only in null-equal membership without
+an other-set probe. Complete domain validation, late dictionary-code errors,
+exact hash bits, first-occurrence ordinals and ordinary cache-decline lookup
+remain intact. Vortex's checked borrowed text view validates UTF-8 without
+cloning an unused byte owner. Matching joins, nested keys and retained unique
+key payloads keep their established preparation. A focused 2,053-row repeated-key
+case validates the full domain, hashes one input key and one retained output key,
+and allocates hash storage only for that retained key.
+
+All 347 cases and 12,565 rows pass at **17.42942424 engine seconds**, a 1.69%
+complete-cohort reduction from 17.729495249. DISTINCT improves 10.80%, satisfying
+the prospective family-benefit gate with positive overall balance; grouping
+improves 3.31%. No material case/family regression flags occur. These remain
+single observations with modest observed benefit, not statistical or causal
+attribution. The final focused relational run passes 189 tests, strict native
+lint passes, and four public regressions plus 160 fresh five-interface
+observations pass. Complete replay checks 303,260 result rows against independent
+references. Preserve the initial function-size lint failure and the public
+launch with missing Arrow (zero tests), followed by their corrected passes.
+No worker or CPU-grant change is introduced. Dictionary unary execution remains
+conditional on actual encoded arguments reaching the function boundary; Parquet
+page encoding alone is not that evidence. Combined item-20 acceptance stays open.
+The full native gate passes 5,015 tests with 35 existing opt-in ignores;
+workspace lint and all 3,274 default workspace tests pass on the same source.
+Formatting passes. Combined installed-package, portable and hosted acceptance
+remain separate from this local checkpoint.
+
+The selected-child/direct-decimal validation candidate is **dropped** under its
+unchanged prospective gate. All 347 queries and 12,565 complete rows pass at
+17.670435985 engine seconds, 1.38% above the retained 17.42942424-second
+checkpoint. Projection and ordering do not improve; no case or family exceeds
+the material-regression thresholds. Four five-interface public regressions and
+160 fresh observations (33,260 complete result rows) pass. The
+[disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json)
+preserves the candidate source, complete results, source-linked focused checks
+and all earlier failed attempts. The evidence freeze initially failed on a
+helper path type before any query; the corrected freeze changes no runtime,
+workload or benefit threshold. Full candidate suites were deliberately not run
+after its benefit failure; the retained source passes its own broad gates below.
+
+The candidate's malformed-text regression also exposed an existing
+zero-retention scalar-validation defect. Keep the shared checked native UTF-8
+access and its provider/payload regression tests while removing both proposed
+optimizations and their counters. The
+[correctness addendum](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-correctness-addendum.md)
+records the root cause and the disproved initial hypothesis. The combined
+candidate timing cannot isolate this repair's cost. No replacement performance
+observation is taken merely for optimization removal: at this checkpoint,
+17.42942424 seconds is the last accepted optimization measurement, not a measurement of
+the additional correctness repair. The [post-removal validation record](../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json)
+binds the six retained source files to passing formatting, strict native and
+workspace lint, 5,016 native tests (35 existing opt-in ignores), and 3,274
+workspace tests. The unchanged provider source retains its 146 passing tests,
+one existing ignore and strict lint. Both rejected mechanisms and their modules
+are absent. The earlier public and fresh-cohort results belong to the combined
+dropped candidate; they are not new package acceptance of this retained source.
+Combined item-20 acceptance stays open.
+
+The [typed numeric expression protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-protocol.json)
+and [retained disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-disposition.json)
+remove per-row generic value construction for binary arithmetic over identical
+I64/U64/F64 input/output storage. Exactly `COALESCE(column, finite non-null
+same-type literal)` uses the existing numeric owner to construct an independent
+native output directly, avoiding general selected-branch coordinates and gathers.
+The shared arithmetic helpers, left-before-right preparation, finite-operand
+observation before NULL propagation, first-error order, output allocation and
+validity rules remain authoritative. Other widths, decimal/temporal values and
+general lazy forms retain their existing owners. No dependency, provider,
+public schema or external evaluator is introduced.
+
+All **347 queries and 12,565 complete rows** pass at **16.249797458 engine seconds**,
+6.77% below 17.42942424. Grouped aggregation improves 13.75% and global aggregation
+21.31%, meeting the prospective family-benefit gate with a positive overall
+balance. The single material case flag is
+`aggregate_optional_value_group_key_category_mixed_arithmetic_all`: it adds
+0.021396124 seconds while the cohort saves 1.179626782 seconds. Complete results
+and physical read demand are unchanged; no family crosses its regression
+threshold. Retain this observed tradeoff under the October 28 proportionate
+regression policy, preserving the case for the continuing grouping work.
+One observation does not establish its cause or statistical confidence. This
+comparison includes the previously untimed UTF-8 correctness repair.
+
+Nine focused numeric tests, 198 relational tests, four existing five-interface
+regressions and 160 fresh five-interface observations pass. Complete fresh replay
+checks 410,420 result rows and 17,364 input rows. Formatting, strict native and
+workspace lint, 5,025 native tests (35 existing opt-in ignores), and 3,274
+workspace tests pass on the measured source. The immutable patch reconstructs
+all six changed source files from the recorded commit. Preserve the initial
+lint failure and three failed focused-test attempts: cancellation, temporal and
+error-order fixtures required correction; the invalid dictionary panic and
+disproved constant-array refusal assumption are not claimed as runtime fixes.
+Combined installed-package, portable and hosted acceptance remain open, as do
+the speed targets and every remaining item-20 capability/workflow obligation.
+
+The subsequent [integer-extrema checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/integer-extrema-fusion-disposition.json)
+retains one grouped traversal for adjacent integer MIN/MAX and eligible COUNT.
+It reuses the existing prepared numeric owner, exact group ordinals and aggregate
+states. Bounded inspection admits transparent single-chunk ownership wrappers;
+encoded validity keeps COUNT at its original position. Unequal counts, possible
+overflow, noninteger values and other unproved shapes retain ordered execution.
+The complete 347-query observation validates all 12,565 rows at
+**15.992156898 engine seconds**, saving **0.257640560 seconds** against
+16.249797458. No material case or family regression flags occur.
+
+The original 10% benefit gate failed. The maintainer then explicitly replaced
+that rule with complete-cohort gain/loss and directed retention; all six source
+files were restored byte-for-byte to the measured snapshot. The original gate
+and results remain unchanged, and no query was rerun to change the disposition.
+Ten focused tests, 207 relational tests, four public regressions and 160 fresh
+five-interface observations pass, including 6,860 result rows and 17,364 input
+rows. Formatting, strict native/workspace lint, 5,035 native tests (35 existing
+opt-in ignores) and 3,274 workspace tests pass. The source-linked disposition
+preserves six failed attempts and verifies the exact source patch, release
+runtime, complete result replay and broad test inventories. Combined item-20
+acceptance remains open.
+
+The earlier-drop audit found two positive complete-cohort observations rejected
+by percentage floors: borrowed variable output (30.118456795 to 29.225110351
+seconds) and expression construction/reuse (23.079365459 to 22.941843204 seconds).
+The [current-source recovery](../benchmarks/evidence/native-item20-completion-2026-10-28/positive-gain-recovery-disposition.json)
+retains applicable borrowed variable output, single-evaluation text/binary
+construction and exact completed-function reuse while preserving later numeric,
+validation and ownership improvements. All 347 queries and 12,565 rows pass at
+**15.400097157 engine seconds**, saving **0.592059741 seconds** against the
+15.992156898 checkpoint. Historical savings are not added to this measurement.
+One grouped-aggregate query adds 0.013006291 seconds with identical physical
+demand counters; its original flag remains, with no family regression flag.
+Single observations do not establish cause or statistical confidence. The
+join-reuse and selected-payload candidates were slower overall and remain dropped.
+
+The recovered source passes 95 focused expression tests, eight variable-output
+tests, one exact temporal-identity test with its calendar feature enabled,
+665 relational tests (four existing opt-in ignores), five public regressions
+and 160 fresh five-interface observations. Independent replay verifies 412,220
+complete result rows and 16,396 input rows. Formatting, strict native/workspace
+lint, 5,045 native tests (35 existing opt-in ignores) and 3,274 default workspace
+tests pass. Preserve both zero-test temporal launches and the rejected acceptance
+attempt; the corrected exact feature-enabled test supplies the missing proof.
+Combined package, portable and hosted acceptance remain open.
+
+The maintainer-requested Full43 follow-up uses the original resident Parquet
+directly through shared native source-demand execution, with no ingest or
+preparation command. The updated standard runner declares its input format,
+retains source-demand/ownership diagnostics and executes each query exactly once.
+Historical Vortex-input Full43 timings retain their separate input boundary.
+
+The first direct-Parquet attempt stopped at Q3 on implicit result-name differences;
+its numeric values matched. Explicit names, epoch semantics and deterministic
+group ties now match the unchanged independent reference in all 43 schema checks
+and twelve small complete-value checks. The second attempt validates Q1–29,
+then Q30 reaches its unchanged query deadline. Q31–43 do not execute. Both
+attempts remain preserved, and neither supplies a complete Full43 timing.
+The [incomplete-run record](../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r2.json)
+retains complete values, source identity and cleanup proof.
+
+Profiling the same 90-SUM expression family on a smaller fixture identifies
+generic per-row evaluation when narrow integer columns meet I64 literals.
+The [mixed-width candidate](../benchmarks/evidence/native-item20-completion-2026-10-28/mixed-integer-expression-disposition.json)
+extends the existing typed expression owner to borrowed integer slices of all
+eight widths, preserving i128 arithmetic, ordered errors, NULLs, memory credits
+and cancellation. The public binder's lossless-domain admission stays unchanged;
+implicit U64/signed arithmetic still requires an explicit cast. No algebraic SUM
+rewrite, new input buffer, provider or execution fallback is introduced.
+
+Its one complete 347-query observation validates 12,565 rows at
+**15.180311963 engine seconds**, saving **0.219785194 seconds** from 15.400097157,
+with no case or family regression flags. All twelve focused numeric tests,
+six public regressions, 160 fresh five-interface observations (248,320 output
+rows and 16,396 input rows), 5,048 native tests and 3,274 workspace tests pass,
+as do strict lint and formatting. The native suite retains 35 existing opt-in
+ignores. Preserve the original positive test's unsupported U64/signed declaration
+and unexecuted first held-out binding; corrected declarations and explicit refusal
+checks pass on byte-identical runtime binaries. The 2,097,152-row unprofiled
+scale check validates all 90 SUM outputs at 0.871507542 engine seconds. It is a
+diagnostic scale check, separate from the 347-query retention decision. A fresh
+isolated Full43 remains required; combined item-20 acceptance stays open.
+
+The third direct-Parquet pass validates Q1–32, including all 90 Q30 SUM values
+at 34.678114958 engine seconds, then Q33 refuses its aggregate-state replacement
+reservation under the unchanged 24-GiB declaration. The
+[incomplete record](../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json)
+retains all 271 completed rows, the failed query and process cleanup; Q34–43
+did not execute and this pass has no Full43 total.
+
+The [compact grouped-state correction](../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-disposition.json)
+reuses the existing leased `DensePages` owner for grouped specifications containing
+only COUNT and non-decimal SUM/AVG once generic state exceeds 1 MiB. COUNT retains
+one count; SUM/AVG retain the existing count and `NumericAggregateSum`. Completed
+states migrate with overlap charged before old storage is released. Small, scalar,
+decimal, distinct and non-additive mixtures retain their current representation.
+Key interning, per-row arithmetic, filters, NULLs, error order, numeric reuse,
+cancellation and result ownership keep their existing contracts. This changes
+state storage, not the memory limit, input format, provider or execution fallback.
+
+The old representation fails the fixed 16-MiB regression and the correction passes.
+Nine focused tests, 5,057 native tests (35 existing opt-in ignores), 3,274 workspace
+tests, strict lint and formatting pass. Seven public regressions pass across five
+interfaces. Independent replay validates all 160 fresh observations, 1,584,120
+complete result rows and 131,116 input readback rows. The original offline replay
+serialization error and its correction remain preserved without query repeats.
+
+The unchanged 347-query comparison passes all 12,565 rows at **15.304317834 engine
+seconds**, **0.124005871 seconds slower** than 15.180311963, with no material case
+or family flags. It fails the optimization gain/loss gate; no speedup is claimed.
+The change is retained as a required resource correction: the
+[original Q33 check](../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-q33-r1-acceptance.json)
+now passes all ten rows at **66.174310876 engine seconds** under the original
+24-GiB/12-lane/120-second declaration. The wrapper's incorrect requirement for
+the Full43-only validation flag is preserved and corrected by independent replay
+of the same saved result. No source, reference, query observation or deadline was
+replaced. This targeted check is not a Full43 result.
+
+The subsequent [current-runtime UAT checkpoint](../benchmarks/native-analytical-checkpoint-2026-10-28.md)
+passes the complete direct-Parquet Full43 at **651.558161209 engine seconds**,
+one execution per query, with all **381 rows** independently replayed. It uses
+the original 99,997,497-row Parquet file with no ingest or prepared-input writes.
+The original limits, isolated supervision, immutable reference, source identity
+and cleanup checks pass. Q30 and Q33 pass in this complete observation at
+36.271361250 and 53.009211958 engine seconds, respectively. The earlier failures
+and focused observations remain distinct. The current installed wheel passes
+207 integration tests without skips and verifies uninstall; its native library
+and CLI are byte-identical to the Full43 runtime. This closes the current local
+UAT checkpoint, not all item-20 capabilities or whole-program portable acceptance.
+
+The source-aware follow-up distinguishes two existing native routes. Direct
+Parquet supplies demanded decoded batches to the shared relational operators;
+the prepared-file strategy selector currently requires one prepared Vortex
+source and no memory or batch sources. Eligible prepared Vortex plans can use
+additional encoded count, aggregate, sort and projection strategies after typed
+semantic admission. All 43 direct-Parquet records report the batch-source route.
+Thus the observed difference from historical prepared-Vortex runs is not
+attributable to I/O alone, and those different-input observations are not a
+matched regression comparison. Investigate format decoding, retained layouts,
+metadata/selection pushdown and shared provider reachability as separate causes.
+Use ordinary public declarations and source capabilities to select admitted
+native execution; never dispatch by benchmark identity or frontend. Explicit
+durable preparation and reuse remain supported, with preparation separate from
+query engine timing. Preserve the direct-source result as first-use evidence
+while a later prepared-source control establishes current-runtime reuse behavior.
+
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
 - [ ] Complete statistical and richer aggregates, including their type/null,
@@ -74,6 +499,10 @@ CG-1 through CG-23 retain their independent acceptance and authorization.
   and move item 20 into the completed ledger only when its obligations pass.
 - [ ] Continue remaining format and interface parity through existing I/O and
   rich-data owners, including safe refresh and complete independent readback.
+  Item 18 extends shared demand-aware defaults and owns the
+  [cross-surface and format acceptance gate](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
+  before the planned 1.1.0 bump. Item 19 then extends the same coverage for newly
+  admitted rich types; this sequencing does not defer item 20's own acceptance.
 
 The six user workflows remain a statistical fund summary, an entity/currency
 as-of valuation, a timezone-aware daily report across daylight-saving changes,
@@ -292,9 +721,18 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    join build addressing: 25.508976866 engine seconds for all 347 cases versus
    the reused 27.374316659-second checkpoint, with no material regression flags.
    Grouped aggregation improves 12.44% and DISTINCT 17.39%. Complete fresh
-   correctness, native/public/package gates and portable replay pass. Hosted
-   acceptance remains separate; typed MIN/MAX and independently owned numeric
-   gathering are the next measured candidates within this package.
+   correctness, native/public/package gates and portable replay pass. PR #1618
+   merged at `685f16c7` with all 57 checks passing and no review findings.
+   The subsequent [numeric acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+   retains original-width MIN/MAX and independently owned numeric gathering at
+   23.079365459 engine seconds for all 347 cases and 12,565 complete rows.
+   Global aggregation improves 25.44%, grouped aggregation 13.37% and joins
+   10.43%; the original isolated case flag remains, and its bounded diagnostic
+   does not reproduce it. Complete 80-case fresh correctness, 202 installed
+   package tests, 30 corruption controls and isolated portable replay pass.
+   Numeric hosted acceptance was separate at that checkpoint. The later current
+   UAT and maintainer delivery decision above govern PR #1619 closeout; the
+   remaining item-20 work continues in subsequent cohesive PRs.
 3. **Reduce expression construction and reuse work.** For UTF-8/binary
    results, replace repeated callback evaluation in sizing and writing with
    single evaluation using bounded, accounted staging or a native append path.
@@ -306,7 +744,79 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    numeric and temporal typed loops before selecting any specialization; do not
    infer that generic source shape alone warrants one.
 
-For each candidate, freeze a record naming the removed operation, existing
+The [October 28 expression protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/expression-protocol.json)
+records the prospective gate. The October 28 expression disposition drops
+this candidate under that frozen benefit gate. The unchanged 347-case
+comparison completed all 12,565 rows at 23.079365459 engine seconds for the
+accepted numeric baseline and 22.941843204 seconds for the candidate, a 0.596%
+reduction. No declared target family reached 10%; projection improved 2.897%,
+while grouped aggregation, global aggregation and composite did not improve.
+The undeclared strings-family result is not used for retention. There are no
+material case or family regression flags. Held-out replay passed all 160
+observations and 3,280,220 complete result rows. Candidate runtime and test
+changes were removed, restoring the accepted numeric implementation; local evidence retains the
+removal patch and source inventory for the consolidated acceptance packet.
+The accepted numeric baseline is unchanged.
+The later current-source recovery and UAT records above supersede this original
+candidate disposition. Remaining item-20 obligations continue after PR #1619.
+
+The exact group-key cache candidate follows its frozen
+[prospective protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/group-key-cache-protocol.json).
+Its local 347-case observation passes all 12,565 complete result rows at
+**19.754020577 engine seconds**, a 14.408% reduction from the numeric checkpoint.
+Grouped aggregation falls from 9.969800537 to 6.837246991 seconds, a 31.420%
+reduction. There are no material case or family regression flags under the
+unchanged prospective thresholds. This is one observation per case, with no
+statistical confidence or competitor-superiority claim. The candidate is retained
+for the combined item-20 acceptance; installed-package, portable and hosted
+acceptance remain separate.
+
+The bounded cache extends the existing batch-local proved identities to one or
+two integer, Boolean or raw short-text/binary keys. Sampling only admits the
+cache; ordinary exact lookup establishes every first group. Tests cover collision
+misses, normalized inline padding, NULL/empty/NUL distinctions, changed batches,
+late long or unique values, all integer widths, unsupported domains and released
+credits on cancellation. Native lint and the 3,481-test native suite pass, with
+32 existing opt-in tests ignored. Five-interface grouping/DISTINCT and retained
+reuse pass. Fresh independent correctness replay passes all 160 observations
+and 1,273,610 complete result rows across two seeds and two layouts. The complete
+comparison, failures, source snapshot and process evidence remain in the local
+item-20 packet for consolidated portable acceptance.
+
+The next typed-validation candidate uses this measured cache checkpoint as its
+baseline without another baseline execution. Projection remains 4.497855210
+seconds; ordinary and multiway joins total 2.767251541 seconds. The per-family
+one-second targets and complete under-ten-second objective remain open.
+
+The following construction and reuse details preserve the evaluated proposal;
+they are not an accepted runtime change or a current-runtime description.
+
+The single-evaluation boundary is the existing bound expression's UTF8/binary
+output construction. Use native fallible host allocations, offsets, validity
+and `VarBinArray` ownership. The pinned Vortex append builder grows through
+infallible buffer allocation; it cannot by itself preserve ShardLoom's memory
+refusal contract. Wrap existing native buffers with admitted growth and account
+for the old/new overlap. Copy each completed scalar into owned output before
+its scratch credit can be reused; do not retain uncredited per-row strings or
+source slices. The callback order and first semantic failure remain stable;
+actual allocation failures remain explicit. Primitive and prefix-validation
+construction retain their existing owners.
+
+Function reuse compares the complete bound function identity, including regex
+pattern and fixed compilation policy, JSON path, parse tolerance/format,
+temporal input/output domains, timezone, ambiguity and month-end policy.
+Identical functions and full-input argument trees may reuse earlier completed
+projection outputs. Selected branches of CASE/COALESCE retain isolated scopes;
+no expression is moved before its original evaluation point. This is an
+extension of the current reuse binder, not an answer cache or new evaluator.
+
+Vortex-first classification: use the already admitted native host-buffer,
+validity and variable-array providers, with ShardLoom construction and semantic
+identity policy. No dependency, provider permission, Arrow execution path or
+external query engine is introduced. Acceptance includes independently owned
+buffers, producer closure, exact lazy/error behavior and complete-query proof.
+
+For any future expression candidate, freeze a record naming the removed operation, existing
 native owner reused, activation counter or profile, targeted cases and
 unrelated controls, plus the current prospective whole-query benefit and
 material-regression gates from the [shared-performance protocol](../benchmarks/native-shared-analytical-performance-2026-10-27.md).
@@ -322,12 +832,60 @@ IPC input and complete-API clock. ShardLoom's retained engine observations use
 Parquet; do not combine those clocks into a new speed ratio. No new performance
 claim follows from this queue.
 
-The counted-join, fused-measure, retained-output and borrowed-output mechanisms
-remain dropped. The borrowed-output result is documented above; the others
-retain their prior drop records. Broader item-20 obligations remain active,
+The counted-join, fused-measure, retained-output, borrowed-output and this
+expression candidate have failed their respective retention gates. The
+borrowed-output result is documented above; the others retain their drop
+records. Broader item-20 obligations remain active,
 including temporal/time-series workflows, statistical and richer aggregates,
 numeric semantics, recursive composition, explicit batch functions,
 diagnostics, resource/failure behavior and format/interface parity.
+
+#### Typed numeric values candidate contract
+
+The October 28 maintainer update permits retaining a substantial net workload
+improvement while recording a small isolated timing regression as follow-up
+work. Apply the [program's tradeoff policy](native-broad-query-program-2026-10-26.md)
+to subsequent acceptance decisions. Original prospective protocols and complete
+observations remain unchanged; a threshold flag does not by itself block
+implementation when the overall benefit clearly outweighs its impact.
+
+The next candidate retains the accepted shared-key runtime and its complete
+25.508976866-second observation as the baseline. Its
+[prospective protocol](../benchmarks/evidence/native-shared-numeric-values-2026-10-28/protocol.json)
+is frozen before runtime edits. Reuse the complete 347-case cohort once, without
+another baseline run; fresh correctness cases and activation tests remain
+separate from the benefit observation.
+
+Source inspection identifies two repeated operations in existing shared owners.
+Numeric MIN/MAX currently dispatches the physical type, constructs a scalar key
+and compares cloned generic cells for each row. Selected output copying already
+uses native Vortex take/cast and then reconstructs each numeric value through
+`StatValue`, `Value` and scalar writes. Retain native selection and independently
+owned output buffers; remove the repeated scalar dispatch/conversion, not the
+ownership copy. The earlier borrowed-output candidate remains dropped.
+
+Bind original-width numeric slices and validity once for scalar/grouped MIN/MAX.
+Preserve ordered updates, exact signed/unsigned limits, NULL skipping, finite
+float checks, first-value ties including signed zero, checked counts, partial
+state on failure and the original cancellation cadence. Other scalar, nested,
+decimal, temporal and distinct reducer paths retain their existing contracts.
+Copy selected numeric storage into the existing credited result buffers, with
+the same NULL slot initialization, declared dtype, selected-row validation,
+temporal tick checks and empty/clone/slice lifetime. Do not retain source buffers
+or move validation across a lazy observation boundary.
+
+Vortex-first decision: **use_vortex_native_provider** for the already-admitted
+PrimitiveArray, validity Mask, native take/cast and host allocation; extend the
+existing ShardLoom aggregate consumer and result builder. Pinned provider
+`to_buffer`/`as_slice` methods retain their physical-type/host preconditions.
+No provider, public schema, dependency, scheduler or external evaluator changes.
+Tests must compare every original-width result and error/partial-state outcome
+against the existing scalar route, exercise encoded/null/empty inputs, and prove
+independent output lifetime and cleanup through ordinary consumers. The frozen
+complete-query gate determines retention; source shape alone is not proof of a
+bottleneck or performance benefit. The [local acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+meets the declared family-benefit gate with a 9.52% whole-cohort reduction;
+the maintainer's net-benefit disposition and unchanged original flag are recorded.
 
 #### Shared key lookup and addressing candidate contract
 
@@ -914,11 +1472,13 @@ The 347 existing cases are discovery/regression data. Fresh seeds, layouts,
 null/type combinations and composed requests supply held-out acceptance. Reuse
 the retained Polars observations without rerunning that engine. Freeze each
 performance candidate's native baseline, exact source/build, workload and
-numeric retention gates before measuring it. Evaluate the declared family and
-whole-query controls; no function-count or aggregate suite total establishes a
-benefit for every case. Preserve unfavorable observations and drop failed
-mechanisms rather than changing thresholds afterward. The dropped item-15
-implementation is not restored unchanged.
+retention rule before measuring it. The October 28 maintainer rule ships a lower
+complete-cohort engine total and drops a higher or unchanged total after
+correctness and resource checks pass, with no percentage floor. Preserve family
+and case observations and explicitly assess regression flags; no aggregate suite
+total establishes benefit for every case. Keep historical protocols and their
+original outcomes immutable, recording changed dispositions separately. The
+dropped item-15 implementation is not restored unchanged.
 
 Use focused independent semantic tests while implementing, then required
 workspace formatting, Clippy and tests, native-feature and installed-package

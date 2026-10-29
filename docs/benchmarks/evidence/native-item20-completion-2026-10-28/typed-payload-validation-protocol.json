@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 typed complete payload validation through existing native owners",
+  "source_before_runtime_edits": "dd26069ec0f9829d58c712fdc59f4b7565357db1",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-cache-r1/inputs.json",
+  "baseline_inputs_sha256": "a786afd0dfe03fab464ddf690e6d05e0b8c34f9cebbd2cd86a58468ea4ab0d5e",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-group-cache-r1/native-observations.json",
+  "baseline_observations_sha256": "3cd5049f04734917f45f4ba61239c073515175ab9667138fc50d5e0fbc5e9858",
+  "baseline_engine_seconds": 19.754020577,
+  "baseline_policy": "Reuse the complete locally retained group-cache checkpoint and independently validated references. Its native, workspace, CLI and fresh five-interface correctness gates passed. Combined installed-package, portable and hosted acceptance remain open in PR 1619. Replay the complete saved checkpoint; do not rerun its queries.",
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-cache-disposition.json",
+    "sha256": "d2bfd8081638d2f05d15190deb4131fc6ec9d4a69699a0b3f1617c1671e5c297"
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "resources": {"memory_bytes": 2147483648, "parallelism": 2},
+  "frozen_mechanisms": [
+    "Reuse the existing original-width numeric result-copy validator in a validation-only mode. Bind physical type and validity once, preserve finite float and temporal domain checks plus row-order cancellation, and avoid generic scalar conversion, scratch writes and zero-row output allocations.",
+    "For canonical host Boolean and VarBinView columns with exact declared dtype and row domain, visit native validity and native views directly. Reuse the provider's checked UTF-8 borrowing and admitted binary view lengths; sum complete logical byte lengths with checked arithmetic once. Do not clone a scalar owner for each value or repeat sizing and validation over the same immutable values.",
+    "Keep current field order, complete discarded-row validation and independently owned final output. Nullable parent records, decimal/nested payloads, noncanonical or mismatched representations retain their established validation path. Do not introduce validation caches, new dictionary encodings, concurrency, reduced coverage or a new provider."
+  ],
+  "activation_evidence": [
+    "typed numeric validation columns and rows",
+    "native variable and Boolean validation columns and rows",
+    "ordinary scalar validation calls on declined paths",
+    "original-width values, NULL masks, finite/domain errors and earliest field/row agreement",
+    "no copied output buffers during validation-only visits and released credits on error/cancellation",
+    "complete retained output and producer-close lifetime through ordinary bounded sorting"
+  ],
+  "retention_decision": {
+    "minimum_complete_cohort_reduction_fraction": 0.1,
+    "alternative_minimum_declared_family_reduction_fraction": 0.1,
+    "declared_families": ["projection", "ordering", "joins", "multiway_joins"],
+    "material_case_regression": {"fraction": 0.2, "absolute_seconds": 0.01, "rule": "flag when both exceeded"},
+    "material_family_regression": {"fraction": 0.2, "absolute_seconds": 0.05, "rule": "flag when both exceeded"},
+    "flag_disposition": "Preserve and assess every original flag. Substantial complete-cohort benefit may outweigh a small isolated timing regression under the October 28 maintainer policy. Additional execution needs a separately frozen diagnostic reason and protocol.",
+    "correctness": "Complete typed results and discarded-row validation, exact integer/float bits, temporal domains, NULL/parent masks, field/row error order, independent output lifetime, memory refusal and cancellation must pass. Otherwise drop the mechanism and preserve all observations.",
+    "alternative_requires_positive_complete_cohort_balance": true
+  },
+  "held_out_correctness": {
+    "seeds": [202610283601, 202610283787],
+    "rows": 32779,
+    "layouts": ["shuffled", "clustered"],
+    "domains": ["all_integer_widths_and_finite_float_bits", "temporal_units_and_domains", "unicode_binary_and_boolean", "filtered_computed_payloads", "joined_wide_payloads", "empty_outputs", "rich_payload_decline", "nonzero_ordering_offset"],
+    "scope": "Freeze fresh complete independent references and input identities before correctness execution through all five interfaces. Negative non-finite, temporal, NULL and failure-order controls run in native tests. These 160 observations are correctness evidence only, not another benefit cohort."
+  },
+  "execution_policy": "One isolated sequential execution of every original case in original order with the existing guard, storage limits, deadlines, complete result validation and process cleanup. Finish task-owned builds/tests/agents before queries. Full hashes and recursive inventories stay outside query execution. No cache manipulation, artificial pacing or baseline rerun.",
+  "performance_clock": "sum of engine_execution_seconds for one execution of all 347 cases",
+  "diagnostic_evidence": {
+    "observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/native-stage-profile-r1/observations.json",
+    "sha256": "e058650d51eb9efb75a3153e622634a558effa2761a5a524b5803f312e0e0961",
+    "finding": "Complete payload validation dominates the selected wide projection. Existing source reads and the separate ordering/gathering work remain included in the complete-query comparison."
+  },
+  "vortex_first_check": {
+    "decision": "use_vortex_native_provider",
+    "reused": ["NativeNumericOwner original-width PrimitiveArray and validity Mask", "local_primitive_result_numeric typed finite and temporal validation", "Columnar canonical-or-constant boundary", "VarBinViewArray::utf8_slice_at and admitted BinaryView lengths", "existing recursive native payload owner and independently credited result buffers"],
+    "upstream_checked": ["vendor/vortex-array/src/columnar.rs", "vendor/vortex-array/src/arrays/varbinview/array.rs", "vendor/vortex-array/src/arrays/varbinview/vtable/operations.rs"],
+    "boundary": "Existing feature-gated native Vortex consumer and provider certificate path; no dependency, provider, external evaluator or Arrow execution substrate change. Constant/dictionary domain optimization is not admitted by this protocol."
+  },
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "item_20_complete": false
+}

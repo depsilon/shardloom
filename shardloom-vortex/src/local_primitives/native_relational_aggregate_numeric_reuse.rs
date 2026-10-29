@@ -19,36 +19,14 @@ pub(super) fn admit_next(
     states: &[State],
     context: &NativeExecutionContext<'_>,
 ) -> Result<bool> {
-    let Some(next) = spec.measures.get(index + 1) else {
+    if !same_input(
+        spec,
+        index,
+        array,
+        column,
+        states.len() / spec.measures.len(),
+    ) {
         return Ok(false);
-    };
-    let current = &spec.measures[index];
-    if !matches!(next.function, Function::Sum | Function::Avg)
-        || next.decimal_source.is_some()
-        || current.filter_column != next.filter_column
-    {
-        return Ok(false);
-    }
-    // Both admission and copying traverse retained groups. A growing group
-    // table must not turn small incoming batches into repeated full-state work.
-    if !spec.groups.is_empty() && states.len() / spec.measures.len() > array.len() / 2 {
-        return Ok(false);
-    }
-    if current.column != next.column {
-        // Only inspect already-materialized logical fields. Do not construct
-        // or execute a future measure's view to prove an alias. Unavailable
-        // fields retain their ordinary error at that measure's own position.
-        let same_owner = array.dtype().nullability() == Nullability::NonNullable
-            && array.as_opt::<Struct>().is_some_and(|fields| {
-                next.column.as_deref().is_some_and(|name| {
-                    fields
-                        .unmasked_field_by_name(name)
-                        .is_ok_and(|next| ArrayRef::ptr_eq(column, next))
-                })
-            });
-        if !same_owner {
-            return Ok(false);
-        }
     }
     for (group, states) in states.chunks_exact(spec.measures.len()).enumerate() {
         if group.is_multiple_of(1024) {
@@ -66,7 +44,48 @@ pub(super) fn admit_next(
     Ok(true)
 }
 
-fn same_sum(left: NumericAggregateSum, right: NumericAggregateSum) -> bool {
+pub(super) fn same_input(
+    spec: &Spec,
+    index: usize,
+    array: &ArrayRef,
+    column: &ArrayRef,
+    groups: usize,
+) -> bool {
+    let Some(next) = spec.measures.get(index + 1) else {
+        return false;
+    };
+    let current = &spec.measures[index];
+    if !matches!(next.function, Function::Sum | Function::Avg)
+        || next.decimal_source.is_some()
+        || current.filter_column != next.filter_column
+    {
+        return false;
+    }
+    // Both admission and copying traverse retained groups. A growing group
+    // table must not turn small incoming batches into repeated full-state work.
+    if !spec.groups.is_empty() && groups > array.len() / 2 {
+        return false;
+    }
+    if current.column != next.column {
+        // Only inspect already-materialized logical fields. Do not construct
+        // or execute a future measure's view to prove an alias. Unavailable
+        // fields retain their ordinary error at that measure's own position.
+        let same_owner = array.dtype().nullability() == Nullability::NonNullable
+            && array.as_opt::<Struct>().is_some_and(|fields| {
+                next.column.as_deref().is_some_and(|name| {
+                    fields
+                        .unmasked_field_by_name(name)
+                        .is_ok_and(|next| ArrayRef::ptr_eq(column, next))
+                })
+            });
+        if !same_owner {
+            return false;
+        }
+    }
+    true
+}
+
+pub(super) fn same_sum(left: NumericAggregateSum, right: NumericAggregateSum) -> bool {
     match (left, right) {
         (NumericAggregateSum::Ordered(left), NumericAggregateSum::Ordered(right)) => {
             left.to_bits() == right.to_bits()
@@ -104,6 +123,10 @@ pub(super) fn copy_completed(
         states[target].count = states[source].count;
         states[target].sum = states[source].sum;
     }
+    record_copy(rows, context)
+}
+
+pub(super) fn record_copy(rows: usize, context: &NativeExecutionContext<'_>) -> Result<()> {
     #[cfg(all(test, debug_assertions))]
     super::super::native_relational_observation::record(|counts| {
         counts.aggregate_numeric_state_reuses += 1;

@@ -27,6 +27,9 @@ mod predicate_block;
 #[path = "native_relational_expression_reuse.rs"]
 mod reuse;
 
+#[path = "native_relational_expression_numeric.rs"]
+mod numeric;
+
 pub(super) use predicate_block::Recipe as FilterRecipe;
 
 pub(super) const PREPARATION_BYTES: usize = 4096;
@@ -166,22 +169,7 @@ impl Expression {
                 }
             }
             Kind::Binary(left, op, right) => {
-                let left_values =
-                    keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
-                let right_values = keys(
-                    &right.evaluate_in_scope(input, context, completed)?,
-                    context,
-                )?;
-                self.build(input.len(), context, |row| {
-                    binary(
-                        left_values.raw_cell(row)?,
-                        *op,
-                        right_values.raw_cell(row)?,
-                        &left.dtype,
-                        &right.dtype,
-                        &self.dtype,
-                    )
-                })?
+                self.evaluate_binary(input, context, completed, left, *op, right)?
             }
             Kind::Compare(left, op, right) => {
                 let left = keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
@@ -205,7 +193,13 @@ impl Expression {
                     Ok(condition.cell(row)? == Cell::Boolean(true))
                 })?
             }
-            Kind::Coalesce(expressions) => self.coalesce(input, context, expressions)?,
+            Kind::Coalesce(expressions) => {
+                if let Some(output) = numeric::coalesce(self, input, context, expressions)? {
+                    output
+                } else {
+                    self.coalesce(input, context, expressions)?
+                }
+            }
             Kind::NullIf(left, right) => self.null_if(input, context, left, right)?,
             Kind::Cast {
                 input: expression,
@@ -225,10 +219,41 @@ impl Expression {
                 })?
             }
             Kind::Function { function, args } => {
-                self.evaluate_function(input, context, function, args)?
+                self.evaluate_function(input, context, function, args, completed)?
             }
         };
         self.checked_result(result, input.len(), context)
+    }
+
+    fn evaluate_binary(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        completed: Option<&[ArrayRef]>,
+        left: &Self,
+        op: BinaryOp,
+        right: &Self,
+    ) -> Result<ArrayRef> {
+        let left_values = keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
+        let right_values = keys(
+            &right.evaluate_in_scope(input, context, completed)?,
+            context,
+        )?;
+        if let Some(output) =
+            numeric::binary(&left_values, op, &right_values, &self.dtype, context)?
+        {
+            return Ok(output);
+        }
+        self.build(input.len(), context, |row| {
+            binary(
+                left_values.raw_cell(row)?,
+                op,
+                right_values.raw_cell(row)?,
+                &left.dtype,
+                &right.dtype,
+                &self.dtype,
+            )
+        })
     }
 
     fn evaluate_function(
@@ -237,13 +262,15 @@ impl Expression {
         context: &NativeExecutionContext<'_>,
         function: &scalar::Function,
         args: &[Self],
+        completed: Option<&[ArrayRef]>,
     ) -> Result<ArrayRef> {
         let mut values = ReservedVec::new(context.memory())?;
         values.reserve(args.len())?;
         for arg in args {
-            values
-                .values
-                .push(keys(&arg.evaluate(input, context)?, context)?);
+            values.values.push(keys(
+                &arg.evaluate_in_scope(input, context, completed)?,
+                context,
+            )?);
         }
         let mut scratch = context.memory().reserve(0)?;
         self.build(input.len(), context, |row| {
@@ -431,7 +458,7 @@ impl Expression {
         if self.dtype == DType::Null {
             return Ok(ConstantArray::new(Scalar::null(DType::Null), rows).into_array());
         }
-        result_batch::build_column(
+        result_batch::build_expression_column(
             &self.dtype,
             rows,
             &context.native_session().host_allocator(),
@@ -680,24 +707,37 @@ pub(super) fn binary(
     }
     if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F64, _)) {
         let (left, right) = (float(&left)?, float(&right)?);
-        if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
-            return Err(failed("division by zero"));
-        }
-        let result = match op {
-            BinaryOp::Add => left + right,
-            BinaryOp::Subtract => left - right,
-            BinaryOp::Multiply => left * right,
-            BinaryOp::Divide => left / right,
-            BinaryOp::Remainder => left % right,
-            _ => unreachable!("boolean operation handled above"),
-        };
-        if !result.is_finite() {
-            return Err(failed("nonfinite arithmetic result"));
-        }
-        return Ok(Value::Float(result));
+        return floating_binary(left, op, right).map(Value::Float);
     }
     let (left, right) = (integer(&left)?, integer(&right)?);
+    let result = integer_binary(left, op, right)?;
+    if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::U64, _)) {
+        unsigned_result(result).map(Value::UInt)
+    } else {
+        signed_result(result).map(Value::Int)
+    }
+}
+
+fn floating_binary(left: f64, op: BinaryOp, right: f64) -> Result<f64> {
+    if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
+        return Err(failed("division by zero"));
+    }
     let result = match op {
+        BinaryOp::Add => left + right,
+        BinaryOp::Subtract => left - right,
+        BinaryOp::Multiply => left * right,
+        BinaryOp::Divide => left / right,
+        BinaryOp::Remainder => left % right,
+        _ => unreachable!("boolean operation handled above"),
+    };
+    if !result.is_finite() {
+        return Err(failed("nonfinite arithmetic result"));
+    }
+    Ok(result)
+}
+
+fn integer_binary(left: i128, op: BinaryOp, right: i128) -> Result<i128> {
+    match op {
         BinaryOp::Add => left.checked_add(right),
         BinaryOp::Subtract => left.checked_sub(right),
         BinaryOp::Multiply => left.checked_mul(right),
@@ -705,16 +745,15 @@ pub(super) fn binary(
         BinaryOp::Remainder => left.checked_rem(right),
         _ => unreachable!("boolean operation handled above"),
     }
-    .ok_or_else(|| failed("integer arithmetic overflow or division by zero"))?;
-    if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::U64, _)) {
-        Ok(Value::UInt(u64::try_from(result).map_err(|_| {
-            failed("unsigned integer arithmetic overflow")
-        })?))
-    } else {
-        Ok(Value::Int(i64::try_from(result).map_err(|_| {
-            failed("signed integer arithmetic overflow")
-        })?))
-    }
+    .ok_or_else(|| failed("integer arithmetic overflow or division by zero"))
+}
+
+fn unsigned_result(value: i128) -> Result<u64> {
+    u64::try_from(value).map_err(|_| failed("unsigned integer arithmetic overflow"))
+}
+
+fn signed_result(value: i128) -> Result<i64> {
+    i64::try_from(value).map_err(|_| failed("signed integer arithmetic overflow"))
 }
 
 fn boolean(left: Cell, op: BinaryOp, right: Cell) -> Result<Value<'static>> {

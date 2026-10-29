@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "kind": "offline_targeted_complete_result_replay",
+  "original_driver": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-q33-r1-driver.json",
+    "bytes": 3496,
+    "sha256": "3557a49393a9c780f65fe8002dc263ef4e80ad58f2687a63c09f7647284ca58d"
+  },
+  "original_driver_status": "failed",
+  "runner_returncode": 0,
+  "correction": "The wrapper required full_result_validation, which the unchanged standard runner sets only for all 43 queries. Its selected Q33 completed with validation=complete_values. This independent replay verifies that exact saved result; no query is repeated.",
+  "summaries": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-q33-r1/logs/full43_20261029T034727161750Z/summary.json",
+      "bytes": 24359,
+      "sha256": "b915fac4828cecdf9475dae137f3566a11f80382e863414a368725bc173f3676"
+    }
+  ],
+  "query_ids": [
+    33
+  ],
+  "valid_full43": false,
+  "full43_engine_seconds": null,
+  "q33_engine_seconds": 66.174310876,
+  "complete_result_rows": 10,
+  "complete_results_independently_replayed": true,
+  "native_process_cleanup_verified": true,
+  "direct_child_reaped": true,
+  "process_group_drained": true,
+  "input_before": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "bytes": 14779976446,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "generation": {
+      "device": 16777233,
+      "inode": 84833233,
+      "bytes": 14779976446,
+      "mtime_ns": 1788461344802364826,
+      "ctime_ns": 1788612069108841600
+    }
+  },
+  "input_after": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "bytes": 14779976446,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "generation": {
+      "device": 16777233,
+      "inode": 84833233,
+      "bytes": 14779976446,
+      "mtime_ns": 1788461344802364826,
+      "ctime_ns": 1788612069108841600
+    }
+  },
+  "input_format": "parquet",
+  "ingest_performed": false,
+  "resource_policy": {
+    "memory_gb": 24,
+    "max_parallelism": 12,
+    "per_query_deadline_seconds": 120
+  },
+  "measured_peak_reserved_buffer_bytes": 16094786065,
+  "resource_claim_scope": "Tracked native reservations, not a whole-process or allocator-wide limit.",
+  "original_input_rows": 99997497,
+  "runtime": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-compact-group-release-r1/shardloom",
+    "bytes": 80017552,
+    "sha256": "038bc3716aa5c7dda7ea62b3c8f46cd0186584d55664317c930922a63bbb1e70"
+  },
+  "source_revision": "dacd560aab00dc2b1f184994d20f180348354bda",
+  "immutable_patch": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-candidate-r1.patch",
+    "bytes": 56596,
+    "sha256": "2e0194789ff3315d7eee3b4dad83c216d186ab0be2d929fe82b64e6ebaac12d8"
+  },
+  "freeze": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-q33-r1-freeze.json",
+    "bytes": 18433,
+    "sha256": "1addf8152a1b8b33c3217ae9db4cc51cf0badc5c080b30ec5098b7f05f7660a4"
+  },
+  "raw_output": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-q33-r1/logs/full43_20261029T034727161750Z/q33_run1.stdout.json.gz",
+    "bytes": 8243,
+    "sha256": "a7aaa211dcba94beb366af2ae51f1bab6243b38f7fa6da67f2c4856a69501422"
+  },
+  "reference": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+    "bytes": 454630,
+    "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+  },
+  "runtime_changed": false,
+  "reference_changed": false,
+  "observations_replaced": false,
+  "query_reexecutions": 0,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "replay_helper": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/record_compact_group_q33.py",
+    "bytes": 6060,
+    "sha256": "a44f7462a7c8cc55ed3b131d465a4cd4f34f641d0314af8ef9ac1fc45fdcbcbd"
+  }
+}

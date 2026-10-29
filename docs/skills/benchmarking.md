@@ -106,6 +106,21 @@ while queries execute. Perform those preparation and verification steps before
 or after the pass. Active run outputs remain subject to the standard storage
 checks; this does not raise a limit or remove a safety check.
 
+The October 28 maintainer update selects the resident original Parquet file
+through the shared native source-demand path for routine Full43 UAT, matching
+the 347-query program. Pass `--input-format parquet` to the single-query-suite
+runner and execute the queries sequentially. Do not run an ingest or preparation
+command. Freeze the original source identity and retain source-demand, ownership,
+complete-result and no-fallback diagnostics. Historical Vortex-input observations
+remain valid for their declared boundary; do not calculate matched speedup or
+regression ratios between those observations and direct-Parquet Full43.
+The pinned Parquet dialect declares the independent reference's output aliases,
+integer epoch dates/times and ascending group-key ties explicitly. Keep original
+and submitted SQL plus both identities in the report. These are benchmark dialect
+declarations, not result repair or engine dispatch; arbitrary SQL stays unchanged.
+The existing Vortex dialect keeps its prior byte-length spelling. Preserve failed
+attempts and independently check revised declarations before continuing.
+
 Freeze the executable, source, input, reference values and resource settings;
 record cache context and any disturbances. Report the engine sum only. Keep
 diagnostic profiling and repeated comparisons as separately declared work,
@@ -122,6 +137,25 @@ regression and validate it. Preserve the original observation and distinguish
 required correctness changes from avoidable execution overhead. Keep the isolated
 procedure and existing rules for additional diagnostic comparisons; do not
 silently repeat runs or substitute another clock.
+
+Standing maintainer decision, October 28, 2026, clarified for the remaining
+analytical performance work: use a binary complete-cohort gain/loss decision.
+After correctness, resource, ownership and no-fallback checks pass, lower total
+engine time ships; higher or unchanged total engine time drops. There is no
+minimum percentage improvement and no requirement that a declared family clear
+a percentage threshold. Small gains compound: advance the comparison baseline
+after each retained improvement. This supersedes the earlier minimum-benefit
+cutoffs and "substantial" gain requirement for this work.
+
+Preserve per-query and family regressions, their absolute contributions and
+uncertainty; a timing threshold flag is not an automatic blocker. Keep earlier
+protocols, observations and original gate results immutable. Record a dated
+maintainer disposition when this new rule changes a historical decision; do
+not rewrite a failed old threshold as a passed threshold or rerun solely to
+obtain a different result. Audit earlier positive-gain drops and integrate
+still-applicable changes against current source with correctness and combined
+performance checks. Do not add historical savings together as though they were
+measured on the same implementation.
 
 ## Local end-to-end observations
 

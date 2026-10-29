@@ -55,7 +55,7 @@ impl Part {
 }
 
 /// An explicit operation and its already-parsed literal policies.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Operation {
     Extract(Part),
     Truncate {
@@ -216,6 +216,16 @@ pub struct Kernel {
 }
 
 impl Kernel {
+    /// Exact bound semantic identity within this pinned timezone-provider build.
+    /// Parsed rules are immutable derivatives of the operation and input domains.
+    #[must_use]
+    pub fn same_semantics(&self, other: &Self) -> bool {
+        self.operation == other.operation
+            && self.source == other.source
+            && self.other == other.other
+            && self.output == other.output
+    }
+
     /// Construct only after admitting `operation.admission_bytes`.
     ///
     /// # Errors
@@ -506,6 +516,78 @@ mod tests {
             .0
             .ticks(Unit::Seconds)
             .unwrap()
+    }
+
+    #[test]
+    fn temporal_kernel_identity_covers_every_bound_domain_and_policy() {
+        let days = |ambiguity| Operation::CalendarDays { ambiguity };
+        let base = kernel(
+            "timestamp(us,America/New_York)",
+            days(Ambiguity::Reject),
+            None,
+        );
+        assert!(base.same_semantics(&kernel(
+            "timestamp(us,America/New_York)",
+            days(Ambiguity::Reject),
+            None
+        )));
+        for other in [
+            kernel(
+                "timestamp(ns,America/New_York)",
+                days(Ambiguity::Reject),
+                None,
+            ),
+            kernel(
+                "timestamp(us,America/Chicago)",
+                days(Ambiguity::Reject),
+                None,
+            ),
+            kernel(
+                "timestamp(us,America/New_York)",
+                days(Ambiguity::Earlier),
+                None,
+            ),
+            kernel(
+                "timestamp(us,America/New_York)",
+                Operation::Truncate {
+                    part: Part::Day,
+                    ambiguity: Ambiguity::Reject,
+                },
+                None,
+            ),
+        ] {
+            assert!(!base.same_semantics(&other));
+        }
+        assert!(
+            !kernel(
+                "timestamp(us)",
+                Operation::AddDuration { subtract: false },
+                Some("duration(us)")
+            )
+            .same_semantics(&kernel(
+                "timestamp(us)",
+                Operation::AddDuration { subtract: false },
+                Some("duration(ns)")
+            ))
+        );
+        assert!(
+            !kernel(
+                "date32",
+                Operation::CalendarMonths {
+                    month_end: MonthEnd::Reject,
+                    ambiguity: Ambiguity::Reject
+                },
+                None
+            )
+            .same_semantics(&kernel(
+                "date32",
+                Operation::CalendarMonths {
+                    month_end: MonthEnd::Clamp,
+                    ambiguity: Ambiguity::Reject
+                },
+                None
+            ))
+        );
     }
 
     #[test]

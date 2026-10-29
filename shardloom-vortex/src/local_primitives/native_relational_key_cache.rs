@@ -8,6 +8,74 @@ use shardloom_exec::{compute_pool::CancellationToken, live_memory::LiveMemoryPoo
 const EMPTY: usize = usize::MAX;
 const MAX_SLOTS: usize = 16_384;
 
+#[path = "native_relational_key_cache_inline.rs"]
+mod inline;
+
+/// Both cache forms publish only identities proved by the ordinary row index.
+pub(in crate::local_primitives) enum KeyLookupCache<'a> {
+    Directory(Directory<'a>),
+    Inline(inline::Cache<'a>),
+}
+
+#[derive(Clone, Copy)]
+pub(in crate::local_primitives) struct Probe {
+    slot: usize,
+    exact: Option<[u128; 2]>,
+    group: Option<usize>,
+}
+
+impl Probe {
+    pub(in crate::local_primitives) fn group(self) -> Option<usize> {
+        self.group
+    }
+}
+
+impl<'a> KeyLookupCache<'a> {
+    pub(in crate::local_primitives) fn new(
+        key: &'a KeyColumn,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Option<Self>> {
+        Ok(Directory::new(key, memory, cancellation)?.map(Self::Directory))
+    }
+
+    pub(in crate::local_primitives) fn for_columns(
+        keys: &'a [KeyColumn],
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Option<Self>> {
+        if let [key] = keys
+            && (matches!(key, KeyColumn::Numeric(_))
+                || matches!(key, KeyColumn::Variable(values) if values.codes.is_some()))
+        {
+            // Preserve the established single numeric/dictionary admission.
+            return Self::new(key, memory, cancellation);
+        }
+        Ok(inline::Cache::new(keys, memory, cancellation)?.map(Self::Inline))
+    }
+
+    pub(in crate::local_primitives) fn probe(&self, row: usize) -> Result<Option<Probe>> {
+        match self {
+            Self::Directory(directory) => {
+                let slot = directory.slot(row)?;
+                Ok(Some(Probe {
+                    slot,
+                    exact: None,
+                    group: directory.get(slot),
+                }))
+            }
+            Self::Inline(cache) => cache.probe(row),
+        }
+    }
+
+    pub(in crate::local_primitives) fn insert(&mut self, probe: Probe, group: usize) {
+        match self {
+            Self::Directory(directory) => directory.insert(probe.slot, group),
+            Self::Inline(cache) => cache.insert(probe, group),
+        }
+    }
+}
+
 enum Domain<'a> {
     Integer {
         values: &'a NativeNumericOwner,
@@ -19,12 +87,12 @@ enum Domain<'a> {
 /// This directory never supplies an unproved identity. The caller resolves a
 /// slot's first visit through exact hashing/equality and only then publishes it.
 /// Its borrow confines codes and integer offsets to this batch's value domain.
-pub(in crate::local_primitives) struct KeyLookupCache<'a> {
+pub(in crate::local_primitives) struct Directory<'a> {
     domain: Domain<'a>,
     groups: ReservedVec<usize>,
 }
 
-impl<'a> KeyLookupCache<'a> {
+impl<'a> Directory<'a> {
     pub(in crate::local_primitives) fn new(
         key: &'a KeyColumn,
         memory: &LiveMemoryPool,

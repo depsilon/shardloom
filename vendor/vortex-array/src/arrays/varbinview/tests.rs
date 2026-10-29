@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-17: validate native UTF-8 receipt propagation.
+// Modified by ShardLoom on 2026-10-28: check malformed selected text diagnostics.
 
 use std::sync::Arc;
 
@@ -101,6 +102,35 @@ pub fn slice_array() {
         binary_arr,
         VarBinViewArray::from_iter_str(["hello world this is a long string"]),
         &mut ctx
+    );
+}
+
+#[test]
+fn checked_text_reports_original_selected_position_before_constructing_string() {
+    use crate::ArrayParts;
+    use crate::arrays::{PrimitiveArray, VarBin, VarBinArray};
+
+    let binary = VarBinArray::from(vec![&b"\xff"[..], &b"visible"[..], &b"\xfe"[..]]);
+    let slots = binary.slots().iter().cloned().collect();
+    let text = VarBinArray::try_from_parts(ArrayParts::new(
+        VarBin,
+        DType::Utf8(Nullability::NonNullable),
+        3,
+        binary.into_data(),
+        slots,
+    ))
+    .unwrap();
+    let indices = PrimitiveArray::from_option_iter([None, Some(1_u64), Some(2)]);
+    let selected = text
+        .take(indices.into_array())
+        .unwrap()
+        .execute::<VarBinViewArray>(&mut array_session().create_execution_ctx())
+        .unwrap();
+    assert_eq!(selected.utf8_buffer_at(1).unwrap().as_str(), "visible");
+    let error = selected.utf8_buffer_at(2).unwrap_err().to_string();
+    assert_eq!(
+        error,
+        "Other error: invalid utf-8: invalid utf-8 sequence of 1 bytes from index 0 at index 2"
     );
 }
 

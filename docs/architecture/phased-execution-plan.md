@@ -251,6 +251,21 @@ the ledger.
 
 Current autonomous execution order:
 
+**October 28 I/O and version milestone clarification:** item 20 remains active.
+Then finish item 18 with shared demand-aware reading as the ordinary default
+across admitted formats and all five execution surfaces. Its
+[acceptance gate](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
+requires matched correctness, engine timing and I/O scenario coverage, with
+material avoidable performance gaps resolved or explicitly accepted before the
+**1.1.0 minor version bump immediately after item 18**, with the required
+README, field-guide and website refresh, generated-surface alignment, and
+documentation/site/example checks completed at item-18 closeout before the
+bump. Item 19 follows that milestone, then Foundry/item 21 and 1.2.0, then
+AI/item 22 and 1.3.0. These are planned milestones; no version source changes
+or new publication occur here.
+Necessary format costs, unsupported combinations and unavailable measurements
+remain explicit, and CG-1 through CG-23 keep their independent gates.
+
 **October 26 Parquet continuation:** after the first source-demand adapter is
 accepted and merged in #1612 at `81ab0a4d`, the maintainer makes the **347-case suite
 the primary performance and acceptance target**. Complete the remaining
@@ -389,13 +404,14 @@ exception does not merge later categories.
 15. **Complete-workflow work elimination — closed, whole batch dropped:** after the combined candidate Full43 failed the frozen regression gate, the maintainer dropped all item 15 runtime changes and every unstarted item 15 branch/package, including shared branches, guarded decorrelation, keep-data-moving and setup work. The runtime is restored to main `167ac248ba662ae7967a7801995e9b160b17bae5`. Earlier counted-join and fused-measure mechanism passes are historical evidence only, not retained-runtime claims. The [October 25 drop report](../benchmarks/native-workflow-drop-2026-10-25.md) records the candidate, restored-binary and fresh-main observations; the cause was not isolated. Item 16 and the subsequent 1.0.0 train are also complete. No item 15 work may be restarted unchanged without a new maintainer decision.
 16. **Ingestion representation reuse and batch/window scheduling — closed without a runtime change:** the [October 25 decision](../benchmarks/native-ingest-window-decision-2026-10-25.md) records one isolated latest-main ingestion at 49.303 engine seconds, exact byte identity with the independently validated accepted output, and the unchanged runtime's Full43 at 47.889862794 engine seconds. Source review confirms existing dictionary/schema hints, large-source string views and shared bounded scheduling; no new candidate has established complete-ingest benefit. The maintainer requests advancing the version bump train if nothing worthwhile is established. This closes the investigation before new implementation or a candidate comparison; it does not prove optimal scheduling or reject all future mechanisms. **The subsequent 1.0.0 train is complete**, with source/package validation, GitHub → TestPyPI → PyPI → Homebrew proofs, merged documentation, public-site checks and generated-file cleanup in the [publication record](../release/v1.0.0-publication-verification.md). The dropped item 15 stays out; connected programming and universal I/O retain their subsequent order.
 17. **Connected programming model complete and merged:** [PR #1610](https://github.com/depsilon/shardloom/pull/1610) merges as `c287ba45` after both review corrections and all 54 hosted checks pass. The [acceptance](../benchmarks/native-connected-programming-2026-10-26.md) and [completed ledger](phased-execution-completed-ledger.md) retain the local/native/package/Full43 evidence, original failures and cleanup. The preceding documentation PR #1609 merges as `931bf814` with all 57 checks passing. Item 20 inherits this shared lazy/native foundation; no new package publication or CG closure is claimed.
-18. **Universal I/O performance and coverage immediately follows connected programming:** the [October 24 handoff](native-universal-io-performance-coverage-2026-10-24.md) requires a newly grounded one-execution multi-output contract and separates bulk Parquet/ORC layout policy from small conversion batches. The dropped item 15 implementation is not a dependency and may not be restored unchanged. Rich ORC output, long-value/resource-aware conversion and genuine whole-document JSON streaming follow; selective first-use readers, dataset layouts, IPC/codec variants and enterprise/table/transport adapters come afterward. Preserve completed #1583 foundations, native owners, one shared compute engine and independent readback. Audit real family gaps and implement them; the supplied source review is not benchmark or completion evidence. Large-output and fresh-source workflows, not Full43's 381 result rows alone, determine adapter acceptance. This ordering does not delay the immediately actionable local writer work behind broader adapters or make every proposed family a v1 release blocker.
+18. **Universal I/O performance and coverage follows active item 20:** the [October 24 handoff with October 28 additions](native-universal-io-performance-coverage-2026-10-24.md) requires a newly grounded one-execution multi-output contract and separates bulk Parquet/ORC layout policy from small conversion batches. The dropped item 15 implementation is not a dependency and may not be restored unchanged. Extend accepted shared demand planning and Parquet source-demand foundations to ordinary queries over the remaining supported formats by default, preserving complete-source validation and durable-preparation guarantees. Rich ORC output, long-value/resource-aware conversion and genuine whole-document JSON streaming follow; selective first-use readers, dataset layouts, IPC/codec variants and enterprise/table/transport adapters retain their family contracts. Preserve completed #1583 foundations, native owners, one shared compute engine and independent readback. Audit real family gaps and implement them; the supplied source review is not benchmark or completion evidence. The [cross-surface and format acceptance gate](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate) requires matched correctness and timing across CLI SQL, embedded workflow, Python SQL, DataFrame and typed native execution, covering admitted input/output families, fresh/demanded and prepared/reused sources, large writes, multi-output and readback. Resolve demonstrated avoidable performance gaps before the version bump; distinguish necessary format costs, unknown measurements and explicitly accepted exceptions. Large-output and fresh-source workflows, not Full43's 381 result rows alone, determine adapter acceptance. This does not make every proposed optional adapter a release blocker.
+    - **Version milestone: 1.1.0 minor bump after item 18 acceptance and before item 19.** Package the completed item-20 analytical and item-18 I/O/default-demand work only after their correctness, cross-surface/format timing, regression and installed-package evidence passes. Before the bump, item-18 closeout must refresh the README, field guide and website to reflect accepted capabilities/default-demand behavior, ordinary examples for supported surfaces, format/fidelity/support boundaries, current performance evidence and remaining gaps; align generated documentation/site surfaces and pass documentation, website and example checks. Carry compatibility notes, explicit remaining gaps and channel proof into the release train; publication retains its separate authorization.
 19. **Rich-data lifecycle support follows universal I/O:** the [October 24 addition](native-rich-data-lifecycle-2026-10-24.md) makes vectors/embeddings, tensors, nested values and actual binary payloads part of ordinary native data workflows. The maintainer's clarification treats baseline rich columns as competitive completeness against established Polars/Spark/DuckDB capabilities. Deliver dense-vector, inline-binary and nested-value fidelity first; accept managed/external binary-object ownership and lazy access separately, then tensor metadata, sparse/multiple/quantized/lower-precision representations, and shared exact vector expressions. Verify a mixed import → retain → select/filter/join → stream/spill → write → separate-process reopen → export workload, including complete bytes, metadata, resource pressure and shared-owner cleanup. Measure avoidable payload reads, copies, decoding and materialization before making efficiency claims. Extend the preceding I/O package with mappings for newly admitted rich types. Model generation, OCR/media interpretation and ANN indexes remain separate optional capabilities; existing report-only contracts do not count as implementation.
 20. **Broad analytical surface and performance program is active:** the [October 26 contract](native-broad-query-program-2026-10-26.md) expands [everyday analytical completion](#everyday-analytical-completion) around a 1M-row fact-table family, typed generated workloads, strict correctness, actual execution diagnostics, neighboring queries and held-out validation. Extend the existing shared native runtime and preserve all five public interfaces; keep adapters thin and workload definitions reusable. The initial 347-case native and single-observation Polars baseline is complete and its foundation merged in PR #1611 as `4d25a06e`. The [first universal source-demand work unit](native-source-demand-2026-10-26.md), starting with Parquet, is accepted and merged in #1612 at `81ab0a4d`, with frozen first-use gates, all 347 corrected Parquet cases, required runtime/package checks and portable evidence. The [October 27 completion](../benchmarks/native-parquet-demand-completion-2026-10-27.md) is locally accepted with complete results, required gates and 185 installed-package tests; the observed native engine total improves from 50.877676708 to 34.960427343 seconds. Neither unit is released, and original competitor observations remain unchanged. Statistics/richer aggregation, temporal fidelity, numeric semantics, recursive composition and explicit batch functions retain their earlier priority and six real-workflow obligations. Existing joins/windows/pivots/sets/subqueries/nested data are foundations, not presumed gaps. Other-engine testing and repeated comparisons remain deferred until the expanded ShardLoom surface is tested. Targeted family tests drive this work; ClickBench protects established behavior. Connectors, rich I/O and larger transactional/live/distributed milestones retain their existing owners.
 21. **Real Foundry integration follows everyday analytical completion and precedes AI workflows:** the [October 25 handoff](native-foundry-integration-2026-10-25.md) attaches three working deliverables to existing RFC 0036 and packaging owners: a pinned installed native package with real transform/output readback, a scalable multi-file dataset and native writer adapter, then incremental and Foundry-managed Iceberg integration. The compact-structure addition attaches logical delta maintenance to that third deliverable and existing CG-17/CG-22 state owners: begin with explicit changes and a narrow exact aggregate/join family; prove source identity, retained state, retractions, recovery and consistent state/output publication against full recomputation. This is distinct from warm caches and the rejected whole-file refresh adapter, and platform snapshot/append support does not imply a changelog. Verify the actual Linux ABI and replace the stale Conda CLI-wrapper delivery. Foundry hosts the job; ShardLoom computes through ordinary SQL/DataFrame APIs. Preserve snapshot/read-mode identity, global multi-file semantics, explicit resources/spill, schema fidelity and failure-safe output transactions. A small Arrow bridge starts deployment proof; realistic multi-file join/aggregation, independent readback and deliberate failed publication establish adapter acceptance. Whole-table Arrow materialization is not the bulk-data design. Managed Iceberg's documented single-node Arrow interface does not require a standalone Iceberg scanner first and does not imply support for every external virtual table. Keep real-enrollment proof explicit, Mac timing separate, publication separately authorized, and SDK/Compute Module/S3 extensions behind the three deliverables. Foundry remains an optional package, with its implementation now requested in this queue; CG-18/20/21/23 remain independent acceptance gates.
-    - **Version milestone: 1.1.0 minor bump after Foundry integration acceptance.** Package the intervening rich-data, analytical and Foundry changes with their compatibility notes and applicable acceptance evidence before starting AI data workflows.
+    - **Version milestone: 1.2.0 minor bump after Foundry integration acceptance.** Package the intervening rich-data and Foundry changes with their compatibility notes and applicable acceptance evidence before starting AI data workflows.
 22. **AI data workflows follow Foundry integration:** the [October 24 AI-data package](native-ai-data-workflows-2026-10-24.md) connects the queued rich types and shared execution model to typed model-ready batches, streaming then indexed loaders, persisted fitted feature state, exact filtered vector retrieval, then lexical/hybrid retrieval and an optional compact-vector investigation. Reuse native results in PyTorch/Hugging Face adapters; preserve arbitrary sample order and duplicates, epoch generations, worker partitioning, ownership and resource limits. Point-in-time features must respect effective and availability times. Exact eligible-population search precedes optional lossy candidate representations; rescoring does not establish global exactness. Agent inspection/execution reuses existing APIs and bounded result handles. Batch inference remains a later explicit model boundary, while GPU implementation is optional. Validate complete mixed workflows and feature-specific throughput, memory, fidelity and retrieval quality; Full43 is only a regression check. This requested package extends earlier owners without a separate AI engine or a claim that current upstream features are already available through the pinned provider.
-    - **Version milestone: 1.2.0 minor bump after AI data workflow acceptance.** Prepare the version and release evidence for that completed scope; optional breadth stays outside the active queue.
+    - **Version milestone: 1.3.0 minor bump after AI data workflow acceptance.** Prepare the version and release evidence for that completed scope; optional breadth stays outside the active queue.
 23. Keep additional breadth and extensions of completed conditional investigations in the [optional backlog](#optional-breadth-backlog). Do not automatically start it when the earlier stages finish. There is no delivery commitment, and optional work does not block required-area acceptance or a separately authorized release.
 
 Preserve the seventeen finite conditional decisions, both accepted follow-ups,
@@ -412,6 +428,14 @@ now authorizes the 1.0.0 train after item 16; later trains still require their
 own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
+
+The latest maintainer instruction after the direct-Parquet Full43 follow-up
+authorizes merging the validated shared-execution checkpoint in PR #1619 and
+continuing item 20 in subsequent cohesive PRs as needed. It supersedes the earlier
+October 28 hold-open instruction; it does not mark the remaining checklist or
+whole-program combined acceptance complete. Preserve logical commits and
+prospective validation checkpoints. Item 18 and the subsequent 1.1.0 release
+retain their separate scope and sequence.
 
 The October 22 maintainer instruction is to finish the required work and gated
 investigations above, with one isolated standard Full43 pass after each coherent
@@ -516,6 +540,10 @@ visible and independent; this implementation does not automatically close them.
       complete physical-plan and byte instrumentation remain unfinished.
     - [ ] Correct demonstrated shared correctness, reachability, composition,
       repeated-work or algorithm causes using prospective retain/drop gates.
+      Apply the October 28 maintainer tradeoff: substantial overall gains can
+      outweigh small isolated timing regressions. Preserve their observations
+      and assess proportionate follow-up without automatically blocking the
+      implementation; correctness and resource/ownership contracts still apply.
     - [ ] Complete the analytical requirements below through shared runtime families,
       preserving the six end-to-end workflows and separate connector ownership.
     - [ ] Validate unchanged reproducers, neighboring/held-out variations, public
@@ -562,13 +590,190 @@ visible and independent; this implementation does not automatically close them.
     the reused 27.374316659-second checkpoint. Grouped aggregation improves
     12.44% and DISTINCT 17.39%, with no material regression flags. Complete
     160-case fresh correctness, 201 installed-wheel tests, 23 corruption controls
-    and isolated replay pass; hosted acceptance remains separate. Continue the
-    shared-performance queue in the existing item-20 completion document with
-    typed MIN/MAX and independently owned numeric gathering, then reduce
-    expression construction/reuse work. Reuse existing
-    native owners and the current frozen benefit/regression protocol; retain the
-    dropped counted-join, fused-measure, retained-output and borrowed-output
-    decisions. This sequence does not replace the wider temporal/time-series,
+    and isolated replay pass; PR #1618 merged at `685f16c7` with all 57 checks
+    passing and no review findings. The subsequent
+    [numeric acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
+    retains typed MIN/MAX and independently owned numeric gathering. All 347
+    cases and 12,565 rows validate at 23.079365459 engine seconds, with a 9.52%
+    whole-cohort reduction and the declared family gate passing in global/grouped
+    aggregation and joins. One original case flag remains; its bounded diagnostic
+    does not reproduce it. Complete fresh correctness, 202 installed tests,
+    30 corruption controls and isolated portable replay pass. Numeric hosted
+    acceptance remains separate. Continue the consolidated item-20 completion
+    PR, with the expression construction/reuse candidate explicitly dropped
+    under its frozen benefit gate. Its unchanged-cohort comparison completed
+    347 cases and 12,565 rows at 22.941843204 engine seconds versus the accepted
+    numeric baseline of 23.079365459 seconds (0.596% reduction); no declared
+    target family reached 10%, and there were no material regression flags.
+    Held-out replay passed 160 observations and 3,280,220 result rows. The
+    candidate runtime and test changes were removed, restoring the accepted
+    numeric implementation, as
+    recorded by the expression removal patch and source inventory. The requested
+    <=1 engine second for each of the grouped-aggregation, projection and
+    combined-join family totals remains a target, not an achieved result; the
+    347-case candidate aggregate timing does not establish those family targets.
+    The exact short/composite group-key cache is retained for combined acceptance
+    at 19.754020577 engine seconds, with grouped aggregation at 6.837246991
+    seconds. The subsequent
+    [typed complete-payload validation checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/payload-validation-disposition.json)
+    passes all 347 cases and 12,565 rows at 18.304092867 engine seconds, a 7.34%
+    further reduction. Projection improves 13.60% and ordering 22.92%; no
+    material case/family flags occur. Focused native checks, strict native lint,
+    two five-interface regressions and 160 fresh correctness observations pass.
+    Preserve four initial DataFrame declaration failures and their four corrected
+    retries; the 156 original successful observations are reused. Full combined
+    native/workspace/package, portable and hosted acceptance remain pending.
+    The subsequent join-probe/gather-coordinate candidate is dropped under its
+    prospective gate: 18.527516365 engine seconds, with only 0.26349% ordinary-join
+    and 0.02803% multiway-join improvement. Complete 347-case results and 160 fresh
+    correctness observations pass; preserve the original failures, streaming
+    clock unavailability and corrected continuations in its
+    [disposition](../benchmarks/evidence/native-item20-completion-2026-10-28/join-reuse-disposition.json).
+    Both runtime mechanisms are removed; post-removal workspace lint and 3,274
+    workspace tests pass. The retained time at that removal stays 18.304092867
+    seconds without a new performance observation. The consumer audit finds no count-only grouped
+    query in this cohort, so merely extending grouped CountWorkers to batch inputs
+    would miss its mixed-aggregate cost. The refreshed seven-case diagnostic
+    profile identifies scalar validation of eligible leaves when a rich sibling
+    selects the recursive owner. The
+    [recursive typed-leaf checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json)
+    reuses the retained validator after the existing parent masks and selected
+    domains are resolved. All 347 cases and 12,565 rows pass at 17.729495249 engine
+    seconds: 3.14% complete-cohort reduction and 18.07% projection-family benefit,
+    with no material regression flags. Twenty-six native payload checks, strict
+    lint, four public regressions and complete replay of 160 fresh observations
+    (33,260 result rows) pass. The subsequent
+    [validation supplement](../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-followup.json)
+    records 5,011 native tests passing (35 existing opt-in tests ignored), strict
+    workspace lint and 3,274 passing workspace tests on the same runtime source.
+    Combined implementation, installed-package, portable and hosted acceptance
+    remain open.
+    The next retained [demand-driven hashing checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json)
+    validates all 347 cases and 12,565 rows at 17.42942424 engine seconds, 1.69%
+    lower overall than 17.729495249. DISTINCT improves 10.80%, passing its frozen
+    family-benefit gate with positive overall balance; grouping improves 3.31%.
+    No material regression flags occur. Null-equal membership reuses the existing
+    exact cache before requesting flat text/binary hashes, while full domain
+    validation and all established non-admitted paths remain intact. The final
+    189 focused relational tests, strict native lint, four public regressions and
+    160 fresh five-interface observations pass (303,260 complete result rows).
+    Preserve the corrected lint and missing-Arrow test-launch failures. This is
+    a modest single-observation gain, not statistical or causal attribution.
+    Full native validation passes 5,015 tests with 35 existing opt-in ignores;
+    formatting, strict workspace lint and all 3,274 default workspace tests pass.
+    Combined installed-package, portable and hosted acceptance remain open.
+    The subsequent [selected-child/direct-decimal validation candidate](../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json)
+    is dropped: 17.670435985 engine seconds for all 347 complete queries versus
+    17.42942424, without the frozen family benefit or any material regression
+    flags. Four public regressions and 160 fresh five-interface observations
+    pass, including 33,260 complete result rows. Preserve its source, original
+    observations and failures; remove both optimization mechanisms. Retain the
+    independently required malformed-text correction and regression tests.
+    Its cost is not isolated by the combined candidate timing; the accepted
+    optimization checkpoint at removal is 17.42942424 seconds. The
+    [post-removal source validation](../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json)
+    passes formatting, strict native/workspace lint, 5,016 native tests (35
+    existing opt-in ignores) and 3,274 workspace tests. The unchanged provider
+    source has 146 passing tests, one existing ignore and strict lint. The
+    combined candidate's public/fresh-cohort results do not establish new
+    retained-source installed-package acceptance; that combined gate stays open.
+    The next [typed numeric expression checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-disposition.json)
+    retains same-storage I64/U64/F64 arithmetic and column/literal COALESCE
+    construction at **16.249797458 engine seconds** for all 347 queries and
+    12,565 complete rows, a 6.77% reduction. Grouped aggregation improves 13.75%
+    and global aggregation 21.31%, passing the frozen family-benefit gate.
+    One arithmetic-group query adds 0.021396124 seconds while the cohort saves
+    1.179626782 seconds; preserve that flag under the proportionate-regression
+    policy. No family regression threshold is crossed. The comparison includes
+    the previously untimed UTF-8 correctness repair and establishes no cause or
+    statistical confidence. Nine focused and 198 relational tests, four public
+    regressions, 160 fresh five-interface observations (410,420 result rows),
+    formatting, strict native/workspace lint, 5,025 native tests (35 existing
+    opt-in ignores) and 3,274 workspace tests pass. The source-linked record
+    preserves all failed attempts and the exact candidate patch. Combined
+    installed-package, portable and hosted acceptance stay open.
+    The [integer-extrema checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/integer-extrema-fusion-disposition.json)
+    retains shared grouped integer MIN/MAX and eligible COUNT traversal at
+    **15.992156898 engine seconds** for all 347 queries and 12,565 rows, saving
+    **0.257640560 seconds** with no material regression flags. Ten focused and
+    207 relational tests, four public regressions, 160 fresh five-interface
+    observations (6,860 result rows), formatting, strict native/workspace lint,
+    5,035 native tests (35 existing opt-in ignores) and 3,274 workspace tests
+    pass on the measured source. Six original failed attempts remain recorded.
+    The [maintainer's gain/loss rule](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
+    supersedes percentage floors: lower complete-cohort engine time ships;
+    higher or unchanged drops after correctness/resource checks. This explicitly
+    reverses the candidate's original cutoff-only drop without changing its
+    frozen protocol or rerunning queries. Advance the retained baseline as gains
+    compound. The subsequent
+    [current-source recovery](../benchmarks/evidence/native-item20-completion-2026-10-28/positive-gain-recovery-disposition.json)
+    retains applicable borrowed variable output and exact expression reuse,
+    preserving later numeric and validation improvements. All 347 queries and
+    12,565 rows pass at **15.400097157 engine seconds**, saving **0.592059741
+    seconds**. Five public regressions, 160 fresh five-interface observations
+    (412,220 result rows), 5,045 native tests (35 existing opt-in ignores),
+    3,274 workspace tests and strict lint pass. One case adds 0.013006291 engine
+    seconds with unchanged physical demands; preserve that flag and the absence
+    of family flags. Preserve two zero-test temporal launches and the rejected
+    acceptance attempt; the exact calendar-feature test passes. Historical gains
+    are not added to this combined measurement. The requested Full43 follow-up
+    runs directly on resident original Parquet through the shared source-demand
+    path, without ingest or preparation. Its input boundary is distinct from
+    historical Vortex-input Full43. Combined package/portable/hosted acceptance
+    and the rest of item 20 remain open.
+    Direct-Parquet Full43 preserves the first naming-contract interruption and
+    a second attempt with Q1–29 validated before Q30 reaches its query deadline;
+    neither is a complete timing result. The subsequent
+    [mixed-width expression checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/mixed-integer-expression-disposition.json)
+    retains borrowed typed integer evaluation at **15.180311963 engine seconds**
+    for all 347 queries and 12,565 rows, saving **0.219785194 seconds** without
+    case or family regression flags. Twelve focused tests, six public regressions,
+    160 fresh five-interface checks (248,320 result rows), 5,048 native tests
+    (35 existing opt-in ignores), 3,274 workspace tests and strict lint pass.
+    The original public-fixture domain refusal and unexecuted held-out binding
+    remain recorded; explicit casts and refusal checks pass on unchanged binaries.
+    A small 90-SUM scale check passes. Fresh isolated Full43 and combined item-20
+    acceptance remain required.
+    The third direct-Parquet pass validates Q1–32 before Q33 refuses aggregate
+    storage growth under the unchanged memory limit. Its
+    [incomplete record](../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json)
+    preserves the 271 completed rows and has no Full43 total. The subsequent
+    [compact grouped-state correction](../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-disposition.json)
+    reuses leased pages for large grouped COUNT/SUM/AVG state, retaining existing
+    arithmetic, key ordinals and resource limits. The original Q33 now passes at
+    **66.174310876 engine seconds**. All nine focused tests, seven public regressions,
+    160 fresh five-interface observations (1,584,120 complete rows), 5,057 native
+    tests (35 existing ignores), 3,274 workspace tests, formatting and strict lint
+    pass. The unchanged 347-case result is **15.304317834 engine seconds**, a
+    **0.124005871-second loss** against the preceding checkpoint; its optimization
+    benefit gate fails. Retain this required memory correction without a speedup
+    claim, preserving both offline validation-helper corrections and every saved
+    observation. The subsequent
+    [current-runtime UAT](../benchmarks/native-analytical-checkpoint-2026-10-28.md)
+    passes all 43 direct-Parquet queries and 381 complete rows at
+    **651.558161209 engine seconds**, one execution each, with no ingest or
+    prepared-input writes. Independent saved-result/clock replay, original input
+    identity and process cleanup pass. The identical current runtime passes 207
+    installed-wheel integration tests without skips and verifies uninstall.
+    Historical prepared-Vortex Full43 observations retain their different input
+    boundary; this is no matched speedup/regression ratio. The source trace shows
+    demanded Parquet batches use shared relational execution while eligible
+    prepared Vortex plans can select additional encoded file strategies. Carry
+    source-aware provider reachability, format decoding, metadata pushdown and
+    preparation/reuse attribution into the next measured work unit; do not assume
+    the entire gap is I/O or require ingest for correct direct execution.
+    The October 28 maintainer follow-up prioritizes measured shared grouping,
+    projection and join costs, then shared-intermediate reuse and plan traversal
+    where source and workload evidence warrants them. Recursive CTEs and structural
+    limit removal retain their capability/scalability scope; do not assume they
+    accelerate the current cohort. This priority preserves every remaining
+    capability, workflow and combined-acceptance requirement.
+    The latest maintainer instruction closes PR #1619 at this validated checkpoint
+    and continues the remaining item-20 work in subsequent cohesive PRs. Retain the dropped
+    counted-join, fused-measure and retained-output decisions. The later
+    maintainer gain/loss decision reopens cutoff-only borrowed-output and
+    expression drops for current-source integration and acceptance.
+    This sequence does not replace the wider temporal/time-series,
     rich-aggregate, numeric, composition, batch-function, diagnostics, or
     format/interface obligations.
     Incremental persistence remains deferred; this does not close the broader

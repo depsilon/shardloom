@@ -125,10 +125,6 @@ fn expression_reuse_keeps_lazy_branches_and_selected_inputs_out_of_scope() {
         },
         Kind::List(vec![product()]),
         Kind::Struct(vec![product()]),
-        Kind::Function {
-            function: super::super::scalar::Function::Abs,
-            args: vec![product()],
-        },
     ];
     for wrapper in wrappers {
         let mut expressions = vec![product(), Expression::new(column("a").dtype, wrapper)];
@@ -147,6 +143,171 @@ fn expression_reuse_keeps_lazy_branches_and_selected_inputs_out_of_scope() {
         };
         assert!(children.iter().all(|child| child.reuse_output.is_none()));
     }
+}
+
+#[test]
+fn expression_reuse_matches_complete_function_parameters() {
+    use super::super::scalar::{
+        Function,
+        text_kernels::{JsonPath, TimestampFormat},
+    };
+    let function =
+        |function, args| Expression::new(column("a").dtype, Kind::Function { function, args });
+    for (left, right, expected) in [
+        (Function::Abs, Function::Abs, true),
+        (Function::Abs, Function::Round, false),
+        (
+            Function::EpochMinute { truncate: false },
+            Function::EpochMinute { truncate: true },
+            false,
+        ),
+        (
+            Function::Domain { regex: false },
+            Function::Domain { regex: true },
+            false,
+        ),
+        (
+            Function::Regex(regex::Regex::new("(?i)a").unwrap()),
+            Function::Regex(regex::Regex::new("(?i)a").unwrap()),
+            true,
+        ),
+        (
+            Function::Regex(regex::Regex::new("(?i)a").unwrap()),
+            Function::Regex(regex::Regex::new("a").unwrap()),
+            false,
+        ),
+        (
+            Function::JsonExtract(JsonPath::parse("$.a[0]").unwrap()),
+            Function::JsonExtract(JsonPath::parse("$.a[0]").unwrap()),
+            true,
+        ),
+        (
+            Function::JsonExtract(JsonPath::parse("$.a[0]").unwrap()),
+            Function::JsonExtract(JsonPath::parse("$.a[1]").unwrap()),
+            false,
+        ),
+        (
+            Function::Strptime {
+                format: TimestampFormat::Date,
+                tolerant: false,
+            },
+            Function::Strptime {
+                format: TimestampFormat::Date,
+                tolerant: true,
+            },
+            false,
+        ),
+        (
+            Function::Strptime {
+                format: TimestampFormat::Date,
+                tolerant: false,
+            },
+            Function::Strptime {
+                format: TimestampFormat::DateTime,
+                tolerant: false,
+            },
+            false,
+        ),
+    ] {
+        assert_identical(
+            &function(left, vec![column("a")]),
+            &function(right, vec![column("a")]),
+            expected,
+        );
+    }
+    assert_identical(
+        &function(Function::Abs, vec![product()]),
+        &function(Function::Abs, vec![column("a")]),
+        false,
+    );
+}
+
+#[test]
+fn expression_reuse_shares_completed_functions_and_full_input_arguments() {
+    let abs = || {
+        Expression::new(
+            column("a").dtype,
+            Kind::Function {
+                function: super::super::scalar::Function::Abs,
+                args: vec![product()],
+            },
+        )
+    };
+    let mut expressions = vec![product(), abs(), abs()];
+    Expression::bind_projection_reuse(&mut expressions);
+    assert_eq!(expressions[2].reuse_output, Some(1));
+    let Kind::Function { args, .. } = &expressions[1].kind else {
+        unreachable!()
+    };
+    assert_eq!(args[0].reuse_output, Some(0));
+    let input = StructArray::from_fields(&[(
+        "a",
+        PrimitiveArray::from_option_iter([Some(-3_i64), None, Some(4)]).into_array(),
+    )])
+    .unwrap()
+    .into_array();
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            #[cfg(debug_assertions)]
+            let observation =
+                crate::local_primitives::native_relational_observation::Session::start();
+            let mut outputs = Vec::new();
+            for expression in &expressions {
+                outputs.push(expression.evaluate_reusing(&input, context, &outputs)?);
+            }
+            assert!(ArrayRef::ptr_eq(&outputs[1], &outputs[2]));
+            #[cfg(debug_assertions)]
+            assert_eq!(observation.finish().expression_output_reuses, 2);
+            let mut execution = context.native_session().create_execution_ctx();
+            for (row, expected) in [Some(6_i64), None, Some(8)].into_iter().enumerate() {
+                assert_eq!(
+                    outputs[2].execute_scalar(row, &mut execution).unwrap(),
+                    expected.map_or_else(
+                        || Scalar::null(outputs[2].dtype().clone()),
+                        |value| Scalar::primitive(value, Nullability::Nullable)
+                    )
+                );
+            }
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
+fn expression_variable_construction_checks_real_cancellation_and_releases_storage() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let cancellation = CancellationToken::default();
+    let expression = Expression::new(
+        DType::Utf8(Nullability::NonNullable),
+        Kind::Column("text".into()),
+    );
+    let error = session
+        .with_native_execution_context(&cancellation, |context| {
+            let before = context.memory().snapshot().reserved_bytes;
+            #[cfg(debug_assertions)]
+            let observation =
+                crate::local_primitives::native_relational_observation::Session::start();
+            let mut visits = 0;
+            let error = expression
+                .build(2051, context, |row| {
+                    visits += 1;
+                    if row == 1023 {
+                        cancellation.cancel();
+                    }
+                    Ok(super::super::Value::Text("東京".into()))
+                })
+                .unwrap_err();
+            assert_eq!(visits, 1024);
+            assert!(error.to_string().contains("cancel"));
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+            #[cfg(debug_assertions)]
+            assert_eq!(observation.finish().expression_variable_values, 1024);
+            Ok(())
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("cancel"));
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
 }
 
 #[test]

@@ -29,6 +29,16 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [October 28 numeric-value cleanup](../benchmarks/evidence/native-shared-numeric-values-2026-10-28/cleanup.json)
+retires 23,269 completed regular files and six environment symlinks after complete
+portable replay, 30 corruption controls and isolated source-only acceptance.
+Repeated identities and closed-handle checks cover completed environments,
+staged packets, archived outputs and the superseded key-lookup runtime/wheel.
+The latest accepted numeric runtime and installed-tested wheel, five current
+Parquet inputs, 347 independent references and complete compact results remain.
+Replay passes after retirement. Shared compiler outputs and unrelated files
+are untouched; no payload backup or storage-ceiling change occurs.
+
 The [1.0.0 release cleanup](../release/evidence/v1.0.0-local-generated-cleanup-2026-10-25.json)
 retires 30,484 generated regular files and 21 environment links after release,
 installed-package and documentation verification. It covers seven completed
@@ -576,9 +586,11 @@ For a future authorized observation:
    Freeze the complete query file, resident input identity/hash and all 43
    reference results. Record hardware, physical RAM and policy settings separately.
 2. Give the run a unique manifest, log and target name in local-only storage.
-   Admit it through the existing storage limits. Run public preparation through
-   `run_clickbench_ingest_uat.sh`, then acquire the same exclusive UAT lock for
-   the sequential query pass. Reject overlapping native builds/tests/queries
+   Admit it through the existing storage limits. Following the October 28
+   maintainer update, run the sequential Full43 directly against resident original
+   Parquet through the shared native source-demand path, with no ingest or
+   preparation command. Use `--input-format parquet` and retain the exclusive UAT
+   lock for the query pass. Reject overlapping native builds/tests/queries
    with the workload guard before and during execution. Keep process-group
    deadlines and cleanup evidence. Do not raise storage ceilings for a rerun.
 3. Capture host load and process CPU/RSS observations before and during the

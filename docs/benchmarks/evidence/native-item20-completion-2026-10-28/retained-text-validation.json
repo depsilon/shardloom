@@ -1,0 +1,677 @@
+{
+  "schema_version": 1,
+  "type": "retained_text_validation_post_removal_evidence",
+  "retained_scope": "UTF-8 text validation correctness fix only; selected compaction and direct decimal optimizations removed.",
+  "selected_candidate_drop": {
+    "decision": "dropped_no_prospective_benefit",
+    "candidate": "Item 20 selected-child and bound-decimal complete payload validation",
+    "candidate_engine_seconds": 17.670435985,
+    "accepted_timing": false,
+    "disposition": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/selected-payload-validation-disposition.json",
+      "bytes": 240583,
+      "sha256": "422ef3cd2b0f375b4a37dccfbe8fea6d1ac117b2504d20dbaa6ab3c17939d8a0"
+    },
+    "dropped_candidate_correctness_only": {
+      "heldout": {
+        "status": "passed",
+        "observations": 160,
+        "complete_rows": 33260,
+        "complete_input_readback_rows": 16396,
+        "independent_reference_rows": 6652,
+        "public_interfaces": 5,
+        "comparison_engine_invoked": false
+      },
+      "public": {
+        "status": "passed",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "public_interfaces": 5,
+        "posthash_verified": true,
+        "test_names": [
+          "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_numeric_extrema_and_selected_outputs_match_all_five_surfaces",
+          "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_rich_bounded_ordering_preserves_values_and_schema_on_all_five_surfaces",
+          "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_join_repeated_matches_misses_and_owned_payloads_match_five_surfaces",
+          "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_shared_key_domains_preserve_grouping_distinct_and_join_on_all_five_surfaces"
+        ],
+        "comparison_engine_invoked": false
+      },
+      "passed": true
+    },
+    "note": "The public four-test and 160-observation held-out results belong to the combined dropped candidate, not this retained-text result."
+  },
+  "accepted_group_hash_checkpoint": {
+    "decision": "retained_for_combined_item20_acceptance",
+    "complete_comparisons": 347,
+    "complete_rows": 12565,
+    "engine_seconds": 17.42942424,
+    "disposition": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-demand-disposition.json",
+      "bytes": 48930,
+      "sha256": "0caeb81e10fa0b5e539e990f201f8626079ef35f9d5c5c2241465eb7b7514a5c"
+    }
+  },
+  "provider_validation": {
+    "receipts": [
+      {
+        "id": "e175i-selected-validation-provider-tests",
+        "role": "provider_tests",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e175i-selected-validation-provider-tests.json",
+          "bytes": 4884,
+          "sha256": "b56a004857d67a162359d088f0258d16b8de2862f2a6d2f08c44c69eee1e976f"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e175i-selected-validation-provider-tests.log",
+          "bytes": 17714,
+          "sha256": "f75de029e9c88dd07d39e04176abcb3d65c616704087130dfaff9e068fed69a1"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_selected_text_provider.py",
+          "test"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+        "test_totals": {
+          "groups": 1,
+          "passed": 146,
+          "failed": 0,
+          "ignored": 1
+        }
+      },
+      {
+        "id": "e174j-selected-validation-provider-clippy",
+        "role": "provider_clippy",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e174j-selected-validation-provider-clippy.json",
+          "bytes": 4886,
+          "sha256": "96193e4920a414118d861bef7f536f3be144b766ca11e3a35691b2df53863df1"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e174j-selected-validation-provider-clippy.log",
+          "bytes": 1910,
+          "sha256": "f78c4fe7b11c483b96b4880ab7c17f1a391bac50b51d56a1ea8331e0953323b9"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/check_selected_text_provider.py",
+          "clippy"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f"
+      }
+    ],
+    "test_totals": {
+      "groups": 1,
+      "passed": 146,
+      "failed": 0,
+      "ignored": 1
+    },
+    "unchanged_provider_source_inventory": {
+      "vendor/vortex-array/src/arrays/varbinview/array.rs": {
+        "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+        "bytes": 55934
+      },
+      "vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+        "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+        "bytes": 10131
+      }
+    }
+  },
+  "post_removal_validation": {
+    "receipts": [
+      {
+        "id": "e187-retained-text-fmt-check",
+        "role": "format",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e187-retained-text-fmt-check.json",
+          "bytes": 3758,
+          "sha256": "8491e9b2d767183009905133448fd0709abde8c75bd622fa02f29c08cdf9eef5"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e187-retained-text-fmt-check.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+        "runtime_source_inventory": {
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+            "bytes": 30042
+          },
+          "shardloom-vortex/src/local_primitives/native_payload.rs": {
+            "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+            "bytes": 23574
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+            "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+            "bytes": 17999
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": {
+            "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+            "bytes": 1478
+          },
+          "vendor/vortex-array/src/arrays/varbinview/array.rs": {
+            "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+            "bytes": 55934
+          },
+          "vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+            "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+            "bytes": 10131
+          }
+        }
+      },
+      {
+        "id": "e188-retained-text-native-clippy",
+        "role": "native_clippy",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e188-retained-text-native-clippy.json",
+          "bytes": 3995,
+          "sha256": "26ed63cfc663234d9e904872c6f67a68fbcc4417ff4d6450a4c509ea175fb5ef"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e188-retained-text-native-clippy.log",
+          "bytes": 440,
+          "sha256": "03dec5d31f36b7ade458e97d6d02cc2c3d99d9689a818ece7be84f0e5085afb8"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--offline",
+          "-p",
+          "shardloom-vortex",
+          "-p",
+          "shardloom-cli",
+          "-p",
+          "shardloom-python",
+          "--features",
+          "release-user-surfaces",
+          "--all-targets",
+          "--profile",
+          "ci-native",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+        "runtime_source_inventory": {
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+            "bytes": 30042
+          },
+          "shardloom-vortex/src/local_primitives/native_payload.rs": {
+            "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+            "bytes": 23574
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+            "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+            "bytes": 17999
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": {
+            "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+            "bytes": 1478
+          },
+          "vendor/vortex-array/src/arrays/varbinview/array.rs": {
+            "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+            "bytes": 55934
+          },
+          "vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+            "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+            "bytes": 10131
+          }
+        }
+      },
+      {
+        "id": "e189-retained-text-native-suite",
+        "role": "native_suite",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e189-retained-text-native-suite.json",
+          "bytes": 4454,
+          "sha256": "4046e98ef0ea797bf5b70138c492725c422e47f03c3deeaab103e5fde4147beb"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e189-retained-text-native-suite.log",
+          "bytes": 1017760,
+          "sha256": "17f45e96a25f65714d7e217aad8ade02f34117da69f2d67d8f02d10143d3a535"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "shardloom-vortex",
+          "-p",
+          "shardloom-cli",
+          "-p",
+          "shardloom-python",
+          "--features",
+          "release-user-surfaces",
+          "--all-targets",
+          "--profile",
+          "ci-native",
+          "--",
+          "--test-threads=2"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+        "runtime_source_inventory": {
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+            "bytes": 30042
+          },
+          "shardloom-vortex/src/local_primitives/native_payload.rs": {
+            "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+            "bytes": 23574
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+            "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+            "bytes": 17999
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": {
+            "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+            "bytes": 1478
+          },
+          "vendor/vortex-array/src/arrays/varbinview/array.rs": {
+            "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+            "bytes": 55934
+          },
+          "vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+            "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+            "bytes": 10131
+          }
+        },
+        "test_totals": {
+          "groups": 95,
+          "passed": 5016,
+          "failed": 0,
+          "ignored": 35
+        }
+      },
+      {
+        "id": "e190-retained-text-workspace-clippy",
+        "role": "workspace_clippy",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e190-retained-text-workspace-clippy.json",
+          "bytes": 4293,
+          "sha256": "49cf4b54b280364317ddbc5a37c6b8c120787a3129380057eba58061e82f543c"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e190-retained-text-workspace-clippy.log",
+          "bytes": 574,
+          "sha256": "d67002381e680e3c89ecd735a05e85fd40a59329380e44d5bd0f0c27ec121cd9"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+        "runtime_source_inventory": {
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+            "bytes": 30042
+          },
+          "shardloom-vortex/src/local_primitives/native_payload.rs": {
+            "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+            "bytes": 23574
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+            "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+            "bytes": 17999
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": {
+            "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+            "bytes": 1478
+          },
+          "vendor/vortex-array/src/arrays/varbinview/array.rs": {
+            "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+            "bytes": 55934
+          },
+          "vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+            "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+            "bytes": 10131
+          }
+        }
+      },
+      {
+        "id": "e191-retained-text-workspace-tests",
+        "role": "workspace_tests",
+        "status": "passed",
+        "returncode": 0,
+        "receipt": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e191-retained-text-workspace-tests.json",
+          "bytes": 4291,
+          "sha256": "beb0f4ef432e7cd48e5a3196db733f2ecbe59730458d5973fc3a295e75f8dc26"
+        },
+        "log": {
+          "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e191-retained-text-workspace-tests.log",
+          "bytes": 468460,
+          "sha256": "1cae36c26632af3bc84a6845946fb6e1f9d84364f2548b4c75808fe105e8e556"
+        },
+        "log_hash_verified": true,
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "--test-threads=2"
+        ],
+        "head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+        "runtime_source_inventory": {
+          "shardloom-vortex/src/local_primitive_result_batch.rs": {
+            "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+            "bytes": 30042
+          },
+          "shardloom-vortex/src/local_primitives/native_payload.rs": {
+            "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+            "bytes": 23574
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+            "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+            "bytes": 17999
+          },
+          "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": {
+            "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+            "bytes": 1478
+          },
+          "vendor/vortex-array/src/arrays/varbinview/array.rs": {
+            "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+            "bytes": 55934
+          },
+          "vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+            "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+            "bytes": 10131
+          }
+        },
+        "test_totals": {
+          "groups": 107,
+          "passed": 3274,
+          "failed": 0,
+          "ignored": 0
+        }
+      }
+    ],
+    "runtime_source_paths": [
+      "shardloom-vortex/src/local_primitive_result_batch.rs",
+      "shardloom-vortex/src/local_primitives/native_payload.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs",
+      "vendor/vortex-array/src/arrays/varbinview/array.rs",
+      "vendor/vortex-array/src/arrays/varbinview/tests.rs"
+    ],
+    "runtime_source_inventory": [
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_batch.rs",
+        "bytes": 30042,
+        "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+        "label": "shardloom-vortex/src/local_primitive_result_batch.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload.rs",
+        "bytes": 23574,
+        "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+        "label": "shardloom-vortex/src/local_primitives/native_payload.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+        "bytes": 17999,
+        "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+        "label": "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs",
+        "bytes": 1478,
+        "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+        "label": "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array/src/arrays/varbinview/array.rs",
+        "bytes": 55934,
+        "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+        "label": "vendor/vortex-array/src/arrays/varbinview/array.rs"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array/src/arrays/varbinview/tests.rs",
+        "bytes": 10131,
+        "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+        "label": "vendor/vortex-array/src/arrays/varbinview/tests.rs"
+      }
+    ],
+    "source_inventories_match_all_final_receipts": true,
+    "baseline_source_head": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+    "baseline_source_paths_unchanged": [
+      "shardloom-vortex/src/local_primitives/native_payload_storage.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+    ],
+    "candidate_only_modules_absent": [
+      "shardloom-vortex/src/local_primitives/native_payload_validation_selected.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation_decimal.rs",
+      "shardloom-vortex/src/local_primitives/native_payload_validation_selected_tests.rs"
+    ]
+  },
+  "candidate_patch": {
+    "base_revision": "8baa2ae01c28b7f421522a2d0b7fdca246ec2f7f",
+    "bytes": 8697,
+    "sha256": "5933249e4680a6ca952740b7d9ade8d8986334e98b2182c3fe2a519ccca5a45c",
+    "unified_diff": "diff --git a/shardloom-vortex/src/local_primitive_result_batch.rs b/shardloom-vortex/src/local_primitive_result_batch.rs\nindex e4a0d59b..2f1dafc5 100644\n--- a/shardloom-vortex/src/local_primitive_result_batch.rs\n+++ b/shardloom-vortex/src/local_primitive_result_batch.rs\n@@ -147,13 +147,34 @@ pub(super) fn scalar(\n     context: &mut vortex::array::ExecutionCtx,\n ) -> Result<vortex::array::scalar::Scalar> {\n     use vortex::array::{\n-        arrays::decimal::DecimalArrayExt as _,\n-        scalar::{DecimalValue, Scalar},\n+        arrays::{VarBinView, decimal::DecimalArrayExt as _, varbinview::VarBinViewArrayExt as _},\n+        scalar::{DecimalValue, Scalar, ScalarValue},\n     };\n     if row >= array.len() {\n         return Err(failed(\"selected scalar exceeds its source domain\"));\n     }\n     let array = scalar_storage(array, context)?;\n+    if matches!(array.dtype(), DType::Utf8(_))\n+        && let Some(text) = array.as_opt::<VarBinView>()\n+    {\n+        // Provider scalar extraction assumes text was validated at construction.\n+        // Serialized or selected views can instead carry an unvalidated domain.\n+        // Check observed bytes before constructing a BufferString, including when\n+        // the output prefix discards this row and has no final text to validate.\n+        let value = if array\n+            .validity()\n+            .map_err(vortex_error)?\n+            .execute_is_valid(row, context)\n+            .map_err(vortex_error)?\n+        {\n+            Some(ScalarValue::Utf8(\n+                text.utf8_buffer_at(row).map_err(vortex_error)?,\n+            ))\n+        } else {\n+            None\n+        };\n+        return Scalar::try_new(array.dtype().clone(), value).map_err(vortex_error);\n+    }\n     if let DType::Decimal(dtype, _) = array.dtype() {\n         if !crate::native_payload_schema::admitted_decimal(*dtype) {\n             return Err(failed(\ndiff --git a/shardloom-vortex/src/local_primitives/native_payload.rs b/shardloom-vortex/src/local_primitives/native_payload.rs\nindex 674ba140..d2e7d2dd 100644\n--- a/shardloom-vortex/src/local_primitives/native_payload.rs\n+++ b/shardloom-vortex/src/local_primitives/native_payload.rs\n@@ -47,6 +47,10 @@ mod validation_tests;\n #[path = \"native_payload_validation_typed_tests.rs\"]\n mod typed_validation_tests;\n \n+#[cfg(all(test, feature = \"vortex-write\"))]\n+#[path = \"native_payload_validation_text_tests.rs\"]\n+mod text_validation_tests;\n+\n /// Private window records can retain measures that no frame ever observes.\n /// Moving them must not evaluate them. Public result construction still validates.\n #[derive(Clone, Copy, PartialEq, Eq)]\ndiff --git a/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs b/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs\nindex e5889b73..ef7eb11f 100644\n--- a/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs\n+++ b/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs\n@@ -15,7 +15,7 @@ use vortex::{\n     buffer::Buffer,\n };\n \n-fn record(fields: Vec<(&str, ArrayRef)>, validity: Validity) -> ArrayRef {\n+pub(super) fn record(fields: Vec<(&str, ArrayRef)>, validity: Validity) -> ArrayRef {\n     let rows = fields[0].1.len();\n     StructArray::try_new(\n         FieldNames::from(fields.iter().map(|(name, _)| *name).collect::<Vec<_>>()),\n@@ -58,7 +58,7 @@ fn decimal(values: &[i128]) -> ArrayRef {\n     .into_array()\n }\n \n-fn check_copy_agreement(array: &ArrayRef, expected_error: Option<&str>) {\n+pub(super) fn check_copy_agreement(array: &ArrayRef, expected_error: Option<&str>) {\n     let session = ResidentVortexSession::new(4 << 20, 1).unwrap();\n     session\n         .with_native_execution_context(&CancellationToken::default(), |context| {\ndiff --git a/vendor/vortex-array/src/arrays/varbinview/array.rs b/vendor/vortex-array/src/arrays/varbinview/array.rs\nindex d20b9410..157b680b 100644\n--- a/vendor/vortex-array/src/arrays/varbinview/array.rs\n+++ b/vendor/vortex-array/src/arrays/varbinview/array.rs\n@@ -2,6 +2,7 @@\n // SPDX-FileCopyrightText: Copyright the Vortex contributors\n // Modified by ShardLoom on 2026-10-16: retain admitted buffer-table ownership.\n // Modified by ShardLoom on 2026-10-17: carry checked native UTF-8 value validation.\n+// Modified by ShardLoom on 2026-10-28: preserve selected-row UTF-8 diagnostics.\n \n use std::fmt::Display;\n use std::fmt::Formatter;\n@@ -1095,8 +1096,10 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {\n             // in bounds, and the outer logical dtype was checked above.\n             Ok(unsafe { std::str::from_utf8_unchecked(bytes) })\n         } else {\n-            simdutf8::basic::from_utf8(bytes)\n-                .map_err(|error| vortex_err!(InvalidArgument: \"invalid UTF-8 value: {error}\"))\n+            simdutf8::basic::from_utf8(bytes).or_else(|_| {\n+                std::str::from_utf8(bytes)\n+                    .map_err(|detail| vortex_err!(\"invalid utf-8: {detail} at index {index}\"))\n+            })\n         }\n     }\n \ndiff --git a/vendor/vortex-array/src/arrays/varbinview/tests.rs b/vendor/vortex-array/src/arrays/varbinview/tests.rs\nindex 77af1f5a..193e098b 100644\n--- a/vendor/vortex-array/src/arrays/varbinview/tests.rs\n+++ b/vendor/vortex-array/src/arrays/varbinview/tests.rs\n@@ -1,6 +1,7 @@\n // SPDX-License-Identifier: Apache-2.0\n // SPDX-FileCopyrightText: Copyright the Vortex contributors\n // Modified by ShardLoom on 2026-10-17: validate native UTF-8 receipt propagation.\n+// Modified by ShardLoom on 2026-10-28: check malformed selected text diagnostics.\n \n use std::sync::Arc;\n \n@@ -104,6 +105,35 @@ pub fn slice_array() {\n     );\n }\n \n+#[test]\n+fn checked_text_reports_original_selected_position_before_constructing_string() {\n+    use crate::ArrayParts;\n+    use crate::arrays::{PrimitiveArray, VarBin, VarBinArray};\n+\n+    let binary = VarBinArray::from(vec![&b\"\\xff\"[..], &b\"visible\"[..], &b\"\\xfe\"[..]]);\n+    let slots = binary.slots().iter().cloned().collect();\n+    let text = VarBinArray::try_from_parts(ArrayParts::new(\n+        VarBin,\n+        DType::Utf8(Nullability::NonNullable),\n+        3,\n+        binary.into_data(),\n+        slots,\n+    ))\n+    .unwrap();\n+    let indices = PrimitiveArray::from_option_iter([None, Some(1_u64), Some(2)]);\n+    let selected = text\n+        .take(indices.into_array())\n+        .unwrap()\n+        .execute::<VarBinViewArray>(&mut array_session().create_execution_ctx())\n+        .unwrap();\n+    assert_eq!(selected.utf8_buffer_at(1).unwrap().as_str(), \"visible\");\n+    let error = selected.utf8_buffer_at(2).unwrap_err().to_string();\n+    assert_eq!(\n+        error,\n+        \"Other error: invalid utf-8: invalid utf-8 sequence of 1 bytes from index 0 at index 2\"\n+    );\n+}\n+\n #[test]\n pub fn binary_view_size_and_alignment() {\n     assert_eq!(size_of::<BinaryView>(), 16);\n\ndiff --git a/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs b/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs\nnew file mode 100644\nindex 00000000..0dd0087c\n--- /dev/null\n+++ b/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs\n@@ -0,0 +1,47 @@\n+//! Discarding a payload must not hide invalid text in an observed parent row.\n+\n+use super::validation_tests::{check_copy_agreement, record};\n+use super::*;\n+use vortex::array::{\n+    ArrayParts,\n+    arrays::{VarBin, VarBinArray},\n+};\n+\n+#[test]\n+fn payload_validation_preserves_utf8_error_coordinates_and_hidden_values() {\n+    let binary = VarBinArray::from(vec![&b\"\\xff\"[..], &b\"visible\"[..], &b\"\\xfe\"[..]]);\n+    let slots = binary.slots().iter().cloned().collect();\n+    let text = VarBinArray::try_from_parts(ArrayParts::new(\n+        VarBin,\n+        DType::Utf8(Nullability::NonNullable),\n+        3,\n+        binary.into_data(),\n+        slots,\n+    ))\n+    .unwrap()\n+    .into_array();\n+    let hidden = record(\n+        vec![(\"text\", text.clone())],\n+        Validity::from_iter([false, true, false]),\n+    );\n+    check_copy_agreement(&hidden, None);\n+    let visible = record(\n+        vec![(\"text\", text.clone())],\n+        Validity::from_iter([false, true, true]),\n+    );\n+    check_copy_agreement(&visible, Some(\"utf-8\"));\n+    let nullable = vortex::array::arrays::MaskedArray::try_new(\n+        text,\n+        Validity::AllValid,\n+        &mut vortex::array::array_session().create_execution_ctx(),\n+    )\n+    .unwrap()\n+    .into_array();\n+    for visible in [false, true] {\n+        let parent = record(\n+            vec![(\"text\", nullable.clone())],\n+            Validity::from_iter([false, true, visible]),\n+        );\n+        check_copy_agreement(&parent, visible.then_some(\"utf-8\"));\n+    }\n+}\n",
+    "untracked_source_diffs": [
+      {
+        "path": "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs",
+        "bytes": 1857,
+        "sha256": "3ce4cd19ca7f6d8b34899046d5fad9ea702030e3affc49996176fb5f38bd48f5",
+        "unified_diff": "diff --git a/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs b/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs\nnew file mode 100644\nindex 00000000..0dd0087c\n--- /dev/null\n+++ b/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs\n@@ -0,0 +1,47 @@\n+//! Discarding a payload must not hide invalid text in an observed parent row.\n+\n+use super::validation_tests::{check_copy_agreement, record};\n+use super::*;\n+use vortex::array::{\n+    ArrayParts,\n+    arrays::{VarBin, VarBinArray},\n+};\n+\n+#[test]\n+fn payload_validation_preserves_utf8_error_coordinates_and_hidden_values() {\n+    let binary = VarBinArray::from(vec![&b\"\\xff\"[..], &b\"visible\"[..], &b\"\\xfe\"[..]]);\n+    let slots = binary.slots().iter().cloned().collect();\n+    let text = VarBinArray::try_from_parts(ArrayParts::new(\n+        VarBin,\n+        DType::Utf8(Nullability::NonNullable),\n+        3,\n+        binary.into_data(),\n+        slots,\n+    ))\n+    .unwrap()\n+    .into_array();\n+    let hidden = record(\n+        vec![(\"text\", text.clone())],\n+        Validity::from_iter([false, true, false]),\n+    );\n+    check_copy_agreement(&hidden, None);\n+    let visible = record(\n+        vec![(\"text\", text.clone())],\n+        Validity::from_iter([false, true, true]),\n+    );\n+    check_copy_agreement(&visible, Some(\"utf-8\"));\n+    let nullable = vortex::array::arrays::MaskedArray::try_new(\n+        text,\n+        Validity::AllValid,\n+        &mut vortex::array::array_session().create_execution_ctx(),\n+    )\n+    .unwrap()\n+    .into_array();\n+    for visible in [false, true] {\n+        let parent = record(\n+            vec![(\"text\", nullable.clone())],\n+            Validity::from_iter([false, true, visible]),\n+        );\n+        check_copy_agreement(&parent, visible.then_some(\"utf-8\"));\n+    }\n+}\n"
+      }
+    ]
+  },
+  "new_accepted_timing_or_performance_claim": false,
+  "new_competitor_observations": 0,
+  "publication_attempted": false,
+  "combined_item20_complete": false,
+  "closed_acceptance": [
+    "full_retained_source_validation_after_optimization_removal"
+  ],
+  "open_acceptance": [
+    "remaining_item20_capability_work",
+    "combined_installed_package_acceptance",
+    "complete_portable_packet",
+    "hosted_acceptance_of_new_source"
+  ],
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/selected-payload-validation-disposition.json",
+      "bytes": 240583,
+      "sha256": "422ef3cd2b0f375b4a37dccfbe8fea6d1ac117b2504d20dbaa6ab3c17939d8a0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/group-hash-demand-disposition.json",
+      "bytes": 48930,
+      "sha256": "0caeb81e10fa0b5e539e990f201f8626079ef35f9d5c5c2241465eb7b7514a5c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/selected-payload-validation-protocol.json",
+      "bytes": 7551,
+      "sha256": "c0c847c3ef7e86ca0183f9a1b59e1b4d98fb111cda7fd85043019261a48f4e90"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e175i-selected-validation-provider-tests.json",
+      "bytes": 4884,
+      "sha256": "b56a004857d67a162359d088f0258d16b8de2862f2a6d2f08c44c69eee1e976f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e174j-selected-validation-provider-clippy.json",
+      "bytes": 4886,
+      "sha256": "96193e4920a414118d861bef7f536f3be144b766ca11e3a35691b2df53863df1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e175i-selected-validation-provider-tests.log",
+      "bytes": 17714,
+      "sha256": "f75de029e9c88dd07d39e04176abcb3d65c616704087130dfaff9e068fed69a1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e174j-selected-validation-provider-clippy.log",
+      "bytes": 1910,
+      "sha256": "f78c4fe7b11c483b96b4880ab7c17f1a391bac50b51d56a1ea8331e0953323b9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e187-retained-text-fmt-check.json",
+      "bytes": 3758,
+      "sha256": "8491e9b2d767183009905133448fd0709abde8c75bd622fa02f29c08cdf9eef5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e188-retained-text-native-clippy.json",
+      "bytes": 3995,
+      "sha256": "26ed63cfc663234d9e904872c6f67a68fbcc4417ff4d6450a4c509ea175fb5ef"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e189-retained-text-native-suite.json",
+      "bytes": 4454,
+      "sha256": "4046e98ef0ea797bf5b70138c492725c422e47f03c3deeaab103e5fde4147beb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e190-retained-text-workspace-clippy.json",
+      "bytes": 4293,
+      "sha256": "49cf4b54b280364317ddbc5a37c6b8c120787a3129380057eba58061e82f543c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e191-retained-text-workspace-tests.json",
+      "bytes": 4291,
+      "sha256": "beb0f4ef432e7cd48e5a3196db733f2ecbe59730458d5973fc3a295e75f8dc26"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e187-retained-text-fmt-check.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e188-retained-text-native-clippy.log",
+      "bytes": 440,
+      "sha256": "03dec5d31f36b7ade458e97d6d02cc2c3d99d9689a818ece7be84f0e5085afb8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e189-retained-text-native-suite.log",
+      "bytes": 1017760,
+      "sha256": "17f45e96a25f65714d7e217aad8ade02f34117da69f2d67d8f02d10143d3a535"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e190-retained-text-workspace-clippy.log",
+      "bytes": 574,
+      "sha256": "d67002381e680e3c89ecd735a05e85fd40a59329380e44d5bd0f0c27ec121cd9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e191-retained-text-workspace-tests.log",
+      "bytes": 468460,
+      "sha256": "1cae36c26632af3bc84a6845946fb6e1f9d84364f2548b4c75808fe105e8e556"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_batch.rs",
+      "bytes": 30042,
+      "sha256": "372b3577dfffcb00bdc596c5b62f4599b9f097a11fe08e84c0b4262d55d995e5",
+      "label": "shardloom-vortex/src/local_primitive_result_batch.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload.rs",
+      "bytes": 23574,
+      "sha256": "268bd0a4918b27f2cb4d0521826df4b51be17b34b9de4ad16610dbdedf0a3779",
+      "label": "shardloom-vortex/src/local_primitives/native_payload.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+      "bytes": 17999,
+      "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e",
+      "label": "shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs",
+      "bytes": 1478,
+      "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4",
+      "label": "shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array/src/arrays/varbinview/array.rs",
+      "bytes": 55934,
+      "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34",
+      "label": "vendor/vortex-array/src/arrays/varbinview/array.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array/src/arrays/varbinview/tests.rs",
+      "bytes": 10131,
+      "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca",
+      "label": "vendor/vortex-array/src/arrays/varbinview/tests.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_storage.rs",
+      "bytes": 13756,
+      "sha256": "a22f066a24237ed9c0c7c806478b57cbfe3797f0c04538f7b33143efc8bc3b20",
+      "label": "baseline source shardloom-vortex/src/local_primitives/native_payload_storage.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+      "bytes": 4535,
+      "sha256": "2c5a7632d6b5dd4e05aa719d5aaf422b9f3d6d57e0d5de9b94255712c7ba627c",
+      "label": "baseline source shardloom-vortex/src/local_primitives/native_payload_validation.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+      "bytes": 3394,
+      "sha256": "05533751d90e0e3ea52064f3844d9f6b7f2ca3e692f4c0f6de9dbe51b533665d",
+      "label": "baseline source shardloom-vortex/src/local_primitives/native_relational_observation.rs"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json",
+      "bytes": 240583,
+      "sha256": "422ef3cd2b0f375b4a37dccfbe8fea6d1ac117b2504d20dbaa6ab3c17939d8a0",
+      "label": "checked-in selected-payload-validation-disposition.json"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json",
+      "bytes": 48930,
+      "sha256": "0caeb81e10fa0b5e539e990f201f8626079ef35f9d5c5c2241465eb7b7514a5c",
+      "label": "checked-in group-hash-demand-disposition.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/record_retained_text_validation.py",
+      "bytes": 19429,
+      "sha256": "80a1c05e3c7ab655a0eaefefa777d89927c83a56db2afa356b9b3f6cfbf0fd34",
+      "label": "retained text-validation evidence builder"
+    }
+  ]
+}
