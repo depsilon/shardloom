@@ -1,0 +1,738 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "scope": "current_host_full43_and_installed_package_checkpoint",
+  "source_revision": "12b5e98cae672b9fbc2f999ff948b74cee328d4d",
+  "source_tree": "1e18dbadba0627015b6a250cd1e6b5a83e6b5040",
+  "runtime": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-compact-group-release-r1/shardloom",
+      "bytes": 80017552,
+      "sha256": "038bc3716aa5c7dda7ea62b3c8f46cd0186584d55664317c930922a63bbb1e70"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-compact-group-release-r1/_native.abi3.so",
+      "bytes": 80329088,
+      "sha256": "dfda4593c0bf2bbff557185f93bccd59ec25e6af9e2d387cadd8dee7afe6618e"
+    }
+  ],
+  "original_source": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "bytes": 14779976446,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "generation": {
+      "device": 16777233,
+      "inode": 84833233,
+      "bytes": 14779976446,
+      "mtime_ns": 1788461344802364826,
+      "ctime_ns": 1788612069108841600
+    }
+  },
+  "full43": {
+    "queries": 43,
+    "repeats": 1,
+    "complete_result_rows": 381,
+    "engine_seconds": 651.558161209,
+    "input_format": "parquet",
+    "ingest_performed": false,
+    "raw_values_and_engine_clocks_replayed": true
+  },
+  "source_tests": {
+    "native_passed": 5057,
+    "native_ignored": 35,
+    "workspace_passed": 3274,
+    "format": "passed",
+    "native_clippy": "passed",
+    "workspace_clippy": "passed"
+  },
+  "installed_package": {
+    "tests": 207,
+    "skipped": 0,
+    "uninstall": "passed",
+    "wheel_sha256": "3ecd095376018a466b22e09cdbee49c103a021d942454e436c356bd640a7f997",
+    "runtime_matches_full43": true
+  },
+  "raw_archive": {
+    "path": "results.tar.xz",
+    "bytes": 663204,
+    "sha256": "d3261eb3e390bdaf3b5887cc57581a1b771c7fb30fa1c14dfa491717aac19e12"
+  },
+  "file_count": 132,
+  "expanded_file_bytes": 4200543,
+  "files": {
+    "evidence/broad-compact-group-r1-comparison.json": {
+      "bytes": 158835,
+      "sha256": "6b51da91cf9b84d505f09b51628e4dab0355a28e276763eb793eacec691b57a2"
+    },
+    "evidence/candidate-compact-group-release-r1/manifest.json": {
+      "bytes": 2887,
+      "sha256": "b0d2abaf9cfa0c2fe41c62eb0ce0916cf447516931e51b128222189d01787772"
+    },
+    "evidence/compact-group-disposition.json": {
+      "bytes": 107616,
+      "sha256": "fab3e55dec11323429a4eb15bc6d692291648b9d851dd770d864a5a055785be5"
+    },
+    "evidence/compact-group-heldout-r1-replay.json": {
+      "bytes": 343,
+      "sha256": "8fe046f92b8c84ef0568e5de61239ea730d274486dc34075f5bfc16f2eb66b4d"
+    },
+    "evidence/compact-group-protocol-r1.json": {
+      "bytes": 8075,
+      "sha256": "9a8d6a842b4a79ea5286676ad3f1ef2fa3f9e6721c71d2669c78267f96a7b98d"
+    },
+    "evidence/compact-group-public-checks-r1.json": {
+      "bytes": 2651,
+      "sha256": "0eac199b03f5c2d7607e1563a06ce47dc2482da2fd45bac8380ccc3a0b96a6a5"
+    },
+    "evidence/compact-group-q33-r1-acceptance.json": {
+      "bytes": 4167,
+      "sha256": "27e47b75ea548e6baaab83a4628e4f5ec28955efafdd3047d9f290b8efa3d1e2"
+    },
+    "evidence/e331b-compact-native-clippy.json": {
+      "bytes": 3513,
+      "sha256": "a65d969c536105c32a704b2da1d8280bd90c87860b6075564dd2571536f26cee"
+    },
+    "evidence/e331b-compact-native-clippy.log": {
+      "bytes": 200,
+      "sha256": "a3a017b6ebbabc4f61d367f853722504cec47ab58b0006de5372a42309ff2326"
+    },
+    "evidence/e332-compact-native-suite.json": {
+      "bytes": 3512,
+      "sha256": "aba1a639c1c53f7dbf6a523e1d155883df5cc39362b4024c53677e4d9195a4c7"
+    },
+    "evidence/e332-compact-native-suite.log": {
+      "bytes": 1023625,
+      "sha256": "3a9ca055262394cb882c6d8d867b7f80ba20424b8844099d7846770c90d07074"
+    },
+    "evidence/e333-compact-format-check.json": {
+      "bytes": 3276,
+      "sha256": "e93bb13b40196b1bb92d624d72d51f107bae253b26b6cfd703cfbbaa2f06fa0a"
+    },
+    "evidence/e333-compact-format-check.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "evidence/e334-compact-workspace-clippy.json": {
+      "bytes": 3352,
+      "sha256": "b645378230deed731517bb46dd02766f9e3a17f707c02b70129775d08e85bb45"
+    },
+    "evidence/e334-compact-workspace-clippy.log": {
+      "bytes": 72,
+      "sha256": "f591e097f22f91dd5c31fbbf7e587d80c0a4e0ed594f9c9012a544f38c52d926"
+    },
+    "evidence/e335-compact-workspace-tests.json": {
+      "bytes": 3350,
+      "sha256": "ed8f7c049fbefcad59a6f0f0cec23fa8e9ee1efd12b169dafe221943f3656b96"
+    },
+    "evidence/e335-compact-workspace-tests.log": {
+      "bytes": 467957,
+      "sha256": "e73a2095a8bca3b113aa1a8be2371d67e96687376c6158941f0cf5c9063a181b"
+    },
+    "evidence/e336-compact-group-release.json": {
+      "bytes": 3404,
+      "sha256": "ec4fba4db6f9abe8dcb435e32916b52d27e8f4f5781b6a0c28e2f98bd65e44ba"
+    },
+    "evidence/e336-compact-group-release.log": {
+      "bytes": 426,
+      "sha256": "3c6db0b200e2b50c171ebf902504281277809fb3be19e1137e0d6bf8d05db0b0"
+    },
+    "evidence/e350-full43-r4-replay.json": {
+      "bytes": 1769,
+      "sha256": "fc292e97948dec252137f6946760a1b74587231159cada16ec0110f8f9fd2f11"
+    },
+    "evidence/e350-full43-r4-replay.log": {
+      "bytes": 115,
+      "sha256": "87c53571798e91021f883accc94b47a12c404accce7933b65cd683fe08852d4d"
+    },
+    "evidence/e351-current-installed-wheel.json": {
+      "bytes": 2221,
+      "sha256": "b92f3c09ae41debafacdb15623b91635749b173b76bf4e47795b33fa033183a3"
+    },
+    "evidence/e351-current-installed-wheel.log": {
+      "bytes": 10237,
+      "sha256": "b672c953b2b420eb9e61d5426f4492fcd9c59459c38f2c9ab99062fc70b8626c"
+    },
+    "evidence/full43-direct-parquet-accepted-r4.json": {
+      "bytes": 24690,
+      "sha256": "7c1edbd56ebdec427dc9a9d46a91182021c827aab8c4a2a6449ce298557ac49d"
+    },
+    "evidence/full43-direct-parquet-incomplete-r2.json": {
+      "bytes": 7792,
+      "sha256": "58a9c6c5ae7b4a9ddb07362aea53363a531fabc25faab21cae28c0310d6abac7"
+    },
+    "evidence/full43-direct-parquet-incomplete-r3.json": {
+      "bytes": 8662,
+      "sha256": "760b053023be8f8078baba4a92404611e398a51a6aa18393011deef68628ae4c"
+    },
+    "evidence/full43-parquet-r1-driver.json": {
+      "bytes": 3205,
+      "sha256": "b81bd91075cfdd4ee12c2ebedd597401fec3be6593f1b74e1be50749dc205dbf"
+    },
+    "evidence/full43-parquet-r4-driver.json": {
+      "bytes": 3207,
+      "sha256": "a3b7f982607cb9e9e90349380ce8071a2c2ffc55944d8dca71e5ac7d31277a60"
+    },
+    "evidence/full43-parquet-r4-freeze.json": {
+      "bytes": 24763,
+      "sha256": "b0153d60d60a4a0cf6e0d6fd5ba5b6c95c1cff862cf03eae253b9af8b3cecf44"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q01_run1.stdout.json.gz": {
+      "bytes": 5353,
+      "sha256": "44434be6aa429e49c38f747d697ee9c547ce59b2e5e65c33bb850873a77890e1"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q02_run1.stdout.json.gz": {
+      "bytes": 5380,
+      "sha256": "959f5c06961a21f198ad2989866bca4e36cac7dd8610e76397a749c3fa74e517"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q03_run1.stdout.json.gz": {
+      "bytes": 5642,
+      "sha256": "9175cb10cec26ae884db0737cb2cffeba4e79617fd44cc78e543c73e61d99e4b"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q04_run1.stdout.json.gz": {
+      "bytes": 5385,
+      "sha256": "fe21a7e86f7c3ea7e5ffe7ddc70c857e3518829b5cbbfb490549f2373d66565a"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q05_run1.stdout.json.gz": {
+      "bytes": 5375,
+      "sha256": "60fac8c5b1979589de05417183b5ea2cc129aecf0f4ed55ee778b6846051bf39"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q06_run1.stdout.json.gz": {
+      "bytes": 5387,
+      "sha256": "824a176fc9cafee1c244dce6242cbae842d143ef863e29c7366e9b196b2f7d5b"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q07_run1.stdout.json.gz": {
+      "bytes": 5558,
+      "sha256": "94eda46fe8e7d6117432b0b44fffbed063bf1ab1f7d69c430bddc33dfd167b74"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q08_run1.stdout.json.gz": {
+      "bytes": 7376,
+      "sha256": "c3c205db01f2186c34a737888f601bdb966e59b9e4a2d1354ab5860860ccf632"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q09_run1.stdout.json.gz": {
+      "bytes": 7242,
+      "sha256": "912771eb271fa91b714a072ed4ea91b9c25086a278d86fe4ac041a89f9e2acde"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q10_run1.stdout.json.gz": {
+      "bytes": 8510,
+      "sha256": "a98a2320275ff0baa015a49150816fb17e06e405d9812e0e1408d76f75e2afe8"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q11_run1.stdout.json.gz": {
+      "bytes": 7356,
+      "sha256": "332c27a267a71b6da324b72a1fa5b0fec3ea4a3109fae5f4443385b8ad4fe6ac"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q12_run1.stdout.json.gz": {
+      "bytes": 7367,
+      "sha256": "961d448f5b14fdcf9b1433b5a23376ee94ec04f0037df5cfe916bb53e963d10c"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q13_run1.stdout.json.gz": {
+      "bytes": 7682,
+      "sha256": "3df6ca9371b28ea53e63c373b70aeb9d7fca5985fb0cbc185c4bfbcfd22d4e74"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q14_run1.stdout.json.gz": {
+      "bytes": 7686,
+      "sha256": "9df89f4f805da46669593d8cd9e365a35611d2a69fd3fd301e2969ff94ce6402"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q15_run1.stdout.json.gz": {
+      "bytes": 7796,
+      "sha256": "a2a7e4011d5ca8e1153fee062c70e29b01bbb9cdb8b1ba56ad40ae08cf301112"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q16_run1.stdout.json.gz": {
+      "bytes": 7541,
+      "sha256": "31c1ea5bca6a8d6a869209cd80d3ea2950c335da364401577928aec11837f317"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q17_run1.stdout.json.gz": {
+      "bytes": 7627,
+      "sha256": "b1aae30adadb1c62167b9c3a4a1d308b0fe00420867e58a0d13914d69ef9bbd0"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q18_run1.stdout.json.gz": {
+      "bytes": 7894,
+      "sha256": "57e143941106eed9df8267c196478fd2386c64f981e5c5ba114a46859ba4141e"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q19_run1.stdout.json.gz": {
+      "bytes": 7491,
+      "sha256": "c34eb38fc51c284630036c6ab7903cc44fa828a4423b11b49cf0839b2d002cda"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q20_run1.stdout.json.gz": {
+      "bytes": 5558,
+      "sha256": "d7dadbbb85e0974e2f32bbec9ad26c4bd6cc1c25a3ff854c9d9e48e743bdc1d4"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q21_run1.stdout.json.gz": {
+      "bytes": 5382,
+      "sha256": "d328ef407af3a1f3cdeb975f1b2e54970405dc419b7f162b73f823e78004c3b9"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q22_run1.stdout.json.gz": {
+      "bytes": 9265,
+      "sha256": "931cfafa822a621722fe02fe7ae4aee9b2d9f9126f2c00232b5ab67ad13c455a"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q23_run1.stdout.json.gz": {
+      "bytes": 11795,
+      "sha256": "f72607e23a4a0520938fb7e67ecbfaaa082b2ea186e58c54754cb0d9670cd8d7"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q24_run1.stdout.json.gz": {
+      "bytes": 18428,
+      "sha256": "4b88cbd7c99985228a0aa5a3761465522811657db4693671cf1c0a99fb3e7813"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q25_run1.stdout.json.gz": {
+      "bytes": 7789,
+      "sha256": "5c12308ebf2bbab1063e1526a7faf3f30f7394ad5ce0b0574ce83ec2fbcd30a5"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q26_run1.stdout.json.gz": {
+      "bytes": 7656,
+      "sha256": "0307c7a607ea83627571466a8d6af6d6d894d4dbb7fb329185cf40dd3350f4b5"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q27_run1.stdout.json.gz": {
+      "bytes": 7801,
+      "sha256": "4ff448e0e5c1cc103d05e14d54b2a90765c18f28f1227bc92b13a58a01442ffb"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q28_run1.stdout.json.gz": {
+      "bytes": 8901,
+      "sha256": "df71a7a4b6ca6fade69bfc6ad6115a0073d7b1a313cfcb70fc996a0b8195f70d"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q29_run1.stdout.json.gz": {
+      "bytes": 12356,
+      "sha256": "fa6f2d6c2fad128fced6ad033b940ba481441ac0f716386da4a8bc05e2a330b0"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q30_run1.stdout.json.gz": {
+      "bytes": 11396,
+      "sha256": "f6ba166bd2597ba2e2da1f6096aba5589af43f6806db736aab02ca1c1fbd33a5"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q31_run1.stdout.json.gz": {
+      "bytes": 8408,
+      "sha256": "117589c8d6546fe0377566943cfca440e44384551e72be52f941de3f666ad63e"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q32_run1.stdout.json.gz": {
+      "bytes": 8223,
+      "sha256": "11f30887aa23fc77ae1491a8498a8dbdb9c921cc656ddbc40d1dcd49d5eaeb50"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q33_run1.stdout.json.gz": {
+      "bytes": 8238,
+      "sha256": "094dd31bbaec8ddcc825b66dddf5f5cb13dde519320090d366c6e1f05612fefd"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q34_run1.stdout.json.gz": {
+      "bytes": 7738,
+      "sha256": "3df1bee34a2e6c5392f7583ac99367ab8bdf18aec8bf061d9971b2dcc5a507af"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q35_run1.stdout.json.gz": {
+      "bytes": 7777,
+      "sha256": "e5917680b55a4c1254a8c3f0bdac0bc9cdf269c60137124099630bb16100ba28"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q36_run1.stdout.json.gz": {
+      "bytes": 8276,
+      "sha256": "bca84bd93fdfbcbb9cc777e72e065b93fb7ee1e1b48efacfc7a727f053f9ffe0"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q37_run1.stdout.json.gz": {
+      "bytes": 7796,
+      "sha256": "613828cf672140e1b42e4615fc3cf81d0b35d0e5f4b8df70345b9442f3aff72f"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q38_run1.stdout.json.gz": {
+      "bytes": 8189,
+      "sha256": "bc02cae9d9408138edc697f19f6640adbb1991aaec50b37a4226034eecb1b6f4"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q39_run1.stdout.json.gz": {
+      "bytes": 7556,
+      "sha256": "43c549d67a1fad290a74b7af2dad9d467383027001ddac9e9979e36e3f1eef7e"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q40_run1.stdout.json.gz": {
+      "bytes": 9488,
+      "sha256": "baea85d5b5a2958a753b3ecad9246429ff820a435eba8a1d87f0b6ce182a9ce6"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q41_run1.stdout.json.gz": {
+      "bytes": 7742,
+      "sha256": "0636ed26d6ae5dd2050b182fbf4da0ee6fb77c166382f7897b050bb709d7d883"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q42_run1.stdout.json.gz": {
+      "bytes": 7507,
+      "sha256": "294ee471ada518dfa4cd9a8365c63df99173de6a55dbe40937ccd035dde09b9d"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q43_run1.stdout.json.gz": {
+      "bytes": 7172,
+      "sha256": "42c40383277f356befffe2ee702665298d25d8bb20a050617271110d61f26fba"
+    },
+    "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/summary.json": {
+      "bytes": 536531,
+      "sha256": "cd5d841a1030de6528d6f73c166d78830c5f3310bf4a169657c74f4a8e5c591b"
+    },
+    "evidence/installed-wheel-current-r1/build.log": {
+      "bytes": 701,
+      "sha256": "70cf693913966a23e73336a24872c671417884962551a91595211e31d71b3891"
+    },
+    "evidence/installed-wheel-current-r1/create_environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "evidence/installed-wheel-current-r1/install.log": {
+      "bytes": 147,
+      "sha256": "2cc37c731f2f741b9313af881bae20b314bfd2f1282940aa494ea0cf5eecb717"
+    },
+    "evidence/installed-wheel-current-r1/install_optional_consumer.log": {
+      "bytes": 5729,
+      "sha256": "1ec385b3e27aecbf5863e6558fa45ceb919d7a57fc5d31b68f064cea53717f44"
+    },
+    "evidence/installed-wheel-current-r1/integration.json": {
+      "bytes": 89,
+      "sha256": "0bfc8c51fdee9e5749e6c70dd826ebadfc050b713c2eacaa1061012cc1806a74"
+    },
+    "evidence/installed-wheel-current-r1/integration.log": {
+      "bytes": 41275,
+      "sha256": "1a2afefdb1cbbd74ea979aee7214e2e5b3b66dcbc77832fb8d6e97dbc6c17ec6"
+    },
+    "evidence/installed-wheel-current-r1/load.log": {
+      "bytes": 636,
+      "sha256": "852ea86e4ad5c3bfe2321cb097fb83b4fe4d9d0f3df8a49c5eed96f32bda46e6"
+    },
+    "evidence/installed-wheel-current-r1/report.json": {
+      "bytes": 10237,
+      "sha256": "b672c953b2b420eb9e61d5426f4492fcd9c59459c38f2c9ab99062fc70b8626c"
+    },
+    "evidence/installed-wheel-current-r1/uninstall.log": {
+      "bytes": 118,
+      "sha256": "b2ab698dc010391dd64a2e76718ef168339bf96bcd6d2f14957a08eb4ebef3ca"
+    },
+    "evidence/installed-wheel-current-r1/verify_uninstalled.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "evidence/tools/full43_parquet_uat_r4.py": {
+      "bytes": 14472,
+      "sha256": "83fa7d23da715135161a9b2f85477bce775c0d9293c5469fc0402b7a0101cd28"
+    },
+    "evidence/tools/package_full43_checkpoint.py": {
+      "bytes": 10853,
+      "sha256": "98251272e894ac195fdf3986256c25be382fe8e95671299ed3e7c0e36defcaec"
+    },
+    "evidence/tools/record_full43_parquet_r4.py": {
+      "bytes": 6228,
+      "sha256": "39c75c16ade19547bd84d7443dfb33c2d1d27f246d59e0f9fd3af2d2732e1099"
+    },
+    "reference/independent-full43.json": {
+      "bytes": 454630,
+      "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+    },
+    "reference/queries.sql": {
+      "bytes": 8551,
+      "sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b"
+    },
+    "source/python/tests/test_complete_cohort_gain_policy.py": {
+      "bytes": 2758,
+      "sha256": "edf99a2c4a975de0541e1681820f6cd5cdd3911dfcd68793110117b0498ceb11"
+    },
+    "source/python/tests/test_native_shared_provider_binding.py": {
+      "bytes": 198127,
+      "sha256": "e9baee2d12389b39845eb63bd8b8473d4f380ab2ec4cd5d3a4d03f0bba1de6c8"
+    },
+    "source/scripts/clickbench_native_sql.py": {
+      "bytes": 9770,
+      "sha256": "964fb0799147650cda754c95240e5afea780b9bd89b5a46b91b2bc4a3a92d0ff"
+    },
+    "source/scripts/clickbench_reference_packet.py": {
+      "bytes": 4863,
+      "sha256": "8d20759e0b2d41dcdba4b9d4033abfa7961f888d62cdf3e3e2545d8482ba5102"
+    },
+    "source/scripts/native_workflow_protocol.py": {
+      "bytes": 7464,
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855"
+    },
+    "source/scripts/parquet_demand_completion_replay.py": {
+      "bytes": 10871,
+      "sha256": "6da6d113dc5a39b426f04fc3a56b72b02be6c0bc12a3836d9993a5d46222f6da"
+    },
+    "source/scripts/prove_native_python_wheel.py": {
+      "bytes": 11959,
+      "sha256": "4d2cac56a7218acb48d7a0cc5b455e104e80d9ebcf1bc8d4c46a80f1130d54f5"
+    },
+    "source/scripts/query_timing_report.py": {
+      "bytes": 4235,
+      "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1"
+    },
+    "source/scripts/run_clickbench_query_uat.py": {
+      "bytes": 28658,
+      "sha256": "cb1532a9a64021e6428077e5a9d878f7c40331957ff8aecdac9b2d1d5c6f8173"
+    },
+    "source/shardloom-core/src/temporal_operations.rs": {
+      "bytes": 30131,
+      "sha256": "a953f68f1627b4f6fe5ae7de688665287c5e37d3c23c9bc8022ed8c5aa37cdd1"
+    },
+    "source/shardloom-vortex/src/local_primitive_relational_aggregate_tests.rs": {
+      "bytes": 16960,
+      "sha256": "ed0c310205d7e3ce0968586abc5dc1e7c25aa37dedb2e1fc074e5b3c50255093"
+    },
+    "source/shardloom-vortex/src/local_primitive_result_batch.rs": {
+      "bytes": 31339,
+      "sha256": "811444f86aaa15df74ee964057305eb549001dca2aa49f561f06345c7b6c42bc"
+    },
+    "source/shardloom-vortex/src/local_primitive_result_expression_variable.rs": {
+      "bytes": 3298,
+      "sha256": "89572ca92bf6a08bc21af17d29abb4f632837134960de39bd3a03a4b146300b4"
+    },
+    "source/shardloom-vortex/src/local_primitive_result_expression_variable_tests.rs": {
+      "bytes": 8890,
+      "sha256": "f83637d99fcd572823a3c1646e4718b28228dfd2b8f89a10d3d7261578833b33"
+    },
+    "source/shardloom-vortex/src/local_primitive_result_numeric.rs": {
+      "bytes": 7937,
+      "sha256": "1079a6a66db72cb5af5a65b9025a873f2029e46809b4a7d51b2d106c894f7dc0"
+    },
+    "source/shardloom-vortex/src/local_primitive_result_variable.rs": {
+      "bytes": 4503,
+      "sha256": "16ff786ebf6ab32865833bdfb25955194bc652de762f62088c3a60883dc63e84"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_payload.rs": {
+      "bytes": 23994,
+      "sha256": "d2f8a9828b9fb90083fd2b5da9c55ce841aab4f40df6a0865cc428fc6ce7ec3a"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": {
+      "bytes": 17999,
+      "sha256": "acf1ffe676078bc2923b47fea1a1a02f9579cfccca36129fe6615276b8e9088e"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": {
+      "bytes": 1478,
+      "sha256": "3a686611dcda6a8a3dd1151fa4b87b06968ae48004df60997ba0523f2161c2e4"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_payload_variable_tests.rs": {
+      "bytes": 17763,
+      "sha256": "699371343590d3c6482a2ac481e9322239249c0cbd7556ebadc155c8f56630b2"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": {
+      "bytes": 57657,
+      "sha256": "389e9b1c801457e713521a05e10dc04b2a67e570aef9f0e026810e74ae4363d1"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact.rs": {
+      "bytes": 11636,
+      "sha256": "aa43bde5548abbe13cc48477893324b4d1293e49b1cdfc63b19768fd23b55eda"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact_state_tests.rs": {
+      "bytes": 13334,
+      "sha256": "b1562f591e11e6905a614ca0bc915d94c86d67f306942582691c4d2d7fdc70dc"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact_tests.rs": {
+      "bytes": 12482,
+      "sha256": "96ef761a3a5d1d402f32818b5c91649c38288ca89789401d571614b7d09336e2"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": {
+      "bytes": 4019,
+      "sha256": "230b28adca193c68e458187c47ae294e5cdc56d786037218cb541e8e5e87d065"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_pair.rs": {
+      "bytes": 8003,
+      "sha256": "93c2f20b932ad63358f3525b8b53d2e2ec720190a95717e433262c6e5e5229d8"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_pair_tests.rs": {
+      "bytes": 29252,
+      "sha256": "b24b937d667214cc5ab75b1810dd221f7c721e690d6cbd2b76fcc931519df75e"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_numeric_reuse.rs": {
+      "bytes": 4506,
+      "sha256": "a4ae0448fdb63d9806d1fd8e70ee203bd7a5b372899aa3715c9bd508f6899366"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+      "bytes": 24214,
+      "sha256": "6db7dcd7b05d6b2ef1b16b9035fa11bf21a8694795253391d20b819a66927709"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": {
+      "bytes": 4602,
+      "sha256": "ea8f4307fb64dc142e8ec7f4364a482c10fb30477527594f22e73add801106a8"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_expression.rs": {
+      "bytes": 29857,
+      "sha256": "7f945f70b0183a90ac757b42b8b56a7ce76c548a243cb486c56a4cdb612ac2b5"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_expression_numeric.rs": {
+      "bytes": 9906,
+      "sha256": "3589436d14e988acff0fbcb893df3b798209035fee25069fcd6d2c3db25ca0f3"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_expression_numeric_tests.rs": {
+      "bytes": 32026,
+      "sha256": "9885ff25f5d93f91a72bb746e1a3e76cb1d094c505ab381b2d1dd6e94b697e87"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_expression_reuse.rs": {
+      "bytes": 6410,
+      "sha256": "59a99710708387494b43089cee6b9f014ff1f52b42e926116e5d2949593929c9"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_expression_reuse_tests.rs": {
+      "bytes": 18433,
+      "sha256": "88a210586ba9a79ac33ac54ba91e551175d9a65f86c691ec2fca7fb4d295ea79"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_keys.rs": {
+      "bytes": 43031,
+      "sha256": "9719f5ccc782172b7d1b6a26aa204930bf68bd303ef8eafbf58e378a6e343263"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_observation.rs": {
+      "bytes": 4054,
+      "sha256": "3c7475237152596787c62f6932eb918657e04bea4d414275c76e4af3d17707b9"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_scalar.rs": {
+      "bytes": 24551,
+      "sha256": "bc35f63471281638fce568335677f4b1ec29983490be622ddcee1c54784da05c"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_set.rs": {
+      "bytes": 7590,
+      "sha256": "dce7a6c9a9470f134481b3e7e2a5aefb933b08614dab4296a6212d8304577eb5"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": {
+      "bytes": 17700,
+      "sha256": "86634642a206a3e55776e4581258e0728dc413145668330a2398dabeac0a2fc9"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_text.rs": {
+      "bytes": 5626,
+      "sha256": "069181d7549b89ef66c1c1a1e2d3935c0dba3dba4bc15e3ebc41e95aa53103e8"
+    },
+    "source/shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": {
+      "bytes": 8388,
+      "sha256": "c0a5b35a16aaff1eb455aa6693e5aeb59109d8605842bee60ea5c30957bf9745"
+    },
+    "source/vendor/vortex-array/src/arrays/varbinview/array.rs": {
+      "bytes": 55934,
+      "sha256": "dc3285347cd87cabbe0ca9c8124bae60450804119d4835e512d7b76fe3c1fe34"
+    },
+    "source/vendor/vortex-array/src/arrays/varbinview/tests.rs": {
+      "bytes": 10131,
+      "sha256": "4c804f08603b26d8a5db72304813827dced723a6b3480721c3c02728d4e784ca"
+    }
+  },
+  "original_path_map": {
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-direct-parquet-accepted-r4.json": "evidence/full43-direct-parquet-accepted-r4.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4-driver.json": "evidence/full43-parquet-r4-driver.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4-freeze.json": "evidence/full43-parquet-r4-freeze.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/summary.json": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/summary.json",
+    "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json": "reference/independent-full43.json",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/benchmarks/clickbench/queries.sql": "reference/queries.sql",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q01_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q01_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q02_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q02_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q03_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q03_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q04_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q04_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q05_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q05_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q06_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q06_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q07_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q07_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q08_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q08_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q09_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q09_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q10_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q10_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q11_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q11_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q12_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q12_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q13_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q13_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q14_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q14_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q15_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q15_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q16_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q16_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q17_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q17_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q18_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q18_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q19_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q19_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q20_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q20_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q21_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q21_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q22_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q22_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q23_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q23_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q24_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q24_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q25_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q25_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q26_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q26_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q27_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q27_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q28_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q28_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q29_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q29_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q30_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q30_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q31_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q31_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q32_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q32_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q33_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q33_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q34_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q34_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q35_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q35_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q36_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q36_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q37_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q37_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q38_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q38_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q39_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q39_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q40_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q40_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q41_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q41_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q42_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q42_run1.stdout.json.gz",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r4/logs/full43_20261029T035834986764Z/q43_run1.stdout.json.gz": "evidence/full43-parquet-r4/logs/full43_20261029T035834986764Z/q43_run1.stdout.json.gz",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_complete_cohort_gain_policy.py": "source/python/tests/test_complete_cohort_gain_policy.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/tests/test_native_shared_provider_binding.py": "source/python/tests/test_native_shared_provider_binding.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/parquet_demand_completion_replay.py": "source/scripts/parquet_demand_completion_replay.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-core/src/temporal_operations.rs": "source/shardloom-core/src/temporal_operations.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_aggregate_tests.rs": "source/shardloom-vortex/src/local_primitive_relational_aggregate_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_batch.rs": "source/shardloom-vortex/src/local_primitive_result_batch.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_expression_variable.rs": "source/shardloom-vortex/src/local_primitive_result_expression_variable.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_expression_variable_tests.rs": "source/shardloom-vortex/src/local_primitive_result_expression_variable_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_numeric.rs": "source/shardloom-vortex/src/local_primitive_result_numeric.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_result_variable.rs": "source/shardloom-vortex/src/local_primitive_result_variable.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload.rs": "source/shardloom-vortex/src/local_primitives/native_payload.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs": "source/shardloom-vortex/src/local_primitives/native_payload_validation_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs": "source/shardloom-vortex/src/local_primitives/native_payload_validation_text_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_payload_variable_tests.rs": "source/shardloom-vortex/src/local_primitives/native_payload_variable_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact_state_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact_state_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_compact_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_pair.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_pair.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_pair_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_extrema_pair_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_aggregate_numeric_reuse.rs": "source/shardloom-vortex/src/local_primitives/native_relational_aggregate_numeric_reuse.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_batch.rs": "source/shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_demand_hash_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_expression.rs": "source/shardloom-vortex/src/local_primitives/native_relational_expression.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_expression_numeric.rs": "source/shardloom-vortex/src/local_primitives/native_relational_expression_numeric.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_expression_numeric_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_expression_numeric_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_expression_reuse.rs": "source/shardloom-vortex/src/local_primitives/native_relational_expression_reuse.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_expression_reuse_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_expression_reuse_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_keys.rs": "source/shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_observation.rs": "source/shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_scalar.rs": "source/shardloom-vortex/src/local_primitives/native_relational_scalar.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_set.rs": "source/shardloom-vortex/src/local_primitives/native_relational_set.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_set_inline_cache_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_text.rs": "source/shardloom-vortex/src/local_primitives/native_relational_text.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs": "source/shardloom-vortex/src/local_primitives/native_relational_value_preparation_tests.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array/src/arrays/varbinview/array.rs": "source/vendor/vortex-array/src/arrays/varbinview/array.rs",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/vendor/vortex-array/src/arrays/varbinview/tests.rs": "source/vendor/vortex-array/src/arrays/varbinview/tests.rs",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e331b-compact-native-clippy.json": "evidence/e331b-compact-native-clippy.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e331b-compact-native-clippy.log": "evidence/e331b-compact-native-clippy.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e332-compact-native-suite.json": "evidence/e332-compact-native-suite.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e332-compact-native-suite.log": "evidence/e332-compact-native-suite.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e333-compact-format-check.json": "evidence/e333-compact-format-check.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e333-compact-format-check.log": "evidence/e333-compact-format-check.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e334-compact-workspace-clippy.json": "evidence/e334-compact-workspace-clippy.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e334-compact-workspace-clippy.log": "evidence/e334-compact-workspace-clippy.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e335-compact-workspace-tests.json": "evidence/e335-compact-workspace-tests.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e335-compact-workspace-tests.log": "evidence/e335-compact-workspace-tests.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e336-compact-group-release.json": "evidence/e336-compact-group-release.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e336-compact-group-release.log": "evidence/e336-compact-group-release.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e350-full43-r4-replay.json": "evidence/e350-full43-r4-replay.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e350-full43-r4-replay.log": "evidence/e350-full43-r4-replay.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e351-current-installed-wheel.json": "evidence/e351-current-installed-wheel.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e351-current-installed-wheel.log": "evidence/e351-current-installed-wheel.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/build.log": "evidence/installed-wheel-current-r1/build.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/create_environment.log": "evidence/installed-wheel-current-r1/create_environment.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/install_optional_consumer.log": "evidence/installed-wheel-current-r1/install_optional_consumer.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/install.log": "evidence/installed-wheel-current-r1/install.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/load.log": "evidence/installed-wheel-current-r1/load.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/integration.log": "evidence/installed-wheel-current-r1/integration.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/uninstall.log": "evidence/installed-wheel-current-r1/uninstall.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/verify_uninstalled.log": "evidence/installed-wheel-current-r1/verify_uninstalled.log",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/report.json": "evidence/installed-wheel-current-r1/report.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-wheel-current-r1/integration.json": "evidence/installed-wheel-current-r1/integration.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-disposition.json": "evidence/compact-group-disposition.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-protocol-r1.json": "evidence/compact-group-protocol-r1.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-public-checks-r1.json": "evidence/compact-group-public-checks-r1.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-heldout-r1-replay.json": "evidence/compact-group-heldout-r1-replay.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-compact-group-r1-comparison.json": "evidence/broad-compact-group-r1-comparison.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-direct-parquet-incomplete-r2.json": "evidence/full43-direct-parquet-incomplete-r2.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json": "evidence/full43-direct-parquet-incomplete-r3.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r1-driver.json": "evidence/full43-parquet-r1-driver.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-q33-r1-acceptance.json": "evidence/compact-group-q33-r1-acceptance.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/candidate-compact-group-release-r1/manifest.json": "evidence/candidate-compact-group-release-r1/manifest.json",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/record_full43_parquet_r4.py": "evidence/tools/record_full43_parquet_r4.py",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/full43_parquet_uat_r4.py": "evidence/tools/full43_parquet_uat_r4.py",
+    "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/package_full43_checkpoint.py": "evidence/tools/package_full43_checkpoint.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_query_uat.py": "source/scripts/run_clickbench_query_uat.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/clickbench_native_sql.py": "source/scripts/clickbench_native_sql.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/clickbench_reference_packet.py": "source/scripts/clickbench_reference_packet.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/native_workflow_protocol.py": "source/scripts/native_workflow_protocol.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/query_timing_report.py": "source/scripts/query_timing_report.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/prove_native_python_wheel.py": "source/scripts/prove_native_python_wheel.py"
+  },
+  "archive_readback_verified": true,
+  "query_reexecutions": 0,
+  "publication_attempted": false,
+  "item_20_complete": false,
+  "hosted_acceptance": "separate",
+  "limitations": [
+    "Source identities and saved outcomes are internally checked, not signed provenance.",
+    "The archive retains raw Full43 results, reference, source snapshots and current check/install logs.",
+    "347-query and held-out outcomes are linked summaries; their full local replay is recorded in the disposition.",
+    "Large input, executable and wheel payloads are excluded; their exact identities are retained.",
+    "Whole-item20 combined portable acceptance and remaining capabilities are not claimed."
+  ]
+}

@@ -429,12 +429,13 @@ own maintainer authorization.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
-The latest October 28 maintainer instruction keeps the shared-numeric-values
-work and remaining item-20 checklist together in PR #1619, held open through
-implementation and combined acceptance, with logical commits and validation
-checkpoints inside it. Split only at a concrete compatibility, dependency,
-generated-artifact or verification boundary; size alone is not a reason. Item 18
-and the subsequent 1.1.0 release retain their separate scope and sequence.
+The latest maintainer instruction after the direct-Parquet Full43 follow-up
+authorizes merging the validated shared-execution checkpoint in PR #1619 and
+continuing item 20 in subsequent cohesive PRs as needed. It supersedes the earlier
+October 28 hold-open instruction; it does not mark the remaining checklist or
+whole-program combined acceptance complete. Preserve logical commits and
+prospective validation checkpoints. Item 18 and the subsequent 1.1.0 release
+retain their separate scope and sequence.
 
 The October 22 maintainer instruction is to finish the required work and gated
 investigations above, with one isolated standard Full43 pass after each coherent
@@ -747,14 +748,28 @@ visible and independent; this implementation does not automatically close them.
     **0.124005871-second loss** against the preceding checkpoint; its optimization
     benefit gate fails. Retain this required memory correction without a speedup
     claim, preserving both offline validation-helper corrections and every saved
-    observation. A fresh complete Full43 and remaining combined acceptance stay open.
+    observation. The subsequent
+    [current-runtime UAT](../benchmarks/native-analytical-checkpoint-2026-10-28.md)
+    passes all 43 direct-Parquet queries and 381 complete rows at
+    **651.558161209 engine seconds**, one execution each, with no ingest or
+    prepared-input writes. Independent saved-result/clock replay, original input
+    identity and process cleanup pass. The identical current runtime passes 207
+    installed-wheel integration tests without skips and verifies uninstall.
+    Historical prepared-Vortex Full43 observations retain their different input
+    boundary; this is no matched speedup/regression ratio. The source trace shows
+    demanded Parquet batches use shared relational execution while eligible
+    prepared Vortex plans can select additional encoded file strategies. Carry
+    source-aware provider reachability, format decoding, metadata pushdown and
+    preparation/reuse attribution into the next measured work unit; do not assume
+    the entire gap is I/O or require ingest for correct direct execution.
     The October 28 maintainer follow-up prioritizes measured shared grouping,
     projection and join costs, then shared-intermediate reuse and plan traversal
     where source and workload evidence warrants them. Recursive CTEs and structural
     limit removal retain their capability/scalability scope; do not assume they
     accelerate the current cohort. This priority preserves every remaining
     capability, workflow and combined-acceptance requirement.
-    Continue the full item-20 work in the same PR #1619. Retain the dropped
+    The latest maintainer instruction closes PR #1619 at this validated checkpoint
+    and continues the remaining item-20 work in subsequent cohesive PRs. Retain the dropped
     counted-join, fused-measure and retained-output decisions. The later
     maintainer gain/loss decision reopens cutoff-only borrowed-output and
     expression drops for current-source integration and acceptance.

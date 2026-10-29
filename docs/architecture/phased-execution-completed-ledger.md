@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Shared analytical execution — current local UAT checkpoint`
+  — the [October 28 checkpoint](../benchmarks/native-analytical-checkpoint-2026-10-28.md)
+  validates the current shared native runtime with 5,057 native tests (35 existing
+  opt-in ignores), 3,274 workspace tests, strict lint/formatting, seven five-interface
+  public regressions, 160 fresh independently replayed observations and 207 installed
+  package tests without skips. Installed CLI/library hashes match the measured runtime.
+  - One isolated direct-Parquet Full43 passes all 43 queries and 381 complete rows at
+    651.558161209 engine seconds. No ingest or prepared-input write occurs. Source,
+    reference, raw result/clock and cleanup checks pass; all earlier incomplete attempts
+    remain recorded. The current 347-query checkpoint is 15.304317834 engine seconds;
+    the required group-memory correction costs 0.124005871 seconds against the preceding
+    checkpoint and carries no speedup claim.
+  - The maintainer requests closing PR #1619 at this checkpoint and continuing the
+    remaining work in subsequent cohesive PRs. Hosted acceptance is recorded separately.
+    Item 20, item 18/19, the under-ten-second objective and CG-1 through CG-23 remain open.
+    Different-input historical Vortex timings remain distinct; preparation/reuse and
+    source-aware provider coverage are follow-up attribution work. No publication occurs.
+
 - [x] `Shared numeric values — local acceptance`
   — the [October 28 acceptance](../benchmarks/native-shared-numeric-values-2026-10-28.md)
   combines original-width numeric MIN/MAX updates with independently owned, validated numeric
@@ -32,8 +50,9 @@ phase plan first.
   verified retirement removes 23,269 completed regular files and six environment links while
   retaining the accepted runtime/wheel, current inputs and complete evidence. Hosted acceptance
   remains separate. The maintainer accepts the substantial net gain with the
-  original flag recorded. Item 20 and CG-1 through CG-23 remain open; the remaining item-20 work
-  is consolidated into one completion PR by default. No competitor/Full43 run or publication occurs.
+  original flag recorded. Item 20 and CG-1 through CG-23 remain open. The later maintainer
+  delivery decision above supersedes the original one-completion-PR instruction.
+  No competitor/Full43 run or publication occurred in this numeric checkpoint.
 
 - [x] `Shared key lookup and join build addressing — local acceptance`
   — the [October 28 decision](../benchmarks/native-shared-key-lookup-2026-10-28.md)

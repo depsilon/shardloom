@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "checkpoint": "full43-checkpoint-r4",
+  "contribution_governance": "passed",
+  "local_markdown_links": {
+    "checked": 479,
+    "missing": 0
+  },
+  "architecture_tracker": {
+    "status": "blocked",
+    "exit_code": 1,
+    "reason": "phase plan has unchecked items: 76",
+    "missing_inputs": 0,
+    "unmapped_burn_down_blockers": 0,
+    "interpretation": "Expected open development queue; no release or public-readiness claim. This does not mark remaining obligations complete."
+  },
+  "original_receipts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e353-checkpoint-contribution.json",
+      "bytes": 3140,
+      "sha256": "9b228ae7ccf52cd667cf537dcf1fe4ea15207c9f5e078decf7d65250d173bf3a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e354-checkpoint-architecture.json",
+      "bytes": 3145,
+      "sha256": "917176d9da01c60044266afbc481f9e097a61614f47e08abe598278574622a4a"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/target/release-architecture-tracker-report.json",
+      "bytes": 46024,
+      "sha256": "4c7da0a271acd3e14ca111b072b286cb4ea8747d179417f68a243954bc97475a"
+    }
+  ],
+  "runtime_changed_after_uat": false,
+  "publication_attempted": false,
+  "latest_maintainer_delivery": "Merge the accepted current checkpoint in PR1619 after hosted checks; continue remaining item20 in subsequent cohesive PRs."
+}

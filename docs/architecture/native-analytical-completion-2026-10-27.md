@@ -48,15 +48,14 @@ CG-1 through CG-23 retain their independent acceptance and authorization.
 
 ## Remaining completion checklist
 
-The October 28 maintainer continuation keeps the shared-numeric-values work
-and the remaining item-20 obligations together in PR #1619. Hold that PR open
-through implementation and combined acceptance. Use logical commits, prospective
-measurement protocols and validation checkpoints inside that PR; individual
-optimizations or public interfaces do not require separate PRs. Split only for
-a concrete compatibility, dependency, generated-artifact or verification boundary
-that makes the combined change harder to review or trust. This delivery decision
-does not reduce the checklist or move item 18's I/O work or the 1.1.0 release into
-item 20.
+The latest maintainer instruction, after the direct-Parquet Full43 follow-up,
+closes PR #1619 at the validated shared-execution checkpoint and continues the
+remaining work in subsequent cohesive PRs as needed. This supersedes the earlier
+October 28 instruction to hold that PR open through all item-20 implementation
+and combined acceptance. Preserve prospective measurement protocols and logical
+validation checkpoints; individual optimizations or public interfaces still do
+not require separate PRs. The delivery change does not complete the checklist or
+move item 18's I/O work or the 1.1.0 release into item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
@@ -444,8 +443,35 @@ now passes all ten rows at **66.174310876 engine seconds** under the original
 24-GiB/12-lane/120-second declaration. The wrapper's incorrect requirement for
 the Full43-only validation flag is preserved and corrected by independent replay
 of the same saved result. No source, reference, query observation or deadline was
-replaced. This targeted check is not a Full43 result; a fresh complete pass remains
-required, along with the remaining item-20 and combined acceptance obligations.
+replaced. This targeted check is not a Full43 result.
+
+The subsequent [current-runtime UAT checkpoint](../benchmarks/native-analytical-checkpoint-2026-10-28.md)
+passes the complete direct-Parquet Full43 at **651.558161209 engine seconds**,
+one execution per query, with all **381 rows** independently replayed. It uses
+the original 99,997,497-row Parquet file with no ingest or prepared-input writes.
+The original limits, isolated supervision, immutable reference, source identity
+and cleanup checks pass. Q30 and Q33 pass in this complete observation at
+36.271361250 and 53.009211958 engine seconds, respectively. The earlier failures
+and focused observations remain distinct. The current installed wheel passes
+207 integration tests without skips and verifies uninstall; its native library
+and CLI are byte-identical to the Full43 runtime. This closes the current local
+UAT checkpoint, not all item-20 capabilities or whole-program portable acceptance.
+
+The source-aware follow-up distinguishes two existing native routes. Direct
+Parquet supplies demanded decoded batches to the shared relational operators;
+the prepared-file strategy selector currently requires one prepared Vortex
+source and no memory or batch sources. Eligible prepared Vortex plans can use
+additional encoded count, aggregate, sort and projection strategies after typed
+semantic admission. All 43 direct-Parquet records report the batch-source route.
+Thus the observed difference from historical prepared-Vortex runs is not
+attributable to I/O alone, and those different-input observations are not a
+matched regression comparison. Investigate format decoding, retained layouts,
+metadata/selection pushdown and shared provider reachability as separate causes.
+Use ordinary public declarations and source capabilities to select admitted
+native execution; never dispatch by benchmark identity or frontend. Explicit
+durable preparation and reuse remain supported, with preparation separate from
+query engine timing. Preserve the direct-source result as first-use evidence
+while a later prepared-source control establishes current-runtime reuse behavior.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
@@ -704,8 +730,9 @@ typed SUM/AVG updates, completed-expression reuse, and all existing behavior.
    10.43%; the original isolated case flag remains, and its bounded diagnostic
    does not reproduce it. Complete 80-case fresh correctness, 202 installed
    package tests, 30 corruption controls and isolated portable replay pass.
-   Numeric hosted acceptance remains separate; continue the remaining item-20
-   work, including the expression package, in the same consolidated PR #1619.
+   Numeric hosted acceptance was separate at that checkpoint. The later current
+   UAT and maintainer delivery decision above govern PR #1619 closeout; the
+   remaining item-20 work continues in subsequent cohesive PRs.
 3. **Reduce expression construction and reuse work.** For UTF-8/binary
    results, replace repeated callback evaluation in sizing and writing with
    single evaluation using bounded, accounted staging or a native append path.
@@ -730,7 +757,8 @@ observations and 3,280,220 complete result rows. Candidate runtime and test
 changes were removed, restoring the accepted numeric implementation; local evidence retains the
 removal patch and source inventory for the consolidated acceptance packet.
 The accepted numeric baseline is unchanged.
-Full item 20 continues in consolidated PR #1619.
+The later current-source recovery and UAT records above supersede this original
+candidate disposition. Remaining item-20 obligations continue after PR #1619.
 
 The exact group-key cache candidate follows its frozen
 [prospective protocol](../benchmarks/evidence/native-item20-completion-2026-10-28/group-key-cache-protocol.json).
