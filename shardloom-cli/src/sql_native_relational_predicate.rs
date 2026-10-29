@@ -125,6 +125,7 @@ fn source_outer(
         ParsedRelationSource::Local(_) => Ok(false),
         ParsedRelationSource::Derived(query) => query_outer(query, inputs),
         ParsedRelationSource::Unary(unary) => query_outer(&unary.input, inputs),
+        ParsedRelationSource::GapFill(fill) => query_outer(&fill.input, inputs),
     }
 }
 
@@ -162,6 +163,7 @@ pub(super) fn query_outer(
                 match source {
                     ParsedRelationSource::Derived(query) => pending.push(query),
                     ParsedRelationSource::Unary(unary) => pending.push(&unary.input),
+                    ParsedRelationSource::GapFill(fill) => pending.push(&fill.input),
                     ParsedRelationSource::Local(_) => {}
                 }
             }

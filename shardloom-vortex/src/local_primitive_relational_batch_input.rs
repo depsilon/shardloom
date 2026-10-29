@@ -1081,6 +1081,11 @@ fn source_usage(
         VortexRelationalPlan::Window(window) => {
             return source_usage(&window.input, uri, depth + 1, dynamic, outer_scope);
         }
+        VortexRelationalPlan::GapFill(fill) => {
+            // The existing sort consumes its finite source exactly once. Grid
+            // expansion reads owned sorted batches and never reopens the source.
+            return source_usage(&fill.input, uri, depth + 1, dynamic, outer_scope);
+        }
         VortexRelationalPlan::Join(join) => {
             let left = source_usage(&join.left, uri, depth + 1, dynamic, outer_scope)?;
             let right = source_usage(&join.right, uri, depth + 1, dynamic, outer_scope)?;

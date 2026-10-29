@@ -48,6 +48,7 @@ impl<'a> Node<'a> {
             }
             Self::Source(Source::Derived(query)) => pending.push(Self::Query(query)),
             Self::Source(Source::Unary(unary)) => pending.push(Self::Query(&unary.input)),
+            Self::Source(Source::GapFill(fill)) => pending.push(Self::Query(&fill.input)),
             Self::Scalar(value) => {
                 pending.extend(
                     value
@@ -327,6 +328,8 @@ impl Node<'_> {
                     + usize::from(select.order_by.is_some())
             }
             Self::Query(Query::Set(_)) | Self::Source(Source::Unary(_)) => 1,
+            // Native gap filling owns an input sort and the expanding node.
+            Self::Source(Source::GapFill(_)) => 2,
             Self::Predicate(value) => usize::from(super::predicate::has_subquery(value)),
             Self::Scalar(value) => usize::from(value.bindings.iter().any(|(_, binding)| {
                 !matches!(binding, scalar_expression::RelationalBinding::Parameter(_))

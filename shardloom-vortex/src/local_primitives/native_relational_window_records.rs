@@ -75,7 +75,11 @@ impl Kind {
                     _ => Self::Source,
                 }
             }
-            Function::Lag { .. } | Function::Lead { .. } => Self::Source,
+            Function::Fill {
+                method: crate::relational_query::VortexRelationalFillMethod::Linear,
+                ..
+            } => Self::NullableFloat,
+            Function::Lag { .. } | Function::Lead { .. } | Function::Fill { .. } => Self::Source,
             Function::PercentRank | Function::CumeDist => Self::Float,
             _ => Self::Integer,
         })
@@ -157,7 +161,7 @@ impl Layout {
     ) -> Result<Self> {
         let needed = |name: &String| {
             spec.keys.contains(name) || spec.columns.contains(name)
-            || spec.functions.iter().any(|function| matches!(function, Function::Lag { column, .. } | Function::Lead { column, .. } if column.as_str() == name))
+            || spec.functions.iter().any(|function| matches!(function, Function::Lag { column, .. } | Function::Lead { column, .. } | Function::Fill { column, .. } if column.as_str() == name))
             || spec.frames.iter().flatten().any(|frame| frame.column.as_ref() == Some(name))
         };
         let bytes = input

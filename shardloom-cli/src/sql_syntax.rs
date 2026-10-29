@@ -7,7 +7,8 @@ use shardloom_core::{
     evaluate_expression, parse_iso_date32, parse_iso_timestamp_micros,
 };
 use shardloom_vortex::{
-    query_primitive::VortexQuantileLevel, relational_query::VortexRelationalWindowFrame,
+    query_primitive::VortexQuantileLevel,
+    relational_query::{VortexRelationalFillMethod, VortexRelationalWindowFrame},
 };
 
 #[path = "sql_grouping_syntax.rs"]
@@ -427,6 +428,10 @@ enum WindowFunction {
     NthValue {
         expression: scalar_expression::ParsedScalarExpression,
         index: u64,
+    },
+    Fill {
+        expression: scalar_expression::ParsedScalarExpression,
+        method: VortexRelationalFillMethod,
     },
 }
 
@@ -4137,6 +4142,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
                 | WindowFunction::FirstValue(_)
                 | WindowFunction::LastValue(_)
                 | WindowFunction::NthValue { .. }
+                | WindowFunction::Fill { .. }
         )
     {
         return Err(unsupported_sql_error(
@@ -4178,6 +4184,24 @@ fn parse_window_function(raw: &str) -> Result<Option<WindowFunction>, ShardLoomE
     }
     if let Some(aggregate) = parse_aggregate_projection(raw)? {
         return Ok(Some(WindowFunction::Aggregate(aggregate)));
+    }
+    for (name, method) in [
+        ("forward_fill", VortexRelationalFillMethod::Forward),
+        ("backward_fill", VortexRelationalFillMethod::Backward),
+        ("interpolate_linear", VortexRelationalFillMethod::Linear),
+    ] {
+        if let Some(arguments) = parse_window_function_args(raw, name)? {
+            let args = split_sql_csv(arguments)?;
+            if args.len() != 1 {
+                return Err(unsupported_sql_error(&format!(
+                    "{name} window function requires exactly one scalar expression",
+                )));
+            }
+            return Ok(Some(WindowFunction::Fill {
+                expression: scalar_expression::parse(&args[0], "window.argument")?,
+                method,
+            }));
+        }
     }
     window_frames::parse_value_function(raw)
 }

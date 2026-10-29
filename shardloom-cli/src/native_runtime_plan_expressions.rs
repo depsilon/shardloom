@@ -66,6 +66,7 @@ pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
         }
         Plan::Aggregate(node) => visit(&mut node.input, nodes)?,
         Plan::Window(node) => visit(&mut node.input, nodes)?,
+        Plan::GapFill(node) => visit(&mut node.input, nodes)?,
         Plan::Unary(node) => visit(&mut node.input, nodes)?,
         Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
             visit(&mut node.input, nodes)?;

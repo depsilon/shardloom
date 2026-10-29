@@ -99,6 +99,81 @@ impl TemporalUnit {
     }
 }
 
+/// Positive spacing between anchored temporal grid points. The declaration is
+/// available without enabling calendar execution; binding validates its domain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TemporalGridStep {
+    Duration {
+        value: u64,
+        unit: TemporalUnit,
+    },
+    CalendarDays {
+        value: u64,
+        ambiguity: Ambiguity,
+    },
+    CalendarMonths {
+        value: u64,
+        month_end: civil::MonthEnd,
+        ambiguity: Ambiguity,
+    },
+}
+
+impl TemporalGridStep {
+    /// Parse inert grid controls shared by scalar and relational declarations.
+    /// Domain precision and origin validity are checked by the bound kernel.
+    ///
+    /// # Errors
+    /// Rejects zero/unsupported spacing, unknown units and irrelevant policies.
+    pub fn from_parts(
+        value: u64,
+        unit: &str,
+        month_end: civil::MonthEnd,
+        ambiguity: Ambiguity,
+    ) -> Result<Self> {
+        if value == 0 {
+            return Err(failed("temporal grid spacing must be positive"));
+        }
+        let months = unit.eq_ignore_ascii_case("calendar_months");
+        let days = unit.eq_ignore_ascii_case("calendar_days");
+        if month_end != civil::MonthEnd::Reject && !months {
+            return Err(failed(
+                "month-end policy applies only to calendar-month grids",
+            ));
+        }
+        if months || days {
+            if i64::try_from(value).is_err() {
+                return Err(failed(
+                    "calendar grid spacing requires a positive signed-64-bit count",
+                ));
+            }
+            return Ok(if months {
+                Self::CalendarMonths {
+                    value,
+                    month_end,
+                    ambiguity,
+                }
+            } else {
+                Self::CalendarDays { value, ambiguity }
+            });
+        }
+        if ambiguity != Ambiguity::Reject {
+            return Err(failed("ambiguity policy applies only to calendar grids"));
+        }
+        let unit = [
+            TemporalUnit::Seconds,
+            TemporalUnit::Milliseconds,
+            TemporalUnit::Microseconds,
+            TemporalUnit::Nanoseconds,
+        ]
+        .into_iter()
+        .find(|candidate| candidate.as_str().eq_ignore_ascii_case(unit))
+        .ok_or_else(|| {
+            failed("grid unit requires s, ms, us, ns, calendar_days or calendar_months")
+        })?;
+        Ok(Self::Duration { value, unit })
+    }
+}
+
 /// A temporal domain. A timezone-bearing timestamp stores epoch ticks; a
 /// timezone-free timestamp stores civil ticks without an inferred host zone.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -176,6 +176,51 @@ def _render_stages(
             statement = f"SELECT * FROM {source} LIMIT {count}{offset_clause}"
         elif kind == "distinct":
             statement = f"SELECT * FROM DISTINCT_ROWS(({statement}), '*') AS _sl_stage_{index}"
+        elif kind == "gap_fill":
+            if len(values) != 9:
+                return None
+            time, every, unit, by, start, end, origin, month_end, ambiguity = values
+            try:
+                time = q._normalize_temporal_grid_column(time, "time")
+                spacing = int(every)
+                if str(spacing) != every or not 0 < spacing <= (1 << 63) - 1:
+                    return None
+                if q._normalize_temporal_grid_unit(unit) != unit:
+                    return None
+                keys = tuple(by.split(",")) if by else ()
+                normalized_keys = tuple(
+                    q._normalize_temporal_grid_column(key, "partition key") for key in keys
+                )
+                if (normalized_keys != keys or len(set(keys)) != len(keys)
+                        or time in keys):
+                    return None
+                if q._normalize_temporal_grid_policies(month_end, ambiguity) != (
+                    month_end, ambiguity,
+                ):
+                    return None
+                bounds: list[str] = []
+                for bound in (start, end, origin):
+                    if bound == "NULL":
+                        bounds.append("NULL")
+                        continue
+                    ticks = int(bound)
+                    if str(ticks) != bound or not -(1 << 63) <= ticks <= (1 << 63) - 1:
+                        return None
+                    bounds.append(str(ticks))
+            except (TypeError, ValueError):
+                return None
+            argument = ", ".join((
+                q._sql_string_literal(time),
+                str(spacing),
+                q._sql_string_literal(unit),
+                q._sql_string_function_literal(
+                    "gap fill partition keys", by, allow_empty=True,
+                ),
+                *bounds,
+                q._sql_string_literal(month_end),
+                q._sql_string_literal(ambiguity),
+            ))
+            statement = f"SELECT * FROM GAP_FILL(({statement}), {argument}) AS _sl_stage_{index}"
         elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window", "explode", "pivot"}:
             if kind == "tail":
                 function, argument = "TAIL", values[0]

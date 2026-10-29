@@ -2,17 +2,20 @@
 
 use super::{expression::NativeExpression, native_error};
 use pyo3::{exceptions::PyValueError, prelude::*};
-use shardloom_core::{ColumnRef, ComparisonOp};
+use shardloom_core::{
+    ColumnRef, ComparisonOp,
+    temporal::{Ambiguity, TemporalGridStep, civil::MonthEnd},
+};
 use shardloom_runtime::native::NativeRelationDeclaration;
 use shardloom_vortex::relational_query::{
     VortexRelationalAggregate, VortexRelationalAsOfDirection, VortexRelationalAsOfJoin,
-    VortexRelationalAsOfOptions, VortexRelationalFilter, VortexRelationalGroupingIndicator,
-    VortexRelationalGroupingSets, VortexRelationalJoin, VortexRelationalJoinColumn,
-    VortexRelationalJoinKey, VortexRelationalJoinKind, VortexRelationalLimit,
-    VortexRelationalNullOrder, VortexRelationalOrderKey, VortexRelationalPlan as Plan,
-    VortexRelationalProject, VortexRelationalQuantifier, VortexRelationalSet,
-    VortexRelationalSetKind, VortexRelationalSide, VortexRelationalSort, VortexRelationalSubquery,
-    VortexRelationalSubqueryKind, VortexRelationalWindow,
+    VortexRelationalAsOfOptions, VortexRelationalFilter, VortexRelationalGapFill,
+    VortexRelationalGroupingIndicator, VortexRelationalGroupingSets, VortexRelationalJoin,
+    VortexRelationalJoinColumn, VortexRelationalJoinKey, VortexRelationalJoinKind,
+    VortexRelationalLimit, VortexRelationalNullOrder, VortexRelationalOrderKey,
+    VortexRelationalPlan as Plan, VortexRelationalProject, VortexRelationalQuantifier,
+    VortexRelationalSet, VortexRelationalSetKind, VortexRelationalSide, VortexRelationalSort,
+    VortexRelationalSubquery, VortexRelationalSubqueryKind, VortexRelationalWindow,
 };
 use std::sync::Arc;
 
@@ -84,6 +87,44 @@ impl NativeRelation {
     #[staticmethod]
     fn outer() -> PyResult<Self> {
         Self::node(Plan::Outer)
+    }
+
+    /// Fill missing aligned time points through the shared native grid owner.
+    /// Bounds and origin are source-domain ticks; generated payloads are NULL.
+    #[pyo3(signature = (time, every, unit, *, by=Vec::new(), start=None, end=None, origin=None, month_end="reject", ambiguity="reject"))]
+    #[allow(clippy::too_many_arguments)] // Explicit keyword-only grid controls match the native declaration.
+    fn gap_fill(
+        &self,
+        time: String,
+        every: i64,
+        unit: &str,
+        by: Vec<String>,
+        start: Option<i64>,
+        end: Option<i64>,
+        origin: Option<i64>,
+        month_end: &str,
+        ambiguity: &str,
+    ) -> PyResult<Self> {
+        let month_end = MonthEnd::parse(month_end)
+            .ok_or_else(|| PyValueError::new_err("month_end must be reject or clamp"))?;
+        let ambiguity = Ambiguity::parse(ambiguity)
+            .ok_or_else(|| PyValueError::new_err("ambiguity must be reject, earlier or later"))?;
+        let every = u64::try_from(every)
+            .map_err(|_| PyValueError::new_err("grid spacing must be positive"))?;
+        let step = TemporalGridStep::from_parts(every, unit, month_end, ambiguity)
+            .map_err(native_error)?;
+        self.compose(
+            Plan::GapFill(Box::new(VortexRelationalGapFill {
+                input: Plan::Input(0),
+                time: column(time)?,
+                partition_by: by.into_iter().map(column).collect::<PyResult<_>>()?,
+                step,
+                start,
+                end,
+                origin,
+            })),
+            None,
+        )
     }
 
     fn window(

@@ -1,5 +1,7 @@
 //! Bind window key domains, navigation types and reusable partition ordering.
 
+#[path = "local_primitive_relational_window_fill_bind.rs"]
+mod fills;
 #[path = "local_primitive_relational_window_frame_bind.rs"]
 mod frames;
 
@@ -46,6 +48,7 @@ impl Binder<'_> {
             functions: vec![],
             groups: vec![],
             frames: vec![],
+            fills: vec![],
             ordering_keys: 0,
         };
         for expression in &window.expressions {
@@ -57,17 +60,32 @@ impl Binder<'_> {
         // floating values outside their admitted observations.
         spec.ordering_keys = spec.keys.len();
         for expression in &window.expressions {
-            let (frame, dtype) = if let Function::Framed(declaration) = &expression.function {
-                let (frame, dtype) =
-                    frames::bind(declaration, expression, &input.fields, &mut spec, self)?;
-                (Some(frame), dtype)
-            } else {
-                if let Some(frame) = &expression.frame {
-                    frames::policy(frame, expression, &input.fields, &mut spec, self)?;
-                }
-                (None, function_dtype(&expression.function, &input.fields)?)
-            };
+            let (frame, fill, dtype) =
+                if let Function::Fill { column, method } = &expression.function {
+                    let (fill, dtype) = fills::bind(
+                        column.as_str(),
+                        *method,
+                        expression,
+                        &input.fields,
+                        &mut spec,
+                    )?;
+                    (None, Some(fill), dtype)
+                } else if let Function::Framed(declaration) = &expression.function {
+                    let (frame, dtype) =
+                        frames::bind(declaration, expression, &input.fields, &mut spec, self)?;
+                    (Some(frame), None, dtype)
+                } else {
+                    if let Some(frame) = &expression.frame {
+                        frames::policy(frame, expression, &input.fields, &mut spec, self)?;
+                    }
+                    (
+                        None,
+                        None,
+                        function_dtype(&expression.function, &input.fields)?,
+                    )
+                };
             spec.frames.push(frame);
+            spec.fills.push(fill);
             fields.push((expression.output_column.clone(), dtype));
         }
         validate_unique(&fields)?;
@@ -153,9 +171,9 @@ pub(super) fn input_columns(spec: &kernel::Spec) -> impl Iterator<Item = &str> {
         .map(String::as_str)
         .chain(spec.functions.iter().flat_map(|function| {
             let (first, second) = match function {
-                Function::Lag { column, .. } | Function::Lead { column, .. } => {
-                    (Some(column), None)
-                }
+                Function::Lag { column, .. }
+                | Function::Lead { column, .. }
+                | Function::Fill { column, .. } => (Some(column), None),
                 Function::Framed(function) => (
                     function.column(),
                     match function {
@@ -221,6 +239,7 @@ fn function_dtype(function: &Function, fields: &[(String, DType)]) -> Result<DTy
             return Err(failed("NTILE bucket count must be positive"));
         }
         Function::Framed(_) => return Err(failed("framed window requires bound frame policy")),
+        Function::Fill { .. } => return Err(failed("fill window requires bound temporal policy")),
         _ => DType::Primitive(PType::I64, Nullability::NonNullable),
     })
 }

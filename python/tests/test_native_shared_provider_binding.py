@@ -77,6 +77,34 @@ def statistical_reference(rows):
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
+    def test_time_grid_units_match_all_five_surfaces(self):
+        if __package__:
+            from .native_time_grid_cases import check_units
+        else:
+            from native_time_grid_cases import check_units
+        check_units(self)
+
+    def test_time_grid_calendar_composition_and_owned_outputs_match_all_five_surfaces(self):
+        if __package__:
+            from .native_time_grid_cases import check_calendar
+        else:
+            from native_time_grid_cases import check_calendar
+        check_calendar(self)
+
+    def test_time_grid_fill_nested_and_numeric_values_match_all_five_surfaces(self):
+        if __package__:
+            from .native_time_grid_cases import check_fill
+        else:
+            from native_time_grid_cases import check_fill
+        check_fill(self)
+
+    def test_time_grid_refusals_are_consistent_on_all_five_surfaces(self):
+        if __package__:
+            from .native_time_grid_cases import check_refusals
+        else:
+            from native_time_grid_cases import check_refusals
+        check_refusals(self)
+
     def test_calendar_window_fixed_units_match_all_five_surfaces(self):
         if __package__:
             from .native_calendar_window_cases import check_fixed

@@ -15,17 +15,17 @@ use shardloom_vortex::{
     query_primitive::VortexSimpleAggregateMeasure,
     relational_query::{
         VortexRelationalAggregate as Aggregate, VortexRelationalAsOfJoin as AsOfJoin,
-        VortexRelationalFilter as Filter, VortexRelationalJoin as Join,
-        VortexRelationalJoinColumn as JoinColumn, VortexRelationalJoinKey as JoinKey,
-        VortexRelationalJoinKind as JoinKind, VortexRelationalLimit as Limit,
-        VortexRelationalNullOrder as NullOrder, VortexRelationalOrderKey as OrderKey,
-        VortexRelationalPlan as Plan, VortexRelationalProject as Project,
-        VortexRelationalQuantifier as Quantifier, VortexRelationalScan as Scan,
-        VortexRelationalSet as Set, VortexRelationalSetKind as SetKind,
-        VortexRelationalSide as Side, VortexRelationalSort as Sort,
-        VortexRelationalSubquery as Subquery, VortexRelationalSubqueryKind as SubqueryKind,
-        VortexRelationalUnary as Unary, VortexRelationalWindow as Window,
-        VortexRelationalWindowExpression as WindowExpression,
+        VortexRelationalFilter as Filter, VortexRelationalGapFill as GapFill,
+        VortexRelationalJoin as Join, VortexRelationalJoinColumn as JoinColumn,
+        VortexRelationalJoinKey as JoinKey, VortexRelationalJoinKind as JoinKind,
+        VortexRelationalLimit as Limit, VortexRelationalNullOrder as NullOrder,
+        VortexRelationalOrderKey as OrderKey, VortexRelationalPlan as Plan,
+        VortexRelationalProject as Project, VortexRelationalQuantifier as Quantifier,
+        VortexRelationalScan as Scan, VortexRelationalSet as Set,
+        VortexRelationalSetKind as SetKind, VortexRelationalSide as Side,
+        VortexRelationalSort as Sort, VortexRelationalSubquery as Subquery,
+        VortexRelationalSubqueryKind as SubqueryKind, VortexRelationalUnary as Unary,
+        VortexRelationalWindow as Window, VortexRelationalWindowExpression as WindowExpression,
         VortexRelationalWindowFunction as NativeWindowFunction,
     },
 };
@@ -218,7 +218,9 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
     };
     Ok(matches!(
         parsed.source,
-        ParsedRelationSource::Derived(_) | ParsedRelationSource::Unary(_)
+        ParsedRelationSource::Derived(_)
+            | ParsedRelationSource::Unary(_)
+            | ParsedRelationSource::GapFill(_)
     ) || matches!(&parsed.source, ParsedRelationSource::Local(leaf) if leaf.memory_input.is_some())
         || parsed.replace_or_add_projection
         || parsed.join.is_some()
@@ -532,6 +534,28 @@ impl Lowerer<'_, '_> {
         match source {
             ParsedRelationSource::Local(path) => self.scan(path),
             ParsedRelationSource::Derived(query) => self.query(query),
+            ParsedRelationSource::GapFill(fill) => {
+                let input = self.query(&fill.input)?;
+                let time = ColumnRef::new(input.resolve(&fill.time)?)?;
+                let partition_by = fill
+                    .partition_by
+                    .iter()
+                    .map(|key| ColumnRef::new(input.resolve(key)?))
+                    .collect::<NativeResult<Vec<_>>>()?;
+                Ok(Lowered {
+                    plan: Plan::GapFill(Box::new(GapFill {
+                        input: input.plan,
+                        time,
+                        partition_by,
+                        step: fill.step,
+                        start: fill.start,
+                        end: fill.end,
+                        origin: fill.origin,
+                    })),
+                    columns: input.columns,
+                    qualifiers: BTreeMap::new(),
+                })
+            }
             ParsedRelationSource::Unary(operation) => {
                 let input = self.query(&operation.input)?;
                 let request = unary::resolve(operation.request.clone(), &input)?;

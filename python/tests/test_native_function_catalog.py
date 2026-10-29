@@ -22,6 +22,7 @@ SPAN = "CAST('2s' AS DURATION(s))"
 TEMPORAL_CASES = {
     "temporal_extract": ([STAMP, "'hour'"], 13),
     "temporal_trunc": ([STAMP, "'day'"], datetime(2024, 2, 29)),
+    "temporal_bucket": ([STAMP, "15", "'s'"], datetime(2024, 2, 29, 13, 14, 15)),
     "calendar_add_days": ([DAY, "1"], date(2024, 3, 1)),
     "calendar_add_months": ([DAY, "1"], date(2024, 3, 29)),
     "temporal_add_duration": ([STAMP, SPAN], datetime(2024, 2, 29, 13, 14, 17, 123456)),

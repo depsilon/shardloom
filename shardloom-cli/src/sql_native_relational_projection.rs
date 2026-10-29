@@ -167,6 +167,7 @@ impl Lowerer<'_, '_> {
         Ok(input)
     }
 
+    #[allow(clippy::too_many_lines)] // Keep function argument projection and window declaration lowering together.
     pub(super) fn windows(
         &mut self,
         input: Lowered,
@@ -228,6 +229,15 @@ impl Lowerer<'_, '_> {
                             index: *index,
                         })
                     }
+                    WindowFunction::Fill { expression, method } => NativeWindowFunction::Fill {
+                        column: self.window_argument(
+                            expression,
+                            &input,
+                            &mut projection,
+                            &mut names,
+                        )?,
+                        method: *method,
+                    },
                 };
                 Ok(WindowExpression {
                     output_column: window.alias.clone(),
@@ -283,6 +293,9 @@ impl Lowerer<'_, '_> {
                 WindowFunction::FirstValue(value)
                 | WindowFunction::LastValue(value)
                 | WindowFunction::NthValue {
+                    expression: value, ..
+                }
+                | WindowFunction::Fill {
                     expression: value, ..
                 } => Some(value),
                 _ => None,

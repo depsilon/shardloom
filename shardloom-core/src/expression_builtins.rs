@@ -157,6 +157,17 @@ definitions!(
         "Truncate a typed date, time or timestamp to a literal calendar boundary."
     ),
     (
+        "temporal_bucket",
+        [],
+        3,
+        6,
+        Temporal,
+        Propagate,
+        "temporal_calendar",
+        false,
+        "Label an anchored half-open temporal bucket with exact elapsed or explicit calendar spacing."
+    ),
+    (
         "calendar_add_days",
         [],
         2,

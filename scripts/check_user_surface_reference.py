@@ -124,6 +124,8 @@ REQUIRED_PYTHON_METHODS = (
     "cube",
     "join",
     "join_asof",
+    "resample",
+    "gap_fill",
     "collect",
     "write_json",
     "write_jsonl",
@@ -290,7 +292,7 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
 
     streaming = payload.get("native_python_batch_adapters", {}).get("streaming_input", {})
     for field, value in (
-        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows", "Set", "Unary", "Subquery", "CorrelatedSubquery"]),
+        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "GapFill", "PivotRows", "Set", "Unary", "Subquery", "CorrelatedSubquery"]),
         ("subquery_reference", "docs/architecture/native-stream-subqueries-2026-10-15.md"),
         ("subquery_acceptance_reference", "docs/benchmarks/native-stream-subqueries-2026-10-15.md"),
         ("subquery_kinds", ["in", "exists", "quantified", "scalar"]),

@@ -10,10 +10,11 @@ use shardloom_core::{
     temporal::{Ambiguity, TemporalUnit, civil::MonthEnd},
 };
 use shardloom_vortex::relational_query::{
-    VortexRelationalFrameBound as Bound, VortexRelationalFrameExclusion as Exclusion,
-    VortexRelationalFrameFunction as Reduction, VortexRelationalFrameOffset as Offset,
-    VortexRelationalFrameUnit as Unit, VortexRelationalWindowExpression as Window,
-    VortexRelationalWindowFrame as Frame, VortexRelationalWindowFunction as Function,
+    VortexRelationalFillMethod as FillMethod, VortexRelationalFrameBound as Bound,
+    VortexRelationalFrameExclusion as Exclusion, VortexRelationalFrameFunction as Reduction,
+    VortexRelationalFrameOffset as Offset, VortexRelationalFrameUnit as Unit,
+    VortexRelationalWindowExpression as Window, VortexRelationalWindowFrame as Frame,
+    VortexRelationalWindowFunction as Function,
 };
 
 #[pyclass(name = "FrameOffset", module = "shardloom._native", frozen)]
@@ -348,6 +349,15 @@ fn window_kind(
         "lead" => Function::Lead {
             column: field()?,
             offset: argument.unwrap_or(1),
+        },
+        "forward_fill" | "backward_fill" | "interpolate_linear" => Function::Fill {
+            column: field()?,
+            method: match name {
+                "forward_fill" => FillMethod::Forward,
+                "backward_fill" => FillMethod::Backward,
+                "interpolate_linear" => FillMethod::Linear,
+                _ => unreachable!("matched fill function"),
+            },
         },
         "ntile" => Function::Ntile {
             buckets: argument

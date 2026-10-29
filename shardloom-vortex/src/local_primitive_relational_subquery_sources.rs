@@ -106,6 +106,9 @@ impl Binder<'_> {
             VortexRelationalPlan::Window(window) => {
                 self.validate_subquery_source_scope(&window.input, depth + 1)?;
             }
+            VortexRelationalPlan::GapFill(fill) => {
+                self.validate_subquery_source_scope(&fill.input, depth + 1)?;
+            }
             VortexRelationalPlan::Unary(unary) => {
                 self.validate_subquery_source_scope(&unary.input, depth + 1)?;
             }

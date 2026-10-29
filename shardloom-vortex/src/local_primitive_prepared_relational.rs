@@ -324,6 +324,7 @@ impl Node {
             | NodeKind::Limit { input, .. }
             | NodeKind::Aggregate { input, .. }
             | NodeKind::Window { input, .. }
+            | NodeKind::GapFill { input, .. }
             | NodeKind::Unary { input, .. } => input.has_observations(),
             NodeKind::Join { left, right, .. } | NodeKind::Set { left, right, .. } => {
                 left.has_observations() || right.has_observations()
@@ -344,6 +345,8 @@ impl Node {
         use crate::relational_query::VortexRelationalJoinKind as JoinKind;
         match &self.kind {
             NodeKind::CompletedPivot { rows, .. } => Some(*rows as u64),
+            // Row expansion is not bounded by source cardinality.
+            NodeKind::GapFill { .. } => None,
             NodeKind::Outer => Some(1),
             NodeKind::Scan { source, .. } => match source {
                 ScanSource::File(index) => Some(sources[*index].file().row_count()),
@@ -495,6 +498,10 @@ enum NodeKind {
     Window {
         input: Box<Node>,
         spec: native_relational_window::Spec,
+    },
+    GapFill {
+        input: Box<Node>,
+        spec: Box<super::native_relational_gap_fill::Spec>,
     },
     Subquery {
         input: Box<Node>,
@@ -1745,6 +1752,26 @@ impl PreparedVortexRelational {
             ),
             NodeKind::Subquery { .. } => {
                 self.run_subquery(node, context, metrics, batch_rows, parameter, consume)
+            }
+            NodeKind::GapFill { input, spec } => {
+                let mut fill = super::native_relational_gap_fill::GapFill::new(spec);
+                let mut output = super::native_relational_output_buffer::OutputBuffer::new(
+                    spec.dtype.clone(),
+                    batch_rows,
+                    super::native_payload::CopyPolicy::ValidateValues,
+                    context,
+                )?;
+                let mut emit = |array| output.push(array, context, consume);
+                self.run(
+                    input,
+                    context,
+                    metrics,
+                    batch_rows,
+                    parameter,
+                    &mut |array| fill.build(array, context, batch_rows, &mut emit),
+                )?;
+                fill.finish(context, batch_rows, &mut emit)?;
+                output.flush(context, consume)
             }
             NodeKind::Window { input, spec } => {
                 #[cfg(feature = "vortex-write")]

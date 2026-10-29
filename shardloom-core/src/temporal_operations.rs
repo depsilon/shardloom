@@ -2,12 +2,15 @@
 //! These kernels do not evaluate expressions, allocate rows or select a runtime.
 
 use super::{
-    TemporalDType, TemporalKind as Kind, TemporalUnit as Unit,
+    TemporalDType, TemporalGridStep, TemporalKind as Kind, TemporalUnit as Unit,
     civil::{self, CivilDateTime, MonthEnd, NANOS_PER_DAY, NANOS_PER_SECOND},
     failed,
     timezone::{Ambiguity, BoundTimeZone, validate_name},
 };
 use crate::Result;
+
+#[path = "temporal_grid.rs"]
+mod grid;
 
 /// Calendar component or truncation boundary, with Monday-based ISO weekdays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,6 +65,10 @@ pub enum Operation {
         part: Part,
         ambiguity: Ambiguity,
     },
+    Bucket {
+        step: TemporalGridStep,
+        origin: Option<i64>,
+    },
     DateOffset {
         subtract: bool,
     },
@@ -113,6 +120,10 @@ impl Operation {
             }
             Self::Truncate { part, .. } => {
                 validate_part(kind, *part, true)?;
+                same()
+            }
+            Self::Bucket { step, origin } => {
+                grid::validate(source, *step, *origin)?;
                 same()
             }
             Self::DateOffset { .. } if is_date => same(),
@@ -177,6 +188,9 @@ impl Operation {
             | Self::CalendarDays { .. }
             | Self::CalendarMonths { .. }
             | Self::RemoveTimezone => source.timezone(),
+            Self::Bucket { step, .. } if !matches!(step, TemporalGridStep::Duration { .. }) => {
+                source.timezone()
+            }
             _ => None,
         }
     }
@@ -240,13 +254,20 @@ impl Kernel {
             .zone(&source)
             .map(BoundTimeZone::new)
             .transpose()?;
-        Ok(Self {
+        let mut kernel = Self {
             operation,
             source,
             other,
             output,
             zone,
-        })
+        };
+        if matches!(kernel.operation, Operation::Bucket { .. }) {
+            let resolved = kernel.grid_origin()?;
+            if let Operation::Bucket { origin, .. } = &mut kernel.operation {
+                *origin = Some(resolved);
+            }
+        }
+        Ok(kernel)
     }
 
     #[must_use]
@@ -272,6 +293,7 @@ impl Kernel {
             Operation::Truncate { part, ambiguity } => {
                 self.civil_ticks(truncate(self.civil(value)?, part)?, ambiguity)?
             }
+            Operation::Bucket { .. } => self.grid_point(self.bucket_index(value)?)?,
             Operation::DateOffset { subtract } => {
                 let unit = if matches!(self.source.kind(), Kind::Date32) {
                     1

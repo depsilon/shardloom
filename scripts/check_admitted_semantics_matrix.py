@@ -2544,6 +2544,49 @@ def calendar_window_frames_case() -> SqlFixtureCase:
     )
 
 
+def temporal_grid_workflow_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="temporal_grid_workflow",
+        source_name="temporal-grid.csv",
+        source_text=(
+            "fund,raw,value\n"
+            "east,1970-01-03,30\n"
+            "east,1970-01-01,4\n"
+            "east,1970-01-01,6\n"
+            "east,1970-01-05,\n"
+            "west,1970-01-02,8\n"
+            "west,1970-01-04,12\n"
+        ),
+        statement_template=(
+            "WITH bucketed AS (SELECT fund,"
+            "TEMPORAL_BUCKET(CAST(raw AS date32),1,'calendar_days') AS day,value FROM '{source}'),"
+            "totals AS (SELECT fund,day,SUM(value) AS total FROM bucketed GROUP BY fund,day) "
+            "SELECT fund,day,total,"
+            "FORWARD_FILL(total) OVER (PARTITION BY fund ORDER BY day) AS forward,"
+            "BACKWARD_FILL(total) OVER (PARTITION BY fund ORDER BY day) AS backward,"
+            "INTERPOLATE_LINEAR(total) OVER (PARTITION BY fund ORDER BY day) AS linear "
+            "FROM GAP_FILL((SELECT * FROM totals),'day',1,'calendar_days','fund',-1,5) AS filled "
+            "ORDER BY fund,day"
+        ),
+        expected_jsonl=(
+            '{"fund":"east","day":-1,"total":null,"forward":null,"backward":10.0,"linear":null}\n'
+            '{"fund":"east","day":0,"total":10.0,"forward":10.0,"backward":10.0,"linear":10.0}\n'
+            '{"fund":"east","day":1,"total":null,"forward":10.0,"backward":30.0,"linear":20.0}\n'
+            '{"fund":"east","day":2,"total":30.0,"forward":30.0,"backward":30.0,"linear":30.0}\n'
+            '{"fund":"east","day":3,"total":null,"forward":30.0,"backward":null,"linear":null}\n'
+            '{"fund":"east","day":4,"total":null,"forward":30.0,"backward":null,"linear":null}\n'
+            '{"fund":"east","day":5,"total":null,"forward":30.0,"backward":null,"linear":null}\n'
+            '{"fund":"west","day":-1,"total":null,"forward":null,"backward":8.0,"linear":null}\n'
+            '{"fund":"west","day":0,"total":null,"forward":null,"backward":8.0,"linear":null}\n'
+            '{"fund":"west","day":1,"total":8.0,"forward":8.0,"backward":8.0,"linear":8.0}\n'
+            '{"fund":"west","day":2,"total":null,"forward":8.0,"backward":12.0,"linear":10.0}\n'
+            '{"fund":"west","day":3,"total":12.0,"forward":12.0,"backward":12.0,"linear":12.0}\n'
+            '{"fund":"west","day":4,"total":null,"forward":12.0,"backward":null,"linear":null}\n'
+            '{"fund":"west","day":5,"total":null,"forward":12.0,"backward":null,"linear":null}\n'
+        ),
+    )
+
+
 def select_distinct_window_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="select_distinct_window",
@@ -3338,6 +3381,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         window_mixed_case(),
         window_analytic_frames_case(),
         calendar_window_frames_case(),
+        temporal_grid_workflow_case(),
         select_distinct_window_case(),
         join_multi_key_case(),
         join_scalar_expression_condition_case(),

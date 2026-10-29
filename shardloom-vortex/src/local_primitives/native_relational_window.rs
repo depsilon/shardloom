@@ -1,5 +1,7 @@
 //! Analytic windows over retained native payload and shared reserved ordinals.
 
+#[path = "native_relational_window_fill.rs"]
+pub(super) mod fill;
 #[cfg(feature = "vortex-write")]
 #[path = "native_relational_window_spill.rs"]
 pub(in crate::local_primitives) mod spill;
@@ -49,6 +51,7 @@ pub(super) struct Spec {
     pub(super) functions: Vec<Function>,
     pub(super) groups: Vec<Group>,
     pub(super) frames: Vec<Option<frame::Spec>>,
+    pub(super) fills: Vec<Option<fill::Spec>>,
     pub(super) ordering_keys: usize,
 }
 
@@ -298,7 +301,7 @@ impl<'a> Window<'a> {
                     context.check_cancelled()?;
                 }
                 for &function in &group.functions {
-                    if self.spec.frames[function].is_some() {
+                    if self.spec.frames[function].is_some() || self.spec.fills[function].is_some() {
                         continue;
                     }
                     values[function].set(
@@ -329,6 +332,27 @@ impl<'a> Window<'a> {
                         context,
                     )?;
                 }
+            }
+        }
+        for &function in &group.functions {
+            if let Some(spec) = &self.spec.fills[function] {
+                let mut input = frame::Resident {
+                    rows,
+                    table: &self.table,
+                };
+                fill::run(spec, rows.len(), &mut input, context, |position, value| {
+                    values[function].set_frame(
+                        rows[position],
+                        value.map_source(
+                            |selected| {
+                                rows.get(selected)
+                                    .copied()
+                                    .ok_or_else(|| failed("fill selection exceeds its partition"))
+                            },
+                            context,
+                        )?,
+                    )
+                })?;
             }
         }
         Ok(())
@@ -435,9 +459,9 @@ impl<'a> Window<'a> {
                 }
                 (_, Values::Source(source)) => {
                     let column = match function {
-                        Function::Lag { column, .. } | Function::Lead { column, .. } => {
-                            column.as_str()
-                        }
+                        Function::Lag { column, .. }
+                        | Function::Lead { column, .. }
+                        | Function::Fill { column, .. } => column.as_str(),
                         Function::Framed(_) => self.spec.frames[index]
                             .as_ref()
                             .and_then(|frame| frame.column.as_deref())
@@ -575,7 +599,11 @@ impl Values {
                     _ => Self::Source(filled(rows, None, memory)?),
                 }
             }
-            Function::Lag { .. } | Function::Lead { .. } => {
+            Function::Fill {
+                method: crate::relational_query::VortexRelationalFillMethod::Linear,
+                ..
+            } => Self::NullableFraction(filled(rows, None, memory)?),
+            Function::Lag { .. } | Function::Lead { .. } | Function::Fill { .. } => {
                 Self::Source(filled(rows, None, memory)?)
             }
             Function::PercentRank | Function::CumeDist => {
@@ -654,6 +682,7 @@ pub(super) fn ranking_value(function: &Function, at: PeerRow) -> Result<frame::V
                 .filter(|&position| position < at.rows),
         ),
         Function::Framed(_) => return Err(failed("framed function used ranking semantics")),
+        Function::Fill { .. } => return Err(failed("fill function used ranking semantics")),
     })
 }
 
