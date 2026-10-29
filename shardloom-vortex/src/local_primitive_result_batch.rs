@@ -28,6 +28,16 @@ mod variant;
 #[path = "local_primitive_result_numeric.rs"]
 mod numeric;
 
+#[cfg(unix)]
+#[path = "local_primitive_result_variable.rs"]
+mod variable;
+#[cfg(unix)]
+pub(super) use variable::VariableValues;
+
+#[cfg(unix)]
+#[path = "local_primitive_result_expression_variable.rs"]
+mod expression_variable;
+
 #[cfg(all(test, unix))]
 #[path = "local_primitive_result_batch_prefix_tests.rs"]
 mod prefix_tests;
@@ -501,6 +511,23 @@ pub(super) fn build_column<'a>(
     value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     build_column_prefix_inner::<false>(dtype, rows, rows, allocator, value)
+}
+
+/// Bound expression callbacks can construct expensive owned scalars. Evaluate
+/// variable values once; completed-state and prefix visitors retain their
+/// existing sizing/validation contract.
+#[cfg(unix)]
+pub(super) fn build_expression_column<'a>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
+    if matches!(dtype, DType::Utf8(_) | DType::Binary(_)) {
+        expression_variable::build_once(dtype, rows, allocator, value)
+    } else {
+        build_column(dtype, rows, allocator, value)
+    }
 }
 
 #[cfg(unix)]

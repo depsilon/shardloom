@@ -40,6 +40,10 @@ mod storage_tests;
 mod numeric_tests;
 
 #[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_payload_variable_tests.rs"]
+mod variable_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_validation_tests.rs"]
 mod validation_tests;
 
@@ -495,6 +499,11 @@ fn copy_rows<const RETAIN: bool>(
                 });
                 return result_batch::build_column(dtype, 0, allocator, |_| default_value(dtype));
             }
+            let variable = selected
+                .as_ref()
+                .map(|array| result_batch::VariableValues::try_new(array, &mut execution))
+                .transpose()?
+                .flatten();
             let value = |row: usize| {
                 check(row, context)?;
                 #[cfg(all(test, debug_assertions))]
@@ -507,6 +516,8 @@ fn copy_rows<const RETAIN: bool>(
                     default_value(dtype)
                 } else if let Some(numeric) = &numeric {
                     numeric.stat_value(row).map(Value::from)
+                } else if let Some(variable) = &variable {
+                    variable.value(row)
                 } else {
                     result_batch::scalar_value(
                         selected.as_ref().expect("selected leaf"),

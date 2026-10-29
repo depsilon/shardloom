@@ -63,6 +63,58 @@ pub(in crate::local_primitives) enum Function {
 }
 
 impl Function {
+    /// Only explicitly matched, pure bound kernels are eligible for reuse.
+    pub(super) fn same_semantics(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Abs, Self::Abs)
+            | (Self::Floor, Self::Floor)
+            | (Self::Ceil, Self::Ceil)
+            | (Self::Round, Self::Round)
+            | (Self::Lower, Self::Lower)
+            | (Self::Upper, Self::Upper)
+            | (Self::Trim, Self::Trim)
+            | (Self::Length, Self::Length)
+            | (Self::StartsWith, Self::StartsWith)
+            | (Self::EndsWith, Self::EndsWith)
+            | (Self::Contains, Self::Contains)
+            | (Self::Concat, Self::Concat)
+            | (Self::Substr, Self::Substr)
+            | (Self::Left, Self::Left)
+            | (Self::Right, Self::Right)
+            | (Self::Replace, Self::Replace)
+            | (Self::ByteLength, Self::ByteLength)
+            | (Self::Unhex, Self::Unhex)
+            | (Self::FromBase64, Self::FromBase64) => true,
+            // The binder uses the same fixed RegexBuilder limits and default
+            // flags for every pattern; inline flags are part of as_str().
+            (Self::Regex(left), Self::Regex(right)) => left.as_str() == right.as_str(),
+            (Self::EpochMinute { truncate: left }, Self::EpochMinute { truncate: right })
+            | (Self::Domain { regex: left }, Self::Domain { regex: right }) => left == right,
+            (Self::JsonExtract(left), Self::JsonExtract(right)) => left == right,
+            (
+                Self::Strptime {
+                    format: left,
+                    tolerant: lt,
+                },
+                Self::Strptime {
+                    format: right,
+                    tolerant: rt,
+                },
+            ) => left == right && lt == rt,
+            (
+                Self::Temporal {
+                    kernel: left,
+                    second: ls,
+                },
+                Self::Temporal {
+                    kernel: right,
+                    second: rs,
+                },
+            ) => ls == rs && left.same_semantics(right),
+            _ => false,
+        }
+    }
+
     pub(in crate::local_primitives) fn evaluate(
         &self,
         columns: &[KeyColumn],

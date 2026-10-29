@@ -704,9 +704,22 @@ visible and independent; this implementation does not automatically close them.
     higher or unchanged drops after correctness/resource checks. This explicitly
     reverses the candidate's original cutoff-only drop without changing its
     frozen protocol or rerunning queries. Advance the retained baseline as gains
-    compound. Reintegrate applicable earlier positive-gain borrowed-output and
-    expression changes against the current source, preserving later improvements;
-    their historical deltas are not additive current-runtime evidence.
+    compound. The subsequent
+    [current-source recovery](../benchmarks/evidence/native-item20-completion-2026-10-28/positive-gain-recovery-disposition.json)
+    retains applicable borrowed variable output and exact expression reuse,
+    preserving later numeric and validation improvements. All 347 queries and
+    12,565 rows pass at **15.400097157 engine seconds**, saving **0.592059741
+    seconds**. Five public regressions, 160 fresh five-interface observations
+    (412,220 result rows), 5,045 native tests (35 existing opt-in ignores),
+    3,274 workspace tests and strict lint pass. One case adds 0.013006291 engine
+    seconds with unchanged physical demands; preserve that flag and the absence
+    of family flags. Preserve two zero-test temporal launches and the rejected
+    acceptance attempt; the exact calendar-feature test passes. Historical gains
+    are not added to this combined measurement. The requested Full43 follow-up
+    runs directly on resident original Parquet through the shared source-demand
+    path, without ingest or preparation. Its input boundary is distinct from
+    historical Vortex-input Full43. Combined package/portable/hosted acceptance
+    and the rest of item 20 remain open.
     The October 28 maintainer follow-up prioritizes measured shared grouping,
     projection and join costs, then shared-intermediate reuse and plan traversal
     where source and workload evidence warrants them. Recursive CTEs and structural

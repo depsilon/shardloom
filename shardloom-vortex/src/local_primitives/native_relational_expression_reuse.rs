@@ -52,22 +52,7 @@ impl Expression {
     }
 
     fn bind_reuse(&mut self, previous: &[Self], remaining: &mut usize) {
-        if *remaining == 0
-            || !matches!(
-                self.kind,
-                Kind::Column(_)
-                    | Kind::Literal(_)
-                    | Kind::Unary(..)
-                    | Kind::Binary(..)
-                    | Kind::Compare(..)
-                    | Kind::Conditional(..)
-                    | Kind::Coalesce(_)
-                    | Kind::NullIf(..)
-                    | Kind::Cast { .. }
-                    | Kind::List(_)
-                    | Kind::Struct(_)
-            )
-        {
+        if *remaining == 0 {
             return;
         }
         *remaining -= 1;
@@ -86,6 +71,11 @@ impl Expression {
             Kind::Binary(left, _, right) | Kind::Compare(left, _, right) => {
                 left.bind_reuse(previous, remaining);
                 right.bind_reuse(previous, remaining);
+            }
+            Kind::Function { args, .. } => {
+                for child in args {
+                    child.bind_reuse(previous, remaining);
+                }
             }
             _ => {}
         }
@@ -134,6 +124,23 @@ fn same(left: &Expression, right: &Expression, remaining: &mut usize) -> bool {
                 && left
                     .iter()
                     .zip(right)
+                    .all(|(left, right)| same(left, right, remaining))
+        }
+        (
+            Kind::Function {
+                function: left,
+                args: la,
+            },
+            Kind::Function {
+                function: right,
+                args: ra,
+            },
+        ) => {
+            left.same_semantics(right)
+                && la.len() == ra.len()
+                && la
+                    .iter()
+                    .zip(ra)
                     .all(|(left, right)| same(left, right, remaining))
         }
         _ => false,

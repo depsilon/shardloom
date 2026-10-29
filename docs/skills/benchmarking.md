@@ -106,6 +106,15 @@ while queries execute. Perform those preparation and verification steps before
 or after the pass. Active run outputs remain subject to the standard storage
 checks; this does not raise a limit or remove a safety check.
 
+The October 28 maintainer update selects the resident original Parquet file
+through the shared native source-demand path for routine Full43 UAT, matching
+the 347-query program. Pass `--input-format parquet` to the single-query-suite
+runner and execute the queries sequentially. Do not run an ingest or preparation
+command. Freeze the original source identity and retain source-demand, ownership,
+complete-result and no-fallback diagnostics. Historical Vortex-input observations
+remain valid for their declared boundary; do not calculate matched speedup or
+regression ratios between those observations and direct-Parquet Full43.
+
 Freeze the executable, source, input, reference values and resource settings;
 record cache context and any disturbances. Report the engine sum only. Keep
 diagnostic profiling and repeated comparisons as separately declared work,

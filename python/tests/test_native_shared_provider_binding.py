@@ -135,6 +135,89 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                 cli.close()
         return tables
 
+    def test_expression_reuse_and_single_evaluation_match_all_five_surfaces(self):
+        import datetime as dt
+        import re
+        import struct
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+
+        pa, native, expr = self.pa, self.native, self.native.Expression
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        texts = [" Äbß\0東京 ", "İABC" * 257, "", None]
+        rows = [dict(id=i, text=text, encoded="00ff6162", guarded="00ff" if i < 2 else "invalid",
+                     document=json.dumps({"items": [i, "東京"]}, ensure_ascii=False),
+                     date="2024-02-29", zero=-0.0) for i, text in enumerate(texts)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("text", pa.string()),
+                            *(pa.field(name, pa.string(), nullable=False)
+                              for name in ("encoded", "guarded", "document", "date")),
+                            pa.field("zero", pa.float64(), nullable=False)])
+        call = lambda name, *args: expr.call(name, list(args))
+        col, lit = expr.column, expr.literal
+        lower = call("lower", col("text"))
+        decoded = call("unhex", col("encoded"))
+        declarations = [
+            ("id", "id", col("id")),
+            ("lowered", "lower(text)", lower),
+            ("again", "lower(text)", lower),
+            ("nested", "upper(lower(text))", call("upper", lower)),
+            ("combined", "concat(lower(text),lower(text))", call("concat", lower, lower)),
+            ("decoded", "unhex(encoded)", decoded),
+            ("decoded_again", "unhex(encoded)", decoded),
+            ("bytes", "byte_length(unhex(encoded))", call("byte_length", decoded)),
+            ("guarded", "case_when(id<2,unhex(guarded),unhex(encoded))",
+             call("case_when", col("id") < lit(2), call("unhex", col("guarded")), decoded)),
+            ("filled", "coalesce(lower(text),'missing')", call("coalesce", lower, lit("missing"))),
+            ("insensitive", "regex_match(text,'(?i)a')", call("regex_match", col("text"), lit("(?i)a"))),
+            ("sensitive", "regex_match(text,'a')", call("regex_match", col("text"), lit("a"))),
+            ("first", "json_extract(document,'$.items[0]')", call("json_extract", col("document"), lit("$.items[0]"))),
+            ("second", "json_extract(document,'$.items[1]')", call("json_extract", col("document"), lit("$.items[1]"))),
+            ("parsed", "strptime(date,'%Y-%m-%d')", call("strptime", col("date"), lit("%Y-%m-%d"))),
+            ("tolerant", "try_strptime(date,'%Y-%m-%dT%H:%M:%SZ')",
+             call("try_strptime", col("date"), lit("%Y-%m-%dT%H:%M:%SZ"))),
+            ("zero", "coalesce(zero,-0.0)", call("coalesce", col("zero"), lit(-0.0))),
+        ]
+        expected = []
+        for i, text in enumerate(texts):
+            lower_text = None if text is None else text.lower()
+            expected.append(dict(id=i, lowered=lower_text, again=lower_text,
+                nested=None if text is None else lower_text.upper(),
+                combined=None if text is None else lower_text * 2,
+                decoded=bytes.fromhex("00ff6162"), decoded_again=bytes.fromhex("00ff6162"), bytes=4,
+                guarded=bytes.fromhex("00ff" if i < 2 else "00ff6162"),
+                filled="missing" if text is None else lower_text,
+                insensitive=None if text is None else bool(re.search("(?i)a", text)),
+                sensitive=None if text is None else bool(re.search("a", text)),
+                first=str(i), second='"東京"', parsed=dt.datetime(2024, 2, 29), tolerant=None, zero=-0.0))
+        with tempfile.TemporaryDirectory(prefix="shardloom-expression-reuse-") as directory:
+            path = Path(directory) / "expressions.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=1)
+            statement = "SELECT " + ",".join(f"{sql} AS {name}" for name, sql, _ in declarations) + f" FROM '{path}'"
+            frame = sl.read_parquet(path, client=client).select(*(f"{sql} AS {name}" for name, sql, _ in declarations))
+            relation = native.Relation.scan(str(path)).project([(name, typed) for name, _, typed in declarations])
+            for empty in (False, True):
+                f = frame.filter("id < 0") if empty else frame
+                r = relation.filter(col("id") < lit(0)) if empty else relation
+                sql = f"SELECT * FROM ({statement}) AS expressions WHERE id < 0" if empty else statement
+                tables = self.all_surfaces(f, r, sql)
+                for table in tables:
+                    self.assertEqual(table.to_pylist(), [] if empty else expected)
+                    self.assertEqual(table.schema, tables[0].schema)
+                    for value in table["zero"].to_pylist():
+                        self.assertEqual(struct.pack(">d", value), struct.pack(">d", -0.0))
+            producer = native.Session(native.ExecutionResources(128 << 20, 2))
+            self.addCleanup(producer.close)
+            retained = producer.plan(relation).collect()
+            path.unlink()
+            source = retained.as_source()
+            reused = producer.sql("SELECT * FROM 'memory://retained'", sources=[("memory://retained", source)]).collect()
+            del source
+            producer.close()
+            self.assertEqual(self.table(retained).to_pylist(), expected)
+            self.assertEqual(self.table(reused).to_pylist(), expected)
+
     def test_numeric_extrema_and_selected_outputs_match_all_five_surfaces(self):
         import struct
         import shardloom as sl

@@ -683,11 +683,16 @@ fn take_column_with_policy(
             || context.check_cancelled(),
         )?
     } else {
+        let variable = result_batch::VariableValues::try_new(&selected, &mut execution)?;
         result_batch::build_column(dtype, indices.len(), &allocator, |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            result_batch::scalar_value(&selected, row, &mut execution)
+            if let Some(variable) = &variable {
+                variable.value(row)
+            } else {
+                result_batch::scalar_value(&selected, row, &mut execution)
+            }
         })?
     };
     context.check_cancelled()?;

@@ -219,7 +219,7 @@ impl Expression {
                 })?
             }
             Kind::Function { function, args } => {
-                self.evaluate_function(input, context, function, args)?
+                self.evaluate_function(input, context, function, args, completed)?
             }
         };
         self.checked_result(result, input.len(), context)
@@ -262,13 +262,15 @@ impl Expression {
         context: &NativeExecutionContext<'_>,
         function: &scalar::Function,
         args: &[Self],
+        completed: Option<&[ArrayRef]>,
     ) -> Result<ArrayRef> {
         let mut values = ReservedVec::new(context.memory())?;
         values.reserve(args.len())?;
         for arg in args {
-            values
-                .values
-                .push(keys(&arg.evaluate(input, context)?, context)?);
+            values.values.push(keys(
+                &arg.evaluate_in_scope(input, context, completed)?,
+                context,
+            )?);
         }
         let mut scratch = context.memory().reserve(0)?;
         self.build(input.len(), context, |row| {
@@ -456,7 +458,7 @@ impl Expression {
         if self.dtype == DType::Null {
             return Ok(ConstantArray::new(Scalar::null(DType::Null), rows).into_array());
         }
-        result_batch::build_column(
+        result_batch::build_expression_column(
             &self.dtype,
             rows,
             &context.native_session().host_allocator(),

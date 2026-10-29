@@ -586,9 +586,11 @@ For a future authorized observation:
    Freeze the complete query file, resident input identity/hash and all 43
    reference results. Record hardware, physical RAM and policy settings separately.
 2. Give the run a unique manifest, log and target name in local-only storage.
-   Admit it through the existing storage limits. Run public preparation through
-   `run_clickbench_ingest_uat.sh`, then acquire the same exclusive UAT lock for
-   the sequential query pass. Reject overlapping native builds/tests/queries
+   Admit it through the existing storage limits. Following the October 28
+   maintainer update, run the sequential Full43 directly against resident original
+   Parquet through the shared native source-demand path, with no ingest or
+   preparation command. Use `--input-format parquet` and retain the exclusive UAT
+   lock for the query pass. Reject overlapping native builds/tests/queries
    with the workload guard before and during execution. Keep process-group
    deadlines and cleanup evidence. Do not raise storage ceilings for a rerun.
 3. Capture host load and process CPU/RSS observations before and during the

@@ -60,11 +60,11 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The latest retained candidate records 15.992156898 seconds, so this requires
-about 37.5% further reduction; it is a stretch target, not an achieved result or
+The latest retained candidate records 15.400097157 seconds, so this requires
+about 35.1% further reduction; it is a stretch target, not an achieved result or
 a reason to reduce correctness/coverage. Grouped aggregation contributes
-5.541190993 seconds, projection 3.079028541 seconds, and ordinary plus multiway
-joins 2.798152709 seconds. Use these complete family totals to prioritize
+5.595029744 seconds, projection 2.870433458 seconds, and ordinary plus multiway
+joins 2.501059375 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. The
 shared-owner sequence below records the retained and dropped candidates.
 Select further numeric/temporal specializations only from
@@ -79,7 +79,7 @@ this objective does not authorize another competitor cohort.
 
 The October 28 maintainer follow-up delegates the execution order to measured
 impact. Prioritize shared grouped aggregation, projection and joins: their
-retained family totals sum to 11.418372243 of the 15.992156898 engine seconds.
+retained family totals sum to 10.966522577 of the 15.400097157 engine seconds.
 This is workload concentration, not a claim that all of that time is removable.
 After each frozen candidate decision, target demonstrated repeated preparation,
 validation, copying or operator work in those shared owners. Explicit materialized
@@ -353,11 +353,32 @@ acceptance remains open.
 The earlier-drop audit found two positive complete-cohort observations rejected
 by percentage floors: borrowed variable output (30.118456795 to 29.225110351
 seconds) and expression construction/reuse (23.079365459 to 22.941843204 seconds).
-Reintegrate applicable changes against the current source and test their combined
-effect against this retained checkpoint. Preserve later numeric, validation and
-ownership improvements. These historical differences are not additive evidence
-for the current runtime. The join-reuse and selected-payload candidates were
-slower overall and remain dropped.
+The [current-source recovery](../benchmarks/evidence/native-item20-completion-2026-10-28/positive-gain-recovery-disposition.json)
+retains applicable borrowed variable output, single-evaluation text/binary
+construction and exact completed-function reuse while preserving later numeric,
+validation and ownership improvements. All 347 queries and 12,565 rows pass at
+**15.400097157 engine seconds**, saving **0.592059741 seconds** against the
+15.992156898 checkpoint. Historical savings are not added to this measurement.
+One grouped-aggregate query adds 0.013006291 seconds with identical physical
+demand counters; its original flag remains, with no family regression flag.
+Single observations do not establish cause or statistical confidence. The
+join-reuse and selected-payload candidates were slower overall and remain dropped.
+
+The recovered source passes 95 focused expression tests, eight variable-output
+tests, one exact temporal-identity test with its calendar feature enabled,
+665 relational tests (four existing opt-in ignores), five public regressions
+and 160 fresh five-interface observations. Independent replay verifies 412,220
+complete result rows and 16,396 input rows. Formatting, strict native/workspace
+lint, 5,045 native tests (35 existing opt-in ignores) and 3,274 default workspace
+tests pass. Preserve both zero-test temporal launches and the rejected acceptance
+attempt; the corrected exact feature-enabled test supplies the missing proof.
+Combined package, portable and hosted acceptance remain open.
+
+The maintainer-requested Full43 follow-up uses the original resident Parquet
+directly through shared native source-demand execution, with no ingest or
+preparation command. The updated standard runner declares its input format,
+retains source-demand/ownership diagnostics and executes each query exactly once.
+Historical Vortex-input Full43 timings retain their separate input boundary.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.

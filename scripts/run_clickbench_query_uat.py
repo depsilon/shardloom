@@ -33,7 +33,9 @@ from clickbench_native_sql import native_query_statements
 from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 
 
-_EXECUTION_REPORT_PREFIXES = ("local_primitive_", "resident_", "relational_")
+_EXECUTION_REPORT_PREFIXES = (
+    "local_primitive_", "native_source_demand_", "resident_", "relational_",
+)
 _EXECUTION_REPORT_EXACT_KEYS = {
     "fallback_attempted",
     "external_engine_invoked",
@@ -41,6 +43,8 @@ _EXECUTION_REPORT_EXACT_KEYS = {
     "public_workflow_external_engine_invoked",
     "execution_backend",
     "execution_mode",
+    "native_input_end_observed",
+    "native_input_output_ownership_detached",
 }
 
 
@@ -340,6 +344,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--input", required=True, type=Path)
+    parser.add_argument("--input-format", choices=("vortex", "parquet"), default="vortex")
     parser.add_argument("--uat-root", required=True, type=Path)
     parser.add_argument("--queries", type=Path, default=Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
     reference_group = parser.add_mutually_exclusive_group(required=True)
@@ -438,6 +443,7 @@ def main() -> int:
             "schema_version": "shardloom.clickbench.public_result_regression.v2",
             "build_commit": args.build_commit, "binary_sha256": file_sha256(args.binary),
             "queries_sha256": queries_sha256, "source": str(source),
+            "input_format": args.input_format,
             "query_dialect": query_dialect,
             "source_bytes": identity.st_size, "platform": platform.platform(),
             "source_generation": {"device": identity.st_dev, "inode": identity.st_ino,
@@ -476,7 +482,7 @@ def main() -> int:
             for run in range(1, args.repeats + 1):
                 prefix = logs / f"q{index:02d}_run{run}"
                 command = public_workflow_command(
-                    args.binary, submitted_queries[index - 1], input_path=source, input_format="vortex",
+                    args.binary, submitted_queries[index - 1], input_path=source, input_format=args.input_format,
                     memory_gb=args.memory_gb, max_parallelism=args.max_parallelism,
                 )
                 result = run_profiled_command(command, prefix, args.timeout, guard)
