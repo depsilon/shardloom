@@ -1,0 +1,9 @@
+{
+  "returncode": 0,
+  "stdout": "{\"status\": \"passed\", \"packet_sha256\": \"0efa13e095577fc629d1024aadfcefce67a83fb1b94d76284517b7ed891d67ff\", \"corruption_controls\": [\"member-corruption\", \"source-link-corruption\", \"public-count-corruption\", \"public-value-corruption\", \"public-type-corruption\", \"certificate-corruption\", \"matrix-result-corruption\", \"oracle-value-corruption\", \"wheel-product-corruption\"], \"oracle_cases\": 3462, \"public_totals\": {\"complete_comparisons\": 59, \"executions\": 250, \"rows\": 2695, \"tests\": 6}, \"isolated_python\": true}\n",
+  "stderr": "",
+  "packet_sha256": "0efa13e095577fc629d1024aadfcefce67a83fb1b94d76284517b7ed891d67ff",
+  "verifier_sha256": "db6adc0a16ebb25c4ceb383078991f5fb8a9b102fdf761f639957578ef87f1bc",
+  "cwd_was_fresh_temporary_directory": true,
+  "status": "passed"
+}

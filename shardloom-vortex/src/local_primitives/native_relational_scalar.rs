@@ -29,6 +29,10 @@ pub(in crate::local_primitives) enum Function {
     Floor,
     Ceil,
     Round,
+    Decimal {
+        output: shardloom_core::decimal_output::DecimalOutput,
+        operation: Option<typed::BinaryOp>,
+    },
     Lower,
     Upper,
     Trim,
@@ -66,6 +70,16 @@ impl Function {
     /// Only explicitly matched, pure bound kernels are eligible for reuse.
     pub(super) fn same_semantics(&self, other: &Self) -> bool {
         match (self, other) {
+            (
+                Self::Decimal {
+                    output: left,
+                    operation: lo,
+                },
+                Self::Decimal {
+                    output: right,
+                    operation: ro,
+                },
+            ) => left == right && lo == ro,
             (Self::Abs, Self::Abs)
             | (Self::Floor, Self::Floor)
             | (Self::Ceil, Self::Ceil)
@@ -129,6 +143,23 @@ impl Function {
         }
         if matches!(self, Self::Abs | Self::Floor | Self::Ceil | Self::Round) {
             return self.numeric(&columns[0].raw_cell(row)?, dtype);
+        }
+        if let Self::Decimal { output, operation } = self {
+            let operand = |column: &KeyColumn| {
+                let value = column.raw_cell(row)?;
+                if let Cell::Decimal(value, decimal) = value {
+                    decimal_operand(value, &DType::Decimal(decimal, dtype.nullability()))
+                } else {
+                    Decimal128Operand::integer(integer(&value)?, 20)
+                }
+            };
+            let left = operand(&columns[0])?;
+            let value = if let Some(operation) = operation {
+                output.binary(left, *operation, operand(&columns[1])?)?
+            } else {
+                output.rescale(left)?
+            };
+            return Ok(decimal_value(value));
         }
         if matches!(self, Self::Concat) {
             return concat(columns, row, scratch);

@@ -261,6 +261,7 @@ mod tests {
         session
             .with_native_execution_context(&CancellationToken::default(), |context| {
                 let spec = Spec {
+                    decimal_output: None,
                     separator: None,
                     function: Function::Aggregate(Aggregate::VarPop),
                     column: Some("x".into()),

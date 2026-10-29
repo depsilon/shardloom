@@ -34,8 +34,70 @@ MIN/MAX and SUM/AVG retain their existing semantics.
 Quantile levels are finite scalar literals in `[0,1]`. Empty/all-NULL input
 yields NULL. Continuous Decimal128 quantiles use precision 38 and
 `max(input_scale,6)`; inexact interpolation at that scale fails rather than
-silently rounding. Explicit decimal rounding choices remain separate work.
-Exact rank and membership do not promise exact real arithmetic in Float64.
+silently rounding unless an explicit decimal output is selected as described
+below. Exact rank and membership do not promise exact real arithmetic in
+Float64.
+
+## Explicit decimal output
+
+`SUM`, `AVG`, `SUM(DISTINCT ...)`, `AVG(DISTINCT ...)`, `MEDIAN` and
+`QUANTILE_CONT` may take an opt-in output precision, scale and rounding policy.
+Precision is total coefficient digits (1 through 38); scale is fractional
+places (0 through precision). The rounding name is one of `exact`,
+`half_even`, `half_away`, `toward_zero`, `floor` or `ceil`. `exact` rejects a
+nonzero discarded fraction; the half modes round to nearest, with ties to an
+even coefficient or away from zero. `toward_zero` truncates, while `floor` and
+`ceil` round toward negative and positive infinity. Overflow is checked after
+rounding.
+
+In SQL, append the three literal options to the aggregate arguments. For
+`QUANTILE_CONT`, the quantile level comes first; `MEDIAN` keeps its implicit
+level of 0.5:
+
+```sql
+SELECT SUM(amount, 18, 2, 'half_even'),
+       AVG(DISTINCT amount, 18, 2, 'exact'),
+       MEDIAN(amount, 18, 2, 'half_away'),
+       QUANTILE_CONT(amount, 0.1, 18, 2, 'floor')
+FROM 'sales.vortex';
+```
+
+Python helpers expose the same controls as keyword arguments. Supply all three
+or omit all three:
+
+```python
+from shardloom import functions as f
+
+total = f.sum("amount", precision=18, scale=2, rounding="half_even")
+average = f.avg("amount", distinct=True, precision=18, scale=2, rounding="exact")
+median = f.median("amount", precision=18, scale=2, rounding="half_away")
+p10 = f.quantile_cont("amount", 0.1, precision=18, scale=2, rounding="floor")
+```
+
+Typed native relations accept the declaration as a
+`decimal_output=(precision, scale, rounding)` tuple on `AggregateMeasure`;
+the corresponding window measure also accepts `decimal_output`:
+
+```python
+from shardloom.native import AggregateMeasure, Relation
+
+relation = Relation.scan("sales.vortex").aggregate(
+    [],
+    [AggregateMeasure("sum", "amount", "total",
+                      decimal_output=(18, 2, "half_even"))],
+)
+```
+
+An explicit output policy is admitted only for Decimal128 aggregate input.
+Ordinary integer `SUM` keeps its existing result behavior; to request an exact
+widened integer total, cast the input to Decimal128 first, for example
+`SUM(CAST(quantity AS DECIMAL(38,0)), 38, 0, 'exact')`. The selected scale and
+rounding apply once when the aggregate result is finalized, after aggregation
+and merging; window aggregates apply it to each finalized frame. Stored
+execution retains exact accumulation state and applies the policy at result
+finalization. Omitting the option leaves existing result types, precision,
+scale and rounding behavior unchanged. This option does not apply to discrete
+quantiles or other aggregate families.
 
 Local ordering accepts direction and NULL placement. Input ordinals break ties.
 Window order determines frame membership; aggregate-local order independently

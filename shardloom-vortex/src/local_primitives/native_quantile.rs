@@ -84,6 +84,40 @@ impl Position {
         }
     }
 
+    pub(super) fn interpolate_with(
+        self,
+        lower: &Cell,
+        upper: &Cell,
+        dtype: &DType,
+        output: Option<shardloom_core::decimal_output::DecimalOutput>,
+    ) -> Result<Value<'static>> {
+        let Some(output) = output else {
+            return self.interpolate(lower, upper, dtype);
+        };
+        let (Cell::Decimal(left, source), Cell::Decimal(right, other)) = (lower, upper) else {
+            return Err(failed("explicit decimal quantile endpoints changed type"));
+        };
+        let expected = super::native_decimal_reduce::declared_dtype(output);
+        if source != other || !matches!(dtype, DType::Decimal(actual, _) if *actual == expected) {
+            return Err(failed("explicit decimal quantile metadata changed"));
+        }
+        let operand = |value| {
+            Decimal128Operand::decimal(
+                value,
+                source.precision(),
+                u8::try_from(source.scale()).map_err(vortex_error)?,
+            )
+        };
+        output
+            .interpolate(
+                operand(*left)?,
+                operand(*right)?,
+                self.numerator,
+                self.shift,
+            )
+            .map(|value| Value::Decimal(value.value(), expected))
+    }
+
     pub(super) fn interpolate(
         self,
         lower: &Cell,

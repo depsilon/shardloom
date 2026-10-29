@@ -3552,6 +3552,14 @@ fn parse_simple_aggregate_measure(
     let value_transform =
         json_optional_string_field_any(object, &["value_transform", "transform"])?
             .map(str::to_string);
+    if ["decimal_output", "precision", "scale", "rounding"]
+        .iter()
+        .any(|name| object.contains_key(*name))
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "decimal output options require the native SQL or relation surface".to_string(),
+        ));
+    }
     if object.contains_key("secondary_column") {
         return Err(ShardLoomError::InvalidOperation(
             "paired aggregates require the native SQL or relation surface".to_string(),
@@ -9493,6 +9501,30 @@ mod tests {
         assert_eq!(
             test_field(&fields, "timing_claim_boundary"),
             "runtime_route_evidence_only_no_benchmark_or_publication_claim"
+        );
+    }
+
+    #[test]
+    fn decimal_output_legacy_json_aggregate_options_are_never_silently_dropped() {
+        let uri = DatasetUri::new("absent-decimal-admission.vortex").unwrap();
+        for field in ["decimal_output", "precision", "scale", "rounding"] {
+            let mut value = serde_json::json!({"function":"sum", "column":"amount"});
+            value[field] = serde_json::json!(null);
+            let request = format!("aggregate:{value}");
+            let error = parse_vortex_primitive_request(uri.clone(), &request).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("decimal output options require the native SQL or relation surface"),
+                "{error}"
+            );
+        }
+        assert!(
+            parse_vortex_primitive_request(
+                uri,
+                r#"aggregate:{"function":"sum","column":"amount"}"#
+            )
+            .is_ok()
         );
     }
 

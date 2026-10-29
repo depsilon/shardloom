@@ -278,6 +278,7 @@ impl Layout {
                     .transpose()?,
                 dtype: measure.dtype.clone(),
                 decimal_source: measure.decimal_source,
+                decimal_output: measure.decimal_output,
                 distinct_fields: vec![],
                 distinct_names: vec![],
             });

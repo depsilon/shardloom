@@ -694,6 +694,8 @@ pub struct VortexSimpleAggregateMeasure {
     pub filter_column: Option<ColumnRef>,
     /// Scalar probability for `quantile_cont`/`quantile_disc`, never an input dependency.
     pub quantile_level: Option<VortexQuantileLevel>,
+    /// Explicit Decimal128 result domain and rounding; absent preserves defaults.
+    pub decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
     /// Ordering inside an ordered aggregate, independent of output/window order.
     pub order_by: Vec<crate::relational_query::VortexRelationalOrderKey>,
     /// Literal UTF-8 separator for `string_agg`, never an input dependency.
@@ -711,6 +713,7 @@ impl VortexSimpleAggregateMeasure {
             secondary_column: None,
             filter_column: None,
             quantile_level: None,
+            decimal_output: None,
             order_by: Vec::new(),
             separator: None,
             alias,
@@ -760,6 +763,17 @@ impl VortexSimpleAggregateMeasure {
         self
     }
 
+    /// Select an explicit decimal result; the native binder validates the input
+    /// domain and aggregate family before reading rows.
+    #[must_use]
+    pub fn with_decimal_output(
+        mut self,
+        output: shardloom_core::decimal_output::DecimalOutput,
+    ) -> Self {
+        self.decimal_output = Some(output);
+        self
+    }
+
     /// Attach the validated scalar probability for an exact quantile.
     ///
     /// # Errors
@@ -798,6 +812,14 @@ impl VortexSimpleAggregateMeasure {
         let quantile = self
             .quantile_level
             .map_or_else(String::new, |level| format!(",level={}", level.value()));
+        let decimal = self.decimal_output.map_or_else(String::new, |output| {
+            format!(
+                ",decimal_output=({},{},{})",
+                output.precision(),
+                output.scale(),
+                output.rounding().as_str()
+            )
+        });
         let order = if self.order_by.is_empty() {
             String::new()
         } else {
@@ -808,7 +830,7 @@ impl VortexSimpleAggregateMeasure {
             .as_ref()
             .map_or_else(String::new, |value| format!(",separator={value:?}"));
         format!(
-            "{}({}{}{}{}{}{}{}{}) as {}",
+            "{}({}{}{}{}{}{}{}{}{}) as {}",
             self.function,
             self.column.as_ref().map_or("*", ColumnRef::as_str),
             transform,
@@ -816,6 +838,7 @@ impl VortexSimpleAggregateMeasure {
             secondary,
             filter,
             quantile,
+            decimal,
             order,
             separator,
             self.alias

@@ -2,8 +2,16 @@
 //! Promote checked narrow state before overflow; only final results must fit
 //! Decimal128 precision. The logical output type never depends on state width.
 
+use shardloom_core::decimal_output::DecimalOutput;
 use shardloom_core::{Result, ShardLoomError, expression::Decimal128Operand};
 use vortex::array::{dtype::DecimalDType, scalar::DecimalValue};
+
+pub(super) fn declared_dtype(output: DecimalOutput) -> DecimalDType {
+    DecimalDType::new(
+        output.precision(),
+        i8::try_from(output.scale()).expect("validated scale"),
+    )
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Total {
@@ -88,6 +96,28 @@ impl Total {
         let sum = add_exact(&self.sum, &other.sum).ok_or_else(|| failed("wide total overflow"))?;
         *self = Self { sum, count };
         Ok(())
+    }
+
+    pub(super) fn finish_with(
+        &self,
+        source: DecimalDType,
+        average: bool,
+        output: Option<DecimalOutput>,
+    ) -> Result<Option<i128>> {
+        let Some(output) = output else {
+            return self.finish(source, average);
+        };
+        validate(0, source)?;
+        if self.count == 0 {
+            return Ok(None);
+        }
+        output
+            .total(
+                self.sum.as_i256().to_le_bytes(),
+                u8::try_from(source.scale()).map_err(|_| failed("negative decimal scale"))?,
+                if average { self.count } else { 1 },
+            )
+            .map(|value| Some(value.value()))
     }
 
     pub(super) fn finish(&self, source: DecimalDType, average: bool) -> Result<Option<i128>> {

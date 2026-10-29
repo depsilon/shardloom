@@ -2611,6 +2611,28 @@ def select_distinct_window_case() -> SqlFixtureCase:
     )
 
 
+def explicit_decimal_output_workflow_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="explicit_decimal_output_workflow",
+        source_name="explicit-decimal.csv",
+        source_text="id,grp,raw\n1,A,125\n2,A,125\n3,B,-125\n4,B,-135\n5,N,\n6,N,\n",
+        statement_template=(
+            "WITH amounts AS (SELECT id,grp,DECIMAL_DIVIDE(CAST(raw AS DECIMAL(8,0)),100,8,2,'exact') AS amount FROM '{source}'),"
+            "summary AS (SELECT grp,AVG(amount,8,1,'half_even') AS even,"
+            "AVG(amount,8,1,'half_away') AS away,SUM(DISTINCT amount,8,2,'exact') AS total,"
+            "QUANTILE_CONT(amount,0.5,8,1,'floor') AS median FROM amounts GROUP BY grp) "
+            "SELECT grp,even,away,total,median,DECIMAL_MULTIPLY(even,2,8,2,'exact') AS doubled,"
+            "SUM(total,8,2,'exact') OVER (ORDER BY grp ROWS UNBOUNDED PRECEDING) AS cumulative "
+            "FROM summary ORDER BY grp"
+        ),
+        expected_jsonl=(
+            '{"grp":"A","even":"decimal128(8,1):12","away":"decimal128(8,1):13","total":"decimal128(8,2):125","median":"decimal128(8,1):12","doubled":"decimal128(8,2):240","cumulative":"decimal128(8,2):125"}\n'
+            '{"grp":"B","even":"decimal128(8,1):-13","away":"decimal128(8,1):-13","total":"decimal128(8,2):-260","median":"decimal128(8,1):-13","doubled":"decimal128(8,2):-260","cumulative":"decimal128(8,2):-135"}\n'
+            '{"grp":"N","even":null,"away":null,"total":null,"median":null,"doubled":null,"cumulative":"decimal128(8,2):-135"}\n'
+        ),
+    )
+
+
 def join_multi_key_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="join_multi_key_expression_condition",
@@ -3382,6 +3404,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         window_analytic_frames_case(),
         calendar_window_frames_case(),
         temporal_grid_workflow_case(),
+        explicit_decimal_output_workflow_case(),
         select_distinct_window_case(),
         join_multi_key_case(),
         join_scalar_expression_condition_case(),

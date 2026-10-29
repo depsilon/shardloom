@@ -28,6 +28,7 @@ fn scalar_spec(function: Function) -> Spec {
             column: Some("n".into()),
             dtype: DType::Primitive(PType::F64, Nullability::Nullable),
             decimal_source: None,
+            decimal_output: None,
             distinct_fields: vec![],
             distinct_names: vec![],
         }],

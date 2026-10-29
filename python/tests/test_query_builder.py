@@ -63,6 +63,99 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
 
+    @mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution"))
+    def test_decimal_aggregate_builders_preserve_defaults_controls_and_scope(self, _popen):
+        source = WorkflowSource("vortex", "decimal.vortex")
+        limits = sl.ExecutionResourceLimits(memory_bytes=1 << 20, max_parallelism=2)
+        value = type(sl.col("amount"))("amount", (source,), limits)
+        funcs = sl.functions
+        for builder, arguments, name in (
+            (funcs.sum, (value,), "SUM"), (funcs.avg, (value,), "AVG"),
+            (funcs.median, (value,), "MEDIAN"),
+            (funcs.quantile_cont, (value, 0.25), "QUANTILE_CONT"),
+        ):
+            default = builder(*arguments)
+            result = builder(*arguments, precision=12, scale=2, rounding="half_even")
+            self.assertEqual(result.sql, default.sql[:-1] + ",12,2,'half_even')")
+            self.assertEqual(result.source_bindings, (source,))
+            self.assertEqual(result.resource_limits, limits)
+            for options in ({"precision":12}, {"scale":2}, {"rounding":"exact"},
+                {"precision":True,"scale":2,"rounding":"exact"},
+                {"precision":12,"scale":13,"rounding":"exact"},
+                {"precision":12,"scale":2,"rounding":"half_up"}):
+                with self.subTest(name=name, options=options), self.assertRaises((TypeError, ValueError)):
+                    builder(*arguments, **options)
+        for builder, name in ((funcs.sum_distinct, "SUM"), (funcs.avg_distinct, "AVG")):
+            self.assertEqual(builder(value).sql, f"{name}(DISTINCT amount)")
+            result = builder(value, precision=12, scale=2, rounding="floor")
+            self.assertEqual(result.sql, f"{name}(DISTINCT amount, 12, 2, 'floor')")
+            self.assertEqual(result.source_bindings, (source,))
+            self.assertEqual(result.resource_limits, limits)
+        self.assertEqual(funcs.mean(value).sql, "AVG(amount)")
+        self.assertEqual(funcs.mean_distinct(value).sql, "AVG(DISTINCT amount)")
+        with self.assertRaises(TypeError):
+            funcs.quantile_disc(value, 0.25, precision=12, scale=2, rounding="exact")
+
+    @mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution"))
+    def test_decimal_builders_are_inert_scoped_and_validate_controls(self, _popen):
+        source = WorkflowSource("vortex", "decimal.vortex")
+        other_source = WorkflowSource("vortex", "tax.vortex")
+        limits = sl.ExecutionResourceLimits(memory_bytes=1 << 20, max_parallelism=2)
+        value = type(sl.col("amount"))("amount", (source,), limits)
+        other = type(value)("tax", (other_source,), limits)
+        funcs = sl.functions
+        cases = (
+            (value.decimal_rescale(12, 2, "half_even"),
+             "DECIMAL_RESCALE(amount, 12, 2, 'half_even')"),
+            (value.decimal_add(other, 12, 2, "exact"),
+             "DECIMAL_ADD(amount,tax,12,2,'exact')"),
+            (value.decimal_subtract(other, 12, 2, "floor"),
+             "DECIMAL_SUBTRACT(amount,tax,12,2,'floor')"),
+            (value.decimal_multiply(other, 12, 2, "ceil"),
+             "DECIMAL_MULTIPLY(amount,tax,12,2,'ceil')"),
+            (value.decimal_divide(other, 12, 2, "toward_zero"),
+             "DECIMAL_DIVIDE(amount,tax,12,2,'toward_zero')"),
+            (funcs.decimal_rescale(value, 12, 2, "half_away"),
+             "DECIMAL_RESCALE(amount, 12, 2, 'half_away')"),
+            (funcs.decimal_add(value, other, 12, 2, "exact"),
+             "DECIMAL_ADD(amount,tax,12,2,'exact')"),
+            (funcs.decimal_subtract(value, other, 12, 2, "floor"),
+             "DECIMAL_SUBTRACT(amount,tax,12,2,'floor')"),
+            (funcs.decimal_multiply(value, other, 12, 2, "ceil"),
+             "DECIMAL_MULTIPLY(amount,tax,12,2,'ceil')"),
+            (funcs.decimal_divide(value, other, 12, 2, "toward_zero"),
+             "DECIMAL_DIVIDE(amount,tax,12,2,'toward_zero')"),
+        )
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            for expression, expected in cases:
+                with self.subTest(sql=expected):
+                    self.assertEqual(expression.sql, expected)
+                    self.assertEqual(expression.source_bindings,
+                        (source,) if expected.startswith("DECIMAL_RESCALE") else (source, other_source))
+                    self.assertEqual(expression.resource_limits, limits)
+
+        for builder, args in (
+            (value.decimal_rescale, (12, 2, "exact")),
+            (lambda p, s, r: value.decimal_add(other, p, s, r), (12, 2, "exact")),
+            (lambda p, s, r: funcs.decimal_rescale(value, p, s, r), (12, 2, "exact")),
+            (lambda p, s, r: funcs.decimal_divide(value, other, p, s, r), (12, 2, "exact")),
+        ):
+            for positional in range(3):
+                with self.subTest(args=args, positional=positional), self.assertRaises(TypeError):
+                    builder(*args[:positional])
+            for precision in (True, 0, 39, 1.5, "12", None):
+                invalid = (precision, args[1], args[2])
+                with self.subTest(invalid=invalid), self.assertRaises((TypeError, ValueError)):
+                    builder(*invalid)
+            for scale in (True, -1, 13, 1.5, "2", None):
+                invalid = (args[0], scale, args[2])
+                with self.subTest(invalid=invalid), self.assertRaises((TypeError, ValueError)):
+                    builder(*invalid)
+            for rounding in (None, "HALF_EVEN", "bankers", "exact'); SELECT 1 --"):
+                invalid = (args[0], args[1], rounding)
+                with self.subTest(invalid=invalid), self.assertRaises((TypeError, ValueError)):
+                    builder(*invalid)
+
     def test_temporal_bucket_declares_exact_controls_without_execution(self):
         with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
             value = sl.col("instant")

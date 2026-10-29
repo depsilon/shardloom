@@ -82,6 +82,7 @@ fn native_nested_parent_validity_does_not_prepare_hidden_child_keys() {
                     quantile_level: None,
                     selection: None,
                     decimal_source: None,
+                    decimal_output: None,
                     function: SimpleAggregateFunction::Count.into(),
                     column: Some("hidden".into()),
                     dtype: count_dtype,

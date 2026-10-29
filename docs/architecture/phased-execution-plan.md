@@ -779,6 +779,13 @@ visible and independent; this implementation does not automatically close them.
     280 five-interface executions, 8,520 complete rows, real native spill and
     streamed-source failure/ownership checks. Numeric, composition, batch-function,
     diagnostics, installed-package and combined item-20 acceptance remain open.
+    The [explicit-decimal continuation](../benchmarks/native-decimal-output-2026-10-29.md)
+    now passes six public tests with 250 five-interface executions and 2,695
+    complete rows, real native-spill/failure acceptance, and 223 installed-wheel
+    integration tests. It adds per-operation precision/scale/rounding and proves
+    explicit widened-integer SUM without changing ordinary arithmetic defaults.
+    Non-finite/signed-zero policy and the broader composition, batch-function,
+    diagnostics and combined acceptance requirements remain open.
     The existing 347-query checkpoint is unchanged during this capability work.
     The latest maintainer instruction closes PR #1619 at this validated checkpoint
     and continues the remaining item-20 work in subsequent cohesive PRs. Retain the dropped
@@ -842,6 +849,12 @@ adds exact elapsed/calendar RANGE semantics and retreating-boundary spill.
 The [temporal-grid implementation](../benchmarks/native-time-grid-2026-10-29.md)
 adds anchored fixed/calendar resampling, bounded per-partition gap filling and
 ordered forward/backward/linear filling with shared resident/spilled owners.
+The [explicit-decimal implementation](native-decimal-output-2026-10-29.md) adds
+caller-selected precision, scale and six rounding modes to native scalar
+arithmetic and Decimal128 additive/continuous-quantile reducers and windows.
+Its result rounding occurs once after exact accumulation or interpolation;
+ordinary declarations retain their existing domains. Non-finite and signed-zero
+policy remains the next numeric unit.
 The broader SQL aggregate combinations, numeric policies and combined acceptance
 above retain their remaining implementation and conformance obligations.
 

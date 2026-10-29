@@ -12,6 +12,9 @@ mod reference_tests;
 #[path = "local_primitive_relational_temporal_tests.rs"]
 mod temporal_tests;
 
+#[path = "local_primitive_relational_decimal_output_tests.rs"]
+mod decimal_output_tests;
+
 fn expr(kind: ExpressionKind) -> Expression {
     Expression::new(ExprId::new("typed-expression").unwrap(), kind)
 }

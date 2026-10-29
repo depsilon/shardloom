@@ -9,10 +9,15 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `1346248d86cb05f3232b7c091d39d5cd265e6a858e3f6dea9c235154aa72d935`.
+Definition source SHA-256: `b6102c1d4815091078285eb40ed8827316755a2cb772c1e82e375a70d80e6f0b`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |
+| `decimal_rescale` | — | 4 | Rescale an exact decimal or integer to an explicit decimal output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
+| `decimal_add` | — | 5 | Add exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
+| `decimal_subtract` | — | 5 | Subtract exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
+| `decimal_multiply` | — | 5 | Multiply exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
+| `decimal_divide` | — | 5 | Divide exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
 | `temporal_extract` | — | 2 | Extract a literal calendar field from a typed date, time or timestamp. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `temporal_trunc` | — | 2–3 | Truncate a typed date, time or timestamp to a literal calendar boundary. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `temporal_bucket` | — | 3–6 | Label an anchored half-open temporal bucket with exact elapsed or explicit calendar spacing. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |

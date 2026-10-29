@@ -22,6 +22,7 @@ pub mod certification;
 pub mod correctness;
 pub mod cpu_specialization;
 pub mod dataset;
+pub mod decimal_output;
 pub mod diagnostics;
 pub mod distributed_engine;
 pub mod effect_budget;

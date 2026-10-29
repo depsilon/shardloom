@@ -328,6 +328,38 @@ class ColumnExpression:
             resource_limits=self.resource_limits,
         )
 
+    def decimal_rescale(self, precision, scale, rounding) -> "ColumnExpression":
+        """Declare native decimal rescaling with explicit precision and rounding."""
+        precision, scale, rounding = _decimal_controls(precision, scale, rounding)
+        return ColumnExpression(
+            f"DECIMAL_RESCALE({self.sql}, {precision}, {scale}, {_sql_string_literal(rounding)})",
+            self.source_bindings, resource_limits=self.resource_limits,
+        )
+
+    def _decimal_binary(self, name, other, precision, scale, rounding) -> "ColumnExpression":
+        precision, scale, rounding = _decimal_controls(precision, scale, rounding)
+        rhs = other if isinstance(other, ColumnExpression) else col(other)
+        return ColumnExpression(
+            f"{name}({self.sql},{rhs.sql},{precision},{scale},{_sql_string_literal(rounding)})",
+            _predicate_sources(self, rhs), resource_limits=_predicate_limits(self, rhs),
+        )
+
+    def decimal_add(self, other, precision, scale, rounding) -> "ColumnExpression":
+        """Declare native decimal addition with explicit output controls."""
+        return self._decimal_binary("DECIMAL_ADD", other, precision, scale, rounding)
+
+    def decimal_subtract(self, other, precision, scale, rounding) -> "ColumnExpression":
+        """Declare native decimal subtraction with explicit output controls."""
+        return self._decimal_binary("DECIMAL_SUBTRACT", other, precision, scale, rounding)
+
+    def decimal_multiply(self, other, precision, scale, rounding) -> "ColumnExpression":
+        """Declare native decimal multiplication with explicit output controls."""
+        return self._decimal_binary("DECIMAL_MULTIPLY", other, precision, scale, rounding)
+
+    def decimal_divide(self, other, precision, scale, rounding) -> "ColumnExpression":
+        """Declare native decimal division with explicit output controls."""
+        return self._decimal_binary("DECIMAL_DIVIDE", other, precision, scale, rounding)
+
     def filter(self, predicate) -> "ColumnExpression":
         """Declare aggregate-local FILTER; false and NULL predicate values exclude rows."""
         if not isinstance(predicate, (PredicateExpression, ColumnExpression)):
@@ -10653,6 +10685,22 @@ def _sql_temporal_difference_arg(value: object, dtype: str) -> str:
 
 def _sql_string_literal(value: object) -> str:
     return _sql_string_function_literal("string literal", value, allow_empty=False)
+
+
+def _decimal_controls(precision, scale, rounding):
+    if type(precision) is not int:
+        raise TypeError("decimal precision must be an integer")
+    if not 1 <= precision <= 38:
+        raise ValueError("decimal precision must be between 1 and 38")
+    if type(scale) is not int:
+        raise TypeError("decimal scale must be an integer")
+    if not 0 <= scale <= precision:
+        raise ValueError("decimal scale must be between 0 and precision")
+    if type(rounding) is not str:
+        raise TypeError("decimal rounding must be a string")
+    if rounding not in {"exact", "half_even", "half_away", "toward_zero", "floor", "ceil"}:
+        raise ValueError("unsupported decimal rounding mode")
+    return precision, scale, rounding
 
 
 def _sql_string_function_literal(

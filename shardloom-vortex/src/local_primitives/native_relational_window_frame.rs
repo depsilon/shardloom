@@ -41,6 +41,7 @@ pub(super) struct Spec {
     pub(super) separator: Option<String>,
     pub(super) selection_order: Vec<OrderKey>,
     pub(super) decimal: Option<DecimalDType>,
+    pub(super) decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
     pub(super) frame: Frame,
 }
 

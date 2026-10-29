@@ -26074,6 +26074,7 @@ fn required_simple_aggregate(
         measure.secondary_column.is_some()
             || measure.filter_column.is_some()
             || measure.quantile_level.is_some()
+            || measure.decimal_output.is_some()
             || !measure.order_by.is_empty()
     }) {
         return Err(ShardLoomError::InvalidOperation(

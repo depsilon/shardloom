@@ -83,6 +83,7 @@ pub(super) struct Measure {
     pub(super) selection: Option<SelectionSpec>,
     pub(super) dtype: DType,
     pub(super) decimal_source: Option<DecimalDType>,
+    pub(super) decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
     pub(super) distinct_fields: Vec<(String, DType)>,
     pub(super) distinct_names: Vec<String>,
 }
@@ -903,7 +904,11 @@ impl<'a> Aggregate<'a> {
                                 return Err(failed("decimal aggregate output type changed"));
                             };
                             return totals.values[(start + row) * self.decimal_width + index]
-                                .finish(source, measure.function.is_average())
+                                .finish_with(
+                                    source,
+                                    measure.function.is_average(),
+                                    measure.decimal_output,
+                                )
                                 .map(|value| {
                                     value.map_or(Value::Null, |value| Value::Decimal(value, output))
                                 });
@@ -1456,6 +1461,7 @@ mod ownership_tests {
             column: Some("items".into()),
             dtype: DType::Null,
             decimal_source: None,
+            decimal_output: None,
             distinct_fields: vec![],
             distinct_names: vec![],
         };

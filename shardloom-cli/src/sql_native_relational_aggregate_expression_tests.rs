@@ -1,6 +1,78 @@
 use super::*;
 
 #[test]
+fn native_decimal_output_sql_preserves_aggregate_modes_identity_and_window_finalization() {
+    let source = fixture();
+    let input =
+        format!("(SELECT value,CAST(value AS DECIMAL(8,2)) AS amount FROM '{source}') AS q");
+    verify(
+        &format!(
+            "SELECT AVG(amount,8,0,'half_even') AS even,AVG(amount,8,0,'half_away') AS away FROM {input} WHERE value<=2 HAVING AVG(amount,8,0,'floor')=CAST(1 AS DECIMAL(8,0))"
+        ),
+        &json!([{"even":"decimal128(8,0):2","away":"decimal128(8,0):2"}]),
+    );
+    verify(
+        &format!(
+            "SELECT AVG(amount,8,0,'half_even') AS even,AVG(amount,8,0,'half_away') AS away FROM {input} WHERE value>=2 AND value<=3 ORDER BY AVG(amount,8,0,'floor')"
+        ),
+        &json!([{"even":"decimal128(8,0):2","away":"decimal128(8,0):3"}]),
+    );
+    verify(
+        &format!(
+            "SELECT SUM(amount,8,1,'exact') AS total,AVG(DISTINCT amount,8,2,'half_even') AS mean,MEDIAN(amount,8,0,'ceil') AS median,QUANTILE_CONT(amount,0.1,8,2,'half_even') AS q FROM {input}"
+        ),
+        &json!([{"total":"decimal128(8,1):150","mean":"decimal128(8,2):300","median":"decimal128(8,0):3","q":"decimal128(8,2):140"}]),
+    );
+    verify(
+        &format!(
+            "SELECT value,AVG(amount,8,0,'half_even') OVER (ORDER BY value ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS even,AVG(amount,8,0,'half_away') OVER (ORDER BY value ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS away FROM {input} ORDER BY value"
+        ),
+        &json!([
+            {"value":1,"even":"decimal128(8,0):1","away":"decimal128(8,0):1"},
+            {"value":2,"even":"decimal128(8,0):2","away":"decimal128(8,0):2"},
+            {"value":3,"even":"decimal128(8,0):2","away":"decimal128(8,0):3"},
+            {"value":4,"even":"decimal128(8,0):4","away":"decimal128(8,0):4"},
+            {"value":5,"even":"decimal128(8,0):4","away":"decimal128(8,0):5"},
+        ]),
+    );
+}
+
+#[test]
+fn native_decimal_output_sql_scalar_composition_and_empty_admission() {
+    let source = fixture();
+    verify(
+        &format!(
+            "SELECT DECIMAL_DIVIDE(value,2,5,1,'half_even') AS half FROM '{source}' ORDER BY value"
+        ),
+        &json!([{"half":"decimal128(5,1):5"},{"half":"decimal128(5,1):10"},
+            {"half":"decimal128(5,1):15"},{"half":"decimal128(5,1):20"},{"half":"decimal128(5,1):25"}]),
+    );
+    let empty =
+        format!("(SELECT CAST(value AS DECIMAL(8,2)) AS amount FROM '{source}' LIMIT 0) AS q");
+    verify(
+        &format!(
+            "SELECT SUM(amount,8,1,'half_even') AS total,MEDIAN(amount,8,1,'floor') AS median FROM {empty}"
+        ),
+        &json!([{"total":null,"median":null}]),
+    );
+    for sql in [
+        format!("SELECT AVG(value,8,2,'half_even') FROM '{source}' LIMIT 0"),
+        format!("SELECT MIN(amount,8,2,'half_even') FROM {empty}"),
+        format!("SELECT AVG(amount,0,2,'half_even') FROM {empty}"),
+    ] {
+        assert!(
+            prepare(
+                &sql,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
+                |path| DatasetUri::new(path.path.to_string_lossy().into_owned())
+            )
+            .is_err(),
+            "{sql}"
+        );
+    }
+}
+
+#[test]
 fn native_typed_reductions_sql_untyped_null_projection_admits_direct_composed_and_empty() {
     let source = fixture();
     verify(

@@ -12,6 +12,7 @@ import math
 from collections.abc import Iterable
 
 from .query import (
+    _decimal_controls,
     ColumnExpression, PredicateExpression, all_source, any_source, array, case_when,
     col, column, count_distinct, dense_rank, exists_source,
     interval_days, interval_hours, interval_minutes, interval_seconds,
@@ -22,6 +23,7 @@ from .query import (
 
 __all__ = (
     "grouping", "grouping_id",
+    "decimal_rescale", "decimal_add", "decimal_subtract", "decimal_multiply", "decimal_divide",
     "abs", "all_source", "any_source", "array", "array_agg", "avg", "byte_length", "case_when",
     "cast", "catalog", "ceil", "coalesce", "col", "column", "concat", "contains", "count",
     "count_distinct", "date_add_days", "date_day", "date_diff_days", "date_month",
@@ -41,6 +43,31 @@ __all__ = (
 
 def _column(value):
     return value if isinstance(value, ColumnExpression) else col(value)
+
+
+def decimal_rescale(value, precision, scale, rounding) -> ColumnExpression:
+    """Declare native decimal rescaling with explicit precision and rounding."""
+    return _column(value).decimal_rescale(precision, scale, rounding)
+
+
+def decimal_add(left, right, precision, scale, rounding) -> ColumnExpression:
+    """Declare native decimal addition with explicit output controls."""
+    return _column(left).decimal_add(_column(right), precision, scale, rounding)
+
+
+def decimal_subtract(left, right, precision, scale, rounding) -> ColumnExpression:
+    """Declare native decimal subtraction with explicit output controls."""
+    return _column(left).decimal_subtract(_column(right), precision, scale, rounding)
+
+
+def decimal_multiply(left, right, precision, scale, rounding) -> ColumnExpression:
+    """Declare native decimal multiplication with explicit output controls."""
+    return _column(left).decimal_multiply(_column(right), precision, scale, rounding)
+
+
+def decimal_divide(left, right, precision, scale, rounding) -> ColumnExpression:
+    """Declare native decimal division with explicit output controls."""
+    return _column(left).decimal_divide(_column(right), precision, scale, rounding)
 
 
 def catalog() -> tuple[dict, ...]:
@@ -162,28 +189,38 @@ def try_cast(value, dtype) -> ColumnExpression:
     return _column(value).try_cast(dtype)
 
 
-def _aggregate(name, value, distinct: bool) -> ColumnExpression:
+def _decimal_arguments(precision, scale, rounding):
+    controls = (precision, scale, rounding)
+    if all(value is None for value in controls):
+        return ()
+    if any(value is None for value in controls):
+        raise ValueError("decimal output requires precision, scale and rounding together")
+    return tuple(lit(value) for value in _decimal_controls(*controls))
+
+
+def _aggregate(name, value, distinct: bool, precision=None, scale=None, rounding=None) -> ColumnExpression:
     if not isinstance(distinct, bool):
         raise TypeError("distinct must be a bool")
     expression = _column(value)
-    result = _call(name, expression)
+    arguments = (expression, *_decimal_arguments(precision, scale, rounding))
+    result = _call(name, *arguments)
     if not distinct:
         return result
     return ColumnExpression(
-        f"{name}(DISTINCT {expression})",
+        f"{name}(DISTINCT {', '.join(str(argument) for argument in arguments)})",
         result.source_bindings,
         resource_limits=result.resource_limits,
     )
 
 
-def sum(value, *, distinct: bool = False) -> ColumnExpression:
+def sum(value, *, distinct: bool = False, precision=None, scale=None, rounding=None) -> ColumnExpression:
     """Declare native SUM, ignoring nulls and optionally using exact distinct membership."""
-    return _aggregate("SUM", value, distinct)
+    return _aggregate("SUM", value, distinct, precision, scale, rounding)
 
 
-def sum_distinct(value) -> ColumnExpression:
+def sum_distinct(value, *, precision=None, scale=None, rounding=None) -> ColumnExpression:
     """Declare native SUM over distinct non-null values."""
-    return sum(value, distinct=True)
+    return sum(value, distinct=True, precision=precision, scale=scale, rounding=rounding)
 
 
 def min(value) -> ColumnExpression:
@@ -280,12 +317,12 @@ def string_agg(value, separator: str, *, order_by=()) -> ColumnExpression:
     return _ordered_aggregate("STRING_AGG", (value, lit(separator)), order_by)
 
 
-def median(value) -> ColumnExpression:
+def median(value, *, precision=None, scale=None, rounding=None) -> ColumnExpression:
     """Declare continuous median (quantile 0.5) over non-null values."""
-    return _call("MEDIAN", _column(value))
+    return _call("MEDIAN", _column(value), *_decimal_arguments(precision, scale, rounding))
 
 
-def _quantile(name, value, level) -> ColumnExpression:
+def _quantile(name, value, level, precision=None, scale=None, rounding=None) -> ColumnExpression:
     if type(level) not in (int, float):
         raise TypeError("quantile level must be an int or float")
     try:
@@ -296,12 +333,12 @@ def _quantile(name, value, level) -> ColumnExpression:
         raise ValueError("quantile level must be finite and between 0 and 1 inclusive")
     if level == 0.0:
         level = 0.0
-    return _call(name, _column(value), lit(level))
+    return _call(name, _column(value), lit(level), *_decimal_arguments(precision, scale, rounding))
 
 
-def quantile_cont(value, level) -> ColumnExpression:
+def quantile_cont(value, level, *, precision=None, scale=None, rounding=None) -> ColumnExpression:
     """Declare continuous quantile with linear interpolation over ordered non-null values."""
-    return _quantile("QUANTILE_CONT", value, level)
+    return _quantile("QUANTILE_CONT", value, level, precision, scale, rounding)
 
 
 def quantile_disc(value, level) -> ColumnExpression:
@@ -309,17 +346,17 @@ def quantile_disc(value, level) -> ColumnExpression:
     return _quantile("QUANTILE_DISC", value, level)
 
 
-def avg(value, *, distinct: bool = False) -> ColumnExpression:
+def avg(value, *, distinct: bool = False, precision=None, scale=None, rounding=None) -> ColumnExpression:
     """Declare native AVG, ignoring nulls and optionally using exact distinct membership."""
-    return _aggregate("AVG", value, distinct)
+    return _aggregate("AVG", value, distinct, precision, scale, rounding)
 
 
 mean = avg
 
 
-def avg_distinct(value) -> ColumnExpression:
+def avg_distinct(value, *, precision=None, scale=None, rounding=None) -> ColumnExpression:
     """Declare native AVG over distinct non-null values."""
-    return avg(value, distinct=True)
+    return avg(value, distinct=True, precision=precision, scale=scale, rounding=rounding)
 
 
 mean_distinct = avg_distinct
