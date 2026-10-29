@@ -70,13 +70,13 @@
     },
     {
       "repository_path": "scripts/run_clickbench_query_uat.py",
-      "bytes": 28355,
-      "sha256": "8194080ef372182c930a8077d5a38aaf89599141e96b7fd943c0aa2f9d35c5db"
+      "bytes": 28658,
+      "sha256": "cb1532a9a64021e6428077e5a9d878f7c40331957ff8aecdac9b2d1d5c6f8173"
     },
     {
       "repository_path": "scripts/clickbench_native_sql.py",
-      "bytes": 3061,
-      "sha256": "6ac0d1042aca1089bc9d9e3c7ea21bcacda8f341d90532178ccfe782acd328cd"
+      "bytes": 9770,
+      "sha256": "964fb0799147650cda754c95240e5afea780b9bd89b5a46b91b2bc4a3a92d0ff"
     }
   ],
   "retained_reports": 18,
