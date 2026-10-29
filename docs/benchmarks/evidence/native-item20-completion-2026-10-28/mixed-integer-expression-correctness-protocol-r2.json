@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "parent_protocol_sha256": "573c9d083b72e826a5a4d10d4ace23bb23c33ff3a46831126819be28ecfb17dc",
+  "held_out_correctness": {
+    "seeds": [
+      202610290211,
+      202610290337
+    ],
+    "rows": 4099,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "mixed_integer_literals",
+      "mixed_integer_operators",
+      "mixed_integer_width_pairs",
+      "mixed_integer_wide_sum",
+      "mixed_integer_grouped",
+      "mixed_integer_selected",
+      "mixed_integer_empty",
+      "mixed_integer_all_null"
+    ],
+    "case_generator": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/mixed_integer_heldout_cases_r2.py",
+      "bytes": 5748,
+      "sha256": "27dafc70ed2caec073241827ed93b159cf310f33209742370610e5042ae5d2a9"
+    },
+    "scope": "8 cases x 2 seeds x 2 layouts x 5 public interfaces, with independently reopened inputs and complete exact expectations. No competitor engine and no scored timing."
+  },
+  "candidate_performance_executions_before_protocol": 0,
+  "correction": {
+    "prior_protocol": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/mixed-integer-expression-correctness-protocol.json",
+      "bytes": 1060,
+      "sha256": "16905af155d619a4e6f268b130e60b5b4f6eb3ddf29a71cc8341ccc34ac3afea"
+    },
+    "public_failure": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/mixed-integer-public-checks.json",
+      "sha256": "20278ab5f596aa2a0b53fbb7b011c5675226accf1b4e26533f5d9d1c84bdd415"
+    },
+    "cause": "Original public fixture requested implicit U64/signed arithmetic, which existing common_dtype admission rejects before evaluation. The original held-out inputs were generated and bound but never executed.",
+    "change": "Explicitly cast finite fixture U64 operands to I64 when paired with signed operands; retain native unsigned mixed-width paths and add five-interface implicit-refusal checks. Runtime unchanged. Seeds/layouts/case IDs/reference method and result coverage stay fixed.",
+    "prior_heldout_observations": 0,
+    "candidate_performance_executions": 0
+  }
+}

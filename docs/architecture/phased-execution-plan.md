@@ -720,6 +720,19 @@ visible and independent; this implementation does not automatically close them.
     path, without ingest or preparation. Its input boundary is distinct from
     historical Vortex-input Full43. Combined package/portable/hosted acceptance
     and the rest of item 20 remain open.
+    Direct-Parquet Full43 preserves the first naming-contract interruption and
+    a second attempt with Q1–29 validated before Q30 reaches its query deadline;
+    neither is a complete timing result. The subsequent
+    [mixed-width expression checkpoint](../benchmarks/evidence/native-item20-completion-2026-10-28/mixed-integer-expression-disposition.json)
+    retains borrowed typed integer evaluation at **15.180311963 engine seconds**
+    for all 347 queries and 12,565 rows, saving **0.219785194 seconds** without
+    case or family regression flags. Twelve focused tests, six public regressions,
+    160 fresh five-interface checks (248,320 result rows), 5,048 native tests
+    (35 existing opt-in ignores), 3,274 workspace tests and strict lint pass.
+    The original public-fixture domain refusal and unexecuted held-out binding
+    remain recorded; explicit casts and refusal checks pass on unchanged binaries.
+    A small 90-SUM scale check passes. Fresh isolated Full43 and combined item-20
+    acceptance remain required.
     The October 28 maintainer follow-up prioritizes measured shared grouping,
     projection and join costs, then shared-intermediate reuse and plan traversal
     where source and workload evidence warrants them. Recursive CTEs and structural

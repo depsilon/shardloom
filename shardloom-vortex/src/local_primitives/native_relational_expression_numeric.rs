@@ -6,8 +6,11 @@ use super::{
     ArrayRef, BinaryOp, DType, Expression, KeyColumn, Kind, NativeExecutionContext, PType, Result,
     floating_binary, integer_binary, keys, result_batch, signed_result, unsigned_result,
 };
-use crate::local_primitives::native_relational_keys::validate_finite_scalar;
+use crate::local_primitives::{
+    native_numeric_owner::NativeNumericOwner, native_relational_keys::validate_finite_scalar,
+};
 use vortex::array::{
+    match_each_integer_ptype,
     memory::HostMemorySessionExt as _,
     scalar::{PValue, ScalarValue},
 };
@@ -29,12 +32,17 @@ pub(super) fn binary(
         return Ok(None);
     };
     if !matches!(ptype, PType::I64 | PType::U64 | PType::F64)
-        || left.ptype() != *ptype
-        || right.ptype() != *ptype
         || matches!(op, BinaryOp::And | BinaryOp::Or)
         || left.len() != right.len()
     {
         return Ok(None);
+    }
+    if left.ptype() != *ptype || right.ptype() != *ptype {
+        return if ptype.is_int() && left.is_integer() && right.is_integer() {
+            mixed_integer_binary(left, op, right, dtype, context).map(Some)
+        } else {
+            Ok(None)
+        };
     }
     #[cfg(all(test, debug_assertions))]
     super::super::native_relational_observation::record(|counts| {
@@ -97,6 +105,62 @@ pub(super) fn binary(
     }?;
     context.check_cancelled()?;
     Ok(Some(output))
+}
+
+/// Dispatch borrowed original-width integer slices once per batch. The existing
+/// scalar arithmetic widens to i128 before the bound result conversion; widening
+/// only in registers preserves that contract without per-row Cell/Value owners
+/// or an additional cast buffer. Integer payloads have no nonfinite validation,
+/// so absent operands may be skipped after the same ordered input preparation.
+fn mixed_integer_binary(
+    left: &NativeNumericOwner,
+    op: BinaryOp,
+    right: &NativeNumericOwner,
+    dtype: &DType,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    #[cfg(all(test, debug_assertions))]
+    super::super::native_relational_observation::record(|counts| {
+        counts.expression_numeric_binary_batches += 1;
+    });
+    let allocator = context.native_session().host_allocator();
+    let all_valid = left.all_valid() && right.all_valid();
+    let output = match_each_integer_ptype!(left.ptype(), |L| {
+        let left_values = left.primitive().as_slice::<L>();
+        match_each_integer_ptype!(right.ptype(), |R| {
+            let right_values = right.primitive().as_slice::<R>();
+            let value = |row: usize| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                #[cfg(all(test, debug_assertions))]
+                super::super::native_relational_observation::record(|counts| {
+                    counts.expression_numeric_binary_rows += 1;
+                });
+                if all_valid || (left.validity().value(row) && right.validity().value(row)) {
+                    integer_binary(
+                        i128::from(left_values[row]),
+                        op,
+                        i128::from(right_values[row]),
+                    )
+                    .map(Some)
+                } else {
+                    Ok(None)
+                }
+            };
+            if matches!(dtype, DType::Primitive(PType::U64, _)) {
+                result_batch::build_numeric_column(dtype, left.len(), &allocator, |row| {
+                    value(row)?.map(unsigned_result).transpose()
+                })
+            } else {
+                result_batch::build_numeric_column(dtype, left.len(), &allocator, |row| {
+                    value(row)?.map(signed_result).transpose()
+                })
+            }
+        })
+    })?;
+    context.check_cancelled()?;
+    Ok(output)
 }
 
 pub(super) fn coalesce(

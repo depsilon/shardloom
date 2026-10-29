@@ -287,7 +287,7 @@ fn numeric_expression_binary_preserves_overflow_nonfinite_and_first_error() {
 }
 
 #[test]
-fn numeric_expression_binary_declines_other_widths_and_preserves_public_evaluation() {
+fn numeric_expression_binary_admits_integer_widths_and_preserves_public_evaluation() {
     for left in [
         PrimitiveArray::from_iter([1_i32, 2]).into_array(),
         PrimitiveArray::from_iter([1.0_f32, 2.0]).into_array(),
@@ -306,7 +306,7 @@ fn numeric_expression_binary_declines_other_widths_and_preserves_public_evaluati
             BinaryOp::Add,
             right.clone(),
             dtype.clone(),
-            false,
+            !matches!(left.dtype(), DType::Primitive(PType::F32, _)),
         );
         let expression = Expression::new(
             dtype,
@@ -336,6 +336,153 @@ fn numeric_expression_binary_declines_other_widths_and_preserves_public_evaluati
                 Ok(())
             })
             .unwrap();
+    }
+}
+
+fn integer_column(ptype: PType, values: &[Option<i64>]) -> ArrayRef {
+    match_each_integer_ptype!(ptype, |T| {
+        PrimitiveArray::from_option_iter(
+            values
+                .iter()
+                .map(|value| value.map(|value| T::try_from(value).unwrap())),
+        )
+        .into_array()
+    })
+}
+
+#[test]
+fn numeric_expression_mixed_integer_widths_match_every_pair_operation_and_null_domain() {
+    let widths = [
+        PType::I8,
+        PType::I16,
+        PType::I32,
+        PType::I64,
+        PType::U8,
+        PType::U16,
+        PType::U32,
+        PType::U64,
+    ];
+    for left_width in widths {
+        for right_width in widths {
+            for (left, right) in [
+                (
+                    &[Some(12), Some(0), Some(24)][..],
+                    &[Some(3), Some(2), Some(4)][..],
+                ),
+                (
+                    &[Some(12), None, Some(0), Some(24), None][..],
+                    &[Some(3), Some(0), None, Some(2), None][..],
+                ),
+                (&[None, None][..], &[Some(0), None][..]),
+                (&[][..], &[][..]),
+            ] {
+                for output in [PType::I64, PType::U64] {
+                    for op in [
+                        BinaryOp::Add,
+                        BinaryOp::Subtract,
+                        BinaryOp::Multiply,
+                        BinaryOp::Divide,
+                        BinaryOp::Remainder,
+                    ] {
+                        binary_agrees(
+                            integer_column(left_width, left),
+                            op,
+                            integer_column(right_width, right),
+                            DType::Primitive(output, Nullability::Nullable),
+                            true,
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn numeric_expression_mixed_integer_widths_preserve_overflow_and_first_error() {
+    let signed = DType::Primitive(PType::I64, Nullability::Nullable);
+    let unsigned = DType::Primitive(PType::U64, Nullability::Nullable);
+    for op in [
+        BinaryOp::Add,
+        BinaryOp::Subtract,
+        BinaryOp::Multiply,
+        BinaryOp::Divide,
+        BinaryOp::Remainder,
+    ] {
+        for dtype in [&signed, &unsigned] {
+            for (left, right) in [
+                (
+                    PrimitiveArray::from_iter([i64::MIN, i64::MAX]).into_array(),
+                    PrimitiveArray::from_iter([-1_i8, 1]).into_array(),
+                ),
+                (
+                    PrimitiveArray::from_iter([u64::MAX, 0]).into_array(),
+                    PrimitiveArray::from_iter([1_i16, -1]).into_array(),
+                ),
+                (
+                    PrimitiveArray::from_iter([0_i32, -1]).into_array(),
+                    PrimitiveArray::from_iter([u64::MAX, 0]).into_array(),
+                ),
+                (
+                    PrimitiveArray::from_iter([u64::MAX]).into_array(),
+                    PrimitiveArray::from_iter([u64::MAX]).into_array(),
+                ),
+                (
+                    PrimitiveArray::from_option_iter([Some(u64::MAX), None, Some(1)]).into_array(),
+                    PrimitiveArray::from_option_iter([None, Some(0_i8), Some(0)]).into_array(),
+                ),
+            ] {
+                binary_agrees(left, op, right, dtype.clone(), true);
+            }
+        }
+    }
+    // Distinguish result-width overflow from division by zero in both orders.
+    for (left, right) in [([u64::MAX, 1], [1_i32, 0]), ([1, u64::MAX], [0_i32, 1])] {
+        binary_agrees(
+            PrimitiveArray::from_iter(left).into_array(),
+            BinaryOp::Divide,
+            PrimitiveArray::from_iter(right).into_array(),
+            signed.clone(),
+            true,
+        );
+    }
+    // NULL output refusal occurs at the same first row as the scalar builder.
+    binary_agrees(
+        PrimitiveArray::from_option_iter([None, Some(u16::MAX)]).into_array(),
+        BinaryOp::Add,
+        PrimitiveArray::from_iter([0_i64, i64::MAX]).into_array(),
+        DType::Primitive(PType::I64, Nullability::NonNullable),
+        true,
+    );
+}
+
+#[test]
+fn numeric_expression_mixed_integer_widths_keep_encoded_selected_values_and_cancellation_batches() {
+    let source = DictArray::try_new(
+        PrimitiveArray::from_iter([2_u8, 1, 0, 2, 0]).into_array(),
+        PrimitiveArray::from_option_iter([Some(7_u16), None, Some(u16::MAX)]).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    binary_agrees(
+        source.slice(1..5).unwrap(),
+        BinaryOp::Add,
+        ConstantArray::new(Scalar::from(-2_i64), 4).into_array(),
+        DType::Primitive(PType::I64, Nullability::Nullable),
+        true,
+    );
+    for rows in [0_usize, 1, 2053] {
+        let left = PrimitiveArray::from_option_iter(
+            (0..rows).map(|row| (row % 3 != 1).then_some(u16::try_from(row).unwrap())),
+        )
+        .into_array();
+        binary_agrees(
+            left,
+            BinaryOp::Multiply,
+            ConstantArray::new(Scalar::from(-3_i64), rows).into_array(),
+            DType::Primitive(PType::I64, Nullability::Nullable),
+            true,
+        );
     }
 }
 
@@ -484,6 +631,11 @@ fn numeric_expression_literal_coalesce_preserves_nonfinite_errors_and_declines_l
 
 #[test]
 fn numeric_expression_allocation_refusal_cancellation_and_output_lifetime() {
+    binary_lifetime(PType::I64);
+    binary_lifetime(PType::U16);
+}
+
+fn binary_lifetime(source_type: PType) {
     let producer = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let producer_memory = producer.memory().clone();
     let receiver = ResidentVortexSession::new(1 << 20, 1).unwrap();
@@ -492,12 +644,14 @@ fn numeric_expression_allocation_refusal_cancellation_and_output_lifetime() {
     let source = producer
         .with_native_execution_context(&CancellationToken::default(), |context| {
             result_batch::build_column(
-                &dtype,
+                &DType::Primitive(source_type, Nullability::Nullable),
                 2053,
                 &context.native_session().host_allocator(),
                 |row| {
                     Ok(if row % 3 == 1 {
                         Value::Null
+                    } else if source_type == PType::U16 {
+                        Value::UInt(u64::try_from(row).unwrap())
                     } else {
                         Value::Int(i64::try_from(row).unwrap())
                     })

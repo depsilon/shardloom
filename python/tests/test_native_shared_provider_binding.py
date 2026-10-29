@@ -218,6 +218,132 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             self.assertEqual(self.table(retained).to_pylist(), expected)
             self.assertEqual(self.table(reused).to_pylist(), expected)
 
+    def test_mixed_integer_expressions_and_wide_sums_match_all_five_surfaces(self):
+        import shardloom as sl
+        import pyarrow.parquet as parquet
+        from shardloom.errors import ShardLoomCommandError
+
+        pa, native = self.pa, self.native
+        col, lit = native.Expression.column, native.Expression.literal
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [dict(id=i, g=i % 7,
+                     narrow=None if i % 7 == 0 or i % 17 == 0 else i % 65536,
+                     signed=None if i % 19 == 0 else i % 127 - 63,
+                     medium=None if i % 23 == 0 else i * 11 - 16384,
+                     wide=None if i % 29 == 0 else (1 << 40) + i,
+                     divisor=None if i % 31 == 0 else i % 7 + 1)
+                for i in range(2053)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("g", pa.int8(), nullable=False),
+                            pa.field("narrow", pa.uint16()), pa.field("signed", pa.int8()),
+                            pa.field("medium", pa.int32()), pa.field("wide", pa.uint64()),
+                            pa.field("divisor", pa.int16())])
+        def quotient(left, right):
+            value = abs(left) // abs(right)
+            return -value if (left < 0) != (right < 0) else value
+        operations = [
+            ("added", "narrow+3", col("narrow") + lit(3), lambda row: row["narrow"] + 3, ("narrow",)),
+            ("reversed", "7-signed", lit(7) - col("signed"), lambda row: 7 - row["signed"], ("signed",)),
+            ("multiplied", "medium*narrow", col("medium") * col("narrow"),
+             lambda row: row["medium"] * row["narrow"], ("medium", "narrow")),
+            ("divided", "CAST(wide AS BIGINT)/divisor", col("wide").cast("int64") / col("divisor"),
+             lambda row: quotient(row["wide"], row["divisor"]), ("wide", "divisor")),
+            ("unsigned_added", "wide+narrow", col("wide") + col("narrow"),
+             lambda row: row["wide"] + row["narrow"], ("wide", "narrow")),
+            ("remainder", "medium%divisor", col("medium") % col("divisor"),
+             lambda row: row["medium"] - quotient(row["medium"], row["divisor"]) * row["divisor"],
+             ("medium", "divisor")),
+        ]
+        with tempfile.TemporaryDirectory(prefix="shardloom-mixed-integer-") as directory:
+            path = Path(directory) / "numbers.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=257)
+            frame, source = sl.read_parquet(path, client=client), native.Relation.scan(str(path))
+            declarations = [f"{sql} AS {name}" for name, sql, *_ in operations]
+            projected = source.project([("id", col("id")),
+                                        *((name, expression) for name, _, expression, *_ in operations)])
+            statement = "SELECT id," + ",".join(declarations) + f" FROM '{path}' ORDER BY id"
+            wanted = [dict(id=row["id"], **{
+                name: None if any(row[key] is None for key in needed) else compute(row)
+                for name, _, _, compute, needed in operations}) for row in rows]
+            tables = self.all_surfaces(frame.select("id", *declarations).sort("id"),
+                                       projected.sort([("id", False, None)]), statement)
+            for table in tables:
+                self.assertEqual(table.to_pylist(), wanted)
+                self.assertEqual(table.schema, tables[0].schema)
+                for name, *_ in operations:
+                    self.assertEqual(table.schema.field(name).type,
+                                     pa.uint64() if name == "unsigned_added" else pa.int64())
+                    self.assertTrue(table.schema.field(name).nullable)
+
+            sums = [f"SUM(narrow+{offset}) AS sum_{offset}" for offset in range(90)]
+            expressions = [(f"argument_{offset}", col("narrow") + lit(offset)) for offset in range(90)]
+            measures = [("sum", f"argument_{offset}", f"sum_{offset}") for offset in range(90)]
+            for grouped, empty in [(False, False), (True, False), (False, True)]:
+                selected_frame = frame.filter("id<0") if empty else frame
+                selected_source = source.filter(col("id") < lit(0)) if empty else source
+                projected = selected_source.project([("g", col("g")), *expressions])
+                typed = projected.aggregate(["g"] if grouped else [], measures)
+                declaration = selected_frame.group_by("g").agg(*sums) if grouped else selected_frame.agg(*sums)
+                sql = "SELECT " + ("g," if grouped else "") + ",".join(sums) + f" FROM '{path}'"
+                if empty:
+                    sql += " WHERE id<0"
+                if grouped:
+                    declaration = declaration.sort("g")
+                    typed = typed.sort([("g", False, None)])
+                    sql += " GROUP BY g ORDER BY g"
+                wanted = []
+                for group in range(7) if grouped else [None]:
+                    values = [row["narrow"] for row in rows
+                              if not empty and row["narrow"] is not None and (not grouped or row["g"] == group)]
+                    result = {"g": group} if grouped else {}
+                    result.update({f"sum_{offset}": float(sum(value + offset for value in values))
+                                   if values else None for offset in range(90)})
+                    wanted.append(result)
+                with self.subTest(grouped=grouped, empty=empty):
+                    tables = self.all_surfaces(declaration, typed, sql, {
+                        "native_source_demand_prepared_input_bytes_written": "0",
+                        "native_input_end_observed": "true", "native_input_output_ownership_detached": "true"})
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), wanted)
+                        self.assertEqual(table.schema, tables[0].schema)
+                        for offset in range(90):
+                            self.assertEqual(table.schema.field(f"sum_{offset}").type, pa.float64())
+                            self.assertTrue(table.schema.field(f"sum_{offset}").nullable)
+
+            # Preserve the public binder's lossless-domain admission. Safe values
+            # alone do not permit implicit U64/signed arithmetic; callers cast.
+            rejected_sql = f"SELECT wide/divisor AS invalid FROM '{path}'"
+            rejected_relation = source.project([("invalid", col("wide") / col("divisor"))])
+            arguments = ["sql", "--sql", rejected_sql, "--request", "collect", "--bounded", "true",
+                         "--memory-bytes", str(128 << 20), "--max-parallelism", "2"]
+            message = "set integer domains have no lossless native common dtype"
+            actions = [
+                ("dataframe", ShardLoomCommandError,
+                 lambda: frame.select("wide/divisor AS invalid").collect(check=True)),
+                ("typed", RuntimeError, lambda: self.session.plan(rejected_relation).collect()),
+                ("sql", RuntimeError, lambda: self.session.sql(rejected_sql).collect()),
+                ("embedded", RuntimeError, lambda: self.session.workflow(arguments).collect()),
+            ]
+            for surface, error_type, action in actions:
+                with self.subTest(refused_surface=surface):
+                    with self.assertRaisesRegex(error_type, message) as raised:
+                        action()
+                    if isinstance(raised.exception, ShardLoomCommandError):
+                        self.assertFalse(raised.exception.envelope.fallback.attempted)
+                    else:
+                        self.assertIn("no fallback execution was attempted", str(raised.exception))
+            with patch("subprocess.Popen", self.real_popen):
+                cli = sl.ShardLoomClient(binary=os.environ.get("SHARDLOOM_SURFACE_TEST_BINARY"),
+                                        transport="subprocess", use_persistent_worker=False,
+                                        memory_bytes=128 << 20, max_parallelism=2, timeout=30)
+                try:
+                    with self.assertRaisesRegex(ShardLoomCommandError, message) as raised:
+                        sl.sql(rejected_sql, client=cli).collect(check=True)
+                    self.assertFalse(raised.exception.envelope.fallback.attempted)
+                finally:
+                    cli.close()
+
     def test_numeric_extrema_and_selected_outputs_match_all_five_surfaces(self):
         import struct
         import shardloom as sl

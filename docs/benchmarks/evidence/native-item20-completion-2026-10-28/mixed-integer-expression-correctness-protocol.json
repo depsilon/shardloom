@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "parent_protocol_sha256": "573c9d083b72e826a5a4d10d4ace23bb23c33ff3a46831126819be28ecfb17dc",
+  "held_out_correctness": {
+    "seeds": [
+      202610290211,
+      202610290337
+    ],
+    "rows": 4099,
+    "layouts": [
+      "shuffled",
+      "clustered"
+    ],
+    "domains": [
+      "mixed_integer_literals",
+      "mixed_integer_operators",
+      "mixed_integer_width_pairs",
+      "mixed_integer_wide_sum",
+      "mixed_integer_grouped",
+      "mixed_integer_selected",
+      "mixed_integer_empty",
+      "mixed_integer_all_null"
+    ],
+    "case_generator": {
+      "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/mixed_integer_heldout_cases.py",
+      "bytes": 5308,
+      "sha256": "a49742073fd60ee0b6a1ea0d73fa0576855569ff621aa81e789198c4437419af"
+    },
+    "scope": "8 cases x 2 seeds x 2 layouts x 5 public interfaces, with independently reopened inputs and complete exact expectations. No competitor engine and no scored timing."
+  },
+  "candidate_performance_executions_before_protocol": 0
+}

@@ -60,11 +60,11 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The latest retained candidate records 15.400097157 seconds, so this requires
-about 35.1% further reduction; it is a stretch target, not an achieved result or
+The latest retained candidate records 15.180311963 seconds, so this requires
+about 34.1% further reduction; it is a stretch target, not an achieved result or
 a reason to reduce correctness/coverage. Grouped aggregation contributes
-5.595029744 seconds, projection 2.870433458 seconds, and ordinary plus multiway
-joins 2.501059375 seconds. Use these complete family totals to prioritize
+5.542067662 seconds, projection 2.817882376 seconds, and ordinary plus multiway
+joins 2.407828543 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. The
 shared-owner sequence below records the retained and dropped candidates.
 Select further numeric/temporal specializations only from
@@ -79,7 +79,7 @@ this objective does not authorize another competitor cohort.
 
 The October 28 maintainer follow-up delegates the execution order to measured
 impact. Prioritize shared grouped aggregation, projection and joins: their
-retained family totals sum to 10.966522577 of the 15.400097157 engine seconds.
+retained family totals sum to 10.767778581 of the 15.180311963 engine seconds.
 This is workload concentration, not a claim that all of that time is removable.
 After each frozen candidate decision, target demonstrated repeated preparation,
 validation, copying or operator work in those shared owners. Explicit materialized
@@ -379,6 +379,37 @@ directly through shared native source-demand execution, with no ingest or
 preparation command. The updated standard runner declares its input format,
 retains source-demand/ownership diagnostics and executes each query exactly once.
 Historical Vortex-input Full43 timings retain their separate input boundary.
+
+The first direct-Parquet attempt stopped at Q3 on implicit result-name differences;
+its numeric values matched. Explicit names, epoch semantics and deterministic
+group ties now match the unchanged independent reference in all 43 schema checks
+and twelve small complete-value checks. The second attempt validates Q1–29,
+then Q30 reaches its unchanged query deadline. Q31–43 do not execute. Both
+attempts remain preserved, and neither supplies a complete Full43 timing.
+The [incomplete-run record](../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r2.json)
+retains complete values, source identity and cleanup proof.
+
+Profiling the same 90-SUM expression family on a smaller fixture identifies
+generic per-row evaluation when narrow integer columns meet I64 literals.
+The [mixed-width candidate](../benchmarks/evidence/native-item20-completion-2026-10-28/mixed-integer-expression-disposition.json)
+extends the existing typed expression owner to borrowed integer slices of all
+eight widths, preserving i128 arithmetic, ordered errors, NULLs, memory credits
+and cancellation. The public binder's lossless-domain admission stays unchanged;
+implicit U64/signed arithmetic still requires an explicit cast. No algebraic SUM
+rewrite, new input buffer, provider or execution fallback is introduced.
+
+Its one complete 347-query observation validates 12,565 rows at
+**15.180311963 engine seconds**, saving **0.219785194 seconds** from 15.400097157,
+with no case or family regression flags. All twelve focused numeric tests,
+six public regressions, 160 fresh five-interface observations (248,320 output
+rows and 16,396 input rows), 5,048 native tests and 3,274 workspace tests pass,
+as do strict lint and formatting. The native suite retains 35 existing opt-in
+ignores. Preserve the original positive test's unsupported U64/signed declaration
+and unexecuted first held-out binding; corrected declarations and explicit refusal
+checks pass on byte-identical runtime binaries. The 2,097,152-row unprofiled
+scale check validates all 90 SUM outputs at 0.871507542 engine seconds. It is a
+diagnostic scale check, separate from the 347-query retention decision. A fresh
+isolated Full43 remains required; combined item-20 acceptance stays open.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.
