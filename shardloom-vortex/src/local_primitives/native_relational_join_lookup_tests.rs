@@ -42,6 +42,7 @@ fn ordered_join_hash_collisions_still_compare_exact_keys_and_pack_across_blocks(
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let spec = Spec {
                 kind: Kind::Inner,
+                asof: None,
                 condition: None,
                 left_keys: vec!["key".into()],
                 right_keys: vec!["key".into()],

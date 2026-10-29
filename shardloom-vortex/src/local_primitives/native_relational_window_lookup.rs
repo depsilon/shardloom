@@ -23,17 +23,17 @@ struct Held {
 
 /// N is a fixed lookup-block count, not a separate memory grant. Every block,
 /// prepared key and descriptor overlaps under the calling query's live pool.
-pub(super) struct Lookup<'a, 's, const N: usize = 2> {
+pub(in crate::local_primitives) struct Lookup<'a, 's, const N: usize = 2> {
     source: &'a StoredOrder<'s>,
     names: &'a [String],
     held: [Option<Held>; N],
     next: usize,
-    pub(super) blocks: u64,
+    pub(in crate::local_primitives) blocks: u64,
     _metadata: MemoryLease,
 }
 
 impl<'a, 's, const N: usize> Lookup<'a, 's, N> {
-    pub(super) fn new(
+    pub(in crate::local_primitives) fn new(
         source: &'a StoredOrder<'s>,
         names: &'a [String],
         context: &NativeExecutionContext<'_>,
@@ -55,7 +55,7 @@ impl<'a, 's, const N: usize> Lookup<'a, 's, N> {
         })
     }
 
-    pub(super) fn rows(&self) -> Result<usize> {
+    pub(in crate::local_primitives) fn rows(&self) -> Result<usize> {
         usize::try_from(self.source.rows()).map_err(|_| failed("window row count overflow"))
     }
 
@@ -117,6 +117,19 @@ impl<'a, 's, const N: usize> Lookup<'a, 's, N> {
         self.held[slot]
             .as_ref()
             .ok_or_else(|| failed("stored window held block is absent"))
+    }
+
+    /// Borrow one validated native lookup block only for the duration of a
+    /// downstream comparison. The same owner serves as-of and window lookup.
+    pub(in crate::local_primitives) fn with_batch<T>(
+        &mut self,
+        row: usize,
+        context: &NativeExecutionContext<'_>,
+        inspect: impl FnOnce(&Batch, usize) -> Result<T>,
+    ) -> Result<T> {
+        let slot = self.load(row, None, context)?;
+        let held = self.held(slot)?;
+        inspect(&held.batch, row - held.start)
     }
 
     pub(super) fn raw(
@@ -202,7 +215,7 @@ impl<'a, 's, const N: usize> Lookup<'a, 's, N> {
 
     /// Compact each touched block before loading another. Sorting this bounded
     /// selection only groups I/O; the final take restores requested row order.
-    pub(super) fn gather(
+    pub(in crate::local_primitives) fn gather(
         &mut self,
         rows: &[Option<usize>],
         parent: Option<&str>,

@@ -45,6 +45,7 @@ fn children(plan: &mut Plan) -> Vec<&mut Plan> {
         Plan::Window(node) => vec![&mut node.input],
         Plan::Unary(node) => vec![&mut node.input],
         Plan::Join(node) => vec![&mut node.left, &mut node.right],
+        Plan::AsOfJoin(node) => vec![&mut node.left, &mut node.right],
         Plan::Set(node) => vec![&mut node.left, &mut node.right],
         Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
             vec![&mut node.input, &mut node.relation]

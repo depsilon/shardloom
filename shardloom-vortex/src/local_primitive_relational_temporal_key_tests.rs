@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::relational_query::{
-    VortexRelationalAggregate, VortexRelationalJoin, VortexRelationalJoinColumn,
+    VortexRelationalAggregate, VortexRelationalAsOfDirection, VortexRelationalAsOfJoin,
+    VortexRelationalAsOfOptions, VortexRelationalJoin, VortexRelationalJoinColumn,
     VortexRelationalJoinKey, VortexRelationalOrderKey, VortexRelationalSpillPolicy,
 };
 
@@ -254,4 +255,227 @@ fn temporal_timestamp_duration_keys_force_owned_spill_merge() {
             .collect::<Vec<_>>(),
         [std::ffi::OsString::from("input.vortex")]
     );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // Literal expectations cover every supported temporal key domain.
+fn asof_temporal_keys_match_all_directions_and_exact_match_policies() {
+    let dtypes = [
+        "date32",
+        "date64",
+        "time(s)",
+        "time(ms)",
+        "time(us)",
+        "time(ns)",
+        "timestamp(s)",
+        "timestamp(ms)",
+        "timestamp(us)",
+        "timestamp(ns)",
+        "timestamp(us,America/New_York)",
+        "duration(s)",
+        "duration(ms)",
+        "duration(us)",
+        "duration(ns)",
+    ];
+    let cases = [
+        (
+            VortexRelationalAsOfDirection::Backward,
+            true,
+            vec![
+                json!({"l":0,"r":3}),
+                json!({"l":1,"r":3}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":null}),
+                json!({"l":4,"r":4}),
+            ],
+        ),
+        (
+            VortexRelationalAsOfDirection::Forward,
+            true,
+            vec![
+                json!({"l":0,"r":4}),
+                json!({"l":1,"r":2}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":1}),
+                json!({"l":4,"r":null}),
+            ],
+        ),
+        (
+            VortexRelationalAsOfDirection::Nearest,
+            true,
+            vec![
+                json!({"l":0,"r":3}),
+                json!({"l":1,"r":3}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":1}),
+                json!({"l":4,"r":4}),
+            ],
+        ),
+        (
+            VortexRelationalAsOfDirection::Backward,
+            false,
+            vec![
+                json!({"l":0,"r":3}),
+                json!({"l":1,"r":1}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":null}),
+                json!({"l":4,"r":4}),
+            ],
+        ),
+        (
+            VortexRelationalAsOfDirection::Forward,
+            false,
+            vec![
+                json!({"l":0,"r":4}),
+                json!({"l":1,"r":4}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":1}),
+                json!({"l":4,"r":null}),
+            ],
+        ),
+        (
+            VortexRelationalAsOfDirection::Nearest,
+            false,
+            vec![
+                json!({"l":0,"r":3}),
+                json!({"l":1,"r":1}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":1}),
+                json!({"l":4,"r":4}),
+            ],
+        ),
+    ];
+
+    for dtype in dtypes {
+        let scale = if dtype == "date64" { 86_400_000 } else { 1 };
+        let right = table(
+            dtype,
+            &[
+                None,
+                Some(scale),
+                Some(3 * scale),
+                Some(3 * scale),
+                Some(7 * scale),
+            ],
+        );
+        let left = table(
+            dtype,
+            &[
+                Some(4 * scale),
+                Some(3 * scale),
+                None,
+                Some(0),
+                Some(8 * scale),
+            ],
+        );
+        for (direction, allow_exact_matches, expected) in &cases {
+            let plan = VortexRelationalPlan::AsOfJoin(Box::new(VortexRelationalAsOfJoin {
+                left: left.scan(),
+                right: right.scan(),
+                by: vec![],
+                on: VortexRelationalJoinKey {
+                    left: column("k"),
+                    right: column("k"),
+                },
+                options: VortexRelationalAsOfOptions {
+                    direction: *direction,
+                    tolerance: None,
+                    allow_exact_matches: *allow_exact_matches,
+                },
+                columns: vec![
+                    VortexRelationalJoinColumn {
+                        side: Side::Left,
+                        column: column("id"),
+                        output_column: "l".into(),
+                    },
+                    VortexRelationalJoinColumn {
+                        side: Side::Right,
+                        column: column("id"),
+                        output_column: "r".into(),
+                    },
+                ],
+            }));
+            assert_eq!(
+                collect(&plan),
+                *expected,
+                "{dtype}/{direction:?}/{allow_exact_matches}"
+            );
+        }
+
+        let zero_tolerance = VortexRelationalPlan::AsOfJoin(Box::new(VortexRelationalAsOfJoin {
+            left: left.scan(),
+            right: right.scan(),
+            by: vec![],
+            on: VortexRelationalJoinKey {
+                left: column("k"),
+                right: column("k"),
+            },
+            options: VortexRelationalAsOfOptions {
+                direction: VortexRelationalAsOfDirection::Nearest,
+                tolerance: Some(0),
+                allow_exact_matches: true,
+            },
+            columns: vec![
+                VortexRelationalJoinColumn {
+                    side: Side::Left,
+                    column: column("id"),
+                    output_column: "l".into(),
+                },
+                VortexRelationalJoinColumn {
+                    side: Side::Right,
+                    column: column("id"),
+                    output_column: "r".into(),
+                },
+            ],
+        }));
+        assert_eq!(
+            collect(&zero_tolerance),
+            vec![
+                json!({"l":0,"r":null}),
+                json!({"l":1,"r":3}),
+                json!({"l":2,"r":null}),
+                json!({"l":3,"r":null}),
+                json!({"l":4,"r":null}),
+            ],
+            "{dtype}/nearest/zero-tolerance"
+        );
+    }
+}
+
+#[test]
+fn asof_temporal_keys_reject_incompatible_ordering_domains() {
+    for (left_dtype, right_dtype) in [
+        ("timestamp(s)", "timestamp(ms)"),
+        ("timestamp(us)", "timestamp(us,America/New_York)"),
+        ("date32", "date64"),
+    ] {
+        let left = table(left_dtype, &[Some(1)]);
+        let right = table(
+            right_dtype,
+            &[Some(if right_dtype == "date64" {
+                86_400_000
+            } else {
+                1
+            })],
+        );
+        let plan = VortexRelationalPlan::AsOfJoin(Box::new(VortexRelationalAsOfJoin {
+            left: left.scan(),
+            right: right.scan(),
+            by: vec![],
+            on: VortexRelationalJoinKey {
+                left: column("k"),
+                right: column("k"),
+            },
+            options: VortexRelationalAsOfOptions::default(),
+            columns: vec![VortexRelationalJoinColumn {
+                side: Side::Left,
+                column: column("id"),
+                output_column: "l".into(),
+            }],
+        }));
+        assert!(
+            prepare_relational(&plan, policy()).is_err(),
+            "{left_dtype} vs {right_dtype}"
+        );
+    }
 }

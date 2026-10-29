@@ -768,6 +768,13 @@ visible and independent; this implementation does not automatically close them.
     limit removal retain their capability/scalability scope; do not assume they
     accelerate the current cohort. This priority preserves every remaining
     capability, workflow and combined-acceptance requirement.
+    The October 29 maintainer instruction now completes the remaining capability
+    areas and their acceptance before returning to those performance experiments.
+    The [time-series continuation](native-time-series-completion-2026-10-29.md)
+    begins with as-of joins over the shared native join, ordering and spill owners.
+    Calendar windows, resampling, gap filling and interpolation remain open,
+    together with the numeric, composition, batch-function and diagnostics work.
+    The existing 347-query checkpoint is unchanged during this capability work.
     The latest maintainer instruction closes PR #1619 at this validated checkpoint
     and continues the remaining item-20 work in subsequent cohesive PRs. Retain the dropped
     counted-join, fused-measure and retained-output decisions. The later
@@ -822,9 +829,11 @@ bound references. Shared nondecimal
 SUM/AVG finalize as floating values; the reducer rejects non-finite sums, and
 [`native_decimal_reduce.rs`](../../shardloom-vortex/src/local_primitives/native_decimal_reduce.rs)
 rejects averages that would discard fractional digits. This does not imply all
-opaque payload movement observes or rejects every non-finite value. Dedicated
-as-of/calendar operations and the broader SQL aggregate combinations above still
-require focused conformance checks.
+opaque payload movement observes or rejects every non-finite value. The
+[as-of implementation](native-time-series-completion-2026-10-29.md) adds exact
+direction, tolerance, duplicate/NULL and resource semantics across the public
+interfaces. Calendar operations and the broader SQL aggregate combinations above
+retain their remaining implementation and conformance obligations.
 
 Use **six small end-to-end workloads**, extending existing conformance tooling:
 a per-fund statistical summary; an entity/currency as-of valuation join;

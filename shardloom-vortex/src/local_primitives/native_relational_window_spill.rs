@@ -26,7 +26,7 @@ mod distinct;
 #[path = "native_relational_window_extrema.rs"]
 mod extrema;
 #[path = "native_relational_window_lookup.rs"]
-mod lookup;
+pub(in crate::local_primitives) mod lookup;
 #[path = "native_relational_window_partition.rs"]
 mod partition;
 #[path = "native_relational_window_records.rs"]

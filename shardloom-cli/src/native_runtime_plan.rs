@@ -391,6 +391,10 @@ impl NativeRelationDeclaration {
                     pending.push((&mut node.right, declaration));
                     pending.push((&mut node.left, declaration));
                 }
+                Plan::AsOfJoin(node) => {
+                    pending.push((&mut node.right, declaration));
+                    pending.push((&mut node.left, declaration));
+                }
                 Plan::Set(node) => {
                     pending.push((&mut node.right, declaration));
                     pending.push((&mut node.left, declaration));
@@ -818,6 +822,7 @@ fn inspect(
             result
         }
         Plan::Join(node) => descend(&node.left)?.max(descend(&node.right)?),
+        Plan::AsOfJoin(node) => descend(&node.left)?.max(descend(&node.right)?),
         Plan::Set(node) => descend(&node.left)?.max(descend(&node.right)?),
         Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
             descend(&node.input)?.max(descend(&node.relation)?)
@@ -861,6 +866,7 @@ fn recursive_depth(plan: &Plan, inputs: &BoundRelations) -> Result<usize> {
             Plan::Window(node) => pending.push((&node.input, nested)),
             Plan::Unary(node) => pending.push((&node.input, nested)),
             Plan::Join(node) => pending.extend([(&node.left, nested), (&node.right, nested)]),
+            Plan::AsOfJoin(node) => pending.extend([(&node.left, nested), (&node.right, nested)]),
             Plan::Set(node) => pending.extend([(&node.left, nested), (&node.right, nested)]),
             Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
                 pending.extend([(&node.input, nested), (&node.relation, nested)]);

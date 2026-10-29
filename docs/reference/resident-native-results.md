@@ -292,9 +292,16 @@ rules; timezone conversion keeps the instant, while removing the zone keeps its
 local civil fields. Assignment defaults to rejecting daylight-saving gaps/folds;
 `earlier` or `later` must be explicit. Fixed-duration arithmetic and
 calendar-day/month arithmetic are distinct; month-end policy defaults to
-`reject`, with `clamp` explicit. These are source-build APIs whose complete
-acceptance is still in progress; they do not establish as-of joins, resampling
-or gap-fill support.
+`reject`, with `clamp` explicit. Complete time-series acceptance remains in
+progress. Source builds implement left-preserving as-of joins over exact integer
+or identical temporal ordering domains, with optional equality partitions,
+backward/forward/nearest selection, exact-match control and inclusive tick
+tolerance. Resident and explicitly spilled execution share matching semantics;
+delivered outputs retain their native owners after source and producer release.
+See the [time-series contract](../architecture/native-time-series-completion-2026-10-29.md)
+and [public declarations](connected-programming.md) for duplicate, NULL and
+timezone rules. Calendar windows, resampling, gap filling and interpolation
+remain open.
 The dated [retained-unary acceptance](../architecture/native-typed-unary-2026-10-03.md)
 also admits those four flat scalar domains for DISTINCT,
 duplicate selection/masks, tail, sampling, scalar replacement/forward-fill,

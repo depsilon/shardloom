@@ -101,6 +101,7 @@ pub enum VortexRelationalPlan {
     Input(usize),
     Scan(VortexRelationalScan),
     Join(Box<VortexRelationalJoin>),
+    AsOfJoin(Box<VortexRelationalAsOfJoin>),
     Set(Box<VortexRelationalSet>),
     Window(Box<VortexRelationalWindow>),
     Subquery(Box<VortexRelationalSubquery>),
@@ -322,6 +323,49 @@ pub struct VortexRelationalJoin {
     /// Additional ON predicate. Names use `left.<column>` and `right.<column>`;
     /// it runs before outer null extension. With no keys it is a non-equi join.
     pub condition: Option<Expression>,
+    pub columns: Vec<VortexRelationalJoinColumn>,
+}
+
+/// Direction of the closest eligible right ordering key in an as-of join.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexRelationalAsOfDirection {
+    Backward,
+    Forward,
+    /// Equal-distance ties prefer backward; exact matches use its last-row rule.
+    Nearest,
+}
+
+/// Exact as-of selection policy. Tolerance is inclusive and measured in the
+/// ordering key's ticks: integer units, date32 days, date64 milliseconds, or
+/// the temporal type's declared unit. No implicit timezone/unit conversion occurs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VortexRelationalAsOfOptions {
+    pub direction: VortexRelationalAsOfDirection,
+    pub tolerance: Option<u64>,
+    pub allow_exact_matches: bool,
+}
+
+impl Default for VortexRelationalAsOfOptions {
+    fn default() -> Self {
+        Self {
+            direction: VortexRelationalAsOfDirection::Backward,
+            tolerance: None,
+            allow_exact_matches: true,
+        }
+    }
+}
+
+/// Left-preserving as-of join over unordered inputs. Equality keys partition
+/// matching before `on` selects one right row. NULL keys never match. Backward
+/// chooses the last source occurrence at a tied key, forward the first; output
+/// keeps left input order and unmatched right fields are nullable.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalAsOfJoin {
+    pub left: VortexRelationalPlan,
+    pub right: VortexRelationalPlan,
+    pub by: Vec<VortexRelationalJoinKey>,
+    pub on: VortexRelationalJoinKey,
+    pub options: VortexRelationalAsOfOptions,
     pub columns: Vec<VortexRelationalJoinColumn>,
 }
 

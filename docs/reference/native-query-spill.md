@@ -112,6 +112,16 @@ than the query grant. Run metadata, readers, native keys and output allocations
 also consume the same grant; a threshold is not a second budget or a guarantee
 that every physical source layout fits.
 
+As-of joins use the same native stable ordering, run store and bounded lookup
+owners for their right side when spill is explicitly enabled. Left batches keep
+input order and at most one right match per row. The resident and spill paths
+share exact direction, tolerance, duplicate and NULL selection rules; outputs
+hold independent native leases. Join evidence includes build/probe rows, detached
+build batches, matched rows, candidate lookups and loaded lookup blocks, alongside
+the shared run/quota/cleanup evidence. A changed or corrupt run, cancellation,
+producer error or consumer error fails the query and uses the existing owned
+cleanup path. See the [as-of contract](../architecture/native-time-series-completion-2026-10-29.md).
+
 Complete output can exceed collection limits through all eight local writers.
 Success requires validated native runs, original source generations and owned
 cleanup before output publication. Evidence records actual run writes/merges,

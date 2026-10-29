@@ -90,6 +90,53 @@ the existing cohort. Complete the remaining capability and acceptance checklist
 after this evidence-led performance work; no requirement is removed or deferred
 into items 18/19 by this ordering decision.
 
+The October 29 maintainer instruction supersedes that execution order: finish
+the remaining capability areas and their acceptance first, beginning with
+time-series workflows, then return to the performance candidates below. The
+accepted 347-query checkpoint remains unchanged while capability work proceeds.
+
+### Performance candidates after capability completion
+
+The October 29 supplied review identifies the following experiments against
+merged `0eaad60c`. These are proposed mechanisms, not implemented work or new
+benchmark evidence. Recheck each source path after the capability changes.
+
+1. Propagate Top-K through proven direct-column projections that preserve row
+   count/order and introduce no fallible computation. Preserve hidden/renamed
+   keys, stable ties, offsets, NULL placement and complete-input validation.
+2. Propagate parent column demand through joins, retaining keys and predicate
+   dependencies while eliminating unused output gathers. Include count-only,
+   mixed aggregate and multiway consumers without changing match multiplicity.
+3. Reuse the controlled Parquet decoder-buffer ownership transfer in demanded
+   reads. Keep public Arrow intake unchanged and measure transferred/copied
+   bytes plus retained capacity; historical ingest results prove no query gain.
+4. Admit source-aware ranking before deferred wide/nested payload reads. Bind
+   winning row locations and metadata exclusions to the same source generation;
+   a post-read selection alone does not reduce compressed-chunk I/O. Start with
+   direct columns and then eligible predicates. Prepared/external batch
+   validation obligations remain unchanged.
+5. Independently evaluate singleton join-index entries or checked dense integer
+   directories from observed ranges, density, uniqueness and memory cost. Keep
+   sparse/duplicate/NULL/miss behavior exact. The dropped probe-cache/gather-
+   coordinate experiment stays closed.
+6. Prepare native string kernels once per batch, specialize requested temporal
+   components with exact negative-epoch/timezone behavior, and retain numeric
+   literals as scalar operands in the typed path. Dictionary evaluation still
+   requires evidence of actual dictionaries at the expression boundary.
+7. Target mixed-measure aggregate storage and float extrema traversal sharing
+   only with an exact completed-domain validation proof. Preserve row/measure
+   order, signed zero, ties, overflow and existing first-error behavior.
+
+Deferred projection payload reads and join demand are the larger investments;
+Top-K admission is the first contained experiment. Reuse existing source
+descriptors, leases, demand analysis and ordering owners. PulseWeave/capillary
+policies may govern admitted work units, but report presence alone proves no
+active scheduling benefit. Freeze fresh mechanism-focused variations and
+complete correctness/resource/ownership/no-fallback checks before a single
+unchanged-cohort observation. Lower total engine time retains a candidate;
+unchanged or higher total drops it, with case regressions visible. Use Full43
+only at meaningful integration boundaries, not for every small candidate.
+
 The later October 28 [gain/loss decision](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
 removes percentage benefit cutoffs for the remaining analytical performance
 work. After correctness and resource checks pass, lower complete-cohort engine

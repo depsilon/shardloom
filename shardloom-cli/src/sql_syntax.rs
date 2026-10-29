@@ -450,6 +450,13 @@ struct ParsedJoin {
     key_pairs: Vec<ParsedJoinKeyPair>,
     on_predicate: Option<ParsedPredicate>,
     on_predicate_family: ParsedJoinOnPredicateFamily,
+    asof: Option<ParsedAsOfJoin>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedAsOfJoin {
+    on: ParsedJoinKeyPair,
+    options: shardloom_vortex::relational_query::VortexRelationalAsOfOptions,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

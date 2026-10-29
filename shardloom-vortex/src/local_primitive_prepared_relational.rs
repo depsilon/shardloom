@@ -402,7 +402,9 @@ impl Node {
                 },
             },
             NodeKind::Join { left, right, spec } => {
-                if matches!(spec.kind, JoinKind::LeftSemi | JoinKind::LeftAnti) {
+                if spec.asof.is_some()
+                    || matches!(spec.kind, JoinKind::LeftSemi | JoinKind::LeftAnti)
+                {
                     return left.upper_rows(sources);
                 }
                 let left = left.upper_rows(sources)?;
@@ -1800,16 +1802,37 @@ impl PreparedVortexRelational {
             NodeKind::Join { left, right, spec } => {
                 #[cfg(feature = "vortex-write")]
                 if let Some(spill) = &metrics.spill {
-                    let report = native_relational_join::spill::run(
-                        spec,
-                        &right.fields,
-                        spill,
-                        context,
-                        batch_rows,
-                        |accept| self.run(right, context, metrics, batch_rows, parameter, accept),
-                        |accept| self.run(left, context, metrics, batch_rows, parameter, accept),
-                        consume,
-                    )?;
+                    let report = if spec.asof.is_some() {
+                        native_relational_join::asof::spill::run(
+                            spec,
+                            &right.fields,
+                            spill,
+                            context,
+                            batch_rows,
+                            |accept| {
+                                self.run(right, context, metrics, batch_rows, parameter, accept)
+                            },
+                            |accept| {
+                                self.run(left, context, metrics, batch_rows, parameter, accept)
+                            },
+                            consume,
+                        )?
+                    } else {
+                        native_relational_join::spill::run(
+                            spec,
+                            &right.fields,
+                            spill,
+                            context,
+                            batch_rows,
+                            |accept| {
+                                self.run(right, context, metrics, batch_rows, parameter, accept)
+                            },
+                            |accept| {
+                                self.run(left, context, metrics, batch_rows, parameter, accept)
+                            },
+                            consume,
+                        )?
+                    };
                     add(&metrics.ordered_join_stages, 1)?;
                     add(&metrics.ordered_join_build_rows, report.build_rows)?;
                     add(&metrics.ordered_join_probe_rows, report.probe_rows)?;
@@ -1824,6 +1847,28 @@ impl PreparedVortexRelational {
                         add(&metrics.join_build_rows_detached, report.build_rows)?;
                     }
                     return Ok(());
+                }
+                if spec.asof.is_some() {
+                    let mut join = native_relational_join::asof::Join::new(spec, context.memory())?;
+                    self.run(
+                        right,
+                        context,
+                        metrics,
+                        batch_rows,
+                        parameter,
+                        &mut |array| {
+                            join.build(metrics.detach_join_build(array, context)?, context)
+                        },
+                    )?;
+                    join.seal(context)?;
+                    return self.run(
+                        left,
+                        context,
+                        metrics,
+                        batch_rows,
+                        parameter,
+                        &mut |array| join.consume(array, context, batch_rows, consume),
+                    );
                 }
                 if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec) {
                     return cyclic.run(self, context, metrics, batch_rows, parameter, consume);

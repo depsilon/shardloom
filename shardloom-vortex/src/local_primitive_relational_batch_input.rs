@@ -1041,6 +1041,7 @@ pub(super) fn classify_dynamic(
     source_usage(plan, uri, 0, true, outer_scope)
 }
 
+#[allow(clippy::too_many_lines)] // Keep the exhaustive plan variants under one source-replay admission rule.
 fn source_usage(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
@@ -1081,6 +1082,11 @@ fn source_usage(
             return source_usage(&window.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Join(join) => {
+            let left = source_usage(&join.left, uri, depth + 1, dynamic, outer_scope)?;
+            let right = source_usage(&join.right, uri, depth + 1, dynamic, outer_scope)?;
+            return Ok(left.combine(right));
+        }
+        VortexRelationalPlan::AsOfJoin(join) => {
             let left = source_usage(&join.left, uri, depth + 1, dynamic, outer_scope)?;
             let right = source_usage(&join.right, uri, depth + 1, dynamic, outer_scope)?;
             return Ok(left.combine(right));

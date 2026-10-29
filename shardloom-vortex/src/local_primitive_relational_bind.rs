@@ -7,7 +7,8 @@ use super::{
     VortexRelationalPlan, failed, native_relational_join, native_relational_sort, vortex_error,
 };
 use crate::relational_query::{
-    VortexRelationalJoin, VortexRelationalJoinKind as JoinKind, VortexRelationalScan,
+    VortexRelationalAsOfJoin, VortexRelationalJoin, VortexRelationalJoinColumn,
+    VortexRelationalJoinKey, VortexRelationalJoinKind as JoinKind, VortexRelationalScan,
     VortexRelationalSet, VortexRelationalSide as Side,
 };
 use shardloom_core::{PredicateExpr, StatValue};
@@ -71,6 +72,17 @@ pub(super) enum SourceIndex {
     File(usize),
     Memory(usize),
     Batch(usize),
+}
+
+/// Borrow both frontend declarations through the same schema/output binder.
+#[derive(Clone, Copy)]
+struct JoinInput<'a> {
+    left: &'a VortexRelationalPlan,
+    right: &'a VortexRelationalPlan,
+    kind: JoinKind,
+    keys: &'a [VortexRelationalJoinKey],
+    condition: Option<&'a shardloom_core::Expression>,
+    columns: &'a [VortexRelationalJoinColumn],
 }
 
 impl<'a> Binder<'a> {
@@ -369,6 +381,7 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::ExecutionResult(reference) => self.take_resolved(reference),
             VortexRelationalPlan::Scan(scan) => self.scan(scan),
             VortexRelationalPlan::Join(join) => self.join(join, depth),
+            VortexRelationalPlan::AsOfJoin(join) => self.asof_join(join, depth),
             VortexRelationalPlan::Set(set) => self.set(set, depth),
             VortexRelationalPlan::Window(window) => self.window(window, depth),
             VortexRelationalPlan::Subquery(subquery) => self.subquery(subquery, depth, false),
@@ -622,6 +635,57 @@ impl<'a> Binder<'a> {
     }
 
     fn join(&mut self, join: &VortexRelationalJoin, depth: usize) -> Result<Node> {
+        self.join_inputs(
+            JoinInput {
+                left: &join.left,
+                right: &join.right,
+                kind: join.kind,
+                keys: &join.keys,
+                condition: join.condition.as_ref(),
+                columns: &join.columns,
+            },
+            depth,
+        )
+    }
+
+    fn asof_join(&mut self, join: &VortexRelationalAsOfJoin, depth: usize) -> Result<Node> {
+        self.charge_items(join.by.len().saturating_add(1), 8192)?;
+        let keys: Vec<_> = join
+            .by
+            .iter()
+            .chain(std::iter::once(&join.on))
+            .cloned()
+            .collect();
+        let mut node = self.join_inputs(
+            JoinInput {
+                left: &join.left,
+                right: &join.right,
+                kind: JoinKind::Left,
+                keys: &keys,
+                condition: None,
+                columns: &join.columns,
+            },
+            depth,
+        )?;
+        let NodeKind::Join { left, right, spec } = &mut node.kind else {
+            return Err(failed("as-of binding did not produce a native join"));
+        };
+        let left_dtype = field(&left.fields, join.on.left.as_str())?;
+        let right_dtype = field(&right.fields, join.on.right.as_str())?;
+        let integers = matches!(left_dtype, DType::Primitive(kind, _) if integer(*kind).is_some())
+            && matches!(right_dtype, DType::Primitive(kind, _) if integer(*kind).is_some());
+        let temporal = crate::native_temporal::temporal_dtype(left_dtype).is_some()
+            && left_dtype.as_nonnullable() == right_dtype.as_nonnullable();
+        if !integers && !temporal {
+            return Err(failed(
+                "ASOF JOIN requires integer ordering keys or identical temporal kinds, units and timezones; use an explicit lossless cast",
+            ));
+        }
+        spec.asof = Some(join.options);
+        Ok(node)
+    }
+
+    fn join_inputs(&mut self, join: JoinInput<'_>, depth: usize) -> Result<Node> {
         validate_width(join.columns.len())?;
         if join.keys.len() > 128
             || (join.kind == JoinKind::Cross && (!join.keys.is_empty() || join.condition.is_some()))
@@ -631,21 +695,21 @@ impl<'a> Binder<'a> {
                 "cross joins require no ON clause; other joins require keys or a native ON predicate",
             ));
         }
-        for key in &join.keys {
+        for key in join.keys {
             validate_name(key.left.as_str())?;
             validate_name(key.right.as_str())?;
         }
-        for column in &join.columns {
+        for column in join.columns {
             validate_name(&column.output_column)?;
             validate_name(column.column.as_str())?;
         }
         self.charge_items(join.keys.len(), 8192)?;
         self.charge_items(join.columns.len(), 8192)?;
-        let mut left = Box::new(self.bind(&join.left, depth + 1)?);
-        let mut right = Box::new(self.bind(&join.right, depth + 1)?);
+        let mut left = Box::new(self.bind(join.left, depth + 1)?);
+        let mut right = Box::new(self.bind(join.right, depth + 1)?);
         let mut left_keys = Vec::new();
         let mut right_keys = Vec::new();
-        for key in &join.keys {
+        for key in join.keys {
             let left_dtype = field(&left.fields, key.left.as_str())?;
             let right_dtype = field(&right.fields, key.right.as_str())?;
             validate_key_pair(left_dtype, right_dtype)?;
@@ -654,7 +718,7 @@ impl<'a> Binder<'a> {
         }
         let mut fields = Vec::new();
         let mut columns = Vec::new();
-        for column in &join.columns {
+        for column in join.columns {
             if column.side == Side::Right
                 && matches!(join.kind, JoinKind::LeftSemi | JoinKind::LeftAnti)
             {
@@ -683,8 +747,7 @@ impl<'a> Binder<'a> {
             columns.push((column.side, column.column.as_str().to_owned()));
         }
         validate_unique(&fields)?;
-        let condition =
-            self.join_condition(join.condition.as_ref(), &left.fields, &right.fields)?;
+        let condition = self.join_condition(join.condition, &left.fields, &right.fields)?;
         let mut right_key_fields = Vec::new();
         if matches!(join.kind, JoinKind::LeftSemi | JoinKind::LeftAnti) && condition.is_none() {
             self.charge_fields(right_keys.len())?;
@@ -696,6 +759,7 @@ impl<'a> Binder<'a> {
         }
         let spec = native_relational_join::Spec {
             kind: join.kind,
+            asof: None,
             left_keys,
             right_keys,
             right_key_fields,

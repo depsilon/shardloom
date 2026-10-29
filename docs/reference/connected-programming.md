@@ -128,10 +128,31 @@ the timezone preserves the instant; removing it preserves local civil fields.
 Calendar operations use pinned IANA 2026a rules, with `reject` defaults and
 explicit `earlier`/`later` ambiguity or `clamp` month-end choices. Fixed-duration
 arithmetic remains distinct from calendar-day and calendar-month arithmetic.
-The declarations do not perform calendar evaluation in Python. The source-build
-acceptance checklist remains open; these additions do not claim as-of joins,
-resampling or gap-fill completion. `f.lit()` continues to accept a naive Python
-datetime for its existing microsecond literal contract.
+The declarations do not perform calendar evaluation in Python. `f.lit()` continues
+to accept a naive Python datetime for its existing microsecond literal contract.
+The complete time-series acceptance checklist remains open.
+
+Source builds also expose `left.join_asof(right, on="time", by="entity")` and
+typed `Relation.join_asof`. These preserve left input order, accept unsorted
+inputs and select at most one right row per left row. `strategy` accepts
+`backward` (default), `forward` or `nearest`; `allow_exact_matches=False`
+excludes equal ordering keys. Optional `tolerance` is an inclusive nonnegative
+integer in the ordering type's ticks: days for Date32, milliseconds for Date64,
+and the declared unit otherwise. Temporal kind, unit and timezone must agree.
+NULL ordering or partition keys do not match. Backward chooses the last source
+occurrence among equal right keys; forward chooses the first. Nearest prefers
+backward on equal distance and uses that direction's duplicate rule.
+Separate names use `left_on`/`right_on` and `left_by`/`right_by`; DataFrame output
+names use `f.` and `d.` as for ordinary joins.
+
+SQL uses `ASOF LEFT JOIN ... MATCH_CONDITION (f.time >= d.time)` with optional
+equality-only `ON f.entity = d.entity` and `TOLERANCE 1000`. Use `>` for strict
+backward, `<=` or `<` for forward, and `NEAREST(f.time,d.time,TRUE)` or `FALSE`
+for nearest with or without exact matches. This is one shared native join owner
+across SQL, DataFrame, typed relation, workflow and CLI declarations. See the
+[time-series contract](../architecture/native-time-series-completion-2026-10-29.md)
+for memory, spill and verification scope. Calendar windows, resampling, gap
+filling and interpolation remain separate work.
 
 Window specifications are immutable reusable values. For example,
 `sl.Window.partition_by("group").order_by("time").rows_between(-2, 0)`

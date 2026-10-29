@@ -5052,6 +5052,72 @@ class LazyFrame:
             frame = _session_frame(self.source._session, frame)
         return frame
 
+    def join_asof(
+        self,
+        other: "LazyFrame",
+        *,
+        on: str | None = None,
+        left_on: str | None = None,
+        right_on: str | None = None,
+        by: str | Sequence[str] | None = None,
+        left_by: str | Sequence[str] | None = None,
+        right_by: str | Sequence[str] | None = None,
+        strategy: str = "backward",
+        tolerance: int | None = None,
+        allow_exact_matches: bool = True,
+    ) -> "LazyFrame":
+        """Match one right row per left row, preserving left order.
+
+        Inputs may be unsorted. ``by`` keys use ordinary SQL NULL semantics.
+        Tolerance is inclusive in ordering-key ticks (date32 days, date64
+        milliseconds, otherwise the type's unit). Temporal metadata must agree.
+        Backward chooses the last equal right key; forward the first. Nearest
+        prefers backward on a distance tie. Output names use ``f.`` and ``d.``
+        for the left and right fields, as in :meth:`join`.
+        """
+        if not isinstance(other, LazyFrame):
+            raise TypeError("join_asof() requires another LazyFrame")
+        if other.client is not self.client:
+            raise ValueError("joined relation belongs to another context")
+        if on is not None:
+            if left_on is not None or right_on is not None:
+                raise ValueError("join_asof() accepts on= or left_on=/right_on=")
+            left_on = right_on = on
+        if left_on is None or right_on is None:
+            raise ValueError("join_asof() requires on= or both left_on= and right_on=")
+        left_key = _normalize_output_column_name(left_on)
+        right_key = _normalize_output_column_name(right_on)
+        if by is not None:
+            if left_by is not None or right_by is not None:
+                raise ValueError("join_asof() accepts by= or left_by=/right_by=")
+            left_by = right_by = by
+        def keys(value: str | Sequence[str] | None) -> tuple[str, ...]:
+            return () if value is None else tuple(
+                _normalize_output_column_name(name) for name in _normalize_columns((value,))
+            )
+        left_keys, right_keys = keys(left_by), keys(right_by)
+        if len(left_keys) != len(right_keys):
+            raise ValueError("join_asof() requires equally many left and right partition keys")
+        if strategy not in {"backward", "forward", "nearest"}:
+            raise ValueError("as-of strategy must be backward, forward or nearest")
+        if type(allow_exact_matches) is not bool:
+            raise TypeError("allow_exact_matches must be a bool")
+        if tolerance is not None and (type(tolerance) is not int or not 0 <= tolerance <= (1 << 64) - 1):
+            raise ValueError("as-of tolerance must be a nonnegative uint64 number of ordering-key ticks")
+        if self._relation_statement() is None or other._relation_statement() is None:
+            raise ValueError("join_asof() requires two admitted native relations")
+        right_statement = (
+            f"SELECT * FROM {other._bound_relation_source().uri}"
+            if self.client.transport == "native" else other._relation_statement()
+        )
+        return self._append(WorkflowOperation(
+            "join_asof",
+            (other.source.uri, left_key, right_key, ",".join(left_keys), ",".join(right_keys),
+             strategy, "" if tolerance is None else str(tolerance), "true" if allow_exact_matches else "false"),
+            source_bindings=_predicate_sources(other), right_statement=right_statement,
+            resource_limits=_predicate_limits(other), right_frame=other,
+        ))
+
     def join(
         self,
         other: "LazyFrame | str",

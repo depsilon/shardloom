@@ -3,6 +3,8 @@
 use super::*;
 use std::sync::Arc;
 
+#[path = "sql_relation_asof.rs"]
+mod asof;
 #[path = "sql_relation_scopes.rs"]
 pub(super) mod scopes;
 #[path = "sql_relation_unary.rs"]
@@ -215,6 +217,9 @@ fn validate_range(count: usize, offset: usize) -> Result<(), ShardLoomError> {
 }
 
 pub(super) fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
+    if let Some(parsed) = asof::parse(raw)? {
+        return Ok(parsed);
+    }
     let Some((join_index, join_keyword_len, join_type)) = find_join_keyword(raw)? else {
         let (source, source_alias) = parse_source(raw, false)?;
         return Ok(ParsedSourceClause {
@@ -287,6 +292,7 @@ pub(super) fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, Shard
             key_pairs: join_on.key_pairs,
             on_predicate: join_on.predicate,
             on_predicate_family: join_on.predicate_family,
+            asof: None,
         }),
     })
 }
