@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "status": "offline_validation_correction_before_replay",
+  "reason": "The original replay used dataclasses.asdict on ResultContract, whose immutable mappingproxy is not pickleable. Use the existing Case.record contract serialization used by the frozen catalog.",
+  "original_helper": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_compact_group_heldout.py",
+    "bytes": 12534,
+    "sha256": "e843fcab574277a725cd7d815e3103f54620d276b2ebf49c08d20e44f33984dd"
+  },
+  "corrected_helper": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/tools/replay_compact_group_heldout_v2.py",
+    "bytes": 12533,
+    "sha256": "a86da8a468463256a5126aed9766d51554f368c6ee41f8bc62ccc2e89a545d52"
+  },
+  "failed_validation_receipt": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e343-compact-heldout-replay.json",
+    "bytes": 3433,
+    "sha256": "3cee21a20ccdefc2fbc5649bb46a51707fd61877a28f2d61c70ca5f505a163f1"
+  },
+  "failed_validation_log": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/e343-compact-heldout-replay.log",
+    "bytes": 1432,
+    "sha256": "762eeab3c163fd87e60b2f9bbd62f19ac8580e69a14bc9af3996bd547667d1b3"
+  },
+  "original_inputs": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-heldout-r1/inputs.json",
+    "bytes": 137455,
+    "sha256": "a983175ef0d501e8265ca5b6e36ed634c19320ba4295827b231e8e670216c57e"
+  },
+  "original_observations": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-heldout-r1/observations.json",
+    "bytes": 65462,
+    "sha256": "c1dc55b7e6828f3eef2c23b6d5cdbe9c9b862283b45ccd7c6b09a241e37a6723"
+  },
+  "original_runtime_binding": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/compact-group-heldout-r1/runtime.json",
+    "bytes": 2113,
+    "sha256": "0f7449d080be9a303dcb8889bbdc7ed3aaeb76d05f317b7343aeb95c230e7158"
+  },
+  "original_executions_passed": 160,
+  "native_runtime_changed": false,
+  "reference_changed": false,
+  "observations_replaced": false,
+  "query_reexecutions": 0,
+  "change_scope": "Offline serialization of a contract for equality against the frozen catalog; comparator tolerances and complete-result checking unchanged."
+}

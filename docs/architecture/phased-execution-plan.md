@@ -733,6 +733,21 @@ visible and independent; this implementation does not automatically close them.
     remain recorded; explicit casts and refusal checks pass on unchanged binaries.
     A small 90-SUM scale check passes. Fresh isolated Full43 and combined item-20
     acceptance remain required.
+    The third direct-Parquet pass validates Q1–32 before Q33 refuses aggregate
+    storage growth under the unchanged memory limit. Its
+    [incomplete record](../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json)
+    preserves the 271 completed rows and has no Full43 total. The subsequent
+    [compact grouped-state correction](../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-disposition.json)
+    reuses leased pages for large grouped COUNT/SUM/AVG state, retaining existing
+    arithmetic, key ordinals and resource limits. The original Q33 now passes at
+    **66.174310876 engine seconds**. All nine focused tests, seven public regressions,
+    160 fresh five-interface observations (1,584,120 complete rows), 5,057 native
+    tests (35 existing ignores), 3,274 workspace tests, formatting and strict lint
+    pass. The unchanged 347-case result is **15.304317834 engine seconds**, a
+    **0.124005871-second loss** against the preceding checkpoint; its optimization
+    benefit gate fails. Retain this required memory correction without a speedup
+    claim, preserving both offline validation-helper corrections and every saved
+    observation. A fresh complete Full43 and remaining combined acceptance stay open.
     The October 28 maintainer follow-up prioritizes measured shared grouping,
     projection and join costs, then shared-intermediate reuse and plan traversal
     where source and workload evidence warrants them. Recursive CTEs and structural

@@ -60,11 +60,11 @@ item 20.
 
 The October 28 performance objective is to pursue **under 10 engine seconds**
 for the unchanged 347-query cohort within the remaining optimization work.
-The latest retained candidate records 15.180311963 seconds, so this requires
-about 34.1% further reduction; it is a stretch target, not an achieved result or
+The current memory-corrected runtime records 15.304317834 seconds, so this requires
+about 34.7% further reduction; it is a stretch target, not an achieved result or
 a reason to reduce correctness/coverage. Grouped aggregation contributes
-5.542067662 seconds, projection 2.817882376 seconds, and ordinary plus multiway
-joins 2.407828543 seconds. Use these complete family totals to prioritize
+5.569372964 seconds, projection 2.836207667 seconds, and ordinary plus multiway
+joins 2.425630208 seconds. Use these complete family totals to prioritize
 profiling of shared work, not as an attribution of removable overhead. The
 shared-owner sequence below records the retained and dropped candidates.
 Select further numeric/temporal specializations only from
@@ -79,7 +79,7 @@ this objective does not authorize another competitor cohort.
 
 The October 28 maintainer follow-up delegates the execution order to measured
 impact. Prioritize shared grouped aggregation, projection and joins: their
-retained family totals sum to 10.767778581 of the 15.180311963 engine seconds.
+current family totals sum to 10.831210839 of the 15.304317834 engine seconds.
 This is workload concentration, not a claim that all of that time is removable.
 After each frozen candidate decision, target demonstrated repeated preparation,
 validation, copying or operator work in those shared owners. Explicit materialized
@@ -410,6 +410,42 @@ checks pass on byte-identical runtime binaries. The 2,097,152-row unprofiled
 scale check validates all 90 SUM outputs at 0.871507542 engine seconds. It is a
 diagnostic scale check, separate from the 347-query retention decision. A fresh
 isolated Full43 remains required; combined item-20 acceptance stays open.
+
+The third direct-Parquet pass validates Q1–32, including all 90 Q30 SUM values
+at 34.678114958 engine seconds, then Q33 refuses its aggregate-state replacement
+reservation under the unchanged 24-GiB declaration. The
+[incomplete record](../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json)
+retains all 271 completed rows, the failed query and process cleanup; Q34–43
+did not execute and this pass has no Full43 total.
+
+The [compact grouped-state correction](../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-disposition.json)
+reuses the existing leased `DensePages` owner for grouped specifications containing
+only COUNT and non-decimal SUM/AVG once generic state exceeds 1 MiB. COUNT retains
+one count; SUM/AVG retain the existing count and `NumericAggregateSum`. Completed
+states migrate with overlap charged before old storage is released. Small, scalar,
+decimal, distinct and non-additive mixtures retain their current representation.
+Key interning, per-row arithmetic, filters, NULLs, error order, numeric reuse,
+cancellation and result ownership keep their existing contracts. This changes
+state storage, not the memory limit, input format, provider or execution fallback.
+
+The old representation fails the fixed 16-MiB regression and the correction passes.
+Nine focused tests, 5,057 native tests (35 existing opt-in ignores), 3,274 workspace
+tests, strict lint and formatting pass. Seven public regressions pass across five
+interfaces. Independent replay validates all 160 fresh observations, 1,584,120
+complete result rows and 131,116 input readback rows. The original offline replay
+serialization error and its correction remain preserved without query repeats.
+
+The unchanged 347-query comparison passes all 12,565 rows at **15.304317834 engine
+seconds**, **0.124005871 seconds slower** than 15.180311963, with no material case
+or family flags. It fails the optimization gain/loss gate; no speedup is claimed.
+The change is retained as a required resource correction: the
+[original Q33 check](../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-q33-r1-acceptance.json)
+now passes all ten rows at **66.174310876 engine seconds** under the original
+24-GiB/12-lane/120-second declaration. The wrapper's incorrect requirement for
+the Full43-only validation flag is preserved and corrected by independent replay
+of the same saved result. No source, reference, query observation or deadline was
+replaced. This targeted check is not a Full43 result; a fresh complete pass remains
+required, along with the remaining item-20 and combined acceptance obligations.
 
 - [ ] Correct demonstrated shared expression, aggregation, projection, ordering
   and join inefficiencies, with complete-query benefit and regression evidence.

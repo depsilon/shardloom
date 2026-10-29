@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "frozen_before_implementation",
+  "source_revision": "dacd560aab00dc2b1f184994d20f180348354bda",
+  "trigger": "Direct-Parquet Full43 r3 passed Q1-32; Q33 refused a 16106127360-byte replacement reservation with 12328631078 bytes already reserved under the unchanged 25769803776-byte limit.",
+  "scope": "Use existing leased DensePages for a compact high-cardinality grouped COUNT/SUM/AVG representation below every public interface. Keep native key interning, result ordering, numeric updates and source ownership contracts.",
+  "provider_check": "Pinned Vortex native arrays, masks and numeric views remain input/output providers. Existing ShardLoom DensePages owns aggregate state; no new provider, dependency, query-engine integration or spill route.",
+  "admission": "Grouped specifications containing only COUNT and non-decimal SUM/AVG may migrate once their generic per-group state exceeds 1 MiB. Smaller and other aggregate families retain existing representation. Migrate only completed earlier states, reserve migration overlap, then release generic storage. This is a storage representation threshold, not a performance cutoff.",
+  "storage": "Eight bytes per COUNT and count plus the existing NumericAggregateSum per SUM/AVG, in independently leased pages. Retain stable group ordinals, charged page metadata, cancellation, deterministic denial and drop cleanup.",
+  "semantic_gate": "Preserve complete values, NULL/empty/filter behavior, per-measure and per-row arithmetic/error order, signed zero, compensated integer totals, nonfinite refusal and count-overflow state. Keep adjacent completed-update reuse where admitted. No limit changes or fallback.",
+  "verification": [
+    "Regression first: a bounded many-group, multi-measure workload must fail the old representation under a fixed small memory budget and pass after the correction.",
+    "Focused native tests for migration, paged growth, state reuse, filters, mixed integer widths, dictionary/chunked ownership, NULLs, empty input, error order, denial and cancellation.",
+    "Fresh independent complete results across public interfaces, source readback and ownership checks.",
+    "Required format, strict native/workspace lint, native/workspace tests and release build binding.",
+    "One isolated 347-query observation compared with the accepted 15.180311963-engine-second checkpoint. Preserve gain/loss and individual flags; capability correction is not relabelled as a measured optimization.",
+    "A focused original-Parquet Q33 check is permitted to verify the specific failure after bounded correctness and scale tests; then one fresh isolated standard Full43 with unchanged 24-GiB/12-lane declaration, 120-second deadline, reference and no ingest. Preserve every failed attempt."
+  ],
+  "full43_engine_seconds": null,
+  "resource_claim_scope": "Native tracked reservations, not whole-process RSS or allocator-wide limits.",
+  "remaining_scope": "No general grouped-memory, spill, broader item-20, package, hosted or competitive-gate completion is inferred."
+}

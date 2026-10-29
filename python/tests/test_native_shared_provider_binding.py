@@ -218,6 +218,82 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             self.assertEqual(self.table(retained).to_pylist(), expected)
             self.assertEqual(self.table(reused).to_pylist(), expected)
 
+    def test_compact_grouped_additive_state_preserves_all_five_surfaces(self):
+        import shardloom as sl
+        from shardloom import functions as f
+        import pyarrow.parquet as parquet
+
+        pa, native = self.pa, self.native
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        rows = [dict(id=i, g=i % 8193,
+                     zone=None if i % 8193 % 19 == 0 else i % 8193 % 17,
+                     value=None if i % 8193 % 11 == 0 or i % 29 == 0 else i % 1021 - 510,
+                     keep=None if i % 7 == 0 else i % 3 != 0)
+                for i in range(32779)]
+        schema = pa.schema([pa.field("id", pa.int64(), nullable=False),
+                            pa.field("g", pa.int32(), nullable=False),
+                            pa.field("zone", pa.uint16()), pa.field("value", pa.int64()),
+                            pa.field("keep", pa.bool_())])
+        with tempfile.TemporaryDirectory(prefix="shardloom-compact-groups-") as directory:
+            path = Path(directory) / "groups.parquet"
+            parquet.write_table(pa.Table.from_pylist(rows, schema=schema), path,
+                                row_group_size=257, use_dictionary=True)
+            frame, source = sl.read_parquet(path, client=client), native.Relation.scan(str(path))
+            for filtered, keys in [(False, ["g"]), (True, ["g", "zone"])]:
+                def selected(measure):
+                    return measure.filter(f.col("keep")) if filtered else measure
+                declarations = [selected(f.count()).alias("rows"),
+                                selected(f.count("value")).alias("nonnull"),
+                                selected(f.sum("value")).alias("total"),
+                                selected(f.avg("value")).alias("average")]
+                typed = [native.AggregateMeasure(function, column, name,
+                            filter_column="keep" if filtered else None)
+                         for function, column, name in [("count", None, "rows"),
+                            ("count", "value", "nonnull"), ("sum", "value", "total"),
+                            ("avg", "value", "average")]]
+                relation = source.aggregate(keys, typed).sort([(key, False, "first") for key in keys])
+                suffix = " FILTER (WHERE keep)" if filtered else ""
+                expressions = [function + suffix + " AS " + name for function, name in
+                               [("COUNT(*)", "rows"), ("COUNT(value)", "nonnull"),
+                                ("SUM(value)", "total"), ("AVG(value)", "average")]]
+                statement = ("SELECT " + ",".join(keys + expressions) + f" FROM '{path}' GROUP BY "
+                             + ",".join(keys) + " ORDER BY "
+                             + ",".join(key + " ASC NULLS FIRST" for key in keys))
+                groups = {}
+                for row in rows:
+                    key = tuple(row[name] for name in keys)
+                    groups.setdefault(key, [])
+                    if not filtered or row["keep"] is True:
+                        groups[key].append(row["value"])
+                wanted = []
+                for key, values in sorted(groups.items(), key=lambda entry: entry[0][0]):
+                    numbers = [value for value in values if value is not None]
+                    wanted.append(dict(zip(keys, key), rows=len(values), nonnull=len(numbers),
+                        total=float(sum(numbers)) if numbers else None,
+                        average=float(Fraction(sum(numbers), len(numbers))) if numbers else None))
+                tables = self.all_surfaces(frame.group_by(*keys).agg(*declarations).sort(*keys, nulls="first"),
+                    relation, statement, {"native_source_demand_prepared_input_bytes_written": "0",
+                        "native_input_end_observed": "true", "native_input_output_ownership_detached": "true"})
+                expected_schema = pa.schema([*(schema.field(key) for key in keys),
+                    pa.field("rows", pa.uint64(), nullable=False), pa.field("nonnull", pa.uint64(), nullable=False),
+                    pa.field("total", pa.float64()), pa.field("average", pa.float64())])
+                with self.subTest(filtered=filtered):
+                    for table in tables:
+                        self.assertEqual(table.to_pylist(), wanted)
+                        self.assertEqual(table.schema, expected_schema)
+                # A completed result retains independent Vortex-native owners.
+                if filtered:
+                    retained = self.session.plan(relation).collect()
+                    path.unlink()
+                    memory_source = retained.as_source()
+                    reused = self.session.sql("SELECT * FROM 'memory://compact-result'",
+                        sources=[("memory://compact-result", memory_source)]).collect()
+                    del memory_source
+                    self.session.close()
+                    self.assertEqual(self.table(retained).to_pylist(), wanted)
+                    self.assertEqual(self.table(reused).to_pylist(), wanted)
+
     def test_mixed_integer_expressions_and_wide_sums_match_all_five_surfaces(self):
         import shardloom as sl
         import pyarrow.parquet as parquet
