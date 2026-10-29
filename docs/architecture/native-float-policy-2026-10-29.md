@@ -30,6 +30,8 @@ memory and cancellation checks remain mandatory. Null slots stay unobserved.
 `IS_NAN`, `IS_INFINITE`, `IS_FINITE` and `SIGNBIT` classify valid values and
 propagate NULL. They may classify a carried native value before strict
 arithmetic/key refusal. Strict Arrow intake still rejects nonfinite values.
+Python classifiers produce composable predicates: NOT, AND and OR preserve their
+source bindings and resource limits; `alias()` projects the Boolean result.
 The small Rust `MemoryColumnValues` and owned-Float64 convenience intakes retain
 their finite-only, bounded-JSON contract. Extended Rust columnar intake uses
 `ResidentMemorySource::from_arrow_record_batch` with an explicitly extended
@@ -60,6 +62,11 @@ including infinity and canonical NaN for division by zero or invalid operations.
 Integer and decimal checked behavior is unchanged. Conversion to an exact
 integer/decimal rejects nonfinite input; existing `TRY_CAST` behavior can return
 NULL. Probabilities, weights, time bounds and resource controls remain finite.
+Scalar assignment rewrites use the same session policy as ordinary expressions.
+Extended Python `eval` admits zero-divisor assignment declarations and lets the
+native owner enforce the input type and floating semantics. Strict declaration
+behavior is unchanged. Extended legacy primitive options still require a
+complete shared SQL or typed relational declaration instead.
 
 SUM/AVG retain finite state plus checked counts of NaN and each infinity sign.
 NaN or opposing infinity signs produce NaN; one infinity sign produces that

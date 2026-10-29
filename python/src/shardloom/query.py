@@ -472,21 +472,21 @@ class ColumnExpression:
 
         return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings, resource_limits=self.resource_limits)
 
-    def is_nan(self) -> "ColumnExpression":
+    def is_nan(self) -> PredicateExpression:
         """Classify floating NaN values, propagating NULL validity."""
-        return ColumnExpression(f"IS_NAN({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+        return PredicateExpression(f"IS_NAN({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
-    def is_infinite(self) -> "ColumnExpression":
+    def is_infinite(self) -> PredicateExpression:
         """Classify either floating infinity, propagating NULL validity."""
-        return ColumnExpression(f"IS_INFINITE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+        return PredicateExpression(f"IS_INFINITE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
-    def is_finite(self) -> "ColumnExpression":
+    def is_finite(self) -> PredicateExpression:
         """Classify finite floating values, propagating NULL validity."""
-        return ColumnExpression(f"IS_FINITE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+        return PredicateExpression(f"IS_FINITE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
-    def signbit(self) -> "ColumnExpression":
+    def signbit(self) -> PredicateExpression:
         """Observe a floating value's sign bit, including zero and NaN."""
-        return ColumnExpression(f"SIGNBIT({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+        return PredicateExpression(f"SIGNBIT({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_null(self) -> PredicateExpression:
         """Return a scoped `IS NOT NULL` predicate."""
@@ -3943,7 +3943,9 @@ class LazyFrame:
 
         target_ref = _normalize_eval_target(expr, kwargs)
         if not kwargs:
-            rewrite_specs = _eval_numeric_scalar_assignment_rewrites(expr)
+            rewrite_specs = _eval_numeric_scalar_assignment_rewrites(
+                expr, allow_zero_division=self.client.float_policy == "extended"
+            )
             if rewrite_specs is not None:
                 target_columns = tuple(
                     str(rewrite_spec["target_column"])
@@ -10185,6 +10187,8 @@ def _eval_numeric_scalar_assignment_rewrite(expr: object) -> dict[str, object] |
 
 def _eval_numeric_scalar_assignment_rewrites(
     expr: object,
+    *,
+    allow_zero_division: bool = False,
 ) -> tuple[dict[str, object], ...] | None:
     if not isinstance(expr, str):
         return None
@@ -10210,7 +10214,9 @@ def _eval_numeric_scalar_assignment_rewrites(
             return None
         if _normalize_output_column_name(value.left.id) != target_column:
             return None
-        rewrite = _numeric_scalar_assignment_rewrite_from_binop(target_column, value)
+        rewrite = _numeric_scalar_assignment_rewrite_from_binop(
+            target_column, value, allow_zero_division=allow_zero_division
+        )
         if rewrite is None:
             return None
         rewrites.append(rewrite)
@@ -10240,6 +10246,8 @@ def _numeric_scalar_assignment_rewrite_from_expression(
 def _numeric_scalar_assignment_rewrite_from_binop(
     target_column: str,
     value: ast.BinOp,
+    *,
+    allow_zero_division: bool = False,
 ) -> dict[str, object] | None:
     operator = _eval_numeric_scalar_operator(value.op)
     if operator is None:
@@ -10247,7 +10255,7 @@ def _numeric_scalar_assignment_rewrite_from_binop(
     operand = _eval_numeric_scalar_literal(value.right)
     if operand is None:
         return None
-    if operator == "/" and float(operand) == 0.0:
+    if operator == "/" and float(operand) == 0.0 and not allow_zero_division:
         return None
     return {
         "kind": "numeric_scalar_arithmetic",

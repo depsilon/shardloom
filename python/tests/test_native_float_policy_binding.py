@@ -361,6 +361,77 @@ class NativeFloatPolicyTests(unittest.TestCase):
         self.five(self.frame(path).select(*selected), native.Relation.scan(str(path)).project(typed),
             "SELECT " + ",".join(map(str, selected)) + f" FROM '{path}'", expected)
 
+    def test_float_classifier_predicates_compose_through_all_surfaces(self):
+        from shardloom import functions as f
+        pa, native, source = self.pa, self.native, self.fixture()
+        for extension in ("arrow", "parquet", "vortex"):
+            path = self.write_input(source, extension)
+            for name, bits, width in (("f64", BITS64, 64), ("f32", BITS32, 32)):
+                column = native.Expression.column(name)
+                classify = lambda function: native.Expression.call(function, [column])
+                for predicate, typed, sql, match in (
+                    (~f.is_finite(name), ~classify("is_finite"), f"NOT IS_FINITE({name})",
+                     lambda category: not category["is_finite"]),
+                    (f.is_nan(name) | f.is_infinite(name), classify("is_nan") | classify("is_infinite"),
+                     f"IS_NAN({name}) OR IS_INFINITE({name})", lambda category: category["is_nan"] or category["is_infinite"]),
+                    (f.signbit(name) & f.is_finite(name), classify("signbit") & classify("is_finite"),
+                     f"SIGNBIT({name}) AND IS_FINITE({name})", lambda category: category["signbit"] and category["is_finite"]),
+                ):
+                    expected = source.take(pa.array([row for row, bit in enumerate(bits)
+                        if bit is not None and match(bit_class(bit, width))], pa.int64()))
+                    self.five(self.frame(path).filter(predicate), native.Relation.scan(str(path)).filter(typed),
+                        f"SELECT * FROM '{path}' WHERE {sql}", expected)
+
+    def test_float_arithmetic_rewrites_retain_session_policy(self):
+        from shardloom.errors import ShardLoomCommandError
+        pa, native, source = self.pa, self.native, self.fixture()
+        path = self.write_input(source, "vortex")
+        for name, bits, width in (("f64", BITS64, 64), ("f32", BITS32, 32)):
+            for operator, operand, calculate in (
+                ("+", 1.0, lambda x: x + 1.0),
+                ("*", 2.0, lambda x: x * 2.0),
+                ("/", 0.0, lambda x: math.nan if x == 0.0 or math.isnan(x) else math.copysign(math.inf, x)),
+            ):
+                rewrite = json.dumps({"columns": ["id", name], "rewrites": [{
+                    "kind": "numeric_scalar_arithmetic", "target_column": name,
+                    "operator": operator, "operand": {"type": "float64", "value": operand}}]})
+                expected = pa.Table.from_arrays([source["id"], self.column([
+                    None if bit is None else result_bits(calculate(float_value(bit, width))) for bit in bits])],
+                    schema=pa.schema([source.schema.field("id"), pa.field(name, pa.float64())]))
+                declaration = native.Relation.scan(str(path)).unary("rewrite", rewrite)
+                sql = f"SELECT id, {name} {operator} {operand} AS {name} FROM '{path}'"
+                self.five(self.frame(path).select("id", name).eval(f"{name} = {name} {operator} {operand}"),
+                    declaration, sql, expected)
+                # Rewrites belong in the complete relation. Extended legacy
+                # primitive requests retain their explicit admission refusal.
+                with self.assertRaisesRegex(ShardLoomCommandError, "complete shared SQL or typed relational declaration"):
+                    self.clients["extended"].public_workflow_run("cli", input_uri=path,
+                        input_format="vortex", requested_output="collect", execution_policy="native_vortex",
+                        materialization_policy="bounded", bounded=True, memory_bytes=128 << 20, max_parallelism=2,
+                        vortex_primitive="expression_project", vortex_expression_projection=rewrite,
+                        vortex_columns=("id", name))
+
+        # Finite input can itself overflow or divide by zero. Strict must still
+        # reject these operations, while an empty/all-null domain observes none.
+        for values in ([0x7fefffffffffffff, None], [None, None], []):
+            table = pa.Table.from_arrays([self.column(values)], names=["x"])
+            current = self.write_input(table, "vortex", name=f"finite-{len(values)}-{values[0] if values else 'empty'}")
+            for operator, operand in (("*", 2.0), ("/", 0.0)):
+                rewrite = json.dumps({"columns": ["x"], "rewrites": [{"kind": "numeric_scalar_arithmetic",
+                    "target_column": "x", "operator": operator, "operand": {"type": "float64", "value": operand}}]})
+                declaration = native.Relation.scan(str(current)).unary("rewrite", rewrite)
+                strict = self.sessions["strict"].plan(declaration)
+                if any(value is not None for value in values):
+                    with self.assertRaisesRegex(RuntimeError, "nonfinite|division by zero"):
+                        strict.collect()
+                else:
+                    self.equal(self.native_table(strict.collect(), "strict"), table)
+                extended = self.sessions["extended"].plan(declaration)
+                expected = pa.Table.from_arrays([self.column([
+                    None if value is None else 0x7ff0000000000000 for value in values])], names=["x"])
+                for _ in range(2):
+                    self.equal(self.native_table(extended.collect(), "extended"), expected)
+
     def test_float_reducers_and_moving_windows_recover_after_specials(self):
         import shardloom as sl
         from shardloom import functions as f

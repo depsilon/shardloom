@@ -829,11 +829,13 @@ visible and independent; this implementation does not automatically close them.
     integration tests. It adds per-operation precision/scale/rounding and proves
     explicit widened-integer SUM without changing ordinary arithmetic defaults.
     The [floating-domain continuation](../benchmarks/native-float-policy-2026-10-29.md)
-    passes 20 public tests with 410 five-interface executions, 3,315 complete
+    passes 22 public tests with 530 five-interface executions, 4,155 complete
     five-interface rows and actual native spill for grouped/window/pivot and
-    duplicate-selection results. Native/default workspace checks and all 243
+    duplicate-selection results. Native/default workspace checks and all 245
     installed-package tests pass. Strict remains the default; extended policy
-    distinguishes NULL from NaN and preserves carried F32/F64 bits. Composition,
+    distinguishes NULL from NaN and preserves carried F32/F64 bits. The review
+    correction covers assignment-policy propagation and composable classifiers;
+    the original acceptance snapshot and later correction are retained separately. Composition,
     batch-function, diagnostics, the seven performance candidates above and
     combined item-20 acceptance remain open.
     The existing 347-query checkpoint is unchanged during this capability work.

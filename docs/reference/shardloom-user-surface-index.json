@@ -1397,7 +1397,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "da428f834de6616f67e6582ed2155b961ec5332f11e46d9048c20f9afc6975ef",
+    "source_identity": "84d409f59ad50fc5fb559bfb3bcc21afee3b13319421e00be2d9289377f238a6",
     "source_inputs": {
       "Cargo.lock": "0f326028ae5a9fc62629eca5d200158d190f01019c314975179934ef0e891974",
       "Cargo.toml": "be5c720183463a8c7f0287d254ce16fc9cca05b90fff4d3ca19ee2bedbe802f9",
@@ -1410,14 +1410,14 @@
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
       "python/src/shardloom/client.py": "525de13184cbca252bd7b63e7b9f0c4e2cf88b7a3539116ffde7368dff317804",
-      "python/src/shardloom/context.py": "b645e1d72af83a82588b31e0dbed18fc37597b43600a5bb0501441e995e2c0ba",
+      "python/src/shardloom/context.py": "d966a44103b61314ac7f1961792b97750338da2afd528f2eab4e44c09450ee8c",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "f9404590ec03d8491f795e42cdd41409f46f6c6f4ae8cff34de498e718fa6999",
+      "python/src/shardloom/functions.py": "4e5fb6a5d114f54de0ecccca209b04c8aa64a783dbedd6fc9acd4b36e2f0145f",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "95b70ea34309f0b5812fdda369490c5557ca2724ec230184f21597ba0a13f745",
+      "python/src/shardloom/query.py": "e57a7374f1528424d336df50b05154a4128d82e90ba0efc9506c5042e358021d",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
@@ -4150,7 +4150,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value) -> 'PredicateExpression'",
         "summary": "Classify floating NaN values, propagating NULL validity."
       },
       {
@@ -4159,7 +4159,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value) -> 'PredicateExpression'",
         "summary": "Classify either floating infinity, propagating NULL validity."
       },
       {
@@ -4168,7 +4168,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value) -> 'PredicateExpression'",
         "summary": "Classify finite floating values, propagating NULL validity."
       },
       {
@@ -4177,7 +4177,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value) -> 'PredicateExpression'",
         "summary": "Observe a floating sign bit, including zero and NaN, with NULL propagation."
       },
       {

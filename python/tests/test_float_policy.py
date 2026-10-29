@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import shardloom as sl
 from shardloom import functions as f
+from shardloom.query import ColumnExpression, PredicateExpression
 
 
 class FloatPolicyDeclarations(unittest.TestCase):
@@ -54,3 +55,31 @@ class FloatPolicyDeclarations(unittest.TestCase):
             self.assertEqual(str(left), str(right))
             self.assertTrue(left.source_bindings)
             self.assertEqual(str(getattr(f, name)("x")), f"{name.upper()}(x)")
+
+    def test_classifiers_compose_as_predicates_and_preserve_metadata(self):
+        limits = sl.ExecutionResourceLimits(memory_bytes=4096, max_parallelism=2)
+        source = sl.scalar_subquery(
+            sl.read_vortex("/unused/data.vortex").select("x")
+        ).source_bindings
+        column = ColumnExpression("x", source, resource_limits=limits)
+        for name in ("is_nan", "is_infinite", "is_finite", "signbit"):
+            with self.subTest(name=name):
+                helper = getattr(f, name)(column)
+                method = getattr(column, name)()
+                for expression in (helper, method):
+                    self.assertIsInstance(expression, PredicateExpression)
+                    self.assertEqual(expression.source_bindings, source)
+                    self.assertIs(expression.resource_limits, limits)
+                    self.assertEqual(str(~expression), f"NOT {name.upper()}(x)")
+                    self.assertEqual(
+                        str(expression & f.is_null(column)),
+                        f"({name.upper()}(x) AND x IS NULL)",
+                    )
+                    self.assertEqual(
+                        str(expression | f.is_not_null(column)),
+                        f"({name.upper()}(x) OR x IS NOT NULL)",
+                    )
+                    alias = expression.alias("classified")
+                    self.assertIsInstance(alias, ColumnExpression)
+                    self.assertEqual(alias.source_bindings, source)
+                    self.assertIs(alias.resource_limits, limits)

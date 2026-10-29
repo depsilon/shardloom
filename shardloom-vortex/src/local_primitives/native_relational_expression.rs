@@ -697,25 +697,6 @@ fn unary(op: UnaryOp, value: Cell) -> Result<Value<'static>> {
     })
 }
 
-pub(super) fn binary(
-    left: Cell,
-    op: BinaryOp,
-    right: Cell,
-    left_dtype: &DType,
-    right_dtype: &DType,
-    dtype: &DType,
-) -> Result<Value<'static>> {
-    binary_with_float_policy(
-        left,
-        op,
-        right,
-        left_dtype,
-        right_dtype,
-        dtype,
-        FloatPolicy::Strict,
-    )
-}
-
 pub(super) fn binary_with_float_policy(
     left: Cell,
     op: BinaryOp,

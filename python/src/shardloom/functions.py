@@ -442,22 +442,22 @@ def is_null(value):
     return _column(value).is_null()
 
 
-def is_nan(value) -> ColumnExpression:
+def is_nan(value) -> PredicateExpression:
     """Classify floating NaN values, propagating NULL validity."""
     return _column(value).is_nan()
 
 
-def is_infinite(value) -> ColumnExpression:
+def is_infinite(value) -> PredicateExpression:
     """Classify either floating infinity, propagating NULL validity."""
     return _column(value).is_infinite()
 
 
-def is_finite(value) -> ColumnExpression:
+def is_finite(value) -> PredicateExpression:
     """Classify finite floating values, propagating NULL validity."""
     return _column(value).is_finite()
 
 
-def signbit(value) -> ColumnExpression:
+def signbit(value) -> PredicateExpression:
     """Observe a floating sign bit, including zero and NaN, with NULL propagation."""
     return _column(value).signbit()
 

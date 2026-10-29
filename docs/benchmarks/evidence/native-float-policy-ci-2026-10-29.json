@@ -1,0 +1,133 @@
+{
+  "schema_version": "shardloom.native_float_review_acceptance.v1",
+  "status": "passed",
+  "base_head": "8c9179fc707e5763774749e801f590c8f8679070",
+  "original_packet": {
+    "path": "docs/benchmarks/evidence/native-float-policy-2026-10-29.json.xz",
+    "bytes": 1936708,
+    "sha256": "a61ed73238428745501caa769f0178cf1b92eecaaef79454656ce6eb5837abc6"
+  },
+  "public_totals": {
+    "tests": 22,
+    "positive_public_executions": 530,
+    "five_surface_rows": 4155,
+    "compared_rows": 108969,
+    "observations": 106,
+    "complete_comparisons": 1500,
+    "native_certificates": 228,
+    "public_envelopes": 327
+  },
+  "native_products": {
+    "shardloom": "5c4453235d0d7b50b7492b48d0af8b763357bac22e6aa5737affc86d5044caa1",
+    "_native.abi3.so": "ef466fd2b57c20c82f686535a5d261a4cba1ce593697c85f1f2e5de86fa5b5cb"
+  },
+  "accepted_roles": {
+    "build": "f081-review-native-build",
+    "public": "f087-review-public",
+    "format": "f100-review-format",
+    "workspace_clippy": "f090-review-workspace-clippy",
+    "workspace_tests": "f091-review-workspace-tests",
+    "native_clippy": "f099-review-native-clippy",
+    "native_tests": "f093-review-native-tests",
+    "minimal_native": "f094-review-minimal-native",
+    "matrix": "f095-review-matrix",
+    "wheel": "f096-review-wheel",
+    "sources": "f097-review-source-checks",
+    "metadata": "f098-review-metadata"
+  },
+  "failed_attempts": [
+    "f071-ci-contract-reproduction",
+    "f073-ci-source-checks",
+    "f074-ci-source-checks",
+    "f079-review-regressions-old-runtime",
+    "f080-review-regressions-old-runtime",
+    "f083-review-focused",
+    "f084-review-focused",
+    "f085-review-focused",
+    "f092-review-native-clippy"
+  ],
+  "new_benchmark_executions": 0,
+  "portable_packet": {
+    "path": "docs/benchmarks/evidence/native-float-policy-ci-2026-10-29.json.xz",
+    "bytes": 646656,
+    "sha256": "fa9d5b1f1e45dc4bd92f70ad63c86a75bce107cd67789129d573ef576138d27f"
+  },
+  "source_delta": {
+    "docs/architecture/native-float-policy-2026-10-29.md": {
+      "bytes": 8496,
+      "sha256": "6273f8980346419f52e69c59a1d34952eb2bf6855b57916d859c2031d024a3fb"
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "bytes": 173112,
+      "sha256": "8e97332501c9c79401d1e3797fa19fa33d67751fb397c9e21127caac5d8cf7c1"
+    },
+    "docs/benchmarks/native-float-policy-2026-10-29.md": {
+      "bytes": 10960,
+      "sha256": "03871a5c3d7c8813fc4258fbd4934f2131178f0335c8151009ffb09e49161ab1"
+    },
+    "docs/reference/shardloom-user-surface-index.json": {
+      "bytes": 265928,
+      "sha256": "11a7d8e76370b19910fcab8349feb14bd43889249c878a9ea9620b1e3d7bad49"
+    },
+    "docs/reference/shardloom-user-surface-index.md": {
+      "bytes": 47897,
+      "sha256": "1f1f872dcf4138b498746faf6eab6d745b238ea6f508d0eb6a2b2b170d56b1e4"
+    },
+    "python/src/shardloom/context.py": {
+      "bytes": 483208,
+      "sha256": "d966a44103b61314ac7f1961792b97750338da2afd528f2eab4e44c09450ee8c"
+    },
+    "python/src/shardloom/functions.py": {
+      "bytes": 24952,
+      "sha256": "4e5fb6a5d114f54de0ecccca209b04c8aa64a783dbedd6fc9acd4b36e2f0145f"
+    },
+    "python/src/shardloom/query.py": {
+      "bytes": 519197,
+      "sha256": "e57a7374f1528424d336df50b05154a4128d82e90ba0efc9506c5042e358021d"
+    },
+    "python/tests/test_float_policy.py": {
+      "bytes": 4791,
+      "sha256": "f5d4f95434e6007c45261380601ebd8dd87e8ed3ce159136422a7684da9553fe"
+    },
+    "python/tests/test_native_float_policy_binding.py": {
+      "bytes": 70165,
+      "sha256": "4957ab663f0540ec592b9c658e3c723e26a52158d311a99835f979e9abc81b62"
+    },
+    "python/tests/test_release_report_producer_contracts.py": {
+      "bytes": 17211,
+      "sha256": "9e7969e16d19f505c84ea5ffb82cb03ff9d443c944a0a0e47ce9754fc37d05c6"
+    },
+    "scripts/check_release_readiness.py": {
+      "bytes": 119520,
+      "sha256": "1f8f68366e51ef87779277c48b0c79f331e35f2d5cfaac6bc3f225ef20ecd1d7"
+    },
+    "shardloom-vortex/src/local_primitive_unary_expression.rs": {
+      "bytes": 20553,
+      "sha256": "ad0798142f642515fbaf18ec21be481c9bcc600121151a1a5204abf8933789de"
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_expression.rs": {
+      "bytes": 30647,
+      "sha256": "6eea76b0761c32eb7a6721a5c3e9da32efbbc3f62484e0907ec72cc67cc25c32"
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_expression_numeric_tests.rs": {
+      "bytes": 32092,
+      "sha256": "e09cafd47b2c02bd12896cd917feef916d47877e04c5bf3bbe29e28f8aa12f26"
+    }
+  },
+  "corruption_controls_rejected": [
+    "member",
+    "source",
+    "value",
+    "type",
+    "null",
+    "policy",
+    "certificate",
+    "count",
+    "product",
+    "wheel",
+    "failed-attempt",
+    "cleanup"
+  ],
+  "installed_tests": 245,
+  "hosted_acceptance": "pending exact corrected head"
+}

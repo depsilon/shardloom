@@ -19,6 +19,10 @@ ownership acceptance, with no benchmark or performance claim.
 
 ## Complete-value acceptance
 
+This table records the initial accepted snapshot. The CI and review correction
+below records the subsequent source/runtime delta without replacing these
+observations.
+
 | Evidence | Result |
 | --- | --- |
 | Public execution | 20 tests pass without skips. 82 equivalent-case cohorts execute 410 times across DataFrame, Python SQL, typed native relations, embedded workflows and CLI, comparing 3,315 complete rows. |
@@ -68,7 +72,7 @@ buffer; no storage limit was raised to obtain a passing result.
 
 ## Regression evidence and replay
 
-Final review found three concrete gaps. Nested duplicate selection and scalar
+Initial adversarial review found three concrete gaps. Nested duplicate selection and scalar
 pivot identity still distinguished NaN payloads and zero signs; attempt `f050`
 failed 75 subcases across all five interfaces before those owners were corrected.
 Private spill narrowed a carried signaling Float32 NaN through a numeric cast;
@@ -89,6 +93,59 @@ importing the source checkout or loading the native engine. The
 [cleanup receipt](evidence/native-float-policy-cleanup-2026-10-29.json) records
 exact identities and closed-handle checks for retired temporary payloads while
 retaining the tested runtime, installed-tested wheel and compact evidence.
+
+## Hosted CI and review correction
+
+The first PR head `8c9179fc707e5763774749e801f590c8f8679070` exposed two
+additional metadata-consumer gaps. The context/client graduation inventory omitted
+the inert `float_policy` property, and the hard-readiness consumer still required
+47 semantic cases and 58 total stages after the conformance producer admitted
+50 semantic cases and 61 total stages. The same three test failures reproduce
+locally in `f071`; all 15 affected producer/consumer and graduation tests pass
+after correction in `f072`.
+
+The inventory now classifies the property with construction/configuration, and
+readiness derives these exact counts from the canonical required case sets.
+Negative controls still reject incomplete semantic, diagnostic, artifact and
+no-fallback evidence. Generated surface indexes follow that inventory.
+
+Hosted review also identified an unconditional strict-policy wrapper in scalar
+assignment execution and non-composable Python classifier return types. Attempt
+`f080` reproduces the arithmetic failure on the original runtime. The unary owner
+now passes the execution context's policy to the shared arithmetic function;
+its existing numeric test oracle also names that policy explicitly. Python
+classifiers use the existing predicate owner and retain source/resource metadata.
+Attempt `f085` additionally exposed Python `eval` refusing a zero divisor before
+extended execution. That declaration now reaches native checks in extended mode;
+strict behavior and the legacy primitive admission refusal remain intact.
+
+The corrected public pass completes 22 tests with no skips: 106 equivalent-case
+cohorts, 530 five-interface executions, 1,500 complete comparisons and 108,969
+compared rows. It includes F32/F64 rewrites, finite overflow, zero division,
+strict refusal, NULL/empty domains, repeated actions and Boolean classifier
+composition across Vortex, Arrow IPC and Parquet. The original portable packet
+and installed-wheel observations remain evidence for their recorded snapshot;
+the [correction supplement](evidence/native-float-policy-ci-2026-10-29.json)
+records the later delta and preserves failed attempts. Hosted checks and review
+on the corrected PR head remain merge gates.
+
+The corrected snapshot also passes default/native strict lint, formatting,
+3,287 default workspace tests, 6,468 native workspace tests with the same 35
+existing opt-in ignores, the minimal native feature check and three conformance
+fixtures. Its isolated wheel passes all 245 integration tests without skips,
+including the 22 floating-domain methods, and verified uninstall. The runtime
+build predates a test-only oracle import correction; the later native test/lint
+receipts prove that exact test source, while the production Rust inputs remain
+identical to the built CLI/library. The supplement verifies that distinction.
+
+The [isolated correction replay](evidence/native-float-policy-ci-2026-10-29-replay.json)
+checks complete values, source/product linkage, policies, certificates, installed
+package identity and 12 corruption controls using the archived verifier. The
+[correction cleanup](evidence/native-float-policy-ci-2026-10-29-cleanup.json)
+records exact retirement of the superseded runtime/wheel and completed temporary
+package, fixture and raw-result payloads after verification. Current inputs,
+the corrected tested runtime/wheel, compact results and the original acceptance
+packet remain; no benchmark or package publication occurs.
 
 ## Remaining boundaries
 

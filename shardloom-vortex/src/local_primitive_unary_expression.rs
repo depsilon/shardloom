@@ -348,7 +348,7 @@ impl Expression {
                     row,
                     ordinal,
                     &mut self.fills.values[step_index],
-                    context.memory(),
+                    context,
                 )?;
                 row.replace(step.target, value)?;
             }
@@ -416,8 +416,9 @@ fn apply(
     row: &OwnedRow,
     ordinal: u64,
     fill: &mut Fill,
-    memory: &LiveMemoryPool,
+    context: &NativeExecutionContext<'_>,
 ) -> Result<OwnedScalar> {
+    let memory = context.memory();
     let current = row.scalar(step.target)?;
     match rewrite {
         Rewrite::MaskScalar { .. } => {
@@ -467,13 +468,14 @@ fn apply(
                 .arithmetic
                 .as_ref()
                 .ok_or_else(|| failed("arithmetic is not bound"))?;
-            let value = super::super::native_relational_expression::binary(
+            let value = super::super::native_relational_expression::binary_with_float_policy(
                 scalar::numeric_cell(current)?,
                 arithmetic.operator,
                 scalar::numeric_cell(arithmetic.operand.value())?,
                 &arithmetic.left_dtype,
                 &arithmetic.right_dtype,
                 &step.dtype,
+                context.float_policy(),
             )?;
             OwnedScalar::from_native(value, &step.dtype, memory)
         }
