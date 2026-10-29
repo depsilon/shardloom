@@ -152,6 +152,7 @@ fn scans(
         | NodeKind::Aggregate { input, .. }
         | NodeKind::Filter { input, .. }
         | NodeKind::Sort { input, .. }
+        | NodeKind::GapFill { input, .. }
         | NodeKind::Window { input, .. } => scans(input, None, visit),
         NodeKind::Join { left, right, .. } | NodeKind::Set { left, right, .. } => {
             let left = scans(left, None, visit)?;

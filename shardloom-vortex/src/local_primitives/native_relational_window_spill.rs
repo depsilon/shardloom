@@ -270,7 +270,9 @@ fn same(
 
 fn selected_column(spec: &Spec, index: usize) -> Result<&str> {
     match &spec.functions[index] {
-        Function::Lag { column, .. } | Function::Lead { column, .. } => Ok(column.as_str()),
+        Function::Lag { column, .. }
+        | Function::Lead { column, .. }
+        | Function::Fill { column, .. } => Ok(column.as_str()),
         Function::Framed(_) => spec.frames[index]
             .as_ref()
             .and_then(|frame| frame.column.as_deref())

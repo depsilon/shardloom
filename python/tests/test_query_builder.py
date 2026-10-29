@@ -20,6 +20,7 @@ from shardloom.models import OutputEnvelope
 from shardloom.query import (
     Result,
     WorkflowOperation,
+    WorkflowSource,
     _embedded_vortex_input_uri,
     _normalize_local_output_format,
     _public_write_request_for_format,
@@ -61,6 +62,112 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
+
+    def test_temporal_bucket_declares_exact_controls_without_execution(self):
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            value = sl.col("instant")
+            self.assertEqual(value.temporal_bucket(500, "ns").sql,
+                             "TEMPORAL_BUCKET(instant, 500, 'ns', NULL, 'reject', 'reject')")
+            self.assertEqual(value.temporal_bucket(1, "calendar_months", origin=-1,
+                                                 month_end="clamp", ambiguity="later").sql,
+                             "TEMPORAL_BUCKET(instant, 1, 'calendar_months', -1, 'clamp', 'later')")
+            for spacing in (False, 0, -1, 1.5, "5", None):
+                with self.subTest(spacing=spacing), self.assertRaises((TypeError, ValueError)):
+                    value.temporal_bucket(spacing, "ns")
+            for origin in (True, 1.5, "0", value):
+                with self.subTest(origin=origin), self.assertRaises(TypeError):
+                    value.temporal_bucket(1, "ns", origin=origin)
+
+    def test_resample_declares_temporal_bucket_then_native_grouping(self):
+        source = WorkflowSource(
+            "vortex", "events.vortex",
+            schema=(("region", "utf8"), ("event_time", "timestamp_ns"), ("value", "int64")),
+        )
+        frame = LazyFrame(source, SimpleNamespace())
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            grouped = frame.resample(
+                "event_time", 5, "calendar_months", by="region", origin=-1,
+                month_end="clamp", ambiguity="later",
+            )
+        self.assertEqual(tuple(operation.kind for operation in grouped.workflow.operations),
+                         ("with_column",))
+        self.assertEqual(grouped.workflow.operations[0].values,
+                         ("event_time", "TEMPORAL_BUCKET(event_time, 5, 'calendar_months', -1, 'clamp', 'later')"))
+        self.assertEqual(grouped.columns, ("region", "event_time"))
+        reduced = grouped.agg(total="SUM(value)")
+        self.assertEqual(tuple(operation.kind for operation in reduced.operations),
+                         ("with_column", "group_by", "aggregate"))
+        self.assertEqual(frame.operations, ())
+
+    def test_temporal_grid_builders_reject_invalid_controls(self):
+        frame = LazyFrame(WorkflowSource("vortex", "events.vortex"), SimpleNamespace())
+        for method in (frame.resample, frame.gap_fill):
+            for every in (True, 0, -1, 1.5, 1 << 63):
+                with self.subTest(method=method.__name__, every=every), self.assertRaises((TypeError, ValueError)):
+                    method("event_time", every, "ns")
+            for unit in (None, "seconds", "ns'); SELECT 1 --"):
+                with self.subTest(method=method.__name__, unit=unit), self.assertRaises((TypeError, ValueError)):
+                    method("event_time", 1, unit)
+            for keys in (("region", "region"), ("event_time",), ("bad-name",), "region,event"):
+                with self.subTest(method=method.__name__, by=keys), self.assertRaises((TypeError, ValueError)):
+                    method("event_time", 1, "ns", by=keys)
+            for keyword, invalid in (("origin", True), ("origin", 1 << 63),
+                                     ("month_end", "later"), ("ambiguity", "clamp")):
+                with self.subTest(method=method.__name__, keyword=keyword, invalid=invalid), self.assertRaises((TypeError, ValueError)):
+                    method("event_time", 1, "ns", **{keyword: invalid})
+        for keyword in ("start", "end"):
+            for invalid in (True, 1 << 63, -(1 << 63) - 1, 1.5):
+                with self.subTest(keyword=keyword, invalid=invalid), self.assertRaises((TypeError, ValueError)):
+                    frame.gap_fill("event_time", 1, "ns", **{keyword: invalid})
+
+    def test_native_fill_expression_builders_preserve_scope_and_declare_over(self):
+        source = WorkflowSource("vortex", "events.vortex")
+        limits = sl.ExecutionResourceLimits(memory_bytes=1 << 20, max_parallelism=2)
+        value = sl.col("measure")
+        scoped = type(value)(value.sql, (source,), limits)
+        window = sl.Window.order_by("event_time")
+        cases = (
+            (scoped.forward_fill(), "FORWARD_FILL(measure)"),
+            (scoped.backward_fill(), "BACKWARD_FILL(measure)"),
+            (scoped.interpolate_linear(), "INTERPOLATE_LINEAR(measure)"),
+        )
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            for expression, sql in cases:
+                with self.subTest(sql=sql):
+                    self.assertEqual(expression.sql, sql)
+                    self.assertEqual(expression.source_bindings, (source,))
+                    self.assertIs(expression.resource_limits, limits)
+                    self.assertEqual(expression.over(window).sql,
+                                     f"{sql} OVER (ORDER BY event_time ASC)")
+
+    def test_gap_fill_is_inert_and_renders_ordered_literal_controls(self):
+        source = WorkflowSource(
+            "vortex", "events.vortex",
+            schema=(("region", "utf8"), ("event_time", "timestamp_ns"), ("value", "int64")),
+        )
+        frame = LazyFrame(source, SimpleNamespace())
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            filled = frame.gap_fill(
+                "event_time", 5, "calendar_months", by=(key for key in ("region",)),
+                start=0, end=100, origin=-10, month_end="clamp", ambiguity="earlier",
+            )
+        operation = filled.operations[-1]
+        self.assertEqual(operation.kind, "gap_fill")
+        self.assertEqual(operation.values, (
+            "event_time", "5", "calendar_months", "region", "0", "100", "-10", "clamp", "earlier",
+        ))
+        from shardloom._relational_sql import frame_stages
+        rendered = frame_stages(filled)
+        self.assertIsNotNone(rendered)
+        assert rendered is not None
+        self.assertEqual(rendered.columns, ("region", "event_time", "value"))
+        self.assertEqual(rendered.statement,
+                         "SELECT * FROM GAP_FILL((SELECT * FROM 'events.vortex'), 'event_time', 5, 'calendar_months', 'region', 0, 100, -10, 'clamp', 'earlier') AS _sl_stage_0")
+        unbounded = frame.gap_fill("event_time", 5, "s")
+        self.assertEqual(unbounded.operations[-1].values[4:7], ("NULL", "NULL", "NULL"))
+        self.assertIsNone(frame_stages(LazyFrame(
+            source, SimpleNamespace(), operations=(WorkflowOperation("gap_fill", operation.values[:-1]),),
+        )))
 
     def test_temporal_window_declarations_preserve_explicit_units_and_policies(self):
         with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):

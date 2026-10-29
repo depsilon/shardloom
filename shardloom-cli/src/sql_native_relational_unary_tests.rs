@@ -1,6 +1,27 @@
 use super::*;
 
 #[test]
+fn native_relational_sql_gap_fill_binds_ctes_and_composes_full_rows() {
+    memory_tests::verify_memory(
+        "WITH events AS (SELECT CAST(column_1 AS date32) AS day,column_2 AS amount FROM (VALUES ('1970-01-03',30),('1970-01-01',10)) AS raw) SELECT CAST(day AS utf8) AS day,amount FROM GAP_FILL((SELECT * FROM events), 'day', 1, 'calendar_days', '', 0, 3) AS filled",
+        &json!([
+            {"day":"1970-01-01","amount":10}, {"day":"1970-01-02","amount":null},
+            {"day":"1970-01-03","amount":30}, {"day":"1970-01-04","amount":null},
+        ]),
+    );
+    memory_tests::verify_memory(
+        "SELECT COUNT(*) AS points,SUM(amount) AS total FROM GAP_FILL((SELECT day,SUM(amount) AS amount FROM (SELECT TEMPORAL_BUCKET(CAST(column_1 AS date32), 2, 'calendar_days') AS day,column_2 AS amount FROM (VALUES ('1970-01-01',10),('1970-01-02',20),('1970-01-05',40)) AS raw) AS bucketed GROUP BY day), 'day', 2, 'calendar_days') AS filled",
+        &json!([{"points":3,"total":70.0}]),
+    );
+    let leaves = source_leaves(
+        "SELECT * FROM GAP_FILL((SELECT * FROM missing), 'day', 1, 'calendar_days') AS filled",
+    )
+    .unwrap();
+    assert_eq!(leaves.len(), 1);
+    assert_eq!(leaves.iter().next().unwrap().path, Path::new("missing"));
+}
+
+#[test]
 fn native_relational_sql_unary_all_families_preserve_transformed_input_and_downstream_stages() {
     let path = fixture();
     let input = format!("SELECT value AS n,metric AS m FROM '{path}' ORDER BY value DESC LIMIT 4");

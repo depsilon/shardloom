@@ -107,6 +107,16 @@ impl BoundTimeZone {
         unit: TemporalUnit,
         ambiguity: Ambiguity,
     ) -> Result<i64> {
+        nanos_to_ticks(self.timestamp_nanoseconds(civil, ambiguity)?, unit)
+    }
+
+    // Grid neighbors may be outside the materialized tick domain while still
+    // inside the calendar provider's range. Compare them before narrowing.
+    pub(super) fn timestamp_nanoseconds(
+        &self,
+        civil: CivilDateTime,
+        ambiguity: Ambiguity,
+    ) -> Result<i128> {
         civil.validate()?;
         let year = i16::try_from(civil.year).map_err(|_| range_error())?;
         let datetime = jiff::civil::DateTime::new(
@@ -125,7 +135,7 @@ impl BoundTimeZone {
             Ambiguity::Earlier => ambiguous.earlier(),
             Ambiguity::Later => ambiguous.later(),
         }.map_err(|_| failed("civil time is ambiguous, nonexistent or outside calendar range; choose earlier/later explicitly for a gap or fold"))?;
-        nanos_to_ticks(timestamp.as_nanosecond(), unit)
+        Ok(timestamp.as_nanosecond())
     }
 
     /// # Errors

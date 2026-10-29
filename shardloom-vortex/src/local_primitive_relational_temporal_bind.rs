@@ -6,7 +6,7 @@ use super::{
 };
 use crate::local_primitives::native_relational_expression::scalar::TemporalArgument;
 use shardloom_core::temporal::{
-    TemporalDType, TemporalKind,
+    TemporalDType, TemporalGridStep, TemporalKind,
     civil::MonthEnd,
     operations::{Kernel, Operation, Part},
     timezone::Ambiguity,
@@ -85,6 +85,7 @@ pub(super) fn bind(
             part: part(&args[1])?,
             ambiguity: ambiguity(&args, 2)?,
         },
+        "temporal_bucket" => bucket(&args)?,
         "calendar_add_days" => {
             second = TemporalArgument::Integer;
             Operation::CalendarDays {
@@ -218,4 +219,52 @@ fn month_end(args: &[Expression], index: usize) -> Result<MonthEnd> {
         MonthEnd::parse(&control(arg, "month-end policy")?.to_ascii_lowercase())
             .ok_or_else(|| failed("month-end policy requires reject or clamp"))
     })
+}
+
+fn bucket(args: &[Expression]) -> Result<Operation> {
+    let value = literal_integer(&args[1])?
+        .and_then(|value| u64::try_from(value).ok())
+        .filter(|value| *value > 0)
+        .ok_or_else(|| {
+            failed("temporal grid spacing requires a positive UInt64 integer literal")
+        })?;
+    let unit = control(&args[2], "grid unit")?.to_ascii_lowercase();
+    let origin = args
+        .get(3)
+        .map(literal_integer)
+        .transpose()?
+        .flatten()
+        .map(|value| {
+            i64::try_from(value)
+                .map_err(|_| failed("temporal grid origin exceeds signed-64-bit ticks"))
+        })
+        .transpose()?;
+    let month_end = month_end(args, 4)?;
+    let ambiguity = ambiguity(args, 5)?;
+    let step = TemporalGridStep::from_parts(value, &unit, month_end, ambiguity)?;
+    Ok(Operation::Bucket { step, origin })
+}
+
+fn literal_integer(arg: &Expression) -> Result<Option<i128>> {
+    use vortex::array::scalar::{PValue, ScalarValue};
+    let Kind::Literal(value) = &arg.kind else {
+        return Err(failed("temporal grid controls require integer literals"));
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let Some(ScalarValue::Primitive(value)) = value.value() else {
+        return Err(failed("temporal grid controls require integer literals"));
+    };
+    Ok(Some(match value {
+        PValue::I8(value) => i128::from(*value),
+        PValue::I16(value) => i128::from(*value),
+        PValue::I32(value) => i128::from(*value),
+        PValue::I64(value) => i128::from(*value),
+        PValue::U8(value) => i128::from(*value),
+        PValue::U16(value) => i128::from(*value),
+        PValue::U32(value) => i128::from(*value),
+        PValue::U64(value) => i128::from(*value),
+        _ => return Err(failed("temporal grid controls require integer literals")),
+    }))
 }

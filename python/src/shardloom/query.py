@@ -307,6 +307,27 @@ class ColumnExpression:
         return WindowExpression(f"{self.sql} OVER ({specification.sql})",
             _predicate_sources(self, specification), _predicate_limits(self, specification))
 
+    def forward_fill(self) -> "ColumnExpression":
+        """Declare native forward filling for use with :meth:`over`."""
+        return ColumnExpression(
+            f"FORWARD_FILL({self.sql})", self.source_bindings,
+            resource_limits=self.resource_limits,
+        )
+
+    def backward_fill(self) -> "ColumnExpression":
+        """Declare native backward filling for use with :meth:`over`."""
+        return ColumnExpression(
+            f"BACKWARD_FILL({self.sql})", self.source_bindings,
+            resource_limits=self.resource_limits,
+        )
+
+    def interpolate_linear(self) -> "ColumnExpression":
+        """Declare native linear interpolation for use with :meth:`over`."""
+        return ColumnExpression(
+            f"INTERPOLATE_LINEAR({self.sql})", self.source_bindings,
+            resource_limits=self.resource_limits,
+        )
+
     def filter(self, predicate) -> "ColumnExpression":
         """Declare aggregate-local FILTER; false and NULL predicate values exclude rows."""
         if not isinstance(predicate, (PredicateExpression, ColumnExpression)):
@@ -959,6 +980,29 @@ class ColumnExpression:
 
         return self._temporal_call(
             "temporal_trunc", _temporal_control_literal("part", part),
+            _temporal_control_literal("ambiguity", ambiguity),
+        )
+
+    def temporal_bucket(
+        self, every: int, unit: str, *, origin: int | None = None,
+        month_end: str = "reject", ambiguity: str = "reject",
+    ) -> "ColumnExpression":
+        """Declare an anchored bucket; all calendar and tick arithmetic is native.
+
+        Units are s, ms, us, ns, calendar_days or calendar_months. Origin is
+        exact source-domain ticks; None uses epoch zero for elapsed grids or
+        local 1970-01-01 midnight for calendar grids. Calendar policies reject
+        ambiguous times and missing month-end dates unless explicitly changed.
+        """
+
+        if isinstance(every, bool) or not isinstance(every, int) or every <= 0:
+            raise ValueError("temporal bucket spacing requires a positive integer")
+        if origin is not None and (isinstance(origin, bool) or not isinstance(origin, int)):
+            raise TypeError("temporal bucket origin requires integer ticks or None")
+        return self._temporal_call(
+            "temporal_bucket", str(every), _temporal_control_literal("unit", unit),
+            "NULL" if origin is None else str(origin),
+            _temporal_control_literal("month_end", month_end),
             _temporal_control_literal("ambiguity", ambiguity),
         )
 
@@ -5208,6 +5252,83 @@ class LazyFrame:
             source_bindings=_predicate_sources(columns),
             resource_limits=_predicate_limits(columns),
         )
+
+    def resample(
+        self,
+        time: object,
+        every: int,
+        unit: str,
+        *,
+        by: str | Iterable[str] = (),
+        origin: int | None = None,
+        month_end: str = "reject",
+        ambiguity: str = "reject",
+    ) -> "GroupedLazyFrame":
+        """Group rows by a declared temporal bucket and optional partition keys.
+
+        Bucket calculation and aggregation are performed by the native temporal
+        and grouping owners when the workflow is executed.
+        """
+
+        time_column = _normalize_temporal_grid_column(time, "time")
+        keys = _normalize_temporal_grid_keys(by, time_column)
+        spacing = _normalize_temporal_grid_int("every", every, required=True)
+        if spacing <= 0:
+            raise ValueError("resample spacing must be a positive integer")
+        normalized_unit = _normalize_temporal_grid_unit(unit)
+        normalized_origin = _normalize_temporal_grid_int("origin", origin)
+        normalized_month_end, normalized_ambiguity = _normalize_temporal_grid_policies(
+            month_end, ambiguity,
+        )
+        bucket = col(time_column).temporal_bucket(
+            spacing, normalized_unit, origin=normalized_origin,
+            month_end=normalized_month_end, ambiguity=normalized_ambiguity,
+        )
+        bucketed = self.with_column(time_column, bucket)
+        return bucketed.group_by(*keys, time_column)
+
+    def gap_fill(
+        self,
+        time: object,
+        every: int,
+        unit: str,
+        *,
+        by: str | Iterable[str] = (),
+        start: int | None = None,
+        end: int | None = None,
+        origin: int | None = None,
+        month_end: str = "reject",
+        ambiguity: str = "reject",
+    ) -> "LazyFrame":
+        """Declare native insertion of missing points on an aligned time grid.
+
+        This records literal controls only; it does not inspect or load source
+        rows. Bounds and origin are signed 64-bit ticks in the source domain.
+        """
+
+        time_column = _normalize_temporal_grid_column(time, "time")
+        keys = _normalize_temporal_grid_keys(by, time_column)
+        spacing = _normalize_temporal_grid_int("every", every, required=True)
+        if spacing <= 0:
+            raise ValueError("gap fill spacing must be a positive integer")
+        normalized_unit = _normalize_temporal_grid_unit(unit)
+        normalized_start = _normalize_temporal_grid_int("start", start)
+        normalized_end = _normalize_temporal_grid_int("end", end)
+        normalized_origin = _normalize_temporal_grid_int("origin", origin)
+        normalized_month_end, normalized_ambiguity = _normalize_temporal_grid_policies(
+            month_end, ambiguity,
+        )
+        return self._append(WorkflowOperation("gap_fill", (
+            time_column,
+            str(spacing),
+            normalized_unit,
+            ",".join(keys),
+            "NULL" if normalized_start is None else str(normalized_start),
+            "NULL" if normalized_end is None else str(normalized_end),
+            "NULL" if normalized_origin is None else str(normalized_origin),
+            normalized_month_end,
+            normalized_ambiguity,
+        )))
 
     def groupby(self, *columns: object) -> "GroupedLazyFrame":
         """Alias for `group_by(...)` using pandas-style naming."""
@@ -10261,6 +10382,66 @@ def _normalize_output_column_name(value: object) -> str:
     return column
 
 
+def _normalize_temporal_grid_keys(by: object, time_column: str) -> tuple[str, ...]:
+    if isinstance(by, str):
+        raw_keys: tuple[object, ...] = (by,)
+    elif by is None:
+        raise TypeError("temporal grid partition keys must be a string or iterable of strings")
+    else:
+        try:
+            raw_keys = tuple(cast(Iterable[object], by))
+        except TypeError as exc:
+            raise TypeError(
+                "temporal grid partition keys must be a string or iterable of strings"
+            ) from exc
+    keys = tuple(_normalize_temporal_grid_column(key, "partition key") for key in raw_keys)
+    if len(set(keys)) != len(keys):
+        raise ValueError("temporal grid partition keys must be unique")
+    if time_column in keys:
+        raise ValueError("temporal grid partition keys must not include the time column")
+    return keys
+
+
+def _normalize_temporal_grid_column(value: object, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"temporal grid {name} must be a string identifier")
+    return _normalize_output_column_name(value)
+
+
+def _normalize_temporal_grid_int(
+    name: str, value: object | None, *, required: bool = False,
+) -> int | None:
+    if value is None and not required:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"temporal grid {name} requires signed 64-bit integer ticks")
+    if not -(1 << 63) <= value <= (1 << 63) - 1:
+        raise ValueError(f"temporal grid {name} must fit signed 64-bit ticks")
+    return value
+
+
+def _normalize_temporal_grid_unit(unit: object) -> str:
+    if not isinstance(unit, str):
+        raise TypeError("temporal grid unit must be a string literal")
+    if unit not in {"s", "ms", "us", "ns", "calendar_days", "calendar_months"}:
+        raise ValueError("temporal grid unit is not supported")
+    return unit
+
+
+def _normalize_temporal_grid_policies(
+    month_end: object, ambiguity: object,
+) -> tuple[str, str]:
+    if not isinstance(month_end, str):
+        raise TypeError("temporal month_end must be a string literal")
+    if month_end not in {"reject", "clamp"}:
+        raise ValueError("temporal month_end must be 'reject' or 'clamp'")
+    if not isinstance(ambiguity, str):
+        raise TypeError("temporal ambiguity must be a string literal")
+    if ambiguity not in {"reject", "earlier", "later"}:
+        raise ValueError("temporal ambiguity must be 'reject', 'earlier', or 'later'")
+    return month_end, ambiguity
+
+
 def _format_named_aggregate(name: object, expression: object) -> str:
     alias = _normalize_output_column_name(name)
     aggregate_expression = _require_non_empty("aggregate expression", expression)
@@ -10701,6 +10882,7 @@ def _sql_generic_expression_projection_expression(expression: object) -> str:
         "TIMESTAMP_HOUR", "TIMESTAMP_MINUTE", "TIMESTAMP_SECOND", "DATE_ADD_DAYS",
         "DATE_SUB_DAYS", "TIMESTAMP_ADD_SECONDS", "TIMESTAMP_SUB_SECONDS",
         "DATE_DIFF_DAYS", "TIMESTAMP_DIFF_SECONDS",
+        "TEMPORAL_BUCKET",
         "EXTRACT_MINUTE", "MINUTE", "DATE_TRUNC_MINUTE", "TRUNCATE_MINUTE",
         "URL_DOMAIN", "REGEX_DOMAIN", "REGEX_REPLACE_DOMAIN", "REGEXP_REPLACE", "REGEX_REPLACE",
     }

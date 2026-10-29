@@ -115,20 +115,28 @@ impl Binder<'_> {
     }
 
     pub(super) fn sort(&mut self, sort: &VortexRelationalSort, depth: usize) -> Result<Node> {
-        validate_width(sort.keys.len())?;
-        self.charge_fields(sort.keys.len())?;
-        let input = Box::new(self.bind(&sort.input, depth + 1)?);
+        let input = self.bind(&sort.input, depth + 1)?;
+        self.sort_input(&sort.keys, input)
+    }
+
+    pub(super) fn sort_input(
+        &mut self,
+        keys: &[crate::relational_query::VortexRelationalOrderKey],
+        input: Node,
+    ) -> Result<Node> {
+        validate_width(keys.len())?;
+        self.charge_fields(keys.len())?;
+        let input = Box::new(input);
         self.charge_fields(input.fields.len())?;
-        for key in &sort.keys {
+        for key in keys {
             validate_name(key.column.as_str())?;
             validate_key(field(&input.fields, key.column.as_str())?)?;
         }
         let spec = native_relational_sort::Spec {
             copy_policy: crate::local_primitives::native_payload::CopyPolicy::ValidateValues,
             fields: input.fields.clone(),
-            keys: sort.keys.clone(),
-            names: sort
-                .keys
+            keys: keys.to_vec(),
+            names: keys
                 .iter()
                 .map(|key| key.column.as_str().to_owned())
                 .collect(),

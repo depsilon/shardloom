@@ -1,6 +1,37 @@
 use super::{memory_tests::verify_memory, *};
 
 #[test]
+fn native_relational_sql_temporal_fill_composes_gap_fill_and_computed_values() {
+    verify_memory(
+        "WITH points AS (SELECT CAST(column_1 AS date32) AS day,column_2 AS amount FROM (VALUES ('1970-01-02',10),('1970-01-05',40)) AS raw), filled AS (SELECT * FROM GAP_FILL((SELECT * FROM points), 'day', 1, 'calendar_days', '', 0, 5) AS grid) SELECT FORWARD_FILL(amount+1) OVER (ORDER BY day) AS forward,BACKWARD_FILL(amount) OVER (ORDER BY day) AS backward,INTERPOLATE_LINEAR(amount*2) OVER (ORDER BY day) AS linear FROM filled",
+        &json!([
+            {"forward":null,"backward":10,"linear":null},
+            {"forward":11,"backward":10,"linear":20.0},
+            {"forward":11,"backward":40,"linear":40.0},
+            {"forward":11,"backward":40,"linear":60.0},
+            {"forward":41,"backward":40,"linear":80.0},
+            {"forward":41,"backward":null,"linear":null},
+        ]),
+    );
+    for statement in [
+        "SELECT FORWARD_FILL(value) OVER (ORDER BY value) AS v FROM range(0,0)",
+        "SELECT FORWARD_FILL(value) OVER () AS v FROM range(0,0)",
+        "SELECT FORWARD_FILL(value) OVER (ORDER BY value ROWS UNBOUNDED PRECEDING) AS v FROM range(0,0)",
+        "SELECT INTERPOLATE_LINEAR('x') OVER (ORDER BY day) AS v FROM (SELECT CAST('1970-01-01' AS date32) AS day) AS dates",
+    ] {
+        assert!(
+            prepare(
+                statement,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
+                |_| panic!("invalid memory declaration tried to resolve a file")
+            )
+            .is_err(),
+            "{statement}"
+        );
+    }
+}
+
+#[test]
 fn native_relational_sql_window_frames_default_peers_and_unordered_partition() {
     verify_memory(
         "SELECT column_1,COUNT(*) OVER (ORDER BY column_1) AS n,SUM(column_2) OVER (ORDER BY column_1) AS total,COUNT(DISTINCT column_2) OVER () AS distinct_values,FIRST_VALUE(column_2) OVER () AS first,LAST_VALUE(column_2) OVER () AS last,NTH_VALUE(column_2,2) OVER () AS second FROM (VALUES (2,20),(1,NULL),(1,10),(3,20)) AS v",

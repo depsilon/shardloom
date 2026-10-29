@@ -386,6 +386,7 @@ impl NativeRelationDeclaration {
                 Plan::Pipeline(node) => pending.push((&mut node.input, declaration)),
                 Plan::Aggregate(node) => pending.push((&mut node.input, declaration)),
                 Plan::Window(node) => pending.push((&mut node.input, declaration)),
+                Plan::GapFill(node) => pending.push((&mut node.input, declaration)),
                 Plan::Unary(node) => pending.push((&mut node.input, declaration)),
                 Plan::Join(node) => {
                     pending.push((&mut node.right, declaration));
@@ -815,6 +816,22 @@ fn inspect(
         }
         Plan::Aggregate(node) => descend(&node.input)?,
         Plan::Window(node) => descend(&node.input)?,
+        Plan::GapFill(node) => {
+            let depth = descend(&node.input)?;
+            for column in std::iter::once(&node.time).chain(node.partition_by.iter()) {
+                state.child_bytes = state
+                    .child_bytes
+                    .checked_add(
+                        column
+                            .as_str()
+                            .len()
+                            .checked_mul(8)
+                            .ok_or_else(|| failed("native plan metadata size overflow"))?,
+                    )
+                    .ok_or_else(|| failed("native plan metadata size overflow"))?;
+            }
+            depth
+        }
         Plan::Unary(node) => {
             let result = descend(&node.input)?;
             state.dynamic |=
@@ -864,6 +881,7 @@ fn recursive_depth(plan: &Plan, inputs: &BoundRelations) -> Result<usize> {
             Plan::Sort(node) => pending.push((&node.input, nested)),
             Plan::Aggregate(node) => pending.push((&node.input, nested)),
             Plan::Window(node) => pending.push((&node.input, nested)),
+            Plan::GapFill(node) => pending.push((&node.input, nested)),
             Plan::Unary(node) => pending.push((&node.input, nested)),
             Plan::Join(node) => pending.extend([(&node.left, nested), (&node.right, nested)]),
             Plan::AsOfJoin(node) => pending.extend([(&node.left, nested), (&node.right, nested)]),

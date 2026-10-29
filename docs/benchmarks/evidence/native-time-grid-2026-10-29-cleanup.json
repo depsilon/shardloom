@@ -1,0 +1,81 @@
+{
+  "schema_version": "shardloom.native_time_grid_cleanup.v1",
+  "status": "passed",
+  "scope": "Five superseded task-owned staged libraries only; compact outcomes and final products retained.",
+  "packet": {
+    "path": "docs/benchmarks/evidence/native-time-grid-2026-10-29.json.xz",
+    "bytes": 849876,
+    "sha256": "52bf24a00e42130b5c6aab9336147e67b7204068c6ee423f695a123e5e9ee11c"
+  },
+  "packet_only_replay_before": {
+    "status": "passed",
+    "returncode": 0,
+    "embedded_verifier_sha256": "af8a51fc4e7e2cc3ddd5ff18e39bab94c36b7ed0f6c5d8823294183a67aac233",
+    "stdout_sha256": "44c460f625909605c1ac44cde34a6ad064d1b3f5ca24abd004efe7b9f09f5ed3"
+  },
+  "packet_only_replay_after": {
+    "status": "passed",
+    "returncode": 0,
+    "embedded_verifier_sha256": "af8a51fc4e7e2cc3ddd5ff18e39bab94c36b7ed0f6c5d8823294183a67aac233",
+    "stdout_sha256": "44c460f625909605c1ac44cde34a6ad064d1b3f5ca24abd004efe7b9f09f5ed3"
+  },
+  "closed_handle_check": {
+    "returncode": 1,
+    "stdout_empty": true,
+    "stderr_empty": true
+  },
+  "identities_verified_before_and_immediately_before_removal": true,
+  "removed": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/time-series-grid-2026-10-29/grid-public-r1/_native.abi3.so",
+      "sha256": "5378f0c76dce0455d6b3731ea8f52dc41672e9bf48404090503cb9c9b2fb4695",
+      "bytes": 115268208,
+      "source_report_member": "grid-public-r1.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/time-series-grid-2026-10-29/grid-public-r2/_native.abi3.so",
+      "sha256": "5378f0c76dce0455d6b3731ea8f52dc41672e9bf48404090503cb9c9b2fb4695",
+      "bytes": 115268208,
+      "source_report_member": "grid-public-r2.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/time-series-grid-2026-10-29/grid-public-r3/_native.abi3.so",
+      "sha256": "5378f0c76dce0455d6b3731ea8f52dc41672e9bf48404090503cb9c9b2fb4695",
+      "bytes": 115268208,
+      "source_report_member": "grid-public-r3.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/time-series-grid-2026-10-29/grid-public-r4/_native.abi3.so",
+      "sha256": "5c0deac2835be9329b5a05b717cdb33b325f675292ce7bc1ec2cb34e3a91ee5f",
+      "bytes": 115273872,
+      "source_report_member": "grid-public-r4.json"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/time-series-grid-2026-10-29/grid-public-r5/_native.abi3.so",
+      "sha256": "5c0deac2835be9329b5a05b717cdb33b325f675292ce7bc1ec2cb34e3a91ee5f",
+      "bytes": 115273872,
+      "source_report_member": "grid-public-r5.json"
+    }
+  ],
+  "removed_bytes": 576352368,
+  "retained_product_identities_verified_before_and_after": {
+    "/Users/dylan/.cache/shardloom/cargo-target/ci-native/shardloom": {
+      "sha256": "d313cca0a64364a06a66800776d1e1002e6b253e382f73039b1480237da5beb1",
+      "bytes": 112266776
+    },
+    "/Users/dylan/.cache/shardloom/cargo-target/ci-native/lib_native.dylib": {
+      "sha256": "5c0deac2835be9329b5a05b717cdb33b325f675292ce7bc1ec2cb34e3a91ee5f",
+      "bytes": 115273872
+    },
+    "/Users/dylan/LocalData/shardloom/time-series-grid-2026-10-29/grid-public-r6/_native.abi3.so": {
+      "sha256": "5c0deac2835be9329b5a05b717cdb33b325f675292ce7bc1ec2cb34e3a91ee5f",
+      "bytes": 115273872
+    }
+  },
+  "payload_backup_created": false,
+  "storage_limits_changed": false,
+  "driver": {
+    "sha256": "c4e831fb50972d3eafd7184b489d96603d6360bb4ad297a63315d64597130de8",
+    "text": "\"\"\"Retire only superseded task-owned staged libraries after packet-only replay.\"\"\"\nfrom pathlib import Path\nimport hashlib\nimport json\nimport lzma\nimport os\nimport subprocess\nimport sys\nimport tempfile\n\nROOT = Path('/Users/dylan/.codex/worktrees/native-unary-workflows/shardloom-local-repo')\nOUT = Path(__file__).resolve().parent.parent\nPACKET = ROOT / 'docs/benchmarks/evidence/native-time-grid-2026-10-29.json.xz'\nDESTINATION = ROOT / 'docs/benchmarks/evidence/native-time-grid-2026-10-29-cleanup.json'\nassert not DESTINATION.exists()\n\n\ndef identity(path):\n    assert path.is_file() and not path.is_symlink() and path.resolve() == path\n    return {'bytes': path.stat().st_size,\n            'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}\n\n\npacket_id = identity(PACKET)\npacket = json.loads(lzma.decompress(PACKET.read_bytes()))\nverifier = packet['files']['tools/record_grid_acceptance.py']\nassert hashlib.sha256(verifier['text'].encode()).hexdigest() == verifier['sha256']\n\n\ndef replay():\n    with tempfile.TemporaryDirectory(prefix='grid-packet-replay-', dir=OUT) as folder:\n        helper = Path(folder) / 'verify.py'\n        helper.write_text(verifier['text'])\n        process = subprocess.run(\n            [sys.executable, '-B', str(helper), '--verify', str(PACKET)],\n            cwd=folder, env=dict(os.environ, PYTHONPATH='', PYTHONNOUSERSITE='1'),\n            capture_output=True, text=True, timeout=90, check=True,\n        )\n        assert json.loads(process.stdout)['status'] == 'passed'\n        return {'status': 'passed', 'returncode': process.returncode,\n                'embedded_verifier_sha256': verifier['sha256'],\n                'stdout_sha256': hashlib.sha256(process.stdout.encode()).hexdigest()}\n\n\nbefore = replay()\nfinal = json.loads((OUT / 'grid-public-r6.json').read_text())\nretained = {name: expected for name, expected in final['native_product_and_source_identity'].items()\n            if name.endswith(('/_native.abi3.so', '/ci-native/shardloom', '/ci-native/lib_native.dylib'))}\nassert len(retained) == 3\nfor name, expected in retained.items():\n    assert identity(Path(name)) == expected\n\nplanned = []\nfor attempt in range(1, 6):\n    path = OUT / f'grid-public-r{attempt}' / '_native.abi3.so'\n    report_name = f'grid-public-r{attempt}.json'\n    report = json.loads(packet['files'][report_name]['text'])\n    expected = report['native_product_and_source_identity'][str(path)]\n    assert identity(path) == expected\n    planned.append((path, expected, report_name))\n\nhandle_check = subprocess.run(\n    ['/usr/sbin/lsof', '-nP', '--', *(str(path) for path, _, _ in planned)],\n    capture_output=True, text=True, timeout=30,\n)\nassert handle_check.returncode == 1 and not handle_check.stdout and not handle_check.stderr\n\nremoved = []\nfor path, expected, report_name in planned:\n    assert identity(path) == expected\n    path.unlink()\n    assert not path.exists()\n    removed.append({'path': str(path), **expected, 'source_report_member': report_name})\n    if not any(path.parent.iterdir()):\n        path.parent.rmdir()\nfor name, expected in retained.items():\n    assert identity(Path(name)) == expected\nassert identity(PACKET) == packet_id\nafter = replay()\nsource = Path(__file__).read_text()\nrecord = {\n    'schema_version': 'shardloom.native_time_grid_cleanup.v1', 'status': 'passed',\n    'scope': 'Five superseded task-owned staged libraries only; compact outcomes and final products retained.',\n    'packet': {'path': str(PACKET.relative_to(ROOT)), **packet_id},\n    'packet_only_replay_before': before, 'packet_only_replay_after': after,\n    'closed_handle_check': {'returncode': handle_check.returncode, 'stdout_empty': True, 'stderr_empty': True},\n    'identities_verified_before_and_immediately_before_removal': True,\n    'removed': removed, 'removed_bytes': sum(row['bytes'] for row in removed),\n    'retained_product_identities_verified_before_and_after': retained,\n    'payload_backup_created': False, 'storage_limits_changed': False,\n    'driver': {'sha256': hashlib.sha256(source.encode()).hexdigest(), 'text': source},\n}\nwith DESTINATION.open('x') as stream:\n    json.dump(record, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps({'status': 'passed', 'removed_files': len(removed),\n                  'removed_bytes': record['removed_bytes'], 'packet_only_replay': 'passed'}))\n"
+  }
+}

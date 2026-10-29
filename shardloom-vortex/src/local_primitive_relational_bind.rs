@@ -40,6 +40,9 @@ mod transform;
 #[path = "local_primitive_relational_window_bind.rs"]
 mod window;
 
+#[path = "local_primitive_relational_gap_fill_bind.rs"]
+mod gap_fill;
+
 pub(super) struct Binder<'a> {
     session: &'a ResidentVortexSession,
     cancellation: shardloom_exec::compute_pool::CancellationToken,
@@ -384,6 +387,7 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::AsOfJoin(join) => self.asof_join(join, depth),
             VortexRelationalPlan::Set(set) => self.set(set, depth),
             VortexRelationalPlan::Window(window) => self.window(window, depth),
+            VortexRelationalPlan::GapFill(fill) => self.gap_fill(fill, depth),
             VortexRelationalPlan::Subquery(subquery) => self.subquery(subquery, depth, false),
             VortexRelationalPlan::CorrelatedSubquery(subquery) => {
                 self.subquery(subquery, depth, true)

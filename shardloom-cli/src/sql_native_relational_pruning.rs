@@ -100,6 +100,11 @@ impl Lowerer<'_, '_> {
                 // inputs remain complete even when a later SELECT drops fields.
                 self.prune_at(&mut unary.input, None, outer, depth + 1)
             }
+            Plan::GapFill(fill) => {
+                // Gap filling expands rows; keep complete input rows and leave
+                // predicates, projections, and limits above the expansion.
+                self.prune_at(&mut fill.input, None, outer, depth + 1)
+            }
             Plan::Aggregate(aggregate) => {
                 let needed =
                     aggregate
@@ -167,7 +172,8 @@ impl Lowerer<'_, '_> {
                     .map(|key| key.column.as_str().to_owned()),
             );
             if let NativeWindowFunction::Lag { column, .. }
-            | NativeWindowFunction::Lead { column, .. } = &expression.function
+            | NativeWindowFunction::Lead { column, .. }
+            | NativeWindowFunction::Fill { column, .. } = &expression.function
             {
                 needed.insert(column.as_str().to_owned());
             }

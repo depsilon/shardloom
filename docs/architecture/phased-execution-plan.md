@@ -774,8 +774,11 @@ visible and independent; this implementation does not automatically close them.
     begins with as-of joins over the shared native join, ordering and spill owners.
     The [calendar-window continuation](../benchmarks/native-calendar-windows-2026-10-29.md)
     now passes local conformance, resource and ownership acceptance across all
-    five interfaces. Resampling, gap filling and interpolation remain open,
-    together with the numeric, composition, batch-function and diagnostics work.
+    five interfaces. The [temporal-grid continuation](../benchmarks/native-time-grid-2026-10-29.md)
+    now passes local resampling, gap-fill and interpolation acceptance, including
+    280 five-interface executions, 8,520 complete rows, real native spill and
+    streamed-source failure/ownership checks. Numeric, composition, batch-function,
+    diagnostics, installed-package and combined item-20 acceptance remain open.
     The existing 347-query checkpoint is unchanged during this capability work.
     The latest maintainer instruction closes PR #1619 at this validated checkpoint
     and continues the remaining item-20 work in subsequent cohesive PRs. Retain the dropped
@@ -836,7 +839,10 @@ opaque payload movement observes or rejects every non-finite value. The
 direction, tolerance, duplicate/NULL and resource semantics across the public
 interfaces. The [calendar-window implementation](../benchmarks/native-calendar-windows-2026-10-29.md)
 adds exact elapsed/calendar RANGE semantics and retreating-boundary spill.
-Resampling, gap filling, interpolation and the broader SQL aggregate combinations
+The [temporal-grid implementation](../benchmarks/native-time-grid-2026-10-29.md)
+adds anchored fixed/calendar resampling, bounded per-partition gap filling and
+ordered forward/backward/linear filling with shared resident/spilled owners.
+The broader SQL aggregate combinations, numeric policies and combined acceptance
 above retain their remaining implementation and conformance obligations.
 
 Use **six small end-to-end workloads**, extending existing conformance tooling:

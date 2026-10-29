@@ -25,7 +25,8 @@ pub(super) fn surfaces(parsed: &ParsedSqlLocalSource) -> Vec<&ParsedScalarExpres
         match &window.function {
             WindowFunction::FirstValue(expression)
             | WindowFunction::LastValue(expression)
-            | WindowFunction::NthValue { expression, .. } => values.push(expression),
+            | WindowFunction::NthValue { expression, .. }
+            | WindowFunction::Fill { expression, .. } => values.push(expression),
             WindowFunction::Aggregate(aggregate) => {
                 for argument in aggregate.input_arguments() {
                     if let ParsedAggregateArgument::Computed { expression, .. } = argument {

@@ -6,6 +6,13 @@ use shardloom_core::temporal::{TemporalDType, TemporalValue};
 #[path = "local_primitive_relational_temporal_key_tests.rs"]
 mod key_tests;
 
+#[path = "local_primitive_relational_temporal_fill_tests.rs"]
+mod fill_tests;
+#[path = "local_primitive_relational_temporal_grid_pressure_tests.rs"]
+mod grid_pressure_tests;
+#[path = "local_primitive_relational_temporal_grid_tests.rs"]
+mod grid_tests;
+
 fn dtype(name: &str) -> TemporalDType {
     TemporalDType::parse(name).unwrap()
 }

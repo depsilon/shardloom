@@ -294,6 +294,8 @@ REQUIRED_DOC_MARKERS = {
         "Window.duration", "Window.calendar_days", "Window.calendar_months",
         "FrameOffset.duration", "FrameOffset.calendar_days", "FrameOffset.calendar_months",
         "CALENDAR_DAYS", "CALENDAR_MONTHS",
+        "resample", "gap_fill", "temporal_bucket", "interpolate_linear",
+        "forward_fill", "backward_fill", "GAP_FILL",
     ],
     "README.md": [
         "https://shardloom.io/field-guide/python-surface/",

@@ -43,6 +43,7 @@ fn children(plan: &mut Plan) -> Vec<&mut Plan> {
         Plan::Sort(node) => vec![&mut node.input],
         Plan::Aggregate(node) => vec![&mut node.input],
         Plan::Window(node) => vec![&mut node.input],
+        Plan::GapFill(node) => vec![&mut node.input],
         Plan::Unary(node) => vec![&mut node.input],
         Plan::Join(node) => vec![&mut node.left, &mut node.right],
         Plan::AsOfJoin(node) => vec![&mut node.left, &mut node.right],

@@ -174,6 +174,9 @@ mod native_relational_batch;
 #[path = "local_primitives/native_relational_expression.rs"]
 mod native_relational_expression;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_gap_fill.rs"]
+mod native_relational_gap_fill;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_index.rs"]
 mod native_relational_index;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -188,6 +191,9 @@ pub(crate) mod native_relational_observation;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_order.rs"]
 mod native_relational_order;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_output_buffer.rs"]
+mod native_relational_output_buffer;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_record_output.rs"]
 mod native_relational_record_output;

@@ -9,12 +9,13 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `b4e3614626312b7914c1199d8a091031e7fe08264f3f796651734e3563be584c`.
+Definition source SHA-256: `1346248d86cb05f3232b7c091d39d5cd265e6a858e3f6dea9c235154aa72d935`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |
 | `temporal_extract` | — | 2 | Extract a literal calendar field from a typed date, time or timestamp. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `temporal_trunc` | — | 2–3 | Truncate a typed date, time or timestamp to a literal calendar boundary. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
+| `temporal_bucket` | — | 3–6 | Label an anchored half-open temporal bucket with exact elapsed or explicit calendar spacing. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `calendar_add_days` | — | 2–3 | Add local calendar days with an explicit optional gap/fold policy. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `calendar_add_months` | — | 2–4 | Add calendar months with explicit optional month-end and gap/fold policies. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |
 | `temporal_add_duration` | — | 2 | Add a typed fixed duration exactly, retaining the left operand's unit. typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow | null input produces null; nullable if any input is nullable |

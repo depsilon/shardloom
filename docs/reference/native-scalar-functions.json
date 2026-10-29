@@ -1,7 +1,7 @@
 {
   "schema_version": "shardloom.native_scalar_functions.v1",
   "source": "shardloom-core/src/expression_builtins.rs",
-  "source_sha256": "b4e3614626312b7914c1199d8a091031e7fe08264f3f796651734e3563be584c",
+  "source_sha256": "1346248d86cb05f3232b7c091d39d5cd265e6a858e3f6dea9c235154aa72d935",
   "functions": [
     {
       "name": "temporal_extract",
@@ -26,6 +26,19 @@
       "family": "temporal_calendar",
       "reference_supported": false,
       "summary": "Truncate a typed date, time or timestamp to a literal calendar boundary.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "temporal_bucket",
+      "aliases": [],
+      "min_args": 3,
+      "max_args": 6,
+      "type_rule": "typed temporal operands and literal calendar policies -> exact metadata-preserving result; pinned timezone rules, checked precision and overflow",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "temporal_calendar",
+      "reference_supported": false,
+      "summary": "Label an anchored half-open temporal bucket with exact elapsed or explicit calendar spacing.",
       "execution_provider": "shared_shardloom_native",
       "external_engine_invoked": false
     },

@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 #[path = "sql_relation_asof.rs"]
 mod asof;
+#[path = "sql_relation_gap_fill.rs"]
+mod gap_fill;
 #[path = "sql_relation_scopes.rs"]
 pub(super) mod scopes;
 #[path = "sql_relation_unary.rs"]
@@ -60,6 +62,18 @@ pub(super) enum ParsedRelationSource {
     Local(ParsedRelationLeaf),
     Derived(Arc<ParsedRelationQuery>),
     Unary(Box<ParsedRelationUnary>),
+    GapFill(Box<ParsedRelationGapFill>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct ParsedRelationGapFill {
+    pub(super) input: Arc<ParsedRelationQuery>,
+    pub(super) time: String,
+    pub(super) partition_by: Vec<String>,
+    pub(super) step: shardloom_core::temporal::TemporalGridStep,
+    pub(super) start: Option<i64>,
+    pub(super) end: Option<i64>,
+    pub(super) origin: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -128,9 +142,9 @@ impl ParsedRelationSource {
     pub(super) fn local_path(&self) -> Result<&Path, ShardLoomError> {
         match self {
             Self::Local(leaf) if leaf.memory_input.is_none() => Ok(&leaf.path),
-            Self::Local(_) | Self::Derived(_) | Self::Unary(_) => Err(unsupported_sql_error(
-                "expected a file leaf in the parsed relation",
-            )),
+            Self::Local(_) | Self::Derived(_) | Self::Unary(_) | Self::GapFill(_) => Err(
+                unsupported_sql_error("expected a file leaf in the parsed relation"),
+            ),
         }
     }
 }
@@ -140,6 +154,12 @@ impl std::fmt::Display for ParsedRelationSource {
         match self {
             Self::Local(leaf) => leaf.path.display().fmt(formatter),
             Self::Derived(query) => write!(formatter, "derived({})", query.statement()),
+            Self::GapFill(fill) => write!(
+                formatter,
+                "gap_fill({}; {})",
+                fill.time,
+                fill.input.statement()
+            ),
             Self::Unary(operation) => write!(
                 formatter,
                 "unary({:?}; {})",
@@ -334,6 +354,11 @@ pub(super) fn parse_source(
         ParsedRelationSource::Derived(Arc::new(ParsedRelationQuery::parse(&relation[1..close])?))
     } else if let Some(input) = super::memory_inputs::parse_range(relation)? {
         ParsedRelationSource::Local(ParsedRelationLeaf::memory(input)?)
+    } else if let Some(fill) = gap_fill::parse(relation)? {
+        if alias.is_none() {
+            return Err(unsupported_sql_error("GAP_FILL requires AS <alias>"));
+        }
+        ParsedRelationSource::GapFill(Box::new(fill))
     } else if let Some(unary) = unary::parse(relation)? {
         if alias.is_none() {
             return Err(unsupported_sql_error(

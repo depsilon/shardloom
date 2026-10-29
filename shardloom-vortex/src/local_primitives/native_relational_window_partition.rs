@@ -96,6 +96,7 @@ impl<'a, 's> Peers<'a, 's> {
 }
 
 #[allow(clippy::too_many_arguments)] // One partition shares completed native input, schemas, store and result order.
+#[allow(clippy::too_many_lines)] // Keep ordered evaluation, assembly and cleanup in one partition lifecycle.
 pub(super) fn run<'s>(
     spec: &Spec,
     group: &Group,
@@ -124,6 +125,17 @@ pub(super) fn run<'s>(
         report,
     )?;
     for (slot, &function) in group.functions.iter().enumerate() {
+        if let Some(fill) = &spec.fills[function] {
+            stored.values[slot] = Some(fill_values(
+                fill,
+                &layout.results[function],
+                input,
+                spill,
+                context,
+                limit,
+            )?);
+            continue;
+        }
         if let Some(frame) = &spec.frames[function] {
             let mut output = Values::new(&layout.results[function], spill, limit, context)?;
             let mut peer = Peers::new(&peers, &layout.peers.names, rows, context)?;
@@ -206,6 +218,26 @@ pub(super) fn run<'s>(
     peers.finish(context)
 }
 
+fn fill_values<'s>(
+    spec: &crate::local_primitives::native_relational_window::fill::Spec,
+    layout: &records::ResultLayout,
+    input: &mut Partition<'_, 's>,
+    spill: &'s State,
+    context: &NativeExecutionContext<'_>,
+    limit: usize,
+) -> Result<StoredOrder<'s>> {
+    let rows = input.range.len();
+    let mut output = Values::new(layout, spill, limit, context)?;
+    crate::local_primitives::native_relational_window::fill::run(
+        spec,
+        rows,
+        input,
+        context,
+        |_, value| output.push(value, context),
+    )?;
+    output.finish(rows, context)
+}
+
 #[allow(clippy::too_many_arguments)] // The ranking pass fills function records and peer boundaries before evaluating frames.
 fn rank<'s>(
     spec: &Spec,
@@ -222,7 +254,7 @@ fn rank<'s>(
     let mut ranking = ReservedVec::new(context.memory())?;
     ranking.reserve(group.functions.len())?;
     for (slot, &function) in group.functions.iter().enumerate() {
-        if spec.frames[function].is_none() {
+        if spec.frames[function].is_none() && spec.fills[function].is_none() {
             ranking.values.push((
                 slot,
                 Values::new(&layout.results[function], spill, limit, context)?,

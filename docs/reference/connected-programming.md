@@ -2,8 +2,8 @@
 
 # SQL, DataFrames and local clients
 
-This page describes the source implementation, including temporal fidelity work
-whose source-build acceptance is still in progress. Published packages retain
+This page describes the source implementation, including the temporal and
+time-series capabilities developed under item 20. Published packages retain
 the support shipped with each release; source changes do not change published
 artifacts. Use a native build from this checkout for source-only APIs.
 
@@ -119,7 +119,7 @@ their own range and precision limits. Exact unit casts reject overflow or
 discarded precision.
 
 Temporal expression declarations lower to the shared native registry:
-`temporal_extract`, `temporal_trunc`, `calendar_add_days`,
+`temporal_extract`, `temporal_trunc`, `temporal_bucket`, `calendar_add_days`,
 `calendar_add_months`, `temporal_add_duration`, `temporal_sub_duration`,
 `timestamp_difference`, `timestamp_assign_timezone`,
 `timestamp_convert_timezone` and `timestamp_remove_timezone`. A naive timestamp
@@ -130,7 +130,7 @@ explicit `earlier`/`later` ambiguity or `clamp` month-end choices. Fixed-duratio
 arithmetic remains distinct from calendar-day and calendar-month arithmetic.
 The declarations do not perform calendar evaluation in Python. `f.lit()` continues
 to accept a naive Python datetime for its existing microsecond literal contract.
-The complete time-series acceptance checklist remains open.
+Installed-package and combined item-20 acceptance remain separate requirements.
 
 Source builds also expose `left.join_asof(right, on="time", by="entity")` and
 typed `Relation.join_asof`. These preserve left input order, accept unsorted
@@ -151,8 +151,7 @@ backward, `<=` or `<` for forward, and `NEAREST(f.time,d.time,TRUE)` or `FALSE`
 for nearest with or without exact matches. This is one shared native join owner
 across SQL, DataFrame, typed relation, workflow and CLI declarations. See the
 [time-series contract](../architecture/native-time-series-completion-2026-10-29.md)
-for memory, spill and verification scope. Resampling, gap filling and
-interpolation remain separate work.
+for memory, spill and verification scope.
 
 Window specifications are immutable reusable values. For example,
 `sl.Window.partition_by("group").order_by("time").rows_between(-2, 0)`
@@ -208,6 +207,97 @@ SQL accepts `RANGE CALENDAR_DAYS(1, 'earlier') PRECEDING` and
 typed relation, workflow and CLI declarations share the same native window owner
 and explicit native spill policy. See the [calendar RANGE contract](../architecture/native-time-series-completion-2026-10-29.md#calendar-range-contract)
 for the current acceptance scope.
+
+### Resample, complete a time grid and fill values
+
+Source builds expose `frame.resample(time, every, unit, by=...)`, which returns
+a grouped declaration for `.agg(...)`. It composes `temporal_bucket` with the
+ordinary native grouping owner. Buckets are half-open intervals labeled by
+their lower boundary. Positive fixed spacing uses `s`, `ms`, `us` or `ns`;
+`calendar_days` and `calendar_months` apply local calendar arithmetic to dates
+and timestamps. The source time dtype and timezone are preserved.
+
+For an Arrow IPC source with a temporal `instant`, string `fund` and numeric
+`value` column, this is the tested composition:
+
+```python
+import shardloom as sl
+from shardloom import functions as f
+
+with sl.context(transport="native", memory_bytes=128 << 20,
+                max_parallelism=2) as ctx:
+    samples = ctx.read_arrow_ipc("measurements.arrow")
+    daily = (
+        samples.filter(sl.col("instant").is_not_null())
+        .resample("instant", 1, "calendar_days", by="fund")
+        .agg(total=f.sum("value"))
+        .gap_fill("instant", 1, "calendar_days", by="fund")
+    )
+    ordered = sl.Window.partition_by("fund").order_by("instant")
+    completed = daily.select(
+        "fund", "instant", "total",
+        sl.col("total").forward_fill().over(ordered).alias("forward"),
+        sl.col("total").backward_fill().over(ordered).alias("backward"),
+        sl.col("total").interpolate_linear().over(ordered).alias("linear"),
+    )
+    result = completed.collect()
+```
+
+`gap_fill` requires aligned, unique, non-NULL times per partition. Resample and
+aggregate duplicate times first; filter NULL times explicitly. Existing payload
+values, including NULLs, remain unchanged. Inserted rows carry the partition
+keys and time, with NULLs in other fields; those payload fields become nullable.
+NULL partition keys form a group. Input may be unsorted; output is ordered by
+partition keys with NULLs first, then ascending time. Time and partition names
+must identify top-level columns; project nested keys first.
+
+Optional `start`, `end` and `origin` are signed integer ticks in the source
+domain: days for Date32, milliseconds for Date64, and the declared unit otherwise.
+`start` and `end` are inclusive aligned grid points that clip or extend each
+observed partition. Omit a bound to use that partition's observed endpoint.
+An empty unpartitioned source generates rows only when both bounds are given;
+an empty partitioned source cannot invent group identities. Fixed grids default
+to epoch origin zero; calendar grids default to local midnight on 1970-01-01.
+Use identical grid controls for resampling and gap filling.
+
+Calendar operations default to `month_end="reject", ambiguity="reject"`.
+Explicit `month_end="clamp"` keeps the original anchor across every step, so a
+January 31 monthly grid returns to March 31 after February. `ambiguity="earlier"`
+or `"later"` resolves gaps and folds. A grid whose adjacent points do not advance
+is rejected. Fixed spacing must be representable in the source unit, and dates
+require whole elapsed days; cast explicitly to a finer unit when needed.
+
+The three fill expressions require one temporal ORDER BY key and no explicit
+window frame. Times must be unique and non-NULL within each partition.
+Forward/backward follow the declared order, including descending order, and
+preserve the selected logical type, including nested payloads. These partitioned
+windows are separate from the source-order `fill_null(strategy="forward")` API.
+Linear interpolation uses elapsed temporal distance, returns nullable Float64
+and leaves unbracketed edge gaps NULL. Integers and decimal coefficients must be
+within `[-2^53, 2^53]`; decimal scaling and interpolation then use Float64
+rounding. Cast to Float64 explicitly to authorize rounding outside that exact
+conversion range. Nonfinite inputs or results are rejected.
+
+Typed relations use `Relation.gap_fill(time, every, unit, by=[...], start=...,
+end=..., origin=..., month_end=..., ambiguity=...)`. Resampling composes
+`Expression.call("temporal_bucket", ...)`, projection and `.aggregate(...)`.
+`WindowExpression` accepts `forward_fill`, `backward_fill` and
+`interpolate_linear`, with `source_column`, `partition_by` and `order_by`.
+The SQL relation syntax is:
+
+```sql
+GAP_FILL((<input query>), 'instant', 1, 'calendar_days', 'fund',
+         NULL, NULL, NULL, 'reject', 'reject') AS filled
+```
+
+The final six controls are optional positional arguments; the partition argument
+is a quoted comma-separated list, or `''` for no keys. An alias is required.
+SQL uses `TEMPORAL_BUCKET(value, every, unit[, origin[, month_end[, ambiguity]]])`
+and `FORWARD_FILL(value)`, `BACKWARD_FILL(value)` or `INTERPOLATE_LINEAR(value)`
+with the same OVER declaration. All five public interfaces share the native
+temporal, grouping, ordering and window owners. See the
+[grid contract](../architecture/native-time-series-completion-2026-10-29.md#resampling-and-grid-contract)
+for resource and acceptance details.
 
 `frame.transform(sl.plan_transform(function, name="name"), ...)` invokes Python once
 to build a same-context DataFrame plan; native expressions perform its data operations.

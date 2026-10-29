@@ -77,6 +77,7 @@ pub(super) fn rebind(
             Plan::Pipeline(node) => pending.push(&mut node.input),
             Plan::Aggregate(node) => pending.push(&mut node.input),
             Plan::Window(node) => pending.push(&mut node.input),
+            Plan::GapFill(node) => pending.push(&mut node.input),
             Plan::Unary(node) => pending.push(&mut node.input),
             Plan::Join(node) => {
                 pending.push(&mut node.right);
@@ -100,6 +101,7 @@ pub(super) fn rebind(
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)] // One iterative visitor resolves every native plan's visible columns.
 pub(super) fn columns(
     mut plan: &mut Plan,
     schemas: &mut VortexRelationalPreparation<'_>,
@@ -141,6 +143,7 @@ pub(super) fn columns(
             Plan::Aggregate(node) => {
                 return Ok(node.output_columns().map(str::to_owned).collect());
             }
+            Plan::GapFill(node) => plan = &mut node.input,
             Plan::Join(node) => {
                 return Ok(node
                     .columns

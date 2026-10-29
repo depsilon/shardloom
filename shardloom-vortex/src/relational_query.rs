@@ -104,6 +104,7 @@ pub enum VortexRelationalPlan {
     AsOfJoin(Box<VortexRelationalAsOfJoin>),
     Set(Box<VortexRelationalSet>),
     Window(Box<VortexRelationalWindow>),
+    GapFill(Box<VortexRelationalGapFill>),
     Subquery(Box<VortexRelationalSubquery>),
     /// Execute the inner tree with each outer row bound as a native singleton.
     /// Grouping, sorting and limits in that tree apply separately to each row.
@@ -165,6 +166,20 @@ impl PartialEq for VortexRelationalExecutionRef {
 pub struct VortexRelationalUnary {
     pub input: VortexRelationalPlan,
     pub request: crate::query_primitive::VortexQueryPrimitiveRequest,
+}
+
+/// Fill an aligned temporal grid through native ordering and bounded expansion.
+/// Bounds are inclusive source-domain ticks; omitted bounds use observed edges.
+/// NULL, duplicate or unaligned times fail explicitly within each partition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalGapFill {
+    pub input: VortexRelationalPlan,
+    pub time: ColumnRef,
+    pub partition_by: Vec<ColumnRef>,
+    pub step: shardloom_core::temporal::TemporalGridStep,
+    pub origin: Option<i64>,
+    pub start: Option<i64>,
+    pub end: Option<i64>,
 }
 
 /// Grouped or scalar aggregation consumes native input batches. Computed keys
@@ -451,8 +466,22 @@ pub enum VortexRelationalWindowFunction {
     },
     PercentRank,
     CumeDist,
+    /// Fill NULLs within one complete, distinctly ordered temporal partition.
+    /// Explicit frames are refused; linear interpolation retains NULL edges.
+    Fill {
+        column: ColumnRef,
+        method: VortexRelationalFillMethod,
+    },
     /// Native framed reductions and positional values share partition ordering.
     Framed(VortexRelationalFrameFunction),
+}
+
+/// Direction follows ORDER BY; linear interpolation uses elapsed source ticks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexRelationalFillMethod {
+    Forward,
+    Backward,
+    Linear,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -292,6 +292,7 @@ impl Binder<'_> {
             Source::Local(_) => {}
             Source::Derived(query) => self.shared(query)?,
             Source::Unary(unary) => self.shared(&mut unary.input)?,
+            Source::GapFill(fill) => self.shared(&mut fill.input)?,
         }
         Ok(None)
     }
@@ -330,6 +331,9 @@ impl Binder<'_> {
                 WindowFunction::FirstValue(value)
                 | WindowFunction::LastValue(value)
                 | WindowFunction::NthValue {
+                    expression: value, ..
+                }
+                | WindowFunction::Fill {
                     expression: value, ..
                 } => self.scalar(value)?,
                 WindowFunction::Aggregate(aggregate) => self.aggregate(aggregate)?,
