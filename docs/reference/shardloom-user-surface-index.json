@@ -1397,7 +1397,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "dc5e2c535d0bd9da2e5f8c49f1e252b48c09689277033bc84246d848917e6007",
+    "source_identity": "bc4f3f85f7856ad8f9b6da4ffb3331726a69d0837510d9fd226c4d64d9e7aca4",
     "source_inputs": {
       "Cargo.lock": "0f326028ae5a9fc62629eca5d200158d190f01019c314975179934ef0e891974",
       "Cargo.toml": "be5c720183463a8c7f0287d254ce16fc9cca05b90fff4d3ca19ee2bedbe802f9",
@@ -1414,10 +1414,10 @@
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "d38abc0f93568a9a793bdb0d9c7e3486b2f2bb9b31f110e9aeb1431de648ab58",
+      "python/src/shardloom/functions.py": "cc5cf9a3e0a37e488b1ead3612f0cf77eff6066861776547def63fa4258aee36",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "576f14f4dbd46e9a67d241a33c9f698e7c9e7e83e68a448ba8b792f7c4992705",
+      "python/src/shardloom/query.py": "1f5b8bbfe8cf1fde698271b32e44517ebcfcd6512536f9777e8f6f4d6fe463d4",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
@@ -3704,6 +3704,51 @@
         "summary": "Alias for the same grouping omission mask."
       },
       {
+        "name": "decimal_rescale",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, precision, scale, rounding) -> 'ColumnExpression'",
+        "summary": "Declare native decimal rescaling with explicit precision and rounding."
+      },
+      {
+        "name": "decimal_add",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right, precision, scale, rounding) -> 'ColumnExpression'",
+        "summary": "Declare native decimal addition with explicit output controls."
+      },
+      {
+        "name": "decimal_subtract",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right, precision, scale, rounding) -> 'ColumnExpression'",
+        "summary": "Declare native decimal subtraction with explicit output controls."
+      },
+      {
+        "name": "decimal_multiply",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right, precision, scale, rounding) -> 'ColumnExpression'",
+        "summary": "Declare native decimal multiplication with explicit output controls."
+      },
+      {
+        "name": "decimal_divide",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right, precision, scale, rounding) -> 'ColumnExpression'",
+        "summary": "Declare native decimal division with explicit output controls."
+      },
+      {
         "name": "abs",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -3754,7 +3799,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value, *, distinct: 'bool' = False) -> 'ColumnExpression'",
+        "signature": "(value, *, distinct: 'bool' = False, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare native AVG, ignoring nulls and optionally using exact distinct membership."
       },
       {
@@ -4204,7 +4249,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value, *, distinct: 'bool' = False) -> 'ColumnExpression'",
+        "signature": "(value, *, distinct: 'bool' = False, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare native AVG, ignoring nulls and optionally using exact distinct membership."
       },
       {
@@ -4213,7 +4258,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value, *, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare native AVG over distinct non-null values."
       },
       {
@@ -4222,7 +4267,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value, *, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare continuous median (quantile 0.5) over non-null values."
       },
       {
@@ -4492,7 +4537,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value, *, distinct: 'bool' = False) -> 'ColumnExpression'",
+        "signature": "(value, *, distinct: 'bool' = False, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare native SUM, ignoring nulls and optionally using exact distinct membership."
       },
       {
@@ -4555,7 +4600,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value, level) -> 'ColumnExpression'",
+        "signature": "(value, level, *, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare continuous quantile with linear interpolation over ordered non-null values."
       },
       {
@@ -4618,7 +4663,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value, *, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare native SUM over distinct non-null values."
       },
       {
@@ -4627,7 +4672,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/functions.py",
-        "signature": "(value) -> 'ColumnExpression'",
+        "signature": "(value, *, precision=None, scale=None, rounding=None) -> 'ColumnExpression'",
         "summary": "Declare native AVG over distinct non-null values."
       },
       {

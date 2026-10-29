@@ -32,32 +32,18 @@ pub(super) fn bind(
             field(fields, name)
         })
         .transpose()?;
-    let function = match declaration {
-        Function::Aggregate(measure) => aggregate_function(measure)?,
-        Function::CountAll | Function::Count(_) => frame::Function::Aggregate(Aggregate::Count),
-        Function::CountDistinct(_) => frame::Function::Aggregate(Aggregate::CountDistinct),
-        Function::Sum(_) => frame::Function::Aggregate(Aggregate::Sum),
-        Function::Avg(_) => frame::Function::Aggregate(Aggregate::Avg),
-        Function::Min(_) => frame::Function::Aggregate(Aggregate::Min),
-        Function::Max(_) => frame::Function::Aggregate(Aggregate::Max),
-        Function::FirstValue(_) => frame::Function::First,
-        Function::LastValue(_) => frame::Function::Last,
-        Function::NthValue { index, .. } => {
-            if *index == 0 {
-                return Err(failed("NTH_VALUE position must be positive"));
-            }
-            frame::Function::Nth(
-                usize::try_from(*index)
-                    .map_err(|_| failed("NTH_VALUE position exceeds addressable rows"))?,
-            )
-        }
+    let function = frame_function(declaration)?;
+    let decimal_output = if let Function::Aggregate(measure) = declaration {
+        measure.decimal_output
+    } else {
+        None
     };
     let dtype = match function {
         frame::Function::Aggregate(function) => {
             if let Some(source) = source {
                 validate_key(source)?;
             }
-            super::super::aggregate::reduction_dtype(function, source)?
+            super::super::aggregate::declared_reduction_dtype(function, source, decimal_output)?
         }
         _ => source
             .ok_or_else(|| failed("window value function requires an argument"))?
@@ -110,6 +96,7 @@ pub(super) fn bind(
             },
             selection_order,
             decimal,
+            decimal_output,
             frame: policy(
                 expression
                     .frame
@@ -123,6 +110,29 @@ pub(super) fn bind(
         },
         dtype,
     ))
+}
+
+fn frame_function(declaration: &Function) -> Result<frame::Function> {
+    Ok(match declaration {
+        Function::Aggregate(measure) => aggregate_function(measure)?,
+        Function::CountAll | Function::Count(_) => frame::Function::Aggregate(Aggregate::Count),
+        Function::CountDistinct(_) => frame::Function::Aggregate(Aggregate::CountDistinct),
+        Function::Sum(_) => frame::Function::Aggregate(Aggregate::Sum),
+        Function::Avg(_) => frame::Function::Aggregate(Aggregate::Avg),
+        Function::Min(_) => frame::Function::Aggregate(Aggregate::Min),
+        Function::Max(_) => frame::Function::Aggregate(Aggregate::Max),
+        Function::FirstValue(_) => frame::Function::First,
+        Function::LastValue(_) => frame::Function::Last,
+        Function::NthValue { index, .. } => {
+            if *index == 0 {
+                return Err(failed("NTH_VALUE position must be positive"));
+            }
+            frame::Function::Nth(
+                usize::try_from(*index)
+                    .map_err(|_| failed("NTH_VALUE position exceeds addressable rows"))?,
+            )
+        }
+    })
 }
 
 fn aggregate_filter(

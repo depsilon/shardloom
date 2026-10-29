@@ -147,7 +147,7 @@ pub(super) struct NativeWindowExpression {
 #[pymethods]
 impl NativeWindowExpression {
     #[new]
-    #[pyo3(signature = (function, output_column, *, source_column=None, secondary_column=None, filter_column=None, quantile_level=None, argument=None, partition_by=Vec::new(), order_by=Vec::new(), aggregate_order_by=Vec::new(), frame=None, separator=None))]
+    #[pyo3(signature = (function, output_column, *, source_column=None, secondary_column=None, filter_column=None, quantile_level=None, argument=None, partition_by=Vec::new(), order_by=Vec::new(), aggregate_order_by=Vec::new(), frame=None, separator=None, decimal_output=None))]
     #[allow(clippy::too_many_arguments)] // Mirrors the shared window declaration, with keyword-only options.
     fn new(
         function: &str,
@@ -162,8 +162,10 @@ impl NativeWindowExpression {
         aggregate_order_by: Vec<(String, bool, Option<String>)>,
         frame: Option<&NativeWindowFrame>,
         separator: Option<String>,
+        decimal_output: Option<&pyo3::Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let level = super::aggregate::parse_quantile_level(function, quantile_level)?;
+        let decimal_output = super::aggregate::parse_decimal_output(function, decimal_output)?;
         let filter_column = filter_column.map(column).transpose()?;
         let function = function_kind(
             function,
@@ -174,6 +176,7 @@ impl NativeWindowExpression {
             aggregate_order_by,
             separator,
             filter_column,
+            decimal_output,
         )?;
         Ok(Self {
             value: Window {
@@ -253,6 +256,7 @@ fn function_kind(
     aggregate_order_by: Vec<(String, bool, Option<String>)>,
     separator: Option<String>,
     filter_column: Option<shardloom_core::ColumnRef>,
+    decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
 ) -> PyResult<Function> {
     validate_filter(name, filter_column.is_some())?;
     validate_arguments(
@@ -279,6 +283,7 @@ fn function_kind(
         aggregate_order_by,
         separator,
         filter_column,
+        decimal_output,
     )
 }
 
@@ -335,6 +340,7 @@ fn window_kind(
     aggregate_order_by: Vec<shardloom_vortex::relational_query::VortexRelationalOrderKey>,
     separator: Option<String>,
     filter_column: Option<shardloom_core::ColumnRef>,
+    decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
 ) -> PyResult<Function> {
     Ok(match name {
         "row_number" => Function::RowNumber,
@@ -364,7 +370,7 @@ fn window_kind(
                 .ok_or_else(|| PyValueError::new_err("ntile requires a bucket argument"))?,
         },
         "count_all" | "count" | "count_distinct" | "sum" | "avg" | "min" | "max"
-            if filter_column.is_some() =>
+            if filter_column.is_some() || decimal_output.is_some() =>
         {
             let (function, source) = if name == "count_all" {
                 ("count", None)
@@ -377,6 +383,7 @@ fn window_kind(
                 "window_value".into(),
             );
             measure.filter_column = filter_column;
+            measure.decimal_output = decimal_output;
             Function::Framed(Reduction::Aggregate(Box::new(measure)))
         }
         "count_all" => Function::Framed(Reduction::CountAll),
@@ -398,6 +405,7 @@ fn window_kind(
             measure.secondary_column = secondary.map(column).transpose()?;
             measure.filter_column = filter_column;
             measure.quantile_level = quantile_level;
+            measure.decimal_output = decimal_output;
             measure.order_by = aggregate_order_by;
             Function::Framed(Reduction::Aggregate(Box::new(measure)))
         }

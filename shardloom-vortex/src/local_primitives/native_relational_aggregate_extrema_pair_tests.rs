@@ -31,6 +31,7 @@ fn measure(function: Function, dtype: &DType) -> Measure {
             _ => dtype.as_nullable(),
         },
         decimal_source: None,
+        decimal_output: None,
         distinct_fields: vec![],
         // The ordinary binder retains these labels even for non-DISTINCT measures.
         distinct_names: vec!["group".into(), "value".into()],

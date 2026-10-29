@@ -8,6 +8,7 @@ use super::NullBehavior;
 pub enum ScalarTypeRule {
     NumericAbs,
     NumericRound,
+    DecimalOutput,
     Utf8,
     Utf8Offsets,
     Utf8Length,
@@ -38,6 +39,9 @@ impl ScalarTypeRule {
                 "numeric -> checked promoted numeric; decimal precision/scale retained"
             }
             Self::NumericRound => "numeric -> checked promoted numeric; decimal scale becomes zero",
+            Self::DecimalOutput => {
+                "decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision"
+            }
             Self::Utf8 => "UTF8 arguments -> UTF8",
             Self::Utf8Offsets => "UTF8, integer offsets/lengths -> UTF8; Unicode code points",
             Self::Utf8Length => "UTF8 -> Int64 Unicode code-point count",
@@ -134,6 +138,61 @@ macro_rules! definitions {
 }
 
 definitions!(
+    (
+        "decimal_rescale",
+        [],
+        4,
+        4,
+        DecimalOutput,
+        Propagate,
+        "decimal_output",
+        true,
+        "Rescale an exact decimal or integer to an explicit decimal output domain."
+    ),
+    (
+        "decimal_add",
+        [],
+        5,
+        5,
+        DecimalOutput,
+        Propagate,
+        "decimal_output",
+        true,
+        "Add exact decimal or integer operands and round once to the explicit output domain."
+    ),
+    (
+        "decimal_subtract",
+        [],
+        5,
+        5,
+        DecimalOutput,
+        Propagate,
+        "decimal_output",
+        true,
+        "Subtract exact decimal or integer operands and round once to the explicit output domain."
+    ),
+    (
+        "decimal_multiply",
+        [],
+        5,
+        5,
+        DecimalOutput,
+        Propagate,
+        "decimal_output",
+        true,
+        "Multiply exact decimal or integer operands and round once to the explicit output domain."
+    ),
+    (
+        "decimal_divide",
+        [],
+        5,
+        5,
+        DecimalOutput,
+        Propagate,
+        "decimal_output",
+        true,
+        "Divide exact decimal or integer operands and round once to the explicit output domain."
+    ),
     (
         "temporal_extract",
         [],

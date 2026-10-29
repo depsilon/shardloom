@@ -1,6 +1,49 @@
 use super::*;
 
 #[test]
+fn decimal_output_aggregate_identity_dependencies_and_literal_controls_are_explicit() {
+    let parse = |sql| parse_aggregate_projection(sql).unwrap().unwrap();
+    let plain = parse("AVG(a)");
+    let declared = parse("AVG(a, 18, 2, 'half_even')");
+    assert!(declared.same_value(&parse("avg(a,18,2,'half_even') AS renamed")));
+    assert_eq!(declared.columns().collect::<Vec<_>>(), ["a"]);
+    for other in [
+        plain,
+        parse("AVG(a,18,2,'half_away')"),
+        parse("AVG(a,19,2,'half_even')"),
+        parse("AVG(a,18,3,'half_even')"),
+        parse("AVG(DISTINCT a,18,2,'half_even')"),
+    ] {
+        assert!(!declared.same_value(&other));
+        assert_ne!(declared.output_name(), other.output_name());
+    }
+    for function in [
+        "SUM(a,18,2,'exact')",
+        "MEDIAN(a,18,2,'floor')",
+        "QUANTILE_CONT(a,0.1,18,2,'ceil')",
+    ] {
+        let parsed = parse(function);
+        assert!(parsed.decimal_output.is_some());
+        assert_eq!(parsed.columns().collect::<Vec<_>>(), ["a"]);
+    }
+    for sql in [
+        "AVG(a,18,2)",
+        "AVG(a,p,2,'exact')",
+        "AVG(a,18,2.0,'exact')",
+        "AVG(a,18,2,NULL)",
+        "AVG(a,0,0,'exact')",
+        "AVG(a,39,2,'exact')",
+        "AVG(a,2,3,'exact')",
+        "AVG(a,18,2,'bad')",
+        "MIN(a,18,2,'exact')",
+        "QUANTILE_DISC(a,0.5,18,2,'exact')",
+        "COUNT(*,18,2,'exact')",
+    ] {
+        assert!(parse_aggregate_projection(sql).is_err(), "{sql}");
+    }
+}
+
+#[test]
 fn aggregate_filter_identity_dependencies_and_syntax_are_explicit() {
     let parse = |sql| parse_aggregate_projection(sql).unwrap().unwrap();
     let filtered = parse("SUM(a) FILTER (WHERE b > 2)");

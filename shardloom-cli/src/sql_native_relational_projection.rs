@@ -336,6 +336,7 @@ impl Lowerer<'_, '_> {
             .transpose()?
             .flatten();
         if aggregate.filter.is_some()
+            || aggregate.decimal_output.is_some()
             || (aggregate.distinct && aggregate.function != AggregateFunction::Count)
             || aggregate.function.is_selector()
             || matches!(
@@ -361,6 +362,7 @@ impl Lowerer<'_, '_> {
             );
             measure.secondary_column = secondary;
             measure.quantile_level = aggregate.quantile_level;
+            measure.decimal_output = aggregate.decimal_output;
             measure.separator.clone_from(&aggregate.separator);
             measure.filter_column = super::aggregate_filter_column(aggregate, input)?;
             measure.order_by = aggregate

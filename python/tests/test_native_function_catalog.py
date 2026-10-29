@@ -35,6 +35,11 @@ TEMPORAL_CASES = {
 }
 CASES = {
     **TEMPORAL_CASES,
+    "decimal_rescale": (["125", "5", "1", "'half_even'"], Decimal("125.0")),
+    "decimal_add": (["1", "2", "5", "1", "'exact'"], Decimal("3.0")),
+    "decimal_subtract": (["1", "2", "5", "1", "'floor'"], Decimal("-1.0")),
+    "decimal_multiply": (["5", "5", "5", "2", "'exact'"], Decimal("25.00")),
+    "decimal_divide": (["1", "8", "5", "2", "'half_even'"], Decimal("0.12")),
     "abs": (["-7"], 7), "floor": (["-1.2"], -2.0),
     "ceil": (["-1.2"], -1.0), "round": (["-1.5"], -2.0),
     "lower": (["'É猫'"], "é猫"), "upper": (["'é猫'"], "É猫"),
@@ -149,6 +154,13 @@ class NativeFunctionCatalogTests(unittest.TestCase):
                 expected[name] = value
                 continue
             constructor = getattr(f, "null_if" if name == "nullif" else name)
+            if name.startswith("decimal_"):
+                values[0] = f.lit(values[0])
+                if name != "decimal_rescale":
+                    values[1] = f.lit(values[1])
+                projected.append(constructor(*values).alias(name))
+                expected[name] = value
+                continue
             if name in {"concat", "coalesce", "nullif", "case_when", "date_diff_days", "timestamp_diff_seconds"}:
                 values = [f.lit(value) for value in values]
             else:

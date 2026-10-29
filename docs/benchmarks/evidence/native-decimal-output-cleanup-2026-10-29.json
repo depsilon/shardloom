@@ -1,0 +1,57 @@
+{
+  "schema_version": "shardloom.native_decimal_temporary_cleanup.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/decimal-native-r1",
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/matrix-r1",
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/integer-boundaries.arrow"
+  ],
+  "regular_files": 9891,
+  "symlinks": 3,
+  "logical_file_bytes": 875670526,
+  "repeated_identity_checks": true,
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/decimal-native-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/matrix-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/integer-boundaries.arrow",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "inventory": {
+    "path": "docs/benchmarks/evidence/native-decimal-output-cleanup-2026-10-29.inventory.json.gz",
+    "sha256": "8cde8afda005e142b8a9f95a4d231addb87a493747d412c06db55ecab457c793",
+    "bytes": 491631
+  },
+  "retained_products": {
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/decimal-native-r2/shardloom": "64f141b7f7bf0c41c4adefacd48d0576bc327b11ba09d5e29aef10c899d21e6b",
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/decimal-native-r2/_native.abi3.so": "9414f6cf0a82488ff6ed7996255130684c12ade7e22aba010f9536ca8310788b",
+    "/Users/dylan/LocalData/shardloom/numeric-domains-2026-10-29/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "d5a7fc014abb9e8a71c8ebd501dadd943c656ac2881639995b644d9de45d6183"
+  },
+  "acceptance_packet_sha256": "0efa13e095577fc629d1024aadfcefce67a83fb1b94d76284517b7ed891d67ff",
+  "portable_replay_after_cleanup": "passed",
+  "payload_backup_created": false,
+  "unrelated_files_modified": false,
+  "storage_limits_changed": false
+}

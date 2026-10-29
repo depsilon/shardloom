@@ -23,6 +23,9 @@ use vortex::array::{
 #[path = "local_primitive_relational_temporal_bind.rs"]
 mod temporal_functions;
 
+#[path = "local_primitive_relational_decimal_bind.rs"]
+mod decimal_functions;
+
 impl Binder<'_> {
     pub(super) fn join_condition(
         &mut self,
@@ -326,6 +329,9 @@ impl Binder<'_> {
         use crate::local_primitives::native_relational_expression::scalar::Function as F;
         for argument in &args {
             scalar_operand(&argument.dtype)?;
+        }
+        if definition.type_rule == ScalarTypeRule::DecimalOutput {
+            return decimal_functions::bind(definition, args);
         }
         if matches!(
             definition.type_rule,
@@ -733,7 +739,8 @@ fn typed_function_dtype(
             }
             DType::Binary(nullable)
         }
-        T::Temporal
+        T::DecimalOutput
+        | T::Temporal
         | T::DateField
         | T::TimestampField
         | T::DateDifference

@@ -29,6 +29,7 @@ fn spec(function: Function, dtype: &DType) -> Spec {
             selection: None,
             dtype: dtype.as_nullable(),
             decimal_source: None,
+            decimal_output: None,
             distinct_fields: vec![],
             distinct_names: vec![],
         }],

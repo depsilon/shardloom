@@ -77,6 +77,48 @@ def statistical_reference(rows):
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
+    def test_decimal_output_streamed_completion_and_lazy_domains(self):
+        if __package__:
+            from .native_decimal_output_cases import check_streams_and_lazy
+        else:
+            from native_decimal_output_cases import check_streams_and_lazy
+        check_streams_and_lazy(self)
+
+    def test_decimal_output_exact_widened_integer_sum_matches_all_five_surfaces(self):
+        if __package__:
+            from .native_decimal_output_cases import check_exact_integer_sum
+        else:
+            from native_decimal_output_cases import check_exact_integer_sum
+        check_exact_integer_sum(self)
+
+    def test_decimal_output_scalars_match_all_five_surfaces(self):
+        if __package__:
+            from .native_decimal_output_cases import check_scalars
+        else:
+            from native_decimal_output_cases import check_scalars
+        check_scalars(self)
+
+    def test_decimal_output_aggregates_and_owned_formats_match_all_five_surfaces(self):
+        if __package__:
+            from .native_decimal_output_cases import check_aggregates
+        else:
+            from native_decimal_output_cases import check_aggregates
+        check_aggregates(self)
+
+    def test_decimal_output_windows_match_all_five_surfaces(self):
+        if __package__:
+            from .native_decimal_output_cases import check_windows
+        else:
+            from native_decimal_output_cases import check_windows
+        check_windows(self)
+
+    def test_decimal_output_refusals_are_explicit_on_all_five_surfaces(self):
+        if __package__:
+            from .native_decimal_output_cases import check_refusals
+        else:
+            from native_decimal_output_cases import check_refusals
+        check_refusals(self)
+
     def test_time_grid_units_match_all_five_surfaces(self):
         if __package__:
             from .native_time_grid_cases import check_units

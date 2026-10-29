@@ -391,7 +391,11 @@ fn counts(
             let value = if function == Aggregate::CountDistinct {
                 frame::Value::Count(count)
             } else if let Some(dtype) = spec.decimal {
-                frame::Value::Decimal(decimals.finish(dtype, function.is_average())?)
+                frame::Value::Decimal(decimals.finish_with(
+                    dtype,
+                    function.is_average(),
+                    spec.decimal_output,
+                )?)
             } else {
                 frame::Value::Float(floats.finish(function.is_average())?)
             };

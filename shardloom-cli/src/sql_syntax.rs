@@ -140,6 +140,7 @@ struct ParsedAggregate {
     secondary_argument: Option<ParsedAggregateArgument>,
     filter: Option<ParsedAggregateArgument>,
     quantile_level: Option<VortexQuantileLevel>,
+    decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
     order_by: Option<ParsedOrderBy>,
     alias: Option<String>,
     distinct: bool,
@@ -1284,6 +1285,7 @@ impl ParsedAggregate {
         self.function == other.function
             && self.distinct == other.distinct
             && self.quantile_level == other.quantile_level
+            && self.decimal_output == other.decimal_output
             && self.order_by == other.order_by
             && self.separator == other.separator
             && match (&self.filter, &other.filter) {
@@ -1370,6 +1372,7 @@ impl ParsedAggregate {
         }
         if self.secondary_argument.is_some()
             || self.quantile_level.is_some()
+            || self.decimal_output.is_some()
             || self.order_by.is_some()
             || self.separator.is_some()
             || self.filter.is_some()
@@ -1416,6 +1419,11 @@ impl ParsedAggregate {
             if let Some(level) = self.quantile_level {
                 hash.update(b"quantile_level");
                 hash.update(level.value().to_bits().to_le_bytes());
+            }
+            if let Some(output) = self.decimal_output {
+                hash.update(b"decimal_output");
+                hash.update([output.precision(), output.scale(), u8::from(self.distinct)]);
+                hash.update(output.rounding().as_str().as_bytes());
             }
             if let Some(order) = &self.order_by {
                 hash.update(b"aggregate_order");
@@ -6479,7 +6487,8 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
     } else {
         1
     };
-    if arguments.len() != expected {
+    let decimal_output = parse_aggregate_decimal_output(function, &arguments, expected)?;
+    if arguments.len() != expected && decimal_output.is_none() {
         return Err(unsupported_sql_error(&format!(
             "{} requires exactly {expected} aggregate arguments",
             function.as_str()
@@ -6518,12 +6527,55 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
             None
         },
         quantile_level,
+        decimal_output,
         filter,
         order_by,
         alias,
         distinct,
         separator,
     }))
+}
+
+fn parse_aggregate_decimal_output(
+    function: AggregateFunction,
+    arguments: &[String],
+    expected: usize,
+) -> Result<Option<shardloom_core::decimal_output::DecimalOutput>, ShardLoomError> {
+    if arguments.len() != expected + 3 {
+        return Ok(None);
+    }
+    if !matches!(
+        function,
+        AggregateFunction::Sum
+            | AggregateFunction::Avg
+            | AggregateFunction::Median
+            | AggregateFunction::QuantileCont
+    ) {
+        return Err(unsupported_sql_error(
+            "explicit decimal output requires SUM, AVG, MEDIAN or QUANTILE_CONT",
+        ));
+    }
+    parse_decimal_output(&arguments[expected..]).map(Some)
+}
+
+fn parse_decimal_output(
+    arguments: &[String],
+) -> Result<shardloom_core::decimal_output::DecimalOutput, ShardLoomError> {
+    use shardloom_core::decimal_output::{DecimalOutput, DecimalRounding};
+    let [precision, scale, rounding] = arguments else {
+        return Err(unsupported_sql_error(
+            "decimal output requires literal precision, scale and rounding",
+        ));
+    };
+    let integer = |value: &str| {
+        value.trim().parse::<u8>().map_err(|_| {
+            unsupported_sql_error("decimal precision and scale require integer literals in 0..38")
+        })
+    };
+    let rounding = DecimalRounding::parse(&parse_sql_string_literal(rounding)?)
+        .map_err(|error| unsupported_sql_error(&error.to_string()))?;
+    DecimalOutput::new(integer(precision)?, integer(scale)?, rounding)
+        .map_err(|error| unsupported_sql_error(&error.to_string()))
 }
 
 fn aggregate_expression_end(raw: &str, open: usize) -> Result<usize, ShardLoomError> {

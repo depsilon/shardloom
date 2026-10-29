@@ -207,6 +207,13 @@ impl Resolver<'_> {
                 ),
             ));
         }
+        if definition.type_rule == super::builtins::ScalarTypeRule::DecimalOutput {
+            let (_, output, count) = super::explicit_decimal::declaration(definition.name, args)?;
+            for argument in &args[..count] {
+                super::explicit_decimal::validate_dtype(&self.dtype(argument, depth + 1)?)?;
+            }
+            return Ok(super::decimal128_dtype(output.precision(), output.scale()));
+        }
         let types = args
             .iter()
             .map(|arg| self.dtype(arg, depth + 1))
@@ -282,12 +289,15 @@ fn function_result_dtype(
                 _ => Utf8,
             })
         }
-        T::EpochMinute | T::EpochTruncate | T::JsonText | T::TimestampParse | T::Temporal => {
-            Err(EvalFailure::unsupported(
-                "function_call",
-                "function has no admitted reference result type",
-            ))
-        }
+        T::EpochMinute
+        | T::EpochTruncate
+        | T::JsonText
+        | T::TimestampParse
+        | T::Temporal
+        | T::DecimalOutput => Err(EvalFailure::unsupported(
+            "function_call",
+            "function has no admitted reference result type",
+        )),
     }
 }
 

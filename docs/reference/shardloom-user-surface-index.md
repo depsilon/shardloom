@@ -44,7 +44,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `dc5e2c535d0bd9da2e5f8c49f1e252b48c09689277033bc84246d848917e6007` (SHA-256 of the listed source inputs).
+Source identity: `bc4f3f85f7856ad8f9b6da4ffb3331726a69d0837510d9fd226c4d64d9e7aca4` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -147,6 +147,11 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`functions`](../../python/src/shardloom/functions.py) | module | Native expression declarations; Python never evaluates data operations. |
 | [`shardloom.functions.grouping`](../../python/src/shardloom/functions.py) | function | Declare the UInt64 grouping omission mask, with the last key in the low bit. |
 | [`shardloom.functions.grouping_id`](../../python/src/shardloom/functions.py) | function | Alias for the same grouping omission mask. |
+| [`shardloom.functions.decimal_rescale`](../../python/src/shardloom/functions.py) | function | Declare native decimal rescaling with explicit precision and rounding. |
+| [`shardloom.functions.decimal_add`](../../python/src/shardloom/functions.py) | function | Declare native decimal addition with explicit output controls. |
+| [`shardloom.functions.decimal_subtract`](../../python/src/shardloom/functions.py) | function | Declare native decimal subtraction with explicit output controls. |
+| [`shardloom.functions.decimal_multiply`](../../python/src/shardloom/functions.py) | function | Declare native decimal multiplication with explicit output controls. |
+| [`shardloom.functions.decimal_divide`](../../python/src/shardloom/functions.py) | function | Declare native decimal division with explicit output controls. |
 | [`shardloom.functions.abs`](../../python/src/shardloom/functions.py) | function | Declare checked absolute value over a column or expression. |
 | [`shardloom.functions.all_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ALL (SELECT ...)` predicate. |
 | [`shardloom.functions.any_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ANY (SELECT ...)` predicate. |

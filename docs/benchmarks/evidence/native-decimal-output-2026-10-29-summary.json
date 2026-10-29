@@ -1,0 +1,120 @@
+{
+  "schema_version": "shardloom.native_decimal_output_acceptance.v1",
+  "status": "passed",
+  "base_revision": "c1864a28ac8895124fb7a50eefc6c4ea542b8824",
+  "scope": "Explicit decimal source, complete-value, resource, ownership and installed-package acceptance.",
+  "accepted_roles": {
+    "format": "n024-format",
+    "native_clippy": "n025-native-clippy",
+    "workspace_clippy": "n026-workspace-clippy",
+    "minimal_native": "n027-minimal-native",
+    "workspace_tests": "n028-workspace-tests",
+    "native_metadata_correction": "n029-native-metadata-correction",
+    "build": "n030-final-native-build",
+    "public_checks": "n031-public-decimal",
+    "semantics_case": "n032-decimal-matrix",
+    "source_checks": "n035-decimal-source-checks",
+    "installed_wheel": "n036-installed-decimal-wheel",
+    "final_docs": "n037-final-decimal-docs"
+  },
+  "attempts_preserved": 37,
+  "failed_attempts_retained": [
+    "n004-decimal-core-clippy",
+    "n005-decimal-core-integrated",
+    "n006-python-decimal-builders",
+    "n009-native-decimal-scalars",
+    "n010-native-decimal-scalars",
+    "n011-decimal-integration-check",
+    "n013-decimal-native-tests",
+    "n014-decimal-native-tests",
+    "n015-decimal-native-tests",
+    "n019-decimal-pressure",
+    "n020-native-clippy",
+    "n021-native-clippy",
+    "n023-native-tests"
+  ],
+  "native_suite_disposition": "runtime_checks_passed_original_metadata_failure_preserved_and_corrected_target_passed",
+  "public_totals": {
+    "tests": 6,
+    "executions": 250,
+    "rows": 2695,
+    "complete_comparisons": 59
+  },
+  "oracle_cases": 3462,
+  "pressure_observations": [
+    {
+      "grant": 16777216,
+      "input_rows": 24013,
+      "merge_passes": 309,
+      "output_rows": 8005,
+      "owned_cleanup_completed": true,
+      "peak_disk_bytes": 227257044,
+      "peak_reserved_bytes": 7179064,
+      "runs_written": 620,
+      "window": false
+    },
+    {
+      "grant": 16777216,
+      "input_rows": 24013,
+      "merge_passes": 124,
+      "output_rows": 24013,
+      "owned_cleanup_completed": true,
+      "peak_disk_bytes": 112818964,
+      "peak_reserved_bytes": 10426024,
+      "runs_written": 260,
+      "window": true
+    }
+  ],
+  "wheel_identity": {
+    "bytes": 62680615,
+    "sha256": "d5a7fc014abb9e8a71c8ebd501dadd943c656ac2881639995b644d9de45d6183"
+  },
+  "verification_controls_rejected": [
+    "member-corruption",
+    "source-link-corruption",
+    "public-count-corruption",
+    "public-value-corruption",
+    "public-type-corruption",
+    "certificate-corruption",
+    "matrix-result-corruption",
+    "oracle-value-corruption",
+    "wheel-product-corruption"
+  ],
+  "new_benchmark_executions": 0,
+  "not_claimed": [
+    "new performance result",
+    "hosted acceptance",
+    "whole-item acceptance",
+    "release"
+  ],
+  "test_totals": {
+    "native_original": {
+      "groups": 119,
+      "passed": 6460,
+      "failed": 1,
+      "ignored": 35
+    },
+    "native_metadata_correction": {
+      "groups": 1,
+      "passed": 58,
+      "failed": 0,
+      "ignored": 0
+    },
+    "workspace": {
+      "groups": 107,
+      "passed": 3285,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "portable_packet": {
+    "path": "docs/benchmarks/evidence/native-decimal-output-2026-10-29.json.xz",
+    "bytes": 1107304,
+    "sha256": "0efa13e095577fc629d1024aadfcefce67a83fb1b94d76284517b7ed891d67ff",
+    "members": 191,
+    "uncompressed": {
+      "bytes": 22440167,
+      "sha256": "18dcce0fd1c20272897cb99d3f668a131fc5d5eeeb81909afe04a68b7191267b"
+    }
+  }
+}

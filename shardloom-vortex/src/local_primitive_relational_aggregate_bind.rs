@@ -175,7 +175,7 @@ impl Binder<'_> {
             ) => Some(*decimal),
             _ => None,
         };
-        let dtype = reduction_dtype(function, source)?;
+        let dtype = declared_reduction_dtype(function, source, measure.decimal_output)?;
         let selection = if function.is_ordered_value() {
             Some(self.selection_spec(measure, input_fields)?)
         } else {
@@ -200,6 +200,7 @@ impl Binder<'_> {
             column: name,
             secondary_column: secondary,
             quantile_level,
+            decimal_output: measure.decimal_output,
             separator: measure.separator.clone(),
             filter_column,
             selection,
@@ -244,6 +245,35 @@ impl Binder<'_> {
             order: measure.order_by.clone(),
         })
     }
+}
+
+pub(super) fn declared_reduction_dtype(
+    function: Function,
+    source: Option<&DType>,
+    output: Option<shardloom_core::decimal_output::DecimalOutput>,
+) -> Result<DType> {
+    let default = reduction_dtype(function, source)?;
+    let Some(output) = output else {
+        return Ok(default);
+    };
+    if !matches!(
+        function,
+        Function::Sum
+            | Function::Avg
+            | Function::SumDistinct
+            | Function::AvgDistinct
+            | Function::Median
+            | Function::QuantileCont
+    ) || !matches!(source, Some(DType::Decimal(_, _)))
+    {
+        return Err(failed(
+            "decimal output requires Decimal128 SUM, AVG, their DISTINCT forms, MEDIAN or QUANTILE_CONT",
+        ));
+    }
+    Ok(DType::Decimal(
+        native_decimal_reduce::declared_dtype(output),
+        Nullability::Nullable,
+    ))
 }
 
 pub(super) fn reduction_dtype(

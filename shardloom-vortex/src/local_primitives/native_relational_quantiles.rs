@@ -311,7 +311,7 @@ impl Table {
         if discrete {
             native_quantile::numeric_value(lower, &measure.dtype)
         } else {
-            position.interpolate(lower, upper, &measure.dtype)
+            position.interpolate_with(lower, upper, &measure.dtype, measure.decimal_output)
         }
     }
 }

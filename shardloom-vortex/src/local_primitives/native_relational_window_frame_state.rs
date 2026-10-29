@@ -208,49 +208,7 @@ impl State {
                 Ok(Value::Sources(rows))
             }
             Function::Aggregate(function) if function.is_quantile() => {
-                let (arena, root) = self
-                    .quantiles
-                    .as_ref()
-                    .ok_or_else(|| failed("window quantile state is absent"))?;
-                let count = arena.count(*root);
-                let discrete = function == Aggregate::QuantileDisc;
-                if count == 0 {
-                    return Ok(if discrete {
-                        Value::Source(None)
-                    } else if spec.decimal.is_some() {
-                        Value::Decimal(None)
-                    } else {
-                        Value::Float(None)
-                    });
-                }
-                let position = Position::new(
-                    spec.quantile_level
-                        .ok_or_else(|| failed("window quantile level is absent"))?,
-                    count,
-                    discrete,
-                )?;
-                let (lower, ordinal) =
-                    arena.select(*root, position.lower, context.cancellation())?;
-                if discrete {
-                    return Ok(Value::Source(Some(ordinal)));
-                }
-                let (upper, _) = arena.select(*root, position.upper, context.cancellation())?;
-                let dtype = if let Some(source) = spec.decimal {
-                    vortex::array::dtype::DType::Decimal(
-                        native_decimal_reduce::output_dtype(source, true)?,
-                        vortex::array::dtype::Nullability::Nullable,
-                    )
-                } else {
-                    vortex::array::dtype::DType::Primitive(
-                        vortex::array::dtype::PType::F64,
-                        vortex::array::dtype::Nullability::Nullable,
-                    )
-                };
-                match position.interpolate(lower, upper, &dtype)? {
-                    result_batch::Value::Float(value) => Ok(Value::Float(Some(value))),
-                    result_batch::Value::Decimal(value, _) => Ok(Value::Decimal(Some(value))),
-                    _ => Err(failed("window quantile interpolation changed output type")),
-                }
+                self.finish_quantile(function, spec, context)
             }
             Function::Aggregate(Aggregate::Count) => Ok(Value::Count(
                 self.counts.iter().try_fold(0u64, |sum, count| {
@@ -274,7 +232,11 @@ impl State {
                     for part in &self.decimals {
                         total.merge(part)?;
                     }
-                    Ok(Value::Decimal(total.finish(dtype, average)?))
+                    Ok(Value::Decimal(total.finish_with(
+                        dtype,
+                        average,
+                        spec.decimal_output,
+                    )?))
                 } else {
                     let mut total = native_float_total::Total::default();
                     for part in &self.floats {
@@ -284,6 +246,60 @@ impl State {
                 }
             }
             _ => Err(failed("window state does not match its bound function")),
+        }
+    }
+
+    fn finish_quantile(
+        &self,
+        function: Aggregate,
+        spec: &Spec,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Value> {
+        let (arena, root) = self
+            .quantiles
+            .as_ref()
+            .ok_or_else(|| failed("window quantile state is absent"))?;
+        let count = arena.count(*root);
+        let discrete = function == Aggregate::QuantileDisc;
+        if count == 0 {
+            return Ok(if discrete {
+                Value::Source(None)
+            } else if spec.decimal.is_some() {
+                Value::Decimal(None)
+            } else {
+                Value::Float(None)
+            });
+        }
+        let position = Position::new(
+            spec.quantile_level
+                .ok_or_else(|| failed("window quantile level is absent"))?,
+            count,
+            discrete,
+        )?;
+        let (lower, ordinal) = arena.select(*root, position.lower, context.cancellation())?;
+        if discrete {
+            return Ok(Value::Source(Some(ordinal)));
+        }
+        let (upper, _) = arena.select(*root, position.upper, context.cancellation())?;
+        let dtype = if let Some(source) = spec.decimal {
+            vortex::array::dtype::DType::Decimal(
+                if let Some(output) = spec.decimal_output {
+                    native_decimal_reduce::declared_dtype(output)
+                } else {
+                    native_decimal_reduce::output_dtype(source, true)?
+                },
+                vortex::array::dtype::Nullability::Nullable,
+            )
+        } else {
+            vortex::array::dtype::DType::Primitive(
+                vortex::array::dtype::PType::F64,
+                vortex::array::dtype::Nullability::Nullable,
+            )
+        };
+        match position.interpolate_with(lower, upper, &dtype, spec.decimal_output)? {
+            result_batch::Value::Float(value) => Ok(Value::Float(Some(value))),
+            result_batch::Value::Decimal(value, _) => Ok(Value::Decimal(Some(value))),
+            _ => Err(failed("window quantile interpolation changed output type")),
         }
     }
 

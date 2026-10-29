@@ -9,6 +9,9 @@ use std::collections::BTreeMap;
 #[path = "expression_builtins.rs"]
 pub mod builtins;
 
+#[path = "expression_decimal_output.rs"]
+mod explicit_decimal;
+
 use regex::Regex;
 
 use crate::{
@@ -967,6 +970,8 @@ fn eval_function_call(
         ));
     }
     match definition.name {
+        "decimal_rescale" | "decimal_add" | "decimal_subtract" | "decimal_multiply"
+        | "decimal_divide" => explicit_decimal::evaluate(definition.name, args, row),
         "starts_with" => {
             eval_string_predicate(name, args, row, |value, needle| value.starts_with(needle))
         }

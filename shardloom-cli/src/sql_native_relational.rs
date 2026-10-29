@@ -950,10 +950,8 @@ impl Lowerer<'_, '_> {
             .iter()
             .map(|column| column.as_str().to_owned())
             .collect::<BTreeSet<_>>();
-        for aggregate in &aggregates {
-            for name in aggregate.columns() {
-                retained.insert(input.resolve(name)?);
-            }
+        for name in aggregates.iter().flat_map(ParsedAggregate::columns) {
+            retained.insert(input.resolve(name)?);
         }
         let mut projection = Vec::new();
         let mut names = input.columns.clone();
@@ -997,6 +995,7 @@ impl Lowerer<'_, '_> {
                     VortexSimpleAggregateMeasure::new(function, argument, aggregate.output_name());
                 measure.secondary_column = secondary;
                 measure.quantile_level = aggregate.quantile_level;
+                measure.decimal_output = aggregate.decimal_output;
                 measure.separator.clone_from(&aggregate.separator);
                 measure.filter_column = aggregate_filter_column(aggregate, &input)?;
                 measure.order_by = aggregate
