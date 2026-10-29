@@ -151,13 +151,63 @@ backward, `<=` or `<` for forward, and `NEAREST(f.time,d.time,TRUE)` or `FALSE`
 for nearest with or without exact matches. This is one shared native join owner
 across SQL, DataFrame, typed relation, workflow and CLI declarations. See the
 [time-series contract](../architecture/native-time-series-completion-2026-10-29.md)
-for memory, spill and verification scope. Calendar windows, resampling, gap
-filling and interpolation remain separate work.
+for memory, spill and verification scope. Resampling, gap filling and
+interpolation remain separate work.
 
 Window specifications are immutable reusable values. For example,
 `sl.Window.partition_by("group").order_by("time").rows_between(-2, 0)`
 selects the current row and two preceding rows per partition.
 `range_between(0, 0)` selects the current peer range for admitted ordering types.
+
+Source builds also admit temporal RANGE offsets. `Window.duration(value, unit="us")`
+uses elapsed time with `s`, `ms`, `us` or `ns` precision. Negative values precede
+the current ordering value; positive values follow it. Duration boundaries keep
+their exact precision even when the ordering column has coarser ticks. Dates
+require a whole number of elapsed days.
+
+`Window.calendar_days(value, ambiguity="reject")` and
+`Window.calendar_months(value, month_end="reject", ambiguity="reject")` shift
+local date/time fields for date and timestamp ordering columns. For example:
+
+```python
+daily = sl.Window.partition_by("entity").order_by("time").range_between(
+    sl.Window.calendar_days(-1, ambiguity="earlier"),
+    sl.Window.calendar_days(1, ambiguity="earlier"),
+)
+monthly = sl.Window.order_by("time").range_between(
+    sl.Window.calendar_months(-1, month_end="clamp"),
+    sl.Window.current_row,
+)
+```
+
+Calendar offsets reject ambiguous or nonexistent local times by default; use
+`earlier` or `later` to select the corresponding instant. Month-end shifts reject
+an unavailable destination day unless `month_end="clamp"` is explicit. A zero
+calendar offset preserves the current instant, including its fold occurrence.
+Descending order reverses the shift direction. The existing peer, NULL and
+exclusion rules apply, and policy/range errors stop the query.
+
+Typed relations use `FrameOffset.duration`, `FrameOffset.calendar_days` and
+`FrameOffset.calendar_months` from `shardloom.native`, with the same keyword
+policies and a **nonnegative** magnitude. Put the direction in `WindowFrame`:
+
+```python
+from shardloom.native import FrameOffset, WindowFrame
+
+daily_frame = WindowFrame(
+    "range",
+    ("preceding", FrameOffset.calendar_days(1, ambiguity="earlier")),
+    ("following", FrameOffset.calendar_days(1, ambiguity="earlier")),
+)
+```
+
+SQL accepts `RANGE CALENDAR_DAYS(1, 'earlier') PRECEDING` and
+`RANGE BETWEEN CALENDAR_MONTHS(1, 'clamp', 'reject') PRECEDING AND CURRENT ROW`.
+`INTERVAL '1' DAY` remains an elapsed 24 hours; `INTERVAL '1' MONTH` and
+`INTERVAL '1' YEAR` use calendar months with rejecting policies. SQL, DataFrame,
+typed relation, workflow and CLI declarations share the same native window owner
+and explicit native spill policy. See the [calendar RANGE contract](../architecture/native-time-series-completion-2026-10-29.md#calendar-range-contract)
+for the current acceptance scope.
 
 `frame.transform(sl.plan_transform(function, name="name"), ...)` invokes Python once
 to build a same-context DataFrame plan; native expressions perform its data operations.

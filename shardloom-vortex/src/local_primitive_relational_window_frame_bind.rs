@@ -1,6 +1,9 @@
 //! Bind frame shape, native value types and literal offsets before reading rows.
 
-use super::{DType, Result, failed, field, key, validate_key, validate_name, validity_key};
+#[path = "local_primitive_relational_window_temporal_bind.rs"]
+mod temporal;
+
+use super::{Binder, DType, Result, failed, field, key, validate_key, validate_name, validity_key};
 use crate::{
     local_primitives::{
         native_relational_aggregate::Function as Aggregate, native_relational_window as window,
@@ -20,6 +23,7 @@ pub(super) fn bind(
     expression: &VortexRelationalWindowExpression,
     fields: &[(String, DType)],
     window: &mut window::Spec,
+    binder: &mut Binder<'_>,
 ) -> Result<(frame::Spec, DType)> {
     let column = declaration.column().map(shardloom_core::ColumnRef::as_str);
     let source = column
@@ -114,6 +118,7 @@ pub(super) fn bind(
                 expression,
                 fields,
                 window,
+                binder,
             )?,
         },
         dtype,
@@ -200,6 +205,7 @@ pub(super) fn policy(
     expression: &VortexRelationalWindowExpression,
     fields: &[(String, DType)],
     window: &mut window::Spec,
+    binder: &mut Binder<'_>,
 ) -> Result<frame::Frame> {
     if matches!(requested.start, Bound::UnboundedFollowing)
         || matches!(requested.end, Bound::UnboundedPreceding)
@@ -238,8 +244,8 @@ pub(super) fn policy(
     };
     Ok(frame::Frame {
         unit: requested.unit,
-        start: bind_bound(&requested.start, requested.unit, order_dtype)?,
-        end: bind_bound(&requested.end, requested.unit, order_dtype)?,
+        start: bind_bound(&requested.start, requested.unit, order_dtype, binder)?,
+        end: bind_bound(&requested.end, requested.unit, order_dtype, binder)?,
         exclusion: requested.exclusion,
         order,
     })
@@ -248,6 +254,9 @@ pub(super) fn policy(
 fn bound_rank(bound: &Bound) -> u8 {
     match bound {
         Bound::UnboundedPreceding => 0,
+        // Zero remains typed for domain admission, but has CURRENT ROW's
+        // position when checking the relative endpoint categories.
+        Bound::Preceding(offset) | Bound::Following(offset) if zero_offset(offset) => 2,
         Bound::Preceding(_) => 1,
         Bound::CurrentRow => 2,
         Bound::Following(_) => 3,
@@ -255,13 +264,39 @@ fn bound_rank(bound: &Bound) -> u8 {
     }
 }
 
-fn bind_bound(bound: &Bound, unit: Unit, order: Option<&DType>) -> Result<frame::Bound> {
+#[allow(clippy::float_cmp)] // Only exact signed zero is a current-row offset.
+fn zero_offset(offset: &Offset) -> bool {
+    match offset {
+        Offset::Number(
+            ScalarValue::Int64(0)
+            | ScalarValue::UInt64(0)
+            | ScalarValue::Decimal128 { value: 0, .. },
+        ) => true,
+        Offset::Number(ScalarValue::Float64(value)) => *value == 0.0,
+        Offset::Number(_) => false,
+        Offset::DurationMicros(value)
+        | Offset::Duration { value, .. }
+        | Offset::CalendarDays { days: value, .. }
+        | Offset::CalendarMonths { months: value, .. } => *value == 0,
+    }
+}
+
+fn bind_bound(
+    bound: &Bound,
+    unit: Unit,
+    order: Option<&DType>,
+    binder: &mut Binder<'_>,
+) -> Result<frame::Bound> {
     Ok(match bound {
         Bound::UnboundedPreceding => frame::Bound::UnboundedPreceding,
         Bound::UnboundedFollowing => frame::Bound::UnboundedFollowing,
         Bound::CurrentRow => frame::Bound::CurrentRow,
-        Bound::Preceding(offset) => frame::Bound::Preceding(bind_offset(offset, unit, order)?),
-        Bound::Following(offset) => frame::Bound::Following(bind_offset(offset, unit, order)?),
+        Bound::Preceding(offset) => {
+            frame::Bound::Preceding(bind_offset(offset, unit, order, binder)?)
+        }
+        Bound::Following(offset) => {
+            frame::Bound::Following(bind_offset(offset, unit, order, binder)?)
+        }
     })
 }
 
@@ -276,7 +311,12 @@ fn nonnegative_integer(value: &ScalarValue) -> Result<u64> {
 }
 
 #[allow(clippy::cast_precision_loss)] // The existing primitive-to-F64 numeric policy.
-fn bind_offset(offset: &Offset, unit: Unit, order: Option<&DType>) -> Result<frame::Offset> {
+fn bind_offset(
+    offset: &Offset,
+    unit: Unit,
+    order: Option<&DType>,
+    binder: &mut Binder<'_>,
+) -> Result<frame::Offset> {
     if unit != Unit::Range {
         let Offset::Number(number) = offset else {
             return Err(failed(
@@ -324,18 +364,8 @@ fn bind_offset(offset: &Offset, unit: Unit, order: Option<&DType>) -> Result<fra
             }
             frame::RangeOffset::Decimal { value, scale }
         }
-        (DType::Extension(_), Offset::DurationMicros(micros)) => {
-            match crate::native_payload_schema::temporal_storage(order) {
-                Some(PType::I32) if micros.is_multiple_of(86_400_000_000) => {
-                    frame::RangeOffset::Date(micros / 86_400_000_000)
-                }
-                Some(PType::I64) => frame::RangeOffset::Timestamp(*micros),
-                _ => {
-                    return Err(failed(
-                        "temporal RANGE offset requires whole days for Date32 or fixed microseconds for TimestampMicros",
-                    ));
-                }
-            }
+        (DType::Extension(_), offset) if !matches!(offset, Offset::Number(_)) => {
+            temporal::bind(offset, order, binder)?
         }
         _ => {
             return Err(failed(

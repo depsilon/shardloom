@@ -17,7 +17,9 @@ use super::{
 use crate::relational_query::{VortexRelationalFrameExclusion, VortexRelationalFrameUnit};
 use vortex::array::dtype::DecimalDType;
 
-pub(super) use bounds::{Cursor, Position, intervals, validate_intervals};
+pub(super) use bounds::{
+    Cursor, Position, difference, intervals, monotone, validate_intervals, validate_ranges,
+};
 pub(super) use input::{Input, Resident};
 pub(super) use state::{State, Value};
 
@@ -50,7 +52,6 @@ pub(super) struct Frame {
     pub(super) order: Option<OrderKey>,
 }
 
-#[derive(Clone, Copy)]
 pub(super) enum Bound {
     UnboundedPreceding,
     Preceding(Offset),
@@ -59,19 +60,38 @@ pub(super) enum Bound {
     UnboundedFollowing,
 }
 
-#[derive(Clone, Copy)]
 pub(super) enum Offset {
     Count(usize),
     Range(RangeOffset),
 }
 
-#[derive(Clone, Copy)]
 pub(super) enum RangeOffset {
     Integer(u64),
     Float(f64),
-    Decimal { value: i128, scale: u8 },
-    Date(u64),
-    Timestamp(u64),
+    Decimal {
+        value: i128,
+        scale: u8,
+    },
+    Temporal {
+        nanoseconds: i128,
+        tick_nanoseconds: i128,
+    },
+    Calendar {
+        amount: u64,
+        kernel: Box<shardloom_core::temporal::operations::Kernel>,
+    },
+}
+
+impl Frame {
+    pub(super) fn can_rewind(&self) -> bool {
+        [&self.start, &self.end].into_iter().any(|bound| {
+            matches!(
+                bound,
+                Bound::Preceding(Offset::Range(RangeOffset::Calendar { .. }))
+                    | Bound::Following(Offset::Range(RangeOffset::Calendar { .. }))
+            )
+        })
+    }
 }
 
 pub(super) fn admitted(

@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "retired": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/calendar-windows-2026-10-29/calendar-public-r1/_native.abi3.so",
+      "sha256": "66fd1294e20a37f81c7f4ae775f49b844d6c68cb0b93c2df685b8362323ffecc",
+      "bytes": 115163904,
+      "build_receipt": "c009-native-products.json",
+      "reference": "calendar-public-r2.json",
+      "result": "retired",
+      "open_handle_check": "no_open_handles",
+      "empty_stage_directory_removed": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/calendar-windows-2026-10-29/calendar-public-r2/_native.abi3.so",
+      "sha256": "66fd1294e20a37f81c7f4ae775f49b844d6c68cb0b93c2df685b8362323ffecc",
+      "bytes": 115163904,
+      "build_receipt": "c009-native-products.json",
+      "reference": "calendar-public-r2.json",
+      "result": "retired",
+      "open_handle_check": "no_open_handles",
+      "empty_stage_directory_removed": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/calendar-windows-2026-10-29/calendar-public-r3/_native.abi3.so",
+      "sha256": "a6c163ecac7af98a07c0ddee086ec819a4b241059a9b737e9bf1788ef2c40130",
+      "bytes": 115164096,
+      "build_receipt": "c019-final-native-products.json",
+      "reference": "calendar-public-r3.json",
+      "result": "retired",
+      "open_handle_check": "no_open_handles",
+      "empty_stage_directory_removed": true
+    }
+  ],
+  "bytes_recovered": 345491904,
+  "retained_final_products": {
+    "/Users/dylan/.cache/shardloom/cargo-target/ci-native/lib_native.dylib": {
+      "sha256": "a6c163ecac7af98a07c0ddee086ec819a4b241059a9b737e9bf1788ef2c40130",
+      "bytes": 115164096
+    },
+    "/Users/dylan/.cache/shardloom/cargo-target/ci-native/shardloom": {
+      "sha256": "9ad45654b034081013753c98208d7409c194f05e3080231ca9094bf065dd823f",
+      "bytes": 112139800
+    }
+  },
+  "regeneration": "Build receipts, complete accepted source and failed-attempt results remain in the immutable calendar evidence packet. Only three duplicate staged libraries and empty stage directories were removed; the current runtime and all compact results remain.",
+  "cleanup_source_sha256": "313ec69180c9f811e43094a4c7b03d9d75a924569c043234a337ecaea661bf04"
+}

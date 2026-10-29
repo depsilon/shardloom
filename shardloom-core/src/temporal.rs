@@ -19,6 +19,28 @@ pub mod timezone;
 #[path = "temporal_operations.rs"]
 pub mod operations;
 
+/// Resolution for a civil time repeated by a fold or skipped by a gap.
+/// The declaration is available without enabling calendar execution.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Ambiguity {
+    #[default]
+    Reject,
+    Earlier,
+    Later,
+}
+
+impl Ambiguity {
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "reject" => Some(Self::Reject),
+            "earlier" => Some(Self::Earlier),
+            "later" => Some(Self::Later),
+            _ => None,
+        }
+    }
+}
+
 /// Fixed units shared by timestamps, time-of-day and elapsed durations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TemporalUnit {

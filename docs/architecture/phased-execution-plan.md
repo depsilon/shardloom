@@ -772,7 +772,9 @@ visible and independent; this implementation does not automatically close them.
     areas and their acceptance before returning to those performance experiments.
     The [time-series continuation](native-time-series-completion-2026-10-29.md)
     begins with as-of joins over the shared native join, ordering and spill owners.
-    Calendar windows, resampling, gap filling and interpolation remain open,
+    The [calendar-window continuation](../benchmarks/native-calendar-windows-2026-10-29.md)
+    now passes local conformance, resource and ownership acceptance across all
+    five interfaces. Resampling, gap filling and interpolation remain open,
     together with the numeric, composition, batch-function and diagnostics work.
     The existing 347-query checkpoint is unchanged during this capability work.
     The latest maintainer instruction closes PR #1619 at this validated checkpoint
@@ -832,8 +834,10 @@ rejects averages that would discard fractional digits. This does not imply all
 opaque payload movement observes or rejects every non-finite value. The
 [as-of implementation](native-time-series-completion-2026-10-29.md) adds exact
 direction, tolerance, duplicate/NULL and resource semantics across the public
-interfaces. Calendar operations and the broader SQL aggregate combinations above
-retain their remaining implementation and conformance obligations.
+interfaces. The [calendar-window implementation](../benchmarks/native-calendar-windows-2026-10-29.md)
+adds exact elapsed/calendar RANGE semantics and retreating-boundary spill.
+Resampling, gap filling, interpolation and the broader SQL aggregate combinations
+above retain their remaining implementation and conformance obligations.
 
 Use **six small end-to-end workloads**, extending existing conformance tooling:
 a per-fund statistical summary; an entity/currency as-of valuation join;

@@ -77,6 +77,34 @@ def statistical_reference(rows):
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
+    def test_calendar_window_fixed_units_match_all_five_surfaces(self):
+        if __package__:
+            from .native_calendar_window_cases import check_fixed
+        else:
+            from native_calendar_window_cases import check_fixed
+        check_fixed(self)
+
+    def test_calendar_window_dst_month_end_and_owned_outputs_match_all_five_surfaces(self):
+        if __package__:
+            from .native_calendar_window_cases import check_calendar
+        else:
+            from native_calendar_window_cases import check_calendar
+        check_calendar(self)
+
+    def test_calendar_window_zero_offsets_keep_fold_identity_on_all_five_surfaces(self):
+        try:
+            from .native_calendar_window_cases import check_zero
+        except ImportError:
+            from native_calendar_window_cases import check_zero
+        check_zero(self)
+
+    def test_calendar_window_refusals_are_consistent_on_all_five_surfaces(self):
+        if __package__:
+            from .native_calendar_window_cases import check_refusals
+        else:
+            from native_calendar_window_cases import check_refusals
+        check_refusals(self)
+
     @classmethod
     def setUpClass(cls):
         cls.native = _load_native()

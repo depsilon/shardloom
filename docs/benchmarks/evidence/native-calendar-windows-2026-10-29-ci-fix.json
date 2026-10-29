@@ -1,0 +1,375 @@
+{
+  "status": "passed",
+  "scope": "Conformance-count synchronization after adding calendar_window_frames; no engine source changes.",
+  "original_failure": {
+    "head": "573275629349b2b7e2b6760d1d8029610d1cf51f",
+    "workflow_run": 40869671493,
+    "job": 123433229403,
+    "url": "https://github.com/depsilon/shardloom/actions/runs/40869671493/job/123433229403",
+    "excerpt": "2026-10-29T12:06:01.8023707Z FAIL: test_conformance_counts_cover_actual_admitted_fixture_inventory (python.tests.test_release_report_producer_contracts.ReleaseReportProducerContractsTests.test_conformance_counts_cover_actual_admitted_fixture_inventory)\n2026-10-29T12:06:01.8031776Z   File \"/home/runner/work/shardloom/shardloom/python/tests/test_release_report_producer_contracts.py\", line 148, in test_conformance_counts_cover_actual_admitted_fixture_inventory\n2026-10-29T12:06:01.8032869Z     self.assertEqual(len(cases), conformance.EXPECTED_EXECUTABLE_FIXTURES)\n2026-10-29T12:06:01.8033358Z AssertionError: 119 != 118\n2026-10-29T12:06:01.8034070Z Ran 725 tests in 326.700s\n2026-10-29T12:06:01.8034340Z FAILED (failures=1, skipped=38)\n",
+    "actual_fixture_count": 119,
+    "stale_expected_fixture_count": 118
+  },
+  "corrected_counts": {
+    "executable_fixtures": 119,
+    "diagnostic_cases": 25,
+    "required_runtime_rows": 144,
+    "matrix_rows": 146
+  },
+  "changed_source_identities": {
+    "scripts/check_v1_correctness_conformance.py": {
+      "sha256": "5d2eca132d34d734b17dca9d2a551ee957b6bd119cac202a28e28cdd16a0c497",
+      "bytes": 77790
+    },
+    "docs/release/v1-correctness-conformance-matrix.json": {
+      "sha256": "1790c841c139dbca8357baecacb53ae69fbb66c173db5de952770c68fea5130e",
+      "bytes": 8099
+    },
+    "docs/release/hard-release-readiness-gate.md": {
+      "sha256": "64810be8ea93fd09ce58dd6158ce66cbbc56d4cbb30714a4caf59a4518d28a45",
+      "bytes": 38712
+    }
+  },
+  "unchanged_accepted_engine_and_public_sources": {
+    "python/src/shardloom/_window.py": {
+      "sha256": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
+      "bytes": 8486
+    },
+    "python/tests/native_calendar_window_cases.py": {
+      "sha256": "c4ce23dbd4f5e0e2cff9be952dd921a8ad65a0d3c2fe09a77c239c0089f77efb",
+      "bytes": 17468
+    },
+    "python/tests/test_native_shared_provider_binding.py": {
+      "sha256": "eadaf5535ad47c98d0c84737a516eace80991e4aabef7b71664ea439d7a49c04",
+      "bytes": 210703
+    },
+    "python/tests/test_query_builder.py": {
+      "sha256": "5b8d868da98cf8519e329ebf53d121a8b1f1f78bee6ed75f1d37c59d5172f54e",
+      "bytes": 225572
+    },
+    "scripts/check_admitted_semantics_matrix.py": {
+      "sha256": "ea8543a0ecae53a6ffd24e0df5dda573168067d74281f757783ad89a6bb75992",
+      "bytes": 178064
+    },
+    "scripts/check_python_user_surface_completion.py": {
+      "sha256": "6a373cc36cae3105439548ee3885a9be3b2eae0f286ba75ecd4b1c5c499cb31e",
+      "bytes": 73378
+    },
+    "scripts/check_user_surface_reference.py": {
+      "sha256": "5a7b707b4c1825e62e2e59e9da7c8caba5aa8e71ff9e2a0263f736eeb53c091d",
+      "bytes": 36808
+    },
+    "shardloom-cli/src/sql_native_relational_window_frame_tests.rs": {
+      "sha256": "6ca3bf9c732ee1a3dc5b0389d25e2e53814bd51222388bf6fa884fa157acfc1f",
+      "bytes": 10193
+    },
+    "shardloom-cli/src/sql_window_frames.rs": {
+      "sha256": "1bd84825b3916867b5e62a6ac64499964035d125c89d8325225a03f91c67e567",
+      "bytes": 13338
+    },
+    "shardloom-core/src/temporal.rs": {
+      "sha256": "19bab85162c755e2a9567cb28459f2815cb5ce110a52c6ccd33efafae7aa2cf9",
+      "bytes": 16485
+    },
+    "shardloom-core/src/temporal_timezone.rs": {
+      "sha256": "2b88763220ea13c757e5c358d1b4cea46af256930abd85b6ef18324a2e8ccc88",
+      "bytes": 9595
+    },
+    "shardloom-python/src/window.rs": {
+      "sha256": "5c0c6b73aa1ad9c64a66a1f3d42204e973aa17e42fc570935bcf3ac83271d3d7",
+      "bytes": 15122
+    },
+    "shardloom-vortex/src/local_primitive_relational_calendar_window_edge_tests.rs": {
+      "sha256": "a06443e25dc39f4a782ecdad126df947c006c7adc0d85cc86b917162156abf89",
+      "bytes": 9306
+    },
+    "shardloom-vortex/src/local_primitive_relational_calendar_window_pressure_tests.rs": {
+      "sha256": "be9bca2a2739af534861634eb88c3bf6eb72499970bac170f2666155cbfbd532",
+      "bytes": 10488
+    },
+    "shardloom-vortex/src/local_primitive_relational_calendar_window_tests.rs": {
+      "sha256": "703e7b607a99d85461247aa8923cfde7b76b397c73a9e0b0c50ad2e0129389ae",
+      "bytes": 16287
+    },
+    "shardloom-vortex/src/local_primitive_relational_window_bind.rs": {
+      "sha256": "3923612e3ef05038907041217849ed0ec636598c8c10a037ca03efe72686c0a4",
+      "bytes": 8414
+    },
+    "shardloom-vortex/src/local_primitive_relational_window_frame_bind.rs": {
+      "sha256": "a291abcad707f579c71e343242221b2af80ecc9a968b16f102abedeb50ff2680",
+      "bytes": 13682
+    },
+    "shardloom-vortex/src/local_primitive_relational_window_spill_tests.rs": {
+      "sha256": "63fc99d8dec525cfd6c3173efa190e7da1ec0765af6870daf1c5df1d9c1e430d",
+      "bytes": 7560
+    },
+    "shardloom-vortex/src/local_primitive_relational_window_temporal_bind.rs": {
+      "sha256": "b0dead666a9533aa56c6667fccab5cec7abd0faefd912808fc880f43d37d966d",
+      "bytes": 2729
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_bounds.rs": {
+      "sha256": "8bfb30a8a13db2fceb319393df8202e08857325cedb148112880ef1d3a68acec",
+      "bytes": 9975
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_distinct.rs": {
+      "sha256": "ad1f50d6178c457170ad493fa3fa14a84400587c485c53002864316e76e0e08b",
+      "bytes": 14619
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_extrema.rs": {
+      "sha256": "b4361bdafe087789a74c7f5b66579dcf2887d808c9c454d7fe7c16c92ecbcc02",
+      "bytes": 6747
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_frame.rs": {
+      "sha256": "a4a14eba8711d942309eefc02429f1d69e489b37bfd872a92956f9c411818a7c",
+      "bytes": 3132
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_frame_bounds.rs": {
+      "sha256": "6a375add04d8a01237c9d5fe64536190d82f5958b3c3ff559114770e476e529a",
+      "bytes": 12654
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_frame_state.rs": {
+      "sha256": "9de63e3ba936a7af7122a58b84b9fe9aacb39e29764348452eddd4c9ab40bf2a",
+      "bytes": 21367
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_window_partition.rs": {
+      "sha256": "30f212f528adc96dd55794b5ee2d850411d1e5ab11f602f49c9aeb8ab56d2244",
+      "bytes": 15223
+    },
+    "shardloom-vortex/src/relational_window_frame.rs": {
+      "sha256": "3245c12dea4dd6b4ee6dfbb53350302163e850101aecc1a675b4bac3bdd067a7",
+      "bytes": 5745
+    }
+  },
+  "checks": [
+    {
+      "name": "c026-conformance-consumers",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "python.tests.test_release_report_producer_contracts",
+        "python.tests.test_v1_correctness_conformance",
+        "-v"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "sha256": "092dde05fc7ea0fdab53be15f801c6b943831d4d58eb5c7368c7dd9a3ca95fcf",
+        "bytes": 1985
+      },
+      "log": {
+        "sha256": "185b94d516ab8a8c65c8cec90c8e1f8593822b24fe4b00aacd5d2e2fa6ddc707",
+        "bytes": 3563
+      },
+      "summary": [
+        "Ran 15 tests in 0.304s",
+        "OK"
+      ]
+    },
+    {
+      "name": "c027-python-core-shard",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/run_python_test_shard.py",
+        "--shard",
+        "core",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/calendar-windows-2026-10-29/python-core-r1"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "sha256": "c3803df7489dcad7d4ec74cfe3d37fb2fbbb2cb598b578ca3a35b2c223fb2382",
+        "bytes": 2492
+      },
+      "log": {
+        "sha256": "3abe46733c81f2249aa3f905ba93d2847628e8d0418a693ad99610f040ac6604",
+        "bytes": 6105
+      },
+      "summary": [
+        "Ran 725 tests in 144.264s",
+        "OK (skipped=28)"
+      ]
+    },
+    {
+      "name": "c028-release-consumers",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_release_scripts.py",
+        "-v"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "sha256": "9f39a428b3c1ceb805dc457ed4a610f86be5b373ddf13ccd8e99a99015dd2e0a",
+        "bytes": 1969
+      },
+      "log": {
+        "sha256": "baf53f79e2ddb2d317d3730549edead661434c6e58c0c2e6042bd87a9b859a5b",
+        "bytes": 31268
+      },
+      "summary": [
+        "Ran 170 tests in 3.736s",
+        "OK"
+      ]
+    },
+    {
+      "name": "c029-ci-fix-source-checks",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "/Users/dylan/LocalData/shardloom/calendar-windows-2026-10-29/tools/check_calendar_sources.py",
+        "--attempt",
+        "r3"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt": {
+        "sha256": "9428558e73baf6c53e46e5aea7820d8108acdc2d6a316dacb0cdba2d380b68f7",
+        "bytes": 2188
+      },
+      "log": {
+        "sha256": "88a240bbdb54057d3bcaee37bd43de4fa5dcfdcf5c89c5d2e4751f342f96a2ca",
+        "bytes": 17812
+      },
+      "summary": [
+        "Ran 63 tests in 2.118s",
+        "OK",
+        "Ran 15 tests in 0.469s",
+        "OK",
+        "Ran 3 tests in 0.035s",
+        "OK"
+      ]
+    }
+  ],
+  "python_core_report": {
+    "command": "python scripts/run_python_test_shard.py --shard core",
+    "elapsed_seconds": 144.264,
+    "error_count": 0,
+    "external_engine_invoked": false,
+    "failure_count": 0,
+    "fallback_attempted": false,
+    "module_count": 97,
+    "modules": [
+      "python.tests.test_adbc_temporal",
+      "python.tests.test_batches",
+      "python.tests.test_ci_python_test_shards",
+      "python.tests.test_cli_client",
+      "python.tests.test_complete_cohort_gain_policy",
+      "python.tests.test_compute_engine_completion_gate",
+      "python.tests.test_connected_programming",
+      "python.tests.test_dataframe_offset",
+      "python.tests.test_declared_schema_writes",
+      "python.tests.test_execution_resources",
+      "python.tests.test_human_errors",
+      "python.tests.test_independent_full43_evidence",
+      "python.tests.test_local_native_benchmark_example",
+      "python.tests.test_native_benchmark_evidence",
+      "python.tests.test_native_binding",
+      "python.tests.test_native_dynamic_subquery_binding",
+      "python.tests.test_native_expression_binding",
+      "python.tests.test_native_function_catalog",
+      "python.tests.test_native_golden_workflow_declarations",
+      "python.tests.test_native_grouped_preparation_evidence",
+      "python.tests.test_native_grouped_preparation_followup_evidence",
+      "python.tests.test_native_memory_inputs",
+      "python.tests.test_native_multiway_binding",
+      "python.tests.test_native_observations",
+      "python.tests.test_native_output_window_binding",
+      "python.tests.test_native_output_window_observation",
+      "python.tests.test_native_pgo_evidence",
+      "python.tests.test_native_prepared_sampling_binding",
+      "python.tests.test_native_primitive_binding",
+      "python.tests.test_native_provider_refresh_evidence",
+      "python.tests.test_native_region_evidence",
+      "python.tests.test_native_relational_collection",
+      "python.tests.test_native_release_output_proof",
+      "python.tests.test_native_resources",
+      "python.tests.test_native_result_schema",
+      "python.tests.test_native_sampling_population_binding",
+      "python.tests.test_native_semantics_transport",
+      "python.tests.test_native_session_execution",
+      "python.tests.test_native_set_binding",
+      "python.tests.test_native_shared_provider_binding",
+      "python.tests.test_native_standard_adapters",
+      "python.tests.test_native_streaming_uat_compression",
+      "python.tests.test_native_subquery_binding",
+      "python.tests.test_native_subquery_membership_binding",
+      "python.tests.test_native_surface_parity_evidence",
+      "python.tests.test_native_unary_binding",
+      "python.tests.test_native_unary_collection",
+      "python.tests.test_native_workflow_declarations",
+      "python.tests.test_native_workflow_outputs",
+      "python.tests.test_output_window_options",
+      "python.tests.test_perf12_guarantees",
+      "python.tests.test_public_api_reference",
+      "python.tests.test_public_context",
+      "python.tests.test_public_exports",
+      "python.tests.test_public_native_benchmark",
+      "python.tests.test_public_quickstart",
+      "python.tests.test_published_channel_proofs",
+      "python.tests.test_query_builder",
+      "python.tests.test_query_surface_corpus",
+      "python.tests.test_query_surface_datasets",
+      "python.tests.test_query_surface_evidence",
+      "python.tests.test_query_surface_native",
+      "python.tests.test_query_surface_polars",
+      "python.tests.test_query_surface_replay",
+      "python.tests.test_query_surface_semantics",
+      "python.tests.test_quickstart_proof",
+      "python.tests.test_registry_070_contract",
+      "python.tests.test_registry_100_contract",
+      "python.tests.test_registry_bundled_proof",
+      "python.tests.test_registry_native_bundled_proof",
+      "python.tests.test_registry_native_consumer",
+      "python.tests.test_registry_release_evidence",
+      "python.tests.test_release_report_producer_contracts",
+      "python.tests.test_required_resource_boundaries",
+      "python.tests.test_runtime_gap_family_burn_down",
+      "python.tests.test_scalar_subquery_declarations",
+      "python.tests.test_shared_provider_expressions",
+      "python.tests.test_source_bindings",
+      "python.tests.test_sql_python_dataframe_parity",
+      "python.tests.test_temporal_declarations",
+      "python.tests.test_temporal_metadata",
+      "python.tests.test_temporal_result_delivery",
+      "python.tests.test_typed_expression_declarations",
+      "python.tests.test_typed_native_inputs",
+      "python.tests.test_typed_unary_declarations",
+      "python.tests.test_user_route_capability_report",
+      "python.tests.test_user_surface_graduation_matrix",
+      "python.tests.test_user_surface_runtime_gap_inventory",
+      "python.tests.test_v1_api_schema_stability",
+      "python.tests.test_v1_correctness_conformance",
+      "python.tests.test_v1_front_door_runtime_scope",
+      "python.tests.test_v1_local_output_sink_scope",
+      "python.tests.test_v1_local_resource_scope_contracts",
+      "python.tests.test_v1_observability_support",
+      "python.tests.test_v1_source_prepared_state_scope",
+      "python.tests.test_v1_vortex_runtime_scope",
+      "python.tests.test_workflow_resource_composition"
+    ],
+    "schema_version": "shardloom.python_test_shard_evidence.v1",
+    "shard_id": "core",
+    "skipped_count": 28,
+    "status": "passed",
+    "test_count": 966
+  },
+  "original_portable_packet": {
+    "sha256": "12d3def6fe6ca10e2ef4a8993bfd9d8f0158d21e3f05d7226d10f17bacfec258",
+    "bytes": 346416
+  },
+  "hosted_revalidation": "Required on the correction commit; local acceptance does not stand in for the hosted result."
+}

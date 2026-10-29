@@ -1,5 +1,6 @@
 //! Declarative analytic frames; binding resolves offsets against native types.
 
+use shardloom_core::temporal::{Ambiguity, TemporalUnit, civil::MonthEnd};
 use shardloom_core::{ColumnRef, ScalarValue};
 
 /// The coordinate system used by a window frame's bounds.
@@ -10,12 +11,25 @@ pub enum VortexRelationalFrameUnit {
     Range,
 }
 
-/// Literal offsets are bound before row execution. Durations are fixed elapsed
-/// microseconds, with whole days required for a Date32 ordering key.
+/// Literal offsets are bound before row execution. Durations measure elapsed
+/// time; calendar offsets use local date/time fields and explicit policies.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VortexRelationalFrameOffset {
     Number(ScalarValue),
     DurationMicros(u64),
+    Duration {
+        value: u64,
+        unit: TemporalUnit,
+    },
+    CalendarDays {
+        days: u64,
+        ambiguity: Ambiguity,
+    },
+    CalendarMonths {
+        months: u64,
+        month_end: MonthEnd,
+        ambiguity: Ambiguity,
+    },
 }
 
 /// Inclusive SQL frame endpoints. Execution uses checked half-open intervals.

@@ -35,6 +35,7 @@ pub(super) fn run(
     layout: &Layout,
     input: &mut Partition<'_, '_>,
     bounds: &Bounds<'_>,
+    outputs: Range<usize>,
     spill: &State,
     context: &NativeExecutionContext<'_>,
     limit: usize,
@@ -61,7 +62,7 @@ pub(super) fn run(
         vec![VALUE.into(), ORDINAL.into()],
     )?;
     let mut intervals = Ordering::new(&spec, spill, limit, context)?;
-    let mut inverse = Inversion::new(bounds, context)?;
+    let mut inverse = Inversion::new(bounds, outputs.clone(), context)?;
     let mut buffer = ReservedVec::new(context.memory())?;
     buffer.reserve(limit)?;
     for position in 0..input.range.len() {
@@ -125,7 +126,7 @@ pub(super) fn run(
         frame_spec,
         &events,
         &event_names,
-        input.range.len(),
+        outputs.len(),
         output,
         context,
         report,

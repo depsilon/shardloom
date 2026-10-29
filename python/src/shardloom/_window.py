@@ -14,6 +14,41 @@ class _Unbounded(Enum):
     FOLLOWING = "UNBOUNDED FOLLOWING"
 
 
+@dataclass(frozen=True, slots=True)
+class _TemporalOffset:
+    """Signed temporal frame offset retained as an inert SQL declaration."""
+
+    family: str
+    signed_value: int
+    unit: str | None = None
+    month_end: str | None = None
+    ambiguity: str | None = None
+
+    @property
+    def sql(self):
+        magnitude = abs(self.signed_value)
+        if self.family == "duration":
+            unit = {"s": "SECOND", "ms": "MILLISECOND", "us": "MICROSECOND", "ns": "NANOSECOND"}[self.unit]
+            return f"INTERVAL '{magnitude}' {unit}"
+        if self.family == "calendar_days":
+            return f"CALENDAR_DAYS({magnitude}, '{self.ambiguity}')"
+        return f"CALENDAR_MONTHS({magnitude}, '{self.month_end}', '{self.ambiguity}')"
+
+
+def _temporal_offset(value, family, *, unit=None, month_end=None, ambiguity=None):
+    if type(value) is not int:
+        raise TypeError("temporal window offset must be an exact int")
+    if abs(value) > (1 << 64) - 1:
+        raise ValueError("temporal window offset exceeds UInt64")
+    if family == "duration" and unit not in ("s", "ms", "us", "ns"):
+        raise ValueError("duration unit must be s, ms, us or ns")
+    if family == "calendar_months" and month_end not in ("reject", "clamp"):
+        raise ValueError("month_end must be reject or clamp")
+    if family != "duration" and ambiguity not in ("reject", "earlier", "later"):
+        raise ValueError("ambiguity must be reject, earlier or later")
+    return _TemporalOffset(family, value, unit, month_end, ambiguity)
+
+
 def _bound(value, unit, *, start):
     if value is None:
         value = _Unbounded.PRECEDING if start else _Unbounded.FOLLOWING
@@ -21,6 +56,10 @@ def _bound(value, unit, *, start):
         if (start and value is _Unbounded.FOLLOWING) or (not start and value is _Unbounded.PRECEDING):
             raise ValueError("window frame has an invalid unbounded endpoint")
         return value.value
+    if isinstance(value, _TemporalOffset):
+        if unit != "RANGE":
+            raise ValueError("temporal offsets are supported only for RANGE frames")
+        return f"{value.sql} {'PRECEDING' if value.signed_value < 0 else 'FOLLOWING'}"
     if type(value) is int:
         if abs(value) > (1 << 64) - 1:
             raise ValueError("window offset exceeds UInt64")
@@ -61,7 +100,18 @@ class WindowSpec:
 
     def _between(self, unit, start, end) -> "WindowSpec":
         left, right = _bound(start, unit, start=True), _bound(end, unit, start=False)
-        if type(start) in (int, float, Decimal) and type(end) in (int, float, Decimal) and start > end:
+        temporal_start = start if isinstance(start, _TemporalOffset) else None
+        temporal_end = end if isinstance(end, _TemporalOffset) else None
+        if temporal_start is not None and temporal_end is not None:
+            same_domain = (
+                temporal_start.family == temporal_end.family
+                and temporal_start.unit == temporal_end.unit
+                and temporal_start.month_end == temporal_end.month_end
+                and temporal_start.ambiguity == temporal_end.ambiguity
+            )
+            if same_domain and temporal_start.signed_value > temporal_end.signed_value:
+                raise ValueError("window frame start must not follow its end")
+        elif type(start) in (int, float, Decimal) and type(end) in (int, float, Decimal) and start > end:
             raise ValueError("window frame start must not follow its end")
         return replace(self, _frame=f"{unit} BETWEEN {left} AND {right}")
 
@@ -121,3 +171,18 @@ class Window:
     @staticmethod
     def groups_between(start, end) -> WindowSpec:
         return WindowSpec().groups_between(start, end)
+
+    @staticmethod
+    def duration(value: int, *, unit="us") -> _TemporalOffset:
+        """Declare a signed fixed-duration RANGE offset; positive is FOLLOWING."""
+        return _temporal_offset(value, "duration", unit=unit)
+
+    @staticmethod
+    def calendar_days(value: int, *, ambiguity="reject") -> _TemporalOffset:
+        """Declare signed calendar days; ambiguity rejects by default."""
+        return _temporal_offset(value, "calendar_days", ambiguity=ambiguity)
+
+    @staticmethod
+    def calendar_months(value: int, *, month_end="reject", ambiguity="reject") -> _TemporalOffset:
+        """Declare signed calendar months; month end and ambiguity reject by default."""
+        return _temporal_offset(value, "calendar_months", month_end=month_end, ambiguity=ambiguity)
