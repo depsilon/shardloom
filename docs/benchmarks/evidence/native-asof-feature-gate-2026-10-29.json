@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "subject": "as-of minimal feature-gate correction",
+  "base_revision": "ac867265d5c9d44485702a5d51d87d84f83404e2",
+  "hosted_failure": {
+    "job_url": "https://github.com/depsilon/shardloom/actions/runs/40852970714/job/123377450297",
+    "features": "vortex-local-primitives",
+    "errors": [
+      "E0599: Batch::raw_cell unavailable at native_relational_asof_join.rs:184",
+      "E0599: Batch::raw_cell unavailable at native_relational_asof_join.rs:275"
+    ]
+  },
+  "cause": "Batch::raw_cell was gated on vortex-write although its key accessor and as-of consumer belong to vortex-local-primitives.",
+  "correction": "Remove the redundant vortex-write gate; no algorithm or release-feature expansion.",
+  "source": {
+    "path": "shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+    "sha256": "fb499721f8a7b2bf2be9d9b78cad5af92d8fd796b6a20d73f472fc5c3ec4ca93"
+  },
+  "checks": [
+    {
+      "status": "passed",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-local-primitives"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "head": "ac867265d5c9d44485702a5d51d87d84f83404e2",
+      "working_tree": " M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n",
+      "changed_source_inventory": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "fb499721f8a7b2bf2be9d9b78cad5af92d8fd796b6a20d73f472fc5c3ec4ca93",
+          "bytes": 24177
+        }
+      },
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 2082087095,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 87160066048,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        },
+        "cargo": {
+          "workspace_bytes": 47587332096,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 87198429184,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        }
+      },
+      "timeout_seconds": 1200.0,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 75122,
+      "output_bytes": 4384,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 17.876013208180666,
+      "log_sha256": "f4692a561dd73720554ba4e85317ed03f2972e12d9f82af938c1e00823f77c42"
+    },
+    {
+      "status": "passed",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--profile",
+        "ci-native",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+      "head": "ac867265d5c9d44485702a5d51d87d84f83404e2",
+      "working_tree": " M shardloom-vortex/src/local_primitives/native_relational_batch.rs\n",
+      "changed_source_inventory": {
+        "shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+          "sha256": "fb499721f8a7b2bf2be9d9b78cad5af92d8fd796b6a20d73f472fc5c3ec4ca93",
+          "bytes": 24177
+        }
+      },
+      "driver_sha256": "2ed835f1e4c582964f51724aa32383846f9ff73d6e0ef6a1d1944c055300a1d9",
+      "environment": {
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 2082054327,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 87149498368,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        },
+        "cargo": {
+          "workspace_bytes": 47611228160,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 87149457408,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        }
+      },
+      "timeout_seconds": 1200.0,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 75338,
+      "output_bytes": 440,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 30.725434999912977,
+      "log_sha256": "ee3fe3bf90dd17b19fd1c3134496b1e7d2490270bfb81541874344d74652438d"
+    }
+  ],
+  "format_and_diff_check": "passed",
+  "prior_runtime_tests": "Unchanged release-user-surfaces code is covered by the original acceptance packet; no benchmark rerun."
+}

@@ -106,3 +106,15 @@ The [staged-library cleanup](evidence/native-asof-joins-2026-10-29-cleanup.json)
 records retirement of two task-owned test copies after exact hash/size and
 closed-handle checks, recovering 230,021,472 bytes. The final built library,
 build/source records and all failed-attempt evidence remain retained.
+
+## Hosted feature-gate correction
+
+The first hosted `vortex-local-primitives` build found that `Batch::raw_cell`
+still required `vortex-write`, although its underlying key reader and the as-of
+consumer require only local primitives. Removing that redundant gate fixes the
+two missing-method errors without changing the release-feature algorithm. The
+minimal-feature check and strict native Vortex/CLI/Python Clippy now pass locally;
+format and diff checks pass. The [follow-up receipt](evidence/native-asof-feature-gate-2026-10-29.json)
+preserves the hosted failure, correction and exact checked source. The original
+acceptance packet remains unchanged; hosted checks on the corrected head are
+still required.

@@ -203,7 +203,6 @@ impl Batch {
             .is_null(row)
     }
 
-    #[cfg(feature = "vortex-write")]
     pub(super) fn raw_cell(&self, row: usize, key: usize) -> Result<Cell> {
         self.keys
             .values
