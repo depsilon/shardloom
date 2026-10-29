@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "scope": "Item 20 mixed integer-width expression construction after direct-Parquet Full43 Q30 timeout",
+  "source_before_runtime_edits": "0d52c7e7cc73b5dc29a15f910fb13ab9aa67368a",
+  "baseline_inputs": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-positive-gain-r1/inputs.json",
+  "baseline_observations": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/broad-positive-gain-r1/native-observations.json",
+  "baseline_engine_seconds": 15.400097157,
+  "baseline_disposition": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/positive-gain-recovery-disposition.json",
+    "bytes": 191498,
+    "sha256": "5f00b939faa3cd455e6ebd89646f2799a294b3ad22aa2ac7ba41469d62e0cfba"
+  },
+  "baseline_inputs_sha256": "52354ad1d90e986a4a2bbe73dd6df22b0afb31010dab5fcb9cf48870d9aacc71",
+  "baseline_observations_sha256": "f2b35c1b5ed375893e6897a9906cc6408ebb6e78b16599204ab9d08e72cadcb7",
+  "complete_full43_baseline_available": false,
+  "failed_full43": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-direct-parquet-incomplete-r2.json",
+    "bytes": 7792,
+    "sha256": "58a9c6c5ae7b4a9ddb07362aea53363a531fabc25faab21cae28c0310d6abac7"
+  },
+  "diagnostic": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wide-sum-diagnostic-r1/summary.json",
+    "bytes": 47461,
+    "sha256": "89ce71558f4f6bedf8036b13cd40007450426534f75643b5a8ceab71f0ac3cdd"
+  },
+  "sampled_stacks": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wide-sum-diagnostic-r1/sample.txt",
+    "bytes": 117300,
+    "sha256": "4a9f11f4e5785c6f1e0067f0f1e326d991549b82ac9528383e5ce1642a7403e2"
+  },
+  "diagnosis": "1968 of 2142 sampled main-thread stacks entered projection expression evaluation. Narrow u16 plus i64 literal misses the existing same-width typed binary admission; generic raw_cell and Value construction dominate the sample. This diagnostic is not a scored benchmark.",
+  "frozen_mechanism": "Extend the existing typed binary result builder to all signed/unsigned integer input-width pairs when the bound output is I64 or U64. Borrow existing primitive slices and validity, widen values only in registers to i128, and reuse existing ordered checked arithmetic and final result conversion. Keep same-width and floating paths, input evaluation order, result allocation, NULL slots and cancellation semantics. No algebraic SUM rewrite, new provider, payload cast buffer or cache.",
+  "resources": {
+    "memory_bytes": 2147483648,
+    "parallelism": 2
+  },
+  "primary_cases": 347,
+  "candidate_repetitions": 1,
+  "retention_decision": {
+    "rule": "strict_complete_cohort_gain",
+    "declared_families": [
+      "projection",
+      "global_aggregation",
+      "grouped_aggregation",
+      "composite"
+    ],
+    "material_case_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.01
+    },
+    "material_family_regression": {
+      "fraction": 0.2,
+      "absolute_seconds": 0.05
+    },
+    "performance_rule": "Candidate complete-cohort engine seconds must be strictly less than 15.400097157; no percentage benefit floor. Preserve and investigate flags; do not rerun to select a favorable value."
+  },
+  "correctness": [
+    "Every 8x8 integer-width pair across five arithmetic operators and both bound integer outputs against existing scalar semantics, including NULL/error precedence.",
+    "Empty/all-NULL inputs, sliced/dictionary values, signed/unsigned extremes, zero division, i128 and result-width overflow, cancellation, allocation refusal and independent output lifetime.",
+    "Five public interfaces including narrow mixed expressions and wide computed SUM; fresh independent input/result fixture observations.",
+    "All existing expression and relational tests, full native suite, fmt, strict native/workspace clippy and default workspace tests."
+  ],
+  "scale_verification": "One unprofiled reproduction on the same 2,097,152-row synthetic input, then a fresh isolated direct-original-Parquet Full43 using the unchanged 120-second query deadline and immutable independent reference. No comparison ratio against incomplete Full43 or historical Vortex observations.",
+  "execution_policy": "One sequential execution of each original 347 case; no competing task work, builds, profiling or agents during query cohorts. Hash and inventory before/after. Keep existing resource, result, deadline and cleanup guards.",
+  "vortex_first_check": {
+    "decision": "implement_shardloom_kernel",
+    "version": "0.90.0 pinned and vendored",
+    "checked": [
+      "vendor/vortex-array/src/dtype/ptype.rs",
+      "vendor/vortex-array/src/arrays/primitive/array/mod.rs",
+      "vendor/vortex-array/src/scalar_fn/fns/binary/numeric/primitive.rs",
+      "vendor/vortex-array/src/scalar_fn/fns/binary/numeric/checked.rs"
+    ],
+    "reason": "Reuse Vortex primitive storage, masks and integer type dispatch. Upstream per-width checked arithmetic has its own failure reduction and diagnostics; retain ShardLoom i128 intermediate arithmetic, bound result conversion and first-error policy.",
+    "materialization": "Same explicitly admitted result buffers; no new decoded input copy. Native I/O/ownership certificates remain on the existing shared route.",
+    "fallback_attempted": false
+  },
+  "candidate_performance_executions_before_protocol": 0,
+  "item_20_complete": false,
+  "publication_authorized": false
+}

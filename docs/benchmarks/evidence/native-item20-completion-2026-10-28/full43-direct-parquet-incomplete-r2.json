@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "status": "incomplete",
+  "valid_full43": false,
+  "source_revision": "0d52c7e7cc73b5dc29a15f910fb13ab9aa67368a",
+  "input_format": "parquet",
+  "ingest_performed": false,
+  "driver": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r2-driver.json",
+    "bytes": 3207,
+    "sha256": "f1a36588453b09cd303b9340c345203a1f5c73f8a73d4d41f309c4ff06146b31"
+  },
+  "summary": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r2/logs/full43_20261029T011543729175Z/summary.json",
+    "bytes": 365475,
+    "sha256": "b92999526593eaa6822aa8b50b40e597641887fc5b3f6538942393b5db49c863"
+  },
+  "reference": {
+    "path": "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+    "bytes": 454630,
+    "sha256": "fc5780da415dc33bd06ed0879db07fc040db5dd419e3c37ecde7cd40a315696b"
+  },
+  "preceding_failed_attempt": {
+    "path": "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/full43-parquet-r1-driver.json",
+    "bytes": 3205,
+    "sha256": "b81bd91075cfdd4ee12c2ebedd597401fec3be6593f1b74e1be50749dc205dbf"
+  },
+  "complete_queries": 29,
+  "failed_query": 30,
+  "unexecuted_query_ids": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43
+  ],
+  "failure": "Q30 reached the unchanged 120-second process deadline; no completed engine clock or result.",
+  "full43_engine_seconds": null,
+  "completed_result_rows": 250,
+  "completed_results_independently_replayed": true,
+  "rows": [
+    {
+      "query": 1,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 0.637695625,
+      "raw_output_sha256": "fcb8994638eef7b19d6cc9000990d6c04521ae7b5165d2b9bc0591bb9f12fa82"
+    },
+    {
+      "query": 2,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 0.791060416,
+      "raw_output_sha256": "6d058ad434df4674b9599384b236bba52c9f1a24c30d9b653a088ad3aec31c38"
+    },
+    {
+      "query": 3,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 0.920565042,
+      "raw_output_sha256": "762d11141b4441377623418e5790c4cbcb25faa08af890e57df76f97c0c7d5c2"
+    },
+    {
+      "query": 4,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 0.749584835,
+      "raw_output_sha256": "7624fbc1d65f2dae1af7f251bf83712a52889e16b7853bda783ccc86b782a6af"
+    },
+    {
+      "query": 5,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 8.654912416,
+      "raw_output_sha256": "c691629032161aed2b810ebf80038f08cf19a2e1e1116670dd76dfc52c66d1c4"
+    },
+    {
+      "query": 6,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 17.948345375,
+      "raw_output_sha256": "fd285f56686dc9777847ccb467b25b7b9b98dd6aef96ac8d862f23ab0a83c122"
+    },
+    {
+      "query": 7,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 0.992365208,
+      "raw_output_sha256": "bd7064db8a5f4b30e313fb57ef02bcca61b43c2eab415eaff76501caf6122809"
+    },
+    {
+      "query": 8,
+      "complete_result_rows": 18,
+      "engine_execution_seconds": 0.797654793,
+      "raw_output_sha256": "06ee291c565746112a502b6e56a68343f4d5f892af900ff2e7dc3b7e22aeb07f"
+    },
+    {
+      "query": 9,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 14.803940958,
+      "raw_output_sha256": "c1aca822f5fe95575dbee59db28c8e30a876ef3ace33e5ccde999ed52750e6b6"
+    },
+    {
+      "query": 10,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 15.543971417,
+      "raw_output_sha256": "1b16be011c4ad20ec21df4fc39efa0e0de353bc01c7d9295488ea8c5a1c6e2cc"
+    },
+    {
+      "query": 11,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 2.185743252,
+      "raw_output_sha256": "e28f49da5fbbaa8e6aa40b86c71f5b81b0754caaed614b1dc3e652f8c1068909"
+    },
+    {
+      "query": 12,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 2.348438916,
+      "raw_output_sha256": "87a434625b61dfee30ad8858bff538ce398357c93d367169877ac6488c7f1ed1"
+    },
+    {
+      "query": 13,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 8.30802175,
+      "raw_output_sha256": "f7c33bfd8a940ea4693aa46c8bb8aecb9b0d520911f3e83ddc9235b4cd8a3268"
+    },
+    {
+      "query": 14,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 11.146608292,
+      "raw_output_sha256": "2fb99c92fe5f1c903ea61705ed9fe2de31537579e51186e9142258b1cd50ca3c"
+    },
+    {
+      "query": 15,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 9.38773025,
+      "raw_output_sha256": "f7521472600790f1b4405b20b142e1d55458ae187670352b02378ac009b28fca"
+    },
+    {
+      "query": 16,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 11.350034584,
+      "raw_output_sha256": "49098970b6b921b864e4d0b590d8108974cde162fba454a5fbd2c4198d556118"
+    },
+    {
+      "query": 17,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 20.748670833,
+      "raw_output_sha256": "e53060c2c462db5df3b4e37d0bc117985d28d3d7f9d4974600cfdf9a05f86d01"
+    },
+    {
+      "query": 18,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 18.299617751,
+      "raw_output_sha256": "38eae65457b26eacfc26118edbfe516eb30d06a75210328bd18263f938e34d5e"
+    },
+    {
+      "query": 19,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 41.578932333,
+      "raw_output_sha256": "46c1cac614335a9992442e03e384f7dd26c36a50718dcd3b0f3272ab81f04aa7"
+    },
+    {
+      "query": 20,
+      "complete_result_rows": 4,
+      "engine_execution_seconds": 0.790479626,
+      "raw_output_sha256": "47587bdcb0fb6ce4ddd98e7e56e4cce1c1e2373014b96c8f6f9ea5b8314e629f"
+    },
+    {
+      "query": 21,
+      "complete_result_rows": 1,
+      "engine_execution_seconds": 8.403158541,
+      "raw_output_sha256": "7837cfcc172b20855e22764b25076ad21b83f05d5f1075703aaa4a9daa04256c"
+    },
+    {
+      "query": 22,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 10.360510542,
+      "raw_output_sha256": "45d4c4b89e4906d71e61bfddff0ec07806e66a7e2d2eb8c183c0803252bb25df"
+    },
+    {
+      "query": 23,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 30.361515667,
+      "raw_output_sha256": "d6aaa8df8177db9e20b2a31ef9dc27ad0f8fdfcf12e964ac2597ca12bc6f0da4"
+    },
+    {
+      "query": 24,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 60.789435125,
+      "raw_output_sha256": "c2f4a0a53c6fa44f423d8a23ef28b783c511712035e94dd45cb52ee74547864f"
+    },
+    {
+      "query": 25,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 53.903452207,
+      "raw_output_sha256": "7e5618bb99b6461491a853536ad0569f340ee0a9b07e3edb942cb507d885379b"
+    },
+    {
+      "query": 26,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 5.025181417,
+      "raw_output_sha256": "0cff05aee0071fa1a8028f7cc11510da9ac6b518160525f16d6260d5c9888b67"
+    },
+    {
+      "query": 27,
+      "complete_result_rows": 10,
+      "engine_execution_seconds": 58.586779042,
+      "raw_output_sha256": "2cb02793ead2133b6a1a36de17b702803242dc522eadb83853f716c2829962df"
+    },
+    {
+      "query": 28,
+      "complete_result_rows": 25,
+      "engine_execution_seconds": 12.095758292,
+      "raw_output_sha256": "f1dee8ba7c1e8af1e6e336cd17fc30726e3ad40281b388caefba5df355add3cc"
+    },
+    {
+      "query": 29,
+      "complete_result_rows": 25,
+      "engine_execution_seconds": 40.98938475,
+      "raw_output_sha256": "f89f2b32d4278b21c4d876db5edfc4fd235df357ca9cfdacec939ab534c38214"
+    }
+  ],
+  "source_identity_verified_before_and_after": true,
+  "process_cleanup_verified": true,
+  "no_prepared_input_artifacts": true,
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}
