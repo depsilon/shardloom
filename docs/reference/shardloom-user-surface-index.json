@@ -1397,7 +1397,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "bc4f3f85f7856ad8f9b6da4ffb3331726a69d0837510d9fd226c4d64d9e7aca4",
+    "source_identity": "da428f834de6616f67e6582ed2155b961ec5332f11e46d9048c20f9afc6975ef",
     "source_inputs": {
       "Cargo.lock": "0f326028ae5a9fc62629eca5d200158d190f01019c314975179934ef0e891974",
       "Cargo.toml": "be5c720183463a8c7f0287d254ce16fc9cca05b90fff4d3ca19ee2bedbe802f9",
@@ -1409,15 +1409,15 @@
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
-      "python/src/shardloom/client.py": "4520fd52d9ea279f549e2e2c4cf52d3fa848abfb99982fe9932ef8f9cada9f16",
-      "python/src/shardloom/context.py": "86149e9545dd650347f6c8e60688bb643f1318d70723325e7625172ab538daa1",
+      "python/src/shardloom/client.py": "525de13184cbca252bd7b63e7b9f0c4e2cf88b7a3539116ffde7368dff317804",
+      "python/src/shardloom/context.py": "b645e1d72af83a82588b31e0dbed18fc37597b43600a5bb0501441e995e2c0ba",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "cc5cf9a3e0a37e488b1ead3612f0cf77eff6066861776547def63fa4258aee36",
+      "python/src/shardloom/functions.py": "f9404590ec03d8491f795e42cdd41409f46f6c6f4ae8cff34de498e718fa6999",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "1f5b8bbfe8cf1fde698271b32e44517ebcfcd6512536f9777e8f6f4d6fe463d4",
+      "python/src/shardloom/query.py": "95b70ea34309f0b5812fdda369490c5557ca2724ec230184f21597ba0a13f745",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
@@ -2386,7 +2386,7 @@
         "audience": "diagnostics",
         "kind": "class",
         "source": "python/src/shardloom/client.py",
-        "signature": "(binary: 'Binary | None' = None, *, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str]' = ('release', 'debug'), timeout: 'float | None' = None, use_persistent_worker: 'bool | None' = None, transport: 'str' = 'subprocess', memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'None'",
+        "signature": "(binary: 'Binary | None' = None, *, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str]' = ('release', 'debug'), timeout: 'float | None' = None, use_persistent_worker: 'bool | None' = None, transport: 'str' = 'subprocess', memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str' = 'strict') -> 'None'",
         "summary": "Thin client that invokes the ShardLoom CLI with `--format json`."
       },
       {
@@ -2413,7 +2413,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/context.py",
-        "signature": "(client: 'ShardLoomClient | None' = None, *, engine: 'str' = 'auto', transport: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'None'",
+        "signature": "(client: 'ShardLoomClient | None' = None, *, engine: 'str' = 'auto', transport: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None) -> 'None'",
         "summary": "High-level Python context for side-effect-free discovery and explicit work."
       },
       {
@@ -3133,7 +3133,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/context.py",
-        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'ShardLoomContext'",
+        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None) -> 'ShardLoomContext'",
         "summary": "Return a side-effect-free ShardLoom context."
       },
       {
@@ -3574,7 +3574,7 @@
         "audience": "diagnostics",
         "kind": "function",
         "source": "python/src/shardloom/context.py",
-        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, session_id: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'ShardLoomSession'",
+        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, session_id: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None) -> 'ShardLoomSession'",
         "summary": "Return a caller-owned local ShardLoom session."
       },
       {
@@ -4143,6 +4143,42 @@
         "source": "python/src/shardloom/functions.py",
         "signature": "(value)",
         "summary": "Declare a boolean non-null check."
+      },
+      {
+        "name": "is_nan",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Classify floating NaN values, propagating NULL validity."
+      },
+      {
+        "name": "is_infinite",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Classify either floating infinity, propagating NULL validity."
+      },
+      {
+        "name": "is_finite",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Classify finite floating values, propagating NULL validity."
+      },
+      {
+        "name": "signbit",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Observe a floating sign bit, including zero and NaN, with NULL propagation."
       },
       {
         "name": "json_extract",

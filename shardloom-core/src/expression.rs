@@ -995,6 +995,9 @@ fn eval_function_call(
         "unhex" => eval_binary_unhex(name, args, row),
         "from_base64" => eval_binary_from_base64(name, args, row),
         "abs" => eval_numeric_abs(name, args, row),
+        "is_nan" | "is_infinite" | "is_finite" | "signbit" => {
+            eval_float_classification(definition.name, args, row)
+        }
         "floor" => eval_numeric_rounding(name, args, row, f64::floor),
         "ceil" => eval_numeric_rounding(name, args, row, f64::ceil),
         "round" => eval_numeric_rounding(name, args, row, f64::round),
@@ -1942,6 +1945,34 @@ fn eval_function_args(
         values.push(value.value);
     }
     Ok((values, data_materialized))
+}
+
+fn eval_float_classification(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    let input = eval_expression(&args[0], row)?;
+    let value = match input.value {
+        ScalarValue::Null => ScalarValue::Null,
+        ScalarValue::Float64(value) => ScalarValue::Boolean(match name {
+            "is_nan" => value.is_nan(),
+            "is_infinite" => value.is_infinite(),
+            "is_finite" => value.is_finite(),
+            "signbit" => value.is_sign_negative(),
+            _ => unreachable!("classification function admitted above"),
+        }),
+        _ => {
+            return Err(EvalFailure::invalid(
+                "float_classification",
+                "floating classification requires Float64",
+            ));
+        }
+    };
+    Ok(
+        EvalValue::new(value, LogicalDType::Boolean, NullBehavior::NullPropagating)
+            .carry_materialization(input.data_materialized),
+    )
 }
 
 fn eval_numeric_abs(

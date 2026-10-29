@@ -7,7 +7,7 @@ use super::{
     floating_binary, integer_binary, keys, result_batch, signed_result, unsigned_result,
 };
 use crate::local_primitives::{
-    native_numeric_owner::NativeNumericOwner, native_relational_keys::validate_finite_scalar,
+    native_numeric_owner::NativeNumericOwner, native_relational_keys::validate_float_scalar,
 };
 use vortex::array::{
     match_each_integer_ptype,
@@ -98,8 +98,8 @@ pub(super) fn binary(
         ),
         PType::F64 => build!(
             f64,
-            |left, right| floating_binary(left, op, right),
-            validate_finite_scalar
+            |left, right| floating_binary(left, op, right, context.float_policy()),
+            |value| validate_float_scalar(value, context.float_policy())
         ),
         _ => unreachable!("physical type admitted above"),
     }?;
@@ -245,7 +245,10 @@ pub(super) fn coalesce(
             *value,
             |_| Ok::<(), shardloom_core::ShardLoomError>(())
         ),
-        PValue::F64(value) => build!(f64, *value, result_batch::validate_finite_numeric_output),
+        PValue::F64(value) => build!(f64, *value, |value| result_batch::validate_numeric_output(
+            value,
+            context.float_policy()
+        )),
         _ => unreachable!("literal physical type admitted above"),
     }?;
     context.check_cancelled()?;

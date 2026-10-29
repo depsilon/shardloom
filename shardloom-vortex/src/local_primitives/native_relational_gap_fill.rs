@@ -225,14 +225,20 @@ impl<'a> GapFill<'a> {
                         context.native_session().host_allocator(),
                         metadata,
                     );
-                    result_batch::build_column(dtype, rows, &allocator, |row| {
-                        if row.is_multiple_of(1024) {
-                            context.check_cancelled()?;
-                        }
-                        Ok(Value::Int(
-                            self.spec.grid.grid_point(indices.start + row as i128)?,
-                        ))
-                    })?
+                    result_batch::build_column_with_float_policy(
+                        dtype,
+                        rows,
+                        &allocator,
+                        context.float_policy(),
+                        |row| {
+                            if row.is_multiple_of(1024) {
+                                context.check_cancelled()?;
+                            }
+                            Ok(Value::Int(
+                                self.spec.grid.grid_point(indices.start + row as i128)?,
+                            ))
+                        },
+                    )?
                 } else if self.spec.partition.contains(&column) {
                     let (batch, _) =
                         anchor.ok_or_else(|| failed("gap-fill partition identity is absent"))?;

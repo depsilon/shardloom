@@ -86,7 +86,7 @@ fn compare_column(column: &ArrayRef, count: u64) {
                         let reference = keys.raw_cell(row).and_then(|value| {
                             scalar_update(&mut expected, measure, Some(value), context)
                         });
-                        let observed = update(&mut actual, &value, minimum);
+                        let observed = update(&mut actual, &value, minimum, context.float_policy());
                         assert_eq!(
                             observed.as_ref().err().map(ToString::to_string),
                             reference.as_ref().err().map(ToString::to_string)
@@ -273,7 +273,12 @@ fn numeric_extrema_keep_exact_cross_batch_mixed_numeric_comparisons() {
                             Some(keys.raw_cell(row)?),
                             context,
                         )?;
-                        update(&mut actual, &value, function == Function::Min)?;
+                        update(
+                            &mut actual,
+                            &value,
+                            function == Function::Min,
+                            context.float_policy(),
+                        )?;
                         assert_same(&actual, &expected);
                         Ok(())
                     })?;
@@ -321,6 +326,78 @@ fn numeric_extrema_preserve_filtered_domain_and_activate_shared_consumer() {
                 assert_eq!(counts.aggregate_extrema_bound_batches, 1);
                 assert_eq!(counts.aggregate_extrema_bound_rows, 2);
                 assert_eq!(counts.aggregate_row_updates, 0);
+            }
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn numeric_extrema_extended_orders_specials_and_retains_first_equal_bits() {
+    let negative_nan = 0xfff0_0000_0000_0042;
+    let positive_nan = 0x7ff8_0000_0000_0081;
+    let f32_nan = 0xff80_0042;
+    let widened_f32_nan =
+        shardloom_core::float_policy::widen_f32(f32::from_bits(f32_nan)).to_bits();
+    let cases = [
+        (
+            PrimitiveArray::from_option_iter([
+                Some(f64::from_bits(negative_nan)),
+                Some(f64::INFINITY),
+                None,
+                Some(f64::NEG_INFINITY),
+                Some(f64::from_bits(positive_nan)),
+                Some(-0.0),
+                Some(0.0),
+            ])
+            .into_array(),
+            f64::NEG_INFINITY.to_bits(),
+            negative_nan,
+            6,
+        ),
+        (
+            PrimitiveArray::from_option_iter([
+                Some(f32::from_bits(f32_nan)),
+                Some(f32::INFINITY),
+                None,
+                Some(f32::NEG_INFINITY),
+                Some(f32::from_bits(0x7fc0_0081)),
+                Some(-0.0),
+                Some(0.0),
+            ])
+            .into_array(),
+            f64::NEG_INFINITY.to_bits(),
+            widened_f32_nan,
+            6,
+        ),
+        (
+            PrimitiveArray::from_iter([f64::from_bits(negative_nan), f64::from_bits(positive_nan)])
+                .into_array(),
+            negative_nan,
+            negative_nan,
+            2,
+        ),
+        (
+            PrimitiveArray::from_iter([-0.0_f64, 0.0]).into_array(),
+            (-0.0_f64).to_bits(),
+            (-0.0_f64).to_bits(),
+            2,
+        ),
+    ];
+    let session =
+        ResidentVortexSession::new_with_float_policy(1 << 20, 1, FloatPolicy::Extended).unwrap();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            for (column, minimum, maximum, count) in cases {
+                for (function, expected) in [(Function::Min, minimum), (Function::Max, maximum)] {
+                    let binding = spec(function, column.dtype());
+                    let mut aggregate = Aggregate::new(&binding, context.memory())?;
+                    aggregate.consume(&batch(column.clone()), context, 2)?;
+                    let state = &aggregate.states.values[0];
+                    assert_eq!(state.count, count);
+                    assert_eq!(state.extreme, Some(Cell::Float(expected)));
+                }
             }
             Ok(())
         })

@@ -453,7 +453,8 @@ fn copy_rows<const RETAIN: bool>(
                 })
                 .transpose()?;
             if RETAIN
-                && copy.policy == CopyPolicy::PreserveUnobserved
+                && (copy.policy == CopyPolicy::PreserveUnobserved
+                    || context.float_policy() == shardloom_core::FloatPolicy::Extended)
                 && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
                 && let Some(selected) = &selected
             {
@@ -531,7 +532,14 @@ fn copy_rows<const RETAIN: bool>(
             if RETAIN {
                 result_batch::build_column(dtype, rows.len(), allocator, value)
             } else {
-                result_batch::build_column_prefix(dtype, rows.len(), 0, allocator, value)
+                result_batch::build_column_prefix_with_float_policy(
+                    dtype,
+                    rows.len(),
+                    0,
+                    allocator,
+                    context.float_policy(),
+                    value,
+                )
             }
         }
     }

@@ -605,7 +605,7 @@ pub(crate) fn fixture_primitive_execution_evidence(
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let mut cache = crate::public_workflow_route::PublicExecutionSession::default();
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    let owner = cache.command_owner()?;
+    let owner = cache.command_owner(None)?;
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let cancellation = shardloom_exec::compute_pool::CancellationToken::default();
     #[cfg(all(feature = "vortex-local-primitives", unix))]

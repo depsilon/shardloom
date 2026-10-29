@@ -2,7 +2,7 @@
 
 use super::{KeyColumn, Preparation, failed, vortex_error};
 use crate::local_primitives::{native_capacity::ReservedVec, native_list};
-use shardloom_core::Result;
+use shardloom_core::{FloatPolicy, Result};
 use shardloom_exec::{
     compute_pool::CancellationToken,
     live_memory::{LiveMemoryPool, MemoryLease},
@@ -45,6 +45,7 @@ impl Column {
         cancellation: &CancellationToken,
         schema: Option<MemoryLease>,
         purpose: Preparation,
+        float_policy: FloatPolicy,
     ) -> Result<Self> {
         cancellation.check()?;
         // Includes this boxed owner and the list's boxed child. The root schema
@@ -76,6 +77,7 @@ impl Column {
                         cancellation,
                         None,
                         purpose,
+                        float_policy,
                     )?);
                 }
                 Children::Struct { valid, fields }
@@ -91,6 +93,7 @@ impl Column {
                         cancellation,
                         None,
                         purpose,
+                        float_policy,
                     )?),
                     coordinates,
                 }

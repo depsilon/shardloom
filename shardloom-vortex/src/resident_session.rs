@@ -13,7 +13,7 @@ use std::{
 };
 
 use futures::{FutureExt as _, future::BoxFuture};
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{FloatPolicy, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot};
 use vortex::{
@@ -109,6 +109,7 @@ impl SegmentReuseAttempt {
 
 struct RuntimeOwner {
     session: VortexSession,
+    float_policy: FloatPolicy,
     runtime: CurrentThreadRuntime,
     _workers: ResidentWorkerGroup,
     admission: Mutex<()>,
@@ -147,6 +148,12 @@ pub struct ResidentSessionSnapshot {
 }
 
 impl ResidentVortexSession {
+    /// Immutable semantics shared by this owner's prepared plans and results.
+    #[must_use]
+    pub fn float_policy(&self) -> FloatPolicy {
+        self.0.float_policy
+    }
+
     pub(crate) fn memory(&self) -> &LiveMemoryPool {
         &self.0.memory
     }
@@ -477,6 +484,22 @@ impl ResidentVortexSession {
         Self::with_cpu_driver_policy(memory_bytes, max_parallelism, false)
     }
 
+    /// Create a session with an explicit immutable floating domain.
+    /// # Errors
+    /// Rejects invalid resource declarations or native runtime construction.
+    pub fn new_with_float_policy(
+        memory_bytes: u64,
+        max_parallelism: usize,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
+        Self::with_memory_pool_and_float_policy(
+            LiveMemoryPool::new(memory_bytes)?,
+            max_parallelism,
+            false,
+            float_policy,
+        )
+    }
+
     /// Create a concurrent session with bounded per-class FIFO admission.
     /// General calls own `general_cpu_lanes` including the caller. When P >= 2,
     /// one CPU lane can remain available to metadata calls during general work.
@@ -556,6 +579,20 @@ impl ResidentVortexSession {
         max_parallelism: usize,
         external_cpu_pool: bool,
     ) -> Result<Self> {
+        Self::with_memory_pool_and_float_policy(
+            memory,
+            max_parallelism,
+            external_cpu_pool,
+            FloatPolicy::Strict,
+        )
+    }
+
+    fn with_memory_pool_and_float_policy(
+        memory: LiveMemoryPool,
+        max_parallelism: usize,
+        external_cpu_pool: bool,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
         }
@@ -575,6 +612,7 @@ impl ResidentVortexSession {
         crate::native_temporal::register(&session);
         Ok(Self(Arc::new(RuntimeOwner {
             session,
+            float_policy,
             runtime,
             _workers: workers,
             admission: Mutex::new(()),

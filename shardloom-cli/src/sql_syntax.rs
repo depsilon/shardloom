@@ -12801,6 +12801,7 @@ mod tests {
             .expect("explicit fixture allocation"),
             shared_memory_pool: None,
             cancellation: CancellationToken::default(),
+            float_policy: shardloom_core::FloatPolicy::Strict,
             source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
             prepared_source_binding: None,

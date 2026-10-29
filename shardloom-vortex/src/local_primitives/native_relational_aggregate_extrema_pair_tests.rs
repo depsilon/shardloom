@@ -85,6 +85,7 @@ fn states(groups: usize, width: usize, count: u64) -> Vec<State> {
                 }
             },
             extreme: None,
+            specials: crate::local_primitives::native_float_total::Specials::default(),
         })
         .collect()
 }
@@ -96,6 +97,7 @@ fn copy_states(source: &[State]) -> Vec<State> {
             count: state.count,
             sum: state.sum,
             extreme: state.extreme.clone(),
+            specials: state.specials,
         })
         .collect()
 }

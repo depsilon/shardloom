@@ -32,6 +32,7 @@ impl Completed {
             context.memory(),
             batch_rows,
             context.cancellation().clone(),
+            context.float_policy(),
             consume,
         )?;
         if self.rows == 0 {
@@ -109,7 +110,11 @@ impl Completed {
         plan: &Plan,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Margin> {
-        let mut margin = Margin::for_kind(Kind::new(plan.decimal_source, plan.nested_extrema));
+        let mut margin = Margin::for_kind(Kind::new(
+            plan.decimal_source,
+            plan.nested_extrema,
+            context.float_policy(),
+        ));
         for domain in &self.domains {
             let cell = aggregate_at(&self.schema, access, index, domain, context)?;
             margin.push_cell(cell.as_ref(), &plan.aggregate)?;
@@ -221,10 +226,11 @@ impl Completed {
                     self.native_value(access, indices[row], column, plan, context)
                 })?
             } else {
-                result_batch::build_column(
+                result_batch::build_column_with_float_policy(
                     dtype,
                     indices.len(),
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| self.value(access, indices[row], column, plan, projection, context),
                 )?
             };

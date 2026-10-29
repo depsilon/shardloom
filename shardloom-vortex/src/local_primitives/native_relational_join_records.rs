@@ -106,29 +106,33 @@ impl Layout {
         let rows = range.len();
         let mut columns = ReservedVec::new(context.memory())?;
         columns.reserve(3)?;
-        columns.values.push(result_batch::build_column(
-            &records::u64_type().as_nullable(),
-            rows,
-            &context.native_session().host_allocator(),
-            |row| {
-                if row.is_multiple_of(1024) {
-                    context.check_cancelled()?;
-                }
-                Ok(input
-                    .hash(range.start + row, false)?
-                    .map_or(Value::Null, Value::UInt))
-            },
-        )?);
+        columns
+            .values
+            .push(result_batch::build_column_with_float_policy(
+                &records::u64_type().as_nullable(),
+                rows,
+                &context.native_session().host_allocator(),
+                context.float_policy(),
+                |row| {
+                    if row.is_multiple_of(1024) {
+                        context.check_cancelled()?;
+                    }
+                    Ok(input
+                        .hash(range.start + row, false)?
+                        .map_or(Value::Null, Value::UInt))
+                },
+            )?);
         columns.values.push(records::unsigned(rows, context, |row| {
             ordinal
                 .checked_add((range.start + row) as u64)
                 .ok_or_else(|| failed("ordered join build ordinal overflow"))
         })?);
         let payload = if self.payload_names.is_empty() {
-            result_batch::build_column(
+            result_batch::build_column_with_float_policy(
                 &self.payload_dtype,
                 rows,
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 |_| Ok(Value::Bool(false)),
             )?
         } else {

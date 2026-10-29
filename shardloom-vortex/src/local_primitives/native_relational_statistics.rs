@@ -125,7 +125,11 @@ impl Table {
                     if values.is_null(row)? || secondary.is_null(row)? {
                         continue;
                     }
-                    partial.observe(&values.raw_cell(row)?, &secondary.raw_cell(row)?)?;
+                    partial.observe_with_policy(
+                        &values.raw_cell(row)?,
+                        &secondary.raw_cell(row)?,
+                        context.float_policy(),
+                    )?;
                 }
                 self.pairs.values[slot.index].merge(partial)?;
             } else {
@@ -136,8 +140,11 @@ impl Table {
                     if values.is_null(row)? || secondary.is_null(row)? {
                         continue;
                     }
-                    self.pairs.values[group * self.paired_width + slot.index]
-                        .observe(&values.raw_cell(row)?, &secondary.raw_cell(row)?)?;
+                    self.pairs.values[group * self.paired_width + slot.index].observe_with_policy(
+                        &values.raw_cell(row)?,
+                        &secondary.raw_cell(row)?,
+                        context.float_policy(),
+                    )?;
                 }
             }
             return Ok(());
@@ -148,7 +155,7 @@ impl Table {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                partial.observe(&values.raw_cell(row)?)?;
+                partial.observe_with_policy(&values.raw_cell(row)?, context.float_policy())?;
             }
             self.values.values[slot.index].merge(partial)?;
         } else {
@@ -157,7 +164,7 @@ impl Table {
                     context.check_cancelled()?;
                 }
                 self.values.values[group * self.width + slot.index]
-                    .observe(&values.raw_cell(row)?)?;
+                    .observe_with_policy(&values.raw_cell(row)?, context.float_policy())?;
             }
         }
         Ok(())

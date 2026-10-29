@@ -26,7 +26,7 @@ docs/status/admitted-semantics-matrix.json
 shardloom.admitted_semantics_fixture_matrix.v1
 ```
 
-The 148-row matrix runs its 121 executable fixtures and 25 diagnostic cases
+The 151-row matrix runs its 124 executable fixtures and 25 diagnostic cases
 through the public `run sql` workflow, alongside two capability reports. SQL,
 source fixtures, property seeds and row ordering retain their original independent
 expectations. Complete native results must include their declared Vortex schema;
@@ -37,7 +37,11 @@ or benchmark-specific execution command is used.
 The expected transport follows the native schema: binary values use lowercase
 hex, Date32 uses epoch days, timestamps use UTC epoch microseconds, and decimals
 use `decimal128(precision,scale):coefficient`. Primitive SUM/AVG use the existing
-F64 reduction contract. These representation changes preserve the original
+F64 reduction contract. Explicit strict/extended float fixtures validate the
+selected policy, classification, signed zero and generated NaN/infinity grouping;
+nonfinite text results use an explicit UTF8 cast. Complete F32/F64 bit carriage,
+binary roundtrips and spill coverage are checked separately by
+`python/tests/test_native_float_policy_binding.py`. These representation changes preserve the original
 reference values; the validator does not normalize observed rows to make them
 match. Parser denials use `SL_UNSUPPORTED_SQL`; runtime/type/sink errors retain
 `SL_INVALID_INPUT`. Failed writers must preserve preexisting files.
@@ -56,8 +60,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=148
-executable_fixture_count=121
+matrix_row_count=151
+executable_fixture_count=124
 diagnostic_case_count=25
 unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1

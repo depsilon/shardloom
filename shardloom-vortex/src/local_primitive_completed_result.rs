@@ -22,6 +22,7 @@ pub(super) struct CompletedRows<'a> {
     ownership: MemoryLease,
     delivery: Delivery<'a>,
     finished: bool,
+    float_policy: shardloom_core::FloatPolicy,
 }
 
 enum Delivery<'a> {
@@ -187,9 +188,12 @@ impl<'consumer> CompletedRows<'consumer> {
         memory: &LiveMemoryPool,
         batch_rows: usize,
         cancellation: CancellationToken,
+        float_policy: shardloom_core::FloatPolicy,
         consume: &'consumer mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<Self> {
-        Self::new_native(fields, memory)?.with_stream(batch_rows, cancellation, consume)
+        let mut result = Self::new_native(fields, memory)?;
+        result.float_policy = float_policy;
+        result.with_stream(batch_rows, cancellation, consume)
     }
 
     fn with_stream(
@@ -231,6 +235,7 @@ impl<'consumer> CompletedRows<'consumer> {
             ownership,
             delivery: Delivery::Collect,
             finished: false,
+            float_policy: shardloom_core::FloatPolicy::Strict,
         })
     }
 
@@ -391,6 +396,7 @@ impl CompletedRows<'_> {
                     MAX_BYTES,
                     &allocator,
                     &self.memory,
+                    self.float_policy,
                     value,
                 )?);
             }
@@ -422,6 +428,7 @@ impl CompletedRows<'_> {
                         MAX_BYTES,
                         &allocator,
                         &self.memory,
+                        self.float_policy,
                         |row, column| value(start + row, column),
                     )?;
                     cancellation.check()?;
@@ -576,6 +583,7 @@ impl CompletedRows<'_> {
             ownership,
             delivery: Delivery::Collect,
             finished: false,
+            float_policy: shardloom_core::FloatPolicy::Strict,
         })
     }
 

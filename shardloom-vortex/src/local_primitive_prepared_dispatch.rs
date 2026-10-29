@@ -512,6 +512,7 @@ pub(crate) fn execute_sort_in_context(
                     context.memory(),
                     2048,
                     context.cancellation().clone(),
+                    context.float_policy(),
                     &mut consume,
                 )?)
             } else {

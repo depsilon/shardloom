@@ -66,10 +66,11 @@ pub(super) fn input_key(
         return Ok(column);
     }
     let valid = super::native_relational_expression::parent_validity(&column, context)?;
-    result_batch::build_column(
+    result_batch::build_column_with_float_policy(
         &DType::Bool(vortex::array::dtype::Nullability::Nullable),
         array.len(),
         &context.native_session().host_allocator(),
+        context.float_policy(),
         |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -94,13 +95,15 @@ pub(super) fn input_batch(
     for index in 0..spec.keys.len() {
         context.check_cancelled()?;
         let column = input_key(spec, &array, index, context)?;
-        keys.values
-            .push(super::native_relational_keys::KeyColumn::new(
+        keys.values.push(
+            super::native_relational_keys::KeyColumn::new_with_float_policy(
                 &column,
                 &mut execution,
                 context.memory(),
                 context.cancellation(),
-            )?);
+                context.float_policy(),
+            )?,
+        );
     }
     Ok(Batch::from_prepared_keys(array, keys))
 }
@@ -435,6 +438,7 @@ impl<'a> Window<'a> {
         )
     }
 
+    #[allow(clippy::too_many_lines)] // One typed output dispatch preserves the shared row mapping and column ownership.
     fn output(
         &self,
         range: std::ops::Range<usize>,
@@ -475,10 +479,11 @@ impl<'a> Window<'a> {
                         .gather(&rows.values, true, context)?
                         .column(column, dtype, context)?
                 }
-                (_, Values::Integer(values)) => result_batch::build_column(
+                (_, Values::Integer(values)) => result_batch::build_column_with_float_policy(
                     dtype,
                     range.len(),
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| {
                         Ok(result_batch::Value::Int(
                             i64::try_from(values.values[range.start + row])
@@ -486,35 +491,41 @@ impl<'a> Window<'a> {
                         ))
                     },
                 )?,
-                (_, Values::Fraction(values)) => result_batch::build_column(
+                (_, Values::Fraction(values)) => result_batch::build_column_with_float_policy(
                     dtype,
                     range.len(),
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| Ok(result_batch::Value::Float(values.values[range.start + row])),
                 )?,
-                (_, Values::Count(values)) => result_batch::build_column(
+                (_, Values::Count(values)) => result_batch::build_column_with_float_policy(
                     dtype,
                     range.len(),
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| Ok(result_batch::Value::UInt(values.values[range.start + row])),
                 )?,
-                (_, Values::NullableFraction(values)) => result_batch::build_column(
-                    dtype,
-                    range.len(),
-                    &context.native_session().host_allocator(),
-                    |row| {
-                        Ok(values.values[range.start + row]
-                            .map_or(result_batch::Value::Null, result_batch::Value::Float))
-                    },
-                )?,
+                (_, Values::NullableFraction(values)) => {
+                    result_batch::build_column_with_float_policy(
+                        dtype,
+                        range.len(),
+                        &context.native_session().host_allocator(),
+                        context.float_policy(),
+                        |row| {
+                            Ok(values.values[range.start + row]
+                                .map_or(result_batch::Value::Null, result_batch::Value::Float))
+                        },
+                    )?
+                }
                 (_, Values::Decimal(values)) => {
                     let DType::Decimal(decimal, _) = dtype else {
                         return Err(failed("window decimal output lost its metadata"));
                     };
-                    result_batch::build_column(
+                    result_batch::build_column_with_float_policy(
                         dtype,
                         range.len(),
                         &context.native_session().host_allocator(),
+                        context.float_policy(),
                         |row| {
                             Ok(values.values[range.start + row]
                                 .map_or(result_batch::Value::Null, |value| {

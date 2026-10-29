@@ -119,6 +119,8 @@ pub struct ExecutedVortexRelational {
     /// admission/semantics reason, not a measured explanation of elapsed time.
     pub provider_selection_reason: &'static str,
     pub resources: shardloom_core::ExecutionResources,
+    /// Immutable semantics selected by the owner of this execution.
+    pub float_policy: shardloom_core::FloatPolicy,
     pub output_rows: u64,
     pub output_batches: u64,
     pub max_output_batch_rows: usize,
@@ -768,7 +770,13 @@ fn prepare_relational_with_owner(
         root.admit_sampling_preparation(session.memory())?;
     }
     let provider = if sources.len() == 1 && memory_sources.is_empty() && batch_sources.is_empty() {
-        provider::prepare(&root, &sources[0], policy, session.memory())?
+        provider::prepare(
+            &root,
+            &sources[0],
+            policy,
+            session.memory(),
+            session.float_policy(),
+        )?
     } else {
         provider::Selection::declined("multiple_or_nonfile_sources_require_relational_execution")
     };
@@ -818,7 +826,13 @@ pub fn prepare_relational_in_session(
         root.admit_sampling_preparation(session.memory())?;
     }
     let provider = if sources.len() == 1 && memory_sources.is_empty() && batch_sources.is_empty() {
-        provider::prepare(&root, &sources[0], policy, session.memory())?
+        provider::prepare(
+            &root,
+            &sources[0],
+            policy,
+            session.memory(),
+            session.float_policy(),
+        )?
     } else {
         provider::Selection::declined("multiple_or_nonfile_sources_require_relational_execution")
     };
@@ -1473,7 +1487,7 @@ impl PreparedVortexRelational {
         let (primitive_execution, certificate) = provider.map_or((None, None), |provider| {
             (provider.report, provider.certificate)
         });
-        let certificate = match certificate {
+        let mut certificate = match certificate {
             Some(certificate) => certificate,
             None => report::certificate(
                 metrics,
@@ -1485,6 +1499,14 @@ impl PreparedVortexRelational {
                 spill.as_ref(),
             )?,
         };
+        certificate
+            .source_pushdown_report
+            .proof_basis
+            .push_str(" float_policy=");
+        certificate
+            .source_pushdown_report
+            .proof_basis
+            .push_str(context.float_policy().as_str());
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(
                 || (vec![], None),
@@ -1500,6 +1522,7 @@ impl PreparedVortexRelational {
                 primitive_execution,
                 provider_selection_reason: self.provider_selection_reason,
                 resources: self.policy.resource_envelope.declared_resources,
+                float_policy: context.float_policy(),
                 output_rows: rows,
                 output_batches: batches,
                 max_output_batch_rows: max_rows,

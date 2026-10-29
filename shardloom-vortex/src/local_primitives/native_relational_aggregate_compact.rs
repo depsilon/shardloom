@@ -28,6 +28,7 @@ const MIN_GENERIC_BYTES: usize = 1 << 20;
 struct Numeric {
     count: u64,
     sum: NumericAggregateSum,
+    specials: super::super::native_float_total::Specials,
 }
 
 #[derive(Clone, Copy)]
@@ -112,6 +113,7 @@ impl Table {
                         table.numbers[group * numeric_width + index] = Numeric {
                             count: old.count,
                             sum: old.sum,
+                            specials: old.specials,
                         }
                     }
                 }
@@ -161,7 +163,10 @@ impl Table {
             });
             let current = self.numbers[group * self.numeric_width + current];
             let next = self.numbers[group * self.numeric_width + next];
-            if current.count != next.count || !numeric_reuse::same_sum(current.sum, next.sum) {
+            if current.count != next.count
+                || current.specials != next.specials
+                || !numeric_reuse::same_sum(current.sum, next.sum)
+            {
                 return Ok(false);
             }
         }
@@ -240,7 +245,14 @@ impl Table {
                         if let Some(value) = value {
                             let state =
                                 &mut self.numbers[ordinals.at(row) * self.numeric_width + index];
-                            update_numeric_parts(&mut state.count, &mut state.sum, value, integer)?;
+                            update_numeric_parts(
+                                &mut state.count,
+                                &mut state.sum,
+                                &mut state.specials,
+                                value,
+                                integer,
+                                context.float_policy(),
+                            )?;
                         }
                         Ok(())
                     })?;
@@ -259,7 +271,12 @@ impl Table {
                         }
                         let state = &mut self.numbers[group * self.numeric_width + index];
                         update_count(&mut state.count, 1)?;
-                        update_sum_parts(&mut state.sum, value.as_ref())?;
+                        update_sum_parts(
+                            &mut state.sum,
+                            &mut state.specials,
+                            value.as_ref(),
+                            context.float_policy(),
+                        )?;
                     }
                 }
             }
@@ -279,6 +296,9 @@ impl Table {
                 let state = &self.numbers[group * self.numeric_width + index];
                 if state.count == 0 {
                     return Ok(Value::Null);
+                }
+                if let Some(value) = state.specials.result() {
+                    return Ok(Value::Float(value));
                 }
                 match function {
                     Function::Sum => Ok(Value::Float(state.sum.total())),

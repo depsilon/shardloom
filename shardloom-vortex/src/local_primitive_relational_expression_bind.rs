@@ -347,6 +347,10 @@ impl Binder<'_> {
         }
         let name = definition.name;
         let function = match name {
+            "is_nan" => F::IsNan,
+            "is_infinite" => F::IsInfinite,
+            "is_finite" => F::IsFinite,
+            "signbit" => F::SignBit,
             "abs" => F::Abs,
             "floor" => F::Floor,
             "ceil" => F::Ceil,
@@ -416,6 +420,13 @@ impl Binder<'_> {
     }
 
     fn literal_expression(&mut self, value: &ScalarValue) -> Result<Expression> {
+        if let ScalarValue::Float64(value) = value
+            && !self.session.float_policy().admits(*value)
+        {
+            return Err(failed(
+                "nonfinite floating literals require float_policy=extended",
+            ));
+        }
         let bytes = match value {
             ScalarValue::Utf8(text) => text.len(),
             ScalarValue::Binary(bytes) => bytes.len(),
@@ -516,7 +527,7 @@ fn literal(value: &ScalarValue) -> Result<Scalar> {
         ScalarValue::Boolean(value) => Scalar::from(*value),
         ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => Scalar::from(*value),
         ScalarValue::UInt64(value) => Scalar::from(*value),
-        ScalarValue::Float64(value) if value.is_finite() => Scalar::from(*value),
+        ScalarValue::Float64(value) => Scalar::from(*value),
         ScalarValue::Utf8(value) => Scalar::from(value.as_str()),
         ScalarValue::Binary(value) => Scalar::binary(
             vortex::buffer::ByteBuffer::copy_from(value.as_slice()),
@@ -565,9 +576,7 @@ pub(in crate::local_primitives) fn literal_dtype(value: &ScalarValue) -> Result<
         ScalarValue::Boolean(_) => DType::Bool(nullability),
         ScalarValue::Int64(_) => DType::Primitive(PType::I64, nullability),
         ScalarValue::UInt64(_) => DType::Primitive(PType::U64, nullability),
-        ScalarValue::Float64(value) if value.is_finite() => {
-            DType::Primitive(PType::F64, nullability)
-        }
+        ScalarValue::Float64(_) => DType::Primitive(PType::F64, nullability),
         ScalarValue::Utf8(_) => DType::Utf8(nullability),
         ScalarValue::Binary(_) => DType::Binary(nullability),
         ScalarValue::Decimal128 {
@@ -682,6 +691,17 @@ fn typed_function_dtype(
     use ScalarTypeRule as T;
     let first = &args[0].dtype;
     let dtype = match rule {
+        T::FloatClassify => {
+            if !matches!(
+                first,
+                DType::Null | DType::Primitive(PType::F32 | PType::F64, _)
+            ) {
+                return Err(failed(
+                    "floating classification requires Float32 or Float64",
+                ));
+            }
+            DType::Bool(nullable)
+        }
         T::EpochMinute | T::EpochTruncate => match first {
             DType::Primitive(ptype, _) if ptype.is_signed_int() => {
                 DType::Primitive(PType::I64, nullable)

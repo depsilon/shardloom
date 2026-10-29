@@ -71,6 +71,7 @@ pub(super) fn coerce(
             false,
             None,
             &mut scratch,
+            shardloom_core::FloatPolicy::Strict,
         )?;
         return OwnedScalar::from_native(converted, target, memory);
     }

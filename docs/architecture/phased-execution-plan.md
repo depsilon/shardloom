@@ -521,6 +521,50 @@ visible and independent; this implementation does not automatically close them.
     scheduling, dynamic resource admission and evidence tiers. Measure their actual
     work through existing owners before adding a new strategy. Keep timing surfaces
     separate and Vortex-native input/output explicit.
+  - **Two unfinished tracks remain inside item 20:** capability/workflow completion
+    and the performance checklist immediately below. Capability PRs do not close
+    the performance track. The October 29 ordering remains capabilities and their
+    acceptance first, then these experiments. Status reports must show both tracks;
+    none of this performance work moves into items 18/19 or the optional queue.
+  - **Remaining performance checklist:** the
+    [supplied review and admission contracts](native-analytical-completion-2026-10-27.md#performance-candidates-after-capability-completion)
+    cover these seven pending candidates. Recheck current source after capability
+    changes; existing implementation or a plausible saving is not measured acceptance.
+    - [ ] Propagate Top-K through proven order/cardinality-preserving direct-column
+      projections, including hidden or renamed ordering keys.
+    - [ ] Propagate downstream column demand through joins, retaining keys and
+      predicate dependencies while removing unused intermediate gathers.
+    - [ ] Extend controlled reader-to-native buffer ownership transfer through
+      the shared intake owner, first using the existing proven Parquet reader
+      boundary; prove retained capacity and transferred/copied bytes.
+    - [ ] Rank or filter at the generation-bound demanded-source owner before
+      fetching wide/nested payload, with actual deferred region/page/range reads.
+    - [ ] Independently evaluate singleton join-index entries and checked dense
+      integer directories, retaining exact duplicate/NULL/sparse-key behavior.
+    - [ ] Prepare string and temporal kernels once per batch, compute requested
+      temporal components, and keep numeric literal operands scalar.
+    - [ ] Evaluate measure-specific mixed aggregate state and eligible floating
+      extrema traversal sharing with exact completed-domain validation proof.
+    Deferred payload reads and join demand remain the larger investments; safe
+    Top-K propagation is the first contained experiment in this sequence. Preserve
+    the unchanged 347-query cohort and the under-10-engine-second stretch target.
+    After correctness, ownership, resources and no-fallback checks pass, retain a
+    lower complete-cohort engine total and drop an unchanged or higher total.
+    Keep per-case regressions and original rejected mechanisms visible; use Full43
+    only at meaningful integration boundaries. No new benchmark is implied by this
+    queue clarification.
+    **Shared-engine boundary:** all admitted formats feed the same ShardLoom-native
+    operator, semantics, memory, cancellation and result contracts. Top-K, join
+    demand/indexing, expressions and aggregate improvements belong in those shared
+    owners. Source-demand and deferred-fetch planning use existing common source
+    contracts; each adapter proves the metadata, row identity, read and ownership
+    capabilities it supplies. Parquet is the first measured adapter for buffer
+    transfer, not a separate compute engine or a requirement that future readers
+    use its decoder. Preserve native Vortex encodings rather than forcing inputs
+    through Arrow. An adapter lacking an optimization keeps its admitted ordinary
+    native path and reports that limitation. Format expansion must pass common
+    semantic/ownership/resource conformance plus adapter-specific fidelity checks;
+    identical performance or universal current format coverage is not claimed.
   - Execution checklist:
     - [x] Close item 17, merge its PR and documentation prerequisite, and record cleanup.
     - [x] Reconcile the supplied program with existing owners, parity and retain/drop decisions.
@@ -784,8 +828,14 @@ visible and independent; this implementation does not automatically close them.
     complete rows, real native-spill/failure acceptance, and 223 installed-wheel
     integration tests. It adds per-operation precision/scale/rounding and proves
     explicit widened-integer SUM without changing ordinary arithmetic defaults.
-    Non-finite/signed-zero policy and the broader composition, batch-function,
-    diagnostics and combined acceptance requirements remain open.
+    The [floating-domain continuation](../benchmarks/native-float-policy-2026-10-29.md)
+    passes 20 public tests with 410 five-interface executions, 3,315 complete
+    five-interface rows and actual native spill for grouped/window/pivot and
+    duplicate-selection results. Native/default workspace checks and all 243
+    installed-package tests pass. Strict remains the default; extended policy
+    distinguishes NULL from NaN and preserves carried F32/F64 bits. Composition,
+    batch-function, diagnostics, the seven performance candidates above and
+    combined item-20 acceptance remain open.
     The existing 347-query checkpoint is unchanged during this capability work.
     The latest maintainer instruction closes PR #1619 at this validated checkpoint
     and continues the remaining item-20 work in subsequent cohesive PRs. Retain the dropped
@@ -838,7 +888,8 @@ implements scoped ordinary CTEs, column lists and typed parameters using shared
 plan references and resource admission. Recursive execution and explicit
 `MATERIALIZED` ownership remain unsupported; `NOT MATERIALIZED` uses ordinary
 bound references. Shared nondecimal
-SUM/AVG finalize as floating values; the reducer rejects non-finite sums, and
+SUM/AVG finalize as floating values; under the default strict policy the reducer
+rejects non-finite sums, and
 [`native_decimal_reduce.rs`](../../shardloom-vortex/src/local_primitives/native_decimal_reduce.rs)
 rejects averages that would discard fractional digits. This does not imply all
 opaque payload movement observes or rejects every non-finite value. The
@@ -853,9 +904,14 @@ The [explicit-decimal implementation](native-decimal-output-2026-10-29.md) adds
 caller-selected precision, scale and six rounding modes to native scalar
 arithmetic and Decimal128 additive/continuous-quantile reducers and windows.
 Its result rounding occurs once after exact accumulation or interpolation;
-ordinary declarations retain their existing domains. Non-finite and signed-zero
-policy remains the next numeric unit.
-The broader SQL aggregate combinations, numeric policies and combined acceptance
+ordinary declarations retain their existing domains. The
+[floating-domain implementation](native-float-policy-2026-10-29.md) adds immutable
+strict/extended session policy, bit-preserving F32/F64 carriage, normalized
+analytical identity, classification and nonfinite-aware reducers/windows through
+the existing native owners. Its [acceptance record](../benchmarks/native-float-policy-2026-10-29.md)
+covers public interfaces, actual spill, corrected NaN-payload regressions,
+native/default checks and installed-package acceptance.
+The broader SQL aggregate combinations, remaining composition and combined acceptance
 above retain their remaining implementation and conformance obligations.
 
 Use **six small end-to-end workloads**, extending existing conformance tooling:

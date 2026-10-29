@@ -1,7 +1,7 @@
 //! Reversible exact totals for moving F64 frames. Each finite IEEE value is an
 //! integer coefficient in units of 2^-1074; round only the completed result.
 
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{FloatPolicy, Result, ShardLoomError, float_policy::CANONICAL_F64_NAN_BITS};
 use std::cmp::Ordering;
 
 // A finite F64 coefficient uses at most 2098 bits. Multiplication by a u64
@@ -9,11 +9,95 @@ use std::cmp::Ordering;
 const LIMBS: usize = 34;
 const FRACTION_MASK: u64 = (1 << 52) - 1;
 
+/// Nonfinite participation stays separate from finite accumulation, so removal
+/// and merging never ask IEEE arithmetic to undo an infinity or NaN.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct Specials {
+    nan: u64,
+    positive: u64,
+    negative: u64,
+}
+
+impl Specials {
+    pub(super) fn parts(self) -> [u64; 3] {
+        [self.nan, self.positive, self.negative]
+    }
+
+    pub(super) fn from_parts(parts: [u64; 3], count: u64) -> Result<Self> {
+        let [nan, positive, negative] = parts;
+        if nan
+            .checked_add(positive)
+            .and_then(|sum| sum.checked_add(negative))
+            .is_none_or(|sum| sum > count)
+        {
+            return Err(failed("nonfinite counts exceed observation count"));
+        }
+        Ok(Self {
+            nan,
+            positive,
+            negative,
+        })
+    }
+
+    pub(super) fn add(&mut self, value: f64) -> Result<bool> {
+        self.adjust(value, false)
+    }
+
+    fn remove(&mut self, value: f64) -> Result<bool> {
+        self.adjust(value, true)
+    }
+
+    fn adjust(&mut self, value: f64, remove: bool) -> Result<bool> {
+        let slot = if value.is_nan() {
+            &mut self.nan
+        } else if value == f64::INFINITY {
+            &mut self.positive
+        } else if value == f64::NEG_INFINITY {
+            &mut self.negative
+        } else {
+            return Ok(false);
+        };
+        *slot = if remove {
+            slot.checked_sub(1)
+        } else {
+            slot.checked_add(1)
+        }
+        .ok_or_else(|| failed("nonfinite observation count overflow or underflow"))?;
+        Ok(true)
+    }
+
+    pub(super) fn merge(&mut self, other: Self) -> Result<()> {
+        let add = |left: u64, right| {
+            left.checked_add(right)
+                .ok_or_else(|| failed("nonfinite observation count overflow"))
+        };
+        *self = Self {
+            nan: add(self.nan, other.nan)?,
+            positive: add(self.positive, other.positive)?,
+            negative: add(self.negative, other.negative)?,
+        };
+        Ok(())
+    }
+
+    pub(super) fn result(self) -> Option<f64> {
+        if self.nan != 0 || (self.positive != 0 && self.negative != 0) {
+            Some(f64::from_bits(CANONICAL_F64_NAN_BITS))
+        } else if self.positive != 0 {
+            Some(f64::INFINITY)
+        } else if self.negative != 0 {
+            Some(f64::NEG_INFINITY)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Total {
     magnitude: [u64; LIMBS],
     negative: bool,
     count: u64,
+    specials: Specials,
 }
 
 impl Default for Total {
@@ -22,6 +106,7 @@ impl Default for Total {
             magnitude: [0; LIMBS],
             negative: false,
             count: 0,
+            specials: Specials::default(),
         }
     }
 }
@@ -32,13 +117,18 @@ impl Total {
         self.count
     }
 
-    pub(super) fn add(&mut self, value: f64) -> Result<()> {
+    pub(super) fn add(&mut self, value: f64, policy: FloatPolicy) -> Result<()> {
+        if !policy.admits(value) {
+            return Err(failed("requires finite observations"));
+        }
         let count = self
             .count
             .checked_add(1)
             .ok_or_else(|| failed("count overflow"))?;
         let mut next = *self;
-        next.adjust(value, false)?;
+        if !next.specials.add(value)? {
+            next.adjust(value, false)?;
+        }
         next.count = count;
         *self = next;
         Ok(())
@@ -50,8 +140,13 @@ impl Total {
             .checked_sub(1)
             .ok_or_else(|| failed("empty frame removal"))?;
         let mut next = *self;
-        next.adjust(value, true)?;
-        if count == 0 && next.magnitude.iter().any(|&limb| limb != 0) {
+        if !next.specials.remove(value)? {
+            next.adjust(value, true)?;
+        }
+        if count == 0
+            && (next.magnitude.iter().any(|&limb| limb != 0)
+                || next.specials != Specials::default())
+        {
             return Err(failed("empty frame retained a nonzero total"));
         }
         next.count = count;
@@ -66,6 +161,7 @@ impl Total {
             .ok_or_else(|| failed("count overflow"))?;
         let mut next = *self;
         next.signed_add(&other.magnitude, other.negative)?;
+        next.specials.merge(other.specials)?;
         next.count = count;
         *self = next;
         Ok(())
@@ -120,6 +216,9 @@ impl Total {
     pub(super) fn finish(&self, average: bool) -> Result<Option<f64>> {
         if self.count == 0 {
             return Ok(None);
+        }
+        if let Some(value) = self.specials.result() {
+            return Ok(Some(value));
         }
         let divisor = if average { self.count } else { 1 };
         let mut quotient = self.magnitude;
@@ -203,6 +302,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_float_total_extended_specials_are_reversible_and_mergeable() {
+        let extended = FloatPolicy::Extended;
+        let nan = f64::from_bits(0xfff0_0000_0000_0123);
+        let mut total = Total::default();
+        total.add(3.0, extended).unwrap();
+        total.add(5.0, extended).unwrap();
+        let finite = total;
+        for special in [f64::INFINITY, f64::NEG_INFINITY, nan] {
+            let mut partial = Total::default();
+            partial.add(special, extended).unwrap();
+            total.merge(&partial).unwrap();
+            for average in [false, true] {
+                let actual = total.finish(average).unwrap().unwrap();
+                let expected = if special.is_nan() {
+                    CANONICAL_F64_NAN_BITS
+                } else {
+                    special.to_bits()
+                };
+                assert_eq!(actual.to_bits(), expected);
+            }
+            total.remove(special).unwrap();
+            assert_eq!(total, finite);
+        }
+        total.add(f64::INFINITY, extended).unwrap();
+        total.add(f64::NEG_INFINITY, extended).unwrap();
+        assert_eq!(
+            total.finish(false).unwrap().unwrap().to_bits(),
+            CANONICAL_F64_NAN_BITS
+        );
+        total.remove(f64::INFINITY).unwrap();
+        assert_eq!(total.finish(true).unwrap(), Some(f64::NEG_INFINITY));
+        total.remove(f64::NEG_INFINITY).unwrap();
+        assert_eq!(total.finish(false).unwrap(), Some(8.0));
+        assert_eq!(total.finish(true).unwrap(), Some(4.0));
+        let before = total;
+        assert!(total.remove(nan).is_err());
+        assert_eq!(total, before);
+        assert!(total.add(nan, FloatPolicy::Strict).is_err());
+        assert_eq!(total, before);
+        total.remove(3.0).unwrap();
+        total.remove(5.0).unwrap();
+        assert_eq!(total.finish(false).unwrap(), None);
+    }
+
+    #[test]
     fn native_float_total_matches_independent_exact_rational_bits() {
         let cases: serde_json::Value = serde_json::from_str(include_str!(
             "../../tests/fixtures/native_window_float_reference.json"
@@ -221,7 +365,7 @@ mod tests {
                 .collect::<Vec<_>>();
             let mut total = Total::default();
             for &value in &input {
-                total.add(value).unwrap();
+                total.add(value, FloatPolicy::Strict).unwrap();
             }
             if case["sum_bits"].is_null() {
                 assert!(
@@ -246,13 +390,13 @@ mod tests {
             );
             let mut reverse = Total::default();
             for &value in input.iter().rev() {
-                reverse.add(value).unwrap();
+                reverse.add(value, FloatPolicy::Strict).unwrap();
             }
             assert_eq!(total, reverse, "order case {index}");
             let mut halves = [Total::default(); 2];
             for (position, &value) in input.iter().enumerate() {
                 halves[usize::from(position >= input.len() / 2)]
-                    .add(value)
+                    .add(value, FloatPolicy::Strict)
                     .unwrap();
             }
             let second = halves[1];
@@ -262,7 +406,7 @@ mod tests {
                 total.remove(value).unwrap();
                 let mut retained = Total::default();
                 for &value in &input[position + 1..] {
-                    retained.add(value).unwrap();
+                    retained.add(value, FloatPolicy::Strict).unwrap();
                 }
                 assert_eq!(total, retained, "removal case {index}, position {position}");
             }
@@ -274,7 +418,7 @@ mod tests {
     fn native_float_total_reversible_cancellation_and_mean() {
         let mut total = Total::default();
         for value in [1e300, 1.0, -1e300] {
-            total.add(value).unwrap();
+            total.add(value, FloatPolicy::Strict).unwrap();
         }
         assert_eq!(total.finish(false).unwrap(), Some(1.0));
         total.remove(1e300).unwrap();
@@ -283,7 +427,7 @@ mod tests {
         total.remove(1.0).unwrap();
         assert_eq!(total.finish(false).unwrap(), None);
         for _ in 0..2 {
-            total.add(f64::MAX).unwrap();
+            total.add(f64::MAX, FloatPolicy::Strict).unwrap();
         }
         assert!(total.finish(false).is_err());
         assert_eq!(total.finish(true).unwrap(), Some(f64::MAX));
@@ -306,8 +450,8 @@ mod tests {
             (-f64::from_bits(1), 0.0, -0.0, true),
         ] {
             let mut total = Total::default();
-            total.add(first).unwrap();
-            total.add(second).unwrap();
+            total.add(first, FloatPolicy::Strict).unwrap();
+            total.add(second, FloatPolicy::Strict).unwrap();
             assert_eq!(
                 total.finish(average).unwrap().unwrap().to_bits(),
                 expected.to_bits()
@@ -319,10 +463,10 @@ mod tests {
     fn native_float_total_denials_are_atomic_and_merges_are_weighted() {
         let mut total = Total::default();
         assert!(total.remove(1.0).is_err());
-        total.add(1.0).unwrap();
+        total.add(1.0, FloatPolicy::Strict).unwrap();
         for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             let before = total;
-            assert!(total.add(invalid).is_err());
+            assert!(total.add(invalid, FloatPolicy::Strict).is_err());
             assert!(total.remove(invalid).is_err());
             assert_eq!(before, total);
         }
@@ -331,7 +475,7 @@ mod tests {
         assert_eq!(before, total);
         let mut other = Total::default();
         for value in [2.0, 3.0, 4.0] {
-            other.add(value).unwrap();
+            other.add(value, FloatPolicy::Strict).unwrap();
         }
         total.merge(&other).unwrap();
         assert_eq!(total.count(), 4);

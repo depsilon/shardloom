@@ -270,7 +270,11 @@ impl Pivot {
             .ok_or_else(|| failed("pivot is not bound"))?;
         Ok(Self {
             state: PivotRowExportState {
-                aggregate_cells: Cells::new(compiled.decimal_source, compiled.nested_extrema),
+                aggregate_cells: Cells::new(
+                    compiled.decimal_source,
+                    compiled.nested_extrema,
+                    context.float_policy(),
+                ),
                 ..PivotRowExportState::default()
             },
             retained: context.memory().reserve(0)?,
@@ -720,6 +724,7 @@ impl ResidentCompletedPivot {
             context.memory(),
             batch_rows,
             context.cancellation().clone(),
+            context.float_policy(),
             consume,
         )?;
         let mut offset = 0;
@@ -768,10 +773,11 @@ impl ResidentCompletedPivot {
                     self.native_value(compiled, offset + row, column)
                 })?
             } else {
-                super::super::result_batch::build_column(
+                super::super::result_batch::build_column_with_float_policy(
                     dtype,
                     count,
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| {
                         context.check_cancelled()?;
                         self.value(compiled, projection, offset + row, column)

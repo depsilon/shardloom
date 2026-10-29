@@ -461,10 +461,11 @@ impl Layout {
                     let source = logical_field_from_native_array(array, &column.source)?;
                     if column.validity_only {
                         let valid = parent_validity(&source, context)?;
-                        result_batch::build_column(
+                        result_batch::build_column_with_float_policy(
                             &column.dtype,
                             rows,
                             &context.native_session().host_allocator(),
+                            context.float_policy(),
                             |row| {
                                 if row.is_multiple_of(1024) {
                                     context.check_cancelled()?;

@@ -164,16 +164,17 @@ impl Table {
                     let next = ordinal
                         .checked_add(1)
                         .ok_or_else(|| failed("quantile observation ordinal overflow"))?;
-                    roots.values[index] = arena.insert(
+                    roots.values[index] = arena.insert_with_policy(
                         roots.values[index],
                         value,
                         *ordinal,
                         context.cancellation(),
+                        context.float_policy(),
                     )?;
                     *ordinal = next;
                 }
                 Mode::Ordered { counts, .. } => {
-                    native_quantile::validate(&value)?;
+                    native_quantile::validate(&value, context.float_policy())?;
                     counts.values[slot.index] = counts.values[slot.index]
                         .checked_add(1)
                         .ok_or_else(|| failed("quantile observation count overflow"))?;
@@ -236,7 +237,7 @@ impl Table {
                 if first <= rank && rank < last {
                     let row = rows.start + usize::try_from(rank - first).map_err(vortex_error)?;
                     let value = values.raw_cell(row)?;
-                    native_quantile::validate(&value)?;
+                    native_quantile::validate(&value, context.float_policy())?;
                     *target = Some(value);
                 }
             }
@@ -309,9 +310,15 @@ impl Table {
             }
         };
         if discrete {
-            native_quantile::numeric_value(lower, &measure.dtype)
+            native_quantile::numeric_value(lower, &measure.dtype, context.float_policy())
         } else {
-            position.interpolate_with(lower, upper, &measure.dtype, measure.decimal_output)
+            position.interpolate_with(
+                lower,
+                upper,
+                &measure.dtype,
+                measure.decimal_output,
+                context.float_policy(),
+            )
         }
     }
 }

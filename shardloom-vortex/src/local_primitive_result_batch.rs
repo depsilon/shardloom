@@ -448,6 +448,7 @@ pub(super) fn build<'a>(
     max_bytes: usize,
     allocator: &HostAllocatorRef,
     memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    float_policy: shardloom_core::FloatPolicy,
     mut value: impl FnMut(usize, usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     if buffer_bytes(fields, rows, &mut value)? > max_bytes {
@@ -462,7 +463,9 @@ pub(super) fn build<'a>(
                 value(row, column)
             })?
         } else {
-            build_column(dtype, rows, allocator, |row| value(row, column))?
+            build_column_with_float_policy(dtype, rows, allocator, float_policy, |row| {
+                value(row, column)
+            })?
         });
     }
     StructArray::try_new(
@@ -510,7 +513,23 @@ pub(super) fn build_column<'a>(
     allocator: &HostAllocatorRef,
     value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
-    build_column_prefix_inner::<false>(dtype, rows, rows, allocator, value)
+    build_column_with_float_policy(
+        dtype,
+        rows,
+        allocator,
+        shardloom_core::FloatPolicy::Strict,
+        value,
+    )
+}
+
+pub(super) fn build_column_with_float_policy<'a>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
+    value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
+    build_column_prefix_inner::<false>(dtype, rows, rows, allocator, float_policy, value)
 }
 
 /// Bound expression callbacks can construct expensive owned scalars. Evaluate
@@ -521,12 +540,13 @@ pub(super) fn build_expression_column<'a>(
     dtype: &DType,
     rows: usize,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     if matches!(dtype, DType::Utf8(_) | DType::Binary(_)) {
         expression_variable::build_once(dtype, rows, allocator, value)
     } else {
-        build_column(dtype, rows, allocator, value)
+        build_column_with_float_policy(dtype, rows, allocator, float_policy, value)
     }
 }
 
@@ -543,8 +563,11 @@ pub(super) fn build_numeric_column<
 }
 
 #[cfg(unix)]
-pub(super) fn validate_finite_numeric_output(value: f64) -> Result<()> {
-    numeric::finite(value.is_finite())
+pub(super) fn validate_numeric_output(
+    value: f64,
+    float_policy: shardloom_core::FloatPolicy,
+) -> Result<()> {
+    numeric::finite(float_policy.admits(value))
 }
 
 /// Copy already selected numeric storage into independently credited buffers.
@@ -555,9 +578,17 @@ pub(super) fn copy_numeric_column(
     values: &PrimitiveArray,
     valid: &vortex::mask::Mask,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<ArrayRef> {
-    numeric::copy_column(dtype, values, valid, allocator, check_cancelled)
+    numeric::copy_column(
+        dtype,
+        values,
+        valid,
+        allocator,
+        float_policy,
+        check_cancelled,
+    )
 }
 
 /// Validate the complete typed domain without constructing an output column.
@@ -567,15 +598,23 @@ pub(super) fn validate_numeric_column(
     values: &PrimitiveArray,
     valid: &vortex::mask::Mask,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<()> {
-    numeric::validate_column(dtype, values, valid, allocator, check_cancelled)
+    numeric::validate_column(
+        dtype,
+        values,
+        valid,
+        allocator,
+        float_policy,
+        check_cancelled,
+    )
 }
 
 /// Construct a prefix while preserving validation of every scalar in its
 /// original order. The caller still supplies the complete selected input;
 /// discarded rows use the same typed writes against bounded stack scratch.
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 pub(super) fn build_column_prefix<'a>(
     dtype: &DType,
     rows: usize,
@@ -583,10 +622,29 @@ pub(super) fn build_column_prefix<'a>(
     allocator: &HostAllocatorRef,
     value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
+    build_column_prefix_with_float_policy(
+        dtype,
+        rows,
+        retained,
+        allocator,
+        shardloom_core::FloatPolicy::Strict,
+        value,
+    )
+}
+
+#[cfg(unix)]
+pub(super) fn build_column_prefix_with_float_policy<'a>(
+    dtype: &DType,
+    rows: usize,
+    retained: usize,
+    allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
+    value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
     if retained > rows {
         return Err(failed("output prefix exceeds the selected row count"));
     }
-    build_column_prefix_inner::<true>(dtype, rows, retained, allocator, value)
+    build_column_prefix_inner::<true>(dtype, rows, retained, allocator, float_policy, value)
 }
 
 #[allow(clippy::too_many_lines)] // Both consumers share the exact validation and value visitation order.
@@ -595,6 +653,7 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
     rows: usize,
     retained: usize,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     mut value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     let stride = width(dtype)?;
@@ -678,6 +737,7 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
                     write_primitive(
                         *ptype,
                         value,
+                        float_policy,
                         if keep {
                             &mut data.as_mut_slice()[row * stride..(row + 1) * stride]
                         } else {
@@ -694,6 +754,7 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
                         crate::native_payload_schema::temporal_storage(dtype)
                             .ok_or_else(|| failed("unsupported temporal output dtype"))?,
                         value,
+                        float_policy,
                         if keep {
                             &mut data.as_mut_slice()[row * stride..(row + 1) * stride]
                         } else {
@@ -809,7 +870,12 @@ fn finish_column(
 }
 
 #[allow(clippy::cast_possible_truncation)]
-fn write_primitive(ptype: PType, value: Value<'_>, output: &mut [u8]) -> Result<()> {
+fn write_primitive(
+    ptype: PType,
+    value: Value<'_>,
+    float_policy: shardloom_core::FloatPolicy,
+    output: &mut [u8],
+) -> Result<()> {
     macro_rules! integer {
         ($t:ty, $value:expr) => {
             output.copy_from_slice(&<$t>::try_from($value).map_err(vortex_error)?.to_ne_bytes())
@@ -824,12 +890,17 @@ fn write_primitive(ptype: PType, value: Value<'_>, output: &mut [u8]) -> Result<
         (PType::U16, Value::UInt(value)) => integer!(u16, value),
         (PType::U32, Value::UInt(value)) => integer!(u32, value),
         (PType::U64, Value::UInt(value)) => output.copy_from_slice(&value.to_ne_bytes()),
-        (PType::F32, Value::Float(value))
-            if value.is_finite() && f64::from(value as f32).to_bits() == value.to_bits() =>
-        {
-            output.copy_from_slice(&(value as f32).to_ne_bytes());
+        (PType::F32, Value::Float(value)) if float_policy.admits(value) => {
+            let value = shardloom_core::float_policy::narrow_f32_exact(value).ok_or_else(|| {
+                failed(if float_policy == shardloom_core::FloatPolicy::Strict {
+                    "numeric value differs from its finite declared dtype"
+                } else {
+                    "numeric value differs from its exact Float32 declared dtype"
+                })
+            })?;
+            output.copy_from_slice(&value.to_ne_bytes());
         }
-        (PType::F64, Value::Float(value)) if value.is_finite() => {
+        (PType::F64, Value::Float(value)) if float_policy.admits(value) => {
             output.copy_from_slice(&value.to_ne_bytes());
         }
         _ => {

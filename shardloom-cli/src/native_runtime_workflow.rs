@@ -130,7 +130,15 @@ impl NativeWorkflowDeclaration {
             crate::execution_resources::ResourceArguments::from_resources(resources);
         validate_route(&request)?;
         let primitive = workflow::normalized_vortex_primitive(&request);
+        if session.float_policy() == shardloom_core::FloatPolicy::Extended
+            && !self.sql_preserves_operation
+        {
+            return Err(failed(
+                "extended float_policy requires a complete shared SQL or typed relational declaration; explicit legacy primitive options are not admitted",
+            ));
+        }
         if primitive.is_none()
+            || session.float_policy() == shardloom_core::FloatPolicy::Extended
             || (self.sql_preserves_operation && workflow::uses_source_demand(&request))
         {
             let statement = request.sql_statement.as_deref().ok_or_else(|| {

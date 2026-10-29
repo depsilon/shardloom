@@ -10159,7 +10159,14 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
+        float_policy: str | None = None,
     ) -> None:
+        from ._native_backend import normalize_float_policy
+        selected_float_policy = normalize_float_policy(
+            getattr(client, "float_policy", "strict") if float_policy is None else float_policy
+        )
+        if client is not None and getattr(client, "float_policy", "strict") != selected_float_policy:
+            raise ValueError("context float_policy must match the supplied client's immutable policy")
         limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
         self._resources = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
@@ -10174,6 +10181,7 @@ class ShardLoomContext:
         from ._native_backend import application_transport
         self.client = client if client is not None else ShardLoomClient.from_env(
             transport=application_transport(transport),
+            float_policy=selected_float_policy,
         )
         self.engine = _normalize_engine_mode(engine)
         self._preparation_session: ShardLoomSession | None = None
@@ -10191,6 +10199,12 @@ class ShardLoomContext:
         """Return the ceilings inherited by work, with or without a job grant."""
 
         return self._resource_limits
+
+    @property
+    def float_policy(self) -> str:
+        """Return the immutable floating semantics policy inherited from its client."""
+
+        return getattr(self.client, "float_policy", "strict")
 
     @property
     def transport(self) -> str:
@@ -10234,6 +10248,7 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
+        float_policy: str | None = None,
         **kwargs: object,
     ) -> "ShardLoomContext":
         """Create a context from environment configuration without running commands."""
@@ -10242,6 +10257,8 @@ class ShardLoomContext:
         kwargs["transport"] = application_transport(
             kwargs.get("transport"), binary=kwargs.get("binary"), env=env,
         )
+        if float_policy is not None:
+            kwargs["float_policy"] = float_policy
         return cls(
             ShardLoomClient.from_env(
                 env=env,
@@ -10251,6 +10268,7 @@ class ShardLoomContext:
             engine=engine,
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, resource_limits=resource_limits,
+            float_policy=float_policy,
         )
 
     @classmethod
@@ -10265,6 +10283,7 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
+        float_policy: str | None = None,
         **kwargs: object,
     ) -> "ShardLoomContext":
         """Create a source-tree context without running commands."""
@@ -10273,11 +10292,13 @@ class ShardLoomContext:
             ShardLoomClient.from_repo(
                 repo_root=repo_root,
                 profile_order=profile_order,
+                **({} if float_policy is None else {"float_policy": float_policy}),
                 **kwargs,
             ),
             engine=engine,
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, resource_limits=resource_limits,
+            float_policy=float_policy,
         )
 
     def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
@@ -11743,6 +11764,7 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
+        float_policy: str | None = None,
     ) -> ShardLoomSession:
         """Return a compatibility session sharing this context's lifetime.
 
@@ -11751,6 +11773,10 @@ class ShardLoomContext:
         """
 
         self.client._ensure_open()
+        if float_policy is not None:
+            from ._native_backend import normalize_float_policy
+            if normalize_float_policy(float_policy) != self.float_policy:
+                raise ValueError("session float_policy must match its context's immutable policy")
         shared = all(value is None for value in (
             session_id, memory_gb, memory_bytes, max_parallelism, resources, resource_limits,
         ))
@@ -12044,6 +12070,7 @@ def context(
     max_parallelism: int | None = None,
     resources: ExecutionResources | None = None,
     resource_limits: ExecutionResourceLimits | None = None,
+    float_policy: str | None = None,
 ) -> ShardLoomContext:
     """Return a side-effect-free ShardLoom context.
 
@@ -12063,7 +12090,8 @@ def context(
             for value in (binary, env, cwd, repo_root, profile_order, timeout, transport)
         ):
             raise ValueError("client cannot be combined with client configuration arguments")
-        return ShardLoomContext(client, engine=engine, resources=resources, resource_limits=resource_limits)
+        return ShardLoomContext(client, engine=engine, resources=resources,
+                                resource_limits=resource_limits, float_policy=float_policy)
     if repo_root is not None:
         return ShardLoomContext.from_repo(
             repo_root,
@@ -12076,6 +12104,7 @@ def context(
             transport="subprocess" if transport is None else transport,
             resources=resources,
             resource_limits=resource_limits,
+            float_policy=float_policy,
         )
     return ShardLoomContext.from_env(
         env=env,
@@ -12087,6 +12116,7 @@ def context(
         transport=transport,
         resources=resources,
         resource_limits=resource_limits,
+        float_policy=float_policy,
     )
 
 
@@ -12107,6 +12137,7 @@ def session(
     max_parallelism: int | None = None,
     resources: ExecutionResources | None = None,
     resource_limits: ExecutionResourceLimits | None = None,
+    float_policy: str | None = None,
 ) -> ShardLoomSession:
     """Return a caller-owned local ShardLoom session.
 
@@ -12131,6 +12162,7 @@ def session(
         timeout=timeout,
         resources=resources,
         resource_limits=resource_limits,
+        float_policy=float_policy,
     ).session(session_id=session_id)
 
 

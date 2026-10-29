@@ -103,6 +103,7 @@ class SqlFixtureCase:
     output_format: str | None = None
     output_name: str | None = None
     expected_output_text: str | None = None
+    float_policy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -690,6 +691,53 @@ def decimal_arithmetic_projection_case() -> SqlFixtureCase:
             '{"id":3,"adjusted":"decimal128(11,2):2250",'
             '"half":"decimal128(38,6):10625000","scaled":"decimal128(13,4):318750"}\n'
         ),
+    )
+
+
+def float_policy_classification_case(extended: bool) -> SqlFixtureCase:
+    policy = "extended" if extended else "strict"
+    value = "x / 0.0" if extended else "x"
+    return SqlFixtureCase(
+        case_id=f"float_{policy}_classification",
+        source_name="floating.csv",
+        source_text="id,x\n1,-1.0\n2,-0.0\n3,0.0\n4,1.0\n5,\n",
+        statement_template=(
+            f"SELECT id,IS_NAN({value}) AS nan,IS_INFINITE({value}) AS infinite,"
+            f"IS_FINITE({value}) AS finite,SIGNBIT(x) AS negative,"
+            f"CAST({value} AS utf8) AS value FROM '{{source}}' ORDER BY id"
+        ),
+        expected_jsonl=(
+            '{"id":1,"nan":false,"infinite":true,"finite":false,"negative":true,"value":"-inf"}\n'
+            '{"id":2,"nan":true,"infinite":false,"finite":false,"negative":true,"value":"NaN"}\n'
+            '{"id":3,"nan":true,"infinite":false,"finite":false,"negative":false,"value":"NaN"}\n'
+            '{"id":4,"nan":false,"infinite":true,"finite":false,"negative":false,"value":"inf"}\n'
+            if extended else
+            '{"id":1,"nan":false,"infinite":false,"finite":true,"negative":true,"value":"-1"}\n'
+            '{"id":2,"nan":false,"infinite":false,"finite":true,"negative":true,"value":"-0"}\n'
+            '{"id":3,"nan":false,"infinite":false,"finite":true,"negative":false,"value":"0"}\n'
+            '{"id":4,"nan":false,"infinite":false,"finite":true,"negative":false,"value":"1"}\n'
+        ) + '{"id":5,"nan":null,"infinite":null,"finite":null,"negative":null,"value":null}\n',
+        float_policy=policy,
+    )
+
+
+def float_extended_group_identity_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="float_extended_group_identity",
+        source_name="floating-groups.csv",
+        source_text="id,x\n1,-1.0\n2,-0.0\n3,0.0\n4,1.0\n5,\n",
+        statement_template=(
+            "SELECT CAST(q AS utf8) AS value,COUNT(*) AS n "
+            "FROM (SELECT x / 0.0 AS q FROM '{source}') AS values "
+            "GROUP BY q ORDER BY q NULLS LAST"
+        ),
+        expected_jsonl=(
+            '{"value":"-inf","n":1}\n'
+            '{"value":"inf","n":1}\n'
+            '{"value":"NaN","n":2}\n'
+            '{"value":null,"n":1}\n'
+        ),
+        float_policy="extended",
     )
 
 
@@ -3334,6 +3382,9 @@ def executable_cases() -> list[SqlFixtureCase]:
         binary_cast_ordering_predicate_case(),
         decimal_cast_projection_predicate_case(),
         decimal_arithmetic_projection_case(),
+        float_policy_classification_case(False),
+        float_policy_classification_case(True),
+        float_extended_group_identity_case(),
         binary_helper_projection_case(),
         binary_helper_predicate_case(),
         binary_byte_length_projection_predicate_case(),
@@ -3917,6 +3968,7 @@ def workflow_source_bindings(
 
 def selected_workflow_fields(fields: dict[str, Any]) -> dict[str, Any]:
     evidence_keys = {
+        "float_policy",
         "public_workflow_requested_output",
         "result_payload_complete",
         "output_row_count",
@@ -3975,6 +4027,10 @@ def run_executable_case(
         output=output_path,
         allow_overwrite=output_path is not None,
     )
+    if case.float_policy is not None:
+        if case.float_policy not in {"strict", "extended"}:
+            raise ValueError("fixture float policy must be strict or extended")
+        cli_args[1:1] = ["--float-policy", case.float_policy]
     completed = run_subprocess(repo_root=repo_root, command=cli_args)
     payload, blockers = parse_json_output(completed, case.case_id)
     artifact_ref = work_dir / "artifacts" / f"{case.case_id}.json"
@@ -4018,6 +4074,9 @@ def run_executable_case(
             fields = report_fields(payload)
         except Exception as exc:  # noqa: BLE001 - malformed evidence becomes a case blocker.
             blockers.append(f"{case.case_id}: invalid public workflow evidence: {exc}")
+
+    if case.float_policy is not None and fields.get("float_policy") != case.float_policy:
+        blockers.append(f"{case.case_id}: float_policy={fields.get('float_policy')!r}, expected {case.float_policy!r}")
 
     if output_path is not None:
         committed = fields.get("native_vortex_result_export_all_targets_committed")
@@ -4104,6 +4163,7 @@ def run_executable_case(
         "property_seed": case.property_seed,
         "fuzz_seed": case.fuzz_seed,
         "fuzz_surface": case.fuzz_surface or "",
+        "float_policy": case.float_policy,
         "selected_fields": selected_workflow_fields(fields),
         "fallback_attempted": False,
         "external_engine_invoked": False,

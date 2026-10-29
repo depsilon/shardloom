@@ -6,7 +6,29 @@
 //! This implementation is original and shares no external engine execution.
 
 use super::{NumericAggregateSum, native_relational_batch::failed, native_relational_keys::Cell};
-use shardloom_core::Result;
+use shardloom_core::{FloatPolicy, Result, float_policy::CANONICAL_F64_NAN_BITS};
+
+fn special(value: &Cell, policy: FloatPolicy) -> Result<bool> {
+    match value {
+        Cell::Float(bits) => {
+            let value = f64::from_bits(*bits);
+            if !policy.admits(value) {
+                return Err(failed("statistical input is nonfinite"));
+            }
+            Ok(!value.is_finite())
+        }
+        Cell::Null | Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_) => Ok(false),
+        _ => Err(failed(
+            "statistical input requires primitive numeric values",
+        )),
+    }
+}
+
+fn count_with_specials(count: u64, specials: u64) -> Result<u64> {
+    count
+        .checked_add(specials)
+        .ok_or_else(|| failed("statistical count overflow"))
+}
 
 #[derive(Debug, Clone, Copy)]
 enum Number {
@@ -132,6 +154,7 @@ fn restore_product(value: f64, x: f64, y: f64) -> f64 {
 #[derive(Debug, Clone, Copy, Default)]
 pub(super) struct Moments {
     count: u64,
+    nonfinite_count: u64,
     origin: Option<Number>,
     scale: f64,
     mean_offset: NumericAggregateSum,
@@ -139,8 +162,20 @@ pub(super) struct Moments {
 }
 
 impl Moments {
-    #[allow(clippy::cast_precision_loss)] // Count normalization is part of the declared Float64 statistical result.
+    #[cfg(test)]
     pub(super) fn observe(&mut self, value: &Cell) -> Result<()> {
+        self.observe_with_policy(value, FloatPolicy::Strict)
+    }
+
+    pub(super) fn observe_with_policy(&mut self, value: &Cell, policy: FloatPolicy) -> Result<()> {
+        if matches!(value, Cell::Null) {
+            return Ok(());
+        }
+        count_with_specials(count_with_specials(self.count, self.nonfinite_count)?, 1)?;
+        if special(value, policy)? {
+            self.nonfinite_count += 1; // Total cardinality was checked above.
+            return Ok(());
+        }
         let Some(value) = Number::from_cell(value)? else {
             return Ok(());
         };
@@ -188,8 +223,21 @@ impl Moments {
         self
     }
 
-    #[allow(clippy::cast_precision_loss)] // Pairwise normalization uses Float64 after checked exact counts.
     pub(super) fn merge(&mut self, other: Self) -> Result<()> {
+        let nonfinite_count = count_with_specials(self.nonfinite_count, other.nonfinite_count)?;
+        count_with_specials(
+            count_with_specials(self.count, other.count)?,
+            nonfinite_count,
+        )?;
+        let mut next = *self;
+        next.merge_finite(other)?;
+        next.nonfinite_count = nonfinite_count;
+        *self = next;
+        Ok(())
+    }
+
+    #[allow(clippy::cast_precision_loss)] // Pairwise normalization uses Float64 after checked exact counts.
+    fn merge_finite(&mut self, other: Self) -> Result<()> {
         if other.count == 0 {
             return Ok(());
         }
@@ -247,8 +295,11 @@ impl Moments {
     #[allow(clippy::cast_precision_loss)] // Variance is an explicitly approximate Float64 result.
     pub(super) fn finish(&self, sample: bool, standard_deviation: bool) -> Result<Option<f64>> {
         let correction = u64::from(sample);
-        if self.count <= correction {
+        if count_with_specials(self.count, self.nonfinite_count)? <= correction {
             return Ok(None);
+        }
+        if self.nonfinite_count != 0 {
+            return Ok(Some(f64::from_bits(CANONICAL_F64_NAN_BITS)));
         }
         let variance = self.centered_sum.total() / (self.count - correction) as f64;
         if !variance.is_finite() || variance < 0.0 {
@@ -271,12 +322,30 @@ pub(super) struct PairedMoments {
     x: Moments,
     y: Moments,
     cross: NumericAggregateSum,
+    nonfinite_count: u64,
 }
 
 impl PairedMoments {
+    #[cfg(test)]
     pub(super) fn observe(&mut self, x: &Cell, y: &Cell) -> Result<()> {
+        self.observe_with_policy(x, y, FloatPolicy::Strict)
+    }
+
+    pub(super) fn observe_with_policy(
+        &mut self,
+        x: &Cell,
+        y: &Cell,
+        policy: FloatPolicy,
+    ) -> Result<()> {
         // Pair selection precedes domain observation of either companion.
         if matches!(x, Cell::Null) || matches!(y, Cell::Null) {
+            return Ok(());
+        }
+        count_with_specials(count_with_specials(self.x.count, self.nonfinite_count)?, 1)?;
+        let x_special = special(x, policy)?;
+        let y_special = special(y, policy)?;
+        if x_special || y_special {
+            self.nonfinite_count += 1;
             return Ok(());
         }
         let x = Number::from_cell(x)?.ok_or_else(|| failed("nonnull pair became null"))?;
@@ -301,8 +370,21 @@ impl PairedMoments {
         Ok(())
     }
 
-    #[allow(clippy::cast_precision_loss)] // Centered products are explicitly Float64 after exact count checks.
     pub(super) fn merge(&mut self, other: Self) -> Result<()> {
+        let nonfinite_count = count_with_specials(self.nonfinite_count, other.nonfinite_count)?;
+        count_with_specials(
+            count_with_specials(self.x.count, other.x.count)?,
+            nonfinite_count,
+        )?;
+        let mut next = *self;
+        next.merge_finite(other)?;
+        next.nonfinite_count = nonfinite_count;
+        *self = next;
+        Ok(())
+    }
+
+    #[allow(clippy::cast_precision_loss)] // Centered products are explicitly Float64 after exact count checks.
+    fn merge_finite(&mut self, other: Self) -> Result<()> {
         if other.x.count == 0 {
             return Ok(());
         }
@@ -339,8 +421,11 @@ impl PairedMoments {
     #[allow(clippy::cast_precision_loss)] // Covariance is an explicitly approximate Float64 result.
     pub(super) fn finish(&self, sample: bool, correlation: bool) -> Result<Option<f64>> {
         let correction = u64::from(sample || correlation);
-        if self.x.count <= correction {
+        if count_with_specials(self.x.count, self.nonfinite_count)? <= correction {
             return Ok(None);
+        }
+        if self.nonfinite_count != 0 {
+            return Ok(Some(f64::from_bits(CANONICAL_F64_NAN_BITS)));
         }
         let result = if correlation {
             let x = self.x.centered_sum.total();
@@ -375,6 +460,68 @@ impl PairedMoments {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn statistical_extended_specials_preserve_cardinality_null_pairs_and_finite_merges() {
+        let extended = FloatPolicy::Extended;
+        let scalar = |value: f64| Cell::Float(value.to_bits());
+        for value in [
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(0xfff0_0000_0000_0001),
+        ] {
+            let mut special = Moments::default();
+            special
+                .observe_with_policy(&scalar(value), extended)
+                .unwrap();
+            assert_eq!(special.finish(true, false).unwrap(), None);
+            assert_eq!(
+                special.finish(false, false).unwrap().unwrap().to_bits(),
+                CANONICAL_F64_NAN_BITS
+            );
+            let mut finite = Moments::default();
+            finite.observe(&scalar(2.0)).unwrap();
+            finite.observe(&scalar(4.0)).unwrap();
+            for (mut left, right) in [(finite, special), (special, finite)] {
+                left.merge(right).unwrap();
+                assert_eq!(left.count, 2);
+                assert_eq!(left.nonfinite_count, 1);
+                for sample in [false, true] {
+                    assert_eq!(
+                        left.finish(sample, false).unwrap().unwrap().to_bits(),
+                        CANONICAL_F64_NAN_BITS
+                    );
+                }
+            }
+            assert_eq!(finite.finish(false, false).unwrap(), Some(1.0));
+
+            let mut pair = PairedMoments::default();
+            pair.observe_with_policy(&scalar(value), &Cell::Null, extended)
+                .unwrap();
+            pair.observe_with_policy(&Cell::Null, &scalar(value), FloatPolicy::Strict)
+                .unwrap();
+            assert_eq!(pair.nonfinite_count, 0);
+            pair.observe_with_policy(&scalar(value), &scalar(2.0), extended)
+                .unwrap();
+            assert_eq!(pair.finish(true, false).unwrap(), None);
+            assert_eq!(
+                pair.finish(false, false).unwrap().unwrap().to_bits(),
+                CANONICAL_F64_NAN_BITS
+            );
+            let mut finite = PairedMoments::default();
+            finite.observe(&scalar(1.0), &scalar(3.0)).unwrap();
+            finite.observe(&scalar(2.0), &scalar(5.0)).unwrap();
+            for (mut left, right) in [(finite, pair), (pair, finite)] {
+                left.merge(right).unwrap();
+                for correlation in [false, true] {
+                    assert_eq!(
+                        left.finish(false, correlation).unwrap().unwrap().to_bits(),
+                        CANONICAL_F64_NAN_BITS
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn statistical_scaled_moments_preserve_tiny_large_and_subnormal_results_across_merges() {

@@ -113,6 +113,7 @@ pub(super) struct Spec {
 struct State {
     count: u64,
     sum: NumericAggregateSum,
+    specials: super::native_float_total::Specials,
     extreme: Option<Cell>,
 }
 
@@ -830,6 +831,7 @@ impl<'a> Aggregate<'a> {
         context.check_cancelled()
     }
 
+    #[allow(clippy::too_many_lines)] // One bounded output batch shares the group, collection and numeric state owners.
     pub(super) fn finish(
         &self,
         context: &NativeExecutionContext<'_>,
@@ -887,35 +889,40 @@ impl<'a> Aggregate<'a> {
                     decimal_index += 1;
                     (index, source)
                 });
-                columns.values.push(result_batch::build_column(
-                    &measure.dtype,
-                    end - start,
-                    &context.native_session().host_allocator(),
-                    |row| {
-                        if row.is_multiple_of(1024) {
-                            context.check_cancelled()?;
-                        }
-                        if let Some((index, source)) = decimal {
-                            let totals = self
-                                .decimal_totals
-                                .as_ref()
-                                .ok_or_else(|| failed("decimal aggregate state absent"))?;
-                            let DType::Decimal(output, _) = measure.dtype else {
-                                return Err(failed("decimal aggregate output type changed"));
-                            };
-                            return totals.values[(start + row) * self.decimal_width + index]
-                                .finish_with(
-                                    source,
-                                    measure.function.is_average(),
-                                    measure.decimal_output,
-                                )
-                                .map(|value| {
-                                    value.map_or(Value::Null, |value| Value::Decimal(value, output))
-                                });
-                        }
-                        self.finish_numeric(index, start + row, measure, context)
-                    },
-                )?);
+                columns
+                    .values
+                    .push(result_batch::build_column_with_float_policy(
+                        &measure.dtype,
+                        end - start,
+                        &context.native_session().host_allocator(),
+                        context.float_policy(),
+                        |row| {
+                            if row.is_multiple_of(1024) {
+                                context.check_cancelled()?;
+                            }
+                            if let Some((index, source)) = decimal {
+                                let totals = self
+                                    .decimal_totals
+                                    .as_ref()
+                                    .ok_or_else(|| failed("decimal aggregate state absent"))?;
+                                let DType::Decimal(output, _) = measure.dtype else {
+                                    return Err(failed("decimal aggregate output type changed"));
+                                };
+                                return totals.values[(start + row) * self.decimal_width + index]
+                                    .finish_with(
+                                        source,
+                                        measure.function.is_average(),
+                                        measure.decimal_output,
+                                    )
+                                    .map(|value| {
+                                        value.map_or(Value::Null, |value| {
+                                            Value::Decimal(value, output)
+                                        })
+                                    });
+                            }
+                            self.finish_numeric(index, start + row, measure, context)
+                        },
+                    )?);
             }
             let (columns, _ownership) = columns.into_parts();
             let output = StructArray::try_new(
@@ -1007,25 +1014,44 @@ fn accumulate_numeric(
             context.check_cancelled()?;
         }
         if let Some(value) = value {
-            update_numeric(state, value, integer)?;
+            update_numeric(state, value, integer, context.float_policy())?;
         }
         Ok(())
     })
 }
 
-fn update_numeric(state: &mut State, value: f64, integer: bool) -> Result<()> {
-    update_numeric_parts(&mut state.count, &mut state.sum, value, integer)
+fn update_numeric(
+    state: &mut State,
+    value: f64,
+    integer: bool,
+    policy: shardloom_core::FloatPolicy,
+) -> Result<()> {
+    update_numeric_parts(
+        &mut state.count,
+        &mut state.sum,
+        &mut state.specials,
+        value,
+        integer,
+        policy,
+    )
 }
 
 fn update_numeric_parts(
     count: &mut u64,
     sum: &mut NumericAggregateSum,
+    specials: &mut super::native_float_total::Specials,
     value: f64,
     integer: bool,
+    policy: shardloom_core::FloatPolicy,
 ) -> Result<()> {
     // raw_cell validated a nonfinite input before update changed the count.
-    validate_finite_scalar(value)?;
+    if !policy.admits(value) {
+        validate_finite_scalar(value)?;
+    }
     update_count(count, 1)?;
+    if specials.add(value)? {
+        return Ok(());
+    }
     sum.add(value, integer);
     if !sum.is_finite() {
         return Err(failed("aggregate sum became nonfinite"));
@@ -1063,6 +1089,7 @@ fn accumulate_grouped_numeric(
                 &mut states[ordinals.at(row) * width + measure_index],
                 value,
                 integer,
+                context.float_policy(),
             )?;
         }
         Ok(())
@@ -1248,7 +1275,12 @@ fn update(
     match measure.function {
         Function::Count => Ok(()),
         Function::Sum | Function::Avg | Function::SumDistinct | Function::AvgDistinct => {
-            update_sum_parts(&mut state.sum, value.as_ref())
+            update_sum_parts(
+                &mut state.sum,
+                &mut state.specials,
+                value.as_ref(),
+                context.float_policy(),
+            )
         }
         Function::Min | Function::Max => {
             let value = value.ok_or_else(|| failed("extremum argument absent"))?;
@@ -1290,10 +1322,22 @@ fn update(
     }
 }
 
-fn update_sum_parts(sum: &mut NumericAggregateSum, value: Option<&Cell>) -> Result<()> {
+fn update_sum_parts(
+    sum: &mut NumericAggregateSum,
+    specials: &mut super::native_float_total::Specials,
+    value: Option<&Cell>,
+    policy: shardloom_core::FloatPolicy,
+) -> Result<()> {
     let value = value.ok_or_else(|| failed("numeric argument absent"))?;
+    let numeric = number(value)?;
+    if !policy.admits(numeric) {
+        validate_finite_scalar(numeric)?;
+    }
+    if specials.add(numeric)? {
+        return Ok(());
+    }
     sum.add(
-        number(value)?,
+        numeric,
         matches!(
             value,
             Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_)
@@ -1366,10 +1410,15 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
         {
             Value::Null
         }
-        Function::Sum | Function::SumDistinct => Value::Float(state.sum.total()),
-        Function::Avg | Function::AvgDistinct => {
-            Value::Float(super::simple_average_value(state.sum.total(), state.count))
+        Function::Sum | Function::SumDistinct => {
+            Value::Float(state.specials.result().unwrap_or_else(|| state.sum.total()))
         }
+        Function::Avg | Function::AvgDistinct => Value::Float(
+            state
+                .specials
+                .result()
+                .unwrap_or_else(|| super::simple_average_value(state.sum.total(), state.count)),
+        ),
         Function::Min | Function::Max => match &state.extreme {
             None | Some(Cell::Null) => Value::Null,
             Some(Cell::NegativeInteger(value) | Cell::Timestamp(value) | Cell::Temporal(value)) => {

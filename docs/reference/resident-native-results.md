@@ -465,6 +465,14 @@ release the attempt's owners.
 Rust intake permits empty typed sources. Nested, decimal, binary, and arbitrary
 externally allocated `ArrayRef` intake are outside this interface.
 
+This bounded JSON-oriented convenience interface remains finite-only even when
+the session selects extended floating semantics. Policy-aware columnar intake
+uses `ResidentMemorySource::from_arrow_record_batch`; create its session with
+`ResidentVortexSession::new_with_float_policy(..., FloatPolicy::Extended)` to
+admit nonfinite values. Native array delivery preserves their bits; JSON delivery
+still rejects raw nonfinite numbers. See the
+[floating-domain contract](../architecture/native-float-policy-2026-10-29.md).
+
 `prepare_projection(columns, filter, limit)` accepts an optional native Vortex
 boolean expression and an optional source-order limit. The provider binds and
 executes the filter; a null predicate excludes the row. Filtering precedes the

@@ -23,6 +23,32 @@ pub(crate) struct CommandAdmission<'a> {
 }
 
 impl<'a> CommandContext<'a> {
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
+    pub(crate) fn requested_float_policy(
+        &self,
+        requested: Option<shardloom_core::FloatPolicy>,
+    ) -> Result<Option<shardloom_core::FloatPolicy>> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(owner) = self.owner {
+            if requested.is_some_and(|policy| policy != owner.float_policy()) {
+                return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                    "float_policy cannot override the immutable native session policy; create a new session with the requested policy; no fallback execution was attempted".into(),
+                ));
+            }
+            return Ok(Some(owner.float_policy()));
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        if requested == Some(shardloom_core::FloatPolicy::Extended) {
+            return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                "extended float_policy requires the native release-user-surfaces build; no fallback execution was attempted".into(),
+            ));
+        }
+        Ok(requested)
+    }
+
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn embedded(
         owner: &'a crate::native::EmbeddedExecutionOwner,
@@ -105,6 +131,16 @@ impl<'a> CommandContext<'a> {
         command: &str,
         format: OutputFormat,
     ) -> std::result::Result<CommandAdmission<'a>, std::process::ExitCode> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if command != "run"
+            && self
+                .owner
+                .is_some_and(|owner| owner.float_policy() == shardloom_core::FloatPolicy::Extended)
+        {
+            return Err(crate::cli_output::emit_error(command, format, "floating policy is not admitted for this command", &shardloom_core::ShardLoomError::InvalidOperation(
+                "extended float_policy requires a complete shared SQL or typed relational declaration through run; legacy primitive commands are not admitted; no fallback execution was attempted".into(),
+            )));
+        }
         self.admit(resources).map_err(|error| {
             crate::cli_output::emit_error(
                 command,

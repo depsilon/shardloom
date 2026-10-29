@@ -37,7 +37,10 @@ pub(super) fn admit_next(
             counts.aggregate_numeric_reuse_comparison_groups += 1;
         });
         let (current, next) = (&states[index], &states[index + 1]);
-        if current.count != next.count || !same_sum(current.sum, next.sum) {
+        if current.count != next.count
+            || current.specials != next.specials
+            || !same_sum(current.sum, next.sum)
+        {
             return Ok(false);
         }
     }
@@ -122,6 +125,7 @@ pub(super) fn copy_completed(
         }
         states[target].count = states[source].count;
         states[target].sum = states[source].sum;
+        states[target].specials = states[source].specials;
     }
     record_copy(rows, context)
 }

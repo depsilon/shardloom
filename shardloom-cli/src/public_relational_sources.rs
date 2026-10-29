@@ -23,7 +23,7 @@ pub(crate) use typed::prepare_native_in_session;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use super::super::{
     PreparationFacadeError, auto_prepared_vortex_target_path_with_schema,
-    prepare_local_source_for_public_workflow_controlled,
+    prepare_local_source_for_public_workflow_with_float_policy,
     public_workflow_effective_resource_envelope,
 };
 
@@ -176,7 +176,34 @@ pub(super) fn prepare_with_source_in_session(
 /// Establish the input control owner before any source resolution. Dynamic SQL
 /// resolves its source declarations before registering inputs, so initialization
 /// inside the registration closure would miss compatibility preparation.
-pub(super) fn prepare_with_input_adapter(
+#[cfg(test)]
+fn prepare_with_input_adapter(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    initialize: impl FnOnce(
+        &shardloom_vortex::resident_session::ResidentVortexSession,
+    ) -> Result<(), ShardLoomError>,
+    build: impl FnMut(
+        &str,
+        &crate::native_memory_input::MemoryInput,
+        &shardloom_vortex::resident_session::ResidentVortexSession,
+    ) -> Result<
+        shardloom_vortex::resident_memory_source::ResidentMemorySource,
+        ShardLoomError,
+    >,
+    cancellation: &CancellationToken,
+) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
+    prepare_with_input_adapter_and_float_policy(
+        statement,
+        request,
+        initialize,
+        build,
+        cancellation,
+        shardloom_core::FloatPolicy::Strict,
+    )
+}
+
+pub(super) fn prepare_with_input_adapter_and_float_policy(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
     initialize: impl FnOnce(
@@ -191,13 +218,15 @@ pub(super) fn prepare_with_input_adapter(
         ShardLoomError,
     >,
     cancellation: &CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     cancellation.check()?;
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;
-    let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+    let session = shardloom_vortex::resident_session::ResidentVortexSession::new_with_float_policy(
         policy.resource_envelope.memory_budget_bytes,
         policy.max_parallelism,
+        float_policy,
     )?;
     cancellation.check()?;
     initialize(&session)?;
@@ -385,6 +414,7 @@ struct Sources {
     normalized: usize,
     has_collections: bool,
     cancellation: CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     local: Vec<(
         DatasetUri,
@@ -490,7 +520,10 @@ impl Sources {
                 "columnar Parquet sources use their embedded schema evidence; source schema hints apply only to local text adapters",
             ));
         }
-        let target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
+        let mut target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
+        if self.float_policy != shardloom_core::FloatPolicy::Strict {
+            target.set_extension("extended.vortex");
+        }
         if format == "parquet" && request.execution_policy != "prepare_once" {
             let memory =
                 memory.ok_or_else(|| failed("source metadata requires the native owner"))?;
@@ -501,11 +534,12 @@ impl Sources {
                     // check fails; it never triggers a fresh full preparation.
                     use shardloom_vortex::prepared_source_binding::local_preparation_identity_controlled;
                     let expected =
-                        super::super::sql_local_source_runtime::parquet_preparation_source_binding(
+                        super::super::sql_local_source_runtime::parquet_preparation_source_binding_with_float_policy(
                             Path::new(source),
                             request.source_fingerprint_policy.as_deref(),
                             memory,
                             &self.cancellation,
+                            self.float_policy,
                         )?;
                     self.preparations.push(std::sync::Arc::new(
                         local_preparation_identity_controlled(
@@ -535,7 +569,7 @@ impl Sources {
             return Ok(uri);
         }
         let resources = public_workflow_effective_resource_envelope(request)?;
-        let preparation = prepare_local_source_for_public_workflow_controlled(
+        let preparation = prepare_local_source_for_public_workflow_with_float_policy(
             source,
             format,
             &target,
@@ -545,6 +579,7 @@ impl Sources {
             request.source_fingerprint_policy.as_deref(),
             schema,
             &self.cancellation,
+            self.float_policy,
         )
         .map_err(|error| match error {
             PreparationFacadeError::Runtime(error) => error,

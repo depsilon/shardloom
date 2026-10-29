@@ -59,10 +59,18 @@ pub(super) fn copy_column(
     values: &PrimitiveArray,
     valid: &Mask,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<ArrayRef> {
-    visit_column::<true>(dtype, values, valid, allocator, check_cancelled)
-        .map(|array| array.expect("copy mode constructs an owned column"))
+    visit_column::<true>(
+        dtype,
+        values,
+        valid,
+        allocator,
+        float_policy,
+        check_cancelled,
+    )
+    .map(|array| array.expect("copy mode constructs an owned column"))
 }
 
 /// The same ordered typed checks without allocating or writing result buffers.
@@ -71,9 +79,18 @@ pub(super) fn validate_column(
     values: &PrimitiveArray,
     valid: &Mask,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<()> {
-    visit_column::<false>(dtype, values, valid, allocator, check_cancelled).map(drop)
+    visit_column::<false>(
+        dtype,
+        values,
+        valid,
+        allocator,
+        float_policy,
+        check_cancelled,
+    )
+    .map(drop)
 }
 
 fn visit_column<const COPY: bool>(
@@ -81,6 +98,7 @@ fn visit_column<const COPY: bool>(
     values: &PrimitiveArray,
     valid: &Mask,
     allocator: &HostAllocatorRef,
+    float_policy: shardloom_core::FloatPolicy,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<Option<ArrayRef>> {
     let temporal = crate::native_payload_schema::temporal_storage(dtype);
@@ -112,11 +130,11 @@ fn visit_column<const COPY: bool>(
     match ptype {
         PType::F32 => {
             let values = values.as_slice::<f32>();
-            visit!(|row| finite(values[row].is_finite()))
+            visit!(|row| finite(float_policy.admits(f64::from(values[row]))))
         }
         PType::F64 => {
             let values = values.as_slice::<f64>();
-            visit!(|row| finite(values[row].is_finite()))
+            visit!(|row| finite(float_policy.admits(values[row])))
         }
         PType::I32 if temporal.is_some() => {
             let values = values.as_slice::<i32>();

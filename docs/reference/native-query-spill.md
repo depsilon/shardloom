@@ -83,7 +83,8 @@ not close the whole PERF-06 shared-spill packet or establish a throughput claim.
 ## Composed relational ordering
 
 Composed SQL and DataFrame ordering can spill full native rows, including multiple
-keys, nullable keys with explicit null order, finite floats, booleans, exact signed
+keys, nullable keys with explicit null order, floating values admitted by the
+selected session policy, booleans, exact signed
 and unsigned integers, UTF8, binary, exact Decimal128, Date32 and timezone-free
 microsecond timestamps. The [typed key contract](../architecture/native-typed-keys-2026-10-03.md)
 requires matching decimal precision/scale and preserves distinct temporal types.
@@ -93,6 +94,11 @@ It shares native key comparison, stable ordering,
 run storage, memory ownership and sinks with the existing engine. Adjacent two-run
 merges preserve input order on ties. All ordering stages in one query share the
 same disk quota and resident grant; no nested stage creates another execution budget.
+The default `float_policy="strict"` rejects observed nonfinite keys;
+`float_policy="extended"` orders all NaNs together above positive infinity and
+treats signed zeros as equal, while retaining the selected value's original bits.
+The [floating-domain contract](../architecture/native-float-policy-2026-10-29.md)
+also governs native spill records and restored values.
 
 Public `collect`, `run`, `route` and local writers carry `memory_gb`,
 `max_parallelism` and optional `spill`. The CLI spelling is:

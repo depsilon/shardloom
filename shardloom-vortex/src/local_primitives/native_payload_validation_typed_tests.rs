@@ -330,6 +330,7 @@ fn typed_payload_validation_does_not_allocate_numeric_scratch_and_cancels_in_ord
             owner.primitive(),
             owner.validity(),
             &context.native_session().host_allocator(),
+            shardloom_core::FloatPolicy::Strict,
             || {
                 checks += 1;
                 context.check_cancelled()
@@ -344,6 +345,7 @@ fn typed_payload_validation_does_not_allocate_numeric_scratch_and_cancels_in_ord
             owner.primitive(),
             owner.validity(),
             &context.native_session().host_allocator(),
+            shardloom_core::FloatPolicy::Strict,
             || {
                 checks += 1;
                 if checks == 2 {

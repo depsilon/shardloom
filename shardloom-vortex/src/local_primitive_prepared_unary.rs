@@ -577,6 +577,7 @@ impl BoundUnary {
             context.memory(),
             batch_rows,
             context.cancellation().clone(),
+            context.float_policy(),
             consume,
         )?;
         let mut output = UnaryOutput {
@@ -751,6 +752,7 @@ impl PreparedVortexUnary {
             context.memory(),
             batch_rows,
             context.cancellation().clone(),
+            context.float_policy(),
             consume,
         )?;
         let mut output = UnaryOutput {

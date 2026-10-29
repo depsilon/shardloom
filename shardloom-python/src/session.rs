@@ -6,7 +6,7 @@ use pyo3::{
     prelude::*,
     types::{PyBool, PyBytes, PyFloat, PyInt},
 };
-use shardloom_core::{ExecutionResources, Result, ShardLoomError};
+use shardloom_core::{ExecutionResources, FloatPolicy, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_runtime::native::{EmbeddedExecutionOwner, SqlSource, SqlSourceBinding};
 use shardloom_vortex::{
@@ -170,17 +170,21 @@ impl NativeSource {
 #[pymethods]
 impl NativeSession {
     #[new]
-    #[pyo3(signature = (resources=None, *, memory_limit_bytes=None, parallelism_limit=None))]
+    #[pyo3(signature = (resources=None, *, memory_limit_bytes=None, parallelism_limit=None, float_policy="strict"))]
     fn new(
         py: Python<'_>,
         resources: Option<&NativeResources>,
         memory_limit_bytes: Option<&Bound<'_, PyAny>>,
         parallelism_limit: Option<&Bound<'_, PyAny>>,
+        float_policy: &str,
     ) -> PyResult<Self> {
         let resources = resources.map(|value| value.value);
         let limits = super::resources::parse_limits(memory_limit_bytes, parallelism_limit)?;
+        let float_policy = FloatPolicy::parse(float_policy).map_err(native_error)?;
         let runtime = py
-            .detach(|| EmbeddedExecutionOwner::new(resources, limits))
+            .detach(|| {
+                EmbeddedExecutionOwner::new_with_float_policy(resources, limits, float_policy)
+            })
             .map_err(native_error)?;
         Ok(Self {
             owner: Arc::new(SessionOwner {
@@ -191,6 +195,11 @@ impl NativeSession {
                 }),
             }),
         })
+    }
+
+    #[getter]
+    fn float_policy(&self) -> &'static str {
+        self.owner.runtime.float_policy().as_str()
     }
 
     /// Invoke the shared command dispatcher with this session's ownership and

@@ -1,7 +1,7 @@
 //! Serialized complete-operation configuration over one retained native owner.
 
 use super::{ResidentVortexSession, resident_error};
-use shardloom_core::{ExecutionResourceRequest, ExecutionResources, Result};
+use shardloom_core::{ExecutionResourceRequest, ExecutionResources, FloatPolicy, Result};
 use shardloom_exec::{
     compute_pool::{CancellationToken, bounded_cpu_parallelism},
     live_memory::LiveMemoryPool,
@@ -125,9 +125,23 @@ impl ConfigurableResidentSession {
     /// # Errors
     /// Returns native runtime or resource-admission errors.
     pub fn new(configured: ExecutionResources) -> Result<Self> {
+        Self::new_with_float_policy(configured, FloatPolicy::Strict)
+    }
+
+    /// Create an owner with immutable floating semantics across resource overrides.
+    /// # Errors
+    /// Returns native runtime or resource-admission errors.
+    pub fn new_with_float_policy(
+        configured: ExecutionResources,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
         let memory = LiveMemoryPool::configurable(configured.memory_bytes())?;
-        let mut session =
-            ResidentVortexSession::with_memory_pool(memory, configured.max_parallelism(), true)?;
+        let mut session = ResidentVortexSession::with_memory_pool_and_float_policy(
+            memory,
+            configured.max_parallelism(),
+            true,
+            float_policy,
+        )?;
         let owner = Arc::get_mut(&mut session.0)
             .ok_or_else(|| resident_error("new configurable session is not uniquely owned"))?;
         owner.configured_parallelism = Some(AtomicUsize::new(owner.parallelism));
@@ -145,6 +159,12 @@ impl ConfigurableResidentSession {
     #[must_use]
     pub fn configured_resources(&self) -> ExecutionResources {
         self.0.configured
+    }
+
+    /// Immutable floating semantics inherited by every operation on this owner.
+    #[must_use]
+    pub fn float_policy(&self) -> FloatPolicy {
+        self.0.session.float_policy()
     }
 
     /// Whether two controllers share the same runtime, operation admission and

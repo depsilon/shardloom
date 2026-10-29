@@ -192,6 +192,7 @@ impl<'a> PartitionedNativeOperation<'a> {
                 context.memory(),
                 batch_rows,
                 context.cancellation().clone(),
+                context.float_policy(),
                 consume,
             )?;
             let scan = super::read_local_vortex_sort_rows_partitioned_scan(

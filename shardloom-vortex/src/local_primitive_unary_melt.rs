@@ -231,6 +231,7 @@ fn emit(
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)] // One bounded native batch, with shared selected indices and allocation owner.
 fn native_melt(
     compiled: &Plan,
     batch: &mut NativeBatch,
@@ -263,19 +264,22 @@ fn native_melt(
             context,
         )?);
     }
-    columns.values.push(result_batch::build_column(
-        &DType::Utf8(Nullability::NonNullable),
-        rows,
-        &context.native_session().host_allocator(),
-        |row| {
-            if row.is_multiple_of(1024) {
-                context.check_cancelled()?;
-            }
-            Ok(Value::Text(std::borrow::Cow::Borrowed(
-                names[selected[row].1].as_str(),
-            )))
-        },
-    )?);
+    columns
+        .values
+        .push(result_batch::build_column_with_float_policy(
+            &DType::Utf8(Nullability::NonNullable),
+            rows,
+            &context.native_session().host_allocator(),
+            context.float_policy(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                Ok(Value::Text(std::borrow::Cow::Borrowed(
+                    names[selected[row].1].as_str(),
+                )))
+            },
+        )?);
     let dtype = &compiled
         .fields
         .last()
@@ -309,10 +313,11 @@ fn native_melt(
         })?;
         take_column(&array, &indices, dtype, context)?
     } else {
-        result_batch::build_column(
+        result_batch::build_column_with_float_policy(
             dtype,
             rows,
             &context.native_session().host_allocator(),
+            context.float_policy(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;

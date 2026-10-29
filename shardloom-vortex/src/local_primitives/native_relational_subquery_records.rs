@@ -104,30 +104,34 @@ impl Layout {
                 .hash_prefix(selected.values[row], spec.correlation, false)?
                 .ok_or_else(|| failed("selected subquery correlation became null"))
         })?);
-        columns.values.push(result_batch::build_column(
-            &records::u64_type().as_nullable(),
-            rows,
-            &context.native_session().host_allocator(),
-            |row| {
-                context.check_cancelled()?;
-                let hash = if matches!(spec.kind, Kind::In) {
-                    input.hash(selected.values[row], false)?
-                } else {
-                    Some(0)
-                };
-                Ok(hash.map_or(Value::Null, Value::UInt))
-            },
-        )?);
+        columns
+            .values
+            .push(result_batch::build_column_with_float_policy(
+                &records::u64_type().as_nullable(),
+                rows,
+                &context.native_session().host_allocator(),
+                context.float_policy(),
+                |row| {
+                    context.check_cancelled()?;
+                    let hash = if matches!(spec.kind, Kind::In) {
+                        input.hash(selected.values[row], false)?
+                    } else {
+                        Some(0)
+                    };
+                    Ok(hash.map_or(Value::Null, Value::UInt))
+                },
+            )?);
         columns.values.push(records::unsigned(rows, context, |row| {
             ordinal
                 .checked_add(selected.values[row] as u64)
                 .ok_or_else(|| failed("subquery source ordinal overflow"))
         })?);
         let payload = if self.names.is_empty() {
-            result_batch::build_column(
+            result_batch::build_column_with_float_policy(
                 &self.payload_dtype,
                 rows,
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 |_| Ok(Value::Bool(false)),
             )?
         } else {

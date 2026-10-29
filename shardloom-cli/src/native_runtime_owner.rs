@@ -2,7 +2,7 @@
 
 use shardloom_core::{
     ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest, ExecutionResources,
-    Result, ShardLoomError,
+    FloatPolicy, Result, ShardLoomError,
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_vortex::resident_session::{ConfigurableResidentSession, ResidentSessionSnapshot};
@@ -14,6 +14,7 @@ use std::sync::{Mutex, OnceLock, TryLockError};
 /// allocation or installing that call's narrower authorization as session policy.
 pub struct EmbeddedExecutionOwner {
     configured: Option<ExecutionResources>,
+    float_policy: FloatPolicy,
     limits: Option<ExecutionResourceLimits>,
     controller: OnceLock<ConfigurableResidentSession>,
     initializing: Mutex<()>,
@@ -27,16 +28,31 @@ impl EmbeddedExecutionOwner {
         configured: Option<ExecutionResources>,
         limits: Option<ExecutionResourceLimits>,
     ) -> Result<Self> {
+        Self::new_with_float_policy(configured, limits, FloatPolicy::Strict)
+    }
+
+    /// Select immutable floating semantics before lazy or eager initialization.
+    /// # Errors
+    /// Rejects unauthorized resources or native runtime construction failure.
+    pub fn new_with_float_policy(
+        configured: Option<ExecutionResources>,
+        limits: Option<ExecutionResourceLimits>,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
         let configured = configured
             .map(|resources| authorize(resources, limits))
             .transpose()?;
         let limits = configured.and_then(ExecutionResources::limits).or(limits);
         let controller = OnceLock::new();
         if let Some(resources) = configured {
-            let _ = controller.set(ConfigurableResidentSession::new(resources)?);
+            let _ = controller.set(ConfigurableResidentSession::new_with_float_policy(
+                resources,
+                float_policy,
+            )?);
         }
         Ok(Self {
             configured,
+            float_policy,
             limits,
             controller,
             initializing: Mutex::new(()),
@@ -47,6 +63,12 @@ impl EmbeddedExecutionOwner {
     #[must_use]
     pub const fn configured_resources(&self) -> Option<ExecutionResources> {
         self.configured
+    }
+
+    /// The session's fixed semantic choice, independent of per-call resources.
+    #[must_use]
+    pub const fn float_policy(&self) -> FloatPolicy {
+        self.float_policy
     }
 
     /// Intersect operation policy with this owner's administrator ceilings.
@@ -112,7 +134,10 @@ impl EmbeddedExecutionOwner {
             )?;
             let _ = self
                 .controller
-                .set(ConfigurableResidentSession::new(initial)?);
+                .set(ConfigurableResidentSession::new_with_float_policy(
+                    initial,
+                    self.float_policy,
+                )?);
         }
         cancellation.check()?;
         self.controller
@@ -163,6 +188,38 @@ mod tests {
             limits,
         )
         .expect("fixture allocation")
+    }
+
+    #[test]
+    fn float_policy_survives_lazy_initialization_and_resource_overrides() {
+        let allocation = allocation(4096, 1, None);
+        let token = CancellationToken::default();
+        let strict = EmbeddedExecutionOwner::new(Some(allocation), None).unwrap();
+        for configured in [None, Some(allocation)] {
+            let extended = EmbeddedExecutionOwner::new_with_float_policy(
+                configured,
+                None,
+                FloatPolicy::Extended,
+            )
+            .unwrap();
+            assert_eq!(extended.float_policy(), FloatPolicy::Extended);
+            let controller = extended.controller(allocation, &token).unwrap();
+            assert_eq!(controller.float_policy(), FloatPolicy::Extended);
+            controller
+                .with_resources(allocation, &token, |session, _| {
+                    assert_eq!(session.float_policy(), FloatPolicy::Extended);
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(
+                strict
+                    .controller(allocation, &token)
+                    .unwrap()
+                    .float_policy(),
+                FloatPolicy::Strict
+            );
+            assert!(!controller.has_same_owner(strict.controller(allocation, &token).unwrap()));
+        }
     }
 
     #[test]

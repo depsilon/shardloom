@@ -6693,7 +6693,8 @@ fn scalar_value_to_csv_cell(value: &ScalarValue) -> Result<String> {
         ScalarValue::Boolean(value) => Ok(value.to_string()),
         ScalarValue::Int64(value) => Ok(value.to_string()),
         ScalarValue::UInt64(value) => Ok(value.to_string()),
-        ScalarValue::Float64(value) => Ok(value.to_string()),
+        ScalarValue::Float64(value) if value.is_finite() => Ok(value.to_string()),
+        ScalarValue::Float64(_) => Err(ShardLoomError::InvalidOperation("nonfinite floating values cannot be written as CSV numeric fields; explicitly cast to UTF8 to select a text representation".into())),
         ScalarValue::Utf8(value) => Ok(csv_escape(value)),
         ScalarValue::Binary(_)
         | ScalarValue::Decimal128 { .. }
@@ -7760,8 +7761,8 @@ fn write_row_export_selected_rows(
             VortexLocalPrimitiveRowExportFormat::Csv => {
                 let line = column_values
                     .iter()
-                    .map(|values| stat_value_to_csv_cell(&values[row_index]))
-                    .collect::<Vec<_>>()
+                    .map(|values| checked_stat_value_to_csv_cell(&values[row_index]))
+                    .collect::<Result<Vec<_>>>()?
                     .join(",");
                 writeln!(output, "{line}").map_err(|error| {
                     ShardLoomError::InvalidOperation(format!(
@@ -7817,8 +7818,8 @@ fn write_row_export_materialized_rows(
             VortexLocalPrimitiveRowExportFormat::Csv => {
                 let line = row_values
                     .iter()
-                    .map(stat_value_to_csv_cell)
-                    .collect::<Vec<_>>()
+                    .map(checked_stat_value_to_csv_cell)
+                    .collect::<Result<Vec<_>>>()?
                     .join(",");
                 writeln!(output, "{line}").map_err(|error| {
                     ShardLoomError::InvalidOperation(format!(
@@ -7882,9 +7883,9 @@ fn write_row_export_sparse_materialized_rows(
                     .map(|value| {
                         value
                             .as_ref()
-                            .map_or_else(String::new, stat_value_to_csv_cell)
+                            .map_or_else(|| Ok(String::new()), checked_stat_value_to_csv_cell)
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Result<Vec<_>>>()?
                     .join(",");
                 writeln!(output, "{line}").map_err(|error| {
                     ShardLoomError::InvalidOperation(format!(
@@ -8046,12 +8047,12 @@ fn write_row_export_melt_rows(
                 VortexLocalPrimitiveRowExportFormat::Csv => {
                     let mut cells = Vec::with_capacity(output_columns.len());
                     for values in column_values.iter().take(id_count) {
-                        cells.push(stat_value_to_csv_cell(&values[row_index]));
+                        cells.push(checked_stat_value_to_csv_cell(&values[row_index])?);
                     }
                     cells.push(csv_escape(value_column));
-                    cells.push(stat_value_to_csv_cell(
+                    cells.push(checked_stat_value_to_csv_cell(
                         &column_values[value_index][row_index],
-                    ));
+                    )?);
                     writeln!(output, "{}", cells.join(",")).map_err(|error| {
                         ShardLoomError::InvalidOperation(format!(
                             "failed to write local Vortex melt CSV row: {error}"
@@ -14467,6 +14468,14 @@ fn stat_value_to_csv_cell(value: &StatValue) -> String {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn checked_stat_value_to_csv_cell(value: &StatValue) -> Result<String> {
+    if matches!(value, StatValue::Float64(value) if !value.is_finite()) {
+        return Err(ShardLoomError::InvalidOperation("nonfinite floating values cannot be written as CSV numeric fields; explicitly cast to UTF8 to select a text representation".into()));
+    }
+    Ok(stat_value_to_csv_cell(value))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn csv_escape(value: &str) -> String {
     if value.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", value.replace('"', "\"\""))
@@ -17085,7 +17094,9 @@ fn vortex_pvalue_to_stat_value(value: vortex::array::scalar::PValue) -> Option<S
         PValue::I32(value) => Some(StatValue::Int64(i64::from(value))),
         PValue::I64(value) => Some(StatValue::Int64(value)),
         PValue::F16(_) => None,
-        PValue::F32(value) => Some(StatValue::Float64(f64::from(value))),
+        PValue::F32(value) => Some(StatValue::Float64(shardloom_core::float_policy::widen_f32(
+            value,
+        ))),
         PValue::F64(value) => Some(StatValue::Float64(value)),
     }
 }

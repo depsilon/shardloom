@@ -289,8 +289,18 @@ fn numeric_reuse_declines_overflow_and_unequal_accumulator_starts() {
                 },
                 ..State::default()
             };
-            update_numeric(&mut expected_first, 1.0, true)?;
-            update_numeric(&mut expected_second, 1.0, true)?;
+            update_numeric(
+                &mut expected_first,
+                1.0,
+                true,
+                shardloom_core::FloatPolicy::Strict,
+            )?;
+            update_numeric(
+                &mut expected_second,
+                1.0,
+                true,
+                shardloom_core::FloatPolicy::Strict,
+            )?;
             #[cfg(debug_assertions)]
             let observation = super::super::native_relational_observation::Session::start();
             aggregate.consume(&input, context, 2)?;

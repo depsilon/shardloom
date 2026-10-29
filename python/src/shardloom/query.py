@@ -472,6 +472,22 @@ class ColumnExpression:
 
         return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings, resource_limits=self.resource_limits)
 
+    def is_nan(self) -> "ColumnExpression":
+        """Classify floating NaN values, propagating NULL validity."""
+        return ColumnExpression(f"IS_NAN({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def is_infinite(self) -> "ColumnExpression":
+        """Classify either floating infinity, propagating NULL validity."""
+        return ColumnExpression(f"IS_INFINITE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def is_finite(self) -> "ColumnExpression":
+        """Classify finite floating values, propagating NULL validity."""
+        return ColumnExpression(f"IS_FINITE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
+    def signbit(self) -> "ColumnExpression":
+        """Observe a floating value's sign bit, including zero and NaN."""
+        return ColumnExpression(f"SIGNBIT({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
+
     def is_not_null(self) -> PredicateExpression:
         """Return a scoped `IS NOT NULL` predicate."""
 

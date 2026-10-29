@@ -42,12 +42,18 @@ impl Summary {
         }
     }
 
-    fn observe(&mut self, primary: &Cell, secondary: Option<&Cell>) -> Result<()> {
+    fn observe(
+        &mut self,
+        primary: &Cell,
+        secondary: Option<&Cell>,
+        policy: shardloom_core::FloatPolicy,
+    ) -> Result<()> {
         match self {
-            Self::Single(value) => value.observe(primary),
-            Self::Pair(value) => value.observe(
+            Self::Single(value) => value.observe_with_policy(primary, policy),
+            Self::Pair(value) => value.observe_with_policy(
                 primary,
                 secondary.ok_or_else(|| failed("statistical window companion is absent"))?,
+                policy,
             ),
         }
     }
@@ -161,7 +167,7 @@ fn observe(
             .secondary_key
             .map(|key| input.raw_cell(row, key, context))
             .transpose()?;
-        summary.observe(&primary, secondary.as_ref())?;
+        summary.observe(&primary, secondary.as_ref(), context.float_policy())?;
     }
     Ok(())
 }

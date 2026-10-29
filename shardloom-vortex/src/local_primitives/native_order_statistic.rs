@@ -157,6 +157,7 @@ impl Arena {
         self.free = Some(index);
     }
 
+    #[cfg(test)]
     pub(super) fn insert(
         &mut self,
         root: Root,
@@ -164,8 +165,25 @@ impl Arena {
         ordinal: usize,
         cancellation: &CancellationToken,
     ) -> Result<Root> {
+        self.insert_with_policy(
+            root,
+            value,
+            ordinal,
+            cancellation,
+            shardloom_core::FloatPolicy::Strict,
+        )
+    }
+
+    pub(super) fn insert_with_policy(
+        &mut self,
+        root: Root,
+        value: Cell,
+        ordinal: usize,
+        cancellation: &CancellationToken,
+        policy: shardloom_core::FloatPolicy,
+    ) -> Result<Root> {
         cancellation.check()?;
-        native_quantile::validate(&value)?;
+        native_quantile::validate(&value, policy)?;
         self.insert_inner(root, value, ordinal, &mut |left, _, right, _| {
             compare_cells(left.clone(), right.clone())
         })

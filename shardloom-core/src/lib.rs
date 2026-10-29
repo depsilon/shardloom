@@ -33,6 +33,7 @@ pub mod execution_resources;
 pub mod expression;
 pub mod extension;
 pub mod feature_footprint;
+pub mod float_policy;
 pub mod generated_source;
 pub mod hybrid_engine;
 pub mod input;
@@ -57,6 +58,8 @@ pub mod translation;
 pub mod universal_harness;
 pub mod unstructured_workflow;
 pub mod wrapper_architecture;
+
+pub use float_policy::FloatPolicy;
 
 pub use agent_contract::{
     AgentContractPack, AgentContractSurface, AgentContractSurfaceKind, AgentContractSurfaceStatus,

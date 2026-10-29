@@ -354,7 +354,7 @@ fn fixed(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)] // Assemblies consume every function for this one partition before releasing its records.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Assemblies consume every function for this one partition before releasing its records.
 fn assemble(
     spec: &Spec,
     group: &Group,
@@ -433,10 +433,11 @@ fn assemble(
                     .execute_mask(values.len(), &mut execution)
                     .map_err(vortex_error)?;
                 let ordinals = values.to_buffer::<u64>();
-                result_batch::build_column(
+                result_batch::build_column_with_float_policy(
                     &kind.dtype(),
                     values.len(),
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| {
                         if !valid.value(row) {
                             return Ok(Value::Null);

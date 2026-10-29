@@ -524,6 +524,7 @@ pub(super) fn append_execution(
         "relational_provider_selection_reason".into(),
         result.provider_selection_reason.into(),
     ));
+    fields.push(("float_policy".into(), result.float_policy.as_str().into()));
     if let Some(report) = &result.primitive_execution {
         let mut primitive_fields = Vec::new();
         vortex_primitive_execution::append_vortex_local_primitive_execution_report_fields(

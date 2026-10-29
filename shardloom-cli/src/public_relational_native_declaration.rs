@@ -229,6 +229,7 @@ fn resolve_sources(
     }
     let mut sources = Sources {
         cancellation: cancellation.clone(),
+        float_policy: session.float_policy(),
         ..Sources::default()
     };
     let mut resolved = BTreeMap::new();

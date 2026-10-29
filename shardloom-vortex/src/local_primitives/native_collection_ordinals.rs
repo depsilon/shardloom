@@ -91,24 +91,36 @@ pub(super) fn column<'a>(
             .reserve(native_payload::metadata_bytes(&dtype())?)?,
     );
     let integer = DType::Primitive(PType::U64, Nullability::NonNullable);
-    let elements =
-        result_batch::build_column(&integer, positions.values.len(), &allocator, |row| {
+    let elements = result_batch::build_column_with_float_policy(
+        &integer,
+        positions.values.len(),
+        &allocator,
+        context.float_policy(),
+        |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
             Ok(Value::UInt(
                 u64::try_from(positions.values[row]).map_err(vortex_error)?,
             ))
-        })?;
-    let offsets = result_batch::build_column(&integer, offsets.values.len(), &allocator, |row| {
-        Ok(Value::UInt(
-            u64::try_from(offsets.values[row]).map_err(vortex_error)?,
-        ))
-    })?;
-    let validity = Validity::Array(result_batch::build_column(
+        },
+    )?;
+    let offsets = result_batch::build_column_with_float_policy(
+        &integer,
+        offsets.values.len(),
+        &allocator,
+        context.float_policy(),
+        |row| {
+            Ok(Value::UInt(
+                u64::try_from(offsets.values[row]).map_err(vortex_error)?,
+            ))
+        },
+    )?;
+    let validity = Validity::Array(result_batch::build_column_with_float_policy(
         &DType::Bool(Nullability::NonNullable),
         rows,
         &allocator,
+        context.float_policy(),
         |row| Ok(Value::Bool(valid.values[row])),
     )?);
     let array = ListArray::try_new(
@@ -137,10 +149,11 @@ pub(super) fn single(
     if rows.is_empty() {
         return Ok(None);
     }
-    let values = result_batch::build_column(
+    let values = result_batch::build_column_with_float_policy(
         &DType::Primitive(PType::U64, Nullability::NonNullable),
         rows.len(),
         &context.native_session().host_allocator(),
+        context.float_policy(),
         |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;

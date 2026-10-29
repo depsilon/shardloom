@@ -27,8 +27,9 @@ configurations fail explicitly without external-engine fallback.
 
 Statistical moments admit primitive numeric inputs, not arbitrary decimal
 statistics. They retain original-width integer differences, use scaled centered
-updates and reject observed non-finite values or an unrepresentable requested
-result. A value excluded by a NULL companion is not observed. Ordinary COUNT,
+updates and, under the default strict float policy, reject observed non-finite
+values. Unrepresentable finite results still fail. A value excluded by a NULL
+companion is not observed. Ordinary COUNT,
 MIN/MAX and SUM/AVG retain their existing semantics.
 
 Quantile levels are finite scalar literals in `[0,1]`. Empty/all-NULL input
@@ -37,6 +38,34 @@ yields NULL. Continuous Decimal128 quantiles use precision 38 and
 silently rounding unless an explicit decimal output is selected as described
 below. Exact rank and membership do not promise exact real arithmetic in
 Float64.
+
+## Floating policy
+
+`ShardLoomClient(float_policy="extended")` or
+`shardloom.context(float_policy="extended")` admits NaN and signed infinities.
+The CLI option is `--float-policy extended`; typed native `Session` accepts the
+same keyword. The immutable policy is recorded in execution evidence and stays
+with the session when resource limits change. `strict` remains the default.
+
+Under extended policy, all NaNs compare equal and sort after positive infinity;
+signed zeros compare equal. NULL remains separate. Grouping, DISTINCT, joins,
+sets and window peers share those identities, while selected outputs preserve
+their original bits. `IS_NAN`, `IS_INFINITE`, `IS_FINITE` and `SIGNBIT` classify
+values and propagate NULL; classification itself is available under either policy.
+
+SUM/AVG yield NaN for any NaN or opposing infinity signs, and the corresponding
+infinity for one infinity sign. Statistical moments yield NaN when a nonfinite
+value participates, after the usual minimum sample-size check. Moving windows
+recover finite results after those values leave. MIN/MAX and discrete quantiles
+use the analytical order and preserve selected bits. Newly computed NaNs use
+canonical quiet-NaN bits. Quantile probabilities remain finite.
+
+Native Vortex, Arrow IPC and Parquet preserve admitted F32/F64 bits, including
+signed zeros and NaN payloads. Raw nonfinite CSV/JSON numbers fail explicitly;
+an explicit UTF8 cast chooses `NaN`, `inf` or `-inf` text. Exact integer/decimal
+conversion rejects nonfinite inputs; `TRY_CAST` returns NULL on failure.
+See the [full floating contract](../architecture/native-float-policy-2026-10-29.md)
+for strict intake, continuous quantiles, arithmetic and ownership boundaries.
 
 ## Explicit decimal output
 

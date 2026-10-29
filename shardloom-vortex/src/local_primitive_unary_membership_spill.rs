@@ -347,6 +347,7 @@ pub(super) fn run(
         context.memory(),
         batch_rows,
         context.cancellation().clone(),
+        context.float_policy(),
         consume,
     )?;
     let mut output = UnaryOutput {

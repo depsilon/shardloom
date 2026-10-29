@@ -37,10 +37,11 @@ pub(super) fn build(
     let allocator =
         crate::owned_buffers::with_credit(context.native_session().host_allocator(), credit);
     let offsets = |end| {
-        result_batch::build_column(
+        result_batch::build_column_with_float_policy(
             &DType::Primitive(PType::U64, Nullability::NonNullable),
             2,
             &allocator,
+            context.float_policy(),
             |row| Ok(Value::UInt(if row == 0 { 0 } else { end })),
         )
     };

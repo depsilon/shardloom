@@ -8,12 +8,13 @@ use super::{
     NativeBatch, NativeExecutionContext, PivotValue, Result, ScalarValue, failed, vortex_error,
 };
 use crate::local_primitives::{native_payload, native_relational_batch};
+use shardloom_core::{FloatPolicy, float_policy::float_key_bits};
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::LiveMemoryPool};
 use vortex::array::{ArrayRef, VortexSessionExecute as _};
 
 #[derive(Clone)]
 pub(super) enum Datum {
-    Scalar(Arc<OwnedScalar>),
+    Scalar(Arc<OwnedScalar>, FloatPolicy),
     Nested {
         array: ArrayRef,
         key: SharedKeyColumn,
@@ -38,13 +39,17 @@ impl Datum {
                 cancellation: context.cancellation().clone(),
             })
         } else {
-            Ok(Self::Scalar(batch.retained(column, row)?.into_shared()?))
+            Ok(Self::Scalar(
+                batch.retained(column, row)?.into_shared()?,
+                context.float_policy(),
+            ))
         }
     }
 
     pub(super) fn null(memory: &LiveMemoryPool) -> Result<Self> {
         Ok(Self::Scalar(
             OwnedScalar::copy(&ScalarValue::Null, memory)?.into_shared()?,
+            FloatPolicy::Strict,
         ))
     }
 
@@ -60,6 +65,7 @@ impl Datum {
             &mut execution,
             context.memory(),
             context.cancellation(),
+            context.float_policy(),
         )?;
         Ok(Self::Nested {
             array: selected,
@@ -71,7 +77,7 @@ impl Datum {
 
     pub(super) fn scalar(&self) -> Result<&ScalarValue> {
         match self {
-            Self::Scalar(value) => Ok(value.value()),
+            Self::Scalar(value, _) => Ok(value.value()),
             Self::Nested { .. } => Err(failed("nested pivot value requires native delivery")),
         }
     }
@@ -85,7 +91,7 @@ impl Datum {
 
     pub(super) fn is_null(&self) -> Result<bool> {
         match self {
-            Self::Scalar(value) => Ok(matches!(value.value(), ScalarValue::Null)),
+            Self::Scalar(value, _) => Ok(matches!(value.value(), ScalarValue::Null)),
             Self::Nested { key, row, .. } => key.value().is_null(*row),
         }
     }
@@ -109,7 +115,7 @@ impl Datum {
     /// Sparse key/name capacity is distinct from the native payload's credits.
     pub(super) fn key_bytes(&self) -> Result<usize> {
         match self {
-            Self::Scalar(value) => Ok(super::text_bytes(value.value())),
+            Self::Scalar(value, _) => Ok(super::text_bytes(value.value())),
             Self::Nested {
                 key,
                 row,
@@ -126,7 +132,7 @@ impl Datum {
 
     pub(super) fn scalar_bytes(&self) -> usize {
         match self {
-            Self::Scalar(value) => super::text_bytes(value.value()),
+            Self::Scalar(value, _) => super::text_bytes(value.value()),
             Self::Nested { .. } => 0,
         }
     }
@@ -135,7 +141,14 @@ impl Datum {
 impl PivotValue for Datum {
     fn pivot_key(&self) -> Result<String> {
         match self {
-            Self::Scalar(value) => value.value().pivot_key(),
+            Self::Scalar(value, FloatPolicy::Extended) => {
+                if let ScalarValue::Float64(value) = value.value() {
+                    ScalarValue::Float64(f64::from_bits(float_key_bits(*value))).pivot_key()
+                } else {
+                    value.value().pivot_key()
+                }
+            }
+            Self::Scalar(value, FloatPolicy::Strict) => value.value().pivot_key(),
             Self::Nested {
                 key,
                 row,
@@ -160,7 +173,14 @@ impl PivotValue for Datum {
 
     fn pivot_name(&self) -> Result<String> {
         match self {
-            Self::Scalar(value) => value.value().pivot_name(),
+            Self::Scalar(value, FloatPolicy::Extended) => {
+                if let ScalarValue::Float64(value) = value.value() {
+                    ScalarValue::Float64(f64::from_bits(float_key_bits(*value))).pivot_name()
+                } else {
+                    value.value().pivot_name()
+                }
+            }
+            Self::Scalar(value, FloatPolicy::Strict) => value.value().pivot_name(),
             Self::Nested { .. } => {
                 let label = if self.is_null()? {
                     shardloom_core::StatValue::Null
@@ -174,7 +194,16 @@ impl PivotValue for Datum {
 
     fn pivot_equal(&self, other: &Self) -> Result<bool> {
         match (self, other) {
-            (Self::Scalar(left), Self::Scalar(right)) => left.value().pivot_equal(right.value()),
+            (Self::Scalar(left, policy), Self::Scalar(right, other_policy)) => {
+                if let (ScalarValue::Float64(left), ScalarValue::Float64(right)) =
+                    (left.value(), right.value())
+                    && *policy == FloatPolicy::Extended
+                    && *other_policy == FloatPolicy::Extended
+                {
+                    return Ok(float_key_bits(*left) == float_key_bits(*right));
+                }
+                left.value().pivot_equal(right.value())
+            }
             (Self::Nested { .. }, Self::Nested { .. }) => {
                 Ok(self.compare(other)? == Ordering::Equal)
             }

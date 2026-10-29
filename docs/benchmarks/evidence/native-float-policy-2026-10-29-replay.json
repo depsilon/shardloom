@@ -1,0 +1,117 @@
+{
+  "schema_version": "shardloom.native_float_independent_replay.v1",
+  "status": "passed",
+  "returncode": 0,
+  "packet_sha256": "a61ed73238428745501caa769f0178cf1b92eecaaef79454656ce6eb5837abc6",
+  "archived_verifier_sha256": "b6be0404c5aba762f8b4ee5037cc44a7c9ff16edb351531bf15955ddec453992",
+  "observations": {
+    "status": "passed",
+    "controls": [
+      {
+        "control": "member-corruption",
+        "verifier_line": 153,
+        "assertion": "assert identity(item['text'].encode()) == {key: item[key] for key in ('bytes', 'sha256')}, name"
+      },
+      {
+        "control": "source-link-corruption",
+        "verifier_line": 181,
+        "assertion": "assert record['changed_source_inventory'][path] == sources[path], (role, path)"
+      },
+      {
+        "control": "public-count-corruption",
+        "verifier_line": 225,
+        "assertion": "assert sum(len(row['interfaces']) for row in observations) == public['positive_public_executions']"
+      },
+      {
+        "control": "public-value-corruption",
+        "verifier_line": 140,
+        "assertion": "assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)"
+      },
+      {
+        "control": "public-type-corruption",
+        "verifier_line": 135,
+        "assertion": "assert {k: v for k, v in observed.items() if k != 'values'} == {k: v for k, v in wanted.items() if k != 'values'}"
+      },
+      {
+        "control": "public-null-corruption",
+        "verifier_line": 135,
+        "assertion": "assert {k: v for k, v in observed.items() if k != 'values'} == {k: v for k, v in wanted.items() if k != 'values'}"
+      },
+      {
+        "control": "nan-payload-corruption",
+        "verifier_line": 140,
+        "assertion": "assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)"
+      },
+      {
+        "control": "zero-sign-corruption",
+        "verifier_line": 140,
+        "assertion": "assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)"
+      },
+      {
+        "control": "nan-null-confusion",
+        "verifier_line": 140,
+        "assertion": "assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)"
+      },
+      {
+        "control": "text-reference-corruption",
+        "verifier_line": 121,
+        "assertion": "assert type(value['text_ref']) is int and 0 <= value['text_ref'] < len(pool)"
+      },
+      {
+        "control": "certificate-corruption",
+        "verifier_line": 246,
+        "assertion": "assert report['fallback_attempted'] == report['external_engine_invoked'] == 'false'"
+      },
+      {
+        "control": "policy-corruption",
+        "verifier_line": 248,
+        "assertion": "assert report['float_policy'] == row['policy'] and row['policy'] in ('strict', 'extended')"
+      },
+      {
+        "control": "matrix-result-corruption",
+        "verifier_line": 286,
+        "assertion": "assert envelope == observation['native_envelope']"
+      },
+      {
+        "control": "wheel-product-corruption",
+        "verifier_line": 308,
+        "assertion": "assert wheel['integrity'][field] == wheel['stage'][field] == products[path]['sha256']"
+      },
+      {
+        "control": "spill-cleanup-corruption",
+        "verifier_line": 264,
+        "assertion": "assert row['relational_spill_owned_cleanup_completed'] == 'true'"
+      },
+      {
+        "control": "spill-bound-corruption",
+        "verifier_line": 268,
+        "assertion": "assert int(row['relational_spill_peak_disk_bytes']) <= int(row['relational_spill_quota_bytes']) == 256 << 20"
+      },
+      {
+        "control": "oracle-corruption",
+        "verifier_line": 197,
+        "assertion": "assert reference == packet['oracle_contract']"
+      }
+    ],
+    "public_totals": {
+      "certificates": 164,
+      "cohorts": 82,
+      "compared_rows": 108081,
+      "comparisons": 1362,
+      "envelopes": 255,
+      "five_surface_rows": 3315,
+      "positive_public_executions": 410,
+      "tests": 20
+    },
+    "installed_tests": 243,
+    "packet_sha256": "a61ed73238428745501caa769f0178cf1b92eecaaef79454656ce6eb5837abc6",
+    "working_directory_contains_only_archived_verifier": true,
+    "isolated_python": true,
+    "engine_imported": false
+  },
+  "stdout": "{\"status\": \"passed\", \"controls\": [{\"control\": \"member-corruption\", \"verifier_line\": 153, \"assertion\": \"assert identity(item['text'].encode()) == {key: item[key] for key in ('bytes', 'sha256')}, name\"}, {\"control\": \"source-link-corruption\", \"verifier_line\": 181, \"assertion\": \"assert record['changed_source_inventory'][path] == sources[path], (role, path)\"}, {\"control\": \"public-count-corruption\", \"verifier_line\": 225, \"assertion\": \"assert sum(len(row['interfaces']) for row in observations) == public['positive_public_executions']\"}, {\"control\": \"public-value-corruption\", \"verifier_line\": 140, \"assertion\": \"assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)\"}, {\"control\": \"public-type-corruption\", \"verifier_line\": 135, \"assertion\": \"assert {k: v for k, v in observed.items() if k != 'values'} == {k: v for k, v in wanted.items() if k != 'values'}\"}, {\"control\": \"public-null-corruption\", \"verifier_line\": 135, \"assertion\": \"assert {k: v for k, v in observed.items() if k != 'values'} == {k: v for k, v in wanted.items() if k != 'values'}\"}, {\"control\": \"nan-payload-corruption\", \"verifier_line\": 140, \"assertion\": \"assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)\"}, {\"control\": \"zero-sign-corruption\", \"verifier_line\": 140, \"assertion\": \"assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)\"}, {\"control\": \"nan-null-confusion\", \"verifier_line\": 140, \"assertion\": \"assert observed['name'] in approximate and isinstance(left, dict) and isinstance(right, dict)\"}, {\"control\": \"text-reference-corruption\", \"verifier_line\": 121, \"assertion\": \"assert type(value['text_ref']) is int and 0 <= value['text_ref'] < len(pool)\"}, {\"control\": \"certificate-corruption\", \"verifier_line\": 246, \"assertion\": \"assert report['fallback_attempted'] == report['external_engine_invoked'] == 'false'\"}, {\"control\": \"policy-corruption\", \"verifier_line\": 248, \"assertion\": \"assert report['float_policy'] == row['policy'] and row['policy'] in ('strict', 'extended')\"}, {\"control\": \"matrix-result-corruption\", \"verifier_line\": 286, \"assertion\": \"assert envelope == observation['native_envelope']\"}, {\"control\": \"wheel-product-corruption\", \"verifier_line\": 308, \"assertion\": \"assert wheel['integrity'][field] == wheel['stage'][field] == products[path]['sha256']\"}, {\"control\": \"spill-cleanup-corruption\", \"verifier_line\": 264, \"assertion\": \"assert row['relational_spill_owned_cleanup_completed'] == 'true'\"}, {\"control\": \"spill-bound-corruption\", \"verifier_line\": 268, \"assertion\": \"assert int(row['relational_spill_peak_disk_bytes']) <= int(row['relational_spill_quota_bytes']) == 256 << 20\"}, {\"control\": \"oracle-corruption\", \"verifier_line\": 197, \"assertion\": \"assert reference == packet['oracle_contract']\"}], \"public_totals\": {\"certificates\": 164, \"cohorts\": 82, \"compared_rows\": 108081, \"comparisons\": 1362, \"envelopes\": 255, \"five_surface_rows\": 3315, \"positive_public_executions\": 410, \"tests\": 20}, \"installed_tests\": 243, \"packet_sha256\": \"a61ed73238428745501caa769f0178cf1b92eecaaef79454656ce6eb5837abc6\", \"working_directory_contains_only_archived_verifier\": true, \"isolated_python\": true, \"engine_imported\": false}\n",
+  "stderr": "",
+  "no_source_tree_import": true,
+  "no_native_binary_loaded": true,
+  "new_benchmark_executions": 0
+}

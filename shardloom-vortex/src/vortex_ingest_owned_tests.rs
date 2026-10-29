@@ -980,6 +980,7 @@ fn shared_stream_poll_yields_without_driving_conversion_and_retains_teardown_own
         None,
         Some(runtime.clone()),
         CancellationToken::default(),
+        FloatPolicy::Strict,
     )
     .unwrap();
     let owner = Arc::downgrade(&input.prefetch.as_ref().unwrap().context);
@@ -1132,6 +1133,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             Some(memory.clone()),
             runtime.clone(),
             CancellationToken::default(),
+            FloatPolicy::Strict,
         )
         .unwrap();
         let writer_input_lookahead = iterator.share_input_slot_with_writer(&decision);

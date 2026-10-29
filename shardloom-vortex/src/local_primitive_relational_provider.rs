@@ -76,7 +76,13 @@ pub(super) fn prepare(
     source: &PreparedVortexSource,
     policy: VortexLocalPrimitiveExecutionPolicy,
     memory: &LiveMemoryPool,
+    float_policy: shardloom_core::FloatPolicy,
 ) -> Result<Selection> {
+    if float_policy == shardloom_core::FloatPolicy::Extended {
+        return Ok(Selection::declined(
+            "extended_float_policy_requires_shared_relational_execution",
+        ));
+    }
     let Some(bytes) = memory::scratch(root)? else {
         return Ok(Selection::declined(
             "bound_operation_requires_relational_execution",

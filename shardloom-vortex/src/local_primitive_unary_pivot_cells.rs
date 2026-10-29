@@ -8,6 +8,8 @@ use super::{
     failed,
 };
 use crate::local_primitives::native_decimal_reduce::{self, Total};
+use crate::local_primitives::native_float_total::Specials;
+use shardloom_core::{FloatPolicy, float_policy::float_key_bits};
 use vortex::array::{ArrayRef, dtype::DecimalDType};
 
 type Key = (String, String);
@@ -19,32 +21,63 @@ pub(super) struct DecimalCell {
     pub(super) max: Option<i128>,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct PrimitiveCell {
+    pub(super) values: PivotAggregateCell,
+    pub(super) specials: Specials,
+    pub(super) policy: FloatPolicy,
+}
+
+impl PrimitiveCell {
+    fn extreme(&self, current: Option<f64>, value: f64, minimum: bool) -> f64 {
+        let Some(current) = current else { return value };
+        if self.policy == FloatPolicy::Strict {
+            return if minimum {
+                current.min(value)
+            } else {
+                current.max(value)
+            };
+        }
+        let order = f64::from_bits(float_key_bits(value))
+            .total_cmp(&f64::from_bits(float_key_bits(current)));
+        if (minimum && order.is_lt()) || (!minimum && order.is_gt()) {
+            value
+        } else {
+            current
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Kind {
-    Primitive,
+    Primitive(FloatPolicy),
     Decimal(DecimalDType),
     Nested,
 }
 
 #[derive(Clone)]
 pub(super) enum Cell {
-    Primitive(PivotAggregateCell),
+    Primitive(PrimitiveCell),
     Decimal(DecimalDType, DecimalCell),
     Nested(Option<Datum>),
 }
 
 impl Kind {
-    pub(super) fn new(source: Option<DecimalDType>, nested: bool) -> Self {
+    pub(super) fn new(source: Option<DecimalDType>, nested: bool, policy: FloatPolicy) -> Self {
         if nested {
             Self::Nested
         } else {
-            source.map_or(Self::Primitive, Self::Decimal)
+            source.map_or(Self::Primitive(policy), Self::Decimal)
         }
     }
 
     pub(super) fn empty(self) -> Cell {
         match self {
-            Self::Primitive => Cell::Primitive(PivotAggregateCell::default()),
+            Self::Primitive(policy) => Cell::Primitive(PrimitiveCell {
+                values: PivotAggregateCell::default(),
+                specials: Specials::default(),
+                policy,
+            }),
             Self::Decimal(source) => Cell::Decimal(source, DecimalCell::default()),
             Self::Nested => Cell::Nested(None),
         }
@@ -61,23 +94,30 @@ impl Cell {
         match self {
             Self::Primitive(previous) => {
                 let mut cell = *previous;
-                cell.count = cell
+                cell.values.count = cell
+                    .values
                     .count
                     .checked_add(1)
                     .ok_or_else(|| failed("pivot cell count overflow"))?;
                 if aggregate != "count" {
-                    let value = value.pivot_numeric().map_err(|_| {
-                        failed("pivot numeric aggregate requires a numeric non-null value")
-                    })?;
-                    if !value.is_finite() {
+                    let value = if let ScalarValue::Float64(value) = value.scalar()? {
+                        *value
+                    } else {
+                        value.pivot_numeric().map_err(|_| {
+                            failed("pivot numeric aggregate requires a numeric non-null value")
+                        })?
+                    };
+                    if !cell.policy.admits(value) {
                         return Err(failed("pivot numeric value is not finite"));
                     }
-                    cell.sum += value;
-                    if matches!(aggregate, "sum" | "mean") && !cell.sum.is_finite() {
+                    if !cell.specials.add(value)? {
+                        cell.values.sum += value;
+                    }
+                    if matches!(aggregate, "sum" | "mean") && !cell.values.sum.is_finite() {
                         return Err(failed("pivot numeric accumulation is not finite"));
                     }
-                    cell.min = Some(cell.min.map_or(value, |current| current.min(value)));
-                    cell.max = Some(cell.max.map_or(value, |current| current.max(value)));
+                    cell.values.min = Some(cell.extreme(cell.values.min, value, true));
+                    cell.values.max = Some(cell.extreme(cell.values.max, value, false));
                 }
                 *previous = cell;
             }
@@ -118,19 +158,24 @@ impl Cell {
     fn merge(&mut self, other: &Self, aggregate: &str) -> Result<()> {
         match (self, other) {
             (Self::Primitive(current), Self::Primitive(cell)) => {
-                current.count = current
+                if current.policy != cell.policy {
+                    return Err(failed("pivot margin floating policy changed"));
+                }
+                current.values.count = current
+                    .values
                     .count
-                    .checked_add(cell.count)
+                    .checked_add(cell.values.count)
                     .ok_or_else(|| failed("pivot margin count overflow"))?;
-                current.sum += cell.sum;
-                if matches!(aggregate, "sum" | "mean") && !current.sum.is_finite() {
+                current.values.sum += cell.values.sum;
+                current.specials.merge(cell.specials)?;
+                if matches!(aggregate, "sum" | "mean") && !current.values.sum.is_finite() {
                     return Err(failed("pivot margin accumulation is not finite"));
                 }
-                if let Some(value) = cell.min {
-                    current.min = Some(current.min.map_or(value, |current| current.min(value)));
+                if let Some(value) = cell.values.min {
+                    current.values.min = Some(current.extreme(current.values.min, value, true));
                 }
-                if let Some(value) = cell.max {
-                    current.max = Some(current.max.map_or(value, |current| current.max(value)));
+                if let Some(value) = cell.values.max {
+                    current.values.max = Some(current.extreme(current.values.max, value, false));
                 }
             }
             (Self::Decimal(source, current), Self::Decimal(expected, cell))
@@ -179,14 +224,14 @@ pub(super) struct Cells {
 
 impl Default for Cells {
     fn default() -> Self {
-        Self::new(None, false)
+        Self::new(None, false, FloatPolicy::Strict)
     }
 }
 
 impl Cells {
-    pub(super) fn new(source: Option<DecimalDType>, nested: bool) -> Self {
+    pub(super) fn new(source: Option<DecimalDType>, nested: bool, policy: FloatPolicy) -> Self {
         Self {
-            kind: Kind::new(source, nested),
+            kind: Kind::new(source, nested, policy),
             values: BTreeMap::new(),
         }
     }
@@ -312,7 +357,13 @@ fn nested_replaces(current: Option<&Datum>, value: &Datum, aggregate: &str) -> R
     })
 }
 
-fn primitive_value(cell: &PivotAggregateCell, aggregate: &str) -> Result<Option<Value<'static>>> {
+fn primitive_value(state: &PrimitiveCell, aggregate: &str) -> Result<Option<Value<'static>>> {
+    let cell = &state.values;
+    if matches!(aggregate, "sum" | "mean")
+        && let Some(value) = state.specials.result()
+    {
+        return Ok(Some(Value::Float(value)));
+    }
     Ok(match aggregate {
         "count" => Some(Value::UInt(cell.count)),
         "sum" => Some(Value::Float(cell.sum)),
