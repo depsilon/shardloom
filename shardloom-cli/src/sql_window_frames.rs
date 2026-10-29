@@ -8,6 +8,7 @@ use super::{
     parse_window_partition_by, scalar_expression, split_sql_csv, split_whitespace_outside_quotes,
     unsupported_sql_error,
 };
+use shardloom_core::temporal::{Ambiguity, TemporalUnit, civil::MonthEnd};
 use shardloom_vortex::relational_query::{
     VortexRelationalFrameBound as Bound, VortexRelationalFrameExclusion as Exclusion,
     VortexRelationalFrameOffset as Offset, VortexRelationalFrameUnit as Unit,
@@ -98,8 +99,16 @@ fn frame_start(raw: &str) -> Result<Option<usize>, ShardLoomError> {
                 .to_ascii_lowercase();
             if matches!(
                 token.as_str(),
-                "between" | "unbounded" | "current" | "interval" | "cast"
+                "between"
+                    | "unbounded"
+                    | "current"
+                    | "interval"
+                    | "cast"
+                    | "calendar_days"
+                    | "calendar_months"
             ) || token.starts_with("cast(")
+                || token.starts_with("calendar_days(")
+                || token.starts_with("calendar_months(")
                 || token
                     .as_bytes()
                     .first()
@@ -201,11 +210,14 @@ fn parse_bound(raw: &str) -> Result<Bound, ShardLoomError> {
 }
 
 fn parse_offset(raw: &str) -> Result<Offset, ShardLoomError> {
+    if let Some(offset) = parse_calendar_offset(raw)? {
+        return Ok(offset);
+    }
     if keyword(raw, "interval")? == Some(0) {
         let tokens = split_whitespace_outside_quotes(raw)?;
         let [_, value, unit] = tokens.as_slice() else {
             return Err(unsupported_sql_error(
-                "frame INTERVAL requires a nonnegative integer string and fixed unit",
+                "frame INTERVAL requires a nonnegative integer string and a duration or month/year unit",
             ));
         };
         let value = parse_sql_string_literal(value)?
@@ -213,24 +225,42 @@ fn parse_offset(raw: &str) -> Result<Offset, ShardLoomError> {
             .map_err(|_| {
                 unsupported_sql_error("frame INTERVAL value must be a nonnegative UInt64 integer")
             })?;
-        let multiplier = match unit.to_ascii_lowercase().as_str() {
-            "day" | "days" => 86_400_000_000,
-            "hour" | "hours" => 3_600_000_000,
-            "minute" | "minutes" => 60_000_000,
-            "second" | "seconds" => 1_000_000,
-            "millisecond" | "milliseconds" => 1_000,
-            "microsecond" | "microseconds" => 1,
+        let (multiplier, unit) = match unit.to_ascii_lowercase().as_str() {
+            "month" | "months" => {
+                return Ok(Offset::CalendarMonths {
+                    months: value,
+                    month_end: MonthEnd::Reject,
+                    ambiguity: Ambiguity::Reject,
+                });
+            }
+            "year" | "years" => {
+                return Ok(Offset::CalendarMonths {
+                    months: value.checked_mul(12).ok_or_else(|| {
+                        unsupported_sql_error("calendar frame months exceed UInt64")
+                    })?,
+                    month_end: MonthEnd::Reject,
+                    ambiguity: Ambiguity::Reject,
+                });
+            }
+            "day" | "days" => (86_400, TemporalUnit::Seconds),
+            "hour" | "hours" => (3_600, TemporalUnit::Seconds),
+            "minute" | "minutes" => (60, TemporalUnit::Seconds),
+            "second" | "seconds" => (1, TemporalUnit::Seconds),
+            "millisecond" | "milliseconds" => (1, TemporalUnit::Milliseconds),
+            "microsecond" | "microseconds" => (1, TemporalUnit::Microseconds),
+            "nanosecond" | "nanoseconds" => (1, TemporalUnit::Nanoseconds),
             _ => {
                 return Err(unsupported_sql_error(
-                    "frame INTERVAL requires DAY, HOUR, MINUTE, SECOND, MILLISECOND or MICROSECOND; calendar units are not admitted",
+                    "frame INTERVAL requires DAY, HOUR, MINUTE, SECOND, MILLISECOND, MICROSECOND, NANOSECOND, MONTH or YEAR",
                 ));
             }
         };
-        return Ok(Offset::DurationMicros(
-            value.checked_mul(multiplier).ok_or_else(|| {
-                unsupported_sql_error("frame duration exceeds UInt64 microseconds")
-            })?,
-        ));
+        return Ok(Offset::Duration {
+            value: value
+                .checked_mul(multiplier)
+                .ok_or_else(|| unsupported_sql_error("frame duration exceeds UInt64 ticks"))?,
+            unit,
+        });
     }
     let value = if let Some((mode, inner)) = parse_cast_call_expression(raw)? {
         if mode != CastMode::Strict {
@@ -254,8 +284,62 @@ fn parse_offset(raw: &str) -> Result<Offset, ShardLoomError> {
             | ScalarValue::Decimal128 { .. }
     ) {
         return Err(unsupported_sql_error(
-            "frame offset must be a numeric or fixed-duration literal",
+            "frame offset must be a numeric, fixed-duration or calendar literal",
         ));
     }
     Ok(Offset::Number(value))
+}
+
+fn parse_calendar_offset(raw: &str) -> Result<Option<Offset>, ShardLoomError> {
+    for (name, months) in [("calendar_days", false), ("calendar_months", true)] {
+        let Some(arguments) = parse_window_function_args(raw, name)? else {
+            continue;
+        };
+        let arguments = split_sql_csv(arguments)?;
+        if arguments.is_empty() || arguments.len() > if months { 3 } else { 2 } {
+            return Err(unsupported_sql_error(
+                "calendar frame offset requires a magnitude and optional literal policies",
+            ));
+        }
+        let amount = match parse_sql_literal(arguments[0].trim())? {
+            ScalarValue::UInt64(value) => value,
+            ScalarValue::Int64(value) if value >= 0 => value.unsigned_abs(),
+            _ => {
+                return Err(unsupported_sql_error(
+                    "calendar frame magnitude requires a nonnegative UInt64 integer",
+                ));
+            }
+        };
+        let policy = |index: usize| {
+            arguments
+                .get(index)
+                .map(|raw| parse_sql_string_literal(raw))
+                .transpose()
+        };
+        let ambiguity =
+            policy(if months { 2 } else { 1 })?.map_or(Ok(Ambiguity::Reject), |value| {
+                Ambiguity::parse(&value).ok_or_else(|| {
+                    unsupported_sql_error("calendar ambiguity requires reject, earlier or later")
+                })
+            })?;
+        let offset = if months {
+            let month_end = policy(1)?.map_or(Ok(MonthEnd::Reject), |value| {
+                MonthEnd::parse(&value).ok_or_else(|| {
+                    unsupported_sql_error("calendar month-end policy requires reject or clamp")
+                })
+            })?;
+            Offset::CalendarMonths {
+                months: amount,
+                month_end,
+                ambiguity,
+            }
+        } else {
+            Offset::CalendarDays {
+                days: amount,
+                ambiguity,
+            }
+        };
+        return Ok(Some(offset));
+    }
+    Ok(None)
 }

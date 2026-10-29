@@ -141,30 +141,42 @@ pub(super) fn run<'s>(
                 ) => {
                     let bounds =
                         bounds::build(frame, input, &mut peer, spill, context, limit, report)?;
-                    if matches!(frame.function, frame::Function::Aggregate(function) if function.is_distinct())
-                    {
-                        distinct::run(
-                            frame,
-                            layout,
-                            input,
-                            &bounds,
-                            spill,
-                            context,
-                            limit,
-                            &mut output,
-                            report,
-                        )?;
-                    } else {
-                        extrema::run(
-                            frame,
-                            input,
-                            &bounds,
-                            spill,
-                            context,
-                            limit,
-                            &mut output,
-                            report,
-                        )?;
+                    let mut start = 0;
+                    while start < rows {
+                        context.check_cancelled()?;
+                        let end = if frame.frame.can_rewind() {
+                            bounds::monotone_end(&bounds, start, context, report)?
+                        } else {
+                            rows
+                        };
+                        if matches!(frame.function, frame::Function::Aggregate(function) if function.is_distinct())
+                        {
+                            distinct::run(
+                                frame,
+                                layout,
+                                input,
+                                &bounds,
+                                start..end,
+                                spill,
+                                context,
+                                limit,
+                                &mut output,
+                                report,
+                            )?;
+                        } else {
+                            extrema::run(
+                                frame,
+                                input,
+                                &bounds,
+                                start..end,
+                                spill,
+                                context,
+                                limit,
+                                &mut output,
+                                report,
+                            )?;
+                        }
+                        start = end;
                     }
                     bounds.finish(context)?;
                 }

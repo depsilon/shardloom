@@ -9,26 +9,7 @@ use super::{
 use crate::Result;
 use jiff::tz::{Offset, TimeZone};
 
-/// Resolution for a civil time repeated by a fold or skipped by a gap.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum Ambiguity {
-    #[default]
-    Reject,
-    Earlier,
-    Later,
-}
-
-impl Ambiguity {
-    #[must_use]
-    pub fn parse(value: &str) -> Option<Self> {
-        match value {
-            "reject" => Some(Self::Reject),
-            "earlier" => Some(Self::Earlier),
-            "later" => Some(Self::Later),
-            _ => None,
-        }
-    }
-}
+pub use super::Ambiguity;
 
 #[must_use]
 pub fn database_version() -> &'static str {

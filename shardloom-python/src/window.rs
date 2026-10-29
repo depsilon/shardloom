@@ -5,7 +5,10 @@ use super::{
     relation::{column, order_keys},
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
-use shardloom_core::ExpressionKind;
+use shardloom_core::{
+    ExpressionKind,
+    temporal::{Ambiguity, TemporalUnit, civil::MonthEnd},
+};
 use shardloom_vortex::relational_query::{
     VortexRelationalFrameBound as Bound, VortexRelationalFrameExclusion as Exclusion,
     VortexRelationalFrameFunction as Reduction, VortexRelationalFrameOffset as Offset,
@@ -37,6 +40,48 @@ impl NativeFrameOffset {
         Self {
             value: Offset::DurationMicros(value),
         }
+    }
+
+    /// Declare a fixed elapsed duration. Calendar ambiguity is not applicable.
+    #[staticmethod]
+    #[pyo3(signature = (value, *, unit="us"))]
+    fn duration(value: u64, unit: &str) -> PyResult<Self> {
+        let unit = TemporalUnit::parse(unit)
+            .ok_or_else(|| PyValueError::new_err("duration unit must be s, ms, us or ns"))?;
+        Ok(Self {
+            value: Offset::Duration { value, unit },
+        })
+    }
+
+    /// Declare calendar days; ambiguous or nonexistent local times reject by default.
+    #[staticmethod]
+    #[pyo3(signature = (value, *, ambiguity="reject"))]
+    fn calendar_days(value: u64, ambiguity: &str) -> PyResult<Self> {
+        let ambiguity = Ambiguity::parse(ambiguity)
+            .ok_or_else(|| PyValueError::new_err("ambiguity must be reject, earlier or later"))?;
+        Ok(Self {
+            value: Offset::CalendarDays {
+                days: value,
+                ambiguity,
+            },
+        })
+    }
+
+    /// Declare calendar months; month-end and local-time ambiguity reject by default.
+    #[staticmethod]
+    #[pyo3(signature = (value, *, month_end="reject", ambiguity="reject"))]
+    fn calendar_months(value: u64, month_end: &str, ambiguity: &str) -> PyResult<Self> {
+        let month_end = MonthEnd::parse(month_end)
+            .ok_or_else(|| PyValueError::new_err("month_end must be reject or clamp"))?;
+        let ambiguity = Ambiguity::parse(ambiguity)
+            .ok_or_else(|| PyValueError::new_err("ambiguity must be reject, earlier or later"))?;
+        Ok(Self {
+            value: Offset::CalendarMonths {
+                months: value,
+                month_end,
+                ambiguity,
+            },
+        })
     }
 }
 

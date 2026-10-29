@@ -69,6 +69,8 @@ REQUIRED_JSON_POINTERS = (
     "native_relational_order_spill.reference",
     "native_relational_order_spill.public_resource_arguments",
     "native_relational_order_spill.spill_fields",
+    "native_python_batch_adapters.streaming_input.temporal_window_reference",
+    "native_python_batch_adapters.streaming_input.temporal_window_user_reference",
     "native_nested_composition.reference",
     "native_nested_composition.payload_types",
     "native_nested_composition.nested_writers",

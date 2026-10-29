@@ -15,6 +15,9 @@ mod pressure_tests;
 #[path = "local_primitive_relational_window_spill_semantics_tests.rs"]
 mod semantics_tests;
 
+#[path = "local_primitive_relational_calendar_window_tests.rs"]
+mod calendar_tests;
+
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_relational_window_spill_writer_tests.rs"]
 mod writer_cases;

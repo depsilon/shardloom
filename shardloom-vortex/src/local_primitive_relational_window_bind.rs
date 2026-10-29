@@ -59,11 +59,11 @@ impl Binder<'_> {
         for expression in &window.expressions {
             let (frame, dtype) = if let Function::Framed(declaration) = &expression.function {
                 let (frame, dtype) =
-                    frames::bind(declaration, expression, &input.fields, &mut spec)?;
+                    frames::bind(declaration, expression, &input.fields, &mut spec, self)?;
                 (Some(frame), dtype)
             } else {
                 if let Some(frame) = &expression.frame {
-                    frames::policy(frame, expression, &input.fields, &mut spec)?;
+                    frames::policy(frame, expression, &input.fields, &mut spec, self)?;
                 }
                 (None, function_dtype(&expression.function, &input.fields)?)
             };

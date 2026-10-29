@@ -62,6 +62,38 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 class LazyWorkflowBuilderTests(unittest.TestCase):
 
+    def test_temporal_window_declarations_preserve_explicit_units_and_policies(self):
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            base = sl.Window.partition_by("fund").order_by("instant", nulls="last")
+            self.assertEqual(base.range_between(sl.Window.duration(-1500, unit="ms"), 0).sql,
+                             "PARTITION BY fund ORDER BY instant ASC NULLS LAST RANGE BETWEEN INTERVAL '1500' MILLISECOND PRECEDING AND CURRENT ROW")
+            self.assertEqual(sl.Window.range_between(sl.Window.calendar_days(-1, ambiguity="earlier"),
+                                                    sl.Window.calendar_months(2, month_end="clamp", ambiguity="later")).sql,
+                             "RANGE BETWEEN CALENDAR_DAYS(1, 'earlier') PRECEDING AND CALENDAR_MONTHS(2, 'clamp', 'later') FOLLOWING")
+            self.assertEqual(sl.Window.range_between(sl.Window.calendar_days(0), sl.Window.duration(0, unit="ns")).sql,
+                             "RANGE BETWEEN CALENDAR_DAYS(0, 'reject') FOLLOWING AND INTERVAL '0' NANOSECOND FOLLOWING")
+            self.assertNotIn("RANGE", base.sql)
+            self.assertIn("18446744073709551615", sl.Window.range_between(
+                sl.Window.duration(-(2**64-1), unit="s"), 0).sql)
+
+    def test_temporal_window_invalid_declarations_fail_before_execution(self):
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("declaration started execution")):
+            for factory in (sl.Window.duration, sl.Window.calendar_days, sl.Window.calendar_months):
+                for value in (True, 1.5, "1", None, 2**64, -(2**64)):
+                    with self.subTest(factory=factory, value=value), self.assertRaises((TypeError, ValueError)):
+                        factory(value)
+            for factory, keyword in ((sl.Window.duration, "unit"), (sl.Window.calendar_days, "ambiguity"),
+                                     (sl.Window.calendar_months, "month_end"), (sl.Window.calendar_months, "ambiguity")):
+                for policy in (None, "unknown", "later'); SELECT 1 --"):
+                    with self.subTest(keyword=keyword, policy=policy), self.assertRaises(ValueError):
+                        factory(1, **{keyword: policy})
+            for method in (sl.Window.rows_between, sl.Window.groups_between):
+                with self.assertRaisesRegex(ValueError, "only for RANGE"):
+                    method(sl.Window.calendar_days(-1), 0)
+            for factory in (sl.Window.duration, sl.Window.calendar_days, sl.Window.calendar_months):
+                with self.assertRaisesRegex(ValueError, "start must not follow"):
+                    sl.Window.range_between(factory(2), factory(1))
+
     def test_remainder_declaration_preserves_numeric_precedence_and_rejects_text(self) -> None:
         self.assertEqual((sl.col("value") % -3).sql, "value % -3")
         self.assertEqual(((sl.col("value") + 1) % (sl.col("divisor") - 1)).sql,

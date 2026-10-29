@@ -2523,6 +2523,27 @@ def window_analytic_frames_case() -> SqlFixtureCase:
     )
 
 
+def calendar_window_frames_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="calendar_window_frames",
+        source_name="calendar-window.csv",
+        source_text="id,raw\n1,2024-01-31\n2,2024-02-28\n3,2024-02-29\n4,2024-03-31\n",
+        statement_template=(
+            "SELECT id,"
+            "COUNT(*) OVER (ORDER BY day RANGE CALENDAR_MONTHS(1,'clamp') PRECEDING) AS month_rows,"
+            "COUNT(*) OVER (ORDER BY day RANGE BETWEEN CALENDAR_DAYS(1) PRECEDING AND CALENDAR_DAYS(1) FOLLOWING) AS day_rows,"
+            "COUNT(*) OVER (ORDER BY day RANGE INTERVAL '1' DAY PRECEDING) AS elapsed_rows "
+            "FROM (SELECT id,CAST(raw AS date32) AS day FROM '{source}') AS dates ORDER BY id"
+        ),
+        expected_jsonl=(
+            '{"id":1,"month_rows":1,"day_rows":1,"elapsed_rows":1}\n'
+            '{"id":2,"month_rows":2,"day_rows":2,"elapsed_rows":1}\n'
+            '{"id":3,"month_rows":3,"day_rows":2,"elapsed_rows":2}\n'
+            '{"id":4,"month_rows":2,"day_rows":1,"elapsed_rows":1}\n'
+        ),
+    )
+
+
 def select_distinct_window_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="select_distinct_window",
@@ -3316,6 +3337,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         having_hidden_aggregate_case(),
         window_mixed_case(),
         window_analytic_frames_case(),
+        calendar_window_frames_case(),
         select_distinct_window_case(),
         join_multi_key_case(),
         join_scalar_expression_condition_case(),

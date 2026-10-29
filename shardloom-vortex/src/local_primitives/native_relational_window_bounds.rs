@@ -19,6 +19,7 @@ use std::ops::Range;
 pub(super) struct Bounds<'s> {
     pub(super) store: StoredOrder<'s>,
     pub(super) names: [String; 7],
+    source_rows: usize,
     _metadata: MemoryLease,
 }
 
@@ -66,11 +67,19 @@ pub(super) fn build<'s>(
             context,
         )?;
         let ranges = frame::intervals(range, &at, spec.frame.exclusion);
-        frame::validate_intervals(&previous, &ranges, input.range.len())?;
+        if spec.frame.can_rewind() {
+            frame::validate_ranges(&ranges, input.range.len())?;
+        } else {
+            frame::validate_intervals(&previous, &ranges, input.range.len())?;
+        }
         // Match the resident first-observation order before sorting values or
         // building summaries. Values absent from all frames are never evaluated.
         for (prior, next) in previous.iter().zip(&ranges) {
-            for (offset, row) in (prior.end.max(next.start)..next.end).enumerate() {
+            for (offset, row) in frame::difference(next, prior)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
                 if offset.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
@@ -93,8 +102,39 @@ pub(super) fn build<'s>(
     Ok(Bounds {
         store: order.retain(context)?,
         names,
+        source_rows: input.range.len(),
         _metadata: metadata,
     })
+}
+
+/// Find a maximal output range whose endpoints are monotone. No per-row run
+/// index is retained: each stored bound is visited once plus a boundary reread.
+pub(super) fn monotone_end(
+    bounds: &Bounds<'_>,
+    start: usize,
+    context: &NativeExecutionContext<'_>,
+    report: &mut Report,
+) -> Result<usize> {
+    let mut input = Lookup::<2>::new(&bounds.store, &bounds.names, context)?;
+    let rows = input.rows()?;
+    if start >= rows {
+        return Err(failed("window monotone range starts outside output"));
+    }
+    let mut previous = ranges(&mut input, start, context)?;
+    let mut end = start + 1;
+    while end < rows {
+        if end.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        let next = ranges(&mut input, end, context)?;
+        if !frame::monotone(&previous, &next) {
+            break;
+        }
+        previous = next;
+        end += 1;
+    }
+    add(&mut report.lookup_blocks, input.blocks)?;
+    Ok(end)
 }
 
 fn observe(
@@ -175,7 +215,8 @@ pub(super) struct Inversion<'a, 's> {
     ends: [Lookup<'a, 's, 1>; 3],
     start_at: [usize; 3],
     end_at: [usize; 3],
-    outputs: usize,
+    outputs: Range<usize>,
+    source_rows: usize,
     previous: Option<usize>,
     _metadata: MemoryLease,
 }
@@ -183,10 +224,14 @@ pub(super) struct Inversion<'a, 's> {
 impl<'a, 's> Inversion<'a, 's> {
     pub(super) fn new(
         bounds: &'a Bounds<'s>,
+        outputs: Range<usize>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        let outputs = usize::try_from(bounds.store.rows())
+        let rows = usize::try_from(bounds.store.rows())
             .map_err(|_| failed("window inverse count overflow"))?;
+        if outputs.start >= outputs.end || outputs.end > rows {
+            return Err(failed("window inverse output range exceeds stored bounds"));
+        }
         let metadata = context
             .memory()
             .reserve(std::mem::size_of::<Self>() as u64)?;
@@ -194,9 +239,10 @@ impl<'a, 's> Inversion<'a, 's> {
         Ok(Self {
             starts: [read()?, read()?, read()?],
             ends: [read()?, read()?, read()?],
-            start_at: [0; 3],
-            end_at: [0; 3],
+            start_at: [outputs.start; 3],
+            end_at: [outputs.start; 3],
             outputs,
+            source_rows: bounds.source_rows,
             previous: None,
             _metadata: metadata,
         })
@@ -207,7 +253,7 @@ impl<'a, 's> Inversion<'a, 's> {
         source: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<[Range<usize>; 3]> {
-        if self.previous.is_some_and(|previous| source < previous) || source >= self.outputs {
+        if self.previous.is_some_and(|previous| source < previous) || source >= self.source_rows {
             return Err(failed(
                 "window inverse source moved backwards or exceeded its partition",
             ));
@@ -215,12 +261,12 @@ impl<'a, 's> Inversion<'a, 's> {
         self.previous = Some(source);
         let mut spans = [0..0, 0..0, 0..0];
         for (index, span) in spans.iter_mut().enumerate() {
-            while self.end_at[index] < self.outputs
+            while self.end_at[index] < self.outputs.end
                 && self.ends[index].unsigned(self.end_at[index], 2 + 2 * index, context)? <= source
             {
                 self.end_at[index] += 1;
             }
-            while self.start_at[index] < self.outputs
+            while self.start_at[index] < self.outputs.end
                 && self.starts[index].unsigned(self.start_at[index], 1 + 2 * index, context)?
                     <= source
             {
@@ -229,7 +275,8 @@ impl<'a, 's> Inversion<'a, 's> {
             if self.end_at[index] > self.start_at[index] {
                 return Err(failed("window inverse endpoints are reversed"));
             }
-            *span = self.end_at[index]..self.start_at[index];
+            *span =
+                self.end_at[index] - self.outputs.start..self.start_at[index] - self.outputs.start;
         }
         Ok(spans)
     }

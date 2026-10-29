@@ -18,6 +18,7 @@ pub(super) fn run(
     spec: &frame::Spec,
     input: &mut Partition<'_, '_>,
     bounds: &Bounds<'_>,
+    outputs: Range<usize>,
     spill: &State,
     context: &NativeExecutionContext<'_>,
     limit: usize,
@@ -28,7 +29,16 @@ pub(super) fn run(
     let layout = ResultLayout::positions()?;
     let names = [ORDINAL.into(), VALUE.into()];
     let levels = summaries(
-        input, bounds, spec, &layout, &names, spill, context, limit, report,
+        input,
+        bounds,
+        outputs.clone(),
+        spec,
+        &layout,
+        &names,
+        spill,
+        context,
+        limit,
+        report,
     )?;
     let mut lookup = ReservedVec::new(context.memory())?;
     lookup.reserve(levels.values.len())?;
@@ -38,7 +48,7 @@ pub(super) fn run(
             .push(Lookup::<2>::new(level, &names, context)?);
     }
     let mut frames = Lookup::<2>::new(&bounds.store, &bounds.names, context)?;
-    for row in 0..input.range.len() {
+    for row in outputs {
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
         }
@@ -68,6 +78,7 @@ pub(super) fn run(
 fn summaries<'s>(
     input: &mut Partition<'_, '_>,
     bounds: &Bounds<'_>,
+    outputs: Range<usize>,
     spec: &frame::Spec,
     layout: &ResultLayout,
     names: &[String],
@@ -82,7 +93,7 @@ fn summaries<'s>(
         return Ok(levels);
     }
     levels.reserve(rows.ilog2() as usize + 1)?;
-    let mut inverse = Inversion::new(bounds, context)?;
+    let mut inverse = Inversion::new(bounds, outputs, context)?;
     let mut output = Values::new(layout, spill, limit, context)?;
     let mut selected = None;
     for row in 0..rows {

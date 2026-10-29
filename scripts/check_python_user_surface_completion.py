@@ -290,6 +290,11 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
 
 # Canonical onboarding/snippet/release facts are checked by check_v1_docs_productization; this check owns contributor proof.
 REQUIRED_DOC_MARKERS = {
+    "docs/reference/connected-programming.md": [
+        "Window.duration", "Window.calendar_days", "Window.calendar_months",
+        "FrameOffset.duration", "FrameOffset.calendar_days", "FrameOffset.calendar_months",
+        "CALENDAR_DAYS", "CALENDAR_MONTHS",
+    ],
     "README.md": [
         "https://shardloom.io/field-guide/python-surface/",
         "docs/reference/shardloom-user-surface-index.md",

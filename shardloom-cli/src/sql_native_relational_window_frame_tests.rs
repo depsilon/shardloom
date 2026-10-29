@@ -80,6 +80,56 @@ fn native_relational_sql_window_frames_temporal_and_exact_decimal_range() {
 }
 
 #[test]
+fn native_relational_sql_calendar_window_offsets_preserve_units_and_policies() {
+    verify_memory(
+        "SELECT COUNT(*) OVER (ORDER BY day RANGE CALENDAR_MONTHS(1,'clamp') PRECEDING) AS n FROM (SELECT CAST(column_1 AS date32) AS day FROM (VALUES ('2024-01-31'),('2024-02-29'),('2024-03-31')) AS text_days) AS days",
+        &json!([{"n":1},{"n":2},{"n":2}]),
+    );
+    verify_memory(
+        "SELECT COUNT(*) OVER (ORDER BY day DESC RANGE BETWEEN CALENDAR_DAYS(1) PRECEDING AND CALENDAR_DAYS(1) FOLLOWING) AS n FROM (SELECT CAST(column_1 AS date32) AS day FROM (VALUES ('2024-02-28'),('2024-02-29'),('2024-03-01')) AS text_days) AS days",
+        &json!([{"n":2},{"n":3},{"n":2}]),
+    );
+    verify_memory(
+        "SELECT COUNT(*) OVER (ORDER BY day RANGE INTERVAL '1' YEAR PRECEDING) AS n FROM (SELECT CAST(column_1 AS date32) AS day FROM (VALUES ('2023-03-01'),('2024-02-28'),('2024-03-01')) AS text_days) AS days",
+        &json!([{"n":1},{"n":2},{"n":3}]),
+    );
+    verify_memory(
+        "SELECT COUNT(*) OVER (ORDER BY time RANGE INTERVAL '500' NANOSECOND PRECEDING) AS n FROM (SELECT CAST(column_1 AS timestamp_micros) AS time FROM (VALUES ('2024-01-01T00:00:00Z'),('2024-01-01T00:00:00.000001Z'),('2024-01-01T00:00:00.000001Z')) AS raw) AS typed_times",
+        &json!([{"n":1},{"n":2},{"n":2}]),
+    );
+}
+
+#[test]
+fn native_relational_sql_calendar_window_zero_bounds_keep_peers_and_domain_checks() {
+    for offset in ["CALENDAR_DAYS(0)", "CALENDAR_MONTHS(0)", "INTERVAL '0' DAY"] {
+        for bounds in [
+            format!("{offset} FOLLOWING AND CURRENT ROW"),
+            format!("CURRENT ROW AND {offset} PRECEDING"),
+            format!("{offset} FOLLOWING AND {offset} PRECEDING"),
+        ] {
+            verify_memory(
+                &format!(
+                    "SELECT COUNT(*) OVER (ORDER BY day NULLS LAST RANGE BETWEEN {bounds}) AS n FROM (SELECT CAST(column_1 AS date32) AS day FROM (VALUES ('2024-02-29'),(NULL),('2024-02-29'),('2024-03-01')) AS raw) AS days"
+                ),
+                &json!([{"n":2},{"n":1},{"n":2},{"n":1}]),
+            );
+        }
+    }
+    for unit in ["ROWS", "GROUPS", "RANGE"] {
+        verify_memory(
+            &format!(
+                "SELECT COUNT(*) OVER (ORDER BY column_1 {unit} BETWEEN 0 FOLLOWING AND 0 PRECEDING) AS n FROM (VALUES (1),(1),(2)) AS raw"
+            ),
+            &if unit == "ROWS" {
+                json!([{"n":1},{"n":1},{"n":1}])
+            } else {
+                json!([{"n":2},{"n":2},{"n":1}])
+            },
+        );
+    }
+}
+
+#[test]
 fn native_relational_sql_window_frames_reject_invalid_empty_declarations() {
     for projection in [
         "COUNT(*) OVER (ROWS BETWEEN UNBOUNDED FOLLOWING AND UNBOUNDED FOLLOWING) AS n",
@@ -92,6 +142,15 @@ fn native_relational_sql_window_frames_reject_invalid_empty_declarations() {
         "COUNT(*) OVER (ORDER BY value RANGE INTERVAL '1' DAY PRECEDING) AS n",
         "COUNT(*) OVER (ORDER BY value ROWS INTERVAL '1' DAY PRECEDING) AS n",
         "COUNT(*) OVER (ORDER BY value RANGE INTERVAL '1' MONTH PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE CALENDAR_DAYS(0) PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE BETWEEN CALENDAR_DAYS(0) FOLLOWING AND CURRENT ROW) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE BETWEEN CURRENT ROW AND CALENDAR_MONTHS(0) PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value ROWS CALENDAR_DAYS(1) PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE CALENDAR_DAYS(-1) PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE CALENDAR_DAYS(1,'ignore') PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE CALENDAR_MONTHS(1,'ignore') PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE CALENDAR_MONTHS(1,'clamp','ignore') PRECEDING) AS n",
+        "COUNT(*) OVER (ORDER BY value RANGE INTERVAL '18446744073709551615' YEAR PRECEDING) AS n",
         "COUNT(*) OVER (ORDER BY value ROWS CURRENT ROW EXCLUDE UNKNOWN) AS n",
         "COUNT(*) OVER (ORDER BY value ROWS BETWEEN CURRENT ROW) AS n",
         "NTH_VALUE(value,0) OVER () AS n",

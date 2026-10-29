@@ -126,7 +126,11 @@ impl State {
         input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Value> {
-        super::validate_intervals(&self.ranges, &next, rows)?;
+        if spec.frame.can_rewind() {
+            super::validate_ranges(&next, rows)?;
+        } else {
+            super::validate_intervals(&self.ranges, &next, rows)?;
+        }
         if let Some(moments) = &mut self.moments {
             let result = moments.advance(&next, spec, input, context)?;
             self.ranges = next;
@@ -161,11 +165,11 @@ impl State {
             self.ranges = next;
             return Ok(Value::Source(selected));
         }
-        // Remove all departed observations before admitting arrivals. Each
-        // interval advances monotonically even when an exclusion splits a frame.
+        // Remove all departed observations before admitting arrivals. Calendar
+        // shifts may retreat, so both sides of an interval can change membership.
         for (index, range) in next.iter().enumerate() {
-            let departed = self.ranges[index].start..range.start.min(self.ranges[index].end);
-            for (offset, position) in departed.enumerate() {
+            let departed = super::difference(&self.ranges[index], range);
+            for (offset, position) in departed.into_iter().flatten().enumerate() {
                 if offset.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
@@ -173,8 +177,8 @@ impl State {
             }
         }
         for (index, range) in next.iter().enumerate() {
-            let arrived = self.ranges[index].end.max(range.start)..range.end;
-            for (offset, position) in arrived.enumerate() {
+            let arrived = super::difference(range, &self.ranges[index]);
+            for (offset, position) in arrived.into_iter().flatten().enumerate() {
                 if offset.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
@@ -512,6 +516,14 @@ impl Candidates {
         input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        let mut prior = prior.clone();
+        if next.start < prior.start || next.end < prior.end {
+            // Reuse the admitted queue capacity. Its discarded dominance
+            // history cannot be revived when a calendar boundary retreats.
+            self.positions.values.clear();
+            self.head = 0;
+            prior = 0..0;
+        }
         while self.first().is_some_and(|position| position < next.start) {
             if self.head.is_multiple_of(1024) {
                 context.check_cancelled()?;
