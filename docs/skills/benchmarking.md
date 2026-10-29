@@ -114,6 +114,12 @@ command. Freeze the original source identity and retain source-demand, ownership
 complete-result and no-fallback diagnostics. Historical Vortex-input observations
 remain valid for their declared boundary; do not calculate matched speedup or
 regression ratios between those observations and direct-Parquet Full43.
+The pinned Parquet dialect declares the independent reference's output aliases,
+integer epoch dates/times and ascending group-key ties explicitly. Keep original
+and submitted SQL plus both identities in the report. These are benchmark dialect
+declarations, not result repair or engine dispatch; arbitrary SQL stays unchanged.
+The existing Vortex dialect keeps its prior byte-length spelling. Preserve failed
+attempts and independently check revised declarations before continuing.
 
 Freeze the executable, source, input, reference values and resource settings;
 record cache context and any disturbances. Report the engine sum only. Keep

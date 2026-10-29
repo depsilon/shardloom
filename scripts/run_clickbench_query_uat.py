@@ -411,7 +411,8 @@ def main() -> int:
                     references.append(override["values"])
                 else:
                     references.append(extract_reference_result(read_json_log(args.reference_dir / f"q{index:02d}_run1.stdout.json")))
-        submitted_queries, query_dialect = native_query_statements(queries, queries_sha256)
+        submitted_queries, query_dialect = native_query_statements(
+            queries, queries_sha256, input_format=args.input_format)
         identity = source.stat()
         harness = {str(path): file_sha256(path) for path in clickbench_harness_paths()}
         reference_kind = (

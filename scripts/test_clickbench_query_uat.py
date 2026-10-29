@@ -675,6 +675,22 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 2)
         self.assertEqual(commands, [])
 
+    def test_pinned_parquet_queries_submit_explicit_shared_binding_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(Path(directory), pinned_queries=True,
+                input_format="parquet", query_ids="3,19,33,43")
+        self.assertEqual(result, 0)
+        self.assertEqual(summary["query_dialect"]["input_format"], "parquet")
+        records = {row["query"]: row for row in summary["records"]}
+        self.assertIn("SUM(AdvEngineID) AS sum_AdvEngineID_0", records[3]["executed_query_statement"])
+        self.assertIn("extract_minute(EventTime)", records[19]["executed_query_statement"])
+        self.assertIn("WatchID ASC NULLS FIRST, ClientIP ASC NULLS FIRST", records[33]["executed_query_statement"])
+        self.assertIn("EventDate >= 15900", records[43]["executed_query_statement"])
+        for record in records.values():
+            self.assertNotEqual(record["query_statement"], record["executed_query_statement"])
+            self.assertEqual(record["command"][record["command"].index("--sql") + 1],
+                             record["executed_query_statement"])
+
     def test_repeats_are_explicit_and_persisted_by_both_runners(self):
         for paired in (False, True):
             for repeats in (None, 3):
