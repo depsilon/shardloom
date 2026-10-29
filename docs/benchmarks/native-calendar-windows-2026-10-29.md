@@ -102,6 +102,16 @@ and closed-handle checks. The final tested executable/library and all compact
 results remain. Packet verification passes after cleanup; no runtime backup or
 storage-limit change is introduced.
 
+Hosted CI then caught a stale conformance-consumer count: the new calendar case
+made 119 executable fixtures while the release report still expected 118. The
+[CI correction record](evidence/native-calendar-windows-2026-10-29-ci-fix.json)
+preserves that failure and the aligned producer, matrix and documentation counts:
+119 fixtures, 25 diagnostics, 144 required runtime rows and 146 total matrix rows.
+The existing rejection checks remain intact. All 15 focused consumer tests and
+the full Python core and release-script suites pass locally after correction;
+the core suite retains its 28 environment-dependent skips. No engine source or
+original portable packet changed in this correction.
+
 To reproduce, use the recorded feature/profile/resource settings in a fresh
 checkout and local output directory, build the CLI and Python library, then run
 the recorded public and semantics helpers. The included recorder's `--verify`
