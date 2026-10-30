@@ -722,5 +722,40 @@ Full43 also does not cover mixed-format joins, native/compatibility output pairs
 large writes, reopen/reuse or the complete resource/failure matrix. The existing
 [item 18 coverage contract](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
 remains open for those obligations. Missing formats, unmeasured combinations and
-unsupported combinations must be recorded distinctly. Portable combined replay
-and hosted acceptance remain separate review gates; item 20 and C7 remain open.
+unsupported combinations must be recorded distinctly. Item 20 and C7 remain open.
+
+The [portable acceptance](../benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json)
+replays all eight complete 347-query observations, the original incomplete
+baseline attempt and the final Full43 values. It preserves the dropped C1
+decision, five retained candidates, all 134 original process/admission receipts,
+their 29 failures/refusals, complete public comparisons and package evidence.
+Ten build manifests bind exact source versions and product identities. Four
+content-addressed archive parts retain the existing per-part limits; large
+records use bounded chunks and no archived code is executed. Large input,
+runtime and wheel payloads remain external with frozen identities.
+
+One historical source limitation is explicit: three early nonruntime document
+drafts retain their receipt lengths/digests but lack their original bytes. All
+pre-execution benchmark contracts and runtime/test source snapshots are retained;
+those drafts receive no substitute content or execution-proof credit.
+
+Replay with:
+
+```sh
+python -B scripts/verify_shared_performance_packet.py docs/benchmarks/evidence/native-shared-performance-2026-10-30
+python -B -m unittest discover -s scripts -p test_shared_performance_packet.py -v
+```
+
+The 36 corruption/semantic tests cover unsafe or missing archive entries,
+duplicate and reordered chunks, bounded reconstruction/cache behavior, complete
+public values and five-interface/three-format grids, actual process/test counts,
+and the precisely recorded post-lint formatting edit. Full43 controls repair
+transport checksums before attempting changed results, clocks, queries, input
+format or hidden ranked activation; semantic replay rejects them. CI runs the
+controls and the complete saved-result verifier. Hosted acceptance remains a
+separate merge gate. No new query is executed during packaging or replay.
+The [follow-up verification](../benchmarks/evidence/native-shared-performance-2026-10-30-followup.json)
+retains the packaging failures/corrections and passing control, documentation,
+CI-matrix and source-only replay receipts. The separate source-only copy has
+identical verifier files and derives the same acceptance without local data or
+runtime payloads.
