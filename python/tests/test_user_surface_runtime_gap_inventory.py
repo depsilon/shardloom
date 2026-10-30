@@ -31,6 +31,21 @@ def load_inventory_module():
 
 
 class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
+    def test_readme_boundaries_are_classified_without_accepting_unknown_gaps(self) -> None:
+        module = load_inventory_module()
+        policy = module.classify_doc_line(
+            "- **An explicit execution boundary.** Unsupported requests produce actionable diagnostics."
+        )
+        self.assertEqual(policy[0], "policy_rejected")
+        self.assertEqual(policy[4], "no_fallback_policy")
+        control = module.classify_doc_line(
+            "blocked capabilities. See the [control model](docs/architecture/pulseweave-runtime-control.md)."
+        )
+        self.assertEqual(control[0], "runtime_available_needs_claim_evidence")
+        self.assertEqual(control[4], "pulseweave.proof_bound")
+        self.assertIsNone(module.classify_doc_line("Unsupported requests can execute externally."))
+        self.assertIsNone(module.classify_doc_line("Unspecified runtime capabilities remain blocked."))
+
     def test_current_repo_inventory_classifies_gaps_and_external_baselines(self) -> None:
         module = load_inventory_module()
 
