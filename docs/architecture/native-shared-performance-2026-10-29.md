@@ -670,3 +670,57 @@ counter surface. Add fresh independent cases across five interfaces and three
 formats, then required workspace/lint/installed-package checks. Declare all
 expression-consuming cohort families, retain every observation and apply the
 same complete-cohort binary gain/loss rule. Full43 remains a combined gate.
+
+## Combined review checkpoint and Full43 coverage audit — October 30
+
+The combined C2–C6 runtime, including the optional ranked-admission correction,
+passes the unchanged 347-query checkpoint: **13.368176384 engine seconds** against
+the fresh composition baseline's **15.305938168**, with all 12,565 result rows
+equal and no case/family diagnostic flags. This is a combined integration
+observation; it does not replace any original candidate observation or disposition.
+The measured runtime source is commit `7d111f51c9c3a362ed51bed13746a77b8f0a81e8`.
+Final local checks pass: 6,539 native tests with 35 existing opt-in tests ignored,
+3,289 default tests, both strict lint configurations, formatting, 180 public
+executions comparing 12,465 rows, and 264 installed-package tests without skips.
+
+One isolated direct-Parquet Full43 pass then completes in **624.450913663 engine
+seconds**, with 43 unique queries, one execution each and all 381 result rows
+independently checked. The prior same-boundary observation was 651.558161209
+engine seconds. Preserve both single observations without a statistical claim.
+The source is the original 99,997,497-row Parquet file; no ingest/preparation
+command or prepared-input artifact is used. Native/default/package gates,
+complete 347 comparisons and full source hashing precede query execution.
+The standard 24 GiB / 12-lane / 120-second-per-query settings, lightweight guard,
+storage limits and cleanup remain unchanged; all other task work stays idle.
+
+Inspection of the complete saved query reports establishes the following scope:
+
+| Mechanism | Observed Full43 coverage |
+| --- | --- |
+| Demanded columns | All 43 use direct demand-aware reads; 42 request fewer than the 105 available columns. |
+| Statistics pruning | Q2, Q8 and Q20 read 212, 212 and 202 of 226 groups; Q37–Q43 each read three. |
+| Rank before wide payload | Q24 ranks two dependency columns across 226 groups, then reads payload from seven winning groups for ten selected rows. The decoded-row counter includes both phases; it is not a unique-row count. |
+| Bounded ordering retention | Positive `native_input_ordering_prefix_batches` in 29 queries. This is separate from a source prefix. |
+| Source prefix | No query reports a positive requested source prefix; this pass does not prove that mechanism's activation. |
+| Ownership and execution | Every query reports source completion, detached output ownership, zero prepared-input writes and no external execution. |
+
+The runner's original summary filter retained `native_source_demand_*` but omitted
+`native_source_ranked_*` and `native_input_ordering_*`. Those fields are present
+in the preserved raw outputs, including Q24's positive ranked activation. The
+filter now retains both families, with single and paired runner tests for exact
+values, explicit zero/unavailable values and absent fields. This reporting change
+does not change the completed observation, its frozen harness, SQL, values or
+clocks, and does not justify another query pass.
+
+Full43 remains a regression workload, not the format-completion gate. Its runner
+admits Vortex and Parquet; this observation selects Parquet only. In the current
+public source binder, fresh ordinary Parquet queries can admit
+`LocalColumnarSource` directly. Arrow IPC/Feather, ORC, Avro, CSV and JSON/JSONL
+instead use compatibility preparation to Vortex; their readability does not prove
+equivalent direct source demand. Vortex has its own native source boundary.
+Full43 also does not cover mixed-format joins, native/compatibility output pairs,
+large writes, reopen/reuse or the complete resource/failure matrix. The existing
+[item 18 coverage contract](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
+remains open for those obligations. Missing formats, unmeasured combinations and
+unsupported combinations must be recorded distinctly. Portable combined replay
+and hosted acceptance remain separate review gates; item 20 and C7 remain open.
