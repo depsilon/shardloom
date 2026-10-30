@@ -105,6 +105,12 @@ impl NativeExecutionContext<'_> {
         self.owner.float_policy
     }
 
+    /// The fixed recursive-work bound of this admitted session.
+    #[must_use]
+    pub fn recursion_limit(&self) -> shardloom_core::RecursionLimit {
+        self.owner.recursion_limit
+    }
+
     /// Metadata-only admission cannot be expanded into scanning or construction.
     pub(crate) fn check_general_execution(&self) -> Result<()> {
         self.check_cancelled()?;

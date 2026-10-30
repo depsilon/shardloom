@@ -1054,6 +1054,28 @@ fn source_usage(
     }
     let operator = match plan {
         VortexRelationalPlan::Input(_) => "unbound declaration input",
+        VortexRelationalPlan::Materialized(input) => {
+            return source_usage(input, uri, depth + 1, dynamic, outer_scope);
+        }
+        VortexRelationalPlan::Recursive(recursive) => {
+            let anchor = source_usage(&recursive.anchor, uri, depth + 1, dynamic, outer_scope)?;
+            let mut step = source_usage(&recursive.step, uri, depth + 1, dynamic, outer_scope)?;
+            if step.uses > 0 {
+                step.replay = step.replay.max(ReplayRequirement::Record);
+                if anchor.uses == 0 {
+                    step.validate_if_unread = true;
+                }
+            }
+            let shared = anchor.uses > 0 && step.uses > 0;
+            let mut usage = anchor.combine(step);
+            if shared {
+                // Detach a shared producer before anchor consumption so later
+                // frontier iterations never reopen it while it is active.
+                usage.replay = usage.replay.max(ReplayRequirement::Prefill);
+            }
+            return Ok(usage);
+        }
+        VortexRelationalPlan::RecursiveInput(_) => return Ok(Usage::default()),
         VortexRelationalPlan::Scan(scan) => {
             return Ok(Usage {
                 uses: usize::from(&scan.source_uri == uri),

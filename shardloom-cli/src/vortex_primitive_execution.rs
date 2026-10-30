@@ -5846,6 +5846,11 @@ fn append_vortex_local_primitive_native_io_pushdown_fields(
     );
     push_field(
         fields,
+        "local_primitive_native_io_pushdown_proof_basis",
+        &certificate.source_pushdown_report.proof_basis,
+    );
+    push_field(
+        fields,
         "local_primitive_native_io_representation_transitions",
         &certificate.representation_transition_order(),
     );

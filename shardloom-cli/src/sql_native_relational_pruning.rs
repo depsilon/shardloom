@@ -20,6 +20,7 @@ impl Lowerer<'_, '_> {
         self.prune_at(plan, required, outer, 0)
     }
 
+    #[allow(clippy::too_many_lines)] // Exhaustive demand transfer for the native operator variants.
     fn prune_at(
         &mut self,
         plan: &mut Plan,
@@ -36,7 +37,11 @@ impl Lowerer<'_, '_> {
             Plan::Input(_) => Err(unsupported_sql_error(
                 "native declaration input must be bound before SQL pruning",
             )),
-            Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => Ok(()),
+            Plan::ExecutionResult(_)
+            | Plan::DeferredSubquery(_)
+            | Plan::Materialized(_)
+            | Plan::Recursive(_)
+            | Plan::RecursiveInput(_) => Ok(()),
             Plan::Scan(scan) => {
                 if let Some(mut required) = required {
                     // Native batches retain a row-bearing field even for COUNT(*)

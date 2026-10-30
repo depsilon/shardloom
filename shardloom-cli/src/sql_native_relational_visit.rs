@@ -32,12 +32,19 @@ impl<'a> Node<'a> {
 
     fn children(self, pending: &mut Vec<Self>) {
         match self {
-            Self::Query(Query::Input(_)) | Self::Source(Source::Local(_)) => {}
+            Self::Query(Query::Input(_) | Query::RecursiveInput(_))
+            | Self::Source(Source::Local(_)) => {}
             Self::Query(Query::Select(select)) => pending.push(Self::Select(select)),
             Self::Query(Query::Set(set)) => {
                 pending.extend(set.branches.iter().map(Self::Select));
             }
-            Self::Query(Query::Columns { input, .. }) => pending.push(Self::Query(input)),
+            Self::Query(Query::Columns { input, .. } | Query::Materialized { input, .. }) => {
+                pending.push(Self::Query(input));
+            }
+            Self::Query(Query::Recursive { anchor, step, .. }) => {
+                pending.push(Self::Query(anchor));
+                pending.push(Self::Query(step));
+            }
             Self::Select(select) => {
                 pending.push(Self::Source(&select.source));
                 if let Some(join) = &select.join {
@@ -170,7 +177,7 @@ impl<'a> Node<'a> {
                     .and_then(|bytes| bytes.checked_add(std::mem::size_of::<Select>() * 16))
                     .and_then(|bytes| bytes.checked_add(grouping))
             }
-            Self::Query(Query::Columns { names, .. }) => {
+            Self::Query(Query::Columns { names, .. } | Query::Recursive { columns: names, .. }) => {
                 names.iter().try_fold(4096usize, |bytes, name| {
                     name.len()
                         .checked_mul(8)
@@ -327,7 +334,8 @@ impl Node<'_> {
                     + usize::from(!select.window_projections.is_empty())
                     + usize::from(select.order_by.is_some())
             }
-            Self::Query(Query::Set(_)) | Self::Source(Source::Unary(_)) => 1,
+            Self::Query(Query::Set(_) | Query::Materialized { .. } | Query::Recursive { .. })
+            | Self::Source(Source::Unary(_)) => 1,
             // Native gap filling owns an input sort and the expanding node.
             Self::Source(Source::GapFill(_)) => 2,
             Self::Predicate(value) => usize::from(super::predicate::has_subquery(value)),

@@ -13,7 +13,7 @@ use std::{
 };
 
 use futures::{FutureExt as _, future::BoxFuture};
-use shardloom_core::{FloatPolicy, Result, ShardLoomError};
+use shardloom_core::{FloatPolicy, RecursionLimit, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot};
 use vortex::{
@@ -110,6 +110,7 @@ impl SegmentReuseAttempt {
 struct RuntimeOwner {
     session: VortexSession,
     float_policy: FloatPolicy,
+    recursion_limit: RecursionLimit,
     runtime: CurrentThreadRuntime,
     _workers: ResidentWorkerGroup,
     admission: Mutex<()>,
@@ -152,6 +153,12 @@ impl ResidentVortexSession {
     #[must_use]
     pub fn float_policy(&self) -> FloatPolicy {
         self.0.float_policy
+    }
+
+    /// Immutable recursive-work bound, independent of the session's memory grant.
+    #[must_use]
+    pub fn recursion_limit(&self) -> RecursionLimit {
+        self.0.recursion_limit
     }
 
     pub(crate) fn memory(&self) -> &LiveMemoryPool {
@@ -492,11 +499,29 @@ impl ResidentVortexSession {
         max_parallelism: usize,
         float_policy: FloatPolicy,
     ) -> Result<Self> {
-        Self::with_memory_pool_and_float_policy(
+        Self::new_with_policies(
+            memory_bytes,
+            max_parallelism,
+            float_policy,
+            RecursionLimit::default(),
+        )
+    }
+
+    /// Create a session with explicit floating semantics and recursive-work policy.
+    /// # Errors
+    /// Rejects invalid resource declarations or native runtime construction.
+    pub fn new_with_policies(
+        memory_bytes: u64,
+        max_parallelism: usize,
+        float_policy: FloatPolicy,
+        recursion_limit: RecursionLimit,
+    ) -> Result<Self> {
+        Self::with_memory_pool_and_policies(
             LiveMemoryPool::new(memory_bytes)?,
             max_parallelism,
             false,
             float_policy,
+            recursion_limit,
         )
     }
 
@@ -579,19 +604,21 @@ impl ResidentVortexSession {
         max_parallelism: usize,
         external_cpu_pool: bool,
     ) -> Result<Self> {
-        Self::with_memory_pool_and_float_policy(
+        Self::with_memory_pool_and_policies(
             memory,
             max_parallelism,
             external_cpu_pool,
             FloatPolicy::Strict,
+            RecursionLimit::default(),
         )
     }
 
-    fn with_memory_pool_and_float_policy(
+    fn with_memory_pool_and_policies(
         memory: LiveMemoryPool,
         max_parallelism: usize,
         external_cpu_pool: bool,
         float_policy: FloatPolicy,
+        recursion_limit: RecursionLimit,
     ) -> Result<Self> {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
@@ -613,6 +640,7 @@ impl ResidentVortexSession {
         Ok(Self(Arc::new(RuntimeOwner {
             session,
             float_policy,
+            recursion_limit,
             runtime,
             _workers: workers,
             admission: Mutex::new(()),

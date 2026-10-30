@@ -6,7 +6,7 @@ use pyo3::{
     prelude::*,
     types::{PyBool, PyBytes, PyFloat, PyInt},
 };
-use shardloom_core::{ExecutionResources, FloatPolicy, Result, ShardLoomError};
+use shardloom_core::{ExecutionResources, FloatPolicy, RecursionLimit, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_runtime::native::{EmbeddedExecutionOwner, SqlSource, SqlSourceBinding};
 use shardloom_vortex::{
@@ -170,20 +170,42 @@ impl NativeSource {
 #[pymethods]
 impl NativeSession {
     #[new]
-    #[pyo3(signature = (resources=None, *, memory_limit_bytes=None, parallelism_limit=None, float_policy="strict"))]
+    #[pyo3(signature = (resources=None, *, memory_limit_bytes=None, parallelism_limit=None, float_policy="strict", recursion_limit=None))]
     fn new(
         py: Python<'_>,
         resources: Option<&NativeResources>,
         memory_limit_bytes: Option<&Bound<'_, PyAny>>,
         parallelism_limit: Option<&Bound<'_, PyAny>>,
         float_policy: &str,
+        recursion_limit: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let resources = resources.map(|value| value.value);
         let limits = super::resources::parse_limits(memory_limit_bytes, parallelism_limit)?;
         let float_policy = FloatPolicy::parse(float_policy).map_err(native_error)?;
+        let recursion_limit = recursion_limit
+            .map(|value| {
+                if value.is_instance_of::<PyBool>() || !value.is_instance_of::<PyInt>() {
+                    return Err(PyValueError::new_err(
+                        "recursion_limit must be a positive integer",
+                    ));
+                }
+                let value = value.extract::<u64>().map_err(|_| {
+                    PyValueError::new_err(
+                        "recursion_limit must fit unsigned 64-bit iteration counts",
+                    )
+                })?;
+                RecursionLimit::new(value).map_err(native_error)
+            })
+            .transpose()?
+            .unwrap_or_default();
         let runtime = py
             .detach(|| {
-                EmbeddedExecutionOwner::new_with_float_policy(resources, limits, float_policy)
+                EmbeddedExecutionOwner::new_with_policies(
+                    resources,
+                    limits,
+                    float_policy,
+                    recursion_limit,
+                )
             })
             .map_err(native_error)?;
         Ok(Self {
@@ -200,6 +222,11 @@ impl NativeSession {
     #[getter]
     fn float_policy(&self) -> &'static str {
         self.owner.runtime.float_policy().as_str()
+    }
+
+    #[getter]
+    fn recursion_limit(&self) -> u64 {
+        self.owner.runtime.recursion_limit().get()
     }
 
     /// Invoke the shared command dispatcher with this session's ownership and

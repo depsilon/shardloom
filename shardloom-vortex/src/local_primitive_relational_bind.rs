@@ -42,6 +42,8 @@ mod window;
 
 #[path = "local_primitive_relational_gap_fill_bind.rs"]
 mod gap_fill;
+#[path = "local_primitive_relational_retained_bind.rs"]
+mod retained;
 
 pub(super) struct Binder<'a> {
     session: &'a ResidentVortexSession,
@@ -60,6 +62,8 @@ pub(super) struct Binder<'a> {
     resolved: ReservedVec<Option<Node>>,
     scope: std::sync::Arc<()>,
     deferred: ReservedVec<Option<super::DeferredRelation>>,
+    retained: ReservedVec<super::retained::Binding>,
+    recursion: Option<retained::Scope>,
 }
 
 pub(super) struct BoundSources {
@@ -130,6 +134,8 @@ impl<'a> Binder<'a> {
             resolved: ReservedVec::new(session.memory())?,
             scope: std::sync::Arc::new(()),
             deferred: ReservedVec::new(session.memory())?,
+            retained: ReservedVec::new(session.memory())?,
+            recursion: None,
         })
     }
 
@@ -382,6 +388,15 @@ impl<'a> Binder<'a> {
                 "deferred schema declarations require a correlated subquery relation",
             )),
             VortexRelationalPlan::ExecutionResult(reference) => self.take_resolved(reference),
+            VortexRelationalPlan::Materialized(input) => self.retained_relation(
+                super::retained::Definition::Materialized(std::sync::Arc::clone(input)),
+                depth,
+            ),
+            VortexRelationalPlan::Recursive(input) => self.retained_relation(
+                super::retained::Definition::Recursive(std::sync::Arc::clone(input)),
+                depth,
+            ),
+            VortexRelationalPlan::RecursiveInput(input) => self.recursive_input(input),
             VortexRelationalPlan::Scan(scan) => self.scan(scan),
             VortexRelationalPlan::Join(join) => self.join(join, depth),
             VortexRelationalPlan::AsOfJoin(join) => self.asof_join(join, depth),

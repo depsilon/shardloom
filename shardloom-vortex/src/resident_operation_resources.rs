@@ -1,7 +1,9 @@
 //! Serialized complete-operation configuration over one retained native owner.
 
 use super::{ResidentVortexSession, resident_error};
-use shardloom_core::{ExecutionResourceRequest, ExecutionResources, FloatPolicy, Result};
+use shardloom_core::{
+    ExecutionResourceRequest, ExecutionResources, FloatPolicy, RecursionLimit, Result,
+};
 use shardloom_exec::{
     compute_pool::{CancellationToken, bounded_cpu_parallelism},
     live_memory::LiveMemoryPool,
@@ -135,12 +137,24 @@ impl ConfigurableResidentSession {
         configured: ExecutionResources,
         float_policy: FloatPolicy,
     ) -> Result<Self> {
+        Self::new_with_policies(configured, float_policy, RecursionLimit::default())
+    }
+
+    /// Create an owner with immutable semantics and recursive-work bounds.
+    /// # Errors
+    /// Returns native runtime or resource-admission errors.
+    pub fn new_with_policies(
+        configured: ExecutionResources,
+        float_policy: FloatPolicy,
+        recursion_limit: RecursionLimit,
+    ) -> Result<Self> {
         let memory = LiveMemoryPool::configurable(configured.memory_bytes())?;
-        let mut session = ResidentVortexSession::with_memory_pool_and_float_policy(
+        let mut session = ResidentVortexSession::with_memory_pool_and_policies(
             memory,
             configured.max_parallelism(),
             true,
             float_policy,
+            recursion_limit,
         )?;
         let owner = Arc::get_mut(&mut session.0)
             .ok_or_else(|| resident_error("new configurable session is not uniquely owned"))?;
@@ -165,6 +179,12 @@ impl ConfigurableResidentSession {
     #[must_use]
     pub fn float_policy(&self) -> FloatPolicy {
         self.0.session.float_policy()
+    }
+
+    /// Recursive-work bound inherited unchanged by every admitted operation.
+    #[must_use]
+    pub fn recursion_limit(&self) -> RecursionLimit {
+        self.0.session.recursion_limit()
     }
 
     /// Whether two controllers share the same runtime, operation admission and

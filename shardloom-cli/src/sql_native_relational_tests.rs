@@ -15,6 +15,8 @@ mod grouping_tests;
 mod memory_tests;
 #[path = "sql_native_relational_prepared_sampling_tests.rs"]
 mod prepared_sampling_tests;
+#[path = "sql_native_relational_retained_tests.rs"]
+mod retained_tests;
 #[path = "sql_native_relational_scalar_tests.rs"]
 mod scalar_tests;
 #[path = "sql_native_relational_statistical_tests.rs"]

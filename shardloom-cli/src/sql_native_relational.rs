@@ -36,8 +36,13 @@ mod declaration;
 mod dynamic;
 #[path = "sql_native_relational_grouping.rs"]
 mod grouping;
+#[path = "sql_native_relational_memo.rs"]
+mod memo;
 #[path = "sql_native_relational_observation.rs"]
 mod observation;
+pub(crate) use memo::LoweringMemo;
+#[path = "sql_native_relational_retained.rs"]
+mod retained;
 pub(crate) use declaration::{
     NativeSqlDeclaration, NativeSqlLowering, ResolvedSources, prune_bound_plan,
 };
@@ -190,6 +195,7 @@ fn prepare_with_owner(
         cancellation.check()?;
         register_sql_memory_inputs(&parsed, schemas)?;
         inputs(schemas)?;
+        let mut memo = LoweringMemo::new(schemas)?;
         let mut lowerer = Lowerer {
             schemas,
             serial: 0,
@@ -200,6 +206,8 @@ fn prepare_with_owner(
             lowered_input: None,
             cancellation: cancellation.clone(),
             parameters: BTreeMap::new(),
+            memo: &mut memo,
+            frontier: None,
         };
         let mut query = lowerer.query(&parsed)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
@@ -397,6 +405,14 @@ struct Lowerer<'a, 'session> {
     lowered_input: Option<(usize, Lowered)>,
     cancellation: shardloom_exec::compute_pool::CancellationToken,
     parameters: BTreeMap<String, Expression>,
+    memo: &'a mut LoweringMemo,
+    frontier: Option<FrontierBinding>,
+}
+
+struct FrontierBinding {
+    identity: super::relation_sources::ParsedRelationIdentity,
+    native: shardloom_vortex::relational_query::VortexRelationalRecursionId,
+    columns: Vec<String>,
 }
 
 impl Lowerer<'_, '_> {
@@ -459,8 +475,12 @@ impl Lowerer<'_, '_> {
                     &sources,
                     &self.cancellation,
                     self.outer.as_deref(),
+                    self.memo,
                 );
             }
+            ParsedRelationQuery::Materialized { .. }
+            | ParsedRelationQuery::Recursive { .. }
+            | ParsedRelationQuery::RecursiveInput(_) => return self.retained_query(query),
             ParsedRelationQuery::Columns { input, names } => {
                 let result = self.query(input)?;
                 return Self::rename_columns(result, names);

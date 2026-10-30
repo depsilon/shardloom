@@ -1,0 +1,105 @@
+{
+  "schema_version": "shardloom.native_recursive_composition_replay.v1",
+  "status": "passed",
+  "packet_sha256": "fa0b79866a4a92305259912119bfbf6aa8c03bbd017b0132f7dfbe48d9e4eb3b",
+  "archived_verifier_sha256": "395d423a42de83701b766ceb3048a6ab853fb56e3df8644d7d4d47eae18ee0ef",
+  "returncode": 0,
+  "observations": {
+    "status": "passed",
+    "packet_sha256": "fa0b79866a4a92305259912119bfbf6aa8c03bbd017b0132f7dfbe48d9e4eb3b",
+    "controls": [
+      {
+        "control": "member",
+        "verifier_line": 83,
+        "assertion": "assert identity(row['text'].encode()) == {key: row[key] for key in ('bytes', 'sha256')}, name"
+      },
+      {
+        "control": "source",
+        "verifier_line": 85,
+        "assertion": "assert observed == {key: files['source/' + path][key] for key in ('bytes', 'sha256')}, path"
+      },
+      {
+        "control": "product",
+        "verifier_line": 142,
+        "assertion": "assert manifest['products'] == packet['native_products']"
+      },
+      {
+        "control": "failed-attempt",
+        "verifier_line": 87,
+        "assertion": "assert packet['failed_attempts'] == sorted(name for name, row in attempts.items() if row['status'] == 'failed')"
+      },
+      {
+        "control": "value",
+        "verifier_line": 148,
+        "assertion": "assert row['actual'] == row['expected'], row['method']"
+      },
+      {
+        "control": "type",
+        "verifier_line": 148,
+        "assertion": "assert row['actual'] == row['expected'], row['method']"
+      },
+      {
+        "control": "nullable",
+        "verifier_line": 148,
+        "assertion": "assert row['actual'] == row['expected'], row['method']"
+      },
+      {
+        "control": "floating-bits",
+        "verifier_line": 148,
+        "assertion": "assert row['actual'] == row['expected'], row['method']"
+      },
+      {
+        "control": "counter",
+        "verifier_line": 164,
+        "assertion": "assert all(public['native_certificates'][i]['method'] == observation['method']"
+      },
+      {
+        "control": "certificate",
+        "verifier_line": 172,
+        "assertion": "assert row['fields'] == {name:report.get(name) for name in row['fields']}"
+      },
+      {
+        "control": "policy",
+        "verifier_line": 173,
+        "assertion": "assert report['float_policy'] == row['policy'] and row['policy'] in {'strict', 'extended'}"
+      },
+      {
+        "control": "count",
+        "verifier_line": 166,
+        "assertion": "assert len(seen) == public['positive_public_executions'] == 60"
+      },
+      {
+        "control": "pressure",
+        "verifier_line": 183,
+        "assertion": "assert packet['pressure_observations'] == observed_pressure and len(observed_pressure) == 4"
+      },
+      {
+        "control": "matrix",
+        "verifier_line": 207,
+        "assertion": "assert [json.loads(line) for line in report['result_jsonl'].splitlines()] == row['expected']"
+      },
+      {
+        "control": "wheel",
+        "verifier_line": 274,
+        "assertion": "assert wheel['integrity'][key] == wheel['stage'][key] == manifest['products'][name]"
+      },
+      {
+        "control": "cleanup",
+        "verifier_line": 268,
+        "assertion": "assert wheel['status'] == 'passed' and wheel['installation_performed'] and wheel['uninstall_status'] == 'passed'"
+      }
+    ],
+    "public_totals": {
+      "compared_rows": 450,
+      "five_surface_rows": 420,
+      "positive_public_executions": 60,
+      "tests": 9
+    },
+    "isolated_python": true,
+    "no_source_tree_import": true,
+    "engine_imported": false
+  },
+  "stdout": "{\"status\": \"passed\", \"packet_sha256\": \"fa0b79866a4a92305259912119bfbf6aa8c03bbd017b0132f7dfbe48d9e4eb3b\", \"controls\": [{\"control\": \"member\", \"verifier_line\": 83, \"assertion\": \"assert identity(row['text'].encode()) == {key: row[key] for key in ('bytes', 'sha256')}, name\"}, {\"control\": \"source\", \"verifier_line\": 85, \"assertion\": \"assert observed == {key: files['source/' + path][key] for key in ('bytes', 'sha256')}, path\"}, {\"control\": \"product\", \"verifier_line\": 142, \"assertion\": \"assert manifest['products'] == packet['native_products']\"}, {\"control\": \"failed-attempt\", \"verifier_line\": 87, \"assertion\": \"assert packet['failed_attempts'] == sorted(name for name, row in attempts.items() if row['status'] == 'failed')\"}, {\"control\": \"value\", \"verifier_line\": 148, \"assertion\": \"assert row['actual'] == row['expected'], row['method']\"}, {\"control\": \"type\", \"verifier_line\": 148, \"assertion\": \"assert row['actual'] == row['expected'], row['method']\"}, {\"control\": \"nullable\", \"verifier_line\": 148, \"assertion\": \"assert row['actual'] == row['expected'], row['method']\"}, {\"control\": \"floating-bits\", \"verifier_line\": 148, \"assertion\": \"assert row['actual'] == row['expected'], row['method']\"}, {\"control\": \"counter\", \"verifier_line\": 164, \"assertion\": \"assert all(public['native_certificates'][i]['method'] == observation['method']\"}, {\"control\": \"certificate\", \"verifier_line\": 172, \"assertion\": \"assert row['fields'] == {name:report.get(name) for name in row['fields']}\"}, {\"control\": \"policy\", \"verifier_line\": 173, \"assertion\": \"assert report['float_policy'] == row['policy'] and row['policy'] in {'strict', 'extended'}\"}, {\"control\": \"count\", \"verifier_line\": 166, \"assertion\": \"assert len(seen) == public['positive_public_executions'] == 60\"}, {\"control\": \"pressure\", \"verifier_line\": 183, \"assertion\": \"assert packet['pressure_observations'] == observed_pressure and len(observed_pressure) == 4\"}, {\"control\": \"matrix\", \"verifier_line\": 207, \"assertion\": \"assert [json.loads(line) for line in report['result_jsonl'].splitlines()] == row['expected']\"}, {\"control\": \"wheel\", \"verifier_line\": 274, \"assertion\": \"assert wheel['integrity'][key] == wheel['stage'][key] == manifest['products'][name]\"}, {\"control\": \"cleanup\", \"verifier_line\": 268, \"assertion\": \"assert wheel['status'] == 'passed' and wheel['installation_performed'] and wheel['uninstall_status'] == 'passed'\"}], \"public_totals\": {\"compared_rows\": 450, \"five_surface_rows\": 420, \"positive_public_executions\": 60, \"tests\": 9}, \"isolated_python\": true, \"no_source_tree_import\": true, \"engine_imported\": false}\n",
+  "stderr": "",
+  "new_benchmark_executions": 0
+}

@@ -78,9 +78,8 @@ Repeated references share declarations and source ownership, not cached answers.
 `ctx.sql(..., relations={"input": frame})` gives one query local bindings that
 shadow catalog names. Nested nonrecursive WITH scopes, shadowing and CTE
 column-name lists use the same binder. `NOT MATERIALIZED` retains ordinary plan
-composition. `MATERIALIZED` is rejected until its CTE ownership contract exists;
-use an explicit `collect()` result and `ctx.from_result(result)` when a completed
-data boundary is required. Recursive execution is separate work.
+composition. Source builds also admit explicit materialization and recursive
+queries under the contracts below.
 
 A query inherits resource ceilings only from the named plans its SQL actually
 references. Unused catalog entries and names shadowed by a local CTE do not
@@ -100,6 +99,64 @@ query. It supports declared schemas, native Vortex metadata, Parquet footers
 and Arrow IPC footer schemas. Schemaless text and the currently unadmitted
 Avro/ORC metadata readers require an explicit action or complete declared schema.
 Type hints alone do not declare every file column.
+
+### Retain a CTE within an action
+
+`WITH kept AS MATERIALIZED (<query>)` completes and validates the CTE once per
+action when referenced. Every reference in that action uses the same completed
+native rows. A new action recomputes them; an unused declaration does not run.
+Consumer filters, projections and limits do not narrow the retained definition.
+Use ordinary CTEs when you only need to name a plan, and an explicit `collect()`
+result with `ctx.from_result(result)` when you need to reuse completed data across
+actions.
+
+### Evaluate recursive frontiers
+
+```python
+import shardloom as sl
+
+with sl.context(transport="native", memory_bytes=64 << 20,
+                max_parallelism=1, recursion_limit=50) as ctx:
+    numbers = ctx.sql(
+        "WITH RECURSIVE numbers(n) AS ("
+        "SELECT 0 AS n UNION ALL SELECT n+1 FROM numbers WHERE n<3) "
+        "SELECT n FROM numbers"
+    )
+    assert numbers.sort("n").collect().to_rows() == (
+        {"n": 0}, {"n": 1}, {"n": 2}, {"n": 3},
+    )
+```
+
+The anchor runs once. Each recursive-term evaluation reads the preceding
+frontier, and an empty frontier ends iteration. `UNION ALL` preserves duplicates;
+`UNION` removes duplicate complete rows using native equality, including NULL
+and the selected floating policy. It can terminate a finite reachability query
+with cycles, but cannot detect every cycle when other output columns keep
+changing. Use a final `ORDER BY` or `.sort()` when order matters.
+
+The positive `recursion_limit` defaults to 1,000 recursive-term evaluations per
+relation; the anchor does not consume an evaluation. A final evaluation that
+produces an empty frontier does consume one. A required next evaluation beyond
+the limit fails with `SL_RECURSION_LIMIT_EXCEEDED`; an outer LIMIT, including zero,
+does not authorize partial completion. The policy is immutable on the context,
+client and native Session. The CLI uses `--recursion-limit` on `run` or `route`.
+
+Each recursive definition requires a nonrecursive anchor, `UNION` or `UNION ALL`,
+and one self-reference in the recursive term. Projection, filtering, ordering,
+limits and inner/cross joins may surround that reference. Nonlinear or mutual
+recursion, recursive outer joins, correlated retained definitions and
+data-dependent pivot schemas fail explicitly. The anchor fixes field names and
+value domains; recursive fields become nullable and the step cannot silently
+widen numbers, rescale decimals or change timezones. Ordinary scalar parameters
+bind before execution and remain supported.
+
+Materialization and recursion share the action's memory grant and explicit
+[native spill policy](native-query-spill.md). They never invoke another engine.
+Cancellation, failed input validation, early close or failed publication does
+not yield a successful action certificate. Already delivered output batches
+retain their own owners. See the [composition contract](../architecture/native-recursive-composition-2026-10-29.md)
+and [executable public tests](../../python/tests/test_native_recursive_composition_binding.py)
+for the source-build acceptance scope.
 
 ## Expressions, windows and observations
 

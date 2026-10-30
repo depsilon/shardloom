@@ -1,0 +1,162 @@
+{
+  "schema_version": "shardloom.native_recursive_composition_acceptance.v1",
+  "status": "passed",
+  "base_revision": "c4e03651f3cf9d29c765d6c56a34ba60de79b955",
+  "specification": {
+    "public": "composition-public-r4.json",
+    "matrix": "composition-matrix-r1.json",
+    "sources": "composition-source-checks-r1.json",
+    "runtime": "composition-native-r2",
+    "wheel": "installed-wheel-r1",
+    "full_matrix": "full-matrix-r1.json",
+    "portable_matrix": "full-matrix-r1-portable.json",
+    "matrix_references": "full-matrix-r1-references.json",
+    "consumer": "full-matrix-r1-consumer.json",
+    "accepted_roles": {
+      "format": "c029-format",
+      "native_clippy": "c030-native-clippy",
+      "native_tests": "c026-native-workspace-tests",
+      "focused": "c031-focused-retained-tests",
+      "build": "c032-native-products",
+      "workspace_clippy": "c033-workspace-clippy",
+      "workspace_tests": "c034-workspace-tests",
+      "minimal_native": "c028-minimal-native",
+      "public": "c036-public-composition",
+      "sources": "c038-source-checks",
+      "matrix": "c039-composition-matrix",
+      "full_matrix": "c040-admitted-matrix",
+      "example": "c041-doc-example",
+      "wheel": "c042-installed-wheel",
+      "consumer": "c043-conformance-consumer"
+    }
+  },
+  "native_products": {
+    "shardloom": "705520b0fc91be8d5472a6da5b93e3e1c53458e9fa4c3c8cf6d222fa97fd5cfb",
+    "_native.abi3.so": "a9907234bc1cba70eeb8bd0c3f6428700af2492b802ca7f7ab545a90db73ce49"
+  },
+  "wheel_identity": {
+    "bytes": 62984279,
+    "sha256": "f96a5b412ca4d712b54f29dfc4ae1c50d34dfd70d10f192a333cfef8a3e0f91e"
+  },
+  "installed_tests": 259,
+  "attempts_preserved": 43,
+  "failed_attempts": [
+    "c002-native-check",
+    "c004-native-tests",
+    "c007-native-workspace-check",
+    "c010-retained-native-tests",
+    "c012-native-clippy",
+    "c013-native-clippy",
+    "c014-native-clippy",
+    "c016-focused-retained-tests",
+    "c021-public-composition",
+    "c024-native-clippy",
+    "c035-public-composition"
+  ],
+  "corruption_controls": [
+    "member",
+    "source",
+    "product",
+    "failed-attempt",
+    "value",
+    "type",
+    "nullable",
+    "floating-bits",
+    "counter",
+    "certificate",
+    "policy",
+    "count",
+    "pressure",
+    "matrix",
+    "wheel",
+    "cleanup"
+  ],
+  "new_benchmark_executions": 0,
+  "native_suite_followup": "The full native suite preceded only gating the SetKind import behind vortex-write. The exact prior source is preserved and the single import-only rewrite is verified; final source passed focused native tests, lint, build and public/package checks.",
+  "public_totals": {
+    "tests": 9,
+    "positive_public_executions": 60,
+    "five_surface_rows": 420,
+    "compared_rows": 450
+  },
+  "not_claimed": [
+    "new performance result",
+    "hosted acceptance",
+    "whole-item acceptance",
+    "release"
+  ],
+  "test_totals": {
+    "native_tests": {
+      "groups": 119,
+      "passed": 6489,
+      "failed": 0,
+      "ignored": 35
+    },
+    "workspace_tests": {
+      "groups": 107,
+      "passed": 3289,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "pressure_observations": [
+    {
+      "family": "retained_relation",
+      "grant": 16777216,
+      "input_rows": 8193,
+      "output_rows": 8193,
+      "peak_disk_bytes": 33972564,
+      "peak_reserved_bytes": 3230566,
+      "recursive": false,
+      "retained_bytes": 16913490,
+      "runs_written": 37,
+      "spilled_relations": 1
+    },
+    {
+      "family": "retained_relation",
+      "grant": 16777216,
+      "input_rows": 8193,
+      "output_rows": 8193,
+      "peak_disk_bytes": 33972564,
+      "peak_reserved_bytes": 3230566,
+      "recursive": false,
+      "retained_bytes": 16913490,
+      "runs_written": 37,
+      "spilled_relations": 1
+    },
+    {
+      "family": "retained_relation",
+      "grant": 16777216,
+      "input_rows": 4097,
+      "output_rows": 12291,
+      "peak_disk_bytes": 33980604,
+      "peak_reserved_bytes": 3412153,
+      "recursive": true,
+      "retained_bytes": 25373290,
+      "runs_written": 57,
+      "spilled_relations": 3
+    },
+    {
+      "family": "retained_relation",
+      "grant": 16777216,
+      "input_rows": 4097,
+      "output_rows": 12291,
+      "peak_disk_bytes": 33980604,
+      "peak_reserved_bytes": 3412205,
+      "recursive": true,
+      "retained_bytes": 25373290,
+      "runs_written": 57,
+      "spilled_relations": 3
+    }
+  ],
+  "portable_packet": {
+    "path": "docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json.xz",
+    "members": 588,
+    "uncompressed": {
+      "bytes": 35252792,
+      "sha256": "bc0401cda475cb4114f1e6cac3e9a4bb277c2802ec26d62de14588b949b09ee7"
+    },
+    "bytes": 1077960,
+    "sha256": "fa0b79866a4a92305259912119bfbf6aa8c03bbd017b0132f7dfbe48d9e4eb3b"
+  }
+}

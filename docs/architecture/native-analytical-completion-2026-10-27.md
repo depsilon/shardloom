@@ -90,12 +90,15 @@ the existing cohort. Complete the remaining capability and acceptance checklist
 after this evidence-led performance work; no requirement is removed or deferred
 into items 18/19 by this ordering decision.
 
-The October 29 maintainer instruction supersedes that execution order: finish
-the remaining capability areas and their acceptance first, beginning with
-time-series workflows, then return to the performance candidates below. The
-accepted 347-query checkpoint remains unchanged while capability work proceeds.
+The earlier October 29 maintainer instruction moved remaining capability areas
+and acceptance first, beginning with time-series workflows. The latest follow-up
+supersedes that order: finish the active recursive/materialized composition unit
+and its acceptance, then run the seven performance candidates below before
+explicit batch-function integration. Batch functions and later connector/refresh
+work remain pending. The accepted 347-query checkpoint remains unchanged until
+a new complete, validated candidate comparison advances it.
 
-### Performance candidates after capability completion
+### Performance candidates after composition acceptance
 
 The October 29 supplied review identifies the following experiments against
 merged `0eaad60c`. These are proposed mechanisms, not implemented work or new
@@ -560,6 +563,11 @@ while a later prepared-source control establishes current-runtime reuse behavior
   as-of, calendar-window, resampling, gap-filling and interpolation workflows.
 - [ ] Complete recursive composition, explicit materialized ownership and
   supported aggregate combinations through shared SQL/typed execution.
+  The [recursive/materialized continuation](../benchmarks/native-recursive-composition-2026-10-29.md)
+  passes local native/default, five-interface, complete-value, resource/failure,
+  common-conformance and installed-wheel acceptance. Hosted PR acceptance and
+  the broader combined workflows remain open. The seven performance candidates
+  follow this unit before explicit batch-function integration.
 - [ ] Complete caller-visible non-finite/signed-zero policy, decimal rounding
   choices and exact widened-integer summation without changing existing defaults.
 - [ ] Implement declared application batch functions with explicit schema,
@@ -1540,6 +1548,31 @@ fidelity work unit, not item 20 or its later as-of/time-series obligations.
 Provider references: the pinned local Vortex datetime extension sources,
 [Jiff timezone conversion and ambiguity semantics](https://docs.rs/jiff/0.2.35/jiff/tz/struct.TimeZone.html),
 and the pinned `jiff-tzdb` crate's data-version and licensing records.
+
+## Recursive and materialized composition continuation
+
+The [composition contract](native-recursive-composition-2026-10-29.md) is implemented
+using immutable shared native definitions, action-owned replay and iterative
+frontiers. Explicit `MATERIALIZED` computes its complete input once per action;
+recursive `UNION ALL` preserves duplicates and `UNION` uses native complete-row
+identity to exclude prior rows. An immutable positive `recursion_limit` defaults
+to 1,000 recursive-term evaluations independently of the plan nesting guard.
+Neither an outer LIMIT nor a failed producer may certify a partial relation.
+
+The [local acceptance record](../benchmarks/native-recursive-composition-2026-10-29.md)
+includes 19 focused native tests, 6,489 native and 3,289 default workspace tests,
+60 equivalent executions across five public interfaces, all 153 common
+conformance stages and 259 installed-wheel tests without skips. Complete typed
+values, actual native spill, resident/quota refusal, cancellation, early close,
+changed inputs and fresh retries are preserved in the portable packet; isolated
+replay rejects all 16 corruption controls. Hosted PR acceptance remains pending.
+
+No external executor, new dependency, cross-action answer cache or hidden
+materialization is introduced. Unsupported nonlinear/mutual recursion, recursive
+type drift and correlated retained definitions still fail explicitly. This
+acceptance supplies no benchmark and does not close item 20 or CG-1 through
+CG-23. Per the October 29 order, the seven performance candidates are next,
+before batch functions and later connector/refresh work.
 
 ## Acceptance and retention
 

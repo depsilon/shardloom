@@ -16,7 +16,8 @@ import test_check_native_python_wheel as fixtures
 class IntegrationSelectionTests(unittest.TestCase):
     def test_installed_proof_requires_connected_and_independent_client_suites(self):
         names = ("test_native_binding", "test_connected_programming", "test_native_function_catalog",
-                 "test_native_observations", "test_native_standard_adapters", "test_query_surface_native")
+                 "test_native_observations", "test_native_standard_adapters", "test_query_surface_native",
+                 "test_recursion_policy")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in names:
@@ -27,7 +28,7 @@ class IntegrationSelectionTests(unittest.TestCase):
             command = [sys.executable, "-I", "-B", "-c", proof.RUN_TESTS, str(root), str(report)]
             result = subprocess.run(command, text=True, capture_output=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(json.loads(report.read_text())["tests"], 6)
+            self.assertEqual(json.loads(report.read_text())["tests"], len(names))
             adapter = root / "test_native_standard_adapters.py"
             adapter.write_text("import unittest\nclass Check(unittest.TestCase):\n"
                 "    @unittest.skip('missing optional client')\n    def test_loaded(self): pass\n")

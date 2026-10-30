@@ -5218,8 +5218,8 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Context construction and environment/repo binding",
         "high_level_context",
         "side_effect_free_constructor",
-        context_methods=("from_env", "from_repo", "resources", "resource_limits", "transport", "float_policy", "closed"),
-        client_methods=("from_env", "from_repo", "resources", "resource_limits", "transport", "float_policy", "closed"),
+        context_methods=("from_env", "from_repo", "resources", "resource_limits", "transport", "float_policy", "recursion_limit", "closed"),
+        client_methods=("from_env", "from_repo", "resources", "resource_limits", "transport", "float_policy", "recursion_limit", "closed"),
         runtime_route="constructor_only_no_runtime_execution",
         promotion_criteria="constructs a high-level context without probing data, catalogs, or engines",
         evidence_refs=("context_constructor_no_side_effect_docstrings", "python_import_smoke"),
@@ -5831,8 +5831,8 @@ FRONT_DOOR_SEMANTIC_SURFACE_ROWS: tuple[FrontDoorSemanticSurfaceRow, ...] = (
         "sql_parser_grammar_scope",
         "sql",
         "parser grammar",
-        "Admitted SELECT/local-source syntax, VALUES/literal output, joins, grouping, ordering, scoped subqueries, set ops, and Vortex primitive SQL shapes are parsed for scoped routes.",
-        "Broad dialect grammar, DDL/DML, recursive CTEs, arbitrary functions, and unadmitted syntax return deterministic parser or route diagnostics.",
+        "Admitted SELECT/local-source syntax, VALUES/literal output, joins, grouping, ordering, scoped subqueries, set ops, ordinary/materialized CTEs, and single-frontier recursive UNION [ALL] use shared native routes.",
+        "Broad dialect grammar, DDL/DML, nonlinear or mutually recursive CTEs, correlated retained definitions, arbitrary functions, and unadmitted syntax return deterministic parser or route diagnostics.",
         required_evidence=("admitted_semantics_matrix", "sql_python_dataframe_parity_gate"),
         claim_boundary="Scoped SQL-standard-inspired query grammar; not broad SQL-standard/ANSI-style compliance.",
     ),
@@ -10160,13 +10160,19 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
         float_policy: str | None = None,
+        recursion_limit: int | None = None,
     ) -> None:
-        from ._native_backend import normalize_float_policy
+        from ._native_backend import normalize_float_policy, normalize_recursion_limit
         selected_float_policy = normalize_float_policy(
             getattr(client, "float_policy", "strict") if float_policy is None else float_policy
         )
         if client is not None and getattr(client, "float_policy", "strict") != selected_float_policy:
             raise ValueError("context float_policy must match the supplied client's immutable policy")
+        selected_recursion_limit = normalize_recursion_limit(
+            getattr(client, "recursion_limit", 1000) if recursion_limit is None else recursion_limit
+        )
+        if client is not None and getattr(client, "recursion_limit", 1000) != selected_recursion_limit:
+            raise ValueError("context recursion_limit must match the supplied client's immutable policy")
         limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
         self._resources = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
@@ -10182,6 +10188,7 @@ class ShardLoomContext:
         self.client = client if client is not None else ShardLoomClient.from_env(
             transport=application_transport(transport),
             float_policy=selected_float_policy,
+            recursion_limit=selected_recursion_limit,
         )
         self.engine = _normalize_engine_mode(engine)
         self._preparation_session: ShardLoomSession | None = None
@@ -10205,6 +10212,11 @@ class ShardLoomContext:
         """Return the immutable floating semantics policy inherited from its client."""
 
         return getattr(self.client, "float_policy", "strict")
+
+    @property
+    def recursion_limit(self) -> int:
+        """Return the immutable recursive-term evaluation bound inherited from the client."""
+        return getattr(self.client, "recursion_limit", 1000)
 
     @property
     def transport(self) -> str:
@@ -10249,6 +10261,7 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
         float_policy: str | None = None,
+        recursion_limit: int | None = None,
         **kwargs: object,
     ) -> "ShardLoomContext":
         """Create a context from environment configuration without running commands."""
@@ -10259,6 +10272,8 @@ class ShardLoomContext:
         )
         if float_policy is not None:
             kwargs["float_policy"] = float_policy
+        if recursion_limit is not None:
+            kwargs["recursion_limit"] = recursion_limit
         return cls(
             ShardLoomClient.from_env(
                 env=env,
@@ -10269,6 +10284,7 @@ class ShardLoomContext:
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, resource_limits=resource_limits,
             float_policy=float_policy,
+            recursion_limit=recursion_limit,
         )
 
     @classmethod
@@ -10284,6 +10300,7 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
         float_policy: str | None = None,
+        recursion_limit: int | None = None,
         **kwargs: object,
     ) -> "ShardLoomContext":
         """Create a source-tree context without running commands."""
@@ -10293,12 +10310,14 @@ class ShardLoomContext:
                 repo_root=repo_root,
                 profile_order=profile_order,
                 **({} if float_policy is None else {"float_policy": float_policy}),
+                **({} if recursion_limit is None else {"recursion_limit": recursion_limit}),
                 **kwargs,
             ),
             engine=engine,
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, resource_limits=resource_limits,
             float_policy=float_policy,
+            recursion_limit=recursion_limit,
         )
 
     def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
@@ -11765,6 +11784,7 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
         float_policy: str | None = None,
+        recursion_limit: int | None = None,
     ) -> ShardLoomSession:
         """Return a compatibility session sharing this context's lifetime.
 
@@ -11777,6 +11797,10 @@ class ShardLoomContext:
             from ._native_backend import normalize_float_policy
             if normalize_float_policy(float_policy) != self.float_policy:
                 raise ValueError("session float_policy must match its context's immutable policy")
+        if recursion_limit is not None:
+            from ._native_backend import normalize_recursion_limit
+            if normalize_recursion_limit(recursion_limit) != self.recursion_limit:
+                raise ValueError("session recursion_limit must match its context's immutable policy")
         shared = all(value is None for value in (
             session_id, memory_gb, memory_bytes, max_parallelism, resources, resource_limits,
         ))
@@ -12071,6 +12095,7 @@ def context(
     resources: ExecutionResources | None = None,
     resource_limits: ExecutionResourceLimits | None = None,
     float_policy: str | None = None,
+    recursion_limit: int | None = None,
 ) -> ShardLoomContext:
     """Return a side-effect-free ShardLoom context.
 
@@ -12091,7 +12116,8 @@ def context(
         ):
             raise ValueError("client cannot be combined with client configuration arguments")
         return ShardLoomContext(client, engine=engine, resources=resources,
-                                resource_limits=resource_limits, float_policy=float_policy)
+                                resource_limits=resource_limits, float_policy=float_policy,
+                                recursion_limit=recursion_limit)
     if repo_root is not None:
         return ShardLoomContext.from_repo(
             repo_root,
@@ -12105,6 +12131,7 @@ def context(
             resources=resources,
             resource_limits=resource_limits,
             float_policy=float_policy,
+            recursion_limit=recursion_limit,
         )
     return ShardLoomContext.from_env(
         env=env,
@@ -12117,6 +12144,7 @@ def context(
         resources=resources,
         resource_limits=resource_limits,
         float_policy=float_policy,
+        recursion_limit=recursion_limit,
     )
 
 
@@ -12138,6 +12166,7 @@ def session(
     resources: ExecutionResources | None = None,
     resource_limits: ExecutionResourceLimits | None = None,
     float_policy: str | None = None,
+    recursion_limit: int | None = None,
 ) -> ShardLoomSession:
     """Return a caller-owned local ShardLoom session.
 
@@ -12163,6 +12192,7 @@ def session(
         resources=resources,
         resource_limits=resource_limits,
         float_policy=float_policy,
+        recursion_limit=recursion_limit,
     ).session(session_id=session_id)
 
 

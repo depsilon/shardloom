@@ -2,7 +2,7 @@
 
 use shardloom_core::{
     ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest, ExecutionResources,
-    FloatPolicy, Result, ShardLoomError,
+    FloatPolicy, RecursionLimit, Result, ShardLoomError,
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_vortex::resident_session::{ConfigurableResidentSession, ResidentSessionSnapshot};
@@ -15,6 +15,7 @@ use std::sync::{Mutex, OnceLock, TryLockError};
 pub struct EmbeddedExecutionOwner {
     configured: Option<ExecutionResources>,
     float_policy: FloatPolicy,
+    recursion_limit: RecursionLimit,
     limits: Option<ExecutionResourceLimits>,
     controller: OnceLock<ConfigurableResidentSession>,
     initializing: Mutex<()>,
@@ -39,20 +40,34 @@ impl EmbeddedExecutionOwner {
         limits: Option<ExecutionResourceLimits>,
         float_policy: FloatPolicy,
     ) -> Result<Self> {
+        Self::new_with_policies(configured, limits, float_policy, RecursionLimit::default())
+    }
+
+    /// Select immutable semantics and recursive-work bounds before initialization.
+    /// # Errors
+    /// Rejects unauthorized resources or native runtime construction failure.
+    pub fn new_with_policies(
+        configured: Option<ExecutionResources>,
+        limits: Option<ExecutionResourceLimits>,
+        float_policy: FloatPolicy,
+        recursion_limit: RecursionLimit,
+    ) -> Result<Self> {
         let configured = configured
             .map(|resources| authorize(resources, limits))
             .transpose()?;
         let limits = configured.and_then(ExecutionResources::limits).or(limits);
         let controller = OnceLock::new();
         if let Some(resources) = configured {
-            let _ = controller.set(ConfigurableResidentSession::new_with_float_policy(
+            let _ = controller.set(ConfigurableResidentSession::new_with_policies(
                 resources,
                 float_policy,
+                recursion_limit,
             )?);
         }
         Ok(Self {
             configured,
             float_policy,
+            recursion_limit,
             limits,
             controller,
             initializing: Mutex::new(()),
@@ -69,6 +84,12 @@ impl EmbeddedExecutionOwner {
     #[must_use]
     pub const fn float_policy(&self) -> FloatPolicy {
         self.float_policy
+    }
+
+    /// The session's fixed recursive-work bound, independent of resources.
+    #[must_use]
+    pub const fn recursion_limit(&self) -> RecursionLimit {
+        self.recursion_limit
     }
 
     /// Intersect operation policy with this owner's administrator ceilings.
@@ -134,9 +155,10 @@ impl EmbeddedExecutionOwner {
             )?;
             let _ = self
                 .controller
-                .set(ConfigurableResidentSession::new_with_float_policy(
+                .set(ConfigurableResidentSession::new_with_policies(
                     initial,
                     self.float_policy,
+                    self.recursion_limit,
                 )?);
         }
         cancellation.check()?;

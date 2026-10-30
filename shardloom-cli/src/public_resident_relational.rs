@@ -525,6 +525,16 @@ pub(super) fn append_execution(
         result.provider_selection_reason.into(),
     ));
     fields.push(("float_policy".into(), result.float_policy.as_str().into()));
+    fields.push((
+        "recursion_limit".into(),
+        result.recursion_limit.get().to_string(),
+    ));
+    fields.extend(
+        result
+            .composition
+            .counters()
+            .map(|(key, value)| (key.into(), value.to_string())),
+    );
     if let Some(report) = &result.primitive_execution {
         let mut primitive_fields = Vec::new();
         vortex_primitive_execution::append_vortex_local_primitive_execution_report_fields(

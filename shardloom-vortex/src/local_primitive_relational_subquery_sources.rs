@@ -82,6 +82,14 @@ impl Binder<'_> {
             VortexRelationalPlan::Input(_) => {
                 return Err(failed("native declaration input is not bound"));
             }
+            VortexRelationalPlan::Materialized(input) => {
+                self.validate_subquery_source_scope(input, depth + 1)?;
+            }
+            VortexRelationalPlan::Recursive(recursive) => {
+                self.validate_subquery_source_scope(&recursive.anchor, depth + 1)?;
+                self.validate_subquery_source_scope(&recursive.step, depth + 1)?;
+            }
+            // Lexical ownership and identity are validated by the recursive binder.
             VortexRelationalPlan::Scan(scan) => {
                 self.input(&scan.source_uri)?;
             }
@@ -136,7 +144,9 @@ impl Binder<'_> {
                     }
                 }
             }
-            VortexRelationalPlan::ExecutionResult(_) | VortexRelationalPlan::Outer => {}
+            VortexRelationalPlan::ExecutionResult(_)
+            | VortexRelationalPlan::Outer
+            | VortexRelationalPlan::RecursiveInput(_) => {}
         }
         Ok(())
     }

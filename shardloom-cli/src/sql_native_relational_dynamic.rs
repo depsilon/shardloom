@@ -48,6 +48,7 @@ pub(super) fn predicate_required(
 }
 
 #[cfg(test)]
+#[allow(clippy::too_many_lines)] // Fixture preparation mirrors the production admission and dynamic binder.
 pub(super) fn prepare(
     parsed: ParsedRelationQuery,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -129,8 +130,11 @@ pub(super) fn prepare(
                     unsupported_sql_error("dynamic SQL referenced an undeclared source")
                 })
             };
+        let mut memo = super::LoweringMemo::new(schemas)?;
         let mut lowerer = Lowerer {
             schemas,
+            memo: &mut memo,
+            frontier: None,
             serial: 0,
             resolve_source: &mut resolver,
             declaration: Some(declaration.clone()),

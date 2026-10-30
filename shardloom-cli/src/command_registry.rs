@@ -1166,8 +1166,8 @@ fn command_usage_fragment(command: &str) -> String {
         "help" => "help [--audience application|maintainer|all] [command]".to_string(),
         "command-metadata" => "command-metadata [--audience application|maintainer|all] [--completion bash|zsh|fish] [command]".to_string(),
         "evidence-schema" => "evidence-schema [surface]".to_string(),
-        "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>]".to_string(),
-        "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>]".to_string(),
+        "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>] [--recursion-limit <positive-integer>]".to_string(),
+        "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>] [--recursion-limit <positive-integer>]".to_string(),
         "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex>".to_string(),
         "python-worker" => "python-worker".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
@@ -2048,6 +2048,7 @@ mod tests {
         let usage = usage_line("shardloom");
         assert!(usage.starts_with("usage: shardloom <help [--audience application|maintainer|all] [command]|command-metadata [--audience application|maintainer|all]"));
         assert!(usage.contains("route <sql|python|dataframe|cli>"));
+        assert!(usage.contains("--recursion-limit <positive-integer>"));
         assert!(usage.contains("evidence-schema [surface]"));
         assert!(usage.contains("capabilities [sql|functions"));
         assert!(usage.contains("serve --mode discovery"));

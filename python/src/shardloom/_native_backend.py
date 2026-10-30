@@ -47,6 +47,16 @@ def normalize_float_policy(value: object) -> str:
     return value
 
 
+def normalize_recursion_limit(value: object) -> int:
+    """Validate the immutable recursive-term evaluation bound."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("recursion_limit must be an integer from 1 through 2**64-1")
+    value = int.__int__(value)
+    if value < 1 or value > (1 << 64) - 1:
+        raise ValueError("recursion_limit must be an integer from 1 through 2**64-1")
+    return value
+
+
 def application_transport(transport=None, *, binary=None, repo_root=None, env=None):
     """Choose once from installation configuration, never from execution success.
 
@@ -172,8 +182,9 @@ def _checked_native_call(function, *args, **kwargs):
 
 
 class NativeBackend:
-    def __init__(self, allocation: ExecutionResources | None, limits, timeout=None, *, float_policy="strict"):
+    def __init__(self, allocation: ExecutionResources | None, limits, timeout=None, *, float_policy="strict", recursion_limit=1000):
         float_policy = normalize_float_policy(float_policy)
+        recursion_limit = normalize_recursion_limit(recursion_limit)
         self.module = load_native()
         self.timeout = validate_timeout(timeout)
         self._plans = weakref.WeakSet()
@@ -185,6 +196,7 @@ class NativeBackend:
             memory_limit_bytes=None if limits is None else limits.memory_bytes,
             parallelism_limit=None if limits is None else limits.max_parallelism,
             float_policy=float_policy,
+            recursion_limit=recursion_limit,
         )
 
     def command(self, args):

@@ -741,6 +741,48 @@ def float_extended_group_identity_case() -> SqlFixtureCase:
     )
 
 
+def recursive_materialized_graph_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="recursive_materialized_graph",
+        source_name="edges.csv",
+        source_text="src,dst\n1,2\n1,3\n2,4\n3,4\n4,1\n",
+        statement_template=(
+            "WITH RECURSIVE edges AS MATERIALIZED (SELECT src,dst FROM '{source}'), "
+            "reached(node) AS (SELECT 1 AS node UNION "
+            "SELECT e.dst FROM reached AS r JOIN edges AS e ON r.node=e.src) "
+            "SELECT a.node AS node,b.node AS repeated FROM reached AS a "
+            "JOIN reached AS b ON a.node=b.node ORDER BY a.node"
+        ),
+        expected_jsonl=(
+            '{"node":1,"repeated":1}\n'
+            '{"node":2,"repeated":2}\n'
+            '{"node":3,"repeated":3}\n'
+            '{"node":4,"repeated":4}\n'
+        ),
+    )
+
+
+def materialized_grouping_window_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="materialized_grouping_window",
+        source_name="measures.csv",
+        source_text="id,amount\n1,2\n1,\n2,5\n",
+        statement_template=(
+            "WITH retained AS MATERIALIZED (SELECT id,amount FROM '{source}'), "
+            "totals AS (SELECT id,GROUPING(id) AS mask,COUNT(*) AS cnt,"
+            "SUM(amount) FILTER (WHERE amount%2=0) AS even_total FROM retained "
+            "GROUP BY GROUPING SETS ((id),())) "
+            "SELECT id,mask,cnt,even_total,SUM(cnt) OVER () AS total FROM totals "
+            "ORDER BY mask,id NULLS LAST"
+        ),
+        expected_jsonl=(
+            '{"id":1,"mask":0,"cnt":2,"even_total":2.0,"total":6.0}\n'
+            '{"id":2,"mask":0,"cnt":1,"even_total":null,"total":6.0}\n'
+            '{"id":null,"mask":1,"cnt":3,"even_total":2.0,"total":6.0}\n'
+        ),
+    )
+
+
 def binary_helper_projection_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_helper_projection",
@@ -3385,6 +3427,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         float_policy_classification_case(False),
         float_policy_classification_case(True),
         float_extended_group_identity_case(),
+        recursive_materialized_graph_case(),
+        materialized_grouping_window_case(),
         binary_helper_projection_case(),
         binary_helper_predicate_case(),
         binary_byte_length_projection_predicate_case(),

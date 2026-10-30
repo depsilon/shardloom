@@ -146,10 +146,17 @@ pub(super) fn query_outer(
                 }
                 continue;
             }
-            super::ParsedRelationQuery::Columns { input, .. } => {
+            super::ParsedRelationQuery::Columns { input, .. }
+            | super::ParsedRelationQuery::Materialized { input, .. } => {
                 pending.push(input);
                 continue;
             }
+            super::ParsedRelationQuery::Recursive { anchor, step, .. } => {
+                pending.push(anchor);
+                pending.push(step);
+                continue;
+            }
+            super::ParsedRelationQuery::RecursiveInput(_) => continue,
             super::ParsedRelationQuery::Select(select) => std::slice::from_ref(select),
             super::ParsedRelationQuery::Set(set) => &set.branches,
         };
@@ -479,8 +486,11 @@ impl Lowerer<'_, '_> {
                             )
                         })
                     };
+                    let mut memo = super::LoweringMemo::new(schemas)?;
                     let mut lowerer = Lowerer {
                         schemas,
+                        memo: &mut memo,
+                        frontier: None,
                         serial: 0,
                         resolve_source: &mut resolver,
                         declaration: Some(declaration.clone()),
