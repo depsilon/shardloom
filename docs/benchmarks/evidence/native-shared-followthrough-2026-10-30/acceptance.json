@@ -1,0 +1,266 @@
+{
+  "archived_code_executed": false,
+  "cohorts": {
+    "broad-bounded-ordering-r1": {
+      "baseline_engine_seconds": 13.132505915,
+      "case_flags": [
+        "aggregate_optional_value_category_sum_arithmetic_one_percent",
+        "aggregate_metric_category_sum_coalesce_one_percent"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 12.055132613,
+      "family_flags": []
+    },
+    "broad-mixed-aggregate-r1": {
+      "baseline_engine_seconds": 13.368176384,
+      "case_flags": [],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 13.132505915,
+      "family_flags": []
+    }
+  },
+  "diagnostics": {
+    "global_aggregation_losses": [
+      "global_count_distinct"
+    ],
+    "ordering_cases": 10,
+    "predicate_cases": 91,
+    "predicate_losses": [
+      "predicate_ne",
+      "predicate_lt",
+      "predicate_le",
+      "predicate_or",
+      "predicate_not"
+    ],
+    "scope": "historical mixed-format API-clock attribution; no engine-clock comparator claim"
+  },
+  "full43_executed": false,
+  "historical_failures": [
+    "p135-packet-collection.json",
+    "p137-packet-semantic-collection.json",
+    "p139-packet-build.json",
+    "p141-packet-replay.json",
+    "p149-generated-retirement-plan.json",
+    "p151-generated-retirement-plan.json",
+    "p154-mixed-aggregate-initial.json",
+    "p157-mixed-aggregate-native-clippy.json",
+    "p159-mixed-aggregate-final-focused.json",
+    "p176-materialized-evidence-controls.json",
+    "p181-bounded-ordering-focused.json",
+    "p192-bounded-ordering-public.json",
+    "p202-join-movement-focused.json",
+    "p204-join-movement-native-clippy.json",
+    "p212-followthrough-semantic-collection.json"
+  ],
+  "installed_packages": {
+    "installed-bounded-ordering-r1": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "status": "passed",
+      "tests": 266
+    },
+    "installed-mixed-aggregate-r1": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "status": "passed",
+      "tests": 265
+    }
+  },
+  "join_measurement_cases": 16,
+  "limitations": [
+    "Single observations; no statistical confidence or new competitor comparisons.",
+    "Source/runtime/wheel payload identities are retained; no regeneration or execution occurs.",
+    "Materialization and join diagnostics remain separate from the unchanged 347-query decisions.",
+    "Full43 remains held until item18 universal I/O acceptance; prior Full43 evidence is unchanged.",
+    "Content hashes prove internal consistency, not signed provenance."
+  ],
+  "materialized_reuse": {
+    "materialized-reuse-r1": {
+      "complete_pairs": 10,
+      "executions": 20,
+      "pairs": {
+        "empty_input": {
+          "materialized": {
+            "engine_execution_seconds": 0.00053175,
+            "rows": 0
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.000598584,
+            "rows": 0
+          }
+        },
+        "few_rows": {
+          "materialized": {
+            "engine_execution_seconds": 0.408817125,
+            "rows": 5
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.564027791,
+            "rows": 5
+          }
+        },
+        "four_consumers": {
+          "materialized": {
+            "engine_execution_seconds": 0.35989975,
+            "rows": 56
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.886935958,
+            "rows": 56
+          }
+        },
+        "one_consumer": {
+          "materialized": {
+            "engine_execution_seconds": 0.267454292,
+            "rows": 14
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.221131125,
+            "rows": 14
+          }
+        },
+        "selective_consumers": {
+          "materialized": {
+            "engine_execution_seconds": 0.285976542,
+            "rows": 28
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.45055675,
+            "rows": 28
+          }
+        },
+        "spill_one_consumer": {
+          "materialized": {
+            "engine_execution_seconds": 30.473930917,
+            "rows": 14
+          },
+          "ordinary": {
+            "engine_execution_seconds": 21.797380584,
+            "rows": 14
+          }
+        },
+        "spill_two_consumers": {
+          "materialized": {
+            "engine_execution_seconds": 31.741972459,
+            "rows": 28
+          },
+          "ordinary": {
+            "engine_execution_seconds": 42.839845792,
+            "rows": 28
+          }
+        },
+        "two_consumers": {
+          "materialized": {
+            "engine_execution_seconds": 0.292711292,
+            "rows": 28
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.455742042,
+            "rows": 28
+          }
+        },
+        "wide_complete_result": {
+          "materialized": {
+            "engine_execution_seconds": 0.065731,
+            "rows": 5969
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.087129709,
+            "rows": 5969
+          }
+        },
+        "zero_rows": {
+          "materialized": {
+            "engine_execution_seconds": 0.343137417,
+            "rows": 0
+          },
+          "ordinary": {
+            "engine_execution_seconds": 0.517690375,
+            "rows": 0
+          }
+        }
+      },
+      "scope": "separate mechanism observations; no overall engine gain decision"
+    },
+    "materialized-reuse-semantics-r1/attempt-r1": {
+      "complete_actions": 66,
+      "jobs": 60,
+      "performance_claim": false,
+      "rejection_controls": [
+        "changed_complete_value",
+        "missing_complete_row",
+        "changed_schema",
+        "changed_engine_clock",
+        "hidden_external_execution",
+        "false_reuse",
+        "changed_role",
+        "changed_statement",
+        "unproved_cleanup",
+        "zero_output_skips_capture",
+        "missing_second_action"
+      ]
+    }
+  },
+  "new_query_executions": 0,
+  "production_join_tests": 10,
+  "public_reports": {
+    "bounded-ordering-public-r1.json": {
+      "accepted_executions": 0,
+      "completed_comparisons_retained": 318,
+      "status": "failed"
+    },
+    "bounded-ordering-public-r2.json": {
+      "accepted_executions": 360,
+      "complete_rows": 45195,
+      "status": "passed"
+    },
+    "mixed-aggregate-public-r1.json": {
+      "accepted_executions": 360,
+      "complete_rows": 106875,
+      "status": "passed"
+    }
+  },
+  "retained_process_receipts": 79,
+  "runtime_files": {
+    "_native.abi3.so": {
+      "bytes": 80963360,
+      "sha256": "e8fc91b55344d4c5d6969f19c1bc193ec254f47f7909a4a047ca9c4a02d21f05"
+    },
+    "shardloom": {
+      "bytes": 80609344,
+      "sha256": "fc445024a44cfa6a899d8557dd491815931b464fbef7a52c91091d977c76730a"
+    }
+  },
+  "schema_version": "shardloom.shared_performance_followthrough_acceptance.v1",
+  "status": "passed",
+  "workspace_tests": {
+    "p162-mixed-aggregate-native-workspace.json": {
+      "binaries": 119,
+      "failed": 0,
+      "ignored": 35,
+      "passed": 6551
+    },
+    "p164-mixed-aggregate-default-workspace.json": {
+      "binaries": 107,
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3289
+    },
+    "p186-bounded-ordering-native-workspace.json": {
+      "binaries": 119,
+      "failed": 0,
+      "ignored": 35,
+      "passed": 6558
+    },
+    "p188-bounded-ordering-default-workspace.json": {
+      "binaries": 107,
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3289
+    }
+  }
+}

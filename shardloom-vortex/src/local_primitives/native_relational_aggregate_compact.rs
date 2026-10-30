@@ -1,5 +1,5 @@
-//! Paged additive state for large grouped reductions. Only completed state is
-//! migrated; key ordinals and each measure's ordered update semantics stay intact.
+//! Paged grouped state with bound measure payloads and large additive promotion.
+//! Key ordinals and each measure's ordered update semantics stay intact.
 
 use super::{
     Function, GroupOrdinals, Measure, NumericAggregateSum, Spec, State, Value, failed,
@@ -20,8 +20,11 @@ use vortex::{array::ArrayRef, mask::Mask};
 #[path = "native_relational_aggregate_compact_state_tests.rs"]
 mod tests;
 
-// Small reductions keep the existing contiguous representation and consumers.
-// Beyond this charged generic payload, page growth avoids whole-state overlap.
+#[path = "native_relational_aggregate_typed_state.rs"]
+mod typed;
+
+// Additive reductions without typed admission retain contiguous state until this
+// charged generic payload threshold; page growth then avoids whole-state overlap.
 const MIN_GENERIC_BYTES: usize = 1 << 20;
 
 #[derive(Clone, Copy, Default)]
@@ -38,6 +41,7 @@ enum Slot {
 }
 
 pub(super) struct Table {
+    typed: Option<typed::Table>,
     slots: ReservedVec<Slot>,
     count_width: usize,
     numeric_width: usize,
@@ -47,6 +51,49 @@ pub(super) struct Table {
 }
 
 impl Table {
+    pub(super) fn specialize(
+        spec: &Spec,
+        array: &ArrayRef,
+        groups: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<Self>> {
+        let Some(typed) = typed::Table::new(spec, array, groups, context)? else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            typed: Some(typed),
+            slots: ReservedVec::new(context.memory())?,
+            count_width: 0,
+            numeric_width: 0,
+            counts: DensePages::new(context.memory())?,
+            numbers: DensePages::new(context.memory())?,
+            groups,
+        }))
+    }
+
+    pub(super) fn accepts(
+        &self,
+        spec: &Spec,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> bool {
+        self.typed
+            .as_ref()
+            .is_none_or(|table| table.accepts(spec, array, context))
+    }
+
+    pub(super) fn restore(
+        &self,
+        spec: &Spec,
+        states: &mut ReservedVec<State>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        self.typed
+            .as_ref()
+            .ok_or_else(|| failed("only typed aggregate state requires restoration"))?
+            .restore(spec, states, context)
+    }
+
     pub(super) fn promote(
         spec: &Spec,
         states: &[State],
@@ -93,6 +140,7 @@ impl Table {
             });
         }
         let mut table = Self {
+            typed: None,
             slots,
             count_width,
             numeric_width,
@@ -128,6 +176,11 @@ impl Table {
         groups: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        if let Some(table) = &mut self.typed {
+            table.reserve_groups(groups, context)?;
+            self.groups = groups;
+            return Ok(());
+        }
         if groups < self.groups {
             return Err(failed("compact aggregate group count decreased"));
         }
@@ -145,6 +198,9 @@ impl Table {
         column: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<bool> {
+        if let Some(table) = &self.typed {
+            return table.admit_next(spec, index, array, column, context);
+        }
         if !numeric_reuse::same_input(spec, index, array, column, self.groups) {
             return Ok(false);
         }
@@ -180,6 +236,9 @@ impl Table {
         rows: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        if let Some(table) = &mut self.typed {
+            return table.copy_completed(source, target, rows, context);
+        }
         let (Slot::Numeric(source), Slot::Numeric(target)) =
             (self.slots.values[source], self.slots.values[target])
         else {
@@ -204,6 +263,9 @@ impl Table {
         validity: Option<&Mask>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        if let Some(table) = &mut self.typed {
+            return table.consume(index, measure, ordinals, values, validity, context);
+        }
         match self.slots.values[index] {
             Slot::Count(index) => {
                 for (row, group) in ordinals.iter() {
@@ -290,6 +352,9 @@ impl Table {
         group: usize,
         function: Function,
     ) -> Result<Value<'static>> {
+        if let Some(table) = &self.typed {
+            return table.finish(index, group, function);
+        }
         match self.slots.values[index] {
             Slot::Count(index) => Ok(Value::UInt(self.counts[group * self.count_width + index])),
             Slot::Numeric(index) => {
@@ -311,6 +376,31 @@ impl Table {
             }
         }
     }
+
+    #[allow(clippy::too_many_arguments)] // The shared prepared input retains its exact proof and selection domain.
+    pub(super) fn consume_pair(
+        &mut self,
+        spec: &Spec,
+        index: usize,
+        ordinals: &GroupOrdinals,
+        source: &ArrayRef,
+        owner: &super::NativeNumericOwner,
+        completed_policy: Option<shardloom_core::FloatPolicy>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<usize>> {
+        match &mut self.typed {
+            Some(table) => table.consume_pair(
+                spec,
+                index,
+                ordinals,
+                source,
+                owner,
+                completed_policy,
+                context,
+            ),
+            None => Ok(None),
+        }
+    }
 }
 
 fn grow<T: Copy + Default>(
@@ -319,6 +409,20 @@ fn grow<T: Copy + Default>(
     width: usize,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
+    if !try_grow(values, groups, width, context)? {
+        return Err(failed(
+            "compact grouped aggregate state capacity could not be admitted",
+        ));
+    }
+    Ok(())
+}
+
+fn try_grow<T: Copy + Default>(
+    values: &mut DensePages<T>,
+    groups: usize,
+    width: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<bool> {
     let count = groups
         .checked_mul(width)
         .ok_or_else(|| failed("compact aggregate state cardinality overflow"))?;
@@ -327,11 +431,10 @@ fn grow<T: Copy + Default>(
             context.check_cancelled()?;
         }
         if !values.reserve_one(context.memory(), failed)? {
-            return Err(failed(
-                "compact grouped aggregate state capacity could not be admitted",
-            ));
+            return Ok(false);
         }
         values.push(T::default());
     }
-    context.check_cancelled()
+    context.check_cancelled()?;
+    Ok(true)
 }

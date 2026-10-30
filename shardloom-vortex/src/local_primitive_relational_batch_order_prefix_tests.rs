@@ -265,6 +265,8 @@ fn streamed_ordering_bounded_prefix_handles_a_population_larger_than_its_grant()
     let baseline = prepared.snapshot().memory.reserved_bytes;
     let mut delivered = 0;
     let mut prior: Option<Weak<MemoryLease>> = None;
+    #[cfg(debug_assertions)]
+    let observation = crate::local_primitives::native_relational_observation::Session::start();
     let mut input = |session: &ResidentVortexSession| {
         assert!(
             prior
@@ -301,6 +303,13 @@ fn streamed_ordering_bounded_prefix_handles_a_population_larger_than_its_grant()
     assert!(report.ordering_rows_detached < total as u64 / 8);
     assert!(result.execution.runtime.memory.peak_reserved_bytes <= 4 << 20);
     assert!(result.execution.spill.is_none());
+    #[cfg(debug_assertions)]
+    {
+        let counts = observation.finish();
+        assert!(counts.sort_numeric_prefixes > 0);
+        assert!(counts.sort_numeric_prefix_comparisons > 0);
+        assert_eq!(counts.sort_streaming_prefix_rows_validated, total as u64);
+    }
     drop(result);
     assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
 }

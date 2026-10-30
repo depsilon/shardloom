@@ -1,6 +1,7 @@
 # Shared analytical performance continuation — October 29, 2026
 
-Status: prospective implementation/acceptance contract for the seven candidates
+Status: implementation/acceptance contracts and local dispositions for the seven candidates
+and their agreed performance follow-through
 already recorded in [item 20](native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance).
 The recursive/materialized unit is accepted and merged in PR #1625 at
 `a1ff5bb1d8698eb261bc1c0e3e9987b7da1439b5`, after all 54 hosted checks passed
@@ -730,7 +731,8 @@ Full43 also does not cover mixed-format joins, native/compatibility output pairs
 large writes, reopen/reuse or the complete resource/failure matrix. The existing
 [item 18 coverage contract](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
 remains open for those obligations. Missing formats, unmeasured combinations and
-unsupported combinations must be recorded distinctly. Item 20 and C7 remain open.
+unsupported combinations must be recorded distinctly. Item 20 remains open;
+candidate 7's subsequent local disposition is recorded below.
 
 The [portable acceptance](../benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json)
 replays all eight complete 347-query observations, the original incomplete
@@ -767,3 +769,399 @@ retains the packaging failures/corrections and passing control, documentation,
 CI-matrix and source-only replay receipts. The separate source-only copy has
 identical verifier files and derives the same acceptance without local data or
 runtime payloads.
+
+## Candidate 7: measure-specific grouped state and proven extrema sharing
+
+Disposition: **retained locally** after one unchanged 347-query comparison at
+**13.132505915 engine seconds**, against the combined review baseline's
+**13.368176384**. The observed reduction is **0.235670469 seconds (1.7629%)**;
+all **12,565 complete result rows** match. Source observations and SQL declarations
+are unchanged for every case. No case or family crosses the prospectively
+declared regression thresholds. The accepted local baseline advances to this
+candidate; this single observation establishes no statistical confidence or
+competitor ranking.
+
+Grouped aggregation records **5.312293126** against **5.518306507 engine seconds**
+across 180 cases. All family and individual changes remain recorded, including
+the largest increase: `aggregate_all_null_group_key_mixed_direct_one_percent`
+moves from **0.019543709** to **0.028981625 engine seconds**. Its 0.009437916-second
+increase is below the declared 0.010-second case threshold; it is not erased by
+the overall gain and does not authorize another timed trial.
+
+Candidate 6's original **13.274446547-engine-second** observation remains intact.
+Before any candidate-7 execution, the combined review checkpoint advanced the
+comparison baseline to **13.368176384**, including the optional ranked-admission
+correction. Neither baseline was rerun for candidate 7. The original frozen
+347-query harness also stays byte-identical: the repository's later Full43
+summary fix added only `native_source_ranked_` and `native_input_ordering_` report
+prefixes. The candidate's freeze records both exact source identities, verifies
+the precise replacement and unchanged function ASTs against the previous frozen
+identity, and passes six rejection controls. Query execution, supervision and
+replay remain unchanged; this is preparation evidence, not another engine change.
+
+Local acceptance passes 59 focused aggregate tests, 6,551 native workspace tests
+(35 existing opt-in tests ignored), 3,289 default workspace tests without skips,
+strict native/default lint and formatting. Fresh independent acceptance covers
+24 cases through five interfaces and three formats: **360 complete executions
+and 106,875 result rows**, with source/product identities unchanged. All **265
+installed-package tests** pass without skips, including the existing extended
+floating spill/recovery workflows; binary integrity and uninstall are verified.
+The first final-focused attempt's test-constructor compile error is preserved.
+Final source verification covers 3,142 code/config source files, both binaries
+and 694 baseline/candidate output hashes. Portable packaging, the agreed
+performance follow-through and hosted integration remain separate obligations.
+
+The admitted contract extends the existing compact aggregate owner, typed
+numeric consumers and extrema-pair admission. It introduces no other executor
+and leaves the shared source, key, output and spill owners intact.
+
+The current generic group/measure state carries count, a numeric total, three
+nonfinite counters and a generic extremum even when the measure needs only one
+of them. Existing compact additive state starts above a 1 MiB generic threshold
+and excludes mixed MIN/MAX. Admit ordinary grouped COUNT/SUM/AVG/MIN/MAX with
+bound primitive input metadata into the same compact owner from the first
+batch. Use its existing credited DensePages for count-only, integer additive,
+strict floating additive, extended floating additive and typed extremum state.
+Bind type and immutable floating policy once per measure; retain compensated
+integer sums, ordered floating sums and exact original-width extrema. Extended
+floating additive state keeps all NaN/infinity participation counters; strict
+floating updates still validate every present input before changing its count.
+Keep unknown bindings, nonprimitive/rich/decimal measures, DISTINCT, statistical,
+ordered and scalar reductions on their existing paths. Preserve existing large
+additive promotion and completed SUM/AVG reuse. If an internal caller presents a
+different input domain, migrate complete typed state back to the ordinary owner
+before processing it, preserving the prior semantics instead of narrowing them.
+
+Completed-domain proof belongs to the existing PreparedColumn, its exact owner,
+selection and current policy. A successful complete ordered numeric traversal
+may establish StrictFinite or ExtendedAdmitted; the latter permits nonfinite
+values and is never finiteness proof. Extend eligible adjacent floating MIN/MAX
+sharing only under that completed proof, matching source/type/length, physically
+ready inputs, state compatibility and count headroom. Preserve analytical NaN
+and signed-zero equality, the first selected value's carried bits, and original
+measure/error order. No future expression, mask or source may be executed for
+optional admission. Pure extrema without the necessary proof keep their ordered
+traversals. Retain existing integer pair sharing rather than trading it away.
+
+Vortex-first decision: reuse pinned Vortex 0.90 primitive/validity/array owners
+and existing ShardLoom DensePages, NumericAggregateSum, Specials and exact key
+comparison. Vortex's array providers do not own ShardLoom's grouped measure
+state, policy-specific aggregate semantics or cross-measure error ordering.
+The change therefore implements ShardLoom state/dispatch inside the existing
+kernel boundary, with no new dependency, unsafe code, external execution,
+format-specific path or public API. All state and growth overlap retain credits;
+allocation refusal and cancellation release the same action-owned resources.
+The initial optional allocation may decline before any measure executes when
+the ordinary state fits a tighter grant. Cancellation and cardinality errors
+remain explicit; later committed state growth retains its ordinary failure
+contract. Restoration constructs complete ordinary state before replacing it.
+
+Prove actual specialized state sizes/credits and removed traversals with focused
+observations. Compare complete results and internal ordered state against the
+ordinary owner for all integer widths, F32/F64, null/empty/all-null inputs,
+dictionary/slice/constant/wrapped arrays, both floating policies, NaN payloads,
+signed zeros, overflow and first-error controls, changed domains, filters,
+growth, denial, cancellation and retained results. Use fresh independent public
+cases across all five interfaces and Vortex/Parquet/IPC, plus existing spill and
+composition controls, native/default workspace, lint, formatting and installed
+package acceptance. Then execute the unchanged 347-case cohort exactly once,
+with other task work idle, and retain only a lower complete engine total.
+Preserve every diagnostic regression and all failed attempts; no competitor run
+or routine repeat is authorized. Further Full43 execution is held until item 18's
+universal I/O and format/interface acceptance are complete.
+
+## Performance follow-through: retained relation measurement
+
+The candidates 1–6 checkpoint is merged in #1626 at `67a83dd4`, after all
+57 hosted checks pass. Candidate 7 remains the accepted local baseline above.
+The next work is a separate measurement of existing explicit materialization;
+it changes neither the 347-case cohort nor the runtime. Compare ordinary CTE
+consumption with `AS MATERIALIZED` over the same left join and four text
+normalizations. Freeze independently generated complete results before query
+execution. Include one, two and four consumers; selective consumers; complete
+wide results; downstream five-row and zero-row results; empty input; and an
+explicit, bounded native-spill control. Preserve NULLs, duplicate matches,
+stable ordering, complete relation validation and per-action recomputation.
+
+Use fresh deterministic fixtures and the accepted candidate-7 release library,
+one execution per declared case/role, identical public SQL terminals and resource
+settings within each pair. Keep task work idle during the observation. Use the
+existing supervisor, storage limits, process cleanup and native engine clock.
+Freeze and verify runtime/source/input/helper identities before and after the
+run; preserve every failed observation. Record complete results, source work,
+materialized rows/reuses, retained batches/copied bytes, actual spill runs and
+resource peaks. Separate time within capture, retention and replay is unavailable
+unless the existing report actually measures it; counts and paired total engine
+time must not be presented as phase timings. The original comparator observations
+remain unchanged and no competitor execution is part of this workload.
+
+This measurement decides whether a further runtime experiment is justified.
+It does not itself admit automatic materialization, a relation cache across
+actions, shorter validation, unconditional compaction or a new execution owner.
+The Vortex-first boundary remains the existing native replay recorder, credited
+Vortex arrays and native run store. Inspect `OutputBuffer` only at a concrete
+boundary with measured excess fragment/schema/index work; suitable owned batches
+must continue without an extra copy. Any new engine mechanism needs its own
+prospective contract, correctness/resource/ownership checks and one unchanged
+347-case gain/loss observation. Full43 remains held for item 18.
+
+### Retained relation observation
+
+The frozen workload completes all ten pairs (twenty executions), with exact
+complete results, unchanged runtime/input identities and no comparator execution.
+The separate small-fixture checks complete 66 actions across Parquet, Arrow IPC
+and native Vortex, including repeated actions and output survival after session
+close. Eleven offline corruption controls pass. These observations measure
+existing explicit materialization on the accepted candidate-7 runtime; they do
+not change the accepted 347-case engine total.
+
+| Workload | Ordinary engine seconds | Explicitly materialized engine seconds |
+|---|---:|---:|
+| One consumer | 0.221131125 | 0.267454292 |
+| Two consumers | 0.455742042 | 0.292711292 |
+| Four consumers | 0.886935958 | 0.359899750 |
+| Selective consumers | 0.450556750 | 0.285976542 |
+| Complete wide result | 0.087129709 | 0.065731000 |
+| Five-row downstream result | 0.564027791 | 0.408817125 |
+| Zero-row downstream result | 0.517690375 | 0.343137417 |
+| Empty input | 0.000598584 | 0.000531750 |
+| Native spill, one consumer | 21.797380584 | 30.473930917 |
+| Native spill, two consumers | 42.839845792 | 31.741972459 |
+
+The ordinary resident fixture retains 35,650 materialized rows in 131 batches
+and copies 6,531,913 payload bytes. The pressure fixture retains 35,634 rows in
+32,771 batches, copies 77,617,445 payload bytes and spills one retained relation.
+The latter demonstrates excessive fragmentation at the spill-backed join's
+per-probe delivery boundary. It does not establish a phase timing or authorize
+buffering there: delaying delivery across later join residual/read failures can
+change the first downstream expression error. Preserve that evaluation order
+and source release before considering shared `OutputBuffer` admission. Suitable
+owned batches must continue without an extra copy. No automatic materialization
+or spill-join buffering is introduced by this measurement.
+
+## Follow-through experiment: bound numeric ordering keys and locations
+
+Prospective contract, before implementation or measurement: reduce comparison
+work inside the existing bounded ordering owner. The ten frozen ordering cases
+already use the streaming prefix. Their complete source reads, key/payload
+validation and retained payload copies remain required. Candidate 1 and earlier
+probe-cache/gather-coordinate drops remain dropped.
+
+After ordinary `Sort::build` has prepared and validated every key, admit borrowed
+numeric views only when every retained nonempty batch has the same physical
+numeric type for each key. Keep original integer widths and native validity.
+Float comparisons must preserve ShardLoom's analytical NaN and signed-zero
+identity, including under the extended policy. Mixed physical domains, temporal,
+decimal, Boolean, text and nested keys retain the existing comparator. Full
+ordering also retains its current path.
+
+For a nonempty bounded prefix no larger than 16,384, retain only K charged row
+locations in the existing heap and traverse remaining rows in segment order.
+Bind numeric views once per batch/key and use the shared fallible, cancellable
+heap algorithm. Include the original ordinal as the final stable tie breaker.
+Reserve all additional metadata before use; decline optional admission when
+allocation is refused or would consume more than one sixteenth of remaining
+memory. No source-sized coordinate vector, payload copy, new source owner,
+changed evaluation domain or cross-action cache is allowed. Borrowed views and
+locations must be released before the ordinary payload gather.
+
+Vortex-first decision: `implement_shardloom_kernel` within the existing ordering
+owner, borrowing the already admitted Vortex 0.90 `PrimitiveArray`/`Mask` owners.
+The pinned provider's elementwise numeric comparisons construct array results
+and distinguish negative from positive zero; `search_sorted` assumes an already
+sorted input. Neither supplies this stable multi-key bounded relational heap
+under ShardLoom's analytical comparison policy. Reuse native arrays, accounting,
+validation, selected payload construction and certificates. No new dependency,
+decode-to-Arrow path, external engine or persistence representation is admitted;
+`fallback_attempted=false` remains mandatory.
+
+Before a performance observation, prove all integer widths/endpoints, F32/F64
+and floating policies, nullable/all-null keys, directions, multi-key stable ties,
+zero/one/oversized prefixes, offsets, empty/tiny/changing batches, encoded keys,
+declined mixed domains, late invalid input, producer/output lifetimes, optional
+memory refusal and cancellation. Retain materialized/recursive completeness
+controls and fresh independent public results across five interfaces and three
+formats. Debug evidence must show fewer actual row-location searches and numeric
+scalar comparisons; source/preparation, heap selection and copying remain
+separately identified, with no invented phase clocks.
+
+After focused, default/native workspace, strict lint and installed-package
+checks, run one unchanged isolated 347-case observation against candidate 7's
+13.132505915 engine seconds. Preserve every result and diagnostic regression.
+Lower complete total retains the mechanism; equal or higher drops it. No new
+competitor run, changed denominator, routine repeat or Full43 is authorized.
+
+### Bounded ordering disposition
+
+**Retained locally.** The single unchanged 347-case observation records
+**12.055132613 engine seconds**, against candidate 7's **13.132505915**:
+1.077373302 seconds lower, or 8.2%. All 347 complete results and 12,565 rows
+match exactly. This becomes the accepted comparison baseline for later admitted
+performance experiments. No competitor or Full43 query was executed.
+
+| Declared family | Candidate 7 engine seconds | Bounded ordering engine seconds |
+| --- | ---: | ---: |
+| Projection, 26 cases | 1.473633166 | 1.032013624 |
+| Predicates, 16 cases | 0.533928085 | 0.406708624 |
+| Numeric, four cases | 0.252609750 | 0.136239626 |
+| Strings, five cases | 0.662777709 | 0.526262291 |
+| Temporal, six cases | 0.563907124 | 0.388938958 |
+| Ordering, ten cases | 0.575772915 | 0.350839957 |
+
+The five previously identified predicate laggards all record lower engine time.
+Their source reads, decoded domain and retained-copy observations remain
+unchanged; this candidate changes their later ordering work. The separate global
+COUNT DISTINCT control records 0.103329959 seconds against 0.102843666. All 347
+cases retain identical source observations. These are single complete-query
+observations, not isolated phase clocks or statistical estimates of speedup.
+
+Two grouped-aggregation cases cross the diagnostic case threshold:
+`aggregate_optional_value_category_sum_arithmetic_one_percent` records
+0.047669458 seconds against 0.028507417, and
+`aggregate_metric_category_sum_coalesce_one_percent` records 0.050364209 against
+0.031790708. Both preserve exact results, SQL and every non-timing report field.
+They have no bounded ordering stage. No family crosses its diagnostic threshold;
+the grouped family total rises from 5.312293126 to 5.389164698 seconds. The two
+causes remain unisolated and their observations remain in the accepted evidence.
+No repeated trial was used to change the binary complete-cohort decision.
+
+Acceptance passes 14 focused sort, 18 streamed-ordering and two shared-heap tests;
+6,558 native workspace tests (35 existing opt-in tests ignored); all 3,289 default
+tests; strict lint in both configurations; and formatting. Fresh public acceptance
+covers 24 cases through five interfaces and three formats, with **360 complete
+executions and 45,195 result rows**. All **266 installed-package tests** pass
+without skips, with binary integrity and uninstall verified. Final identity
+verification covers 3,145 code/config source files, both binaries and 694 complete
+baseline/candidate output hashes.
+
+The first focused attempt's cancellation expectation and the first public
+fixture's 42 DataFrame intake errors remain preserved. The public fixture used
+mixed per-key directions/null placement that its existing DataFrame adapter
+cannot express; all 318 executions that reached the engine passed. The corrected
+fixture uses shared per-sort settings. Native mixed-direction controls remain,
+and both frozen release products are byte-identical before and after this test
+correction. The frozen 347 corpus and runtime behavior did not change.
+
+Local evidence is `broad-bounded-ordering-r1`, `bounded-ordering-analysis.json`,
+`bounded-ordering-accepted-source.json`, `bounded-ordering-release-r2`, public
+attempts r1/r2 and receipts p181–p200 under the task's existing nonsynced evidence
+root. Portable packaging and hosted integration remain due. The outstanding
+multiway/composed stage-copy measurement remains a separate follow-through;
+this result does not close it or admit a selected-row handoff.
+
+## Follow-through measurement: successive join output buffers
+
+Before execution, admit a test-only measurement through the existing native
+`Join::build`/`consume` callbacks and `Aggregate` owner. Use fresh deterministic
+entity-first and product-first star compositions, an active-entity/report
+join/group prefix, and a wide outer-join composition. Include duplicate, absent
+and NULL keys, NULL measures, Unicode payloads, empty inputs, one-row output
+batches, many small batches and an 8,191-row population. Independently enumerate
+join multiplicity and complete grouped results; no external engine is used.
+
+At each existing join callback, record rows, batches, cells and the delivered
+array's native buffer bytes. Vortex-first decision: `wrap_vortex_concept` for
+test evidence around Vortex 0.90 `ArrayRef::nbytes` and existing ShardLoom owned
+output. That method sums visible buffer lengths through native children. These
+measurements cover constructed output payload, offsets and validity; they do
+not claim total memory traffic, allocator capacity, provider intermediates,
+I/O attribution or timings of the original 347 cases. Do not add a production
+counter, global stage map, new execution owner or selected representation.
+
+Use the existing finite-batch source's real release witness before accepting
+the next producer batch. Build-side detachment uses the ordinary native copy
+boundary. Retain small intermediate/final output slices after producer and
+session closure, verify their complete values and final credit release, and
+exercise cancellation, consumer failure and memory refusal. Existing complete
+public star/composed results and streamed composition/spill tests remain the
+production-plan controls. This diagnostic does not change runtime behavior or
+authorize another timed 347 pass. Any subsequent handoff optimization still
+requires its own prospective ownership/error contract and complete-cohort gate.
+
+### Successive join measurement and handoff evaluation
+
+All 16 declared compositions pass complete independent result and multiplicity
+checks. A second, maintained standard-library replay regenerates those results
+from the declared fixture formulas. At 8,191 fact rows and a 1,024-row output
+batch limit, the observed visible output buffers are:
+
+| Composition | First join rows / bytes | Second join rows / bytes | Aggregate rows / bytes |
+| --- | ---: | ---: | ---: |
+| Entity-first inner star | 7,910 / 192,819 | 7,235 / 176,364 | 54 / 1,749 |
+| Product-first inner star | 7,482 / 182,382 | 7,235 / 176,364 | 54 / 1,749 |
+| Active-entity report prefix | 5,196 / 84,442 | — | 9 / 220 |
+| Wide outer star | 8,769 / 1,182,545 | 9,489 / 1,279,756 | 7,888 / 1,157,766 |
+
+These are constructed buffers in fresh mechanism fixtures, not copy-volume or
+phase-time attribution for the frozen 347 queries. The complete record also
+preserves empty, one-row-batch and small-batch observations. Real producer
+leases are released before each next input; intermediate and final slices remain
+valid after session closure, and the last aliases release their credits. Both
+join-stage consumer failures and cancellation, memory refusal and five fresh
+successful actions pass. Ten existing production join tests also pass, including
+both streamed positions, native write/reopen, spill, late errors and recovery.
+
+The wide fixture demonstrates a copy-reduction opportunity, but a selected-row
+handoff is **not admitted** by this evidence. The existing `ArrayRef` callback
+permits downstream owners to retain output. Returning source-backed selections
+would therefore change the proven release boundary; retaining a small string
+view can pin a whole source domain. A dictionary view also changes the domain
+seen by complete-domain key preparation: unused source values can become
+validation inputs. Simply skipping `take_column` would remove selected-value
+validation before the downstream callback and can change the first error.
+
+A future candidate would need a separately specified synchronous borrowed
+consumer boundary, charged selection storage, explicit non-escape guarantees,
+and the same selected-value validation/error order before consumer execution.
+Its eventual owned output must still detach through the existing native owner.
+No such boundary, extra output compaction, runtime counter or new representation
+is introduced here; earlier rejected caching/coordinate experiments stay dropped.
+The measurement and design evaluation close this follow-through check without
+claiming a performance gain or changing the accepted 12.055132613-second baseline.
+
+Receipts p202–p210 and `join-movement-measurements.json` retain the two initial
+compile/lint failures, the uncredited zero-test filter and the final focused,
+production, strict-lint, formatting and independent-replay passes. Portable
+packaging and hosted integration remain due.
+
+## Follow-through portable acceptance — October 30
+
+The [additive packet](../benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json)
+completes portable acceptance for candidate 7, bounded numeric ordering and the
+separate materialization/join follow-through. This supersedes the packaging and
+measurement obligations stated at the earlier checkpoints above. The original
+candidates 1–6 packet and its Full43 evidence remain unchanged. Hosted integration
+of this continuation remains due.
+
+Pure replay verifies both complete 347-case results, their baseline chain and
+binary gain decisions; native/default workspace coverage and source/build
+identities; 720 successful fresh public executions across five interfaces and
+three formats; and installed-package suites of 265 and 266 tests. The first
+bounded-ordering public attempt remains failed, with its 318 completed comparisons
+retained separately. Its supported fixture correction leaves both native products
+byte-identical. The original frozen harness remains bound to its exact reporting-only
+source difference.
+
+The packet preserves 79 process receipts, including 15 failed attempts, and
+complete raw results, independent references and historical source versions.
+It also replays all ten materialization pairs, 66 semantic actions, 16 join
+measurements, 91 predicate/nullable/global diagnostic comparisons and ten original
+ordering observations. Original Polars results retain their Arrow IPC format and
+API clock; missing nullability metadata uses the existing explicit comparator
+rule, and no Polars engine clock is invented. The earlier diagnostic sentence's
+clerical C4 label is corrected to candidate 7; case paths and measured values
+are unchanged, and the original text is retained.
+
+Sixteen test methods exercise 33 deliberate corruptions, including changed
+complete values, references, schemas, clocks, source identities, omitted actions,
+lost producer/output credits, false cleanup and removed failures. A separate copy
+of maintained source and the packet passes complete replay and those tests with
+original worktree/data reads, query-engine imports, subprocesses and network
+access prohibited. No archived program or new query is executed. Large source,
+runtime and wheel payloads retain identities rather than backup copies; hashes
+prove internal consistency rather than signed provenance.
+
+The retained baseline stays **12.055132613 engine seconds** for all 347 queries;
+the under-10-second objective remains unmet. Materialization and join diagnostics
+do not contribute to that total. Full43 remains held until item 18's universal
+I/O and format/interface acceptance is complete.

@@ -4,6 +4,9 @@ use shardloom_core::ColumnRef;
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::{IntoArray as _, arrays::PrimitiveArray};
 
+#[path = "native_relational_sort_numeric_tests.rs"]
+mod numeric_tests;
+
 fn spec(array: &ArrayRef, names: &[&str]) -> Spec {
     let DType::Struct(fields, _) = array.dtype() else {
         panic!("expected struct")

@@ -139,13 +139,29 @@ benchmark evidence. Recheck each source path after the capability changes.
    existing first-error behavior.
 
 Local experiment status on October 30: candidate 1 is evaluated and dropped;
-candidates 2–6 are retained, with candidate 6 advancing the unchanged 347-case
-baseline to **13.274446547 engine seconds**. Candidate 7 is next, followed by
-the follow-through below. The
+candidates 2–7 are retained. Candidate 6's original unchanged 347-case observation
+is **13.274446547 engine seconds**; the combined review checkpoint then records
+**13.368176384** with its ranked-admission correction. Candidate 7 advances that
+baseline to **13.132505915 engine seconds**, with all 12,565 rows matching and no
+case/family crossing the declared diagnostic regression thresholds. The subsequent
+bounded numeric ordering experiment is retained at **12.055132613 engine seconds**,
+again with all 347 results and 12,565 rows matching. Its two flagged grouped cases
+remain recorded; no family crosses its threshold. The separate explicit
+materialization measurement completes ten pairs and 66 semantic actions. The
+multiway/composed output-buffer measurement completes 16 fresh compositions and
+ten production controls, with independent replay and source/output lifetime
+proof. Selected-row handoff is not admitted at the current retaining callback
+and validation boundary. The
 [individual contracts and observations](native-shared-performance-2026-10-29.md)
 preserve all failed attempts and diagnostic regressions. These are local
-decisions; combined Full43, portable evidence, review and hosted checks remain
-due before integration. No additional dense-index experiment is implied by
+decisions. The first six candidates' combined Full43 observation and portable/
+source-only replay are complete; PR #1626 merged at `67a83dd4` after all 57 hosted
+checks passed. Candidate 7 and the performance follow-through now pass
+[portable replay](../benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json),
+16 corruption-test methods and isolated source-only replay. Hosted integration
+remains due.
+Further Full43 execution is held until item 18's I/O and format/interface
+acceptance are complete. No additional dense-index experiment is implied by
 selecting the singleton representation for candidate 5.
 
 The October 29 maintainer clarification preserves **one shared engine across

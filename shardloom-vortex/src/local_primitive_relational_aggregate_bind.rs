@@ -205,6 +205,10 @@ impl Binder<'_> {
             filter_column,
             selection,
             dtype,
+            input_ptype: match source {
+                Some(DType::Primitive(ptype, _)) => Some(*ptype),
+                _ => None,
+            },
             decimal_source,
             distinct_fields,
             distinct_names: vec!["group".into(), "value".into()],

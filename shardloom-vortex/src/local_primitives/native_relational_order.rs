@@ -6,10 +6,10 @@ use std::cmp::Ordering;
 
 /// Heap ordering is unstable; callers include source ordinals as the final key
 /// when stable ties are required. Errors stop before any sorted output is used.
-pub(super) fn sort(
-    rows: &mut [usize],
+pub(super) fn sort<T: Copy>(
+    rows: &mut [T],
     cancellation: &CancellationToken,
-    mut compare: impl FnMut(usize, usize) -> Result<Ordering>,
+    mut compare: impl FnMut(T, T) -> Result<Ordering>,
 ) -> Result<()> {
     cancellation.check()?;
     let mut comparisons = 0usize;
@@ -30,10 +30,10 @@ pub(super) fn sort(
     cancellation.check()
 }
 
-fn sift(
-    rows: &mut [usize],
+fn sift<T: Copy>(
+    rows: &mut [T],
     mut root: usize,
-    compare: &mut impl FnMut(usize, usize) -> Result<Ordering>,
+    compare: &mut impl FnMut(T, T) -> Result<Ordering>,
 ) -> Result<()> {
     // A node has a child exactly while root < floor(len / 2). This also
     // establishes the bounds for 2 * root + 1 without saturating arithmetic.
@@ -58,7 +58,7 @@ pub(super) fn select_prefix(
     rows: &mut [usize],
     total_rows: usize,
     cancellation: &CancellationToken,
-    mut compare: impl FnMut(usize, usize) -> Result<Ordering>,
+    compare: impl FnMut(usize, usize) -> Result<Ordering>,
 ) -> Result<()> {
     cancellation.check()?;
     if rows.len() > total_rows {
@@ -66,6 +66,19 @@ pub(super) fn select_prefix(
             "ordering prefix exceeds its source domain",
         ));
     }
+    select_prefix_from(rows, rows.len()..total_rows, cancellation, compare)
+}
+
+/// The caller supplies the initial K entries and every remaining candidate in
+/// source order. Entries may carry borrowed row locations; the heap retains
+/// exactly K entries and uses the same comparison/cancellation order as ordinals.
+pub(super) fn select_prefix_from<T: Copy>(
+    rows: &mut [T],
+    candidates: impl Iterator<Item = T>,
+    cancellation: &CancellationToken,
+    mut compare: impl FnMut(T, T) -> Result<Ordering>,
+) -> Result<()> {
+    cancellation.check()?;
     if rows.is_empty() {
         return Ok(());
     }
@@ -80,7 +93,7 @@ pub(super) fn select_prefix(
     for root in (0..rows.len() / 2).rev() {
         sift(rows, root, &mut compare)?;
     }
-    for row in rows.len()..total_rows {
+    for row in candidates {
         if compare(row, rows[0])?.is_lt() {
             rows[0] = row;
             sift(rows, 0, &mut compare)?;

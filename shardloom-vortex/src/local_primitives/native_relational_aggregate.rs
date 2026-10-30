@@ -82,6 +82,8 @@ pub(super) struct Measure {
     pub(super) filter_column: Option<String>,
     pub(super) selection: Option<SelectionSpec>,
     pub(super) dtype: DType,
+    /// Physical input proven by binding; absent for unconstrained internal specs.
+    pub(super) input_ptype: Option<PType>,
     pub(super) decimal_source: Option<DecimalDType>,
     pub(super) decimal_output: Option<shardloom_core::decimal_output::DecimalOutput>,
     pub(super) distinct_fields: Vec<(String, DType)>,
@@ -159,6 +161,7 @@ struct PreparedColumn<'a> {
     source: ArrayRef,
     values: Option<KeyColumn>,
     validity: Option<Mask>,
+    completed_numeric_policy: Option<shardloom_core::FloatPolicy>,
 }
 
 impl PreparedColumn<'_> {
@@ -174,6 +177,7 @@ pub(super) struct Aggregate<'a> {
     groups: Option<RowSet<'a>>,
     states: ReservedVec<State>,
     compact: Option<compact::Table>,
+    specialize: bool,
     distinct: ReservedVec<Option<RowSet<'a>>>,
     nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,
     decimal_totals: Option<ReservedVec<native_decimal_reduce::Total>>,
@@ -261,6 +265,7 @@ impl<'a> Aggregate<'a> {
             groups,
             states,
             compact: None,
+            specialize: true,
             distinct,
             nested_extrema,
             decimal_totals,
@@ -272,7 +277,11 @@ impl<'a> Aggregate<'a> {
         })
     }
 
-    fn reserve_states(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
+    fn reserve_states(
+        &mut self,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
         let memory = context.memory();
         if let Some(groups) = &self.groups {
             let count = groups
@@ -281,6 +290,12 @@ impl<'a> Aggregate<'a> {
                 .ok_or_else(|| failed("aggregate state cardinality overflow"))?;
             if let Some(table) = &mut self.compact {
                 table.reserve_groups(groups.rows(), context)?;
+            } else if self.specialize
+                && self.states.values.is_empty()
+                && let Some(table) =
+                    compact::Table::specialize(self.spec, array, groups.rows(), context)?
+            {
+                self.compact = Some(table);
             } else if let Some(table) =
                 compact::Table::promote(self.spec, &self.states.values, groups.rows(), context)?
             {
@@ -485,12 +500,21 @@ impl<'a> Aggregate<'a> {
             groups.insert_batch(array.clone(), None, context, batch_rows, None)?;
             return context.check_cancelled();
         }
+        if let Some(table) = &self.compact
+            && !table.accepts(self.spec, array, context)
+        {
+            // Internal callers may change representation across batches. Keep
+            // the complete old state and lease until ordinary storage is ready.
+            table.restore(self.spec, &mut self.states, context)?;
+            self.compact = None;
+            self.specialize = false;
+        }
         let all_ordinals = if let Some(groups) = &mut self.groups {
             GroupOrdinals::Grouped(groups.intern_batch(array.clone(), context, batch_rows)?)
         } else {
             GroupOrdinals::Scalar(array.len())
         };
-        self.reserve_states(context)?;
+        self.reserve_states(array, context)?;
         let mut decimal_index = 0;
         let mut prepared: Option<PreparedColumn<'_>> = None;
         let mut selection_groups = None;
@@ -597,6 +621,7 @@ impl<'a> Aggregate<'a> {
                         source: array.clone(),
                         values,
                         validity,
+                        completed_numeric_policy: None,
                     });
                 }
             }
@@ -605,6 +630,30 @@ impl<'a> Aggregate<'a> {
                 .as_ref()
                 .and_then(|column| column.validity.as_ref());
             if let Some(table) = &mut self.compact {
+                if matches!(measure.function, Function::Min | Function::Max)
+                    && let Some(KeyColumn::Numeric(owner)) = values
+                {
+                    let input = prepared.as_ref().expect("numeric column is prepared");
+                    if let Some(end) = table.consume_pair(
+                        self.spec,
+                        measure_index,
+                        ordinals,
+                        &input.source,
+                        owner,
+                        input.completed_numeric_policy,
+                        context,
+                    )? {
+                        completed_extrema_end = end;
+                        if end == measure_index + 3 {
+                            let valid = owner.validity().clone();
+                            let input = prepared.as_mut().expect("numeric column is prepared");
+                            input.values = None;
+                            input.validity = Some(valid);
+                            input.completed_numeric_policy = None;
+                        }
+                        continue;
+                    }
+                }
                 let reuse_next = matches!(measure.function, Function::Sum | Function::Avg)
                     && matches!(values, Some(KeyColumn::Numeric(owner)) if owner.len() != 0)
                     && table.admit_next(
@@ -620,6 +669,14 @@ impl<'a> Aggregate<'a> {
                     table.consume(measure_index, measure, ordinals, values, validity, context)?;
                 }
                 numeric_reuse_from = reuse_next.then_some(measure_index);
+                if matches!(measure.function, Function::Sum | Function::Avg)
+                    && matches!(values, Some(KeyColumn::Numeric(_)))
+                {
+                    prepared
+                        .as_mut()
+                        .expect("numeric column is prepared")
+                        .completed_numeric_policy = Some(context.float_policy());
+                }
                 continue;
             }
             if measure.function.is_quantile() {
@@ -751,6 +808,10 @@ impl<'a> Aggregate<'a> {
                     )?;
                 }
                 numeric_reuse_from = reuse_next.then_some(measure_index);
+                prepared
+                    .as_mut()
+                    .expect("numeric column is prepared")
+                    .completed_numeric_policy = Some(context.float_policy());
                 continue;
             }
             if matches!(measure.function, Function::Min | Function::Max)
@@ -1510,6 +1571,7 @@ mod ownership_tests {
             column: Some("items".into()),
             dtype: DType::Null,
             decimal_source: None,
+            input_ptype: None,
             decimal_output: None,
             distinct_fields: vec![],
             distinct_names: vec![],

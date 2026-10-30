@@ -13,6 +13,9 @@ mod existence_tests;
 #[path = "native_relational_asof_tests.rs"]
 mod asof_tests;
 
+#[path = "native_relational_join_movement_tests.rs"]
+mod movement_tests;
+
 #[test]
 fn join_build_uses_current_batch_and_keeps_cross_batch_duplicate_order() {
     let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
