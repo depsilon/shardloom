@@ -1666,8 +1666,12 @@ workspace formatting, Clippy and tests, native-feature and installed-package
 checks at coherent boundaries. Every capability must be exercised through its
 real public surface with complete output and source/owner cleanup. Verify
 pressure, cancellation, malformed/changed source, spill and output failures
-where applicable. Use ClickBench only for a justified shared-runtime regression
-check, with its isolated single-pass procedure.
+where applicable. The October 30 maintainer decision holds further Full43
+execution until item 18's universal I/O work and format/interface acceptance are
+complete. This supersedes prospective item-20 Full43 checkpoints without deferring
+the other required checks or changing the frozen 347-case candidate protocol.
+Preserve and replay completed observations. After item 18, ClickBench remains a
+justified shared-runtime regression check under its isolated single-pass procedure.
 
 Bulk builds, temporary fixtures and diagnostic evidence stay in local-only
 storage under the existing limits. Resolve Cargo output before every new build

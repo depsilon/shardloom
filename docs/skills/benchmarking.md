@@ -91,6 +91,15 @@ intact and cannot receive a complete Full43 total.
 
 ## Isolated Full43 procedure
 
+**October 30 execution hold:** the maintainer defers all further Full43 runs
+until item 18's universal I/O work and its
+[cross-surface and format acceptance gate](../architecture/native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
+are complete. This supersedes earlier prospective Full43 checkpoints during
+item 20. Continue required semantic, native/public/package and declared 347-case
+candidate checks. Preserve completed Full43 observations and replay their saved
+evidence without executing queries. The procedure below governs a later
+resumption; it does not itself authorize a run during this hold.
+
 Standing maintainer decision, October 21, 2026: use the isolated single-pass
 procedure for every routine Full43 observation. Inspect and finish or stop
 unrelated task-owned work before starting; keep builds, tests, profilers,

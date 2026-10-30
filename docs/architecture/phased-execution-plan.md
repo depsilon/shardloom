@@ -442,6 +442,15 @@ using the existing harness, before item 21 Foundry work. The resulting order is
 history stay unchanged. Targeted correctness and acceptance for current work are
 not deferred; publication still requires separate authorization.
 
+**October 30 Full43 deferral:** do not execute another Full43 pass until item 18's
+universal I/O work and format/interface acceptance are complete. This replaces
+earlier prospective Full43 requirements at item-20 integration boundaries.
+Continue the required targeted, workspace, public, installed-package and frozen
+347-case candidate checks. Preserve all completed Full43 observations, including
+the October 30 direct-Parquet result, and verify saved evidence without rerunning
+queries. Full43 remains a later regression check; it cannot certify item 18's
+missing format, mixed-source, output and large-write coverage.
+
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
 The latest maintainer instruction after the direct-Parquet Full43 follow-up
@@ -452,9 +461,10 @@ whole-program combined acceptance complete. Preserve logical commits and
 prospective validation checkpoints. Item 18 and the subsequent 1.1.0 release
 retain their separate scope and sequence.
 
-The October 22 maintainer instruction is to finish the required work and gated
+The October 22 maintainer instruction was to finish the required work and gated
 investigations above, with one isolated standard Full43 pass after each coherent
-implementation; optional items stay deferred. The subsequently frozen
+implementation; the October 30 hold above now supersedes that execution cadence.
+Optional items stay deferred. The subsequently frozen
 independent Full43 reference exposes two differences in prior native results:
 large-integer average accumulation and regex-domain grouping. Their
 [required correctness correction](native-independent-full43-correctness-2026-10-22.md)
@@ -546,9 +556,10 @@ visible and independent; this implementation does not automatically close them.
     none of this performance work moves into items 18/19 or the optional queue.
   - **Remaining performance checklist:** the
     [supplied review and admission contracts](native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance)
-    cover seven candidates. The first five experiments have local dispositions
+    cover seven candidates. The first six experiments have local dispositions
     in the [shared-performance record](native-shared-performance-2026-10-29.md);
-    combined Full43, portable evidence and hosted acceptance remain pending.
+    the combined 347-query checkpoint, one direct-Parquet Full43 observation and
+    portable/source-only replay are complete. Hosted acceptance remains pending.
     - [x] Evaluate Top-K propagation through direct-column projections: dropped
       after a higher complete engine total; the mechanism stays dropped.
     - [x] Propagate downstream column demand through joins: retained locally,
@@ -573,9 +584,9 @@ visible and independent; this implementation does not automatically close them.
     the unchanged 347-query cohort and the under-10-engine-second stretch target.
     After correctness, ownership, resources and no-fallback checks pass, retain a
     lower complete-cohort engine total and drop an unchanged or higher total.
-    Keep per-case regressions and original rejected mechanisms visible; use Full43
-    only at meaningful integration boundaries. No new benchmark is implied by this
-    queue clarification.
+    Keep per-case regressions and original rejected mechanisms visible. Further
+    Full43 execution is held until item 18 is complete under the October 30
+    decision above; no new benchmark is implied by this queue clarification.
     **Shared-engine boundary:** all admitted formats feed the same ShardLoom-native
     operator, semantics, memory, cancellation and result contracts. Top-K, join
     demand/indexing, expressions and aggregate improvements belong in those shared
