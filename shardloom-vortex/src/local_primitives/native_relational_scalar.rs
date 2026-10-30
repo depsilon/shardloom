@@ -17,6 +17,9 @@ pub(in crate::local_primitives) mod text_kernels;
 mod temporal;
 pub(in crate::local_primitives) use temporal::Cast as TemporalCast;
 
+#[path = "native_relational_scalar_batch.rs"]
+mod batch;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(in crate::local_primitives) enum TemporalArgument {
     None,

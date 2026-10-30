@@ -139,9 +139,9 @@ benchmark evidence. Recheck each source path after the capability changes.
    existing first-error behavior.
 
 Local experiment status on October 30: candidate 1 is evaluated and dropped;
-candidates 2–5 are retained, with candidate 5 advancing the unchanged 347-case
-baseline to **13.433815339 engine seconds**. Candidate 6 is next, followed by
-candidate 7 and the follow-through below. The
+candidates 2–6 are retained, with candidate 6 advancing the unchanged 347-case
+baseline to **13.274446547 engine seconds**. Candidate 7 is next, followed by
+the follow-through below. The
 [individual contracts and observations](native-shared-performance-2026-10-29.md)
 preserve all failed attempts and diagnostic regressions. These are local
 decisions; combined Full43, portable evidence, review and hosted checks remain

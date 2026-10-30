@@ -546,3 +546,108 @@ families (joins, multiway joins, composite, distinct, sets, global and grouped a
 and retain every observation. Lower complete engine time retains this candidate;
 unchanged or higher drops it. No speed or whole-query memory saving is inferred
 from the smaller private representation alone.
+
+## Candidate 6: prepared strings, requested temporal fields and scalar operands
+
+Disposition: **retained locally**, pending combined integration and hosted
+checks. One unchanged 347-query pass records **13.274446547 engine seconds**
+against candidate 5's **13.433815339**, a reduction of **0.159368792 seconds
+(1.19%)**. All 347 complete comparisons and 12,565 result rows pass. This is the
+next candidate's accepted comparison baseline; no competitor was rerun.
+
+The strings family records 0.646765917 against 0.752734915 engine seconds,
+temporal 0.551815499 against 0.576947250, and numeric 0.245724125 against
+0.243036749. Grouped aggregation records 5.505450043 against 5.487348256.
+No family crosses the preserved diagnostic regression threshold. Two individual
+cases do: `aggregate_optional_value_category_mixed_arithmetic_all` increases
+from 0.046734917 to 0.059402541 engine seconds, and
+`aggregate_metric_category_sum_arithmetic_all` from 0.033480750 to 0.049414167.
+Their complete values, SQL declarations and source observations are unchanged;
+the only differing public report field is `native_query_execution_nanos`.
+Retain both regressions and every other observation. This single pass cannot
+isolate causes or establish a statistical confidence claim; the maintainer's
+complete-cohort binary gain rule governs retention.
+
+The retained packet is `broad-prepared-kernels-r1` with runtime
+`prepared-kernels-release-r1`. The acceptance verifier independently checks all
+3,131 frozen source files, both runtime products and 694 baseline/candidate
+output hashes. Every complete result is exactly equal, and all source physical
+observations are unchanged. `prepared-kernels-analysis.json` and
+`prepared-kernels-accepted-source.json` preserve this verification and both
+diagnostic case increases. Full43 remains due at the combined integration gate.
+
+Validation passes 45 focused expression tests, 6,537 native workspace tests
+with 35 existing opt-in cases ignored, all 3,289 default workspace tests without
+skips, strict native/default lint and formatting. Fresh acceptance covers 360
+complete executions and 28,530 rows across five interfaces and Parquet, Arrow
+IPC and Vortex. All 264 isolated installed-package tests pass without failures
+or skips, with binary integrity and uninstall verified. Preserve the earlier
+test-helper lifetime assertion failure, two lint findings and their corrections;
+the full checks pass on the final measured source. No runtime source changed
+after the accepted build.
+
+Remove repeated scalar dispatch and temporary ownership inside existing shared
+expression owners. After the current left-to-right argument evaluation and
+complete native-domain preparation, bind unary UTF-8 LOWER, UPPER, TRIM, LENGTH,
+OCTET_LENGTH and already-compiled literal REGEX once per batch. Read the prepared
+native variable-width values through Vortex's checked borrowed UTF-8 accessor,
+retaining existing dictionary-code and domain-validity handling. Do not cache
+dictionary results or skip validation of unused dictionary entries. LOWER/UPPER
+keep their existing Unicode operations and admitted scratch bounds. TRIM borrows
+only until the current expression output builder copies the substring into
+independent credited native storage. Binary byte length and other unadmitted
+functions retain their current implementation. No source borrow may survive in
+the result, and each output value is evaluated once under the existing builder.
+Value-only UTF-8 preparation also uses the existing checked borrowed-domain walk
+already used by demand hashing, removing an unused byte-owner clone while
+validating the same complete domain. Regex preparation retains both evaluated
+arguments; the compiled pattern does not remove NULL propagation from its literal
+argument. This change does not introduce regex compilation inside a batch or row.
+
+Before expanding binary-expression operands, admit a finite, nonnull primitive
+literal on either side when the other input and result have supported native
+integer types or exact Float64 types. Keep literal value, type and side scalar;
+borrow the other operand's original-width typed slice and validity. Use the
+existing i128 integer arithmetic, bound result conversion and floating-policy
+helpers without reassociation. Reject optimization admission before evaluating
+either child when type, operation, scalar or completed-output reuse conditions
+do not match. The admitted nonliteral child retains its current preparation and
+completed-output reuse scope. Null/nonfinite literals, temporal/decimal domains
+and unsupported numeric combinations retain the existing path. Validate every
+present floating operand before arithmetic; preserve overflow, signed zero,
+canonical result bits, row order, lazy branch domains and first-error behavior.
+
+In the existing schema-bound temporal Kernel, compute only the requested naive
+component after the unchanged source and optional second-operand validation.
+Subday fields use exact Euclidean tick arithmetic; weekday uses the absolute
+day; calendar fields reuse the current full-range Gregorian helpers. Date32,
+Date64 and Time retain restricted-value checks. Any timezone-bearing source
+keeps the bound timezone provider and civil conversion, including its range,
+DST and error behavior. Do not introduce another calendar implementation or
+extend admitted temporal domains as a side effect.
+
+Vortex-first decision: reuse pinned Vortex 0.90 `VarBinViewArrayExt::utf8_slice_at`,
+native dictionary/value owners, primitive slices, validity and host allocator;
+implement the missing ShardLoom expression dispatch in its current kernel owner.
+The vendored accessor checks UTF-8 without cloning a byte-buffer owner. Existing
+providers do not supply ShardLoom's exact strict/extended numeric diagnostics or
+full-domain temporal semantics, so they do not replace those helpers. No new
+dependency, external executor, per-format operator, unsafe code or public API is
+introduced. The common native output builder remains the ownership boundary;
+`fallback_attempted=false` throughout.
+
+Compare prepared strings with the ordinary scalar implementation over Unicode
+expansion/context, combining marks, embedded NUL, long/inline/empty/null values,
+actual dictionaries, nullable domains/codes, slices and constants. Preserve
+malformed unreferenced-domain and invalid-code rejection. Prove cancellation,
+allocation refusal, output lifetime and complete credit release. Compare scalar
+numeric operands on both sides and every admitted operation/width with the old
+array/scalar helpers, including exact payload bits, null storage, endpoint and
+error-order controls, dictionary/constant inputs and lazy branches. Compare every
+temporal part/unit with original civil extraction over negative fractions,
+leap dates, endpoints, invalid restricted values and timezone controls. Use the
+existing debug observation owner to prove route activation, without a new public
+counter surface. Add fresh independent cases across five interfaces and three
+formats, then required workspace/lint/installed-package checks. Declare all
+expression-consuming cohort families, retain every observation and apply the
+same complete-cohort binary gain/loss rule. Full43 remains a combined gate.

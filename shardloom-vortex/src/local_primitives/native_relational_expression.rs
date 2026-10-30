@@ -235,6 +235,11 @@ impl Expression {
         op: BinaryOp,
         right: &Self,
     ) -> Result<ArrayRef> {
+        if let Some(output) =
+            numeric::scalar_operand(self, input, context, completed, left, op, right)?
+        {
+            return Ok(output);
+        }
         let left_values = keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
         let right_values = keys(
             &right.evaluate_in_scope(input, context, completed)?,
@@ -273,6 +278,11 @@ impl Expression {
                 &arg.evaluate_in_scope(input, context, completed)?,
                 context,
             )?);
+        }
+        if let Some(output) =
+            function.evaluate_prepared(self, &values.values, input.len(), context)?
+        {
+            return Ok(output);
         }
         let mut scratch = context.memory().reserve(0)?;
         self.build(input.len(), context, |row| {

@@ -19,6 +19,10 @@ use vortex::array::{
 #[path = "native_relational_expression_numeric_tests.rs"]
 mod tests;
 
+#[path = "native_relational_expression_scalar_operand.rs"]
+mod scalar_operand;
+pub(super) use scalar_operand::evaluate as scalar_operand;
+
 pub(super) fn binary(
     left: &KeyColumn,
     op: BinaryOp,

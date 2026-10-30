@@ -562,11 +562,13 @@ visible and independent; this implementation does not automatically close them.
       retained locally at **13.433815339 engine seconds** for all 347 cases.
       Duplicate/NULL/sparse behavior stays exact; dense directories were an
       unselected alternative, not an additional required experiment.
-    - [ ] Prepare string and temporal kernels once per batch, compute requested
-      temporal components, and keep numeric literal operands scalar.
+    - [x] Prepare string and temporal kernels once per batch, compute requested
+      temporal components, and keep numeric literal operands scalar: retained
+      locally at **13.274446547 engine seconds** for all 347 cases, with both
+      flagged grouped-arithmetic regressions preserved in the acceptance record.
     - [ ] Evaluate measure-specific mixed aggregate state and eligible floating
       extrema traversal sharing with exact completed-domain validation proof.
-    Prepared kernels are next, then mixed aggregate work and the explicitly
+    Mixed aggregate work is next, then the explicitly
     retained follow-through below. Preserve
     the unchanged 347-query cohort and the under-10-engine-second stretch target.
     After correctness, ownership, resources and no-fallback checks pass, retain a

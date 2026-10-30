@@ -859,15 +859,15 @@ impl VariableColumn {
             if index.is_multiple_of(4096) {
                 cancellation.check()?;
             }
-            if purpose == Preparation::HashOnDemand {
+            if purpose != Preparation::Hash {
                 if valid.value(index) {
                     Self::validate_unhashed_value(&values, index, binary)?;
                 }
                 continue;
             }
             let hash = if valid.value(index) {
-                // Both purposes preserve the complete domain validation walk,
-                // even when a dictionary never refers to this value.
+                // Hashing preserves the same complete-domain validation as
+                // value-only and demand-hash preparation above.
                 let value = values.bytes_at(index);
                 if !binary {
                     values.utf8_slice_at(index).map_err(vortex_error)?;
@@ -913,6 +913,30 @@ impl VariableColumn {
             values.utf8_slice_at(index).map_err(vortex_error)?;
         }
         Ok(())
+    }
+
+    pub(super) fn is_utf8(&self) -> bool {
+        !self.binary
+    }
+
+    /// Borrow only within the prepared native owner. The expression result
+    /// builder copies any returned text into its independently credited output.
+    pub(super) fn utf8_at(&self, row: usize) -> Result<Option<&str>> {
+        if self.binary || row >= self.rows {
+            return Err(failed("UTF8 value access exceeds its prepared text domain"));
+        }
+        self.index(row)?
+            .map(|index| self.values.utf8_slice_at(index).map_err(vortex_error))
+            .transpose()
+    }
+
+    pub(super) fn byte_length_at(&self, row: usize) -> Result<Option<usize>> {
+        if row >= self.rows {
+            return Err(failed("byte length exceeds its prepared value domain"));
+        }
+        Ok(self
+            .index(row)?
+            .map(|index| super::native_utf8::borrowed_bytes(&self.values, index).len()))
     }
 
     fn index(&self, row: usize) -> Result<Option<usize>> {
