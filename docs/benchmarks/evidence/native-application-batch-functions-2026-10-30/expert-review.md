@@ -42,6 +42,24 @@ independent security assessment of arbitrary application code.
 - New exports were initially inserted into the frozen legacy map. They now live
   only in the current map; the historical 243-name fingerprint stays unchanged.
 
+## Hosted review follow-up
+
+The initial review missed an existing Python filter-combination helper that
+could move a downstream `dropna` predicate across the new callback stage. Hosted
+review comment 4428880276 identified it. The helper now appends one filter without
+rewriting preceding stages; `value_counts(dropna=True)` uses the same correction.
+The original code fails both new callback regressions, including preservation of
+an application exception on a null input. Corrected tests cover renamed outputs,
+all admitted null-filter modes, downstream filters and observation counts.
+
+The primary checked the adjacent statement renderers and connected-plan binder.
+Their flattened paths decline application/observation stages; the connected
+stage loop binds them in position. The source census is supporting evidence,
+not independent semantic approval. The correction packet retains the failed
+reproduction, all 16 passing callback tests and all 283 installed integration
+tests, with unchanged native runtime hashes. It supplements the original packet
+without replacing any earlier outcome.
+
 ## Limits retained explicitly
 
 Trusted callback declarations do not enforce arbitrary host code's purity,

@@ -100,6 +100,20 @@ class NativeObservationTests(unittest.TestCase):
         for _ in range(2):
             self.assertEqual(frame.collect().observations["before"], {"rows": 4, "total": 6})
 
+    def test_dropna_preserves_prior_observation_and_renamed_values(self):
+        for rename in (False, True):
+            with self.subTest(rename=rename):
+                ctx = self.context()
+                source = ctx.from_rows([{"id": 1, "amount": None}, {"id": 2, "amount": 7}],
+                    schema={"id": "int64", "amount": "int64"})
+                frame = source.filter("id > 0").observe("before", rows=self.f.count())
+                name = "renamed" if rename else "amount"
+                if rename:
+                    frame = frame.rename({"amount": name})
+                result = frame.dropna(subset=[name]).observe("after", rows=self.f.count()).collect()
+                self.assertEqual(result.to_rows(), ({"id": 2, name: 7},))
+                self.assertEqual(result.observations, {"before": {"rows": 2}, "after": {"rows": 1}})
+
     def test_invalid_and_duplicate_metrics_fail_without_opening_input(self):
         ctx, f = self.context(), self.f
         opened = []

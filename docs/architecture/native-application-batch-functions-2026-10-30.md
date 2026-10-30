@@ -150,6 +150,23 @@ suite credit. Its logs and source history are preserved; exact generated fixture
 directories were retired only after the checked replacement passed, with repeated
 identity and open-handle checks. No unrelated files or rollback copies were used.
 
+### Hosted review correction
+
+PR #1628 review found that Python `dropna` could merge its null predicate into
+earlier filters, crossing application, projection and observation stages. The
+helper now appends the filter at the requested position. Regressions exercise
+renamed callback outputs, each null-filter mode, callback exceptions and metrics
+before/after the filter. The original implementation fails the two callback
+regressions with six assertion failures and six errors.
+
+The [correction record](../benchmarks/evidence/native-application-batch-functions-2026-10-30/review-correction.json)
+and [complete follow-up packet](../benchmarks/evidence/native-application-batch-functions-2026-10-30/review-correction.json.gz)
+retain that reproduction and the passing correction: all 16 callback tests,
+283 installed-package integration tests with no skips, and the source Python
+suite's 915 tests with 38 explicit skip observations. The Python-only change
+reuses the exact accepted native runtime; all 2,618 Rust/manifest/lockfile source
+identities remain unchanged. The original acceptance packet stays immutable.
+
 This accepts the declared local application boundary, not stock CLI callback
 transport, arbitrary code safety, a new release, a measured speedup, or all of
 item 20. The [additional shared-owner queue](native-shared-owner-optimizations-2026-10-30.md)

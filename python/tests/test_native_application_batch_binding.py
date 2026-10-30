@@ -221,6 +221,61 @@ class NativeApplicationBatchTests(unittest.TestCase):
             self.assertEqual(error.diagnostic, {"application_owned": "preserve this attribute too"})
             self.assertIn("callback", [entry.name for entry in traceback.extract_tb(error.__traceback__)])
 
+    def test_dropna_observes_callback_outputs_after_existing_filters(self):
+        pa = self.pa
+        for renamed in (False, True):
+            with self.subTest(renamed=renamed):
+                ctx, seen = self.context(), []
+                names = ("output_n", "output_s") if renamed else ("n", "s")
+                def callback(batch, invocation):
+                    values = batch.column("n").to_pylist()
+                    seen.extend(values)
+                    return pa.RecordBatch.from_arrays([
+                        pa.array([None if n in (1, 4) else n for n in values], type=pa.int64()),
+                        pa.array([None if n in (2, 4) else "kept" for n in values], type=pa.string()),
+                    ], names=list(names))
+                function = self.register(ctx, callback,
+                    output_schema={names[0]: "int64", names[1]: "utf8"})
+                source = self.source(ctx, [{"n": n, "s": "input"} for n in (-1, 1, 2, 3, 4)])
+                frame = source.filter("n > 0").filter("n < 5").map_batches(function)
+                outputs = {
+                    1: {names[0]: None, names[1]: "kept"},
+                    2: {names[0]: 2, names[1]: None},
+                    3: {names[0]: 3, names[1]: "kept"},
+                }
+                for options, kept in [
+                    ({"subset": [names[0]]}, (2, 3)),
+                    ({"subset": list(names), "how": "any"}, (3,)),
+                    ({"subset": list(names), "how": "all"}, (1, 2, 3)),
+                    ({"subset": list(names), "thresh": 1}, (1, 2, 3)),
+                    ({"subset": list(names), "thresh": 2}, (3,)),
+                ]:
+                    with self.subTest(options=options):
+                        seen.clear()
+                        self.assertEqual(frame.dropna(**options).collect().to_rows(),
+                            tuple(outputs[n] for n in kept))
+                        self.assertEqual(seen, [1, 2, 3, 4])
+                seen.clear()
+                downstream = frame.filter(f"{names[0]} >= 2").dropna(subset=[names[1]])
+                self.assertEqual(downstream.collect().to_rows(), (outputs[3],))
+                self.assertEqual(seen, [1, 2, 3, 4])
+
+    def test_dropna_cannot_remove_rows_that_fail_inside_the_callback(self):
+        ctx, seen = self.context(), []
+        original = LookupError("null input must reach the application function")
+        def callback(batch, invocation):
+            values = batch.column("n").to_pylist()
+            seen.extend(values)
+            if None in values:
+                raise original
+            return batch
+        source = self.source(ctx, [{"n": None, "s": "present"}, {"n": 1, "s": "present"}])
+        frame = source.filter("s IS NOT NULL").map_batches(self.register(ctx, callback))
+        with self.assertRaises(LookupError) as failure:
+            frame.dropna(subset=["n"]).collect()
+        self.assertIs(failure.exception, original)
+        self.assertEqual(seen, [None, 1])
+
     def test_output_schema_nullability_rows_and_bytes_fail_before_publication(self):
         pa = self.pa
         for fault in ("rows", "name", "type", "nullability", "bytes", "return_type"):

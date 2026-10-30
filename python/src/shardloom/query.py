@@ -3057,13 +3057,13 @@ class LazyFrame:
         if predicate is not None:
             if predicate == "":
                 return self
-            return self._with_combined_filter_condition(predicate)
+            return self._with_filter_condition(predicate)
         if self.source.source_format == "vortex" and not kwargs:
             normalized_how = _normalize_dropna_how(how)
             if normalized_how == "any" and subset is not None and thresh is None:
                 target_columns = _normalize_columns((subset,))
                 if target_columns and all(_is_sql_identifier(column) for column in target_columns):
-                    return self._with_combined_filter_condition(
+                    return self._with_filter_condition(
                         " AND ".join(f"{column} IS NOT NULL" for column in target_columns)
                     )
         return self._unsupported_operation("dropna", target_ref, check=check)
@@ -3501,7 +3501,7 @@ class LazyFrame:
         if not kwargs and self._can_append_value_counts(normalized_columns):
             frame = self
             if dropna:
-                frame = self._with_combined_filter_condition(
+                frame = self._with_filter_condition(
                     " AND ".join(
                         f"{column} IS NOT NULL" for column in normalized_columns
                     )
@@ -5938,33 +5938,12 @@ class LazyFrame:
     def _with_rewritten_projection(self, projection: tuple[str, ...]) -> "LazyFrame":
         return self._append(WorkflowOperation("select", projection))
 
-    def _with_combined_filter_condition(self, predicate: str) -> "LazyFrame":
-        operations: list[WorkflowOperation] = []
-        filter_seen = False
-        for operation in self.operations:
-            if operation.kind != "filter":
-                operations.append(operation)
-                continue
-            filter_seen = True
-            operations.append(
-                WorkflowOperation(
-                    "filter",
-                    (f"({operation.values[0]}) AND ({predicate})",),
-                    source_bindings=operation.source_bindings,
-                    right_statement=operation.right_statement,
-                    projection_sql=operation.projection_sql,
-                    resource_limits=operation.resource_limits,
-                )
-            )
-        if not filter_seen:
-            operations.append(WorkflowOperation("filter", (predicate,)))
-        return LazyFrame(
-            source=self.source,
-            client=self.client,
-            operations=tuple(operations),
-            engine_mode=self.engine_mode,
-            resources=self.resources, resource_limits=self.resource_limits,
-        )
+    def _with_filter_condition(self, predicate: str) -> "LazyFrame":
+        # The predicate observes this stage's values and evaluation domain.
+        # Rewriting an earlier filter can cross callbacks, projections or
+        # observations, changing both results and which failures are observed.
+        # Keep placement explicit and leave admitted rewrites to native planning.
+        return self._append(WorkflowOperation("filter", (predicate,)))
 
     def _union(
         self,
