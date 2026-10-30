@@ -187,7 +187,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         ),
         workflow_markers=(
             "Rust feature matrix (native_vortex_tests)",
-            "always()",
+            "!cancelled()",
             "native-test-build",
             "native-test-partitions",
             "patched-provider-tests",
@@ -295,7 +295,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         workflow_markers=(
             "needs:",
             "python-test-shards",
-            "if: always()",
+            "if: ${{ !cancelled() }}",
             "actions/download-artifact@v8",
             "merge-multiple: true",
         ),
@@ -453,7 +453,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "all platform proofs and identical Linux wheel acceptance",
         ),
         workflow_markers=(
-            "always()",
+            "!cancelled()",
             "python-native-wheel-linux",
             "python-native-wheel-macos",
         ),
@@ -727,7 +727,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "Verify downloaded release evidence",
             "continue-on-error: true",
             "Finished product readiness gate",
-            "always()",
+            "!cancelled()",
             "needs.ci-work-shaping.outputs.full_validation == 'true'",
             "native-tests",
             "python-native-wheel",
@@ -819,6 +819,16 @@ def lane_status(lane: CiLane, workflow: str, doc: str) -> dict[str, Any]:
     job_section = workflow_job_section(workflow, lane.job_id)
     if not job_section:
         blockers.append(f"missing workflow job {lane.job_id}")
+    if lane.job_id in {"native-tests", "python-tests", "python-native-wheel", "release-readiness"}:
+        condition = "${{ !cancelled() }}"
+        if lane.job_id in {"native-tests", "python-native-wheel"}:
+            condition = (
+                "${{ !cancelled() && needs.ci-work-shaping.result == 'success' && "
+                "contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), "
+                f"'{lane.job_id}') " + "}}"
+            )
+        if not re.search(rf"(?m)^    if: {re.escape(condition)}$", job_section):
+            blockers.append(f"workflow job {lane.job_id} must aggregate failures but honor cancellation")
     for command in lane.commands:
         if command not in job_section:
             blockers.append(f"workflow job {lane.job_id} missing command: {command}")
