@@ -23,6 +23,7 @@ pub(super) fn measure(function: Function, column: Option<&str>) -> Measure {
             DType::Primitive(PType::F64, Nullability::Nullable)
         },
         decimal_source: None,
+        input_ptype: None,
         decimal_output: None,
         distinct_fields: vec![],
         distinct_names: vec![],

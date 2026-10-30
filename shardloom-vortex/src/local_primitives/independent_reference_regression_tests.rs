@@ -229,6 +229,7 @@ fn independent_relational_integer_totals_preserve_cross_batch_residues_and_float
                         column: Some("amount".into()),
                         dtype: output_dtype.clone(),
                         decimal_source: None,
+                        input_ptype: None,
                         decimal_output: None,
                         distinct_fields: vec![],
                         distinct_names: vec![],

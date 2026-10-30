@@ -29,6 +29,13 @@ impl NumericAggregateSum {
         let Self::Integer { sum, correction } = self else {
             unreachable!("integer accumulation mode was selected above")
         };
+        Self::add_integer_parts(sum, correction, value);
+    }
+
+    /// The same ordered compensation with a representation fixed by binding.
+    /// Callers retain the count that distinguishes an untouched integer slot
+    /// from one whose first integer addition has selected compensation.
+    pub(super) fn add_integer_parts(sum: &mut f64, correction: &mut f64, value: f64) {
         let next = *sum + value;
         // Recover the rounding residue from the addition, using the larger
         // operand first so cancellation does not discard the smaller operand.

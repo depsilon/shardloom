@@ -277,6 +277,7 @@ impl Layout {
                     .map(|name| Ok(columns[column(name)?].name.clone()))
                     .transpose()?,
                 dtype: measure.dtype.clone(),
+                input_ptype: measure.input_ptype,
                 decimal_source: measure.decimal_source,
                 decimal_output: measure.decimal_output,
                 distinct_fields: vec![],

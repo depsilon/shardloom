@@ -19,6 +19,7 @@ fn numeric_measure(function: Function, column: &str) -> Measure {
         separator: None,
         dtype: DType::Primitive(PType::F64, Nullability::Nullable),
         decimal_source: None,
+        input_ptype: None,
         decimal_output: None,
         distinct_fields: vec![],
         distinct_names: vec![],

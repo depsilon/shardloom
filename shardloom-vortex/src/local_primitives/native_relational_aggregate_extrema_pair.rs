@@ -21,10 +21,10 @@ use vortex::array::{
 #[path = "native_relational_aggregate_extrema_pair_tests.rs"]
 mod tests;
 
-struct Pair {
-    end: usize,
-    first_is_minimum: bool,
-    count: bool,
+pub(super) struct Pair {
+    pub(super) end: usize,
+    pub(super) first_is_minimum: bool,
+    pub(super) count: bool,
 }
 
 /// A named, unfiltered ordinary measure has no future input to execute. The
@@ -123,6 +123,34 @@ fn integer_extreme(state: &State) -> bool {
     )
 }
 
+/// Both extrema use this completed prepared owner. Floating comparison is
+/// admissible only after a prior ordered numeric traversal established this
+/// exact owner's policy domain. Extended admission does not prove finiteness.
+pub(super) fn admit_inputs(
+    spec: &Spec,
+    index: usize,
+    ordinals: &GroupOrdinals,
+    source: &ArrayRef,
+    owner: &NativeNumericOwner,
+    completed_policy: Option<shardloom_core::FloatPolicy>,
+) -> Option<Pair> {
+    if !matches!(ordinals, GroupOrdinals::Grouped(_))
+        || owner.len() == 0
+        || (!owner.is_integer() && completed_policy != Some(owner.float_policy()))
+        || owner.len() != ordinals.len()
+        || source.dtype() != owner.primitive().dtype()
+        || source.len() != owner.len()
+    {
+        return None;
+    }
+    let leaf = transparent_leaf(source)?;
+    let primitive = leaf.as_opt::<Primitive>()?;
+    if !PrimitiveArrayExt::buffer_handle(&primitive).is_on_host() {
+        return None;
+    }
+    pair(spec, index, source, count_ready(leaf))
+}
+
 /// `source` and `owner` must come from the same existing `PreparedColumn`.
 /// Its same-name/filter reuse contract also prepares the adjacent extremum;
 /// upstream execution may have rebuilt the source into a different primitive.
@@ -136,25 +164,7 @@ pub(super) fn accumulate(
     context: &NativeExecutionContext<'_>,
 ) -> Result<Option<usize>> {
     context.check_cancelled()?;
-    if !matches!(ordinals, GroupOrdinals::Grouped(_))
-        || owner.len() == 0
-        || !owner.is_integer()
-        || owner.len() != ordinals.len()
-        || source.dtype() != owner.primitive().dtype()
-        || source.len() != owner.len()
-    {
-        return Ok(None);
-    }
-    let Some(leaf) = transparent_leaf(source) else {
-        return Ok(None);
-    };
-    let Some(primitive) = leaf.as_opt::<Primitive>() else {
-        return Ok(None);
-    };
-    if !PrimitiveArrayExt::buffer_handle(&primitive).is_on_host() {
-        return Ok(None);
-    }
-    let Some(pair) = pair(spec, index, source, count_ready(leaf)) else {
+    let Some(pair) = admit_inputs(spec, index, ordinals, source, owner, None) else {
         return Ok(None);
     };
     let width = spec.measures.len();

@@ -19,6 +19,7 @@ fn measure(function: Function, column: Option<&str>, dtype: DType) -> Measure {
         separator: None,
         dtype,
         decimal_source: None,
+        input_ptype: None,
         decimal_output: None,
         distinct_fields: vec![],
         distinct_names: vec![],

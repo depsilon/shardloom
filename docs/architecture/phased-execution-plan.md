@@ -556,10 +556,12 @@ visible and independent; this implementation does not automatically close them.
     none of this performance work moves into items 18/19 or the optional queue.
   - **Remaining performance checklist:** the
     [supplied review and admission contracts](native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance)
-    cover seven candidates. The first six experiments have local dispositions
+    cover seven candidates. All seven experiments have local dispositions
     in the [shared-performance record](native-shared-performance-2026-10-29.md);
     the combined 347-query checkpoint, one direct-Parquet Full43 observation and
-    portable/source-only replay are complete. Hosted acceptance remains pending.
+    portable/source-only replay for candidates 1–6 are complete. Candidate 7's
+    local acceptance is complete; its portable packaging and the subsequent
+    follow-through remain due. Hosted acceptance remains pending.
     - [x] Evaluate Top-K propagation through direct-column projections: dropped
       after a higher complete engine total; the mechanism stays dropped.
     - [x] Propagate downstream column demand through joins: retained locally,
@@ -577,10 +579,12 @@ visible and independent; this implementation does not automatically close them.
       temporal components, and keep numeric literal operands scalar: retained
       locally at **13.274446547 engine seconds** for all 347 cases, with both
       flagged grouped-arithmetic regressions preserved in the acceptance record.
-    - [ ] Evaluate measure-specific mixed aggregate state and eligible floating
-      extrema traversal sharing with exact completed-domain validation proof.
-    Mixed aggregate work is next, then the explicitly
-    retained follow-through below. Preserve
+    - [x] Evaluate measure-specific mixed aggregate state and eligible floating
+      extrema traversal sharing with exact completed-domain validation proof:
+      retained locally at **13.132505915 engine seconds**, against the combined
+      review baseline's **13.368176384**. All 347 complete results match; every
+      case/family movement remains recorded.
+    The explicitly retained performance follow-through is next. Preserve
     the unchanged 347-query cohort and the under-10-engine-second stretch target.
     After correctness, ownership, resources and no-fallback checks pass, retain a
     lower complete-cohort engine total and drop an unchanged or higher total.

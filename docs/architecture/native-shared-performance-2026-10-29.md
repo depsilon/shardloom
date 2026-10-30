@@ -1,6 +1,6 @@
 # Shared analytical performance continuation — October 29, 2026
 
-Status: prospective implementation/acceptance contract for the seven candidates
+Status: implementation/acceptance contracts and local dispositions for the seven candidates
 already recorded in [item 20](native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance).
 The recursive/materialized unit is accepted and merged in PR #1625 at
 `a1ff5bb1d8698eb261bc1c0e3e9987b7da1439b5`, after all 54 hosted checks passed
@@ -730,7 +730,8 @@ Full43 also does not cover mixed-format joins, native/compatibility output pairs
 large writes, reopen/reuse or the complete resource/failure matrix. The existing
 [item 18 coverage contract](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
 remains open for those obligations. Missing formats, unmeasured combinations and
-unsupported combinations must be recorded distinctly. Item 20 and C7 remain open.
+unsupported combinations must be recorded distinctly. Item 20 remains open;
+candidate 7's subsequent local disposition is recorded below.
 
 The [portable acceptance](../benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json)
 replays all eight complete 347-query observations, the original incomplete
@@ -767,3 +768,103 @@ retains the packaging failures/corrections and passing control, documentation,
 CI-matrix and source-only replay receipts. The separate source-only copy has
 identical verifier files and derives the same acceptance without local data or
 runtime payloads.
+
+## Candidate 7: measure-specific grouped state and proven extrema sharing
+
+Disposition: **retained locally** after one unchanged 347-query comparison at
+**13.132505915 engine seconds**, against the combined review baseline's
+**13.368176384**. The observed reduction is **0.235670469 seconds (1.7629%)**;
+all **12,565 complete result rows** match. Source observations and SQL declarations
+are unchanged for every case. No case or family crosses the prospectively
+declared regression thresholds. The accepted local baseline advances to this
+candidate; this single observation establishes no statistical confidence or
+competitor ranking.
+
+Grouped aggregation records **5.312293126** against **5.518306507 engine seconds**
+across 180 cases. All family and individual changes remain recorded, including
+the largest increase: `aggregate_all_null_group_key_mixed_direct_one_percent`
+moves from **0.019543709** to **0.028981625 engine seconds**. Its 0.009437916-second
+increase is below the declared 0.010-second case threshold; it is not erased by
+the overall gain and does not authorize another timed trial.
+
+Candidate 6's original **13.274446547-engine-second** observation remains intact.
+Before any candidate-7 execution, the combined review checkpoint advanced the
+comparison baseline to **13.368176384**, including the optional ranked-admission
+correction. Neither baseline was rerun for candidate 7. The original frozen
+347-query harness also stays byte-identical: the repository's later Full43
+summary fix added only `native_source_ranked_` and `native_input_ordering_` report
+prefixes. The candidate's freeze records both exact source identities, verifies
+the precise replacement and unchanged function ASTs against the previous frozen
+identity, and passes six rejection controls. Query execution, supervision and
+replay remain unchanged; this is preparation evidence, not another engine change.
+
+Local acceptance passes 59 focused aggregate tests, 6,551 native workspace tests
+(35 existing opt-in tests ignored), 3,289 default workspace tests without skips,
+strict native/default lint and formatting. Fresh independent acceptance covers
+24 cases through five interfaces and three formats: **360 complete executions
+and 106,875 result rows**, with source/product identities unchanged. All **265
+installed-package tests** pass without skips, including the existing extended
+floating spill/recovery workflows; binary integrity and uninstall are verified.
+The first final-focused attempt's test-constructor compile error is preserved.
+Final source verification covers 3,142 code/config source files, both binaries
+and 694 baseline/candidate output hashes. Portable packaging, the agreed
+performance follow-through and hosted integration remain separate obligations.
+
+The admitted contract extends the existing compact aggregate owner, typed
+numeric consumers and extrema-pair admission. It introduces no other executor
+and leaves the shared source, key, output and spill owners intact.
+
+The current generic group/measure state carries count, a numeric total, three
+nonfinite counters and a generic extremum even when the measure needs only one
+of them. Existing compact additive state starts above a 1 MiB generic threshold
+and excludes mixed MIN/MAX. Admit ordinary grouped COUNT/SUM/AVG/MIN/MAX with
+bound primitive input metadata into the same compact owner from the first
+batch. Use its existing credited DensePages for count-only, integer additive,
+strict floating additive, extended floating additive and typed extremum state.
+Bind type and immutable floating policy once per measure; retain compensated
+integer sums, ordered floating sums and exact original-width extrema. Extended
+floating additive state keeps all NaN/infinity participation counters; strict
+floating updates still validate every present input before changing its count.
+Keep unknown bindings, nonprimitive/rich/decimal measures, DISTINCT, statistical,
+ordered and scalar reductions on their existing paths. Preserve existing large
+additive promotion and completed SUM/AVG reuse. If an internal caller presents a
+different input domain, migrate complete typed state back to the ordinary owner
+before processing it, preserving the prior semantics instead of narrowing them.
+
+Completed-domain proof belongs to the existing PreparedColumn, its exact owner,
+selection and current policy. A successful complete ordered numeric traversal
+may establish StrictFinite or ExtendedAdmitted; the latter permits nonfinite
+values and is never finiteness proof. Extend eligible adjacent floating MIN/MAX
+sharing only under that completed proof, matching source/type/length, physically
+ready inputs, state compatibility and count headroom. Preserve analytical NaN
+and signed-zero equality, the first selected value's carried bits, and original
+measure/error order. No future expression, mask or source may be executed for
+optional admission. Pure extrema without the necessary proof keep their ordered
+traversals. Retain existing integer pair sharing rather than trading it away.
+
+Vortex-first decision: reuse pinned Vortex 0.90 primitive/validity/array owners
+and existing ShardLoom DensePages, NumericAggregateSum, Specials and exact key
+comparison. Vortex's array providers do not own ShardLoom's grouped measure
+state, policy-specific aggregate semantics or cross-measure error ordering.
+The change therefore implements ShardLoom state/dispatch inside the existing
+kernel boundary, with no new dependency, unsafe code, external execution,
+format-specific path or public API. All state and growth overlap retain credits;
+allocation refusal and cancellation release the same action-owned resources.
+The initial optional allocation may decline before any measure executes when
+the ordinary state fits a tighter grant. Cancellation and cardinality errors
+remain explicit; later committed state growth retains its ordinary failure
+contract. Restoration constructs complete ordinary state before replacing it.
+
+Prove actual specialized state sizes/credits and removed traversals with focused
+observations. Compare complete results and internal ordered state against the
+ordinary owner for all integer widths, F32/F64, null/empty/all-null inputs,
+dictionary/slice/constant/wrapped arrays, both floating policies, NaN payloads,
+signed zeros, overflow and first-error controls, changed domains, filters,
+growth, denial, cancellation and retained results. Use fresh independent public
+cases across all five interfaces and Vortex/Parquet/IPC, plus existing spill and
+composition controls, native/default workspace, lint, formatting and installed
+package acceptance. Then execute the unchanged 347-case cohort exactly once,
+with other task work idle, and retain only a lower complete engine total.
+Preserve every diagnostic regression and all failed attempts; no competitor run
+or routine repeat is authorized. Further Full43 execution is held until item 18's
+universal I/O and format/interface acceptance are complete.
