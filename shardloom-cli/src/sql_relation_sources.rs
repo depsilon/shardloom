@@ -123,6 +123,15 @@ impl ParsedRelationLeaf {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub(super) struct ParsedRelationIdentity(pub(super) Arc<()>);
+
+impl PartialEq for ParsedRelationIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum ParsedRelationQuery {
     /// A query-local immutable relation binding, never a source path or text.
@@ -134,6 +143,18 @@ pub(super) enum ParsedRelationQuery {
         input: Arc<Self>,
         names: Vec<String>,
     },
+    Materialized {
+        identity: ParsedRelationIdentity,
+        input: Arc<Self>,
+    },
+    Recursive {
+        identity: ParsedRelationIdentity,
+        anchor: Arc<Self>,
+        step: Arc<Self>,
+        columns: Vec<String>,
+        distinct: bool,
+    },
+    RecursiveInput(ParsedRelationIdentity),
 }
 
 #[cfg(test)]
@@ -203,7 +224,9 @@ impl ParsedRelationQuery {
             Self::Input(_) => "bound relation",
             Self::Select(select) => &select.normalized_statement,
             Self::Set(set) => &set.normalized_statement,
-            Self::Columns { input, .. } => input.statement(),
+            Self::Columns { input, .. } | Self::Materialized { input, .. } => input.statement(),
+            Self::Recursive { anchor, .. } => anchor.statement(),
+            Self::RecursiveInput(_) => "recursive frontier",
         }
     }
 }

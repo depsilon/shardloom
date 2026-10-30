@@ -95,7 +95,14 @@ pub(super) fn rebind(
                 pending.push(&mut node.relation);
                 pending.push(&mut node.input);
             }
-            Plan::Outer | Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {}
+            // Shared definitions were lowered and rebound once before their Arc
+            // was published by the action's lowering memo.
+            Plan::Materialized(_)
+            | Plan::Recursive(_)
+            | Plan::RecursiveInput(_)
+            | Plan::Outer
+            | Plan::ExecutionResult(_)
+            | Plan::DeferredSubquery(_) => {}
         }
     }
     Ok(())
@@ -159,6 +166,13 @@ pub(super) fn columns(
                     .collect());
             }
             Plan::Set(node) => plan = &mut node.left,
+            Plan::Materialized(input) => {
+                return columns(&mut input.as_ref().clone(), schemas, cancellation);
+            }
+            Plan::Recursive(input) => {
+                return columns(&mut input.anchor.clone(), schemas, cancellation);
+            }
+            Plan::RecursiveInput(input) => return Ok(input.columns.clone()),
             Plan::Window(node) => {
                 return Ok(node
                     .columns

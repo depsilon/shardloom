@@ -7,6 +7,61 @@ use shardloom_core::{
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
 };
 
+/// Apply action evidence after selecting either a relational or primitive certificate.
+pub(super) fn append_composition(
+    certificate: &mut NativeIoCertificate,
+    report: &crate::relational_query::VortexRelationalCompositionReport,
+    limit: shardloom_core::RecursionLimit,
+) {
+    use std::fmt::Write as _;
+    let proof = &mut certificate.source_pushdown_report.proof_basis;
+    write!(proof, " recursion_limit={}", limit.get()).expect("String writes cannot fail");
+    for (name, value) in report.counters() {
+        write!(proof, " {name}={value}").expect("String writes cannot fail");
+    }
+    if report.materialized_relations > 0 || report.recursive_relations > 0 {
+        certificate.source_pushdown_report.guarantee.push_str(
+            ";action_retained_relations_completed;recursive_frontiers_drained;retained_owners_released_before_certification",
+        );
+    }
+    for (kind, count, rows) in [
+        (
+            "materialized",
+            report.materialized_relations,
+            report.materialized_rows,
+        ),
+        (
+            "recursive",
+            report.recursive_relations,
+            report.recursive_output_rows,
+        ),
+    ] {
+        if count == 0 {
+            continue;
+        }
+        certificate
+            .source_pushdown_report
+            .accepted_operations
+            .push(format!("native_{kind}_relation"));
+        if rows == 0 {
+            continue;
+        }
+        certificate.side_effects.data_materialized = true;
+        certificate.adapter_fidelity_report.materialization_required = true;
+        certificate.materialization_boundaries.push(NativeIoMaterializationBoundaryReport {
+            boundary_id: format!("native_relational.{kind}_retention"),
+            from_state: RepresentationState::DecodedColumnar,
+            to_state: RepresentationState::DecodedColumnar,
+            required_by: "action_scoped_complete_native_relation_replay".into(),
+            reason: "complete typed native rows are detached under the same memory and optional native spill grant; carried values retain their exact domains; replay owners are released before successful spill cleanup; copied payload bytes are reported separately and are not a decoder-byte observation".into(),
+            bytes_decoded: 0,
+            rows_materialized: rows,
+            fidelity_loss: "none_for_bound_native_values_schema_and_nulls".into(),
+            fallback_attempted: false,
+        });
+    }
+}
+
 #[allow(clippy::too_many_lines)] // One declarative certificate covers the same execution.
 pub(super) fn certificate(
     metrics: &Metrics<'_>,

@@ -15,8 +15,9 @@ pub(in crate::public_workflow_route) fn run(
     plan: &PublicWorkflowRoutePlan,
     transport: &mut Transport,
     float_policy: shardloom_core::FloatPolicy,
+    recursion_limit: shardloom_core::RecursionLimit,
 ) -> ExitCode {
-    match execute(request, plan, transport, float_policy) {
+    match execute(request, plan, transport, float_policy, recursion_limit) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => emit_error(
             "run",
@@ -32,6 +33,7 @@ fn execute(
     plan: &PublicWorkflowRoutePlan,
     transport: &mut Transport,
     float_policy: shardloom_core::FloatPolicy,
+    recursion_limit: shardloom_core::RecursionLimit,
 ) -> Result<(), ShardLoomError> {
     if transport.stream_results && is_write_request(request) {
         return Err(ShardLoomError::InvalidOperation(
@@ -54,13 +56,14 @@ fn execute(
         )?;
     }
     let adapter = std::cell::RefCell::new(&mut *transport);
-    let (operation, normalized) = sources::prepare_with_input_adapter_and_float_policy(
+    let (operation, normalized) = sources::prepare_with_input_adapter_and_policies(
         statement,
         request,
         |session| adapter.borrow_mut().start_reader(session),
         |uri, input, session| adapter.borrow_mut().build_source(uri, input, session),
         &cancellation,
         float_policy,
+        recursion_limit,
     )?;
     if request.source_bindings.values().any(|binding| {
         matches!(

@@ -44,15 +44,17 @@ important distinction is:
 - blocked broad SQL, catalog/CTE/set-operation, broad subquery, object-store/table SQL, and fallback
   engine paths.
 
-Current native SQL supports bounded nonrecursive `WITH` through
-[`sql_native_cte.rs`](../../shardloom-cli/src/sql_native_cte.rs), lowering admitted
-declarations into ordinary derived relations and the shared execution path.
-Nested WITH, recursive CTEs, column-name lists and materialization hints remain
-restricted; the implementation also bounds distinct names to 64 and expanded
-text to 256 KiB. The older report ladder's catalog/CTE/set-operation blocker row
-must not be used to claim those entire operator families are absent. Scoped plan
-references and recursive execution are queued in the
-[connected programming package](native-connected-programming-model-2026-10-24.md).
+Current native SQL uses [scoped relation binding](../../shardloom-cli/src/sql_relation_scopes.rs)
+for nested ordinary WITH, column-name lists, named plans and scalar parameters.
+The [composition continuation](native-recursive-composition-2026-10-29.md) adds
+action-owned `AS MATERIALIZED` and single-frontier recursive `UNION [ALL]` with
+explicit iteration, memory, spill and cancellation policies. Its local and
+installed-package acceptance is tracked separately. Nonlinear/mutual recursion,
+correlated retained definitions and data-dependent retained schemas remain
+unsupported. The older report ladder's catalog/CTE/set-operation blocker row
+must not be used to claim those entire operator families are absent. See the
+[connected programming guide](../reference/connected-programming.md) for source
+usage and the distinction between immutable declarations and retained results.
 
 ## Contract Fields
 

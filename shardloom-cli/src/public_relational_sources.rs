@@ -193,17 +193,18 @@ fn prepare_with_input_adapter(
     >,
     cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
-    prepare_with_input_adapter_and_float_policy(
+    prepare_with_input_adapter_and_policies(
         statement,
         request,
         initialize,
         build,
         cancellation,
         shardloom_core::FloatPolicy::Strict,
+        shardloom_core::RecursionLimit::default(),
     )
 }
 
-pub(super) fn prepare_with_input_adapter_and_float_policy(
+pub(super) fn prepare_with_input_adapter_and_policies(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
     initialize: impl FnOnce(
@@ -219,14 +220,16 @@ pub(super) fn prepare_with_input_adapter_and_float_policy(
     >,
     cancellation: &CancellationToken,
     float_policy: shardloom_core::FloatPolicy,
+    recursion_limit: shardloom_core::RecursionLimit,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     cancellation.check()?;
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;
-    let session = shardloom_vortex::resident_session::ResidentVortexSession::new_with_float_policy(
+    let session = shardloom_vortex::resident_session::ResidentVortexSession::new_with_policies(
         policy.resource_envelope.memory_budget_bytes,
         policy.max_parallelism,
         float_policy,
+        recursion_limit,
     )?;
     cancellation.check()?;
     initialize(&session)?;

@@ -27,6 +27,32 @@ impl<'a> CommandContext<'a> {
         not(all(feature = "vortex-local-primitives", unix)),
         allow(clippy::unused_self)
     )]
+    pub(crate) fn requested_recursion_limit(
+        &self,
+        requested: Option<shardloom_core::RecursionLimit>,
+    ) -> Result<Option<shardloom_core::RecursionLimit>> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(owner) = self.owner {
+            if requested.is_some_and(|limit| limit != owner.recursion_limit()) {
+                return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                    "recursion_limit cannot override the immutable native session policy; create a new session with the requested bound; no fallback execution was attempted".into(),
+                ));
+            }
+            return Ok(Some(owner.recursion_limit()));
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        if requested.is_some_and(|limit| limit != shardloom_core::RecursionLimit::default()) {
+            return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                "recursion_limit requires the native release-user-surfaces build; no fallback execution was attempted".into(),
+            ));
+        }
+        Ok(requested)
+    }
+
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
     pub(crate) fn requested_float_policy(
         &self,
         requested: Option<shardloom_core::FloatPolicy>,

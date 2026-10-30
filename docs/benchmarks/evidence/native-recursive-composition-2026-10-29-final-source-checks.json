@@ -1,0 +1,1106 @@
+{
+  "schema_version": "shardloom.native_composition_final_source_checks.v1",
+  "status": "passed",
+  "check": {
+    "status": "passed",
+    "command": [
+      "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+      "-B",
+      "/Users/dylan/LocalData/shardloom/recursive-composition-2026-10-29/tools/check_composition_sources.py",
+      "--attempt",
+      "r2",
+      "--runtime",
+      "composition-native-r2"
+    ],
+    "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+    "head": "c4e03651f3cf9d29c765d6c56a34ba60de79b955",
+    "working_tree": " M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/sql-parser-binder-readiness.md\n M docs/reference/connected-programming.md\n M docs/reference/shardloom-user-surface-index.json\n M docs/reference/shardloom-user-surface-index.md\n M docs/release/hard-release-readiness-gate.md\n M docs/release/v1-correctness-conformance-matrix.json\n M docs/status/admitted-semantics-matrix.json\n M docs/status/cli-command-registry.md\n M python/src/shardloom/_native_backend.py\n M python/src/shardloom/client.py\n M python/src/shardloom/context.py\n M python/tests/test_user_surface_graduation_matrix.py\n M scripts/check_admitted_semantics_matrix.py\n M scripts/check_v1_correctness_conformance.py\n M scripts/prove_native_python_wheel.py\n M scripts/test_prove_native_python_wheel.py\n M shardloom-cli/src/command_context.rs\n M shardloom-cli/src/command_registry.rs\n M shardloom-cli/src/lib.rs\n M shardloom-cli/src/native_runtime_owner.rs\n M shardloom-cli/src/native_runtime_plan.rs\n M shardloom-cli/src/native_runtime_plan_expressions.rs\n M shardloom-cli/src/native_runtime_plan_lowering.rs\n M shardloom-cli/src/public_relational_batches.rs\n M shardloom-cli/src/public_relational_sources.rs\n M shardloom-cli/src/public_resident_relational.rs\n M shardloom-cli/src/public_workflow_route.rs\n M shardloom-cli/src/sql_native_relation_declaration.rs\n M shardloom-cli/src/sql_native_relational.rs\n M shardloom-cli/src/sql_native_relational_dynamic.rs\n M shardloom-cli/src/sql_native_relational_predicate.rs\n M shardloom-cli/src/sql_native_relational_pruning.rs\n M shardloom-cli/src/sql_native_relational_tests.rs\n M shardloom-cli/src/sql_native_relational_visit.rs\n M shardloom-cli/src/sql_relation_scopes.rs\n M shardloom-cli/src/sql_relation_sources.rs\n M shardloom-cli/src/typed_envelope.rs\n M shardloom-cli/src/vortex_primitive_execution.rs\n M shardloom-core/src/lib.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input.rs\n M shardloom-vortex/src/local_primitive_relational_bind.rs\n M shardloom-vortex/src/local_primitive_relational_report.rs\n M shardloom-vortex/src/local_primitive_relational_source_demand.rs\n M shardloom-vortex/src/local_primitive_relational_subquery_sources.rs\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/relational_plan_pipeline.rs\n M shardloom-vortex/src/relational_query.rs\n M shardloom-vortex/src/resident_execution_context.rs\n M shardloom-vortex/src/resident_operation_resources.rs\n M shardloom-vortex/src/resident_session.rs\n?? docs/architecture/native-recursive-composition-2026-10-29.md\n?? docs/benchmarks/evidence/native-recursive-composition-2026-10-29-cleanup.inventory.json.gz\n?? docs/benchmarks/evidence/native-recursive-composition-2026-10-29-cleanup.json\n?? docs/benchmarks/evidence/native-recursive-composition-2026-10-29-post-cleanup-replay.json\n?? docs/benchmarks/evidence/native-recursive-composition-2026-10-29-replay.json\n?? docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json\n?? docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json.xz\n?? docs/benchmarks/native-recursive-composition-2026-10-29.md\n?? python/tests/test_native_recursive_composition_binding.py\n?? python/tests/test_recursion_policy.py\n?? shardloom-cli/src/native_runtime_retained_tests.rs\n?? shardloom-cli/src/sql_native_relational_memo.rs\n?? shardloom-cli/src/sql_native_relational_retained.rs\n?? shardloom-cli/src/sql_native_relational_retained_tests.rs\n?? shardloom-core/src/recursion_limit.rs\n?? shardloom-vortex/src/local_primitive_relational_retained.rs\n?? shardloom-vortex/src/local_primitive_relational_retained_bind.rs\n?? shardloom-vortex/src/local_primitive_relational_retained_stream_tests.rs\n?? shardloom-vortex/src/local_primitive_relational_retained_tests.rs\n",
+    "changed_source_inventory": {
+      "docs/architecture/native-analytical-completion-2026-10-27.md": {
+        "sha256": "2250bbcfbb5cfa2ee1251e055e0b3b888a4643d8c7f15dfd299161a3e6448c20",
+        "bytes": 109813
+      },
+      "docs/architecture/native-recursive-composition-2026-10-29.md": {
+        "sha256": "3304e339c9e2f41eead220f0bf401a6c7874f805c2fff51449a4ca91056c9923",
+        "bytes": 9092
+      },
+      "docs/architecture/phased-execution-plan.md": {
+        "sha256": "3662440ba8ae12f01383ef7f1ee025b207b5e4564c11304258c30e6b47da1791",
+        "bytes": 174113
+      },
+      "docs/architecture/sql-parser-binder-readiness.md": {
+        "sha256": "ff87a2193a8358549ca52b93b66e383bfabf7b55996702e86fb529409294b107",
+        "bytes": 4834
+      },
+      "docs/benchmarks/evidence/native-recursive-composition-2026-10-29-cleanup.inventory.json.gz": {
+        "sha256": "f91c69f663ebef3894e1bd0fb2c99bf419a24b9823b5892054bd55fd24019fa0",
+        "bytes": 524910
+      },
+      "docs/benchmarks/evidence/native-recursive-composition-2026-10-29-cleanup.json": {
+        "sha256": "bcef5a39d286e37b2c5dd3665632bbc08e18088600dc9c10a1fb8dcd7cbdeb80",
+        "bytes": 83692
+      },
+      "docs/benchmarks/evidence/native-recursive-composition-2026-10-29-post-cleanup-replay.json": {
+        "sha256": "10cc8ed6d13fb5bf5875705017ed462cd4447598ad9beb6b56a397437b0ea2a5",
+        "bytes": 6396
+      },
+      "docs/benchmarks/evidence/native-recursive-composition-2026-10-29-replay.json": {
+        "sha256": "10cc8ed6d13fb5bf5875705017ed462cd4447598ad9beb6b56a397437b0ea2a5",
+        "bytes": 6396
+      },
+      "docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json": {
+        "sha256": "dc0404d87f6a3cf8953a49173a2371f3215340d840c993146f00947dc938c1db",
+        "bytes": 4794
+      },
+      "docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json.xz": {
+        "sha256": "fa0b79866a4a92305259912119bfbf6aa8c03bbd017b0132f7dfbe48d9e4eb3b",
+        "bytes": 1077960
+      },
+      "docs/benchmarks/native-recursive-composition-2026-10-29.md": {
+        "sha256": "bd14f127113375766673bf050f609fdc1c1cd4f497cccf7dd014bdcc8ff30bae",
+        "bytes": 8708
+      },
+      "docs/reference/connected-programming.md": {
+        "sha256": "46f53c9221ade5201e6116c2feaaa2225e4a92e8f196965230403d30564f7964",
+        "bytes": 22317
+      },
+      "docs/reference/shardloom-user-surface-index.json": {
+        "sha256": "eccb9de414b19c64d4ba90861c3757a2cb894198c0feef2a8883813d9098d584",
+        "bytes": 266336
+      },
+      "docs/reference/shardloom-user-surface-index.md": {
+        "sha256": "4e4caa21012bcaf032ad4859c852a46382586dc4770f8e105ae3425fa1336865",
+        "bytes": 47897
+      },
+      "docs/release/hard-release-readiness-gate.md": {
+        "sha256": "bdcd6db53f8ff9a11b0580d3a08335688d90bf6bcc43e533ff1a28f3fa2f3a31",
+        "bytes": 38712
+      },
+      "docs/release/v1-correctness-conformance-matrix.json": {
+        "sha256": "d0e541dbf9c3954ce75e2515cce61929d8e03fd761bbce63e3f46c7e55af17db",
+        "bytes": 8280
+      },
+      "docs/status/admitted-semantics-matrix.json": {
+        "sha256": "e2421157e6b0cb757b3653e0745d1834719a05d8e3c4cde2fd320aa1334821fe",
+        "bytes": 217003
+      },
+      "docs/status/cli-command-registry.md": {
+        "sha256": "f023d4cd9226890ce46c3c2ccbea84fdba28453ddb828defc1a6d88a692b6312",
+        "bytes": 3383
+      },
+      "python/src/shardloom/_native_backend.py": {
+        "sha256": "cf215a7988ccc55280cb3f4f88f0b50d030c606da6b749b7a8c91287cd7960d4",
+        "bytes": 27888
+      },
+      "python/src/shardloom/client.py": {
+        "sha256": "90d91384852acf1ec3676fe70cacde080ae7421b575e1761d734fa962cb7e9b6",
+        "bytes": 357842
+      },
+      "python/src/shardloom/context.py": {
+        "sha256": "4ad1ac2f709817fea0d9491154c514111f6297b3e82386d39cd4238a8d55f45c",
+        "bytes": 485026
+      },
+      "python/tests/test_native_recursive_composition_binding.py": {
+        "sha256": "2ff18f7f32e53fce7395006c3a530de86cbe59aa0bc9f27b37b467f8df66fe75",
+        "bytes": 25771
+      },
+      "python/tests/test_recursion_policy.py": {
+        "sha256": "cf94ee3bde7eb26177a5c7e18cc7034e0a41c780dc26d1464b8871d44dec2373",
+        "bytes": 2611
+      },
+      "python/tests/test_user_surface_graduation_matrix.py": {
+        "sha256": "cc17810d7906e87060a326da8fefb08301b384ccc1e02afbb1b48ff490d8c2d5",
+        "bytes": 7192
+      },
+      "scripts/check_admitted_semantics_matrix.py": {
+        "sha256": "803ab5edfe257a51ca32ec80f2168920ed87e7f6519dd00b7ecf16267f74f160",
+        "bytes": 187049
+      },
+      "scripts/check_v1_correctness_conformance.py": {
+        "sha256": "14b63ac75272baca8ec0f486bdbc8d4557fbb0067485fa3927bec7fb8521c288",
+        "bytes": 77971
+      },
+      "scripts/prove_native_python_wheel.py": {
+        "sha256": "ba2be425f54589ed0383adf944fa9f3c260258b0e35dae1e4b640b0e93dd934d",
+        "bytes": 11999
+      },
+      "scripts/test_prove_native_python_wheel.py": {
+        "sha256": "6f82676ead637a807da61f759a6a581a00d2478039a250799247b994090a77d0",
+        "bytes": 6358
+      },
+      "shardloom-cli/src/command_context.rs": {
+        "sha256": "4780825c31b3077bed0edcd0b0317846ead4764ca0e490dff640b794c0b7a5fe",
+        "bytes": 8552
+      },
+      "shardloom-cli/src/command_registry.rs": {
+        "sha256": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
+        "bytes": 81272
+      },
+      "shardloom-cli/src/lib.rs": {
+        "sha256": "a35594aa1dde64e5b818df295435f81fb87d07af3b74a8b7574cd2e1ee772fd9",
+        "bytes": 332356
+      },
+      "shardloom-cli/src/native_runtime_owner.rs": {
+        "sha256": "e6f4f3739327e3ad2f0d14d033945e68cfe8752e2099f28b356b06a679042bc4",
+        "bytes": 11899
+      },
+      "shardloom-cli/src/native_runtime_plan.rs": {
+        "sha256": "e9eb6098c72038c107e9863067bab6c24b79ddf344e0ed281b8bfb4a2b7215f9",
+        "bytes": 58313
+      },
+      "shardloom-cli/src/native_runtime_plan_expressions.rs": {
+        "sha256": "e76ba3e01a5f3e42f667b9e833b0bea606829438a4ff1e57357928939cfcee37",
+        "bytes": 6534
+      },
+      "shardloom-cli/src/native_runtime_plan_lowering.rs": {
+        "sha256": "37d52abdb7700b304c9fae4dd093c3d930519c75a01457387619344df5a70be7",
+        "bytes": 9570
+      },
+      "shardloom-cli/src/native_runtime_retained_tests.rs": {
+        "sha256": "414cd3ae3e1d5bd6c5a156bbb6d4cb913aab66aab8ae787a3a215270e76cf340",
+        "bytes": 5877
+      },
+      "shardloom-cli/src/public_relational_batches.rs": {
+        "sha256": "c143af6b1dafdf5aea89647d832895307207477fb58bfe11f4657e8f8b0675cb",
+        "bytes": 9559
+      },
+      "shardloom-cli/src/public_relational_sources.rs": {
+        "sha256": "4811ddb807217878072815bbaef1c3d532667a68a790b81bb14c598194844e63",
+        "bytes": 46015
+      },
+      "shardloom-cli/src/public_resident_relational.rs": {
+        "sha256": "cfa499e0fd55b7fab6d7bd4d9d6562a39e3a1f0eed4df99c4edb2d4abbef2ff2",
+        "bytes": 39252
+      },
+      "shardloom-cli/src/public_workflow_route.rs": {
+        "sha256": "739fcb0686dd2ee6142e7a0cdc850be4f74f60018131eb771a28e8fd73429535",
+        "bytes": 702494
+      },
+      "shardloom-cli/src/sql_native_relation_declaration.rs": {
+        "sha256": "faed52d38b12e97c59ea90ce1a6271ae75a0843215487406bc932b39f78f1a47",
+        "bytes": 6016
+      },
+      "shardloom-cli/src/sql_native_relational.rs": {
+        "sha256": "6278fb6bcdc1129e2b3691c976a5981f636f323b4b0793861ece89b15a32b33b",
+        "bytes": 46456
+      },
+      "shardloom-cli/src/sql_native_relational_dynamic.rs": {
+        "sha256": "6c31e44d0ed79dcd3378b60a552a2a9596dc7fc6c386c2130b8a8afc8c6319db",
+        "bytes": 7148
+      },
+      "shardloom-cli/src/sql_native_relational_memo.rs": {
+        "sha256": "16f911930e116b7bffd6337c3cf1a63382b8827f1de55743e2c4e069fc2ee18b",
+        "bytes": 2136
+      },
+      "shardloom-cli/src/sql_native_relational_predicate.rs": {
+        "sha256": "c3de4bba11d5ce166734844d957592ea4e833b38faef283f129d76c89c389772",
+        "bytes": 22361
+      },
+      "shardloom-cli/src/sql_native_relational_pruning.rs": {
+        "sha256": "b7ca3477395b7afb9e43243a0afe42f5bada66b2ff92c9907dbe17db620fcbb1",
+        "bytes": 14597
+      },
+      "shardloom-cli/src/sql_native_relational_retained.rs": {
+        "sha256": "02e55534e2c38c3db0d508b4cd9a77f81ee20034b3057bcc48c5b18f7af56c5a",
+        "bytes": 5532
+      },
+      "shardloom-cli/src/sql_native_relational_retained_tests.rs": {
+        "sha256": "8867aea813e6b8beb659df49269027bcb4f5d6c3cb39e87b4cb1a844e101fb0d",
+        "bytes": 7861
+      },
+      "shardloom-cli/src/sql_native_relational_tests.rs": {
+        "sha256": "7d60eac02e19f88ef1343b00a61af4c0817765ff58040dbbabc9038212519af9",
+        "bytes": 33264
+      },
+      "shardloom-cli/src/sql_native_relational_visit.rs": {
+        "sha256": "fec6b4e56bd3c15189ef459c940967e7c0df4b244cc3d5e6eca38a709e7112fd",
+        "bytes": 17324
+      },
+      "shardloom-cli/src/sql_relation_scopes.rs": {
+        "sha256": "afdf8f3f9bc85e0f1768905bc92f42e382308bd7e2211549829864fbc07d0144",
+        "bytes": 19561
+      },
+      "shardloom-cli/src/sql_relation_sources.rs": {
+        "sha256": "1b10ab7e429a7bf8357eff6301faad111bed19061375b84447f3309a3fbb5161",
+        "bytes": 18787
+      },
+      "shardloom-cli/src/typed_envelope.rs": {
+        "sha256": "1b48cffc7722019f5fe1f4aac1f25d3403e124bf2b16b5f2534fe9ce71c2a699",
+        "bytes": 82593
+      },
+      "shardloom-cli/src/vortex_primitive_execution.rs": {
+        "sha256": "af77099bfd17f7aefc6a63567901641aedf24dcf8da7916adcb933e311ef1308",
+        "bytes": 349006
+      },
+      "shardloom-core/src/lib.rs": {
+        "sha256": "d931276d79ce4e400c6e09c4e4c12a4a813df4518b42fdb30461793c914bba16",
+        "bytes": 27891
+      },
+      "shardloom-core/src/recursion_limit.rs": {
+        "sha256": "6d9d3a7579fe335e5db5b4860329eca6c0c6a339c2356a25f8284cd6c6ce4c37",
+        "bytes": 4077
+      },
+      "shardloom-python/src/session.rs": {
+        "sha256": "7e4b64612a06cb88703df4e9eb2fde7607456bc6248ce581f6c8cc8fbebab982",
+        "bytes": 25588
+      },
+      "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+        "sha256": "005b0361dfe8c64c3555d62acfd5033156f9adf97bfd8bed3dce7c7fea984521",
+        "bytes": 96906
+      },
+      "shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+        "sha256": "3723244b44aa3b5e2a688474f79f61fe689b79ea6ff2e1b444ffc9e40dfc6cba",
+        "bytes": 48271
+      },
+      "shardloom-vortex/src/local_primitive_relational_bind.rs": {
+        "sha256": "3a04a4bc58792357639a85e2e3b0397e4f39898858d10748f4821a1fde677014",
+        "bytes": 39898
+      },
+      "shardloom-vortex/src/local_primitive_relational_report.rs": {
+        "sha256": "43b61bb213107eb7cdb6e44b3ecf9bb93d416a2739c13690ab3dc4e3ff61f927",
+        "bytes": 20921
+      },
+      "shardloom-vortex/src/local_primitive_relational_retained.rs": {
+        "sha256": "40f47040531604a06d84c26d7f2f718aba86e1bed065a24d6cbf9a5ca0180525",
+        "bytes": 17007
+      },
+      "shardloom-vortex/src/local_primitive_relational_retained_bind.rs": {
+        "sha256": "14bff098e7a1f492a6fbee9495485a2a9a72d93e0edc7d48ca2120b3b0e3caeb",
+        "bytes": 9743
+      },
+      "shardloom-vortex/src/local_primitive_relational_retained_stream_tests.rs": {
+        "sha256": "8da82a3c27ccce62495b0bad404fdeb12de61aaff6b184e458f15c08f3faf25e",
+        "bytes": 13099
+      },
+      "shardloom-vortex/src/local_primitive_relational_retained_tests.rs": {
+        "sha256": "c8d211bc5f30b085162e98548aefc6f8df33adcf3f00cc24f1cdf675f7f6b9b1",
+        "bytes": 17792
+      },
+      "shardloom-vortex/src/local_primitive_relational_source_demand.rs": {
+        "sha256": "2969e3066ec71cfb39cf56209be703a25a3c60c10e2a7e2ad1a03e30c8d684ff",
+        "bytes": 7153
+      },
+      "shardloom-vortex/src/local_primitive_relational_subquery_sources.rs": {
+        "sha256": "147cd3161bcdf574cee364ba658b415e37013ffb60a06b39d56071d4f7097d36",
+        "bytes": 6613
+      },
+      "shardloom-vortex/src/local_primitive_relational_tests.rs": {
+        "sha256": "ec903a7b9ba675f06768bf96bf1d9d2ced9b4ee1018074b80ce747f48e02217a",
+        "bytes": 22952
+      },
+      "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+        "sha256": "8a65bb2f5070b218efcbde61d7f28409f0892cc030e2642435fc13b93bddb61c",
+        "bytes": 12777
+      },
+      "shardloom-vortex/src/relational_plan_pipeline.rs": {
+        "sha256": "5b3541b35fba85b6e9650bf4a258fb4e1672d059bfe5c2ec22eaefc5c2218cbd",
+        "bytes": 5411
+      },
+      "shardloom-vortex/src/relational_query.rs": {
+        "sha256": "debfcc546b1d20795388785013f40c20e2f6dacb34aafe7b672163b9da496a39",
+        "bytes": 23836
+      },
+      "shardloom-vortex/src/resident_execution_context.rs": {
+        "sha256": "5339f64cfd8c87911f605a1ea291dea557b76b43c527505ef9f85c20a92ecb7b",
+        "bytes": 17138
+      },
+      "shardloom-vortex/src/resident_operation_resources.rs": {
+        "sha256": "c4d9c467bd9f1f5586f33f11df7e7f227ae78d3988be7967885041053a7b7a50",
+        "bytes": 28348
+      },
+      "shardloom-vortex/src/resident_session.rs": {
+        "sha256": "ca84b82788a7d4c43afd52e188fb7378d76ef240f0fb14ee76895392c7c93550",
+        "bytes": 68336
+      }
+    },
+    "driver_sha256": "2886ab18beb9b331eaa16dae11ed4041d8930a40efb5ec458d1ef052a9334f00",
+    "environment": {
+      "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CLIPPY_CONF_DIR": null,
+      "SHARDLOOM_PIP_AUDIT_PYTHON": null
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "storage_last_observation": {
+      "output": {
+        "workspace_bytes": 297033728,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "free_bytes": 84674424832,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0
+      },
+      "cargo": {
+        "workspace_bytes": 48043753472,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "free_bytes": 84674424832,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0
+      }
+    },
+    "timeout_seconds": 900.0,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 8388608,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 90922,
+    "output_bytes": 29551,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 5.240351584041491,
+    "log_sha256": "688ede746958231dc91ab860c28ab24ea759c2aaa3666488d1d58e234a773ad1"
+  },
+  "results": {
+    "status": "passed",
+    "records": [
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/write_public_api_reference.py",
+          "--check"
+        ],
+        "returncode": 0,
+        "output_sha256": "d059991ee6a95914fa02e158d44c0c6f79a2bf349c60d6c69dc6548b963a19c0",
+        "tests": 0,
+        "skipped": 0
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/write_native_function_reference.py",
+          "--check"
+        ],
+        "returncode": 0,
+        "output_sha256": "08a9fb73feb5df59046e1b4cde50dcc33ebb3a8ea0650df5022c25c538c44001",
+        "tests": 0,
+        "skipped": 0
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/check_user_surface_reference.py"
+        ],
+        "returncode": 0,
+        "output_sha256": "2e6644a91cf839bbab3a38f28a3de2ba1d12094807ebaa166a89e87099ce0707",
+        "tests": 0,
+        "skipped": 0
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/check_public_status_docs.py"
+        ],
+        "returncode": 0,
+        "output_sha256": "41a1689a66630a1dfd984aa4f76a7d14d1ae7362b31fd64e36f07da17953f06e",
+        "tests": 0,
+        "skipped": 0
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/check_public_claim_language.py"
+        ],
+        "returncode": 0,
+        "output_sha256": "c49f77404a64e931edb315cacc1c8a9dfaa3303e5aed2d005f6d000265f7718f",
+        "tests": 0,
+        "skipped": 0
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/check_contribution_governance.py"
+        ],
+        "returncode": 0,
+        "output_sha256": "5c926d36beecd6163a8ccf85fe16d2a4e56345bd02bdaad33628544b96ac8c09",
+        "tests": 0,
+        "skipped": 0
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_recursion_policy.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "3ecfddfb4917141579c0c9a377a8b67be73725670978dcf39687faf05193dcd4",
+        "tests": 5,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_query_builder.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "8969e58f0ffbfe7c2c3c07dc3651ef85d7aa182ef2507c151946d6010131f45d",
+        "tests": 70,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_public_api_reference.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "58e1003d1296a457d3aa69bfb018bd9293320bee6b737f93ae6cd4e1650003e4",
+        "tests": 15,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_native_function_catalog.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "799ebaf2fe6df2f5f2c94262db10bee670bbe67f0fc250d0fd344c698eadca00",
+        "tests": 5,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_typed_native_inputs.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "30fdf3f0ec6d76d38f8c7bcf216909ca908fc90d610f38a760dea881a368f68e",
+        "tests": 9,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_typed_unary_declarations.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "e99b42cc6b1a07d0cf941805b2ea8c83403f23bbde191bc80ee14676ec0c4db7",
+        "tests": 7,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_typed_expression_declarations.py",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "c8e83cc812ae51881ae96167f8f3997a493c9aa7ed75bf13e0d7a48e301dfdda",
+        "tests": 6,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_release_scripts.py",
+          "-k",
+          "admitted_semantics",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "af2e564d306604170b942263988234949d0376e02e6c947f1288be9d906bc5a4",
+        "tests": 3,
+        "skipped": 0,
+        "test_runner_completed": true
+      },
+      {
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_release_scripts.py",
+          "-k",
+          "v1_correctness_conformance",
+          "-v"
+        ],
+        "returncode": 0,
+        "output_sha256": "1e73a937af79bf92688d6041bba96ccec43658115bd23bc1bab32b3d2afe5ea2",
+        "tests": 16,
+        "skipped": 0,
+        "test_runner_completed": true
+      }
+    ],
+    "static_manifest": {
+      "status": "passed",
+      "blockers": [],
+      "row_count": 153,
+      "row_ids": [
+        "aggregate_having_output_rows",
+        "aggregate_topn_property_seed_20260620",
+        "binary_byte_length_projection_predicate",
+        "binary_cast_ordering_predicate",
+        "binary_cast_projection_predicate",
+        "binary_helper_predicate",
+        "binary_helper_projection",
+        "binary_hex_literal_projection",
+        "binary_property_seed_20260625",
+        "binary_text_literal_projection",
+        "calendar_window_frames",
+        "complex_array_literal_projection",
+        "complex_csv_output_projection",
+        "complex_distinct_projection_equality",
+        "complex_order_by_projection",
+        "complex_struct_source_projection",
+        "conditional_projection_case_when",
+        "correlated_exists_subquery_semantics",
+        "correlated_grouped_having_projected_exists_subquery_semantics",
+        "correlated_grouped_having_projected_in_subquery_semantics",
+        "correlated_grouped_having_projected_not_exists_subquery_semantics",
+        "correlated_grouped_having_projected_not_in_subquery_semantics",
+        "correlated_grouped_having_projected_quantified_subquery_semantics",
+        "correlated_grouped_having_projected_row_value_in_subquery_semantics",
+        "correlated_grouped_having_projected_row_value_not_in_subquery_semantics",
+        "correlated_in_subquery_semantics",
+        "correlated_joined_projected_exists_subquery_semantics",
+        "correlated_joined_projected_in_subquery_semantics",
+        "correlated_joined_projected_not_exists_subquery_semantics",
+        "correlated_joined_projected_not_in_subquery_semantics",
+        "correlated_joined_projected_quantified_subquery_semantics",
+        "correlated_joined_projected_row_value_in_subquery_semantics",
+        "correlated_joined_projected_row_value_not_in_subquery_semantics",
+        "correlated_not_exists_subquery_semantics",
+        "correlated_quantified_subquery_semantics",
+        "correlated_row_value_in_subquery_semantics",
+        "decimal_arithmetic_projection",
+        "decimal_cast_projection_predicate",
+        "decimal_property_seed_20260624",
+        "distinct_count_grouped",
+        "exists_subquery_semantics",
+        "explicit_decimal_output_workflow",
+        "expression_parser_fuzz_seed_20260614",
+        "filter_project_limit_property_seed_20260618",
+        "float_extended_classification",
+        "float_extended_group_identity",
+        "float_strict_classification",
+        "grouped_having_projected_exists_subquery_semantics",
+        "grouped_having_projected_in_subquery_semantics",
+        "grouped_having_projected_not_exists_subquery_semantics",
+        "grouped_having_projected_not_in_subquery_semantics",
+        "grouped_having_projected_row_value_not_in_subquery_semantics",
+        "having_correlated_quantified_subquery_semantics",
+        "having_exists_subquery_semantics",
+        "having_hidden_aggregate_expression",
+        "having_in_subquery_semantics",
+        "having_not_exists_subquery_semantics",
+        "having_not_in_subquery_semantics",
+        "having_quantified_subquery_semantics",
+        "having_row_value_in_subquery_semantics",
+        "having_row_value_not_in_subquery_semantics",
+        "in_predicate_literal_null_semantics",
+        "in_subquery_filtered_ordered_limited_semantics",
+        "in_subquery_property_seed_20260621",
+        "in_subquery_scalar_semantics",
+        "interval_literal_temporal_arithmetic",
+        "invalid_shape_scalar_multi_column_in_subquery",
+        "join_logical_or_condition",
+        "join_multi_key_expression_condition",
+        "join_property_seed_20260619",
+        "join_scalar_expression_condition",
+        "joined_projected_exists_subquery_semantics",
+        "joined_projected_in_subquery_semantics",
+        "joined_projected_not_exists_subquery_semantics",
+        "joined_projected_not_in_subquery_semantics",
+        "joined_projected_quantified_subquery_semantics",
+        "joined_projected_row_value_in_subquery_semantics",
+        "joined_projected_row_value_not_in_subquery_semantics",
+        "like_escape_predicate_utf8",
+        "like_predicate_utf8",
+        "materialized_grouping_window",
+        "nested_arrow_ipc_source_projection",
+        "nested_in_subquery_semantics",
+        "not_in_subquery_semantics",
+        "null_coalesce_nullif",
+        "null_safe_comparison_predicate_semantics",
+        "numeric_generic_property_seed_20260521",
+        "order_by_explicit_null_ordering",
+        "output_jsonl_property_seed_20260626",
+        "output_writer_policy_fuzz_seed_20260617",
+        "predicate_projection_three_valued",
+        "quantified_subquery_semantics",
+        "recursive_materialized_graph",
+        "regex_predicate_utf8",
+        "route_selection_aggregate_topn_fuzz_seed_20260616",
+        "route_selection_join_fuzz_seed_20260615",
+        "row_value_in_predicate_semantics",
+        "row_value_in_subquery_semantics",
+        "row_value_not_in_subquery_semantics",
+        "runtime_error_numeric_division_by_zero",
+        "select_distinct_aggregate_having",
+        "select_distinct_join",
+        "select_distinct_projection",
+        "select_distinct_window",
+        "source_qualified_exists_subquery_semantics",
+        "source_qualified_in_subquery_semantics",
+        "source_qualified_not_exists_subquery_semantics",
+        "source_qualified_not_in_subquery_semantics",
+        "source_qualified_quantified_subquery_semantics",
+        "source_qualified_row_value_in_subquery_semantics",
+        "source_qualified_row_value_not_in_subquery_semantics",
+        "sql_except_composition_semantics",
+        "sql_intersect_composition_semantics",
+        "sql_parser_surface_fuzz_seed_20260613",
+        "sql_union_complex_distinct_equality",
+        "sql_union_complex_ordering",
+        "sql_union_composition_semantics",
+        "string_function_composition_utf8",
+        "string_function_property_seed_20260622",
+        "string_transform_length_utf8",
+        "subquery_predicate_projection_semantics",
+        "temporal_arithmetic_difference_utc",
+        "temporal_extract_utc_date32_timestamp",
+        "temporal_grid_workflow",
+        "temporal_property_seed_20260623",
+        "timestamp_offset_literal_normalization",
+        "try_cast_projection_null_on_invalid",
+        "typed_nested_compatibility_sink_preservation",
+        "unsupported_arbitrary_interval_arithmetic",
+        "unsupported_complex_join_key",
+        "unsupported_complex_subquery_membership",
+        "unsupported_list_array_access_cast",
+        "unsupported_locale_case_insensitive_predicate",
+        "unsupported_locale_collation",
+        "unsupported_nonbinary_source_binary_literal_predicate",
+        "unsupported_nonbinary_source_binary_ordering_predicate",
+        "unsupported_orc_nested_output_preservation",
+        "unsupported_orc_typed_decimal_sink_preservation",
+        "unsupported_outer_reference_non_column_comparison",
+        "unsupported_outer_to_outer_subquery_comparison",
+        "unsupported_output_no_overwrite_policy",
+        "unsupported_struct_access_cast",
+        "unsupported_timestamptz_policy",
+        "unsupported_timezone_database_function_policy",
+        "unsupported_timezone_database_policy",
+        "unsupported_unbound_source_qualified_exists_projection",
+        "unsupported_unbound_source_qualified_in_subquery_select",
+        "unsupported_unbound_source_qualified_quantified_order_by",
+        "unsupported_unbound_source_qualified_row_value_subquery_filter",
+        "unsupported_union_dtype_cast",
+        "unsupported_variant_access",
+        "window_analytic_frames",
+        "window_rank_offset_distribution"
+      ],
+      "remaining_matrix_gaps": [
+        "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
+        "external-oracle result artifact population",
+        "general fuzz execution beyond the deterministic v1 property/fuzz lanes"
+      ],
+      "remaining_matrix_gap_status": "passed",
+      "v1_runtime_scope_status": "passed",
+      "v1_expected_validator_case_count": 151,
+      "v1_required_runtime_row_count": 151,
+      "v1_missing_validator_case_count": 0,
+      "v1_unexpected_required_runtime_row_count": 0,
+      "v1_support_report_row_count": 2,
+      "deterministic_unsupported_scope_status": "passed",
+      "deterministic_unsupported_row_count": 25,
+      "deterministic_unsupported_oracle_row_count": 25,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "posthash_verified": true,
+    "source_and_product_identity": {
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/architecture/native-analytical-completion-2026-10-27.md": {
+        "bytes": 109813,
+        "sha256": "2250bbcfbb5cfa2ee1251e055e0b3b888a4643d8c7f15dfd299161a3e6448c20"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/architecture/native-recursive-composition-2026-10-29.md": {
+        "bytes": 9092,
+        "sha256": "3304e339c9e2f41eead220f0bf401a6c7874f805c2fff51449a4ca91056c9923"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/architecture/phased-execution-plan.md": {
+        "bytes": 174113,
+        "sha256": "3662440ba8ae12f01383ef7f1ee025b207b5e4564c11304258c30e6b47da1791"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/architecture/sql-parser-binder-readiness.md": {
+        "bytes": 4834,
+        "sha256": "ff87a2193a8358549ca52b93b66e383bfabf7b55996702e86fb529409294b107"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-recursive-composition-2026-10-29-cleanup.inventory.json.gz": {
+        "bytes": 524910,
+        "sha256": "f91c69f663ebef3894e1bd0fb2c99bf419a24b9823b5892054bd55fd24019fa0"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-recursive-composition-2026-10-29-cleanup.json": {
+        "bytes": 83692,
+        "sha256": "bcef5a39d286e37b2c5dd3665632bbc08e18088600dc9c10a1fb8dcd7cbdeb80"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-recursive-composition-2026-10-29-post-cleanup-replay.json": {
+        "bytes": 6396,
+        "sha256": "10cc8ed6d13fb5bf5875705017ed462cd4447598ad9beb6b56a397437b0ea2a5"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-recursive-composition-2026-10-29-replay.json": {
+        "bytes": 6396,
+        "sha256": "10cc8ed6d13fb5bf5875705017ed462cd4447598ad9beb6b56a397437b0ea2a5"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json": {
+        "bytes": 4794,
+        "sha256": "dc0404d87f6a3cf8953a49173a2371f3215340d840c993146f00947dc938c1db"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-recursive-composition-2026-10-29.json.xz": {
+        "bytes": 1077960,
+        "sha256": "fa0b79866a4a92305259912119bfbf6aa8c03bbd017b0132f7dfbe48d9e4eb3b"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/native-recursive-composition-2026-10-29.md": {
+        "bytes": 8708,
+        "sha256": "bd14f127113375766673bf050f609fdc1c1cd4f497cccf7dd014bdcc8ff30bae"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/reference/connected-programming.md": {
+        "bytes": 22317,
+        "sha256": "46f53c9221ade5201e6116c2feaaa2225e4a92e8f196965230403d30564f7964"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/reference/shardloom-user-surface-index.json": {
+        "bytes": 266336,
+        "sha256": "eccb9de414b19c64d4ba90861c3757a2cb894198c0feef2a8883813d9098d584"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/reference/shardloom-user-surface-index.md": {
+        "bytes": 47897,
+        "sha256": "4e4caa21012bcaf032ad4859c852a46382586dc4770f8e105ae3425fa1336865"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/release/hard-release-readiness-gate.md": {
+        "bytes": 38712,
+        "sha256": "bdcd6db53f8ff9a11b0580d3a08335688d90bf6bcc43e533ff1a28f3fa2f3a31"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/release/v1-correctness-conformance-matrix.json": {
+        "bytes": 8280,
+        "sha256": "d0e541dbf9c3954ce75e2515cce61929d8e03fd761bbce63e3f46c7e55af17db"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/status/admitted-semantics-matrix.json": {
+        "bytes": 217003,
+        "sha256": "e2421157e6b0cb757b3653e0745d1834719a05d8e3c4cde2fd320aa1334821fe"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/status/cli-command-registry.md": {
+        "bytes": 3383,
+        "sha256": "f023d4cd9226890ce46c3c2ccbea84fdba28453ddb828defc1a6d88a692b6312"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/src/shardloom/_native_backend.py": {
+        "bytes": 27888,
+        "sha256": "cf215a7988ccc55280cb3f4f88f0b50d030c606da6b749b7a8c91287cd7960d4"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/src/shardloom/client.py": {
+        "bytes": 357842,
+        "sha256": "90d91384852acf1ec3676fe70cacde080ae7421b575e1761d734fa962cb7e9b6"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/src/shardloom/context.py": {
+        "bytes": 485026,
+        "sha256": "4ad1ac2f709817fea0d9491154c514111f6297b3e82386d39cd4238a8d55f45c"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/tests/test_native_recursive_composition_binding.py": {
+        "bytes": 25771,
+        "sha256": "2ff18f7f32e53fce7395006c3a530de86cbe59aa0bc9f27b37b467f8df66fe75"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/tests/test_recursion_policy.py": {
+        "bytes": 2611,
+        "sha256": "cf94ee3bde7eb26177a5c7e18cc7034e0a41c780dc26d1464b8871d44dec2373"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/tests/test_release_scripts.py": {
+        "bytes": 434980,
+        "sha256": "af6db10fb61ee11886bc33702160485c9a42adbb50305eef2fd6b737ba841bfe"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/python/tests/test_user_surface_graduation_matrix.py": {
+        "bytes": 7192,
+        "sha256": "cc17810d7906e87060a326da8fefb08301b384ccc1e02afbb1b48ff490d8c2d5"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/check_admitted_semantics_matrix.py": {
+        "bytes": 187049,
+        "sha256": "803ab5edfe257a51ca32ec80f2168920ed87e7f6519dd00b7ecf16267f74f160"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/check_v1_correctness_conformance.py": {
+        "bytes": 77971,
+        "sha256": "14b63ac75272baca8ec0f486bdbc8d4557fbb0067485fa3927bec7fb8521c288"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/native_workflow_protocol.py": {
+        "bytes": 7464,
+        "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/prove_native_python_wheel.py": {
+        "bytes": 11999,
+        "sha256": "ba2be425f54589ed0383adf944fa9f3c260258b0e35dae1e4b640b0e93dd934d"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/test_prove_native_python_wheel.py": {
+        "bytes": 6358,
+        "sha256": "6f82676ead637a807da61f759a6a581a00d2478039a250799247b994090a77d0"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/command_context.rs": {
+        "bytes": 8552,
+        "sha256": "4780825c31b3077bed0edcd0b0317846ead4764ca0e490dff640b794c0b7a5fe"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/command_registry.rs": {
+        "bytes": 81272,
+        "sha256": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/lib.rs": {
+        "bytes": 332356,
+        "sha256": "a35594aa1dde64e5b818df295435f81fb87d07af3b74a8b7574cd2e1ee772fd9"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/native_runtime_owner.rs": {
+        "bytes": 11899,
+        "sha256": "e6f4f3739327e3ad2f0d14d033945e68cfe8752e2099f28b356b06a679042bc4"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/native_runtime_plan.rs": {
+        "bytes": 58313,
+        "sha256": "e9eb6098c72038c107e9863067bab6c24b79ddf344e0ed281b8bfb4a2b7215f9"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/native_runtime_plan_expressions.rs": {
+        "bytes": 6534,
+        "sha256": "e76ba3e01a5f3e42f667b9e833b0bea606829438a4ff1e57357928939cfcee37"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/native_runtime_plan_lowering.rs": {
+        "bytes": 9570,
+        "sha256": "37d52abdb7700b304c9fae4dd093c3d930519c75a01457387619344df5a70be7"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/native_runtime_retained_tests.rs": {
+        "bytes": 5877,
+        "sha256": "414cd3ae3e1d5bd6c5a156bbb6d4cb913aab66aab8ae787a3a215270e76cf340"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/public_relational_batches.rs": {
+        "bytes": 9559,
+        "sha256": "c143af6b1dafdf5aea89647d832895307207477fb58bfe11f4657e8f8b0675cb"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/public_relational_sources.rs": {
+        "bytes": 46015,
+        "sha256": "4811ddb807217878072815bbaef1c3d532667a68a790b81bb14c598194844e63"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/public_resident_relational.rs": {
+        "bytes": 39252,
+        "sha256": "cfa499e0fd55b7fab6d7bd4d9d6562a39e3a1f0eed4df99c4edb2d4abbef2ff2"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/public_workflow_route.rs": {
+        "bytes": 702494,
+        "sha256": "739fcb0686dd2ee6142e7a0cdc850be4f74f60018131eb771a28e8fd73429535"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relation_declaration.rs": {
+        "bytes": 6016,
+        "sha256": "faed52d38b12e97c59ea90ce1a6271ae75a0843215487406bc932b39f78f1a47"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational.rs": {
+        "bytes": 46456,
+        "sha256": "6278fb6bcdc1129e2b3691c976a5981f636f323b4b0793861ece89b15a32b33b"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_dynamic.rs": {
+        "bytes": 7148,
+        "sha256": "6c31e44d0ed79dcd3378b60a552a2a9596dc7fc6c386c2130b8a8afc8c6319db"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_memo.rs": {
+        "bytes": 2136,
+        "sha256": "16f911930e116b7bffd6337c3cf1a63382b8827f1de55743e2c4e069fc2ee18b"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_predicate.rs": {
+        "bytes": 22361,
+        "sha256": "c3de4bba11d5ce166734844d957592ea4e833b38faef283f129d76c89c389772"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_pruning.rs": {
+        "bytes": 14597,
+        "sha256": "b7ca3477395b7afb9e43243a0afe42f5bada66b2ff92c9907dbe17db620fcbb1"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_retained.rs": {
+        "bytes": 5532,
+        "sha256": "02e55534e2c38c3db0d508b4cd9a77f81ee20034b3057bcc48c5b18f7af56c5a"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_retained_tests.rs": {
+        "bytes": 7861,
+        "sha256": "8867aea813e6b8beb659df49269027bcb4f5d6c3cb39e87b4cb1a844e101fb0d"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_tests.rs": {
+        "bytes": 33264,
+        "sha256": "7d60eac02e19f88ef1343b00a61af4c0817765ff58040dbbabc9038212519af9"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_native_relational_visit.rs": {
+        "bytes": 17324,
+        "sha256": "fec6b4e56bd3c15189ef459c940967e7c0df4b244cc3d5e6eca38a709e7112fd"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_relation_scopes.rs": {
+        "bytes": 19561,
+        "sha256": "afdf8f3f9bc85e0f1768905bc92f42e382308bd7e2211549829864fbc07d0144"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/sql_relation_sources.rs": {
+        "bytes": 18787,
+        "sha256": "1b10ab7e429a7bf8357eff6301faad111bed19061375b84447f3309a3fbb5161"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/typed_envelope.rs": {
+        "bytes": 82593,
+        "sha256": "1b48cffc7722019f5fe1f4aac1f25d3403e124bf2b16b5f2534fe9ce71c2a699"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-cli/src/vortex_primitive_execution.rs": {
+        "bytes": 349006,
+        "sha256": "af77099bfd17f7aefc6a63567901641aedf24dcf8da7916adcb933e311ef1308"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-core/src/lib.rs": {
+        "bytes": 27891,
+        "sha256": "d931276d79ce4e400c6e09c4e4c12a4a813df4518b42fdb30461793c914bba16"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-core/src/recursion_limit.rs": {
+        "bytes": 4077,
+        "sha256": "6d9d3a7579fe335e5db5b4860329eca6c0c6a339c2356a25f8284cd6c6ce4c37"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-python/src/session.rs": {
+        "bytes": 25588,
+        "sha256": "7e4b64612a06cb88703df4e9eb2fde7607456bc6248ce581f6c8cc8fbebab982"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+        "bytes": 96906,
+        "sha256": "005b0361dfe8c64c3555d62acfd5033156f9adf97bfd8bed3dce7c7fea984521"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_batch_input.rs": {
+        "bytes": 48271,
+        "sha256": "3723244b44aa3b5e2a688474f79f61fe689b79ea6ff2e1b444ffc9e40dfc6cba"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_bind.rs": {
+        "bytes": 39898,
+        "sha256": "3a04a4bc58792357639a85e2e3b0397e4f39898858d10748f4821a1fde677014"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_report.rs": {
+        "bytes": 20921,
+        "sha256": "43b61bb213107eb7cdb6e44b3ecf9bb93d416a2739c13690ab3dc4e3ff61f927"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_retained.rs": {
+        "bytes": 17007,
+        "sha256": "40f47040531604a06d84c26d7f2f718aba86e1bed065a24d6cbf9a5ca0180525"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_retained_bind.rs": {
+        "bytes": 9743,
+        "sha256": "14bff098e7a1f492a6fbee9495485a2a9a72d93e0edc7d48ca2120b3b0e3caeb"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_retained_stream_tests.rs": {
+        "bytes": 13099,
+        "sha256": "8da82a3c27ccce62495b0bad404fdeb12de61aaff6b184e458f15c08f3faf25e"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_retained_tests.rs": {
+        "bytes": 17792,
+        "sha256": "c8d211bc5f30b085162e98548aefc6f8df33adcf3f00cc24f1cdf675f7f6b9b1"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_source_demand.rs": {
+        "bytes": 7153,
+        "sha256": "2969e3066ec71cfb39cf56209be703a25a3c60c10e2a7e2ad1a03e30c8d684ff"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_subquery_sources.rs": {
+        "bytes": 6613,
+        "sha256": "147cd3161bcdf574cee364ba658b415e37013ffb60a06b39d56071d4f7097d36"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_tests.rs": {
+        "bytes": 22952,
+        "sha256": "ec903a7b9ba675f06768bf96bf1d9d2ced9b4ee1018074b80ce747f48e02217a"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_transform.rs": {
+        "bytes": 12777,
+        "sha256": "8a65bb2f5070b218efcbde61d7f28409f0892cc030e2642435fc13b93bddb61c"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/relational_plan_pipeline.rs": {
+        "bytes": 5411,
+        "sha256": "5b3541b35fba85b6e9650bf4a258fb4e1672d059bfe5c2ec22eaefc5c2218cbd"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/relational_query.rs": {
+        "bytes": 23836,
+        "sha256": "debfcc546b1d20795388785013f40c20e2f6dacb34aafe7b672163b9da496a39"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/resident_execution_context.rs": {
+        "bytes": 17138,
+        "sha256": "5339f64cfd8c87911f605a1ea291dea557b76b43c527505ef9f85c20a92ecb7b"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/resident_operation_resources.rs": {
+        "bytes": 28348,
+        "sha256": "c4d9c467bd9f1f5586f33f11df7e7f227ae78d3988be7967885041053a7b7a50"
+      },
+      "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/shardloom-vortex/src/resident_session.rs": {
+        "bytes": 68336,
+        "sha256": "ca84b82788a7d4c43afd52e188fb7378d76ef240f0fb14ee76895392c7c93550"
+      },
+      "/Users/dylan/LocalData/shardloom/recursive-composition-2026-10-29/composition-native-r2/_native.abi3.so": {
+        "bytes": 115931280,
+        "sha256": "a9907234bc1cba70eeb8bd0c3f6428700af2492b802ca7f7ab545a90db73ce49"
+      },
+      "/Users/dylan/LocalData/shardloom/recursive-composition-2026-10-29/composition-native-r2/shardloom": {
+        "bytes": 112893544,
+        "sha256": "705520b0fc91be8d5472a6da5b93e3e1c53458e9fa4c3c8cf6d222fa97fd5cfb"
+      },
+      "/Users/dylan/LocalData/shardloom/recursive-composition-2026-10-29/tools/check_composition_sources.py": {
+        "bytes": 5066,
+        "sha256": "2f8ebb1d5215a1e2925b9c94defc0690478c5e663607507336c2661d3cea0362"
+      }
+    },
+    "tests": 136,
+    "skipped": 0
+  },
+  "log": "{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"scripts/write_public_api_reference.py\", \"--check\"]}\nApplication exports, command metadata, signatures, counts and native publication facts are current.\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"scripts/write_native_function_reference.py\", \"--check\"]}\nNative scalar reference is current.\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"scripts/check_user_surface_reference.py\"]}\n{\n  \"blockers\": [],\n  \"checked_files\": [\n    \"docs/reference/shardloom-user-surface-index.md\",\n    \"docs/reference/shardloom-user-surface-index.json\",\n    \"shardloom-cli/src/command_registry.rs\",\n    \"README.md\",\n    \"website-src/src/content/docs/field-guide/reference.mdx\",\n    \"docs/architecture/agent-contract-pack.md\",\n    \"docs/architecture/v1-front-door-runtime-scope.md\",\n    \"docs/skills/developer-agent-experience.md\"\n  ],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registered_command_count\": 203,\n  \"schema_version\": \"shardloom.user_surface_index_gate.v1\",\n  \"status\": \"passed\"\n}\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"scripts/check_public_status_docs.py\"]}\n/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/public-status-docs-report.json\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"scripts/check_public_claim_language.py\"]}\n/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/public-claim-language-report.json\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"scripts/check_contribution_governance.py\"]}\n/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/contribution-governance-report.json\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_recursion_policy.py\", \"-v\"]}\ntest_client_and_context_immutability_and_inheritance (test_recursion_policy.RecursionPolicyTests.test_client_and_context_immutability_and_inheritance) ... ok\ntest_invalid_limit_rejected_without_native_import (test_recursion_policy.RecursionPolicyTests.test_invalid_limit_rejected_without_native_import) ... ok\ntest_native_backend_passes_limit_to_session (test_recursion_policy.RecursionPolicyTests.test_native_backend_passes_limit_to_session) ... ok\ntest_subprocess_argument_only_when_nondefault (test_recursion_policy.RecursionPolicyTests.test_subprocess_argument_only_when_nondefault) ... ok\ntest_validation (test_recursion_policy.RecursionPolicyTests.test_validation) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 0.129s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_query_builder.py\", \"-v\"]}\ntest_asof_builder_preserves_composition_and_explicit_matching_without_execution (test_query_builder.LazyWorkflowBuilderTests.test_asof_builder_preserves_composition_and_explicit_matching_without_execution) ... ok\ntest_asof_builder_rejects_ambiguous_or_lossy_options_before_execution (test_query_builder.LazyWorkflowBuilderTests.test_asof_builder_rejects_ambiguous_or_lossy_options_before_execution) ... ok\ntest_column_expression_builder_formats_admitted_predicate_families (test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families) ... ok\ntest_computed_column_filter_rewrite_expands_chained_aliases (test_query_builder.LazyWorkflowBuilderTests.test_computed_column_filter_rewrite_expands_chained_aliases) ... ok\ntest_computed_column_filter_rewrite_preserves_expression_precedence (test_query_builder.LazyWorkflowBuilderTests.test_computed_column_filter_rewrite_preserves_expression_precedence) ... ok\ntest_context_engine_intent_is_lazy_and_flows_to_lazy_frame (test_query_builder.LazyWorkflowBuilderTests.test_context_engine_intent_is_lazy_and_flows_to_lazy_frame) ... ok\ntest_context_exposes_rest_api_contract_views (test_query_builder.LazyWorkflowBuilderTests.test_context_exposes_rest_api_contract_views) ... ok\ntest_context_exposes_universal_compatibility_scoreboard (test_query_builder.LazyWorkflowBuilderTests.test_context_exposes_universal_compatibility_scoreboard) ... ok\ntest_context_readers_reuse_context_client_for_plan_inspection (test_query_builder.LazyWorkflowBuilderTests.test_context_readers_reuse_context_client_for_plan_inspection) ... ok\ntest_context_sql_embedded_vortex_manifest_broad_query_uses_native_input_binding (test_query_builder.LazyWorkflowBuilderTests.test_context_sql_embedded_vortex_manifest_broad_query_uses_native_input_binding) ... ok\ntest_decimal_aggregate_builders_preserve_defaults_controls_and_scope (test_query_builder.LazyWorkflowBuilderTests.test_decimal_aggregate_builders_preserve_defaults_controls_and_scope) ... ok\ntest_decimal_builders_are_inert_scoped_and_validate_controls (test_query_builder.LazyWorkflowBuilderTests.test_decimal_builders_are_inert_scoped_and_validate_controls) ... ok\ntest_embedded_vortex_input_uri_requires_all_refs_to_be_one_vortex_source (test_query_builder.LazyWorkflowBuilderTests.test_embedded_vortex_input_uri_requires_all_refs_to_be_one_vortex_source) ... ok\ntest_engine_capability_matrix_reads_external_engine_from_typed_policy (test_query_builder.LazyWorkflowBuilderTests.test_engine_capability_matrix_reads_external_engine_from_typed_policy) ... ok\ntest_engine_capability_matrix_view_exposes_blocked_live_hybrid_claims (test_query_builder.LazyWorkflowBuilderTests.test_engine_capability_matrix_view_exposes_blocked_live_hybrid_claims) ... ok\ntest_engine_selection_report_is_explicit_and_no_fallback (test_query_builder.LazyWorkflowBuilderTests.test_engine_selection_report_is_explicit_and_no_fallback) ... ok\ntest_engine_selection_report_reads_external_engine_from_typed_policy (test_query_builder.LazyWorkflowBuilderTests.test_engine_selection_report_reads_external_engine_from_typed_policy) ... ok\ntest_from_arrow_ipc_falls_back_to_file_reader_for_file_payloads (test_query_builder.LazyWorkflowBuilderTests.test_from_arrow_ipc_falls_back_to_file_reader_for_file_payloads) ... ok\ntest_from_rows_validates_scoped_generated_source_inputs (test_query_builder.LazyWorkflowBuilderTests.test_from_rows_validates_scoped_generated_source_inputs) ... ok\ntest_gap_fill_is_inert_and_renders_ordered_literal_controls (test_query_builder.LazyWorkflowBuilderTests.test_gap_fill_is_inert_and_renders_ordered_literal_controls) ... ok\ntest_generated_output_to_remote_object_store_is_report_only_without_staging (test_query_builder.LazyWorkflowBuilderTests.test_generated_output_to_remote_object_store_is_report_only_without_staging) ... ok\ntest_lazy_builder_validates_empty_operations (test_query_builder.LazyWorkflowBuilderTests.test_lazy_builder_validates_empty_operations) ... ok\ntest_lazy_workflow_report_collects_explain_estimate_and_certify_surfaces (test_query_builder.LazyWorkflowBuilderTests.test_lazy_workflow_report_collects_explain_estimate_and_certify_surfaces) ... ok\ntest_live_and_hybrid_fixture_reports_are_explicit (test_query_builder.LazyWorkflowBuilderTests.test_live_and_hybrid_fixture_reports_are_explicit) ... ok\ntest_local_csv_query_builder_invalid_join_how_is_deterministic (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_invalid_join_how_is_deterministic) ... ok\ntest_local_csv_query_builder_malformed_regex_quality_and_quarantine_are_unsupported (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_malformed_regex_quality_and_quarantine_are_unsupported) ... ok\ntest_local_csv_query_builder_rejects_aggregate_before_join_lowering (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rejects_aggregate_before_join_lowering) ... ok\ntest_local_csv_query_builder_rejects_ambiguous_join_condition_api (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rejects_ambiguous_join_condition_api) ... ok\ntest_local_csv_query_builder_sample_rng_object_stays_deterministic_blocker (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_sample_rng_object_stays_deterministic_blocker) ... ok\ntest_local_csv_query_builder_top_n_after_limit_preserves_input_bound (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_top_n_after_limit_preserves_input_bound) ... ok\ntest_local_csv_query_builder_window_admits_final_sort (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_window_admits_final_sort) ... ok\ntest_local_csv_query_builder_with_column_alias_filter_rewrites_to_expression (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_alias_filter_rewrites_to_expression) ... ok\ntest_local_csv_query_builder_write_csv_routes_through_public_run_facade (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_csv_routes_through_public_run_facade) ... ok\ntest_local_csv_query_builder_write_parquet_blocks_unadmitted_expression_shape (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_parquet_blocks_unadmitted_expression_shape) ... ok\ntest_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary) ... ok\ntest_local_csv_query_builder_write_structured_binary_uses_public_run_facade (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_structured_binary_uses_public_run_facade) ... ok\ntest_local_csv_query_builder_write_vortex_uses_public_run_facade (test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_vortex_uses_public_run_facade) ... ok\ntest_local_source_query_builder_keeps_typed_subquery_predicates_scoped (test_query_builder.LazyWorkflowBuilderTests.test_local_source_query_builder_keeps_typed_subquery_predicates_scoped) ... ok\ntest_local_source_query_builder_rejects_raw_sql_clause_breakouts (test_query_builder.LazyWorkflowBuilderTests.test_local_source_query_builder_rejects_raw_sql_clause_breakouts) ... ok\ntest_local_vortex_describe_columns_without_declared_schema_blocks (test_query_builder.LazyWorkflowBuilderTests.test_local_vortex_describe_columns_without_declared_schema_blocks) ... ok\ntest_materialized_input_boundaries_create_generated_rows (test_query_builder.LazyWorkflowBuilderTests.test_materialized_input_boundaries_create_generated_rows) ... ok\ntest_missing_dataframe_affordances_return_report_only_unsupported (test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported) ... ok\ntest_native_fill_expression_builders_preserve_scope_and_declare_over (test_query_builder.LazyWorkflowBuilderTests.test_native_fill_expression_builders_preserve_scope_and_declare_over) ... ok\ntest_native_relational_renderer_keeps_input_limit_and_duplicate_aggregate_stages_nested (test_query_builder.LazyWorkflowBuilderTests.test_native_relational_renderer_keeps_input_limit_and_duplicate_aggregate_stages_nested) ... ok\ntest_non_vortex_plan_uses_declared_source_format_not_uri_suffix (test_query_builder.LazyWorkflowBuilderTests.test_non_vortex_plan_uses_declared_source_format_not_uri_suffix) ... ok\ntest_ordered_grouped_aggregate_forwards_resources_through_dataframe_facades (test_query_builder.LazyWorkflowBuilderTests.test_ordered_grouped_aggregate_forwards_resources_through_dataframe_facades) ... ok\ntest_ordered_grouped_aggregate_forwards_resources_through_sql_facades (test_query_builder.LazyWorkflowBuilderTests.test_ordered_grouped_aggregate_forwards_resources_through_sql_facades) ... ok\ntest_predicate_string_literals_preserve_empty_space_unicode_and_quotes (test_query_builder.LazyWorkflowBuilderTests.test_predicate_string_literals_preserve_empty_space_unicode_and_quotes) ... ok\ntest_projected_file_literal_never_becomes_a_source_binding (test_query_builder.LazyWorkflowBuilderTests.test_projected_file_literal_never_becomes_a_source_binding) ... ok\ntest_range_limit_aliases_and_validation (test_query_builder.LazyWorkflowBuilderTests.test_range_limit_aliases_and_validation) ... ok\ntest_range_validates_scoped_generated_source_inputs (test_query_builder.LazyWorkflowBuilderTests.test_range_validates_scoped_generated_source_inputs) ... ok\ntest_remainder_declaration_preserves_numeric_precedence_and_rejects_text (test_query_builder.LazyWorkflowBuilderTests.test_remainder_declaration_preserves_numeric_precedence_and_rejects_text) ... ok\ntest_resample_declares_temporal_bucket_then_native_grouping (test_query_builder.LazyWorkflowBuilderTests.test_resample_declares_temporal_bucket_then_native_grouping) ... ok\ntest_schema_declared_dataframe_projection_rewrites_fail_closed (test_query_builder.LazyWorkflowBuilderTests.test_schema_declared_dataframe_projection_rewrites_fail_closed) ... ok\ntest_schema_declared_dataframe_query_dropna_after_limit_fails_closed (test_query_builder.LazyWorkflowBuilderTests.test_schema_declared_dataframe_query_dropna_after_limit_fails_closed) ... ok\ntest_schema_free_explicit_column_rewrites_stay_on_lazy_vortex_route (test_query_builder.LazyWorkflowBuilderTests.test_schema_free_explicit_column_rewrites_stay_on_lazy_vortex_route) ... ok\ntest_scoped_index_noop_affordances_preserve_lazy_plan (test_query_builder.LazyWorkflowBuilderTests.test_scoped_index_noop_affordances_preserve_lazy_plan) ... ok\ntest_source_free_sql_collect_returns_the_native_payload (test_query_builder.LazyWorkflowBuilderTests.test_source_free_sql_collect_returns_the_native_payload) ... ok\ntest_sql_statement_with_limit_caps_existing_top_level_limit (test_query_builder.LazyWorkflowBuilderTests.test_sql_statement_with_limit_caps_existing_top_level_limit) ... ok\ntest_sql_table_admission_errors_are_owned_by_the_native_engine (test_query_builder.LazyWorkflowBuilderTests.test_sql_table_admission_errors_are_owned_by_the_native_engine) ... ok\ntest_sql_without_limit_preserves_native_collection_budget_denial (test_query_builder.LazyWorkflowBuilderTests.test_sql_without_limit_preserves_native_collection_budget_denial) ... ok\ntest_temporal_bucket_declares_exact_controls_without_execution (test_query_builder.LazyWorkflowBuilderTests.test_temporal_bucket_declares_exact_controls_without_execution) ... ok\ntest_temporal_grid_builders_reject_invalid_controls (test_query_builder.LazyWorkflowBuilderTests.test_temporal_grid_builders_reject_invalid_controls) ... ok\ntest_temporal_window_declarations_preserve_explicit_units_and_policies (test_query_builder.LazyWorkflowBuilderTests.test_temporal_window_declarations_preserve_explicit_units_and_policies) ... ok\ntest_temporal_window_invalid_declarations_fail_before_execution (test_query_builder.LazyWorkflowBuilderTests.test_temporal_window_invalid_declarations_fail_before_execution) ... ok\ntest_top_level_readers_are_lazy_and_build_operation_summary (test_query_builder.LazyWorkflowBuilderTests.test_top_level_readers_are_lazy_and_build_operation_summary) ... ok\ntest_workflow_prepare_forwards_schema_hints_only_for_text_adapters (test_query_builder.LazyWorkflowBuilderTests.test_workflow_prepare_forwards_schema_hints_only_for_text_adapters) ... ok\ntest_workflow_prepare_uses_public_facade_with_attached_route (test_query_builder.LazyWorkflowBuilderTests.test_workflow_prepare_uses_public_facade_with_attached_route) ... ok\ntest_workflow_route_blocks_unbounded_collect_at_admission (test_query_builder.LazyWorkflowBuilderTests.test_workflow_route_blocks_unbounded_collect_at_admission) ... ok\ntest_workflow_route_uses_shared_cli_contract_for_sql_and_dataframe (test_query_builder.LazyWorkflowBuilderTests.test_workflow_route_uses_shared_cli_contract_for_sql_and_dataframe) ... ok\n\n----------------------------------------------------------------------\nRan 70 tests in 2.091s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_public_api_reference.py\", \"-v\"]}\ntest_dbapi_import_does_not_load_optional_dependencies (test_public_api_reference.PublicApiReferenceTests.test_dbapi_import_does_not_load_optional_dependencies) ... ok\ntest_dbapi_reference_does_not_depend_on_loaded_optional_aliases (test_public_api_reference.PublicApiReferenceTests.test_dbapi_reference_does_not_depend_on_loaded_optional_aliases) ... ok\ntest_generated_files_are_deterministic_and_current (test_public_api_reference.PublicApiReferenceTests.test_generated_files_are_deterministic_and_current) ... ok\ntest_native_metadata_matches_resolved_provider_and_selected_installed_release (test_public_api_reference.PublicApiReferenceTests.test_native_metadata_matches_resolved_provider_and_selected_installed_release) ... ok\ntest_native_metadata_rejects_failed_empty_or_skipped_integration (test_public_api_reference.PublicApiReferenceTests.test_native_metadata_rejects_failed_empty_or_skipped_integration) ... ok\ntest_native_metadata_rejects_manifest_lockfile_drift (test_public_api_reference.PublicApiReferenceTests.test_native_metadata_rejects_manifest_lockfile_drift) ... ok\ntest_native_metadata_rejects_unbound_installed_artifacts (test_public_api_reference.PublicApiReferenceTests.test_native_metadata_rejects_unbound_installed_artifacts) ... ok\ntest_native_metadata_rejects_unbound_release_proof (test_public_api_reference.PublicApiReferenceTests.test_native_metadata_rejects_unbound_release_proof) ... ok\ntest_native_metadata_requires_each_selected_native_wheel_once (test_public_api_reference.PublicApiReferenceTests.test_native_metadata_requires_each_selected_native_wheel_once) ... ok\ntest_python_application_snapshot_matches_lazy_package_discovery (test_public_api_reference.PublicApiReferenceTests.test_python_application_snapshot_matches_lazy_package_discovery) ... ok\ntest_registry_names_rejects_duplicate_declarations (test_public_api_reference.PublicApiReferenceTests.test_registry_names_rejects_duplicate_declarations) ... ok\ntest_scalar_catalog_source_identity_and_generated_text_are_current (test_public_api_reference.PublicApiReferenceTests.test_scalar_catalog_source_identity_and_generated_text_are_current) ... ok\ntest_source_only_command_reference_rejects_changed_registry (test_public_api_reference.PublicApiReferenceTests.test_source_only_command_reference_rejects_changed_registry) ... ok\ntest_source_only_command_reference_rejects_corrupted_saved_audience_map (test_public_api_reference.PublicApiReferenceTests.test_source_only_command_reference_rejects_corrupted_saved_audience_map) ... ok\ntest_source_only_command_reference_rejects_missing_or_duplicate_application_rows (test_public_api_reference.PublicApiReferenceTests.test_source_only_command_reference_rejects_missing_or_duplicate_application_rows) ... ok\n\n----------------------------------------------------------------------\nRan 15 tests in 0.458s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_native_function_catalog.py\", \"-v\"]}\ntest_catalog_is_complete_unique_inert_and_matches_all_sql_aliases (test_native_function_catalog.NativeFunctionCatalogTests.test_catalog_is_complete_unique_inert_and_matches_all_sql_aliases) ... ok\ntest_documented_scalar_definitions_match_executable_discovery (test_native_function_catalog.NativeFunctionCatalogTests.test_documented_scalar_definitions_match_executable_discovery) ... ok\ntest_every_scalar_dataframe_constructor_matches_independent_values (test_native_function_catalog.NativeFunctionCatalogTests.test_every_scalar_dataframe_constructor_matches_independent_values) ... ok\ntest_null_propagation_and_binding_failures_do_not_open_producers (test_native_function_catalog.NativeFunctionCatalogTests.test_null_propagation_and_binding_failures_do_not_open_producers) ... ok\ntest_null_rules_and_exact_decimal_types_survive_dataframe_composition (test_native_function_catalog.NativeFunctionCatalogTests.test_null_rules_and_exact_decimal_types_survive_dataframe_composition) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 0.167s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_typed_native_inputs.py\", \"-v\"]}\ntest_binary_and_full_temporal_storage (test_typed_native_inputs.TypedNativeInputTests.test_binary_and_full_temporal_storage) ... ok\ntest_decimal_conversion_is_exact_and_context_independent (test_typed_native_inputs.TypedNativeInputTests.test_decimal_conversion_is_exact_and_context_independent) ... ok\ntest_exact_integer_endpoints_and_type_rejections (test_typed_native_inputs.TypedNativeInputTests.test_exact_integer_endpoints_and_type_rejections) ... ok\ntest_float32_requires_exact_finite_storage (test_typed_native_inputs.TypedNativeInputTests.test_float32_requires_exact_finite_storage) ... ok\ntest_legacy_aliases_keep_exact_wire_and_resident_identity (test_typed_native_inputs.TypedNativeInputTests.test_legacy_aliases_keep_exact_wire_and_resident_identity) ... ok\ntest_malformed_schema_and_nested_values_fail_before_execution (test_typed_native_inputs.TypedNativeInputTests.test_malformed_schema_and_nested_values_fail_before_execution) ... ok\ntest_nested_rows_and_batches_share_schema_and_values_without_eager_demand (test_typed_native_inputs.TypedNativeInputTests.test_nested_rows_and_batches_share_schema_and_values_without_eager_demand) ... ok\ntest_nullability_and_typed_empty_input_remain_declared (test_typed_native_inputs.TypedNativeInputTests.test_nullability_and_typed_empty_input_remain_declared) ... ok\ntest_rich_values_require_explicit_schema_and_respect_frame_bytes (test_typed_native_inputs.TypedNativeInputTests.test_rich_values_require_explicit_schema_and_respect_frame_bytes) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.005s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_typed_unary_declarations.py\", \"-v\"]}\ntest_binary_and_decimal_replace_lower_to_typed_unary_payloads (test_typed_unary_declarations.TypedUnaryDeclarations.test_binary_and_decimal_replace_lower_to_typed_unary_payloads) ... ok\ntest_decimal_pivot_fill_lowers_to_typed_payload (test_typed_unary_declarations.TypedUnaryDeclarations.test_decimal_pivot_fill_lowers_to_typed_payload) ... ok\ntest_decimal_precision_is_context_independent_and_invalid_values_fail_early (test_typed_unary_declarations.TypedUnaryDeclarations.test_decimal_precision_is_context_independent_and_invalid_values_fail_early) ... ok\ntest_declared_typed_nulls_and_incompatible_domains (test_typed_unary_declarations.TypedUnaryDeclarations.test_declared_typed_nulls_and_incompatible_domains) ... ok\ntest_exact_scalar_payloads_and_matching_declared_types (test_typed_unary_declarations.TypedUnaryDeclarations.test_exact_scalar_payloads_and_matching_declared_types) ... ok\ntest_existing_primitive_payload_mappings_are_unchanged (test_typed_unary_declarations.TypedUnaryDeclarations.test_existing_primitive_payload_mappings_are_unchanged) ... ok\ntest_pivot_fill_policy_encodes_typed_and_primitive_values (test_typed_unary_declarations.TypedUnaryDeclarations.test_pivot_fill_policy_encodes_typed_and_primitive_values) ... ok\n\n----------------------------------------------------------------------\nRan 7 tests in 0.040s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_typed_expression_declarations.py\", \"-v\"]}\ntest_aggregate_filter_declaration_preserves_dependencies (test_typed_expression_declarations.TypedExpressionDeclarations.test_aggregate_filter_declaration_preserves_dependencies) ... ok\ntest_collection_declarations_preserve_literal_separators_and_local_order (test_typed_expression_declarations.TypedExpressionDeclarations.test_collection_declarations_preserve_literal_separators_and_local_order) ... ok\ntest_composed_binary_decimal_and_nullable_case_declarations (test_typed_expression_declarations.TypedExpressionDeclarations.test_composed_binary_decimal_and_nullable_case_declarations) ... ok\ntest_decimal_metadata_and_text_do_not_depend_on_python_context (test_typed_expression_declarations.TypedExpressionDeclarations.test_decimal_metadata_and_text_do_not_depend_on_python_context) ... ok\ntest_grouping_set_declarations_keep_units_empty_sets_and_stage_order (test_typed_expression_declarations.TypedExpressionDeclarations.test_grouping_set_declarations_keep_units_empty_sets_and_stage_order) ... ok\ntest_typed_literal_columns_lower_to_native_sql (test_typed_expression_declarations.TypedExpressionDeclarations.test_typed_literal_columns_lower_to_native_sql) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 0.046s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_release_scripts.py\", \"-k\", \"admitted_semantics\", \"-v\"]}\ntest_admitted_semantics_matrix_blocks_changed_remaining_gap_list (test_release_scripts.ReleaseScriptTests.test_admitted_semantics_matrix_blocks_changed_remaining_gap_list) ... ok\ntest_admitted_semantics_matrix_blocks_extra_required_runtime_row (test_release_scripts.ReleaseScriptTests.test_admitted_semantics_matrix_blocks_extra_required_runtime_row) ... ok\ntest_admitted_semantics_missing_matrix_reports_remaining_gaps (test_release_scripts.ReleaseScriptTests.test_admitted_semantics_missing_matrix_reports_remaining_gaps) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.030s\n\nOK\n{\"command\": [\"/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python\", \"-B\", \"-m\", \"unittest\", \"discover\", \"-s\", \"python/tests\", \"-p\", \"test_release_scripts.py\", \"-k\", \"v1_correctness_conformance\", \"-v\"]}\ntest_v1_correctness_conformance_gate_fails_closed_when_report_missing (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_closed_when_report_missing) ... ok\ntest_v1_correctness_conformance_gate_fails_example_replay_drift (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_example_replay_drift) ... ok\ntest_v1_correctness_conformance_gate_fails_invalidation_case_drift (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_invalidation_case_drift) ... ok\ntest_v1_correctness_conformance_gate_fails_matrix_drift (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_matrix_drift) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_diagnostic_field (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_diagnostic_field) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_example_replay_report (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_example_replay_report) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_front_door_scenario (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_front_door_scenario) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_fuzz_case (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_fuzz_case) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_property_case (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_property_case) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_python_accessor (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_python_accessor) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_semantic_case (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_semantic_case) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_stage_artifact (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_stage_artifact) ... ok\ntest_v1_correctness_conformance_gate_fails_missing_stage_digest (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_stage_digest) ... ok\ntest_v1_correctness_conformance_gate_fails_output_digest_mismatch (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_output_digest_mismatch) ... ok\ntest_v1_correctness_conformance_gate_fails_stage_fallback_marker (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_stage_fallback_marker) ... ok\ntest_v1_correctness_conformance_gate_passes_complete_fixture (test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture) ... ok\n\n----------------------------------------------------------------------\nRan 16 tests in 0.059s\n\nOK\n{\"status\": \"passed\", \"checks\": 15, \"tests\": 136, \"skipped\": 0}\n",
+  "purpose": "Final acceptance documentation and unchanged public-source consumers after evidence freeze and cleanup",
+  "new_benchmark_executions": 0
+}

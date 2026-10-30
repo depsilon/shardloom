@@ -2,10 +2,10 @@
 //! source or substitutes a query's text into another query.
 
 use super::{
-    ParsedAggregate, ParsedAggregateArgument, ParsedPredicate, ParsedRelationQuery as Query,
-    ParsedRelationSource as Source, ParsedSqlLocalSource, ShardLoomError, WindowFunction,
-    matching_closing_parenthesis, scalar_expression, split_sql_csv, starts_with_keyword,
-    unsupported_sql_error, validate_query_structure, validate_sql_identifier,
+    ParsedAggregate, ParsedAggregateArgument, ParsedPredicate, ParsedRelationIdentity,
+    ParsedRelationQuery as Query, ParsedRelationSource as Source, ParsedSqlLocalSource,
+    ShardLoomError, WindowFunction, matching_closing_parenthesis, scalar_expression, split_sql_csv,
+    starts_with_keyword, unsupported_sql_error, validate_query_structure, validate_sql_identifier,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -51,6 +51,7 @@ pub(in super::super) fn drain_query(query: Query) {
             names: &names,
             visited: BTreeMap::new(),
             discover: Some(Vec::new()),
+            recursive: None,
         };
         let inspected = binder.query(&mut query);
         debug_assert!(
@@ -95,13 +96,13 @@ pub(in super::super) fn bind_inputs(
     bind(query, &scope, &BTreeSet::new())
 }
 
+#[allow(clippy::too_many_lines)] // Parse declarations before binding the same lexical scope.
 pub(super) fn parse(statement: &str) -> Result<Query, ShardLoomError> {
     validate_query_structure(statement)?;
     let mut tail = statement[4..].trim_start();
-    if starts_with_keyword(tail, "recursive") {
-        return Err(unsupported_sql_error(
-            "recursive CTEs require the separate iterative-state execution contract",
-        ));
+    let recursive = starts_with_keyword(tail, "recursive");
+    if recursive {
+        tail = keyword(tail, "recursive")?;
     }
     let mut definitions = Vec::new();
     let mut names = BTreeSet::new();
@@ -136,20 +137,27 @@ pub(super) fn parse(statement: &str) -> Result<Query, ShardLoomError> {
             tail = tail[close + 1..].trim_start();
         }
         tail = keyword(tail, "as")?;
-        if starts_with_keyword(tail, "not") {
+        let materialized = if starts_with_keyword(tail, "not") {
             tail = keyword(keyword(tail, "not")?, "materialized")?;
+            false
         } else if starts_with_keyword(tail, "materialized") {
-            return Err(unsupported_sql_error(
-                "MATERIALIZED requires an explicit action-owned native result boundary",
-            ));
-        }
+            tail = keyword(tail, "materialized")?;
+            true
+        } else {
+            false
+        };
         if !tail.starts_with('(') {
             return Err(unsupported_sql_error(
                 "CTE AS requires a parenthesized query",
             ));
         }
         let close = closing(tail)?;
-        definitions.push((name.to_ascii_lowercase(), columns, &tail[1..close]));
+        definitions.push((
+            name.to_ascii_lowercase(),
+            columns,
+            materialized,
+            &tail[1..close],
+        ));
         tail = tail[close + 1..].trim_start();
         if let Some(next) = tail.strip_prefix(',') {
             tail = next.trim_start();
@@ -158,13 +166,37 @@ pub(super) fn parse(statement: &str) -> Result<Query, ShardLoomError> {
         }
     }
     let mut scope = Scope::new();
-    for (name, columns, raw) in definitions {
+    for (name, columns, materialized, raw) in definitions {
         let mut query = Query::parse(raw)?;
-        bind(&mut query, &scope, &names)?;
-        if !columns.is_empty() {
+        let identity = ParsedRelationIdentity::default();
+        if recursive {
+            let mut step_scope = Scope::new();
+            step_scope.extend(
+                scope
+                    .iter()
+                    .map(|(name, query)| (name.clone(), Arc::clone(query))),
+            );
+            step_scope.insert(
+                name.clone(),
+                Arc::new(Query::RecursiveInput(identity.clone())),
+            );
+            bind(&mut query, &step_scope, &names)?;
+        } else {
+            bind(&mut query, &scope, &names)?;
+        }
+        let recursive = recursive && references_recursive(&mut query, &identity)?;
+        if recursive {
+            query = recursive_definition(query, identity, columns)?;
+        } else if !columns.is_empty() {
             query = Query::Columns {
                 input: Arc::new(query),
                 names: columns,
+            };
+        }
+        if materialized && !recursive {
+            query = Query::Materialized {
+                identity: ParsedRelationIdentity::default(),
+                input: Arc::new(query),
             };
         }
         scope.insert(name, Arc::new(query));
@@ -172,6 +204,71 @@ pub(super) fn parse(statement: &str) -> Result<Query, ShardLoomError> {
     let mut query = Query::parse(tail)?;
     bind(&mut query, &scope, &names)?;
     Ok(query)
+}
+
+fn recursive_definition(
+    query: Query,
+    identity: ParsedRelationIdentity,
+    columns: Vec<String>,
+) -> Result<Query, ShardLoomError> {
+    let Query::Set(mut set) = query else {
+        return Err(unsupported_sql_error(
+            "recursive CTE requires a nonrecursive anchor UNION [ALL] one recursive term",
+        ));
+    };
+    if set.branches.len() != 2
+        || !matches!(
+            set.mode,
+            super::SqlUnionMode::All | super::SqlUnionMode::Distinct
+        )
+        || set.order_by.is_some()
+        || set.limit != usize::MAX
+        || set.offset != 0
+    {
+        return Err(unsupported_sql_error(
+            "recursive CTE requires exactly two UNION or UNION ALL branches without a global ORDER BY, LIMIT or OFFSET",
+        ));
+    }
+    let mut step = set.branches.pop().expect("two recursive branches");
+    let mut anchor = set.branches.pop().expect("two recursive branches");
+    // The set parser attaches a synthetic branch limit; recursive evaluation
+    // completes both terms and cannot use that limit as a truncation policy.
+    for branch in [&mut anchor, &mut step] {
+        branch.limit = usize::MAX;
+        branch.offset = 0;
+        branch.limit_is_synthetic = true;
+    }
+    let mut anchor = Query::Select(Box::new(anchor));
+    if references_recursive(&mut anchor, &identity)? {
+        return Err(unsupported_sql_error(
+            "recursive anchor must not reference itself",
+        ));
+    }
+    Ok(Query::Recursive {
+        identity,
+        anchor: Arc::new(anchor),
+        step: Arc::new(Query::Select(Box::new(step))),
+        columns,
+        distinct: set.mode == super::SqlUnionMode::Distinct,
+    })
+}
+
+fn references_recursive(
+    query: &mut Query,
+    identity: &ParsedRelationIdentity,
+) -> Result<bool, ShardLoomError> {
+    let found = std::cell::Cell::new(false);
+    let scope = Scope::new();
+    let names = BTreeSet::new();
+    Binder {
+        scope: &scope,
+        names: &names,
+        visited: BTreeMap::new(),
+        discover: None,
+        recursive: Some((identity, &found)),
+    }
+    .query(query)?;
+    Ok(found.get())
 }
 
 fn closing(raw: &str) -> Result<usize, ShardLoomError> {
@@ -196,6 +293,7 @@ fn bind(query: &mut Query, scope: &Scope, names: &BTreeSet<String>) -> Result<()
         names,
         visited: BTreeMap::new(),
         discover: None,
+        recursive: None,
     }
     .query(query)
 }
@@ -205,6 +303,7 @@ struct Binder<'a> {
     names: &'a BTreeSet<String>,
     visited: BTreeMap<usize, Arc<Query>>,
     discover: Option<Vec<Arc<Query>>>,
+    recursive: Option<(&'a ParsedRelationIdentity, &'a std::cell::Cell<bool>)>,
 }
 
 impl Drop for Binder<'_> {
@@ -223,7 +322,19 @@ impl Binder<'_> {
                 .branches
                 .iter_mut()
                 .try_for_each(|branch| self.select(branch)),
-            Query::Columns { input, .. } => self.shared(input),
+            Query::Columns { input, .. } | Query::Materialized { input, .. } => self.shared(input),
+            Query::Recursive { anchor, step, .. } => {
+                self.shared(anchor)?;
+                self.shared(step)
+            }
+            Query::RecursiveInput(identity) => {
+                if let Some((wanted, found)) = self.recursive
+                    && wanted == identity
+                {
+                    found.set(true);
+                }
+                Ok(())
+            }
         }
     }
 

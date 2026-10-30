@@ -6420,9 +6420,11 @@ class ShardLoomClient:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
         float_policy: str = "strict",
+        recursion_limit: int = 1000,
     ) -> None:
-        from ._native_backend import normalize_float_policy, normalize_transport, validate_timeout
+        from ._native_backend import normalize_float_policy, normalize_recursion_limit, normalize_transport, validate_timeout
         self._float_policy = normalize_float_policy(float_policy)
+        self._recursion_limit = normalize_recursion_limit(recursion_limit)
         self._transport = normalize_transport(transport)
         if self._transport == "native" and use_persistent_worker is True:
             raise ValueError("a persistent subprocess worker cannot use transport='native'")
@@ -6472,6 +6474,11 @@ class ShardLoomClient:
         return self._float_policy
 
     @property
+    def recursion_limit(self) -> int:
+        """Return this client's immutable recursive-term evaluation bound."""
+        return self._recursion_limit
+
+    @property
     def transport(self) -> str:
         """Return the explicitly selected execution transport."""
 
@@ -6500,6 +6507,7 @@ class ShardLoomClient:
                 self._native_backend = NativeBackend(
                     self.resources, self.resource_limits, self._timeout,
                     float_policy=self.float_policy,
+                    recursion_limit=self.recursion_limit,
                 )
             return self._native_backend
 
@@ -8960,8 +8968,12 @@ class ShardLoomClient:
         command_args = [str(arg) for arg in args]
         if any(arg == "--float-policy" or arg.startswith("--float-policy=") for arg in command_args):
             raise ValueError("--float-policy is fixed by the ShardLoomClient configuration")
+        if any(arg == "--recursion-limit" or arg.startswith("--recursion-limit=") for arg in command_args):
+            raise ValueError("--recursion-limit is fixed by the ShardLoomClient configuration")
         if self.float_policy != "strict":
             command_args.extend(("--float-policy", self.float_policy))
+        if self.recursion_limit != 1000:
+            command_args.extend(("--recursion-limit", str(self.recursion_limit)))
         self._append_json_format(command_args)
         return command_args
 

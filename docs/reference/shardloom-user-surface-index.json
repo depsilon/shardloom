@@ -1366,6 +1366,8 @@
       "derived SELECT and set inputs with scoped aliases",
       "ordered supported DataFrame stages and transformed join/subquery inputs",
       "post-set projection, filter, aggregate, window, join, ordering and limit",
+      "scoped ordinary and explicit MATERIALIZED CTEs",
+      "single-frontier recursive UNION or UNION ALL with explicit iteration policy",
       "native computed-column replacement through SELECT * REPLACE OR ADD",
       "source-free VALUES",
       "source-free literal SELECT",
@@ -1373,7 +1375,7 @@
     ],
     "not_claimed": [
       "broad SQL-standard/ANSI-style compliance",
-      "recursive CTEs",
+      "nonlinear, mutually recursive or correlated recursive CTEs",
       "arbitrary dialect functions",
       "arbitrary subqueries",
       "catalog-backed SQL",
@@ -1397,7 +1399,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "84d409f59ad50fc5fb559bfb3bcc21afee3b13319421e00be2d9289377f238a6",
+    "source_identity": "7dc293ddfcca7b9cd9158441d9c528a7f5a1778e8d180451331bb2ad39edc792",
     "source_inputs": {
       "Cargo.lock": "0f326028ae5a9fc62629eca5d200158d190f01019c314975179934ef0e891974",
       "Cargo.toml": "be5c720183463a8c7f0287d254ce16fc9cca05b90fff4d3ca19ee2bedbe802f9",
@@ -1409,8 +1411,8 @@
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
-      "python/src/shardloom/client.py": "525de13184cbca252bd7b63e7b9f0c4e2cf88b7a3539116ffde7368dff317804",
-      "python/src/shardloom/context.py": "d966a44103b61314ac7f1961792b97750338da2afd528f2eab4e44c09450ee8c",
+      "python/src/shardloom/client.py": "90d91384852acf1ec3676fe70cacde080ae7421b575e1761d734fa962cb7e9b6",
+      "python/src/shardloom/context.py": "4ad1ac2f709817fea0d9491154c514111f6297b3e82386d39cd4238a8d55f45c",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
@@ -1422,7 +1424,7 @@
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
       "python/src/shardloom/types.py": "71f2c9d225e59d9a090aea71db052ea6914e78c331a01be221cc6fbf3eae668b",
-      "shardloom-cli/src/command_registry.rs": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2",
+      "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
       "shardloom-vortex/Cargo.toml": "f43c4eba832bb9fe185e40a05d7773ad5cee6b38b6a65f3e234aaf4bb8d0b83a"
     },
     "python_symbols": [
@@ -2386,7 +2388,7 @@
         "audience": "diagnostics",
         "kind": "class",
         "source": "python/src/shardloom/client.py",
-        "signature": "(binary: 'Binary | None' = None, *, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str]' = ('release', 'debug'), timeout: 'float | None' = None, use_persistent_worker: 'bool | None' = None, transport: 'str' = 'subprocess', memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str' = 'strict') -> 'None'",
+        "signature": "(binary: 'Binary | None' = None, *, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str]' = ('release', 'debug'), timeout: 'float | None' = None, use_persistent_worker: 'bool | None' = None, transport: 'str' = 'subprocess', memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str' = 'strict', recursion_limit: 'int' = 1000) -> 'None'",
         "summary": "Thin client that invokes the ShardLoom CLI with `--format json`."
       },
       {
@@ -2413,7 +2415,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/context.py",
-        "signature": "(client: 'ShardLoomClient | None' = None, *, engine: 'str' = 'auto', transport: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None) -> 'None'",
+        "signature": "(client: 'ShardLoomClient | None' = None, *, engine: 'str' = 'auto', transport: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None, recursion_limit: 'int | None' = None) -> 'None'",
         "summary": "High-level Python context for side-effect-free discovery and explicit work."
       },
       {
@@ -3133,7 +3135,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/context.py",
-        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None) -> 'ShardLoomContext'",
+        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None, recursion_limit: 'int | None' = None) -> 'ShardLoomContext'",
         "summary": "Return a side-effect-free ShardLoom context."
       },
       {
@@ -3574,7 +3576,7 @@
         "audience": "diagnostics",
         "kind": "function",
         "source": "python/src/shardloom/context.py",
-        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, session_id: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None) -> 'ShardLoomSession'",
+        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, session_id: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, float_policy: 'str | None' = None, recursion_limit: 'int | None' = None) -> 'ShardLoomSession'",
         "summary": "Return a caller-owned local ShardLoom session."
       },
       {
@@ -5272,7 +5274,7 @@
     ],
     "command_registry": {
       "source": "shardloom-cli/src/command_registry.rs",
-      "source_sha256": "6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2",
+      "source_sha256": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
       "metadata_command": "shardloom command-metadata --format json",
       "registered_commands": [
         "help",
@@ -5732,7 +5734,7 @@
           "name": "run",
           "audience": "application",
           "family": "workflow_planning",
-          "usage_fragment": "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>] (--resources-from-env | (--memory-gb <GiB> | --memory-bytes <bytes>) --max-parallelism <n>)",
+          "usage_fragment": "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>] [--recursion-limit <positive-integer>] (--resources-from-env | (--memory-gb <GiB> | --memory-bytes <bytes>) --max-parallelism <n>)",
           "side_effect_level": "local_runtime_or_local_artifact_effect_possible",
           "input_contract": "declared_public_workflow_request_with_route_admission",
           "output_contract": "typed_runtime_envelope_with_attached_public_workflow_route"
@@ -5750,7 +5752,7 @@
           "name": "route",
           "audience": "application",
           "family": "workflow_planning",
-          "usage_fragment": "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>]",
+          "usage_fragment": "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>] [--recursion-limit <positive-integer>]",
           "side_effect_level": "side_effect_free_metadata_or_report",
           "input_contract": "declared_public_workflow_route_request",
           "output_contract": "typed_public_workflow_route_envelope_no_execution"

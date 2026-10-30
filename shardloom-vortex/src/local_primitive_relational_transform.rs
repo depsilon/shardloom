@@ -54,9 +54,9 @@ impl PreparedVortexRelational {
                 offset,
                 count,
             } => {
-                // A finite streaming source still owes complete validation,
-                // including late errors, even when no rows are requested.
-                if *count == 0 && metrics.input.is_none() && !input.has_observations() {
+                // Streaming sources, observations and retained relations still
+                // owe completion when no output rows are requested.
+                if *count == 0 && metrics.input.is_none() && !input.requires_completion() {
                     return Ok(());
                 }
                 let mut skip = *offset;
@@ -95,7 +95,7 @@ impl PreparedVortexRelational {
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
         if metrics.input.is_none()
-            && !input.has_observations()
+            && !input.requires_completion()
             && !stages
                 .iter()
                 .any(|stage| matches!(stage.kind, PipelineKind::Observe(_)))

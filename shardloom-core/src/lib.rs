@@ -45,6 +45,7 @@ pub mod observability;
 pub mod operational_contracts;
 pub mod operator;
 pub mod output;
+pub mod recursion_limit;
 pub mod release;
 pub mod remote_api;
 pub mod rfc_coverage;
@@ -60,6 +61,7 @@ pub mod unstructured_workflow;
 pub mod wrapper_architecture;
 
 pub use float_policy::FloatPolicy;
+pub use recursion_limit::RecursionLimit;
 
 pub use agent_contract::{
     AgentContractPack, AgentContractSurface, AgentContractSurfaceKind, AgentContractSurfaceStatus,

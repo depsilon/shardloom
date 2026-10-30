@@ -13,7 +13,7 @@ Application command count: 14
 
 Maintainer command count: 189
 
-Registry source SHA-256: `6e03515c16b77621afde1bc2a354bf27146ce8eef91be716851d6d0c954694f2`
+Registry source SHA-256: `a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b`
 <!-- END GENERATED COMMAND COUNTS -->
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future

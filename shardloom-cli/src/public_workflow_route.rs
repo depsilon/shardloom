@@ -262,10 +262,19 @@ impl PublicExecutionSession {
         }
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[cfg(all(test, feature = "vortex-local-primitives", unix))]
     pub(crate) fn command_owner(
         &mut self,
         requested: Option<shardloom_core::FloatPolicy>,
+    ) -> Result<std::sync::Arc<native::EmbeddedExecutionOwner>, ShardLoomError> {
+        self.command_owner_with_policies(requested, None)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn command_owner_with_policies(
+        &mut self,
+        requested: Option<shardloom_core::FloatPolicy>,
+        recursion_limit: Option<shardloom_core::RecursionLimit>,
     ) -> Result<std::sync::Arc<native::EmbeddedExecutionOwner>, ShardLoomError> {
         if let Some(owner) = &self.command_owner
             && requested.is_some_and(|policy| policy != owner.float_policy())
@@ -274,12 +283,20 @@ impl PublicExecutionSession {
                 "float_policy cannot change within a native command session; create a new session; no fallback execution was attempted".into(),
             ));
         }
+        if let Some(owner) = &self.command_owner
+            && recursion_limit.is_some_and(|limit| limit != owner.recursion_limit())
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "recursion_limit cannot change within a native command session; create a new session; no fallback execution was attempted".into(),
+            ));
+        }
         if self.command_owner.is_none() {
             self.command_owner = Some(std::sync::Arc::new(
-                native::EmbeddedExecutionOwner::new_with_float_policy(
+                native::EmbeddedExecutionOwner::new_with_policies(
                     None,
                     None,
                     requested.unwrap_or_default(),
+                    recursion_limit.unwrap_or_default(),
                 )?,
             ));
         }
@@ -492,7 +509,13 @@ pub(crate) fn handle_batch_workflow(
     args: impl Iterator<Item = String>,
     transport: &mut crate::python_batch_protocol::Transport,
 ) -> ExitCode {
-    let (args, float_policy) = match crate::parse_float_policy(args.collect()) {
+    let (args, recursion_limit) = match crate::parse_recursion_limit(args.collect()) {
+        Ok((args, limit)) => (args, limit.unwrap_or_default()),
+        Err(error) => {
+            return emit_error("run", OutputFormat::Json, "invalid recursion limit", &error);
+        }
+    };
+    let (args, float_policy) = match crate::parse_float_policy(args) {
         Ok((args, policy)) => (args, policy.unwrap_or_default()),
         Err(error) => {
             return emit_error("run", OutputFormat::Json, "invalid floating policy", &error);
@@ -531,7 +554,7 @@ pub(crate) fn handle_batch_workflow(
     if plan.status != CommandStatus::Success {
         return emit_blocked_facade("run", OutputFormat::Json, &request, &plan);
     }
-    resident_relational::run_batches(&request, &plan, transport, float_policy)
+    resident_relational::run_batches(&request, &plan, transport, float_policy, recursion_limit)
 }
 
 fn execute_native_vortex_profile_run(

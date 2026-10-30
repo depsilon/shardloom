@@ -523,11 +523,14 @@ visible and independent; this implementation does not automatically close them.
     separate and Vortex-native input/output explicit.
   - **Two unfinished tracks remain inside item 20:** capability/workflow completion
     and the performance checklist immediately below. Capability PRs do not close
-    the performance track. The October 29 ordering remains capabilities and their
-    acceptance first, then these experiments. Status reports must show both tracks;
+    the performance track. The latest October 29 maintainer ordering is to finish
+    the active recursive/materialized composition unit and its acceptance, then
+    run the seven performance candidates before explicit batch-function work.
+    Batch functions and the later connector/refresh package remain pending.
+    This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.
   - **Remaining performance checklist:** the
-    [supplied review and admission contracts](native-analytical-completion-2026-10-27.md#performance-candidates-after-capability-completion)
+    [supplied review and admission contracts](native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance)
     cover these seven pending candidates. Recheck current source after capability
     changes; existing implementation or a plausible saving is not measured acceptance.
     - [ ] Propagate Top-K through proven order/cardinality-preserving direct-column
@@ -864,12 +867,17 @@ visible and independent; this implementation does not automatically close them.
 
 The priority order below applies to the added completion requirements. Items
 already owned by connected programming or universal I/O stay with those packages.
+The latest October 29 override inserts item 20's seven performance candidates
+after acceptance of the active recursive/materialized composition unit and
+before priority 5, explicit batch-function integration. The numeric and temporal
+units already delivered keep their acceptance obligations; no open package is
+marked complete by this resequencing.
 
 | Priority | Completion package | Implementation and acceptance contract |
 | --- | --- | --- |
 | 1 | Statistics and richer aggregation | Extend shared update/merge/finalize, memory, native spill and window integration with sample/population variance and standard deviation, covariance, correlation, median and exact quantiles. Specify null pairs, small samples, numerical stability, merge behavior and exact quantile interpolation. Exact quantiles require separately admitted state, not variance's fixed-size state. Then add exact SUM/AVG DISTINCT, ordered first/last, values at minimum/maximum keys, list and string aggregates, reusing existing distinct/window/pivot machinery where sound. Approximate quantiles/sketches remain explicitly approximate later functions. |
 | 2 | Temporal fidelity and time-series workflows | Preserve timestamp units and timezone identity, time-of-day, durations and calendar intervals from ingestion through comparisons, grouping, casts, serialization and reopen. Complete parsing, formatting, truncation, conversion and arithmetic in shared SQL/DataFrame semantics. Distinguish instant conversion from wall-clock reinterpretation and specify ambiguous/nonexistent local times. Verify dedicated as-of, calendar/time-based rolling, resampling, gap filling and interpolation first, then implement missing behavior through existing joins/windows. Specify ordering, ties, tolerance, nulls, group boundaries and timezone effects; row-count windows do not establish calendar-window support. |
-| 3 | SQL/DataFrame composition and parameters | Preserve the [connected programming package](native-connected-programming-model-2026-10-24.md), which now implements scoped named plans, nested ordinary WITH scopes, typed parameters and column-name lists. Expand composed-query coverage. Recursive CTE execution remains implementation work with termination, cycle, memory and cancellation semantics; explicit materialized CTE ownership retains its separate contract. Audit GROUPING SETS, ROLLUP, CUBE, aggregate FILTER and ordered aggregates before labelling them absent. |
+| 3 | SQL/DataFrame composition and parameters | Preserve the [connected programming package](native-connected-programming-model-2026-10-24.md), scoped named plans, nested ordinary WITH scopes, typed parameters and column-name lists. The [recursive/materialized continuation](native-recursive-composition-2026-10-29.md) now passes local complete-value, five-interface, pressure/failure, common-conformance and installed-wheel acceptance; hosted PR acceptance remains pending. It adds action-owned materialization and bounded native frontier iteration, including finite-cycle UNION semantics. GROUPING SETS, ROLLUP/CUBE, aggregate FILTER and ordered aggregates use existing shared providers. Broader combined item-20 acceptance remains open. |
 | 4 | Numeric-domain and rich-type fidelity | Define NaN, positive/negative infinity and signed-zero behavior across observation, equality, sorting, grouping, reductions, serialization and validation, preserving a strict caller-selectable policy. Keep NaN distinct from null. Add explicit decimal precision/scale/rounding choices alongside exact behavior, and an exact widened-integer SUM contract separately from floating AVG. Coordinate with [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md); carrying a value without observing it is distinct from implementing its arithmetic. |
 | 5 | Explicit batch-function integration | Prefer reusable native expression/plan composition. Add declared application batch functions with input/output schema, null and determinism policy, errors, cancellation, ownership, memory and effects accounted for under RFCs 0011/0023. The surrounding query remains ShardLoom execution; expose the application-code/materialization boundary and do not promise built-in-function performance. Existing typed fixtures are a foundation, not completion. |
 | 6 | Complete remote/table connectors and safe refresh | Extend the [universal-I/O package](native-universal-io-performance-coverage-2026-10-24.md), retaining immediate local writer work first. A selected workflow must authenticate → discover schema → read selected data → execute natively → publish safely, with credentials, ranges, retries and generation checks. Implement safe replacement/refresh before append/upsert against a defined table contract; broader transactions follow their separate persistence/recovery contract. |
@@ -887,9 +895,12 @@ FILTER. Their focused native and five-interface evidence is recorded there;
 the wider item-20 acceptance remains open.
 The merged [native declaration binder](../../shardloom-cli/src/sql_native_relation_declaration.rs)
 implements scoped ordinary CTEs, column lists and typed parameters using shared
-plan references and resource admission. Recursive execution and explicit
-`MATERIALIZED` ownership remain unsupported; `NOT MATERIALIZED` uses ordinary
-bound references. Shared nondecimal
+plan references and resource admission. The locally accepted
+[composition continuation](../benchmarks/native-recursive-composition-2026-10-29.md)
+adds recursive frontier execution and explicit action-owned `MATERIALIZED`
+relations through those same native plans; `NOT MATERIALIZED` uses ordinary
+bound references. Nonlinear, mutual and correlated retained definitions remain
+explicitly unsupported. Shared nondecimal
 SUM/AVG finalize as floating values; under the default strict policy the reducer
 rejects non-finite sums, and
 [`native_decimal_reduce.rs`](../../shardloom-vortex/src/local_primitives/native_decimal_reduce.rs)

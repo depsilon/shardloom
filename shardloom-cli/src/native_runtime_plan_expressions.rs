@@ -75,7 +75,14 @@ pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
                 expression(value, 0, nodes)?;
             }
         }
-        Plan::Input(_) | Plan::Outer => {}
+        // Validate shared definitions without rewriting their immutable identity.
+        // Their cloned native lowering still binds every expression and domain.
+        Plan::Materialized(input) => visit(&mut input.as_ref().clone(), nodes)?,
+        Plan::Recursive(input) => {
+            visit(&mut input.anchor.clone(), nodes)?;
+            visit(&mut input.step.clone(), nodes)?;
+        }
+        Plan::Input(_) | Plan::Outer | Plan::RecursiveInput(_) => {}
         Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {
             return Err(failed(
                 "execution-scoped relation is not a reusable declaration",

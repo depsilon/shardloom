@@ -786,6 +786,7 @@ const LOCAL_PRIMITIVE_NATIVE_IO_SOURCE_PUSHDOWN_REPORT_PAYLOAD_KEYS: &[&str] = &
     "local_primitive_native_io_pushdown_accepted_operations",
     "local_primitive_native_io_pushdown_rejected_operations",
     "local_primitive_native_io_pushdown_guarantee",
+    "local_primitive_native_io_pushdown_proof_basis",
     "local_primitive_native_io_representation_transitions",
     "local_primitive_native_io_materialization_boundaries",
     "local_primitive_native_io_materializing_transitions_have_boundaries",

@@ -7,8 +7,8 @@ use super::{
     sql_request, validate_sql_spill,
 };
 use crate::sql_local_source_runtime::native_relational::{
-    BoundRelations, Lowered, NativeSqlDeclaration, NativeSqlLowering, ParsedRelationLeaf,
-    ResolvedSources,
+    BoundRelations, Lowered, LoweringMemo, NativeSqlDeclaration, NativeSqlLowering,
+    ParsedRelationLeaf, ResolvedSources,
 };
 use shardloom_vortex::relational_query::{
     NATIVE_RECURSION_LIMIT, VortexRelationalPlan as Plan, VortexRelationalScan,
@@ -19,6 +19,9 @@ use std::{collections::BTreeMap, fmt::Write as _, sync::Arc};
 mod expressions;
 #[path = "native_runtime_plan_lowering.rs"]
 mod lowering;
+#[cfg(test)]
+#[path = "native_runtime_retained_tests.rs"]
+mod retained_tests;
 
 #[derive(Clone)]
 enum Body {
@@ -30,6 +33,7 @@ enum Body {
 /// produced by SQL lowering. It never stores input rows or an external evaluator.
 #[derive(Clone)]
 pub struct NativeRelationDeclaration {
+    identity: Arc<()>,
     body: Body,
     inputs: BoundRelations,
     pub(crate) sources: BTreeMap<ParsedRelationLeaf, u8>,
@@ -92,6 +96,7 @@ impl NativeRelationDeclaration {
             .and_then(|bytes| bytes.checked_add(child_bytes))
             .ok_or_else(|| failed("native plan metadata size overflow"))?;
         Ok(Self {
+            identity: Arc::default(),
             body: Body::Typed(Arc::new(plan)),
             inputs,
             sources,
@@ -209,6 +214,7 @@ impl NativeRelationDeclaration {
             );
         }
         Ok(Self {
+            identity: Arc::default(),
             body: Body::Sql(Arc::new(sql)),
             inputs,
             sources,
@@ -340,14 +346,19 @@ impl NativeRelationDeclaration {
     /// cleanup; composing a long declaration does not grow the call stack.
     fn instantiate(
         &self,
-        lower_sql: &mut impl FnMut(&Self) -> Result<Plan>,
+        lower_sql: &mut impl FnMut(&Self, Option<&Plan>) -> Result<Plan>,
         cancellation: &CancellationToken,
         lowered_input: Option<(usize, &Plan)>,
+        template: Option<&Plan>,
     ) -> Result<Plan> {
-        let Body::Typed(template) = &self.body else {
-            return lower_sql(self);
+        let template = match template {
+            Some(template) => template,
+            None => match &self.body {
+                Body::Typed(template) => template.as_ref(),
+                Body::Sql(_) => return lower_sql(self, None),
+            },
         };
-        let mut plan = template.as_ref().clone();
+        let mut plan = template.clone();
         let mut pending = vec![(&mut plan, self)];
         while let Some((node, declaration)) = pending.pop() {
             cancellation.check()?;
@@ -368,7 +379,7 @@ impl NativeRelationDeclaration {
                     // them to a multi-input tree. Cancellation or an error must
                     // never drop a partially expanded recursive unary chain.
                     if input.depth > 12 {
-                        *node = lower_sql(input)?;
+                        *node = lower_sql(input, None)?;
                         continue;
                     }
                     match &input.body {
@@ -376,7 +387,7 @@ impl NativeRelationDeclaration {
                             *node = template.as_ref().clone();
                             pending.push((node, input.as_ref()));
                         }
-                        Body::Sql(_) => *node = lower_sql(input)?,
+                        Body::Sql(_) => *node = lower_sql(input, None)?,
                     }
                 }
                 Plan::Project(node) => pending.push((&mut node.input, declaration)),
@@ -404,7 +415,10 @@ impl NativeRelationDeclaration {
                     pending.push((&mut node.relation, declaration));
                     pending.push((&mut node.input, declaration));
                 }
-                Plan::Scan(_) | Plan::Outer => {}
+                Plan::Materialized(_) | Plan::Recursive(_) => {
+                    *node = lower_sql(declaration, Some(node))?;
+                }
+                Plan::Scan(_) | Plan::Outer | Plan::RecursiveInput(_) => {}
                 Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {
                     return Err(failed(
                         "execution-scoped relation is not a reusable declaration",
@@ -421,7 +435,8 @@ impl NativeRelationDeclaration {
         sources: &Arc<ResolvedSources>,
         cancellation: &CancellationToken,
     ) -> Result<Lowered> {
-        self.lower_with_outer(schemas, sources, cancellation, None)
+        let mut memo = LoweringMemo::new(schemas)?;
+        self.lower_with_outer(schemas, sources, cancellation, None, &mut memo)
     }
 
     pub(crate) fn lower_with_outer(
@@ -430,6 +445,7 @@ impl NativeRelationDeclaration {
         sources: &Arc<ResolvedSources>,
         cancellation: &CancellationToken,
         outer: Option<&[String]>,
+        memo: &mut LoweringMemo,
     ) -> Result<Lowered> {
         let mut current = self;
         let mut pending = Vec::new();
@@ -448,7 +464,7 @@ impl NativeRelationDeclaration {
             pending.push((current, index));
             current = child;
         }
-        let mut lowered = current.lower_one(schemas, sources, cancellation, outer, None)?;
+        let mut lowered = current.lower_one(schemas, sources, cancellation, outer, None, memo)?;
         for (parent, index) in pending.into_iter().rev() {
             cancellation.check()?;
             lowered = parent.lower_one(
@@ -457,6 +473,7 @@ impl NativeRelationDeclaration {
                 cancellation,
                 outer,
                 Some((index, lowered)),
+                memo,
             )?;
         }
         Ok(lowered)
@@ -469,6 +486,7 @@ impl NativeRelationDeclaration {
         cancellation: &CancellationToken,
         outer: Option<&[String]>,
         lowered_input: Option<(usize, Lowered)>,
+        memo: &mut LoweringMemo,
     ) -> Result<Lowered> {
         cancellation.check()?;
         if let Body::Sql(sql) = &self.body {
@@ -482,20 +500,49 @@ impl NativeRelationDeclaration {
                     outer: outer.map(<[String]>::to_vec),
                     lowered_input,
                 },
+                memo,
             );
         }
-        let mut lower_sql = |declaration: &Self| {
-            declaration
-                .lower_with_outer(schemas, sources, cancellation, outer)
-                .map(|result| result.plan)
-        };
-        let mut plan = self.instantiate(
-            &mut lower_sql,
+        self.lower_typed(
+            None,
+            schemas,
+            sources,
             cancellation,
+            outer,
             lowered_input
                 .as_ref()
                 .map(|(index, lowered)| (*index, &lowered.plan)),
-        )?;
+            memo,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn lower_typed(
+        &self,
+        template: Option<&Plan>,
+        schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+        sources: &Arc<ResolvedSources>,
+        cancellation: &CancellationToken,
+        outer: Option<&[String]>,
+        lowered_input: Option<(usize, &Plan)>,
+        memo: &mut LoweringMemo,
+    ) -> Result<Lowered> {
+        let mut lower_sql = |declaration: &Self, shared: Option<&Plan>| {
+            match shared {
+                Some(plan) => declaration.lower_shared(
+                    plan,
+                    schemas,
+                    sources,
+                    cancellation,
+                    outer,
+                    lowered_input.filter(|_| std::ptr::eq(declaration, self)),
+                    memo,
+                ),
+                None => declaration.lower_with_outer(schemas, sources, cancellation, outer, memo),
+            }
+            .map(|result| result.plan)
+        };
+        let mut plan = self.instantiate(&mut lower_sql, cancellation, lowered_input, template)?;
         lowering::rebind(&mut plan, sources, cancellation)?;
         let columns = lowering::columns(&mut plan, schemas, cancellation)?;
         Ok(Lowered {
@@ -503,6 +550,86 @@ impl NativeRelationDeclaration {
             columns,
             qualifiers: BTreeMap::new(),
         })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn lower_shared(
+        &self,
+        plan: &Plan,
+        schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+        sources: &Arc<ResolvedSources>,
+        cancellation: &CancellationToken,
+        outer: Option<&[String]>,
+        lowered_input: Option<(usize, &Plan)>,
+        memo: &mut LoweringMemo,
+    ) -> Result<Lowered> {
+        if outer.is_some() {
+            return Err(failed(
+                "retained definitions do not admit parameter-dependent lowering",
+            ));
+        }
+        let (position, kind) = match plan {
+            Plan::Materialized(input) => (Arc::as_ptr(input) as usize, 1),
+            Plan::Recursive(input) => (Arc::as_ptr(input) as usize, 2),
+            _ => {
+                return Err(failed(
+                    "shared lowering requires a retained native definition",
+                ));
+            }
+        };
+        if let Some(lowered) = memo.get(&self.identity, position, kind) {
+            return Ok(lowered);
+        }
+        let lowered = match plan {
+            Plan::Materialized(input) => {
+                let mut lowered = self.lower_typed(
+                    Some(input),
+                    schemas,
+                    sources,
+                    cancellation,
+                    None,
+                    lowered_input,
+                    memo,
+                )?;
+                lowered.plan = Plan::Materialized(Arc::new(lowered.plan.compact_streaming()));
+                lowered
+            }
+            Plan::Recursive(input) => {
+                let anchor = self.lower_typed(
+                    Some(&input.anchor),
+                    schemas,
+                    sources,
+                    cancellation,
+                    None,
+                    lowered_input,
+                    memo,
+                )?;
+                let step = self.lower_typed(
+                    Some(&input.step),
+                    schemas,
+                    sources,
+                    cancellation,
+                    None,
+                    lowered_input,
+                    memo,
+                )?;
+                Lowered {
+                    plan: Plan::Recursive(Arc::new(
+                        shardloom_vortex::relational_query::VortexRelationalRecursive {
+                            identity: input.identity.clone(),
+                            anchor: anchor.plan.compact_streaming(),
+                            step: step.plan.compact_streaming(),
+                            distinct: input.distinct,
+                        },
+                    )),
+                    columns: anchor.columns,
+                    qualifiers: BTreeMap::new(),
+                }
+            }
+            _ => unreachable!("retained variant checked above"),
+        };
+        memo.insert(&self.identity, position, kind, &lowered)?;
+        Ok(lowered)
     }
 
     /// Bind a typed declaration inside the supplied resource owner. The boolean
@@ -745,6 +872,7 @@ struct PlanInspection {
     observation_names: std::collections::BTreeSet<String>,
 }
 
+#[allow(clippy::too_many_lines)] // One exhaustive declaration admission table preserves all operators.
 fn inspect(
     plan: &Plan,
     inputs: &BoundRelations,
@@ -838,13 +966,22 @@ fn inspect(
                 node.request.kind == shardloom_vortex::VortexQueryPrimitiveKind::PivotRows;
             result
         }
+        Plan::Materialized(input) => {
+            validate_retained_template(input, inputs)?;
+            descend(input)?
+        }
+        Plan::Recursive(input) => {
+            validate_retained_template(&input.anchor, inputs)?;
+            validate_retained_template(&input.step, inputs)?;
+            descend(&input.anchor)?.max(descend(&input.step)?)
+        }
         Plan::Join(node) => descend(&node.left)?.max(descend(&node.right)?),
         Plan::AsOfJoin(node) => descend(&node.left)?.max(descend(&node.right)?),
         Plan::Set(node) => descend(&node.left)?.max(descend(&node.right)?),
         Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
             descend(&node.input)?.max(descend(&node.relation)?)
         }
-        Plan::Outer => depth,
+        Plan::Outer | Plan::RecursiveInput(_) => depth,
         Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {
             return Err(failed(
                 "execution-scoped relations cannot be reused as declarations",
@@ -889,10 +1026,65 @@ fn recursive_depth(plan: &Plan, inputs: &BoundRelations) -> Result<usize> {
             Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
                 pending.extend([(&node.input, nested), (&node.relation, nested)]);
             }
-            Plan::Scan(_) | Plan::Outer | Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {}
+            Plan::Materialized(input) => pending.push((input, nested)),
+            Plan::Recursive(node) => pending.extend([(&node.anchor, nested), (&node.step, nested)]),
+            Plan::Scan(_)
+            | Plan::Outer
+            | Plan::RecursiveInput(_)
+            | Plan::ExecutionResult(_)
+            | Plan::DeferredSubquery(_) => {}
         }
     }
     Ok(maximum)
+}
+
+fn validate_retained_template(plan: &Plan, inputs: &BoundRelations) -> Result<()> {
+    let mut pending = vec![plan];
+    while let Some(plan) = pending.pop() {
+        match plan {
+            Plan::Input(index) => {
+                let input = inputs
+                    .get(index)
+                    .ok_or_else(|| failed("native declaration input is not bound"))?;
+                if input.dynamic || input.outer {
+                    return Err(failed(
+                        "retained definitions require static parameter-independent schemas",
+                    ));
+                }
+            }
+            Plan::Outer | Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => {
+                return Err(failed(
+                    "retained definitions require static parameter-independent schemas",
+                ));
+            }
+            Plan::Unary(node) => {
+                if node.request.kind == shardloom_vortex::VortexQueryPrimitiveKind::PivotRows {
+                    return Err(failed(
+                        "retained definitions do not admit data-dependent pivot schemas",
+                    ));
+                }
+                pending.push(&node.input);
+            }
+            Plan::Project(node) => pending.push(&node.input),
+            Plan::Filter(node) => pending.push(&node.input),
+            Plan::Sort(node) => pending.push(&node.input),
+            Plan::Limit(node) => pending.push(&node.input),
+            Plan::Pipeline(node) => pending.push(&node.input),
+            Plan::Aggregate(node) => pending.push(&node.input),
+            Plan::Window(node) => pending.push(&node.input),
+            Plan::GapFill(node) => pending.push(&node.input),
+            Plan::Join(node) => pending.extend([&node.left, &node.right]),
+            Plan::AsOfJoin(node) => pending.extend([&node.left, &node.right]),
+            Plan::Set(node) => pending.extend([&node.left, &node.right]),
+            Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
+                pending.extend([&node.input, &node.relation]);
+            }
+            Plan::Materialized(node) => pending.push(node),
+            Plan::Recursive(node) => pending.extend([&node.anchor, &node.step]),
+            Plan::Scan(_) | Plan::RecursiveInput(_) => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -926,15 +1118,17 @@ mod tests {
         assert!(declaration.sources.values().all(|count| *count == 2));
         let first = declaration
             .instantiate(
-                &mut |_| panic!("no SQL in this template"),
+                &mut |_, _| panic!("no SQL in this template"),
                 &CancellationToken::default(),
+                None,
                 None,
             )
             .unwrap();
         let second = declaration
             .instantiate(
-                &mut |_| panic!("no SQL in this template"),
+                &mut |_, _| panic!("no SQL in this template"),
                 &CancellationToken::default(),
+                None,
                 None,
             )
             .unwrap();

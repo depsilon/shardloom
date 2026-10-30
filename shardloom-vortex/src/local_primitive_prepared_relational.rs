@@ -49,6 +49,8 @@ mod bind;
 mod grouping;
 #[path = "local_primitive_relational_batch_replay.rs"]
 mod replay;
+#[path = "local_primitive_relational_retained.rs"]
+mod retained;
 pub use batch_input::{ExecutedVortexBatchInput, VortexRelationalBatchInput};
 pub(super) use bind::{
     arithmetic_dtype as scalar_arithmetic_dtype, literal_dtype as scalar_literal_dtype,
@@ -107,6 +109,10 @@ const BATCH_ROWS: usize = 2048;
 
 /// The report and certificate describe the same execution as delivered batches.
 pub struct ExecutedVortexRelational {
+    /// Actual action-local retention and recursive frontier work.
+    pub composition: crate::relational_query::VortexRelationalCompositionReport,
+    /// Caller-selected maximum recursive-term evaluations per relation.
+    pub recursion_limit: shardloom_core::RecursionLimit,
     /// Complete metrics from this execution. A writer exposes them only after
     /// successful publication; failed actions never return a completed report.
     pub observations: Vec<CompletedVortexRelationalObservation>,
@@ -312,13 +318,16 @@ struct Node {
 }
 
 impl Node {
-    fn has_observations(&self) -> bool {
+    /// Completion boundaries remain observable even when a consumer requests
+    /// zero rows. In particular, a LIMIT cannot certify a partial fixpoint or
+    /// hide validation of an explicitly retained definition.
+    fn requires_completion(&self) -> bool {
         match &self.kind {
             NodeKind::Pipeline { input, stages } => {
                 stages
                     .iter()
                     .any(|stage| matches!(stage.kind, PipelineKind::Observe(_)))
-                    || input.has_observations()
+                    || input.requires_completion()
             }
             NodeKind::Project { input, .. }
             | NodeKind::Filter { input, .. }
@@ -327,17 +336,21 @@ impl Node {
             | NodeKind::Aggregate { input, .. }
             | NodeKind::Window { input, .. }
             | NodeKind::GapFill { input, .. }
-            | NodeKind::Unary { input, .. } => input.has_observations(),
+            | NodeKind::Unary { input, .. } => input.requires_completion(),
             NodeKind::Join { left, right, .. } | NodeKind::Set { left, right, .. } => {
-                left.has_observations() || right.has_observations()
+                left.requires_completion() || right.requires_completion()
             }
             NodeKind::Subquery {
                 input, relation, ..
             } => {
-                input.has_observations()
-                    || matches!(relation, SubqueryRelation::Bound(relation) if relation.has_observations())
+                input.requires_completion()
+                    || matches!(relation, SubqueryRelation::Bound(relation) if relation.requires_completion())
             }
-            NodeKind::Scan { .. } | NodeKind::Outer | NodeKind::CompletedPivot { .. } => false,
+            NodeKind::Retained(_) | NodeKind::Recursive { .. } => true,
+            NodeKind::Scan { .. }
+            | NodeKind::Outer
+            | NodeKind::RecursiveInput(_)
+            | NodeKind::CompletedPivot { .. } => false,
         }
     }
 
@@ -347,8 +360,11 @@ impl Node {
         use crate::relational_query::VortexRelationalJoinKind as JoinKind;
         match &self.kind {
             NodeKind::CompletedPivot { rows, .. } => Some(*rows as u64),
+            NodeKind::Retained(binding) => binding.upper_rows(sources),
             // Row expansion is not bounded by source cardinality.
-            NodeKind::GapFill { .. } => None,
+            NodeKind::GapFill { .. } | NodeKind::Recursive { .. } | NodeKind::RecursiveInput(_) => {
+                None
+            }
             NodeKind::Outer => Some(1),
             NodeKind::Scan { source, .. } => match source {
                 ScanSource::File(index) => Some(sources[*index].file().row_count()),
@@ -439,6 +455,14 @@ enum ScanSource {
 }
 
 enum NodeKind {
+    Retained(retained::Binding),
+    Recursive {
+        identity: crate::relational_query::VortexRelationalRecursionId,
+        anchor: Box<Node>,
+        step: Box<Node>,
+        distinct: bool,
+    },
+    RecursiveInput(crate::relational_query::VortexRelationalRecursionId),
     Pipeline {
         input: Box<Node>,
         stages: Vec<PipelineStage>,
@@ -887,6 +911,7 @@ enum FileScanBatching {
 
 #[derive(Default)]
 struct Metrics<'a> {
+    composition: retained::State,
     observations: RefCell<Option<ReservedVec<CompletedVortexRelationalObservation>>>,
     #[cfg(feature = "vortex-write")]
     spill: Option<super::native_relational_spill::State>,
@@ -1476,6 +1501,7 @@ impl PreparedVortexRelational {
         context.check_cancelled()?;
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources(context.cancellation())?;
+        metrics.composition.clear()?;
         #[cfg(feature = "vortex-write")]
         let spill = metrics
             .spill
@@ -1507,6 +1533,8 @@ impl PreparedVortexRelational {
             .source_pushdown_report
             .proof_basis
             .push_str(context.float_policy().as_str());
+        let composition = metrics.composition.report();
+        report::append_composition(&mut certificate, &composition, context.recursion_limit());
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(
                 || (vec![], None),
@@ -1517,6 +1545,8 @@ impl PreparedVortexRelational {
             );
         Ok((
             ExecutedVortexRelational {
+                composition,
+                recursion_limit: context.recursion_limit(),
                 observations,
                 _observation_metadata: observation_metadata,
                 primitive_execution,
@@ -1617,6 +1647,16 @@ impl PreparedVortexRelational {
     ) -> Result<()> {
         context.check_cancelled()?;
         match &node.kind {
+            NodeKind::Retained(binding) => {
+                self.run_retained(binding, context, metrics, batch_rows, consume)
+            }
+            NodeKind::Recursive { .. } => Err(failed(
+                "recursive relation must execute through its action-owned retention boundary",
+            )),
+            NodeKind::RecursiveInput(identity) => metrics
+                .composition
+                .frontier(identity)?
+                .run(context, metrics, batch_rows, consume),
             NodeKind::CompletedPivot {
                 operation, result, ..
             } => {

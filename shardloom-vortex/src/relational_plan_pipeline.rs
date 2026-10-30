@@ -51,7 +51,12 @@ fn children(plan: &mut Plan) -> Vec<&mut Plan> {
         Plan::Subquery(node) | Plan::CorrelatedSubquery(node) => {
             vec![&mut node.input, &mut node.relation]
         }
-        Plan::Scan(_)
+        // These immutable shared definitions are compacted independently when
+        // constructed; traversal must preserve their Arc identity.
+        Plan::Materialized(_)
+        | Plan::Recursive(_)
+        | Plan::RecursiveInput(_)
+        | Plan::Scan(_)
         | Plan::Input(_)
         | Plan::Outer
         | Plan::ExecutionResult(_)

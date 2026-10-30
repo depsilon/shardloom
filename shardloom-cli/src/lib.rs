@@ -1015,6 +1015,30 @@ fn parse_float_policy(
     Ok((remaining, policy))
 }
 
+fn parse_recursion_limit(
+    args: Vec<String>,
+) -> Result<(Vec<String>, Option<shardloom_core::RecursionLimit>), ShardLoomError> {
+    let mut remaining = Vec::with_capacity(args.len());
+    let mut limit = None;
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        if arg != "--recursion-limit" {
+            remaining.push(arg);
+            continue;
+        }
+        if limit.is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "--recursion-limit may be declared only once".into(),
+            ));
+        }
+        let value = args.next().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("--recursion-limit requires a positive integer".into())
+        })?;
+        limit = Some(shardloom_core::RecursionLimit::parse(&value)?);
+    }
+    Ok((remaining, limit))
+}
+
 fn normalize_help_aliases(args: Vec<String>) -> Vec<String> {
     let Some(command) = args.first() else {
         return args;
@@ -1063,6 +1087,23 @@ fn run_with_session_and_context(
     context: &command_context::CommandContext<'_>,
 ) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
+    let (args, requested_recursion) = match parse_recursion_limit(args) {
+        Ok(value) => value,
+        Err(error) => {
+            return emit_error("cli", requested_format, "invalid recursion limit", &error);
+        }
+    };
+    let requested_recursion = match context.requested_recursion_limit(requested_recursion) {
+        Ok(value) => value,
+        Err(error) => {
+            return emit_error(
+                "cli",
+                requested_format,
+                "recursion limit admission failed",
+                &error,
+            );
+        }
+    };
     let (args, requested_policy) = match parse_float_policy(args) {
         Ok(value) => value,
         Err(error) => {
@@ -1081,7 +1122,9 @@ fn run_with_session_and_context(
         }
     };
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    let default_owner = match execution_session.command_owner(requested_policy) {
+    let default_owner = match execution_session
+        .command_owner_with_policies(requested_policy, requested_recursion)
+    {
         Ok(owner) => owner,
         Err(error) => {
             return emit_error(
@@ -1093,7 +1136,7 @@ fn run_with_session_and_context(
         }
     };
     #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
-    let _ = requested_policy;
+    let _ = (requested_policy, requested_recursion);
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let default_cancellation = shardloom_exec::compute_pool::CancellationToken::default();
     #[cfg(all(feature = "vortex-local-primitives", unix))]

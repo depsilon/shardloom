@@ -117,6 +117,8 @@ class UserSurfaceGraduationMatrixTests(unittest.TestCase):
         self.assertEqual(by_id["shared_native_workflow"]["runtime_route"], "native_vortex_query")
         self.assertIn("from_rows", by_id["shared_native_workflow"]["context_methods"])
         self.assertIn("public_workflow_run", by_id["shared_native_workflow"]["client_methods"])
+        self.assertIn("recursion_limit", by_id["context_construction"]["context_methods"])
+        self.assertIn("recursion_limit", by_id["context_construction"]["client_methods"])
 
     def test_validator_rejects_missing_public_python_method_coverage(self) -> None:
         module = load_graduation_module()

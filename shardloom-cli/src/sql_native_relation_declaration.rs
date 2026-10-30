@@ -77,6 +77,7 @@ impl NativeSqlDeclaration {
     }
 
     pub(crate) fn validate_inputs(&self, inputs: &BoundRelations) -> NativeResult<()> {
+        super::retained::validate_query(&self.query, inputs)?;
         scalar::validate_bound_query(&self.query, inputs)
     }
 
@@ -96,6 +97,7 @@ impl NativeSqlDeclaration {
         schemas: &mut VortexRelationalPreparation<'_>,
         cancellation: &CancellationToken,
         state: NativeSqlLowering,
+        memo: &mut super::LoweringMemo,
     ) -> NativeResult<Lowered> {
         let mut resolver =
             |leaf: &ParsedRelationLeaf, _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
@@ -107,6 +109,8 @@ impl NativeSqlDeclaration {
             };
         let mut lowerer = Lowerer {
             schemas,
+            memo,
+            frontier: None,
             serial: 0,
             resolve_source: &mut resolver,
             declaration: Some(dynamic::Declaration {
@@ -146,8 +150,11 @@ pub(crate) fn prune_bound_plan(
                 "source resolution is not part of bound-plan pruning",
             ))
         };
+    let mut memo = super::LoweringMemo::new(schemas)?;
     let mut lowerer = Lowerer {
         schemas,
+        memo: &mut memo,
+        frontier: None,
         serial: 0,
         resolve_source: &mut resolver,
         declaration: None,

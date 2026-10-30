@@ -169,6 +169,16 @@ fn scans(
             };
             Ok(input && relation)
         }
-        NodeKind::CompletedPivot { .. } | NodeKind::Outer => Ok(true),
+        NodeKind::Retained(binding) => {
+            // Each explicit definition needs its complete input independently
+            // of every consuming branch's projection or output prefix.
+            scans(&mut *binding.node()?, None, visit)
+        }
+        NodeKind::Recursive { anchor, step, .. } => {
+            let anchor = scans(anchor, None, visit)?;
+            let step = scans(step, None, visit)?;
+            Ok(anchor && step)
+        }
+        NodeKind::CompletedPivot { .. } | NodeKind::Outer | NodeKind::RecursiveInput(_) => Ok(true),
     }
 }

@@ -121,6 +121,16 @@ pub enum VortexRelationalPlan {
     Pipeline(Box<VortexRelationalPipeline>),
     Aggregate(Box<VortexRelationalAggregate>),
     Unary(Box<VortexRelationalUnary>),
+    /// Retain this immutable definition once per action, on first demand.
+    /// Cloning the Arc shares the definition and its action-local result.
+    /// A different Arc is a different declaration, even for equal input plans.
+    Materialized(std::sync::Arc<VortexRelationalPlan>),
+    /// Complete an anchor/frontier iteration with native operators and storage.
+    /// Repeated references to the same Arc share one result within the action.
+    Recursive(std::sync::Arc<VortexRelationalRecursive>),
+    /// The immediately preceding frontier of its enclosing recursive definition.
+    /// Names are declared for frontend lowering; native binding verifies them.
+    RecursiveInput(VortexRelationalRecursiveInput),
     /// A single-use native relation owned by the current schema-binding execution.
     /// Only the native preparation API can create this reference; it is invalid
     /// outside the execution that resolved its schema.
@@ -128,6 +138,88 @@ pub enum VortexRelationalPlan {
     /// An execution-scoped declaration lowered separately for each outer row.
     /// Valid only as the immediate relation of a correlated subquery.
     DeferredSubquery(VortexRelationalDeferredRef),
+}
+
+/// Identity of one lexical recursive input. It never carries data or resources.
+#[derive(Debug, Clone, Default)]
+pub struct VortexRelationalRecursionId(std::sync::Arc<()>);
+
+impl PartialEq for VortexRelationalRecursionId {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for VortexRelationalRecursionId {}
+
+/// A schema-stable recursive relation. The step must reference its own input
+/// exactly once. `distinct` applies complete-row UNION identity across all steps.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalRecursive {
+    pub identity: VortexRelationalRecursionId,
+    pub anchor: VortexRelationalPlan,
+    pub step: VortexRelationalPlan,
+    pub distinct: bool,
+}
+
+/// A lexical frontier reference, invalid outside its own recursive step.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalRecursiveInput {
+    pub identity: VortexRelationalRecursionId,
+    pub columns: Vec<String>,
+}
+
+/// Completed action-local retention and recursive work, with no inferred timing.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VortexRelationalCompositionReport {
+    pub materialized_relations: u64,
+    pub materialized_reuses: u64,
+    pub materialized_rows: u64,
+    pub recursive_relations: u64,
+    pub recursive_reuses: u64,
+    pub recursive_iterations: u64,
+    pub recursive_candidate_rows: u64,
+    pub recursive_output_rows: u64,
+    pub recursive_peak_frontier_rows: u64,
+    pub retained_batches: u64,
+    pub retained_payload_bytes_copied: u64,
+    pub spilled_relations: u64,
+}
+
+impl VortexRelationalCompositionReport {
+    /// Stable evidence names shared by certificates and public execution reports.
+    #[must_use]
+    pub const fn counters(&self) -> [(&'static str, u64); 12] {
+        [
+            (
+                "relational_materialized_relations",
+                self.materialized_relations,
+            ),
+            ("relational_materialized_reuses", self.materialized_reuses),
+            ("relational_materialized_rows", self.materialized_rows),
+            ("relational_recursive_relations", self.recursive_relations),
+            ("relational_recursive_reuses", self.recursive_reuses),
+            ("relational_recursive_iterations", self.recursive_iterations),
+            (
+                "relational_recursive_candidate_rows",
+                self.recursive_candidate_rows,
+            ),
+            (
+                "relational_recursive_output_rows",
+                self.recursive_output_rows,
+            ),
+            (
+                "relational_recursive_peak_frontier_rows",
+                self.recursive_peak_frontier_rows,
+            ),
+            ("relational_retained_batches", self.retained_batches),
+            (
+                "relational_retained_payload_bytes_copied",
+                self.retained_payload_bytes_copied,
+            ),
+            ("relational_spilled_relations", self.spilled_relations),
+        ]
+    }
 }
 
 /// Opaque, single-use declaration reference for per-parameter schema binding.
