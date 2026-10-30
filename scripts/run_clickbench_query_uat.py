@@ -34,7 +34,8 @@ from query_timing_report import query_phase_timings, timing_totals, write_timing
 
 
 _EXECUTION_REPORT_PREFIXES = (
-    "local_primitive_", "native_source_demand_", "resident_", "relational_",
+    "local_primitive_", "native_source_demand_", "native_source_ranked_",
+    "native_input_ordering_", "resident_", "relational_",
 )
 _EXECUTION_REPORT_EXACT_KEYS = {
     "fallback_attempted",
