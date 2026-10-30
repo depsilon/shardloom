@@ -22,9 +22,10 @@ impl Binder<'_> {
             (Side::Left, left, &spec.left_keys),
             (Side::Right, right, &spec.right_keys),
         ] {
-            self.narrow_source_demand(
-                input,
-                keys.iter().map(String::as_str).chain(
+            let mut needed = keys
+                .iter()
+                .map(String::as_str)
+                .chain(
                     spec.columns
                         .iter()
                         .chain(
@@ -35,8 +36,19 @@ impl Binder<'_> {
                         .filter_map(|(column_side, name)| {
                             (*column_side == side).then_some(name.as_str())
                         }),
-                ),
-            )?;
+                )
+                .peekable();
+            // A join may consume only this side's row population. Keep one
+            // already-bound input field for native record ownership and spill.
+            // Bind it here so filters/windows keep its real dependencies, while
+            // computed projections still control their own input demand.
+            let row_field = if needed.peek().is_none() && self.scan_accepts_source_demand(input) {
+                self.charge_fields(1)?;
+                input.fields.first().map(|(name, _)| name.clone())
+            } else {
+                None
+            };
+            self.narrow_source_demand(input, needed.chain(row_field.as_deref()))?;
         }
         Ok(())
     }
@@ -107,6 +119,29 @@ impl Binder<'_> {
                 input.fields.clone_from(&spec.fields);
                 self.narrow_source_demand(child, super::window::input_columns(spec))?;
             }
+            NodeKind::Join { left, right, spec } => {
+                self.charge_fields(spec.fields.len())?;
+                let needed: BTreeSet<_> = needed.into_iter().collect();
+                // COUNT(*) still consumes actual matches. Preserve one declared
+                // output instead of introducing an empty native row record.
+                let keep = |index: usize, name: &str| {
+                    needed.contains(name) || (needed.is_empty() && index == 0)
+                };
+                let mut index = 0;
+                spec.columns.retain(|_| {
+                    let retain = keep(index, &spec.fields[index].0);
+                    index += 1;
+                    retain
+                });
+                let mut index = 0;
+                spec.fields.retain(|(name, _)| {
+                    let retain = keep(index, name);
+                    index += 1;
+                    retain
+                });
+                input.fields.clone_from(&spec.fields);
+                self.narrow_join_inputs(left, right, spec)?;
+            }
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
         }
@@ -123,6 +158,9 @@ impl Binder<'_> {
             | NodeKind::Limit { input, .. }
             | NodeKind::Project { input, .. }
             | NodeKind::Window { input, .. } => self.scan_accepts_source_demand(input),
+            NodeKind::Join { left, right, .. } => {
+                self.scan_accepts_source_demand(left) && self.scan_accepts_source_demand(right)
+            }
             _ => false,
         }
     }

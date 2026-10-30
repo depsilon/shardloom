@@ -30,6 +30,9 @@ mod collection_tests;
 #[path = "local_primitive_relational_source_demand_window_tests.rs"]
 mod window_tests;
 
+#[path = "local_primitive_relational_source_demand_join_tests.rs"]
+mod join_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {

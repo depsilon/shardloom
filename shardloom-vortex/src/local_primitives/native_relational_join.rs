@@ -406,6 +406,11 @@ impl Spec {
         )
         .map_err(vortex_error)?
         .into_array();
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.join_output_rows += rows as u64;
+            counts.join_output_cells += (rows * self.fields.len()) as u64;
+        });
         consume(array)?;
         context.check_cancelled()?;
         *written = next;
