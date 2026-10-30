@@ -362,6 +362,13 @@ The architecture guide explains [work scheduling — PulseWeave — and bounded 
 tasks](https://shardloom.io/field-guide/compute-flow/#where-the-differentiators-apply),
 including which controls are active and which are only reported as available.
 
+## Autonomous development and shared reuse
+
+The autonomous development framework used to build ShardLoom was translated into the
+sister project [Noetloom](https://github.com/depsilon/noetloom) for shared reuse across
+projects. Noetloom carries forward project-specific guidance, phased implementation,
+verification, repair, and continuity across sessions as a portable development method.
+
 ## Explore the Field Guide
 
 | Start with | What you will find |
