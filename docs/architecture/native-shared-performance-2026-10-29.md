@@ -203,8 +203,45 @@ engine-time decision. No gain follows from this contract alone.
 
 ## Candidate 3: controlled reader buffer transfer at shared intake
 
-The demanded local reader currently hands an owned Arrow batch to
-`ResidentMemorySource::from_arrow_in_context`, which validates it and copies every
+Disposition: **retained locally**, pending the combined integration and hosted
+review gates. Its single complete pass records **14.862644046 engine seconds**,
+against the accepted candidate-2 baseline of **15.070406716**, a reduction of
+0.207762670 seconds. All 347 queries and 12,565 independent result-row comparisons
+pass. This becomes the next candidate's accepted comparison baseline.
+
+Actual transfers activate in 344 cases. Across those repeated query observations,
+intake copying falls from 7,460,151,868 to 252,350,010 visible buffer bytes;
+7,207,801,858 bytes transfer in 131,728 regions with 7,207,825,036 bytes of complete
+allocation capacity credited. Every case conserves baseline copied bytes as
+candidate copied plus transferred bytes. Source columns, row groups, decoded
+rows, compressed bytes and read requests remain unchanged. These are summed
+intake observations, not unique source bytes or whole-query allocation savings.
+
+The grouped case `aggregate_optional_value_group_key_category_sum_coalesce_all`
+increases from 0.041607375 to 0.065333083 engine seconds, a 0.023725708-second
+diagnostic regression. Its transfer activates and its source reads are unchanged;
+the observation does not establish a cause. Preserve it and all family/case
+movement without a repeat. No family regression flag fires, and the complete
+total passes the maintainer's binary rule. Single observations establish neither
+statistical confidence nor a controlled competitor ranking.
+
+Final acceptance includes 6,511 native workspace tests (35 existing
+opt-in cases ignored), 3,289 default workspace tests, strict lint in both
+configurations, formatting, 180 public-interface comparisons over 7,950 complete
+rows, and 261 isolated installed-package tests with no failures or skips and a
+verified uninstall. Every Parquet public interface records actual transfer;
+Arrow IPC and native Vortex controls retain their existing paths.
+
+Retain all earlier attempts: fixture assumptions about tiny-buffer eligibility,
+an observer-default regression corrected before final acceptance, lint failures,
+the insufficient low-memory test budget, and one incorrectly filtered invocation
+that executed zero tests and receives no verification credit. The final budget
+test proves public validated-copy admission is unchanged while controlled
+transfers reserve their additional structural metadata before cloning handles.
+The performance disposition above comes from the separate complete-cohort pass.
+
+Before this candidate, the demanded local reader handed an owned Arrow batch to
+`ResidentMemorySource::from_arrow_in_context`, which validated it and copied every
 referenced buffer through the shared credited allocator. The existing ingest
 owner in `ingest_arrow_ownership.rs` already admits exact per-buffer transfer
 from a controlled Parquet reader. Reuse that owner and its ownership policy at
@@ -237,6 +274,18 @@ copied-byte meanings and distinguish these Arrow-boundary observations from the
 separate encoded-exchange transfer report. Ordinary external intake reports zero
 transferred bytes. Instrumentation must measure the ownership decision itself,
 not infer transfer from reduced memory, elapsed time or source format.
+
+The query entry into the shared admission owner uses fixed counters without the
+ingest profiler's repeated-region map. It therefore needs no address index or
+retained original-buffer clones for observation. Existing ingest profiling keeps
+its repeat semantics. For controlled transfers, before cloning Arrow array
+metadata, account for the actual number of backing-buffer handles in variadic
+string/binary views, including nested views; a schema-node allowance alone cannot
+bound those vectors. Share that structural credit with copied and transferred
+buffers for their full lifetime. Public validated-copy intake retains its
+existing schema-metadata admission. Tiny batches can legitimately remain copies
+under the same capacity and uniqueness rules. Mechanism tests compare copied plus transferred bytes to
+the complete referenced regions, and require activation on admitted fixtures.
 
 Fresh real-reader fixtures must include primitive widths, NULL/Boolean bitmaps,
 strings and binary, decimal, temporal, list and struct payloads, dictionary and

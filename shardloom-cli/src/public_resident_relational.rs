@@ -907,6 +907,10 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_logical_bytes", input.input_logical_bytes.to_string()),
         ("native_input_payload_bytes_copied", input.intake_payload_bytes_copied.to_string()),
         ("native_input_columnar_buffer_bytes_copied", input.intake_columnar_buffer_bytes_copied.to_string()),
+        ("native_input_columnar_buffer_bytes_transferred", input.intake_columnar_buffer_bytes_transferred.to_string()),
+        ("native_input_columnar_buffer_regions_transferred", input.intake_columnar_buffer_regions_transferred.to_string()),
+        ("native_input_columnar_allocation_bytes_transferred", input.intake_columnar_allocation_bytes_transferred.to_string()),
+        ("native_input_columnar_ownership_scope", "actual_intake_decisions;copied_and_transferred_visible_buffer_bytes;transferred_complete_allocation_capacity_reserved_until_last_owner;private_reader_provenance_and_per_buffer_uniqueness_alignment_offset_capacity_proof;public_producers_copy;decoder_internals_and_later_operator_copies_excluded;not_rss_or_whole_query_zero_copy".into()),
         ("native_input_max_batch_rows", input.max_batch_rows.to_string()),
         ("native_input_max_retained_batches", input.max_retained_input_batches.to_string()),
         ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),
@@ -959,7 +963,7 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
             ),
             (
                 "native_source_demand_decoder_memory_scope",
-                "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copies_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound",
+                "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copied_or_transferred_buffers_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound",
             ),
             ("native_source_demand_prepared_input_bytes_written", "0"),
             (

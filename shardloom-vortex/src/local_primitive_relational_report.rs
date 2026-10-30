@@ -128,6 +128,13 @@ pub(super) fn certificate(
         metrics.spillable_unary_lookup_blocks.get(),
         metrics.spillable_unary_reader_opens.get(),
     );
+    let ownership_proof = input.map_or_else(String::new, |input| format!(
+        "intake_columnar_buffer_bytes_copied={} intake_columnar_buffer_bytes_transferred={} intake_columnar_buffer_regions_transferred={} intake_columnar_allocation_bytes_transferred={};actual_boundary_decisions;private_reader_transfer_requires_unique_standard_allocation_and_full_capacity_credit;public_producers_copy;not_decoder_rss_or_whole_query_zero_copy",
+        input.intake_columnar_buffer_bytes_copied,
+        input.intake_columnar_buffer_bytes_transferred,
+        input.intake_columnar_buffer_regions_transferred,
+        input.intake_columnar_allocation_bytes_transferred,
+    ));
     let replay_proof = input.map_or_else(String::new, |input| format!(
         "streaming_replay_sources={} streaming_replay_passes={} streaming_replay_rows={} streaming_replay_batches_detached={} streaming_replay_rows_detached={} streaming_replay_buffer_bytes_copied={} streaming_replay_spilled_sources={} streaming_replay_prefilled_sources={}",
         input.replay_sources, input.replay_passes, input.replay_rows,
@@ -214,7 +221,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_aggregate_quantile_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {ordering_proof} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_aggregate_quantile_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {ordering_proof} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof} {ownership_proof}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),

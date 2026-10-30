@@ -258,6 +258,147 @@ fn direct_columnar_borrowed_context_rejects_another_session_before_intake() {
 }
 
 #[test]
+fn columnar_view_metadata_is_admitted_before_vectors_and_follows_last_buffer() {
+    use arrow_array::builder::StringViewBuilder;
+    use arrow_ownership::ArrowOwnershipPolicy::{ControlledParquet, ValidatedCopy};
+    let make_input = || {
+        let mut builder = StringViewBuilder::new();
+        for n in 0..257 {
+            let text = format!("separate backing {n:03} λ");
+            let length = u32::try_from(text.len()).unwrap();
+            let block = builder.append_block(arrow_buffer::Buffer::from_vec(text.into_bytes()));
+            builder.try_append_view(block, 0, length).unwrap();
+        }
+        batch(vec![("views", Arc::new(builder.finish()))])
+    };
+    for policy in [ValidatedCopy, ControlledParquet] {
+        // Existing copied payloads include 256-byte alignment capacity per
+        // backing buffer. This grant admits those copies, but not the new
+        // controlled transfer's additional per-buffer structural allowance.
+        let limited = ResidentVortexSession::new(96 << 10, 1).unwrap();
+        let result =
+            limited.with_native_execution_context(&CancellationToken::default(), |context| {
+                ResidentMemorySource::from_arrow_with_ownership(
+                    &limited,
+                    make_input(),
+                    context,
+                    true,
+                    policy,
+                )
+            });
+        if policy == ControlledParquet {
+            assert!(
+                result
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("memory reservation denied")
+            );
+        } else {
+            // Public Arrow retains its prior copy and schema-metadata budget.
+            let source = result.unwrap();
+            assert_eq!(source.row_count(), 257);
+            assert_eq!(source.intake_columnar_buffer_bytes_transferred(), 0);
+            drop(source);
+        }
+        assert_eq!(limited.snapshot().memory.reserved_bytes, 0);
+        let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+        let memory = session.shared_memory_pool();
+        let source = session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                ResidentMemorySource::from_arrow_with_ownership(
+                    &session,
+                    make_input(),
+                    context,
+                    true,
+                    policy,
+                )
+            })
+            .unwrap();
+        let metadata_bytes = source.0.metadata.as_ref().unwrap().bytes();
+        if policy == ControlledParquet {
+            assert!(metadata_bytes >= 257 * 512);
+        } else {
+            assert!(metadata_bytes < 257 * 512);
+        }
+        let result = source
+            .prepare_projection(&["views"], None, None)
+            .unwrap()
+            .execute()
+            .unwrap();
+        let values: serde_json::Value = serde_json::from_str(result.values_json.value()).unwrap();
+        assert_eq!(
+            values,
+            serde_json::Value::Array(
+                (0..257)
+                    .map(|n| serde_json::json!({"views":format!("separate backing {n:03} λ")}))
+                    .collect()
+            )
+        );
+        let witness = source.batch_release_witness().unwrap();
+        let field = source.0.array.slots()[1].as_ref().unwrap();
+        let retained = field.buffers()[0].clone();
+        drop((result, source, session));
+        assert!(witness.upgrade().is_some());
+        assert!(memory.snapshot().reserved_bytes >= metadata_bytes);
+        drop(retained);
+        assert!(witness.upgrade().is_none());
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn controlled_columnar_intake_retains_floating_decimal_and_metadata_validation() {
+    use arrow_ownership::ArrowOwnershipPolicy::ControlledParquet;
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    for input in [
+        batch(vec![(
+            "invalid",
+            Arc::new(Float64Array::from(vec![f64::NAN])),
+        )]),
+        batch(vec![(
+            "invalid",
+            Arc::new(
+                Decimal128Array::from(vec![999])
+                    .with_precision_and_scale(2, 0)
+                    .unwrap(),
+            ),
+        )]),
+        batch(vec![(
+            "invalid",
+            Arc::new(TimestampMicrosecondArray::from(vec![0]).with_timezone("ShardLoom/Invalid")),
+        )]),
+    ] {
+        let result =
+            session.with_native_execution_context(&CancellationToken::default(), |context| {
+                ResidentMemorySource::from_arrow_with_ownership(
+                    &session,
+                    input,
+                    context,
+                    true,
+                    ControlledParquet,
+                )
+            });
+        assert!(result.is_err());
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+    }
+    let source = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            ResidentMemorySource::from_arrow_with_ownership(
+                &session,
+                batch(vec![("valid", Arc::new(Int64Array::from(vec![7])))]),
+                context,
+                true,
+                ControlledParquet,
+            )
+        })
+        .unwrap();
+    assert_eq!(source.row_count(), 1);
+    drop(source);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
 fn direct_columnar_denial_and_cancellation_release_credits_and_allow_retry() {
     let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let valid = || batch(vec![("n", Arc::new(Int64Array::from(vec![Some(7), None])))]);

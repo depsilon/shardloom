@@ -21,13 +21,23 @@ pub(crate) enum ArrowOwnershipPolicy {
     ControlledParquet,
 }
 
-#[derive(Default)]
 struct CopyObservation {
     counts: ArrowOwnershipCounts,
     // The values keep every observed region alive until this synchronous batch
     // admission finishes. Addresses alone can be recycled (including temporary
     // buffers synthesized by Array::to_data) and cannot identify repeated work.
-    held: std::collections::HashMap<(usize, usize), arrow_buffer::Buffer>,
+    // Query intake needs exact copy/transfer counts, but not repeat profiling.
+    // Leave the map absent there: fixed counters need no observer heap owner.
+    held: Option<std::collections::HashMap<(usize, usize), arrow_buffer::Buffer>>,
+}
+
+impl Default for CopyObservation {
+    fn default() -> Self {
+        Self {
+            counts: ArrowOwnershipCounts::default(),
+            held: Some(std::collections::HashMap::new()),
+        }
+    }
 }
 
 impl CopyObservation {
@@ -76,7 +86,10 @@ impl CopyObservation {
                 .checked_add(charge)
                 .ok_or_else(|| ownership_error("Arrow observed allocation charge overflow"))?;
         }
-        match self.held.entry((buffer.as_ptr().addr(), buffer.len())) {
+        let Some(held) = &mut self.held else {
+            return Ok(());
+        };
+        match held.entry((buffer.as_ptr().addr(), buffer.len())) {
             std::collections::hash_map::Entry::Vacant(entry) => {
                 entry.insert(buffer.clone());
             }
@@ -140,6 +153,7 @@ fn buffer_copy_allocation_bytes(length: usize) -> Result<u64> {
         .ok_or_else(|| ownership_error("Arrow copy allocation overflow"))
 }
 
+#[cfg(test)]
 pub(crate) fn copy_batch(batch: RecordBatch, allocator: &dyn HostAllocator) -> Result<RecordBatch> {
     copy_batch_observed(batch, allocator, None)
 }
@@ -148,7 +162,7 @@ pub(crate) fn copy_batch(batch: RecordBatch, allocator: &dyn HostAllocator) -> R
 /// changing ownership admission. No original owner survives the returned batch.
 pub(crate) fn copy_batch_profiled(
     batch: RecordBatch,
-    allocator: &crate::owned_buffers::ReservedHostAllocator,
+    allocator: &dyn HostAllocator,
 ) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
     let mut observation = CopyObservation::default();
     let retained = copy_batch_observed(batch, allocator, Some(&mut observation))?;
@@ -159,13 +173,40 @@ pub(crate) fn copy_batch_profiled(
 /// adoption. Every unsuitable buffer still receives the existing credited copy.
 pub(crate) fn admit_batch_profiled(
     batch: RecordBatch,
-    allocator: &crate::owned_buffers::ReservedHostAllocator,
+    allocator: &dyn HostAllocator,
     policy: ArrowOwnershipPolicy,
 ) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
     if policy == ArrowOwnershipPolicy::ValidatedCopy {
         return copy_batch_profiled(batch, allocator);
     }
-    let mut observation = CopyObservation::default();
+    admit_batch_observed(batch, allocator, CopyObservation::default())
+}
+
+/// Actual ownership decisions without the ingest profiler's repeated-region map.
+/// The query's existing structural owner covers array wrappers; these counters
+/// are fixed-size and never retain an original buffer or allocate an index.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn admit_batch_counted(
+    batch: RecordBatch,
+    allocator: &dyn HostAllocator,
+    policy: ArrowOwnershipPolicy,
+) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
+    let mut observation = CopyObservation {
+        counts: ArrowOwnershipCounts::default(),
+        held: None,
+    };
+    if policy == ArrowOwnershipPolicy::ValidatedCopy {
+        let retained = copy_batch_observed(batch, allocator, Some(&mut observation))?;
+        return Ok((retained, observation.counts));
+    }
+    admit_batch_observed(batch, allocator, observation)
+}
+
+fn admit_batch_observed(
+    batch: RecordBatch,
+    allocator: &dyn HostAllocator,
+    mut observation: CopyObservation,
+) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
     let (schema, columns, rows) = batch.into_parts();
     let columns = columns
         .into_iter()
@@ -407,7 +448,7 @@ fn ownership_error(message: &str) -> ShardLoomError {
 
 /// Copied bytes at this boundary, including validity, offsets and every referenced
 /// child region. Unlike the allocation charge, this excludes alignment headroom.
-#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
 pub(crate) fn batch_copy_buffer_bytes(batch: &RecordBatch) -> Result<u64> {
     fn array_bytes(array: &ArrayRef) -> Result<u64> {
         let data = array.to_data();

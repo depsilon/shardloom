@@ -172,6 +172,12 @@ pub struct ExecutedVortexBatchInput {
     /// Referenced Arrow buffer bytes copied into the shared native allocation.
     /// Caller storage and metadata are excluded; this is not process RSS.
     pub intake_columnar_buffer_bytes_copied: u64,
+    /// Visible bytes and regions adopted from the private reader, after unique
+    /// standard-allocation proof. Public producers always retain copy intake.
+    pub intake_columnar_buffer_bytes_transferred: u64,
+    pub intake_columnar_buffer_regions_transferred: u64,
+    /// Complete retained allocation capacities, not visible length or RSS.
+    pub intake_columnar_allocation_bytes_transferred: u64,
     pub max_batch_rows: usize,
     pub max_retained_input_batches: usize,
     pub max_retained_input_logical_bytes: u64,
@@ -261,6 +267,9 @@ impl Default for ExecutedVortexBatchInput {
             input_logical_bytes: 0,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             max_batch_rows: 0,
             max_retained_input_batches: 0,
             max_retained_input_logical_bytes: 0,
@@ -495,6 +504,18 @@ impl<'p, 'i> Execution<'p, 'i> {
             &mut report.intake_columnar_buffer_bytes_copied,
             source.intake_columnar_buffer_bytes_copied(),
         )?;
+        checked_add(
+            &mut report.intake_columnar_buffer_bytes_transferred,
+            source.intake_columnar_buffer_bytes_transferred(),
+        )?;
+        checked_add(
+            &mut report.intake_columnar_buffer_regions_transferred,
+            source.intake_columnar_buffer_regions_transferred(),
+        )?;
+        checked_add(
+            &mut report.intake_columnar_allocation_bytes_transferred,
+            source.intake_columnar_allocation_bytes_transferred(),
+        )?;
         report.max_batch_rows = report.max_batch_rows.max(rows);
         report.max_retained_input_batches = 1;
         report.max_retained_input_logical_bytes =
@@ -518,16 +539,8 @@ impl<'p, 'i> Execution<'p, 'i> {
                 *owner = Some(source.open(context)?);
             }
             let reader = owner.as_mut().expect("local reader initialized");
-            if let Some(batch) = reader.next(context)? {
-                return Ok((
-                    Some(ResidentMemorySource::from_arrow_in_context(
-                        &self.prepared.session,
-                        batch,
-                        context,
-                        true,
-                    )?),
-                    false,
-                ));
+            if let Some(batch) = reader.next_native(&self.prepared.session, context)? {
+                return Ok((Some(batch), false));
             }
             let observed = reader.report()?;
             // Drop every provider cursor before the operation's final I/O drain.

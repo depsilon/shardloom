@@ -5,7 +5,7 @@ use super::{
 };
 use crate::resident_session::{NativeExecutionContext, ResidentVortexSession};
 use crate::vortex_ingest::{arrow_ownership, nested};
-use arrow_array::RecordBatch;
+use arrow_array::{RecordBatch, cast::AsArray as _};
 use shardloom_core::Result;
 use shardloom_exec::compute_pool::CancellationToken;
 use std::sync::Arc;
@@ -41,6 +41,24 @@ impl ResidentMemorySource {
         context: &NativeExecutionContext<'_>,
         is_batch: bool,
     ) -> Result<Self> {
+        Self::from_arrow_with_ownership(
+            session,
+            batch,
+            context,
+            is_batch,
+            arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
+        )
+    }
+
+    // Only the private decoder adapter grants ControlledParquet. A public
+    // producer's format label or caller-owned RecordBatch cannot grant it.
+    pub(crate) fn from_arrow_with_ownership(
+        session: &ResidentVortexSession,
+        batch: RecordBatch,
+        context: &NativeExecutionContext<'_>,
+        is_batch: bool,
+        ownership: arrow_ownership::ArrowOwnershipPolicy,
+    ) -> Result<Self> {
         session.validate_execution_context(context)?;
         let schema = batch.schema();
         let mut metadata = crate::native_payload_schema::reserve_names(
@@ -62,6 +80,17 @@ impl ResidentMemorySource {
                 )?)
                 .ok_or_else(|| memory_error("columnar schema metadata overflow"))?;
         }
+        // Controlled transfers may retain arbitrarily many backing buffers at a
+        // single view schema node. Charge their handle vectors before to_data
+        // clones them, retaining credit with every imported buffer/child. Public
+        // validated-copy intake keeps its existing schema metadata admission.
+        if ownership == arrow_ownership::ArrowOwnershipPolicy::ControlledParquet {
+            for column in batch.columns() {
+                metadata_bytes = metadata_bytes
+                    .checked_add(variadic_metadata_bytes(column.as_ref())?)
+                    .ok_or_else(|| memory_error("columnar buffer metadata overflow"))?;
+            }
+        }
         metadata.resize(metadata_bytes)?;
         for (field, column) in schema.fields().iter().zip(batch.columns()) {
             context.check_cancelled()?;
@@ -72,13 +101,13 @@ impl ResidentMemorySource {
                 context.float_policy(),
             )?;
         }
-        let copied = arrow_ownership::batch_copy_buffer_bytes(&batch)?;
         let metadata = Arc::new(metadata);
         let allocator = crate::owned_buffers::with_shared_credit(
             session.native_allocator(),
             Arc::clone(&metadata),
         );
-        let retained = arrow_ownership::copy_batch(batch, allocator.as_ref())?;
+        let (retained, counts) =
+            arrow_ownership::admit_batch_counted(batch, allocator.as_ref(), ownership)?;
         context.check_cancelled()?;
         let schema = crate::native_temporal::arrow::schema(schema.as_ref())?;
         let array = context
@@ -99,13 +128,93 @@ impl ResidentMemorySource {
             session: session.clone(),
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
-            intake_columnar_buffer_bytes_copied: copied,
+            intake_columnar_buffer_bytes_copied: counts.copied_buffer_bytes,
+            intake_columnar_buffer_bytes_transferred: counts.transferred_buffer_bytes,
+            intake_columnar_buffer_regions_transferred: counts.transferred_buffer_regions,
+            intake_columnar_allocation_bytes_transferred: counts.transferred_allocation_bytes,
             transfer_report: super::NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch,
             generated_range: None,
         })))
     }
+}
+
+// Called only after the existing schema depth/node/type admission. Traversal
+// borrows typed arrays; it neither clones buffer vectors nor visits row values.
+fn variadic_metadata_bytes(array: &dyn arrow_array::Array) -> Result<u64> {
+    variadic_metadata_bytes_at(array, 0, &mut 0)
+}
+
+fn variadic_metadata_bytes_at(
+    array: &dyn arrow_array::Array,
+    depth: usize,
+    nodes: &mut usize,
+) -> Result<u64> {
+    use arrow_schema::DataType;
+    *nodes += 1;
+    if depth > 24 || *nodes > 4096 {
+        return Err(memory_error(
+            "columnar buffer metadata exceeds schema traversal bounds",
+        ));
+    }
+    let invalid = || memory_error("columnar array does not match its declared layout");
+    let buffers = match array.data_type() {
+        DataType::Utf8View => Some(
+            array
+                .as_string_view_opt()
+                .ok_or_else(invalid)?
+                .data_buffers()
+                .len(),
+        ),
+        DataType::BinaryView => Some(
+            array
+                .as_binary_view_opt()
+                .ok_or_else(invalid)?
+                .data_buffers()
+                .len(),
+        ),
+        DataType::Struct(_) => {
+            return array
+                .as_struct_opt()
+                .ok_or_else(invalid)?
+                .columns()
+                .iter()
+                .try_fold(0_u64, |bytes, child| {
+                    bytes
+                        .checked_add(variadic_metadata_bytes_at(
+                            child.as_ref(),
+                            depth + 1,
+                            nodes,
+                        )?)
+                        .ok_or_else(|| memory_error("columnar buffer metadata overflow"))
+                });
+        }
+        _ => None,
+    };
+    if let Some(buffers) = buffers {
+        // Covers simultaneously live Arrow/ArrayData/import handle vectors and
+        // native wrappers. Payload capacities are reserved separately per region.
+        return u64::try_from(buffers)
+            .ok()
+            .and_then(|count| count.checked_mul(512))
+            .ok_or_else(|| memory_error("columnar buffer metadata overflow"));
+    }
+    let child = match array.data_type() {
+        DataType::List(_) => Some(array.as_list_opt::<i32>().ok_or_else(invalid)?.values()),
+        DataType::LargeList(_) => Some(array.as_list_opt::<i64>().ok_or_else(invalid)?.values()),
+        DataType::FixedSizeList(..) => {
+            Some(array.as_fixed_size_list_opt().ok_or_else(invalid)?.values())
+        }
+        DataType::Dictionary(..) => {
+            Some(array.as_any_dictionary_opt().ok_or_else(invalid)?.values())
+        }
+        DataType::RunEndEncoded(..) => Some(array.as_any_ree_opt().ok_or_else(invalid)?.values()),
+        _ => None,
+    };
+    child.map_or(Ok(0), |child| {
+        variadic_metadata_bytes_at(child.as_ref(), depth + 1, nodes)
+    })
 }
 
 #[cfg(test)]

@@ -219,10 +219,28 @@ pub(crate) struct ColumnarReader {
 }
 
 impl ColumnarReader {
-    pub(crate) fn next(
+    /// Consume private reader output before it can escape or be replaced by a
+    /// caller. The shared intake still proves each buffer's allocation and may
+    /// copy unsuitable regions; decoder provenance is not blanket adoption.
+    pub(crate) fn next_native(
         &mut self,
+        session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
-    ) -> Result<Option<RecordBatch>> {
+    ) -> Result<Option<ResidentMemorySource>> {
+        self.next(context)?
+            .map(|batch| {
+                ResidentMemorySource::from_arrow_with_ownership(
+                    session,
+                    batch,
+                    context,
+                    true,
+                    crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledParquet,
+                )
+            })
+            .transpose()
+    }
+
+    fn next(&mut self, context: &NativeExecutionContext<'_>) -> Result<Option<RecordBatch>> {
         loop {
             context.check_cancelled()?;
             if let Some((index, _)) = &self.input {

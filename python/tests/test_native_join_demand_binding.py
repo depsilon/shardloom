@@ -50,7 +50,7 @@ class NativeJoinDemandTests(unittest.TestCase):
             if label in {"join_population_inner_count", "join_population_left_count"}:
                 self.assertEqual(int(fields["native_source_demand_projected_columns"]), 3)
 
-    def write_sources(self, root, spec, tables, extension):
+    def write_sources(self, root, spec, tables, extension, *, group_rows=7):
         import pyarrow.parquet as parquet
         from shardloom._result_schema import _arrow_type
         sources = {}
@@ -66,14 +66,14 @@ class NativeJoinDemandTests(unittest.TestCase):
                 rows = rows[1::2] + list(reversed(rows[::2]))
                 data = self.pa.Table.from_pylist(rows, schema=schema)
                 if extension == "parquet":
-                    parquet.write_table(data, path, row_group_size=7, use_dictionary=True)
+                    parquet.write_table(data, path, row_group_size=group_rows, use_dictionary=True)
                 elif extension == "vortex":
                     source = session.from_arrow(data)
                     session.plan(self.native.Relation.scan("memory://fixture"),
                         sources=[("memory://fixture", source)]).write(path, "write_vortex")
                 else:
                     with self.pa.OSFile(str(path), "wb") as stream, self.pa.ipc.new_file(stream, schema) as writer:
-                        writer.write_table(data, max_chunksize=7)
+                        writer.write_table(data, max_chunksize=group_rows)
                 sources[table] = (path,)
         finally:
             session.close()

@@ -113,6 +113,9 @@ struct MemorySourceOwner {
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
     intake_columnar_buffer_bytes_copied: u64,
+    intake_columnar_buffer_bytes_transferred: u64,
+    intake_columnar_buffer_regions_transferred: u64,
+    intake_columnar_allocation_bytes_transferred: u64,
     transfer_report: NativeTransferReport,
     // Every copied/transferred payload buffer also holds this credit, including
     // cloned/sliced child buffers. Generated ranges have their own compact owner.
@@ -236,6 +239,9 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             transfer_report: NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch: false,
@@ -347,6 +353,9 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             transfer_report: NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch,
@@ -423,6 +432,18 @@ impl ResidentMemorySource {
     #[must_use]
     pub fn intake_columnar_buffer_bytes_copied(&self) -> u64 {
         self.0.intake_columnar_buffer_bytes_copied
+    }
+
+    pub(crate) fn intake_columnar_buffer_bytes_transferred(&self) -> u64 {
+        self.0.intake_columnar_buffer_bytes_transferred
+    }
+
+    pub(crate) fn intake_columnar_buffer_regions_transferred(&self) -> u64 {
+        self.0.intake_columnar_buffer_regions_transferred
+    }
+
+    pub(crate) fn intake_columnar_allocation_bytes_transferred(&self) -> u64 {
+        self.0.intake_columnar_allocation_bytes_transferred
     }
 
     /// Immutable evidence from this source's successful intake. Later execution

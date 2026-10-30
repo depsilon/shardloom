@@ -370,6 +370,11 @@ impl MemoryBatchSourceBuilder {
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,
             intake_columnar_buffer_bytes_copied: self.columnar_copied,
+            // This builder accepts copied public Arrow or already-native
+            // results, never the private decoder's single-use intake handle.
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             transfer_report: self.transfer_report,
             metadata: Some(credit),
             is_batch: false,
