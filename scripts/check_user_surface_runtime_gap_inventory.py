@@ -243,6 +243,20 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "no_fallback_policy",
     ),
     (
+        "**an explicit execution boundary.** unsupported requests produce actionable diagnostics.",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "admission failure remains explicit without external execution",
+        "no_fallback_policy",
+    ),
+    (
+        "blocked capabilities. see the [control model](docs/architecture/pulseweave-runtime-control.md)",
+        "runtime_available_needs_claim_evidence",
+        "native_vortex_ingest_control_boundary",
+        "scoped applied controls require route, resource and correctness evidence; advisory decisions are not applied capability",
+        "pulseweave.proof_bound",
+    ),
+    (
         "shardloom executes supported requests and rejects unsupported ones with actionable",
         "policy_rejected",
         "not_applicable_policy_diagnostic",

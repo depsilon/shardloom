@@ -113,6 +113,9 @@ struct MemorySourceOwner {
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
     intake_columnar_buffer_bytes_copied: u64,
+    intake_columnar_buffer_bytes_transferred: u64,
+    intake_columnar_buffer_regions_transferred: u64,
+    intake_columnar_allocation_bytes_transferred: u64,
     transfer_report: NativeTransferReport,
     // Every copied/transferred payload buffer also holds this credit, including
     // cloned/sliced child buffers. Generated ranges have their own compact owner.
@@ -236,6 +239,9 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             transfer_report: NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch: false,
@@ -347,6 +353,9 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             transfer_report: NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch,
@@ -423,6 +432,18 @@ impl ResidentMemorySource {
     #[must_use]
     pub fn intake_columnar_buffer_bytes_copied(&self) -> u64 {
         self.0.intake_columnar_buffer_bytes_copied
+    }
+
+    pub(crate) fn intake_columnar_buffer_bytes_transferred(&self) -> u64 {
+        self.0.intake_columnar_buffer_bytes_transferred
+    }
+
+    pub(crate) fn intake_columnar_buffer_regions_transferred(&self) -> u64 {
+        self.0.intake_columnar_buffer_regions_transferred
+    }
+
+    pub(crate) fn intake_columnar_allocation_bytes_transferred(&self) -> u64 {
+        self.0.intake_columnar_allocation_bytes_transferred
     }
 
     /// Immutable evidence from this source's successful intake. Later execution
@@ -660,37 +681,12 @@ impl PreparedMemoryProjection {
         )?);
         let mut context = session.create_execution_ctx();
         if let Some(filter) = &self.filter {
-            let predicate = array
-                .clone()
-                .apply_bound(filter)
-                .map_err(native_error)?
-                .execute::<BoolArray>(&mut context)
-                .map_err(native_error)?;
-            let allocator = source.session.native_allocator();
-            // The final mask has a session-owned buffer. Null predicate
-            // values are false, matching WHERE semantics. Evaluation is
-            // still the provider's bound expression, not a row evaluator.
-            let mut bits = allocator
-                .allocate(array.len().div_ceil(8), Alignment::none())
-                .map_err(native_error)?;
-            bits.as_mut_slice().fill(0);
-            for row in 0..array.len() {
-                if predicate
-                    .execute_scalar(row, &mut context)
-                    .map_err(native_error)?
-                    .as_bool()
-                    .value()
-                    .unwrap_or(false)
-                {
-                    bits.as_mut_slice()[row / 8] |= 1 << (row % 8);
-                }
-            }
-            array = array
-                .filter(Mask::from_buffer(BitBuffer::new(
-                    bits.freeze(),
-                    array.len(),
-                )))
-                .map_err(native_error)?;
+            array = filter_bound_array(
+                &array,
+                filter,
+                &mut context,
+                &source.session.native_allocator(),
+            )?;
         }
         if let Some(limit) = self.limit {
             array = array
@@ -762,6 +758,41 @@ impl PreparedMemoryProjection {
             native_io_certificate,
         })
     }
+}
+
+/// The shared native predicate provider also carries private source positions
+/// through ranking. NULL remains false and the mask owns credited storage.
+pub(crate) fn filter_bound_array(
+    array: &ArrayRef,
+    filter: &BoundExpression,
+    context: &mut vortex::array::ExecutionCtx,
+    allocator: &vortex::array::memory::HostAllocatorRef,
+) -> Result<ArrayRef> {
+    let predicate = array
+        .clone()
+        .apply_bound(filter)
+        .map_err(native_error)?
+        .execute::<BoolArray>(context)
+        .map_err(native_error)?;
+    let mut bits = allocator
+        .allocate(array.len().div_ceil(8), Alignment::none())
+        .map_err(native_error)?;
+    bits.as_mut_slice().fill(0);
+    for row in 0..array.len() {
+        if predicate
+            .execute_scalar(row, context)
+            .map_err(native_error)?
+            .as_bool()
+            .value()
+            .unwrap_or(false)
+        {
+            bits.as_mut_slice()[row / 8] |= 1 << (row % 8);
+        }
+    }
+    let rows = array.len();
+    array
+        .filter(Mask::from_buffer(BitBuffer::new(bits.freeze(), rows)))
+        .map_err(native_error)
 }
 
 impl MemoryColumnValues<'_> {

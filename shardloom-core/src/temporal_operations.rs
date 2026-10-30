@@ -12,6 +12,10 @@ use crate::Result;
 #[path = "temporal_grid.rs"]
 mod grid;
 
+#[cfg(test)]
+#[path = "temporal_extract_tests.rs"]
+mod extract_tests;
+
 /// Calendar component or truncation boundary, with Monday-based ISO weekdays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Part {
@@ -289,7 +293,7 @@ impl Kernel {
             other.validate_value(narrow(argument()?)?)?;
         }
         let result = match self.operation {
-            Operation::Extract(part) => extract(self.civil(value)?, part),
+            Operation::Extract(part) => self.extract(value, part)?,
             Operation::Truncate { part, ambiguity } => {
                 self.civil_ticks(truncate(self.civil(value)?, part)?, ambiguity)?
             }
@@ -376,6 +380,47 @@ impl Kernel {
             output.validate_value(result)?;
         }
         Ok(result)
+    }
+
+    fn extract(&self, value: i64, part: Part) -> Result<i64> {
+        // The timezone provider owns range and DST behavior. Source/second-value
+        // validation still precedes this helper in apply, including Date/Time
+        // restrictions. Naive domains need only the requested exact component.
+        let nanos = match self.source.kind() {
+            Kind::Timestamp {
+                timezone: Some(_), ..
+            } => {
+                return Ok(extract(self.civil(value)?, part));
+            }
+            Kind::Date32 => i128::from(value) * NANOS_PER_DAY,
+            Kind::Date64 => i128::from(value) * Unit::Milliseconds.nanoseconds(),
+            Kind::Timestamp { unit, .. } | Kind::Time(unit) => {
+                i128::from(value) * unit.nanoseconds()
+            }
+            Kind::Duration(_) => return Err(failed("fixed durations have no calendar fields")),
+        };
+        let days = nanos.div_euclid(NANOS_PER_DAY);
+        let result = match part {
+            Part::Hour => nanos.div_euclid(3_600 * NANOS_PER_SECOND).rem_euclid(24),
+            Part::Minute => nanos.div_euclid(60 * NANOS_PER_SECOND).rem_euclid(60),
+            Part::Second => nanos.div_euclid(NANOS_PER_SECOND).rem_euclid(60),
+            Part::Millisecond => nanos.rem_euclid(NANOS_PER_SECOND) / 1_000_000,
+            Part::Microsecond => nanos.rem_euclid(NANOS_PER_SECOND) / 1_000,
+            Part::Nanosecond => nanos.rem_euclid(NANOS_PER_SECOND),
+            Part::DayOfWeek => (days + 3).rem_euclid(7) + 1,
+            Part::Year | Part::Month | Part::Day | Part::DayOfYear => {
+                let (year, month, day) = civil::civil_from_days(days)?;
+                match part {
+                    Part::Year => i128::from(year),
+                    Part::Month => i128::from(month),
+                    Part::Day => i128::from(day),
+                    Part::DayOfYear => days - civil::days_from_civil(year, 1, 1) + 1,
+                    _ => unreachable!("calendar components admitted above"),
+                }
+            }
+            Part::Week => unreachable!("week extraction rejected at bind"),
+        };
+        narrow(result)
     }
 
     fn civil(&self, value: i64) -> Result<CivilDateTime> {

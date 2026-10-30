@@ -14,6 +14,9 @@ use vortex::array::{
 };
 use vortex::buffer::Buffer;
 
+#[path = "native_relational_expression_scalar_operand_tests.rs"]
+mod scalar_operand_tests;
+
 fn column(name: &str, dtype: &DType) -> Expression {
     Expression::new(dtype.clone(), Kind::Column(name.into()))
 }

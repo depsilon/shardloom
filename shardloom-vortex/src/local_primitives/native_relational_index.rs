@@ -1,4 +1,4 @@
-//! Exact native row membership with an insertion-ordered duplicate chain.
+//! Exact native row membership with an inline first row and ordered duplicates.
 //! Hashes select candidates; the caller's native key owners prove equality.
 
 use super::{compound_count_partial, native_capacity::ReservedVec};
@@ -10,7 +10,7 @@ const EMPTY: usize = usize::MAX;
 struct Entry {
     hash: u64,
     first: usize,
-    last: usize,
+    duplicate_tail: usize,
 }
 
 struct Link {
@@ -57,7 +57,7 @@ impl RowIndex {
                 return Ok(None);
             }
             let entry = &self.entries.values[position];
-            if entry.hash == hash && equal(self.links.values[entry.first].row)? {
+            if entry.hash == hash && equal(entry.first)? {
                 cancellation.check()?;
                 return Ok(Some(position));
             }
@@ -103,8 +103,9 @@ impl RowIndex {
         if !retain_duplicate && let Some(position) = existing {
             return Ok((position, false));
         }
-        self.links.reserve_one()?;
-        if existing.is_none() {
+        if existing.is_some() {
+            self.links.reserve_one()?;
+        } else {
             self.entries.reserve_one()?;
             self.reserve_entry(cancellation)?;
         }
@@ -114,19 +115,29 @@ impl RowIndex {
             .then(|| vacant_bucket(&self.buckets.values, hash, cancellation))
             .transpose()?;
         cancellation.check()?;
-        let link = self.links.values.len();
-        self.links.values.push(Link { row, next: EMPTY });
         if let Some(position) = existing {
             let entry = &mut self.entries.values[position];
-            self.links.values[entry.last].next = link;
-            entry.last = link;
+            let link = self.links.values.len();
+            let tail = entry.duplicate_tail;
+            // A circular duplicate list keeps its head in the tail link. The
+            // inline first row therefore needs no link, without growing Entry.
+            let next = if tail == EMPTY {
+                link
+            } else {
+                self.links.values[tail].next
+            };
+            self.links.values.push(Link { row, next });
+            if tail != EMPTY {
+                self.links.values[tail].next = link;
+            }
+            entry.duplicate_tail = link;
             return Ok((position, false));
         }
         let position = self.entries.values.len();
         self.entries.values.push(Entry {
             hash,
-            first: link,
-            last: link,
+            first: row,
+            duplicate_tail: EMPTY,
         });
         self.buckets.values[vacant.expect("new entry has a vacant bucket")] = position;
         Ok((position, true))
@@ -162,10 +173,17 @@ impl RowIndex {
     }
 
     pub(super) fn rows(&self, entry: usize) -> Result<Rows<'_>> {
-        let first = self.entries.values.get(entry).ok_or_else(failed)?.first;
+        let entry = self.entries.values.get(entry).ok_or_else(failed)?;
+        let tail = entry.duplicate_tail;
         Ok(Rows {
             index: self,
-            next: first,
+            first: Some(entry.first),
+            next: if tail == EMPTY {
+                EMPTY
+            } else {
+                self.links.values[tail].next
+            },
+            tail,
         })
     }
 
@@ -176,18 +194,27 @@ impl RowIndex {
 
 pub(super) struct Rows<'a> {
     index: &'a RowIndex,
+    first: Option<usize>,
     next: usize,
+    tail: usize,
 }
 
 impl Iterator for Rows<'_> {
     type Item = usize;
 
     fn next(&mut self) -> Option<usize> {
+        if let Some(first) = self.first.take() {
+            return Some(first);
+        }
         if self.next == EMPTY {
             return None;
         }
         let link = &self.index.links.values[self.next];
-        self.next = link.next;
+        self.next = if self.next == self.tail {
+            EMPTY
+        } else {
+            link.next
+        };
         Some(link.row)
     }
 }
@@ -218,6 +245,89 @@ mod tests {
     use super::*;
 
     #[test]
+    fn unique_rows_fit_entry_and_bucket_grant_without_duplicate_storage() {
+        // Eight entries and sixteen buckets: 320 bytes on a 64-bit target.
+        // The old per-row link allocation cannot fit this grant.
+        let grant = u64::try_from(8 * size_of::<Entry>() + 16 * size_of::<usize>()).unwrap();
+        let memory = LiveMemoryPool::new(grant).unwrap();
+        let cancellation = CancellationToken::default();
+        let mut index = RowIndex::new(&memory).unwrap();
+        for row in 0..8 {
+            index.insert(0, row, &cancellation, |_| Ok(false)).unwrap();
+        }
+        for row in 0..8 {
+            let entry = index
+                .find(0, &cancellation, |old| Ok(old == row))
+                .unwrap()
+                .unwrap();
+            assert_eq!(index.rows(entry).unwrap().collect::<Vec<_>>(), [row]);
+        }
+        assert!(index.links.values.is_empty());
+        assert_eq!(index.links.values.capacity(), 0);
+        assert_eq!(memory.snapshot().reserved_bytes, grant);
+        drop(index);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn first_duplicate_and_duplicate_growth_denials_preserve_rows_and_allow_retry() {
+        let memory = LiveMemoryPool::new(4096).unwrap();
+        let cancellation = CancellationToken::default();
+        let mut index = RowIndex::new(&memory).unwrap();
+        index
+            .insert(7, usize::MAX, &cancellation, |_| Ok(false))
+            .unwrap();
+        let hold = memory
+            .reserve(4096 - memory.snapshot().reserved_bytes)
+            .unwrap();
+        assert!(
+            index
+                .insert(7, 0, &cancellation, |old| Ok(old == usize::MAX))
+                .is_err()
+        );
+        assert_eq!(index.rows(0).unwrap().collect::<Vec<_>>(), [usize::MAX]);
+        assert!(index.links.values.is_empty());
+        drop(hold);
+        for row in 0..8 {
+            index
+                .insert(7, row, &cancellation, |old| Ok(old == usize::MAX))
+                .unwrap();
+        }
+        let expected: Vec<_> = std::iter::once(usize::MAX).chain(0..8).collect();
+        assert_eq!(index.rows(0).unwrap().collect::<Vec<_>>(), expected);
+        let hold = memory
+            .reserve(4096 - memory.snapshot().reserved_bytes)
+            .unwrap();
+        assert!(index.insert(7, 8, &cancellation, |_| Ok(true)).is_err());
+        assert_eq!(index.rows(0).unwrap().collect::<Vec<_>>(), expected);
+        assert_eq!(index.links.values.len(), 8);
+        drop(hold);
+        let cancelled = CancellationToken::default();
+        assert!(
+            index
+                .insert(7, 8, &cancelled, |_| {
+                    cancelled.cancel();
+                    Ok(true)
+                })
+                .is_err()
+        );
+        assert!(
+            index
+                .insert(7, 8, &cancellation, |_| Err(failed()))
+                .is_err()
+        );
+        assert_eq!(index.rows(0).unwrap().collect::<Vec<_>>(), expected);
+        index.insert(7, 8, &cancellation, |_| Ok(true)).unwrap();
+        assert_eq!(
+            index.rows(0).unwrap().collect::<Vec<_>>(),
+            std::iter::once(usize::MAX).chain(0..9).collect::<Vec<_>>()
+        );
+        assert_eq!(index.unique_rows(), 1);
+        drop(index);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
     fn unique_insert_searches_collision_keys_once_and_keeps_only_first_rows() {
         let memory = LiveMemoryPool::new(1 << 20).unwrap();
         let cancellation = CancellationToken::default();
@@ -237,7 +347,7 @@ mod tests {
             assert_eq!(index.rows(position).unwrap().collect::<Vec<_>>(), [key]);
         }
         assert_eq!(index.unique_rows(), 64);
-        assert_eq!(index.links.values.len(), 64);
+        assert!(index.links.values.is_empty());
         // The ordinary mode still adds duplicates in source order.
         index
             .insert(7, 256, &cancellation, |old| Ok(old == 0))
@@ -270,7 +380,7 @@ mod tests {
                 .is_err()
         );
         assert_eq!(index.unique_rows(), 1);
-        assert_eq!(index.links.values.len(), 1);
+        assert!(index.links.values.is_empty());
         drop(hold);
         let cancelled = CancellationToken::default();
         assert!(
@@ -386,7 +496,7 @@ mod tests {
         );
         assert!(compared <= 1024);
         assert_eq!(index.unique_rows(), 2048);
-        assert_eq!(index.links.values.len(), 2048);
+        assert!(index.links.values.is_empty());
         assert!(index.reserve_entry(&cancelled).is_err());
         assert!(index.find(0, &cancelled, |_| Ok(true)).is_err());
         for row in [0, 1024, 2047] {

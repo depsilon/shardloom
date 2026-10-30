@@ -30,6 +30,15 @@ mod collection_tests;
 #[path = "local_primitive_relational_source_demand_window_tests.rs"]
 mod window_tests;
 
+#[path = "local_primitive_relational_source_demand_join_tests.rs"]
+mod join_tests;
+
+#[path = "local_primitive_relational_source_demand_transfer_tests.rs"]
+mod transfer_tests;
+
+#[path = "local_primitive_relational_source_demand_ranked_tests.rs"]
+mod ranked_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {
@@ -60,6 +69,16 @@ impl ParquetFixture {
     }
 
     fn with_batch_rows(batch: RecordBatch, statistics: EnabledStatistics, rows: usize) -> Self {
+        Self::with_properties(
+            batch,
+            WriterProperties::builder()
+                .set_max_row_group_row_count(Some(rows))
+                .set_statistics_enabled(statistics)
+                .build(),
+        )
+    }
+
+    fn with_properties(batch: RecordBatch, properties: WriterProperties) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "shardloom-source-demand-{}-{}",
             std::process::id(),
@@ -67,10 +86,6 @@ impl ParquetFixture {
         ));
         fs::create_dir(&directory).unwrap();
         let fixture = Self(directory);
-        let properties = WriterProperties::builder()
-            .set_max_row_group_row_count(Some(rows))
-            .set_statistics_enabled(statistics)
-            .build();
         let mut writer = ArrowWriter::try_new(
             fs::File::create(fixture.path()).unwrap(),
             batch.schema(),

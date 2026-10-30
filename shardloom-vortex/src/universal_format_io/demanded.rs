@@ -30,6 +30,7 @@ use std::{
 };
 
 mod chunks;
+mod ranked;
 mod source;
 mod statistics;
 pub use source::LocalColumnarSource;
@@ -96,11 +97,11 @@ impl LocalColumnarSource {
                 if demand.max_rows.is_some_and(|limit| source_rows >= limit) {
                     break 'files;
                 }
+                let first_row = source_rows;
+                let rows = u64::try_from(file.metadata.metadata().row_group(index).num_rows())
+                    .map_err(failed)?;
                 source_rows = source_rows
-                    .checked_add(
-                        u64::try_from(file.metadata.metadata().row_group(index).num_rows())
-                            .map_err(failed)?,
-                    )
+                    .checked_add(rows)
                     .ok_or_else(|| failed("source row count overflow"))?;
                 if demand.predicates.is_empty()
                     || demand.predicates.iter().any(|predicate| {
@@ -109,7 +110,12 @@ impl LocalColumnarSource {
                         })
                     })
                 {
-                    row_groups.push((file_index, index));
+                    row_groups.push(SourceGroup {
+                        file: file_index,
+                        index,
+                        first_row,
+                        rows,
+                    });
                 }
             }
         }
@@ -119,7 +125,7 @@ impl LocalColumnarSource {
             projection,
             row_groups,
             max_rows: demand.max_rows,
-            _metadata: credit,
+            metadata: credit,
         }))
     }
 }
@@ -138,9 +144,19 @@ fn predicate_columns<'a>(predicate: &'a PredicateExpr, names: &mut BTreeSet<&'a 
 pub(crate) struct PreparedColumnarSource {
     pub(crate) source: Arc<LocalColumnarSource>,
     projection: Vec<usize>,
-    row_groups: Vec<(usize, usize)>,
+    row_groups: Vec<SourceGroup>,
     max_rows: Option<u64>,
-    _metadata: MemoryLease,
+    metadata: MemoryLease,
+}
+
+/// Positions include excluded groups and preceding files in the held inventory.
+/// They identify rows only within this source generation, not durable row IDs.
+#[derive(Clone, Copy)]
+struct SourceGroup {
+    file: usize,
+    index: usize,
+    first_row: u64,
+    rows: u64,
 }
 
 impl PreparedColumnarSource {
@@ -213,39 +229,90 @@ pub(crate) struct ColumnarReader {
     input: Option<(usize, OwnedLocalRead)>,
     metrics: Arc<LocalReadMetrics>,
     next_group: usize,
-    active: Option<(ParquetRecordBatchReader, MemoryLease)>,
+    active: Option<Decoder>,
     rows: u64,
     ended: bool,
 }
 
+struct Decoder {
+    reader: ParquetRecordBatchReader,
+    _credit: MemoryLease,
+    first_row: u64,
+    expected_rows: u64,
+    emitted_rows: u64,
+}
+
 impl ColumnarReader {
-    pub(crate) fn next(
+    /// Consume private reader output before it can escape or be replaced by a
+    /// caller. The shared intake still proves each buffer's allocation and may
+    /// copy unsuitable regions; decoder provenance is not blanket adoption.
+    pub(crate) fn next_native(
         &mut self,
+        session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
-    ) -> Result<Option<RecordBatch>> {
+    ) -> Result<Option<ResidentMemorySource>> {
+        self.next_native_located(session, context)
+            .map(|next| next.map(|(source, _)| source))
+    }
+
+    pub(crate) fn next_native_located(
+        &mut self,
+        session: &ResidentVortexSession,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<(ResidentMemorySource, u64)>> {
+        self.next(context)?
+            .map(|(batch, first_row)| {
+                ResidentMemorySource::from_arrow_with_ownership(
+                    session,
+                    batch,
+                    context,
+                    true,
+                    crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledParquet,
+                )
+                .map(|source| (source, first_row))
+            })
+            .transpose()
+    }
+
+    fn next(&mut self, context: &NativeExecutionContext<'_>) -> Result<Option<(RecordBatch, u64)>> {
         loop {
             context.check_cancelled()?;
             if let Some((index, _)) = &self.input {
                 self.prepared.source.files[*index].identity.validate()?;
             }
-            if let Some((reader, _)) = &mut self.active {
-                if let Some(batch) = reader.next() {
+            if let Some(active) = &mut self.active {
+                if let Some(batch) = active.reader.next() {
                     let batch = batch.map_err(failed)?;
+                    let first_row = active
+                        .first_row
+                        .checked_add(active.emitted_rows)
+                        .ok_or_else(|| failed("source position overflow"))?;
+                    active.emitted_rows = active
+                        .emitted_rows
+                        .checked_add(batch.num_rows() as u64)
+                        .filter(|rows| *rows <= active.expected_rows)
+                        .ok_or_else(|| failed("decoder exceeded its admitted source extent"))?;
                     self.rows = self
                         .rows
                         .checked_add(batch.num_rows() as u64)
                         .ok_or_else(|| failed("source row count overflow"))?;
                     context.check_cancelled()?;
-                    return Ok(Some(batch));
+                    return Ok(Some((batch, first_row)));
+                }
+                if active.emitted_rows != active.expected_rows {
+                    return Err(failed(
+                        "decoder did not complete its admitted source extent",
+                    ));
                 }
                 self.active.take();
             }
-            let Some(&(file_index, group_index)) = self.prepared.row_groups.get(self.next_group)
-            else {
+            let Some(&source_group) = self.prepared.row_groups.get(self.next_group) else {
                 self.input.take();
                 self.ended = true;
                 return Ok(None);
             };
+            let file_index = source_group.file;
+            let group_index = source_group.index;
             let file = &self.prepared.source.files[file_index];
             if self
                 .input
@@ -293,7 +360,15 @@ impl ColumnarReader {
                     .with_limit(usize::try_from(limit.saturating_sub(self.rows)).map_err(failed)?);
             }
             let reader = builder.build().map_err(failed)?;
-            self.active = Some((reader, credit));
+            self.active = Some(Decoder {
+                reader,
+                _credit: credit,
+                first_row: source_group.first_row,
+                expected_rows: self.prepared.max_rows.map_or(source_group.rows, |limit| {
+                    source_group.rows.min(limit.saturating_sub(self.rows))
+                }),
+                emitted_rows: 0,
+            });
             self.next_group += 1;
         }
     }

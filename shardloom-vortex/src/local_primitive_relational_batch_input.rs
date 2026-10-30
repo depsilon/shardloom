@@ -9,6 +9,10 @@ use std::cell::{Cell, RefCell};
 
 use super::replay;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_batch_ranked.rs"]
+mod ranked;
+
 pub(super) struct Source {
     pub(super) uri: shardloom_core::DatasetUri,
     pub(super) schema: ResidentMemorySource,
@@ -58,6 +62,14 @@ impl Usage {
 
     pub(super) fn requires_replay(self) -> bool {
         self.replay != ReplayRequirement::None
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn admits_ranked(self) -> bool {
+        self.uses == 1
+            && !self.requires_replay()
+            && !self.detach_before_consume
+            && !self.validate_if_unread
     }
 
     /// Repeated binding of a subtree adds requirements, not source occurrences.
@@ -163,6 +175,17 @@ pub struct ExecutedVortexBatchInput {
     pub columnar_content_fingerprints: Vec<String>,
     pub columnar_data_read_bytes: u64,
     pub columnar_data_read_requests: u64,
+    /// Two-phase source demand. Existing group counts remain distinct groups;
+    /// these phase counts are actual visits, and decoded rows include rereads.
+    pub ranked_sources: u64,
+    pub ranked_rank_columns: u64,
+    pub ranked_rank_rows: u64,
+    pub ranked_payload_rows: u64,
+    pub ranked_rank_groups: u64,
+    pub ranked_payload_groups: u64,
+    pub ranked_rank_read_bytes: u64,
+    pub ranked_payload_read_bytes: u64,
+    pub ranked_selected_rows: u64,
     /// Number of distinct declared sources that reached their own explicit end.
     pub sources: usize,
     pub payload_batches: u64,
@@ -172,6 +195,12 @@ pub struct ExecutedVortexBatchInput {
     /// Referenced Arrow buffer bytes copied into the shared native allocation.
     /// Caller storage and metadata are excluded; this is not process RSS.
     pub intake_columnar_buffer_bytes_copied: u64,
+    /// Visible bytes and regions adopted from the private reader, after unique
+    /// standard-allocation proof. Public producers always retain copy intake.
+    pub intake_columnar_buffer_bytes_transferred: u64,
+    pub intake_columnar_buffer_regions_transferred: u64,
+    /// Complete retained allocation capacities, not visible length or RSS.
+    pub intake_columnar_allocation_bytes_transferred: u64,
     pub max_batch_rows: usize,
     pub max_retained_input_batches: usize,
     pub max_retained_input_logical_bytes: u64,
@@ -255,12 +284,24 @@ impl Default for ExecutedVortexBatchInput {
             columnar_content_fingerprints: Vec::new(),
             columnar_data_read_bytes: 0,
             columnar_data_read_requests: 0,
+            ranked_sources: 0,
+            ranked_rank_columns: 0,
+            ranked_rank_rows: 0,
+            ranked_payload_rows: 0,
+            ranked_rank_groups: 0,
+            ranked_payload_groups: 0,
+            ranked_rank_read_bytes: 0,
+            ranked_payload_read_bytes: 0,
+            ranked_selected_rows: 0,
             sources: 0,
             payload_batches: 0,
             rows: 0,
             input_logical_bytes: 0,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_buffer_bytes_transferred: 0,
+            intake_columnar_buffer_regions_transferred: 0,
+            intake_columnar_allocation_bytes_transferred: 0,
             max_batch_rows: 0,
             max_retained_input_batches: 0,
             max_retained_input_logical_bytes: 0,
@@ -419,11 +460,41 @@ pub(super) trait Input {
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()>;
 
+    /// Optional source capability, independent of input format. Ranking remains
+    /// in the common native consumer; the source owns positions and read phases.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn run_ranked(
+        &self,
+        index: usize,
+        columns: &[String],
+        prefix: usize,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn RankedConsumer,
+    ) -> Result<bool>;
+
     fn completed(
         &self,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
     ) -> Result<ExecutedVortexBatchInput>;
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub(super) trait RankedConsumer {
+    fn rank(
+        &mut self,
+        array: &ArrayRef,
+        first_row: u64,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()>;
+    fn select(&mut self, context: &NativeExecutionContext<'_>) -> Result<&[u64]>;
+    fn payload(
+        &mut self,
+        array: &ArrayRef,
+        first_row: u64,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()>;
+    fn complete(&self) -> Result<()>;
 }
 
 pub(super) struct Execution<'p, 'i> {
@@ -495,6 +566,18 @@ impl<'p, 'i> Execution<'p, 'i> {
             &mut report.intake_columnar_buffer_bytes_copied,
             source.intake_columnar_buffer_bytes_copied(),
         )?;
+        checked_add(
+            &mut report.intake_columnar_buffer_bytes_transferred,
+            source.intake_columnar_buffer_bytes_transferred(),
+        )?;
+        checked_add(
+            &mut report.intake_columnar_buffer_regions_transferred,
+            source.intake_columnar_buffer_regions_transferred(),
+        )?;
+        checked_add(
+            &mut report.intake_columnar_allocation_bytes_transferred,
+            source.intake_columnar_allocation_bytes_transferred(),
+        )?;
         report.max_batch_rows = report.max_batch_rows.max(rows);
         report.max_retained_input_batches = 1;
         report.max_retained_input_logical_bytes =
@@ -518,67 +601,13 @@ impl<'p, 'i> Execution<'p, 'i> {
                 *owner = Some(source.open(context)?);
             }
             let reader = owner.as_mut().expect("local reader initialized");
-            if let Some(batch) = reader.next(context)? {
-                return Ok((
-                    Some(ResidentMemorySource::from_arrow_in_context(
-                        &self.prepared.session,
-                        batch,
-                        context,
-                        true,
-                    )?),
-                    false,
-                ));
+            if let Some(batch) = reader.next_native(&self.prepared.session, context)? {
+                return Ok((Some(batch), false));
             }
             let observed = reader.report()?;
             // Drop every provider cursor before the operation's final I/O drain.
             owner.take();
-            let mut report = self.report.borrow_mut();
-            checked_add(&mut report.columnar_sources, 1)?;
-            checked_add(&mut report.columnar_files, observed.files as u64)?;
-            checked_add(
-                &mut report.columnar_fingerprint_read_bytes,
-                observed.fingerprint_read_bytes,
-            )?;
-            report
-                .columnar_content_fingerprints
-                .extend(observed.content_fingerprints);
-            checked_add(
-                &mut report.columnar_projected_columns,
-                observed.projected_columns as u64,
-            )?;
-            checked_add(
-                &mut report.columnar_available_columns,
-                observed.available_columns as u64,
-            )?;
-            checked_add(
-                &mut report.columnar_physical_leaf_columns,
-                observed.physical_leaf_columns as u64,
-            )?;
-            checked_add(
-                &mut report.columnar_row_groups_total,
-                observed.row_groups_total as u64,
-            )?;
-            checked_add(
-                &mut report.columnar_row_groups_read,
-                observed.row_groups_read as u64,
-            )?;
-            checked_add(&mut report.columnar_rows_decoded, observed.rows_decoded)?;
-            if let Some(rows) = observed.requested_prefix_rows {
-                checked_add(&mut report.columnar_prefix_sources, 1)?;
-                checked_add(&mut report.columnar_requested_prefix_rows, rows)?;
-            }
-            checked_add(
-                &mut report.columnar_metadata_read_bytes,
-                observed.metadata_read_bytes,
-            )?;
-            checked_add(
-                &mut report.columnar_data_read_bytes,
-                observed.data_read_bytes,
-            )?;
-            checked_add(
-                &mut report.columnar_data_read_requests,
-                observed.data_read_requests,
-            )?;
+            self.record_columnar_input(observed)?;
             return Ok((None, false));
         }
         let mut input = self
@@ -595,6 +624,61 @@ impl<'p, 'i> Execution<'p, 'i> {
             context,
         )?;
         Ok((next, input.has_transport_bounds()))
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn record_columnar_input(
+        &self,
+        observed: crate::universal_format_io::demanded::ColumnarReadReport,
+    ) -> Result<()> {
+        let mut report = self.report.borrow_mut();
+        checked_add(&mut report.columnar_sources, 1)?;
+        checked_add(&mut report.columnar_files, observed.files as u64)?;
+        checked_add(
+            &mut report.columnar_fingerprint_read_bytes,
+            observed.fingerprint_read_bytes,
+        )?;
+        report
+            .columnar_content_fingerprints
+            .extend(observed.content_fingerprints);
+        checked_add(
+            &mut report.columnar_projected_columns,
+            observed.projected_columns as u64,
+        )?;
+        checked_add(
+            &mut report.columnar_available_columns,
+            observed.available_columns as u64,
+        )?;
+        checked_add(
+            &mut report.columnar_physical_leaf_columns,
+            observed.physical_leaf_columns as u64,
+        )?;
+        checked_add(
+            &mut report.columnar_row_groups_total,
+            observed.row_groups_total as u64,
+        )?;
+        checked_add(
+            &mut report.columnar_row_groups_read,
+            observed.row_groups_read as u64,
+        )?;
+        checked_add(&mut report.columnar_rows_decoded, observed.rows_decoded)?;
+        if let Some(rows) = observed.requested_prefix_rows {
+            checked_add(&mut report.columnar_prefix_sources, 1)?;
+            checked_add(&mut report.columnar_requested_prefix_rows, rows)?;
+        }
+        checked_add(
+            &mut report.columnar_metadata_read_bytes,
+            observed.metadata_read_bytes,
+        )?;
+        checked_add(
+            &mut report.columnar_data_read_bytes,
+            observed.data_read_bytes,
+        )?;
+        checked_add(
+            &mut report.columnar_data_read_requests,
+            observed.data_read_requests,
+        )?;
+        Ok(())
     }
 
     fn consume_replay(
@@ -786,6 +870,18 @@ fn verify_released(
 }
 
 impl Input for Execution<'_, '_> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn run_ranked(
+        &self,
+        index: usize,
+        columns: &[String],
+        prefix: usize,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn RankedConsumer,
+    ) -> Result<bool> {
+        self.consume_ranked(index, columns, prefix, context, consume)
+    }
+
     fn require_usage(&self, index: usize, usage: Usage) -> Result<()> {
         let state = self
             .states

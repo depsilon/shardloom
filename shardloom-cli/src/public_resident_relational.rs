@@ -901,12 +901,28 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_source_demand_content_fingerprints", input.columnar_content_fingerprints.join(";")),
         ("native_source_demand_data_read_bytes", input.columnar_data_read_bytes.to_string()),
         ("native_source_demand_data_read_requests", input.columnar_data_read_requests.to_string()),
+        ("native_source_ranked_sources", input.ranked_sources.to_string()),
+        ("native_source_ranked_rank_columns", input.ranked_rank_columns.to_string()),
+        ("native_source_ranked_rank_rows", input.ranked_rank_rows.to_string()),
+        ("native_source_ranked_payload_rows", input.ranked_payload_rows.to_string()),
+        ("native_source_ranked_rank_group_visits", input.ranked_rank_groups.to_string()),
+        ("native_source_ranked_payload_group_visits", input.ranked_payload_groups.to_string()),
+        ("native_source_ranked_rank_read_bytes", input.ranked_rank_read_bytes.to_string()),
+        ("native_source_ranked_payload_read_bytes", input.ranked_payload_read_bytes.to_string()),
+        ("native_source_ranked_selected_rows", input.ranked_selected_rows.to_string()),
+        ("native_source_ranked_validation_scope", "when_active:complete_rank_dependencies_then_complete_decoded_payload_in_winning_groups;other_payload_groups_unread;rank_failure_precedes_payload_failure;zero_prefix_completes_rank_only;held_generation_through_final_consumer".into()),
+        ("native_source_ranked_read_scope", "same_source_generation;distinct_source_and_metadata_once;existing_row_groups_read_distinct;phase_group_counts_are_visits;actual_read_bytes_requests_and_decoded_rows_include_both_phases;whole_winning_group_chunks_before_native_selected_row_gather".into()),
+        ("native_source_ranked_admission", "optional_owned_source_positions_and_selected_reads;single_use_direct_column_scan;exact_native_predicates;bounded_prefix;strict_worst_case_compressed_byte_saving;no_replay_or_spill;other_sources_and_shapes_keep_existing_native_route".into()),
         ("native_input_batches", input.payload_batches.to_string()),
         ("native_input_batch_sources", input.sources.to_string()),
         ("native_input_batch_rows", input.rows.to_string()),
         ("native_input_logical_bytes", input.input_logical_bytes.to_string()),
         ("native_input_payload_bytes_copied", input.intake_payload_bytes_copied.to_string()),
         ("native_input_columnar_buffer_bytes_copied", input.intake_columnar_buffer_bytes_copied.to_string()),
+        ("native_input_columnar_buffer_bytes_transferred", input.intake_columnar_buffer_bytes_transferred.to_string()),
+        ("native_input_columnar_buffer_regions_transferred", input.intake_columnar_buffer_regions_transferred.to_string()),
+        ("native_input_columnar_allocation_bytes_transferred", input.intake_columnar_allocation_bytes_transferred.to_string()),
+        ("native_input_columnar_ownership_scope", "actual_intake_decisions;copied_and_transferred_visible_buffer_bytes;transferred_complete_allocation_capacity_reserved_until_last_owner;private_reader_provenance_and_per_buffer_uniqueness_alignment_offset_capacity_proof;public_producers_copy;decoder_internals_and_later_operator_copies_excluded;not_rss_or_whole_query_zero_copy".into()),
         ("native_input_max_batch_rows", input.max_batch_rows.to_string()),
         ("native_input_max_retained_batches", input.max_retained_input_batches.to_string()),
         ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),
@@ -952,24 +968,28 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         fields.push((key.into(), value));
     }
     if input.columnar_sources > 0 {
-        for (key, value) in [
-            (
-                "native_source_demand_validation_scope",
-                "metadata;demanded_columns_and_regions;held_generation_before_reads_and_after_final_consumer;not_full_ingest_certification",
-            ),
-            (
-                "native_source_demand_decoder_memory_scope",
-                "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copies_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound",
-            ),
-            ("native_source_demand_prepared_input_bytes_written", "0"),
-            (
-                "native_source_demand_byte_scope",
-                "owned_demand_reader_sources_only;excludes_other_inputs_and_output_writes;actual_execution_positional_read_bytes;metadata_bytes_are_initial_admission_measurements_repeated_with_cached_descriptors;not_unique_bytes_or_decoded_bytes;source_counts_summed",
-            ),
-        ] {
-            fields.retain(|(existing, _)| existing != key);
-            fields.push((key.into(), value.into()));
-        }
+        append_columnar_input_scope(fields);
+    }
+}
+
+fn append_columnar_input_scope(fields: &mut Vec<(String, String)>) {
+    for (key, value) in [
+        (
+            "native_source_demand_validation_scope",
+            "metadata;demanded_columns_and_regions;held_generation_before_reads_and_after_final_consumer;not_full_ingest_certification",
+        ),
+        (
+            "native_source_demand_decoder_memory_scope",
+            "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copied_or_transferred_buffers_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound",
+        ),
+        ("native_source_demand_prepared_input_bytes_written", "0"),
+        (
+            "native_source_demand_byte_scope",
+            "owned_demand_reader_sources_only;excludes_other_inputs_and_output_writes;actual_execution_positional_read_bytes;metadata_bytes_are_initial_admission_measurements_repeated_with_cached_descriptors;not_unique_bytes_or_decoded_bytes;source_counts_summed",
+        ),
+    ] {
+        fields.retain(|(existing, _)| existing != key);
+        fields.push((key.into(), value.into()));
     }
 }
 

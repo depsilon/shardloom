@@ -35,7 +35,7 @@ fn parquet_demand_rejects_metadata_from_a_different_memory_owner() {
     assert_eq!(foreign.snapshot().reserved_bytes, 0);
 }
 
-fn typed_batch() -> RecordBatch {
+pub(super) fn typed_batch() -> RecordBatch {
     let mut list = ListBuilder::new(Int64Builder::new());
     list.values().append_value(-9);
     list.values().append_null();

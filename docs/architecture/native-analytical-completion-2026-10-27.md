@@ -128,9 +128,25 @@ benchmark evidence. Recheck each source path after the capability changes.
    components with exact negative-epoch/timezone behavior, and retain numeric
    literals as scalar operands in the typed path. Dictionary evaluation still
    requires evidence of actual dictionaries at the expression boundary.
-7. Target mixed-measure aggregate storage and float extrema traversal sharing
-   only with an exact completed-domain validation proof. Preserve row/measure
-   order, signed zero, ties, overflow and existing first-error behavior.
+7. Target mixed-measure aggregate storage and float extrema traversal sharing,
+   binding storage and updates to the measure, physical input type and immutable
+   floating policy. Integer SUM/AVG and COUNT need no nonfinite participation
+   state; strict floating updates still require finite-value validation, while
+   extended updates retain complete NaN/infinity participation. Share extrema
+   traversal only with an exact completed-domain validation proof: successful
+   extended SUM is not proof of finiteness. Preserve row/measure order, analytical
+   NaN and signed-zero equality, original selected bits, ties, overflow and
+   existing first-error behavior.
+
+Local experiment status on October 30: candidate 1 is evaluated and dropped;
+candidates 2–6 are retained, with candidate 6 advancing the unchanged 347-case
+baseline to **13.274446547 engine seconds**. Candidate 7 is next, followed by
+the follow-through below. The
+[individual contracts and observations](native-shared-performance-2026-10-29.md)
+preserve all failed attempts and diagnostic regressions. These are local
+decisions; combined Full43, portable evidence, review and hosted checks remain
+due before integration. No additional dense-index experiment is implied by
+selecting the singleton representation for candidate 5.
 
 The October 29 maintainer clarification preserves **one shared engine across
 input formats**. These candidates are not permission to build per-format joins,
@@ -167,6 +183,63 @@ complete correctness/resource/ownership/no-fallback checks before a single
 unchanged-cohort observation. Lower total engine time retains a candidate;
 unchanged or higher total drops it, with case regressions visible. Use Full43
 only at meaningful integration boundaries, not for every small candidate.
+
+The October 30 maintainer follow-up preserves this sequence and adds a small
+repeated-subplan workload after the seven candidates, before batch functions.
+Compare explicit materialization with ordinary repeated consumption of the same
+expensive join/normalization relation. Freeze complete independent results and
+include one-consumer, wide-result and selective-consumer controls. Measure avoided
+execution against capture, retention, replay and admitted spill costs through
+the existing action-owned native relation. Keep this workload separate from the
+unchanged 347-query cohort; it neither replaces its results nor requires another
+baseline solely because a supplied review used an earlier revision. Preserve
+complete relation validation, late errors and per-action recomputation, including
+downstream few-row and zero-row consumers.
+
+Also inspect the shared `OutputBuffer` for reuse at a concrete boundary with
+observed excess fragment, schema or index overhead. Additional compaction is an
+experiment only when that evidence exists; already suitable owned batches must
+not acquire an unconditional extra copy. This follow-up does not reopen dropped
+mechanisms or assert that capability additions caused a performance regression.
+
+The October 30 maintainer expansion adds three explicit follow-through checks
+to this active performance package. Finish the current seven-candidate sequence,
+then evaluate these remaining mechanisms before closing performance acceptance:
+
+- **Bounded ordering execution:** the ten frozen ordering cases already use
+  `Limit -> Sort -> Project`. Candidate 1's dropped projection propagation does
+  not address their existing execution path and stays dropped. Inspect typed
+  numeric key/view binding, generic scalar construction in comparisons, repeated
+  row-location resolution, candidate preparation, heap replacement and retained
+  prefix copies inside the existing ordering owner. Separate source/preparation
+  work from comparison/selection work in the evidence. Admit a new mechanism only
+  with a prospective contract, actual work reduction, stable ties/NULLs/offsets,
+  complete-input and materialized/recursive-boundary controls.
+- **Predicate attribution:** identify the exact retained cases still behind
+  their comparator observations; preserve those observations and their clock/
+  format limitations. Attribute metadata pruning, residual evaluation, selection
+  masks, payload movement and downstream ordering separately. Keep those cases,
+  neighboring Boolean/selectivity shapes and the lone remaining global-aggregate
+  case visible through source/expression work; a family win count is not a cause.
+- **Multiway and composed join movement:** after demand and index decisions,
+  measure intermediate copies/gathers and retained-source lifetimes at successive
+  joins and the composed report. If material, evaluate a selected-row handoff in
+  the existing shared owner with explicit lifetime, reservation, source release,
+  multiplicity, NULL, cancellation and failure controls. Earlier rejected caches,
+  gather-coordinate and item-15 experiments remain rejected; this is not authority
+  to restore them unchanged.
+
+Each separately admitted follow-through uses the unchanged 347 cases, original
+order and complete-result/binary engine-total rule. Nullable, DISTINCT, sets and
+unaffected families remain controls. Materialized reuse and evidence-triggered
+OutputBuffer work retain their contracts above. Do not infer that mixed-clock
+counts establish an overall win over Polars.
+
+The broad scenario/benchmark expansion is deliberately scheduled **after item 19
+and before item 21**, under the existing [broad-query program](native-broad-query-program-2026-10-26.md#october-30-coverage-expansion-after-item-19).
+It is not parallel implementation during this performance package. Targeted
+correctness, neighboring shapes, fresh held-out acceptance and existing required
+checks remain prerequisites here; the frozen 347 denominator never changes.
 
 The later October 28 [gain/loss decision](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
 removes percentage benefit cutoffs for the remaining analytical performance
@@ -1593,8 +1666,12 @@ workspace formatting, Clippy and tests, native-feature and installed-package
 checks at coherent boundaries. Every capability must be exercised through its
 real public surface with complete output and source/owner cleanup. Verify
 pressure, cancellation, malformed/changed source, spill and output failures
-where applicable. Use ClickBench only for a justified shared-runtime regression
-check, with its isolated single-pass procedure.
+where applicable. The October 30 maintainer decision holds further Full43
+execution until item 18's universal I/O work and format/interface acceptance are
+complete. This supersedes prospective item-20 Full43 checkpoints without deferring
+the other required checks or changing the frozen 347-case candidate protocol.
+Preserve and replay completed observations. After item 18, ClickBench remains a
+justified shared-runtime regression check under its isolated single-pass procedure.
 
 Bulk builds, temporary fixtures and diagnostic evidence stay in local-only
 storage under the existing limits. Resolve Cargo output before every new build

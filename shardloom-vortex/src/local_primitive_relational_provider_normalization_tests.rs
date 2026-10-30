@@ -188,7 +188,7 @@ fn provider_admission_uses_its_own_capacity_and_releases_it_on_drop() {
     let baseline = memory.snapshot().reserved_bytes;
     let available = 128 * 1024;
     let PreparedVortexRelational {
-        _metadata: bound_metadata,
+        binding_metadata: bound_metadata,
         ..
     } = &prepared;
     assert!(bound_metadata.bytes() * 4 > available / 2);

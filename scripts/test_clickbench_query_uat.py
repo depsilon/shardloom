@@ -63,7 +63,8 @@ class ClickBenchUatTests(unittest.TestCase):
     def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
                            historical_bytes=0, check_storage=False, budget_probe=None,
                            query_ids="1", repeats=None, paired=False, engine_timing=True,
-                           pinned_queries=False, input_format=None, profiled_commands=None):
+                           pinned_queries=False, input_format=None, profiled_commands=None,
+                           source_evidence=None):
         runner = paired_uat if paired else query_uat
         query_path, packet_path, binary, source, uat_root = self._runner_fixture(
             root, pinned_queries=pinned_queries)
@@ -107,6 +108,9 @@ class ClickBenchUatTests(unittest.TestCase):
                     {"key": "native_query_timing_boundary", "value": TIMING_BOUNDARY},
                 ],
             }
+            envelope["fields"].extend(
+                {"key": key, "value": value} for key, value in (source_evidence or {}).items()
+            )
             if not engine_timing:
                 envelope["fields"] = [field for field in envelope["fields"]
                                       if not field["key"].startswith(("native_query_", "native_result_serialization_"))]
@@ -235,6 +239,28 @@ class ClickBenchUatTests(unittest.TestCase):
             "resident_native_preparation_reused": "false",
             "relational_scan_rows_delivered": "0",
         })
+
+    def test_single_and_paired_summaries_retain_ranked_and_ordering_evidence(self):
+        evidence = {
+            "native_source_ranked_sources": "1",
+            "native_source_ranked_rank_group_visits": "226",
+            "native_source_ranked_payload_group_visits": "7",
+            "native_source_ranked_payload_read_bytes": "0",
+            "native_source_ranked_validation_scope": "complete_rank_then_winning_groups",
+            "native_input_ordering_prefix_batches": "12",
+            "native_input_ordering_prefix_peak_retained_buffer_bytes": None,
+        }
+        for paired in (False, True):
+            with self.subTest(paired=paired), tempfile.TemporaryDirectory() as directory:
+                result, summary = self._run_mocked_single(
+                    Path(directory), paired=paired, source_evidence=evidence)
+            self.assertEqual(result, 0)
+            self.assertEqual(len(summary["records"]), 2 if paired else 1)
+            for record in summary["records"]:
+                report = record["execution_report"]
+                self.assertEqual({key: report[key] for key in evidence}, evidence)
+                self.assertNotIn("native_source_ranked_selected_rows", report)
+                self.assertNotIn("result_values_json", report)
 
     def test_single_and_paired_runners_record_and_submit_the_same_explicit_byte_sql(self):
         _, original = query_uat.query_statements(

@@ -236,7 +236,7 @@ jobs:
   native-tests:
     name: Rust feature matrix (native_vortex_tests)
     runs-on: ubuntu-24.04
-    if: ${{ always() && needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-tests') }}
+    if: ${{ !cancelled() && needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-tests') }}
     needs: [ci-work-shaping, native-test-build, native-test-partitions, patched-provider-tests, rust-feature-matrix]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
@@ -377,7 +377,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - python-test-shards
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
@@ -413,6 +413,10 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_shared_key_lookup_packet.py -v
       - name: Shared numeric values portable evidence and corruption controls
         run: python -B -m unittest discover -s scripts -p test_shared_numeric_values_packet.py -v
+      - name: Shared performance evidence corruption controls
+        run: python -B -m unittest discover -s scripts -p test_shared_performance_packet.py -v
+      - name: Shared performance complete saved-result replay
+        run: python -B scripts/verify_shared_performance_packet.py docs/benchmarks/evidence/native-shared-performance-2026-10-30
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
@@ -661,7 +665,7 @@ jobs:
   python-native-wheel:
     name: Native Python wheel acceptance
     runs-on: ubuntu-24.04
-    if: ${{ always() && needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-native-wheel') }}
+    if: ${{ !cancelled() && needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'python-native-wheel') }}
     needs: [ci-work-shaping, python-native-wheel-linux, python-native-wheel-macos]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
@@ -935,7 +939,7 @@ jobs:
   release-readiness:
     name: Release readiness reports
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     needs:
       - ci-work-shaping
       - rust-baseline
