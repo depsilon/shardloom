@@ -3,7 +3,7 @@
 
 use super::super::{
     RollingWindowState, native_decimal_reduce,
-    rolling_observation::{Decimal, Observation},
+    rolling_observation::{Decimal, ExtendedFloat, Observation},
 };
 use super::{
     BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, Nullability, ReservedVec,
@@ -36,6 +36,7 @@ pub(super) struct Rolling {
 
 enum TypedState {
     Primitive(Buffered<f64>),
+    Extended(Box<Buffered<ExtendedFloat>>),
     Decimal(Buffered<Decimal>),
 }
 
@@ -95,10 +96,29 @@ impl NativeObservation for Decimal {
     }
 }
 
+impl NativeObservation for ExtendedFloat {
+    #[allow(clippy::cast_precision_loss)] // Rolling primitives retain their established Float64 domain.
+    fn input(value: Value<'_>, count: bool) -> Result<Option<Self>> {
+        Ok(Some(Self(match value {
+            Value::Null => return Ok(None),
+            _ if count => 0.0,
+            Value::Int(value) => value as f64,
+            Value::UInt(value) => value as f64,
+            Value::Float(value) => value,
+            _ => return Err(failed("rolling numeric aggregate requires numeric input")),
+        })))
+    }
+
+    fn output(value: &Self::Output) -> Result<Value<'_>> {
+        Ok(Value::from(value))
+    }
+}
+
 impl Rolling {
     pub(super) fn usage(&self) -> super::report::StateUsage {
         let items = match &self.state {
             TypedState::Primitive(state) => state.peak_items,
+            TypedState::Extended(state) => state.peak_items,
             TypedState::Decimal(state) => state.peak_items,
         };
         super::report::StateUsage {
@@ -115,6 +135,10 @@ impl Rolling {
         Ok(Self {
             state: if matches!(plan.fields()[0].1, DType::Decimal(..)) {
                 TypedState::Decimal(Buffered::new(plan, context, source_rows)?)
+            } else if context.float_policy() == shardloom_core::FloatPolicy::Extended {
+                // The fixed wide total is covered by Buffered's 4 KiB state
+                // reservation, which is acquired before allocating this box.
+                TypedState::Extended(Box::new(Buffered::new(plan, context, source_rows)?))
             } else {
                 TypedState::Primitive(Buffered::new(plan, context, source_rows)?)
             },
@@ -131,6 +155,7 @@ impl Rolling {
     ) -> Result<bool> {
         match &mut self.state {
             TypedState::Primitive(state) => state.consume(plan, batch, rows, context, output),
+            TypedState::Extended(state) => state.consume(plan, batch, rows, context, output),
             TypedState::Decimal(state) => state.consume(plan, batch, rows, context, output),
         }
     }
@@ -143,6 +168,7 @@ impl Rolling {
     ) -> Result<usize> {
         match self.state {
             TypedState::Primitive(state) => state.finish(plan, context, output),
+            TypedState::Extended(state) => state.finish(plan, context, output),
             TypedState::Decimal(state) => state.finish(plan, context, output),
         }
     }

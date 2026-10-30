@@ -83,8 +83,14 @@ fn compare(column: &ArrayRef, count: u64) {
                         let reference = values.raw_cell(row).and_then(|value| {
                             update(&mut expected, &binding.measures[0], Some(value), context)
                         });
-                        let observed = value
-                            .map_or(Ok(()), |value| update_numeric(&mut actual, value, integer));
+                        let observed = value.map_or(Ok(()), |value| {
+                            update_numeric(
+                                &mut actual,
+                                value,
+                                integer,
+                                shardloom_core::FloatPolicy::Strict,
+                            )
+                        });
                         assert_eq!(
                             observed.as_ref().err().map(ToString::to_string),
                             reference.as_ref().err().map(ToString::to_string)

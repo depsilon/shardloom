@@ -2,7 +2,7 @@
 
 use arrow_array::{Array, GenericListArray, OffsetSizeTrait, cast::AsArray as _};
 use arrow_schema::{DataType, Field};
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{FloatPolicy, Result, ShardLoomError};
 
 pub(super) fn family(dtype: &DataType) -> Result<Option<&'static str>> {
     let family = match dtype {
@@ -27,7 +27,18 @@ pub(super) fn validate_field(field: &Field) -> Result<()> {
 /// Preserve finite floats and declared decimal precision throughout the retained
 /// child domain. Null parents and children outside a sliced list's offsets are
 /// not logical values. Schema validation bounds recursion before this traversal.
+#[cfg(test)]
 pub(crate) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
+    validate_values_with_float_policy(column, array, FloatPolicy::Strict)
+}
+
+/// The explicit floating domain changes only nonfinite admission. Decimal,
+/// nested reachability and all structural validations remain identical.
+pub(crate) fn validate_values_with_float_policy(
+    column: &str,
+    array: &dyn Array,
+    float_policy: FloatPolicy,
+) -> Result<()> {
     match array.data_type() {
         DataType::Decimal128(precision, _) => array
             .as_primitive::<arrow_array::types::Decimal128Type>()
@@ -35,8 +46,8 @@ pub(crate) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
             .map_err(|error| ShardLoomError::InvalidOperation(format!(
                 "native columnar intake column '{column}' exceeds its declared decimal precision: {error}; no fallback execution was attempted"
             ))),
-        DataType::List(_) => validate_list_values(column, array.as_list::<i32>()),
-        DataType::LargeList(_) => validate_list_values(column, array.as_list::<i64>()),
+        DataType::List(_) => validate_list_values(column, array.as_list::<i32>(), float_policy),
+        DataType::LargeList(_) => validate_list_values(column, array.as_list::<i64>(), float_policy),
         DataType::FixedSizeList(..) => {
             let list = array.as_fixed_size_list();
             let width = usize::try_from(list.value_length()).map_err(|_| {
@@ -45,22 +56,24 @@ pub(crate) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
                 ))
             })?;
             for_valid_parent_ranges(array, |start, end| {
-                validate_child_range(column, list.values().as_ref(), start * width, end * width)
+                validate_child_range(column, list.values().as_ref(), start * width, end * width, float_policy)
             })
         }
         DataType::Struct(_) => for_valid_parent_ranges(array, |start, end| {
             for child in array.as_struct().columns() {
-                validate_child_range(column, child.as_ref(), start, end)?;
+                validate_child_range(column, child.as_ref(), start, end, float_policy)?;
             }
             Ok(())
         }),
-        _ => super::reject_columnar_non_finite_floats(column, array),
+        _ if float_policy == FloatPolicy::Strict => super::reject_columnar_non_finite_floats(column, array),
+        _ => Ok(()),
     }
 }
 
 fn validate_list_values<O: OffsetSizeTrait>(
     column: &str,
     list: &GenericListArray<O>,
+    float_policy: FloatPolicy,
 ) -> Result<()> {
     let offsets = list.value_offsets();
     for_valid_parent_ranges(list, |start, end| {
@@ -69,6 +82,7 @@ fn validate_list_values<O: OffsetSizeTrait>(
             list.values().as_ref(),
             offsets[start].as_usize(),
             offsets[end].as_usize(),
+            float_policy,
         )
     })
 }
@@ -90,13 +104,23 @@ fn for_valid_parent_ranges(
     }
 }
 
-fn validate_child_range(column: &str, child: &dyn Array, start: usize, end: usize) -> Result<()> {
+fn validate_child_range(
+    column: &str,
+    child: &dyn Array,
+    start: usize,
+    end: usize,
+    float_policy: FloatPolicy,
+) -> Result<()> {
     if start == end {
         Ok(())
     } else if start == 0 && end == child.len() {
-        validate_values(column, child)
+        validate_values_with_float_policy(column, child, float_policy)
     } else {
-        validate_values(column, child.slice(start, end - start).as_ref())
+        validate_values_with_float_policy(
+            column,
+            child.slice(start, end - start).as_ref(),
+            float_policy,
+        )
     }
 }
 

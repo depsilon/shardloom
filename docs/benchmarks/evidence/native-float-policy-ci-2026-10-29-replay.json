@@ -1,0 +1,90 @@
+{
+  "schema_version": "shardloom.native_float_review_replay.v1",
+  "status": "passed",
+  "packet_sha256": "fa9d5b1f1e45dc4bd92f70ad63c86a75bce107cd67789129d573ef576138d27f",
+  "archived_verifier_sha256": "2eff401388931f6a51571c6746c149f4cc919d22217ead8b1f6c7a146142feda",
+  "original_packet_identity_verified": true,
+  "returncode": 0,
+  "observations": {
+    "status": "passed",
+    "packet_sha256": "fa9d5b1f1e45dc4bd92f70ad63c86a75bce107cd67789129d573ef576138d27f",
+    "controls": [
+      {
+        "control": "member",
+        "verifier_line": 62,
+        "assertion": "assert identity(row['text'].encode()) == {key: row[key] for key in ('bytes', 'sha256')}, name"
+      },
+      {
+        "control": "source",
+        "verifier_line": 64,
+        "assertion": "assert expected == {key: files['source/' + path][key] for key in ('bytes', 'sha256')}, path"
+      },
+      {
+        "control": "value",
+        "verifier_line": 140,
+        "assertion": ""
+      },
+      {
+        "control": "type",
+        "verifier_line": 135,
+        "assertion": ""
+      },
+      {
+        "control": "null",
+        "verifier_line": 140,
+        "assertion": ""
+      },
+      {
+        "control": "policy",
+        "verifier_line": 132,
+        "assertion": "assert report['float_policy'] == row['policy'] and row['policy'] in {'strict', 'extended'}"
+      },
+      {
+        "control": "certificate",
+        "verifier_line": 133,
+        "assertion": "assert report['fallback_attempted'] == report['external_engine_invoked'] == 'false'"
+      },
+      {
+        "control": "count",
+        "verifier_line": 121,
+        "assertion": "assert sum(len(row['interfaces']) for row in public['observations']) == public['positive_public_executions']"
+      },
+      {
+        "control": "product",
+        "verifier_line": 114,
+        "assertion": "assert manifest['products'] == packet['native_products']"
+      },
+      {
+        "control": "wheel",
+        "verifier_line": 160,
+        "assertion": "assert wheel['integration'] == {'tests': 245, 'failures': 0, 'errors': 0, 'skipped': 0, 'status': 'passed'}"
+      },
+      {
+        "control": "failed-attempt",
+        "verifier_line": 66,
+        "assertion": "assert packet['failed_attempts'] == sorted(name for name, row in attempts.items() if row['status'] == 'failed')"
+      },
+      {
+        "control": "cleanup",
+        "verifier_line": 140,
+        "assertion": "assert fields['relational_spill_owned_cleanup_completed'] == 'true'"
+      }
+    ],
+    "public_totals": {
+      "compared_rows": 108969,
+      "complete_comparisons": 1500,
+      "five_surface_rows": 4155,
+      "native_certificates": 228,
+      "observations": 106,
+      "positive_public_executions": 530,
+      "public_envelopes": 327,
+      "tests": 22
+    },
+    "isolated_python": true,
+    "no_source_tree_import": true,
+    "engine_imported": false
+  },
+  "stdout": "{\"status\": \"passed\", \"packet_sha256\": \"fa9d5b1f1e45dc4bd92f70ad63c86a75bce107cd67789129d573ef576138d27f\", \"controls\": [{\"control\": \"member\", \"verifier_line\": 62, \"assertion\": \"assert identity(row['text'].encode()) == {key: row[key] for key in ('bytes', 'sha256')}, name\"}, {\"control\": \"source\", \"verifier_line\": 64, \"assertion\": \"assert expected == {key: files['source/' + path][key] for key in ('bytes', 'sha256')}, path\"}, {\"control\": \"value\", \"verifier_line\": 140, \"assertion\": \"\"}, {\"control\": \"type\", \"verifier_line\": 135, \"assertion\": \"\"}, {\"control\": \"null\", \"verifier_line\": 140, \"assertion\": \"\"}, {\"control\": \"policy\", \"verifier_line\": 132, \"assertion\": \"assert report['float_policy'] == row['policy'] and row['policy'] in {'strict', 'extended'}\"}, {\"control\": \"certificate\", \"verifier_line\": 133, \"assertion\": \"assert report['fallback_attempted'] == report['external_engine_invoked'] == 'false'\"}, {\"control\": \"count\", \"verifier_line\": 121, \"assertion\": \"assert sum(len(row['interfaces']) for row in public['observations']) == public['positive_public_executions']\"}, {\"control\": \"product\", \"verifier_line\": 114, \"assertion\": \"assert manifest['products'] == packet['native_products']\"}, {\"control\": \"wheel\", \"verifier_line\": 160, \"assertion\": \"assert wheel['integration'] == {'tests': 245, 'failures': 0, 'errors': 0, 'skipped': 0, 'status': 'passed'}\"}, {\"control\": \"failed-attempt\", \"verifier_line\": 66, \"assertion\": \"assert packet['failed_attempts'] == sorted(name for name, row in attempts.items() if row['status'] == 'failed')\"}, {\"control\": \"cleanup\", \"verifier_line\": 140, \"assertion\": \"assert fields['relational_spill_owned_cleanup_completed'] == 'true'\"}], \"public_totals\": {\"compared_rows\": 108969, \"complete_comparisons\": 1500, \"five_surface_rows\": 4155, \"native_certificates\": 228, \"observations\": 106, \"positive_public_executions\": 530, \"public_envelopes\": 327, \"tests\": 22}, \"isolated_python\": true, \"no_source_tree_import\": true, \"engine_imported\": false}\n",
+  "stderr": "",
+  "new_benchmark_executions": 0
+}

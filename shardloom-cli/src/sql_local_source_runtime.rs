@@ -2018,6 +2018,7 @@ struct VortexIngestRequest {
     resources: ExecutionResources,
     shared_memory_pool: Option<shardloom_exec::live_memory::LiveMemoryPool>,
     cancellation: CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
     source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
     // Retained by the request in every build; only the native writer consumes it.
@@ -2606,6 +2607,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         resources: admission.resources(),
         shared_memory_pool: Some((*admission).clone()),
         cancellation: admission.cancellation(),
+        float_policy: shardloom_core::FloatPolicy::Strict,
         source_fingerprint_policy,
         delta,
         prepared_source_binding: None,
@@ -2790,6 +2792,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     )
 }
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
     source_path: impl AsRef<Path>,
@@ -2801,6 +2804,33 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
     cancellation: &CancellationToken,
+) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    prepare_local_source_as_vortex_for_public_workflow_with_float_policy(
+        source_path,
+        target_path,
+        source_format,
+        allow_overwrite,
+        resources,
+        shared_memory_pool,
+        source_fingerprint_policy,
+        source_schema,
+        cancellation,
+        shardloom_core::FloatPolicy::Strict,
+    )
+}
+
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_float_policy(
+    source_path: impl AsRef<Path>,
+    target_path: impl AsRef<Path>,
+    source_format: Option<&str>,
+    allow_overwrite: bool,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    source_fingerprint_policy: Option<&str>,
+    source_schema: Option<&str>,
+    cancellation: &CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
     cancellation.check()?;
     if shared_memory_pool.is_some_and(|pool| pool.snapshot().limit_bytes > resources.memory_bytes())
@@ -2882,6 +2912,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
         source_fingerprint_policy,
         source_schema,
         cancellation,
+        float_policy,
     )?);
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     drop(binding_control);
@@ -2927,6 +2958,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
         resources,
         shared_memory_pool: shared_memory_pool.cloned(),
         cancellation: cancellation.clone(),
+        float_policy,
         source_fingerprint_policy,
         delta: None,
         prepared_source_binding: prepared_source_binding.clone(),
@@ -3083,11 +3115,12 @@ pub(crate) fn parquet_source_content_fingerprint_requested(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-pub(crate) fn parquet_preparation_source_binding(
+pub(crate) fn parquet_preparation_source_binding_with_float_policy(
     path: &Path,
     policy: Option<&str>,
     memory: &shardloom_exec::live_memory::LiveMemoryPool,
     cancellation: &CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
 ) -> Result<String, ShardLoomError> {
     let policy = policy
         .map(SourceFingerprintPolicy::parse)
@@ -3100,6 +3133,7 @@ pub(crate) fn parquet_preparation_source_binding(
         policy,
         None,
         cancellation,
+        float_policy,
     )
 }
 
@@ -3110,16 +3144,19 @@ fn public_preparation_source_binding(
     policy: SourceFingerprintPolicy,
     source_schema: Option<&str>,
     cancellation: &CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
 ) -> Result<String, ShardLoomError> {
     cancellation.check()?;
     let format = LocalInputAdapterSelection::select(path, format)?.source_format;
-    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema_controlled(
-        path,
-        format.as_str(),
-        policy.as_str(),
-        source_schema,
-        cancellation,
-    )?;
+    let initial =
+        shardloom_vortex::prepared_source_binding::local_preparation_binding_with_float_policy(
+            path,
+            format.as_str(),
+            policy.as_str(),
+            source_schema,
+            cancellation,
+            float_policy,
+        )?;
     if policy == SourceFingerprintPolicy::MetadataOnly {
         return Ok(initial);
     }
@@ -3135,12 +3172,13 @@ fn public_preparation_source_binding(
             cancellation,
         )?
     };
-    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema_controlled(
+    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_float_policy(
         path,
         format.as_str(),
         policy.as_str(),
         source_schema,
         cancellation,
+        float_policy,
     )? != initial
     {
         return Err(ShardLoomError::InvalidOperation(
@@ -3148,12 +3186,13 @@ fn public_preparation_source_binding(
                 .into(),
         ));
     }
-    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema_controlled(
+    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_float_policy(
         path,
         format.as_str(),
         &scout.digest,
         source_schema,
         cancellation,
+        float_policy,
     )
 }
 
@@ -3692,6 +3731,7 @@ fn run_vortex_prepare_with_schema(
                 resources: base_report.request.resources,
                 shared_memory_pool: base_report.request.shared_memory_pool.clone(),
                 cancellation: base_report.request.cancellation.clone(),
+                float_policy: base_report.request.float_policy,
                 source_fingerprint_policy: base_report.request.source_fingerprint_policy,
                 delta: None,
                 prepared_source_binding: None,
@@ -4984,9 +5024,10 @@ fn try_run_schema_declared_text_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
             vortex_request,
             &request.cancellation,
+            request.float_policy,
         )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
@@ -5224,9 +5265,10 @@ fn try_run_inferred_text_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
             vortex_request,
             &request.cancellation,
+            request.float_policy,
         )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
@@ -5426,9 +5468,10 @@ fn finish_text_streaming_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
             vortex_request,
             &request.cancellation,
+            request.float_policy,
         )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
@@ -5601,9 +5644,10 @@ fn run_columnar_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
             vortex_request,
             &request.cancellation,
+            request.float_policy,
         )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
@@ -8197,6 +8241,7 @@ fn vortex_ingest_scout_blocked_request(
             resources: request.resources,
             shared_memory_pool: request.shared_memory_pool.clone(),
             cancellation: request.cancellation.clone(),
+            float_policy: request.float_policy,
             source_fingerprint_policy: request.source_fingerprint_policy,
             delta: None,
             prepared_source_binding: None,

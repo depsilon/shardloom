@@ -1,8 +1,60 @@
 {
   "schema_version": "shardloom.native_scalar_functions.v1",
   "source": "shardloom-core/src/expression_builtins.rs",
-  "source_sha256": "b6102c1d4815091078285eb40ed8827316755a2cb772c1e82e375a70d80e6f0b",
+  "source_sha256": "1a0613b5ac04e9993fa1ea2da801e1ebb77577442edf5aa580877791238b575c",
   "functions": [
+    {
+      "name": "is_nan",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "float_classification",
+      "reference_supported": true,
+      "summary": "Whether a floating value is NaN; distinct from NULL.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "is_infinite",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "float_classification",
+      "reference_supported": true,
+      "summary": "Whether a floating value is positive or negative infinity.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "is_finite",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "float_classification",
+      "reference_supported": true,
+      "summary": "Whether a floating value is finite, including signed zeros and subnormals.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
+    {
+      "name": "signbit",
+      "aliases": [],
+      "min_args": 1,
+      "max_args": 1,
+      "type_rule": "F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy",
+      "null_rule": "null input produces null; nullable if any input is nullable",
+      "family": "float_classification",
+      "reference_supported": true,
+      "summary": "Whether the original floating sign bit is set, including zero and NaN.",
+      "execution_provider": "shared_shardloom_native",
+      "external_engine_invoked": false
+    },
     {
       "name": "decimal_rescale",
       "aliases": [],

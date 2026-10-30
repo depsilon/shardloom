@@ -449,10 +449,11 @@ impl Spec {
         values: &[Option<bool>],
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
-        let column = result_batch::build_column(
+        let column = result_batch::build_column_with_float_policy(
             self.output_dtype()?,
             values.len(),
             &context.native_session().host_allocator(),
+            context.float_policy(),
             |row| Ok(values[row].map_or(result_batch::Value::Null, result_batch::Value::Bool)),
         )?;
         self.append(array, column, context)

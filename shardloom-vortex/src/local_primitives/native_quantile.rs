@@ -9,7 +9,9 @@ use super::{
     vortex_error,
 };
 use crate::query_primitive::VortexQuantileLevel;
-use shardloom_core::{Result, expression::Decimal128Operand};
+use shardloom_core::{
+    FloatPolicy, Result, expression::Decimal128Operand, float_policy::canonicalize_f64_result,
+};
 use vortex::array::{
     dtype::{DType, DecimalDType},
     scalar::DecimalValue,
@@ -90,9 +92,10 @@ impl Position {
         upper: &Cell,
         dtype: &DType,
         output: Option<shardloom_core::decimal_output::DecimalOutput>,
+        policy: FloatPolicy,
     ) -> Result<Value<'static>> {
         let Some(output) = output else {
-            return self.interpolate(lower, upper, dtype);
+            return self.interpolate_policy(lower, upper, dtype, policy);
         };
         let (Cell::Decimal(left, source), Cell::Decimal(right, other)) = (lower, upper) else {
             return Err(failed("explicit decimal quantile endpoints changed type"));
@@ -118,11 +121,22 @@ impl Position {
             .map(|value| Value::Decimal(value.value(), expected))
     }
 
+    #[cfg(test)]
     pub(super) fn interpolate(
         self,
         lower: &Cell,
         upper: &Cell,
         output: &DType,
+    ) -> Result<Value<'static>> {
+        self.interpolate_policy(lower, upper, output, FloatPolicy::Strict)
+    }
+
+    fn interpolate_policy(
+        self,
+        lower: &Cell,
+        upper: &Cell,
+        output: &DType,
+        policy: FloatPolicy,
     ) -> Result<Value<'static>> {
         if let DType::Decimal(dtype, _) = output {
             let (Cell::Decimal(left, left_type), Cell::Decimal(right, right_type)) = (lower, upper)
@@ -137,8 +151,28 @@ impl Position {
         }
         let left = number(lower)?;
         let right = number(upper)?;
-        validate_finite_scalar(left)?;
-        validate_finite_scalar(right)?;
+        if !policy.admits(left) {
+            validate_finite_scalar(left)?;
+        }
+        if !policy.admits(right) {
+            validate_finite_scalar(right)?;
+        }
+        if !left.is_finite() || !right.is_finite() {
+            // An exact rank selects its endpoint. An interior finite/infinite
+            // interval takes the infinite sign; opposing infinities or a NaN
+            // endpoint produce the canonical generated NaN.
+            let value = if self.numerator == 0 || left.to_bits() == right.to_bits() {
+                left
+            } else if left.is_nan() || right.is_nan() || (left.is_infinite() && right.is_infinite())
+            {
+                f64::NAN
+            } else if left.is_infinite() {
+                left
+            } else {
+                right
+            };
+            return Ok(Value::Float(canonicalize_f64_result(value)));
+        }
         let value = if self.numerator == 0 || left.to_bits() == right.to_bits() {
             left
         } else {
@@ -154,7 +188,11 @@ impl Position {
     }
 }
 
-pub(super) fn numeric_value(value: &Cell, dtype: &DType) -> Result<Value<'static>> {
+pub(super) fn numeric_value(
+    value: &Cell,
+    dtype: &DType,
+    policy: FloatPolicy,
+) -> Result<Value<'static>> {
     Ok(match value {
         Cell::NegativeInteger(value) => Value::Int(*value),
         Cell::NonnegativeInteger(value) if matches!(dtype, DType::Primitive(ptype, _) if ptype.is_signed_int()) => {
@@ -163,7 +201,9 @@ pub(super) fn numeric_value(value: &Cell, dtype: &DType) -> Result<Value<'static
         Cell::NonnegativeInteger(value) => Value::UInt(*value),
         Cell::Float(bits) => {
             let value = f64::from_bits(*bits);
-            validate_finite_scalar(value)?;
+            if !policy.admits(value) {
+                validate_finite_scalar(value)?;
+            }
             Value::Float(value)
         }
         Cell::Decimal(value, actual) if matches!(dtype, DType::Decimal(expected, _) if expected == actual) => {
@@ -173,10 +213,17 @@ pub(super) fn numeric_value(value: &Cell, dtype: &DType) -> Result<Value<'static
     })
 }
 
-pub(super) fn validate(value: &Cell) -> Result<()> {
+pub(super) fn validate(value: &Cell, policy: FloatPolicy) -> Result<()> {
     match value {
         Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_) => Ok(()),
-        Cell::Float(bits) => validate_finite_scalar(f64::from_bits(*bits)),
+        Cell::Float(bits) => {
+            let value = f64::from_bits(*bits);
+            if policy.admits(value) {
+                Ok(())
+            } else {
+                validate_finite_scalar(value)
+            }
+        }
         Cell::Decimal(value, dtype) => Decimal128Operand::decimal(
             *value,
             dtype.precision(),
@@ -249,6 +296,57 @@ fn decimal(
 mod tests {
     use super::*;
     use vortex::array::dtype::{Nullability, PType};
+
+    #[test]
+    fn exact_quantile_extended_infinity_rules_and_nan_generation() {
+        let float = |value: f64| Cell::Float(value.to_bits());
+        let dtype = DType::Primitive(PType::F64, Nullability::Nullable);
+        let midpoint = Position::new(VortexQuantileLevel::new(0.5).unwrap(), 2, false).unwrap();
+        for (left, right, expected) in [
+            (f64::NEG_INFINITY, -1.0, f64::NEG_INFINITY),
+            (1.0, f64::INFINITY, f64::INFINITY),
+            (f64::INFINITY, f64::INFINITY, f64::INFINITY),
+            (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
+            (f64::NEG_INFINITY, f64::INFINITY, f64::NAN),
+            (1.0, f64::from_bits(0xfff0_0000_0000_0123), f64::NAN),
+        ] {
+            assert!(
+                midpoint
+                    .interpolate(&float(left), &float(right), &dtype)
+                    .is_err()
+            );
+            let Value::Float(actual) = midpoint
+                .interpolate_policy(&float(left), &float(right), &dtype, FloatPolicy::Extended)
+                .unwrap()
+            else {
+                panic!("changed output dtype")
+            };
+            assert_eq!(
+                actual.to_bits(),
+                canonicalize_f64_result(expected).to_bits()
+            );
+        }
+        let endpoint = Position::new(VortexQuantileLevel::new(0.0).unwrap(), 2, false).unwrap();
+        let Value::Float(actual) = endpoint
+            .interpolate_policy(
+                &float(-0.0),
+                &float(f64::INFINITY),
+                &dtype,
+                FloatPolicy::Extended,
+            )
+            .unwrap()
+        else {
+            panic!("changed output dtype")
+        };
+        assert_eq!(actual.to_bits(), (-0.0_f64).to_bits());
+        let bits = 0xfff0_0000_0000_0001;
+        let Value::Float(actual) =
+            numeric_value(&Cell::Float(bits), &dtype, FloatPolicy::Extended).unwrap()
+        else {
+            panic!("changed output dtype")
+        };
+        assert_eq!(actual.to_bits(), bits);
+    }
 
     #[test]
     fn exact_quantile_ranks_keep_large_counts_endpoints_and_subnormal_levels() {

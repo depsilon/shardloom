@@ -217,19 +217,25 @@ impl Events<'_, '_> {
         columns.values.push(records::unsigned(rows, context, |row| {
             u64::try_from(self.buffer.values[row].0).map_err(vortex_error)
         })?);
-        columns.values.push(result_batch::build_column(
-            &self.spec.fields[1].1,
-            rows,
-            &context.native_session().host_allocator(),
-            |row| Ok(Value::Int(self.buffer.values[row].1)),
-        )?);
-        if let Some(values) = &self.values {
-            columns.values.push(result_batch::build_column(
-                &self.spec.fields[2].1,
+        columns
+            .values
+            .push(result_batch::build_column_with_float_policy(
+                &self.spec.fields[1].1,
                 rows,
                 &context.native_session().host_allocator(),
-                |row| numeric_value(&values.values[row], &self.spec.fields[2].1),
+                context.float_policy(),
+                |row| Ok(Value::Int(self.buffer.values[row].1)),
             )?);
+        if let Some(values) = &self.values {
+            columns
+                .values
+                .push(result_batch::build_column_with_float_policy(
+                    &self.spec.fields[2].1,
+                    rows,
+                    &context.native_session().host_allocator(),
+                    context.float_policy(),
+                    |row| numeric_value(&values.values[row], &self.spec.fields[2].1),
+                )?);
         }
         self.order.build(
             records::structure(&self.spec.fields, columns, rows)?,
@@ -379,7 +385,7 @@ fn counts(
                 } else {
                     let value = number(&value)?;
                     if add {
-                        floats.add(value)?;
+                        floats.add(value, context.float_policy())?;
                     } else {
                         floats.remove(value)?;
                     }

@@ -6419,8 +6419,10 @@ class ShardLoomClient:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
+        float_policy: str = "strict",
     ) -> None:
-        from ._native_backend import normalize_transport, validate_timeout
+        from ._native_backend import normalize_float_policy, normalize_transport, validate_timeout
+        self._float_policy = normalize_float_policy(float_policy)
         self._transport = normalize_transport(transport)
         if self._transport == "native" and use_persistent_worker is True:
             raise ValueError("a persistent subprocess worker cannot use transport='native'")
@@ -6464,6 +6466,12 @@ class ShardLoomClient:
         return self._resource_limits
 
     @property
+    def float_policy(self) -> str:
+        """Return this client's immutable floating semantics policy."""
+
+        return self._float_policy
+
+    @property
     def transport(self) -> str:
         """Return the explicitly selected execution transport."""
 
@@ -6489,7 +6497,10 @@ class ShardLoomClient:
         with self._native_backend_lock:
             self._ensure_open()
             if self._native_backend is None:
-                self._native_backend = NativeBackend(self.resources, self.resource_limits, self._timeout)
+                self._native_backend = NativeBackend(
+                    self.resources, self.resource_limits, self._timeout,
+                    float_policy=self.float_policy,
+                )
             return self._native_backend
 
     @classmethod
@@ -8604,6 +8615,8 @@ class ShardLoomClient:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
         self._ensure_open()
+        if any(str(arg) == "--float-policy" or str(arg).startswith("--float-policy=") for arg in args):
+            raise ValueError("--float-policy is fixed by the ShardLoomClient configuration")
         if self.transport == "native":
             command = [str(arg) for arg in args]
             payload = self._native_backend_for().command(command)
@@ -8945,6 +8958,10 @@ class ShardLoomClient:
 
     def _command_args(self, args: Sequence[CommandPart]) -> list[str]:
         command_args = [str(arg) for arg in args]
+        if any(arg == "--float-policy" or arg.startswith("--float-policy=") for arg in command_args):
+            raise ValueError("--float-policy is fixed by the ShardLoomClient configuration")
+        if self.float_policy != "strict":
+            command_args.extend(("--float-policy", self.float_policy))
         self._append_json_format(command_args)
         return command_args
 

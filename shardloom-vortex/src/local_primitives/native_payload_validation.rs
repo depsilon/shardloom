@@ -75,11 +75,12 @@ pub(in crate::local_primitives) fn validate_record(
         )? {
             continue;
         }
-        drop(result_batch::build_column_prefix(
+        drop(result_batch::build_column_prefix_with_float_policy(
             dtype,
             array.len(),
             0,
             &context.native_session().host_allocator(),
+            context.float_policy(),
             |row| {
                 check(row, context)?;
                 #[cfg(all(test, debug_assertions))]
@@ -117,6 +118,7 @@ pub(super) fn validate_typed_column(
             numeric.primitive(),
             numeric.validity(),
             &context.native_session().host_allocator(),
+            context.float_policy(),
             || context.check_cancelled(),
         )?;
         return Ok(true);

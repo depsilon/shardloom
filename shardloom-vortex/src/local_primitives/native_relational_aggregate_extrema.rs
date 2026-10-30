@@ -2,11 +2,12 @@
 //! Only a replacement constructs a retained scalar cell. Integer comparisons
 //! stay exact; equal floating zeros preserve the first observed value's bits.
 
+use super::super::native_relational_keys::validate_float_scalar;
 use super::{
     Cell, GroupOrdinals, NativeExecutionContext, NativeNumericOwner, Result, State, add_count,
-    compare_cells, failed, validate_finite_scalar,
+    compare_cells, failed,
 };
-use shardloom_core::StatValue;
+use shardloom_core::{FloatPolicy, StatValue, float_policy::float_key_bits};
 use std::cmp::Ordering;
 
 #[cfg(test)]
@@ -40,17 +41,18 @@ pub(super) fn accumulate(
             &mut states[ordinals.at(row) * width + measure_index],
             &value,
             minimum,
+            context.float_policy(),
         )
     })
 }
 
-fn update(state: &mut State, value: &StatValue, minimum: bool) -> Result<()> {
+fn update(state: &mut State, value: &StatValue, minimum: bool, policy: FloatPolicy) -> Result<()> {
     if matches!(value, StatValue::Null) {
         return Ok(());
     }
     if let StatValue::Float64(value) = value {
         // Preserve raw_cell's validation before changing the count or extremum.
-        validate_finite_scalar(*value)?;
+        validate_float_scalar(*value, policy)?;
     }
     add_count(state, 1)?;
     update_extreme(state, value, minimum)
@@ -90,12 +92,9 @@ fn compare(value: &StatValue, prior: &Cell) -> Result<Ordering> {
         }
         (StatValue::UInt64(value), Cell::NonnegativeInteger(prior)) => value.cmp(prior),
         (StatValue::Float64(value), Cell::Float(prior)) => {
-            let prior = f64::from_bits(*prior);
-            if *value == 0.0 && prior == 0.0 {
-                Ordering::Equal
-            } else {
-                value.total_cmp(&prior)
-            }
+            let value = f64::from_bits(float_key_bits(*value));
+            let prior = f64::from_bits(float_key_bits(f64::from_bits(*prior)));
+            value.total_cmp(&prior)
         }
         _ => compare_cells(cell(value)?, prior.clone())?,
     })

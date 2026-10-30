@@ -29,7 +29,7 @@ __all__ = (
     "count_distinct", "date_add_days", "date_day", "date_diff_days", "date_month",
     "date_sub_days", "date_trunc_minute", "date_year", "dense_rank", "ends_with",
     "arg_max", "arg_min", "corr", "covar_pop", "covar_samp", "exists_source", "extract_minute", "first", "first_value", "floor", "from_base64", "interval_days",
-    "interval_hours", "interval_minutes", "interval_seconds", "is_null", "is_not_null",
+    "interval_hours", "interval_minutes", "interval_seconds", "is_null", "is_not_null", "is_nan", "is_infinite", "is_finite", "signbit",
     "json_extract", "lag", "last_value", "lead", "left", "length", "list", "lit", "lower",
     "last", "max", "mean", "mean_distinct", "median", "min", "not_exists_source", "not_regex_match", "nth_value", "null_if",
     "outer", "rank", "regex_domain", "regex_match", "regexp_replace", "replace", "right", "round", "row_in",
@@ -440,6 +440,26 @@ def trim(value) -> ColumnExpression:
 def is_null(value):
     """Declare a boolean null check."""
     return _column(value).is_null()
+
+
+def is_nan(value) -> PredicateExpression:
+    """Classify floating NaN values, propagating NULL validity."""
+    return _column(value).is_nan()
+
+
+def is_infinite(value) -> PredicateExpression:
+    """Classify either floating infinity, propagating NULL validity."""
+    return _column(value).is_infinite()
+
+
+def is_finite(value) -> PredicateExpression:
+    """Classify finite floating values, propagating NULL validity."""
+    return _column(value).is_finite()
+
+
+def signbit(value) -> PredicateExpression:
+    """Observe a floating sign bit, including zero and NaN, with NULL propagation."""
+    return _column(value).signbit()
 
 
 def is_not_null(value):

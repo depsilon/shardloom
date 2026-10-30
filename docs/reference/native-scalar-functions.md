@@ -9,10 +9,14 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `b6102c1d4815091078285eb40ed8827316755a2cb772c1e82e375a70d80e6f0b`.
+Definition source SHA-256: `1a0613b5ac04e9993fa1ea2da801e1ebb77577442edf5aa580877791238b575c`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |
+| `is_nan` | — | 1 | Whether a floating value is NaN; distinct from NULL. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `is_infinite` | — | 1 | Whether a floating value is positive or negative infinity. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `is_finite` | — | 1 | Whether a floating value is finite, including signed zeros and subnormals. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `signbit` | — | 1 | Whether the original floating sign bit is set, including zero and NaN. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
 | `decimal_rescale` | — | 4 | Rescale an exact decimal or integer to an explicit decimal output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
 | `decimal_add` | — | 5 | Add exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
 | `decimal_subtract` | — | 5 | Subtract exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |

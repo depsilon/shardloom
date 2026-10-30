@@ -107,9 +107,11 @@ benchmark evidence. Recheck each source path after the capability changes.
 2. Propagate parent column demand through joins, retaining keys and predicate
    dependencies while eliminating unused output gathers. Include count-only,
    mixed aggregate and multiway consumers without changing match multiplicity.
-3. Reuse the controlled Parquet decoder-buffer ownership transfer in demanded
-   reads. Keep public Arrow intake unchanged and measure transferred/copied
-   bytes plus retained capacity; historical ingest results prove no query gain.
+3. Extend controlled reader-to-native buffer ownership transfer at the existing
+   shared intake owner, beginning with the proven private Parquet reader boundary
+   in demanded reads. Keep public Arrow intake unchanged and measure transferred/
+   copied bytes plus retained capacity; historical ingest results prove no query
+   gain. Another decoder requires its own ownership proof before transfer.
 4. Admit source-aware ranking before deferred wide/nested payload reads. Bind
    winning row locations and metadata exclusions to the same source generation;
    a post-read selection alone does not reduce compressed-chunk I/O. Start with
@@ -126,6 +128,32 @@ benchmark evidence. Recheck each source path after the capability changes.
 7. Target mixed-measure aggregate storage and float extrema traversal sharing
    only with an exact completed-domain validation proof. Preserve row/measure
    order, signed zero, ties, overflow and existing first-error behavior.
+
+The October 29 maintainer clarification preserves **one shared engine across
+input formats**. These candidates are not permission to build per-format joins,
+aggregates, expressions or ordering implementations. Reuse the existing common
+source-demand, native-array, memory and execution contracts. The Parquet reader
+is the first adapter where controlled buffer provenance is established; its
+decoder, file metadata and compressed-page access stay at the adapter boundary.
+Do not infer ownership from a format name or a visible Arrow buffer length, and
+do not require future readers or native Vortex inputs to pass through Arrow.
+
+Ranking and deferred payload demand must be expressed through the common source
+contract, with adapter-provided evidence for exact row identity, generation,
+metadata exclusion, selected reads and validation scope. Unsupported optimization
+capabilities retain the existing admitted native route with reported limitations;
+they do not change results or invoke another query engine. Formats may differ in
+read granularity, decoding, transfer eligibility and achieved performance.
+
+Acceptance pairs an enabling adapter with existing Vortex, Arrow IPC and other
+admitted source controls where their logical types overlap. Prove complete values,
+NULLs, ordering, ownership after source closure, memory denial, cancellation and
+generation changes. New formats reuse these common conformance obligations and
+add format-fidelity tests, including explicit representability or unsupported-type
+limits. This is an architectural and acceptance requirement, not a claim that
+future format integration will be effortless or that every adapter already
+implements every optimization. Broader format implementation stays with its
+existing I/O queue owner.
 
 Deferred projection payload reads and join demand are the larger investments;
 Top-K admission is the first contained experiment. Reuse existing source

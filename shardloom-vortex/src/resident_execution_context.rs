@@ -99,6 +99,12 @@ impl RuntimeOwner {
 }
 
 impl NativeExecutionContext<'_> {
+    /// Immutable floating semantics of the admitted session, not a call override.
+    #[must_use]
+    pub fn float_policy(&self) -> shardloom_core::FloatPolicy {
+        self.owner.float_policy
+    }
+
     /// Metadata-only admission cannot be expanded into scanning or construction.
     pub(crate) fn check_general_execution(&self) -> Result<()> {
         self.check_cancelled()?;

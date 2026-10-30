@@ -1,0 +1,99 @@
+{
+  "schema_version": "shardloom.native_float_temporary_cleanup.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r1",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r2",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r3",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r4",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r5",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r6",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/venv",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/matrix-r1",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/matrix-r2",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-public-r1.json",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-public-r2.json"
+  ],
+  "regular_files": 9924,
+  "symlinks": 3,
+  "logical_file_bytes": 2168279467,
+  "repeated_identity_checks": true,
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r3",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r4",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r5",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r6",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/matrix-r1",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/matrix-r2",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-public-r1.json",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-public-r2.json",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "inventory": {
+    "path": "docs/benchmarks/evidence/native-float-policy-cleanup-2026-10-29.inventory.json.gz",
+    "sha256": "74016c74fa61f02546173c3306d7457f787da0786f056fa011ee545c2f6045a0",
+    "bytes": 493149
+  },
+  "retained_products": {
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r7/shardloom": "6961b8b1686fc8f7e9914cc6aded6d56a0688591d05bb8ab73d8edc2435fd027",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r7/_native.abi3.so": "1f735b1826067c9ad5f340c2ad43b706b0662956a3e031b9152d128dcf4a436c",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "5937741aad86da52f84710c4284161715ce01f50d258d0bdde0a0b692774354d"
+  },
+  "acceptance_packet_sha256": "a61ed73238428745501caa769f0178cf1b92eecaaef79454656ce6eb5837abc6",
+  "portable_replay_after_cleanup": "passed",
+  "payload_backup_created": false,
+  "unrelated_files_modified": false,
+  "storage_limits_changed": false
+}

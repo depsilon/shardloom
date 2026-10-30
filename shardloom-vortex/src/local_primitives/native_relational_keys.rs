@@ -1,6 +1,6 @@
 //! Native key owners shared by relational matching. Numeric execution reuses
 //! the existing original-width owner; variable bytes keep native dictionary domains.
-//! Equality normalizes finite floating signed zero and integer signedness.
+//! Equality normalizes floating identity under the immutable session policy.
 
 #[cfg(test)]
 #[path = "native_relational_demand_hash_tests.rs"]
@@ -23,7 +23,7 @@ mod cache;
 pub(super) use cache::KeyLookupCache;
 
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{FloatPolicy, Result, ShardLoomError, float_policy::float_key_bits};
 use shardloom_exec::{
     compute_pool::CancellationToken,
     live_memory::{LiveMemoryPool, MemoryLease},
@@ -129,39 +129,92 @@ pub(super) struct DecimalColumn {
 }
 
 impl KeyColumn {
+    #[cfg(test)]
     pub(super) fn new(
         array: &ArrayRef,
         context: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<Self> {
-        Self::prepare(array, context, memory, cancellation, Preparation::Hash)
+        Self::new_with_float_policy(array, context, memory, cancellation, FloatPolicy::Strict)
     }
 
+    pub(super) fn new_with_float_policy(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
+        Self::prepare(
+            array,
+            context,
+            memory,
+            cancellation,
+            Preparation::Hash,
+            float_policy,
+        )
+    }
+
+    #[cfg(test)]
     pub(super) fn values(
         array: &ArrayRef,
         context: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<Self> {
-        Self::prepare(array, context, memory, cancellation, Preparation::Values)
+        Self::values_with_float_policy(array, context, memory, cancellation, FloatPolicy::Strict)
+    }
+
+    pub(super) fn values_with_float_policy(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
+        Self::prepare(
+            array,
+            context,
+            memory,
+            cancellation,
+            Preparation::Values,
+            float_policy,
+        )
     }
 
     /// Membership consults its exact identity cache before requesting a hash.
     /// Flat text/binary domains still validate completely during preparation;
     /// other key families keep their established eager preparation.
+    #[cfg(test)]
     pub(super) fn for_membership(
         array: &ArrayRef,
         context: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<Self> {
+        Self::for_membership_with_float_policy(
+            array,
+            context,
+            memory,
+            cancellation,
+            FloatPolicy::Strict,
+        )
+    }
+
+    pub(super) fn for_membership_with_float_policy(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
         let purpose = if matches!(array.dtype(), DType::Utf8(_) | DType::Binary(_)) {
             Preparation::HashOnDemand
         } else {
             Preparation::Hash
         };
-        Self::prepare(array, context, memory, cancellation, purpose)
+        Self::prepare(array, context, memory, cancellation, purpose, float_policy)
     }
 
     fn prepare(
@@ -170,13 +223,22 @@ impl KeyColumn {
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
         purpose: Preparation,
+        float_policy: FloatPolicy,
     ) -> Result<Self> {
         let schema = if super::native_payload::is_nested(array.dtype()) {
             Some(memory.reserve(crate::native_payload_schema::metadata_bytes(array.dtype())?)?)
         } else {
             None
         };
-        Self::new_inner(array, context, memory, cancellation, schema, purpose)
+        Self::new_inner(
+            array,
+            context,
+            memory,
+            cancellation,
+            schema,
+            purpose,
+            float_policy,
+        )
     }
 
     fn new_inner(
@@ -186,6 +248,7 @@ impl KeyColumn {
         cancellation: &CancellationToken,
         schema: Option<MemoryLease>,
         purpose: Preparation,
+        float_policy: FloatPolicy,
     ) -> Result<Self> {
         cancellation.check()?;
         #[cfg(all(test, debug_assertions))]
@@ -193,7 +256,7 @@ impl KeyColumn {
         let column = match array.dtype() {
             DType::Null => Self::Null(array.len()),
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {
-                Self::Numeric(numeric_owner(array, context)?)
+                Self::Numeric(numeric_owner(array, context, float_policy)?)
             }
             DType::Bool(_) => {
                 let values = array
@@ -235,7 +298,7 @@ impl KeyColumn {
                 if storage.len() != array.len() {
                     return Err(failed("temporal execution changed row count"));
                 }
-                let values = numeric_owner(&storage, context)?;
+                let values = numeric_owner(&storage, context, float_policy)?;
                 match dtype.kind() {
                     shardloom_core::temporal::TemporalKind::Date32 => Self::Date(values),
                     shardloom_core::temporal::TemporalKind::Timestamp {
@@ -253,6 +316,7 @@ impl KeyColumn {
                     cancellation,
                     schema,
                     purpose,
+                    float_policy,
                 )?))
             }
             _ => {
@@ -285,7 +349,9 @@ impl KeyColumn {
         }
         match self {
             Self::Null(_) => Ok(Cell::Null),
-            Self::Numeric(values) => normalize_numeric(&values.distinct_value(row)?),
+            Self::Numeric(values) => {
+                normalize_numeric(&values.distinct_value(row)?, values.float_policy())
+            }
             Self::Boolean { values, valid } => Ok(if valid.value(row) {
                 Cell::Boolean(values.bit_buffer_view().value(row))
             } else {
@@ -330,12 +396,26 @@ impl KeyColumn {
         if let Self::Numeric(values) = self {
             let value = values.distinct_value(row)?;
             if let AggregateDistinctValue::Float64Bits(bits) = value {
-                validate_finite_scalar(f64::from_bits(bits))?;
+                validate_float_scalar(f64::from_bits(bits), values.float_policy())?;
                 return Ok(Cell::Float(bits));
             }
-            return normalize_numeric(&value);
+            return normalize_numeric(&value, values.float_policy());
         }
         self.cell(row)
+    }
+
+    /// Classification precedes strict arithmetic/key admission. Bounds and NULL
+    /// validity still come from the same owner; absent payload bits stay unread.
+    pub(super) fn classification_value(&self, row: usize) -> Result<Option<f64>> {
+        match self {
+            Self::Numeric(values) if matches!(values.ptype(), PType::F32 | PType::F64) => {
+                values.numeric_value(row)
+            }
+            Self::Null(rows) if row < *rows => Ok(None),
+            _ => Err(failed(
+                "floating classification requires an in-bounds Float32 or Float64 value",
+            )),
+        }
     }
 
     /// Native text comparisons borrow their domain bytes. Numeric keys widen
@@ -504,9 +584,9 @@ impl KeyColumn {
         Ok(true)
     }
 
-    /// Exact unary identity inside a newly admitted nested key. This preserves
-    /// signed floating zero, unlike relational hash/equality. Self-delimiting
-    /// leaf lengths avoid repeated subtree sizing at every nesting level.
+    /// Unary identity inside a nested key. Strict sessions retain their existing
+    /// bit identity; extended sessions use the same floating equivalence as
+    /// relational keys. Self-delimiting leaves avoid repeated subtree sizing.
     pub(super) fn write_exact_key(
         &self,
         row: usize,
@@ -524,7 +604,14 @@ impl KeyColumn {
                 let signed = matches!(self, Self::Numeric(owner) if owner.ptype().is_signed_int());
                 write!(output, "{}{value};", if signed { 'i' } else { 'u' })
             }
-            Cell::Float(bits) => write!(output, "f{bits:016x};"),
+            Cell::Float(bits) => {
+                let bits = if matches!(self, Self::Numeric(owner) if owner.float_policy() == FloatPolicy::Extended) {
+                    float_key_bits(f64::from_bits(bits))
+                } else {
+                    bits
+                };
+                write!(output, "f{bits:016x};")
+            }
             Cell::Boolean(value) => write!(output, "b{};", u8::from(value)),
             Cell::Utf8(value) => {
                 let value = std::str::from_utf8(value.as_slice()).map_err(vortex_error)?;
@@ -576,24 +663,21 @@ pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
         | (Temporal(left), Temporal(right)) => left.cmp(&right),
         (NonnegativeInteger(left), NonnegativeInteger(right)) => left.cmp(&right),
         (NegativeInteger(left), Float(right)) => {
-            integer_float_order(i128::from(left), f64::from_bits(right))?
+            integer_float_order(i128::from(left), f64::from_bits(right))
         }
         (NonnegativeInteger(left), Float(right)) => {
-            integer_float_order(i128::from(left), f64::from_bits(right))?
+            integer_float_order(i128::from(left), f64::from_bits(right))
         }
         (Float(left), NegativeInteger(right)) => {
-            integer_float_order(i128::from(right), f64::from_bits(left))?.reverse()
+            integer_float_order(i128::from(right), f64::from_bits(left)).reverse()
         }
         (Float(left), NonnegativeInteger(right)) => {
-            integer_float_order(i128::from(right), f64::from_bits(left))?.reverse()
+            integer_float_order(i128::from(right), f64::from_bits(left)).reverse()
         }
         (Float(left), Float(right)) => {
-            let (left, right) = (f64::from_bits(left), f64::from_bits(right));
-            if left == 0.0 && right == 0.0 {
-                Ordering::Equal
-            } else {
-                left.total_cmp(&right)
-            }
+            let left = f64::from_bits(float_key_bits(f64::from_bits(left)));
+            let right = f64::from_bits(float_key_bits(f64::from_bits(right)));
+            left.total_cmp(&right)
         }
         (Boolean(left), Boolean(right)) => left.cmp(&right),
         (Utf8(left), Utf8(right)) | (Binary(left), Binary(right)) => {
@@ -623,25 +707,33 @@ fn exact_float_integer(value: f64) -> Option<i128> {
 }
 
 #[allow(clippy::cast_possible_truncation)] // Compare the bounded integer part, then the exact fractional sign.
-fn integer_float_order(integer: i128, value: f64) -> Result<Ordering> {
-    validate_finite_scalar(value)?;
+fn integer_float_order(integer: i128, value: f64) -> Ordering {
+    // Values have already passed the owner's admission. Never cast a special
+    // value into an integer endpoint; all NaNs sort above positive infinity.
+    if value.is_nan() {
+        return Ordering::Less;
+    }
     if value < MIN_INTEGER_FLOAT {
-        return Ok(Ordering::Greater);
+        return Ordering::Greater;
     }
     if value >= PAST_MAX_INTEGER_FLOAT {
-        return Ok(Ordering::Less);
+        return Ordering::Less;
     }
     let order = integer.cmp(&(value as i128));
-    Ok(if order != Ordering::Equal || value.fract() == 0.0 {
+    if order != Ordering::Equal || value.fract() == 0.0 {
         order
     } else if value > 0.0 {
         Ordering::Less
     } else {
         Ordering::Greater
-    })
+    }
 }
 
-fn numeric_owner(array: &ArrayRef, context: &mut ExecutionCtx) -> Result<NativeNumericOwner> {
+fn numeric_owner(
+    array: &ArrayRef,
+    context: &mut ExecutionCtx,
+    float_policy: FloatPolicy,
+) -> Result<NativeNumericOwner> {
     let values = array
         .clone()
         .execute::<PrimitiveArray>(context)
@@ -649,7 +741,7 @@ fn numeric_owner(array: &ArrayRef, context: &mut ExecutionCtx) -> Result<NativeN
     if values.dtype() != array.dtype() || values.len() != array.len() {
         return Err(failed("numeric execution changed dtype or row count"));
     }
-    NativeNumericOwner::new(values, context)
+    NativeNumericOwner::new_with_float_policy(values, context, float_policy)
 }
 
 fn temporal_value(values: &NativeNumericOwner, row: usize) -> Result<Option<i64>> {
@@ -844,7 +936,7 @@ impl VariableColumn {
     }
 }
 
-fn normalize_numeric(value: &AggregateDistinctValue) -> Result<Cell> {
+fn normalize_numeric(value: &AggregateDistinctValue, float_policy: FloatPolicy) -> Result<Cell> {
     Ok(match value {
         AggregateDistinctValue::Null => Cell::Null,
         AggregateDistinctValue::Int64(value) if *value < 0 => Cell::NegativeInteger(*value),
@@ -852,21 +944,21 @@ fn normalize_numeric(value: &AggregateDistinctValue) -> Result<Cell> {
         AggregateDistinctValue::UInt64(value) => Cell::NonnegativeInteger(*value),
         AggregateDistinctValue::Float64Bits(bits) => {
             let value = f64::from_bits(*bits);
-            if !value.is_finite() {
+            if !float_policy.admits(value) {
                 return Err(failed("nonfinite floating join keys are not admitted"));
             }
-            Cell::Float(if value == 0.0 {
-                0.0_f64.to_bits()
-            } else {
-                *bits
-            })
+            Cell::Float(float_key_bits(value))
         }
         _ => return Err(failed("numeric owner returned a nonnumeric key")),
     })
 }
 
 pub(super) fn validate_finite_scalar(value: f64) -> Result<()> {
-    if !value.is_finite() {
+    validate_float_scalar(value, FloatPolicy::Strict)
+}
+
+pub(super) fn validate_float_scalar(value: f64, float_policy: FloatPolicy) -> Result<()> {
+    if !float_policy.admits(value) {
         return Err(failed("nonfinite scalar values are not admitted"));
     }
     Ok(())
@@ -1043,8 +1135,13 @@ mod tests {
         );
         assert_eq!(hash(&single, 0), hash(&unsigned, 1));
         assert_eq!(hash(&single, 1), hash(&signed, 3));
-        for nonfinite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            assert!(integer_float_order(0, nonfinite).is_err());
+        for (nonfinite, expected) in [
+            (f64::NAN, Ordering::Less),
+            (f64::INFINITY, Ordering::Less),
+            (f64::NEG_INFINITY, Ordering::Greater),
+        ] {
+            assert_eq!(integer_float_order(0, nonfinite), expected);
+            assert!(validate_float_scalar(nonfinite, FloatPolicy::Strict).is_err());
         }
     }
 

@@ -3,7 +3,7 @@
 
 use crate::source_identity::SourceIdentity;
 use sha2::{Digest as _, Sha256};
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{FloatPolicy, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -110,6 +110,28 @@ pub fn local_preparation_binding_with_schema_controlled(
     source_schema: Option<&str>,
     cancellation: &CancellationToken,
 ) -> Result<String> {
+    local_preparation_binding_with_float_policy(
+        source,
+        format,
+        fingerprint,
+        source_schema,
+        cancellation,
+        FloatPolicy::Strict,
+    )
+}
+
+/// Bind the nondefault input policy as well as the immutable source generation.
+/// Strict preparation retains its existing metadata representation.
+/// # Errors
+/// Rejects the same invalid inventories and metadata as schema-bound preparation.
+pub fn local_preparation_binding_with_float_policy(
+    source: &Path,
+    format: &str,
+    fingerprint: &str,
+    source_schema: Option<&str>,
+    cancellation: &CancellationToken,
+    float_policy: FloatPolicy,
+) -> Result<String> {
     cancellation.check()?;
     if source_schema.is_some_and(|schema| schema.len() > MAX_BYTES) {
         return Err(error("schema metadata exceeds 64 KiB"));
@@ -142,6 +164,9 @@ pub fn local_preparation_binding_with_schema_controlled(
     if let Some(schema) = source_schema {
         binding["source_schema"] = schema.into();
     }
+    if float_policy != FloatPolicy::Strict {
+        binding["float_policy"] = float_policy.as_str().into();
+    }
     let binding = binding.to_string();
     if binding.len() > MAX_BYTES {
         return Err(error("metadata exceeds 64 KiB"));
@@ -169,12 +194,24 @@ pub(crate) fn validate_controlled(binding: &str, cancellation: &CancellationToke
         .get("source_schema")
         .map(|value| value.as_str().ok_or_else(|| error("invalid source schema")))
         .transpose()?;
-    if local_preparation_binding_with_schema_controlled(
+    let float_policy = fields
+        .get("float_policy")
+        .map(|value| {
+            value
+                .as_str()
+                .ok_or_else(|| error("invalid floating policy"))
+        })
+        .transpose()?
+        .map(FloatPolicy::parse)
+        .transpose()?
+        .unwrap_or_default();
+    if local_preparation_binding_with_float_policy(
         Path::new(source),
         format,
         fingerprint,
         source_schema,
         cancellation,
+        float_policy,
     )? != binding
     {
         return Err(error("source generation changed during preparation"));

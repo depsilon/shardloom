@@ -58,10 +58,11 @@ pub(super) fn unsigned(
     context: &NativeExecutionContext<'_>,
     mut value: impl FnMut(usize) -> Result<u64>,
 ) -> Result<ArrayRef> {
-    result_batch::build_column(
+    result_batch::build_column_with_float_policy(
         &u64_type(),
         rows,
         &context.native_session().host_allocator(),
+        context.float_policy(),
         |row| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -73,7 +74,6 @@ pub(super) fn unsigned(
 
 /// Preserve scalar storage already observed by a resident state owner. A later
 /// selection can discard nonfinite floats; public delivery still validates them.
-#[allow(clippy::cast_possible_truncation)] // Native F32 values were widened exactly.
 pub(super) fn preserved_column<'a>(
     dtype: &DType,
     rows: usize,
@@ -84,29 +84,39 @@ pub(super) fn preserved_column<'a>(
         DType::Primitive(PType::F32, nullable) => DType::Primitive(PType::U32, *nullable),
         DType::Primitive(PType::F64, nullable) => DType::Primitive(PType::U64, *nullable),
         _ => {
-            return result_batch::build_column(
+            return result_batch::build_column_with_float_policy(
                 dtype,
                 rows,
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 value,
             );
         }
     };
-    let bits = result_batch::build_column(
+    let bits = result_batch::build_column_with_float_policy(
         &storage,
         rows,
         &context.native_session().host_allocator(),
+        context.float_policy(),
         |row| {
             context.check_cancelled()?;
             match value(row)? {
                 Value::Null => Ok(Value::Null),
-                Value::Float(value) => Ok(Value::UInt(
-                    if matches!(dtype, DType::Primitive(PType::F32, _)) {
-                        u64::from((value as f32).to_bits())
-                    } else {
-                        value.to_bits()
-                    },
-                )),
+                Value::Float(value) => {
+                    Ok(Value::UInt(
+                        if matches!(dtype, DType::Primitive(PType::F32, _)) {
+                            u64::from(
+                            shardloom_core::float_policy::narrow_f32_exact(value)
+                                .ok_or_else(|| {
+                                    failed("private native Float32 payload cannot be narrowed exactly")
+                                })?
+                                .to_bits(),
+                        )
+                        } else {
+                            value.to_bits()
+                        },
+                    ))
+                }
                 _ => Err(failed("private native floating payload changed type")),
             }
         },

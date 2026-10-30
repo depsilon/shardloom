@@ -265,11 +265,23 @@ impl PublicExecutionSession {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn command_owner(
         &mut self,
+        requested: Option<shardloom_core::FloatPolicy>,
     ) -> Result<std::sync::Arc<native::EmbeddedExecutionOwner>, ShardLoomError> {
+        if let Some(owner) = &self.command_owner
+            && requested.is_some_and(|policy| policy != owner.float_policy())
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "float_policy cannot change within a native command session; create a new session; no fallback execution was attempted".into(),
+            ));
+        }
         if self.command_owner.is_none() {
-            self.command_owner = Some(std::sync::Arc::new(native::EmbeddedExecutionOwner::new(
-                None, None,
-            )?));
+            self.command_owner = Some(std::sync::Arc::new(
+                native::EmbeddedExecutionOwner::new_with_float_policy(
+                    None,
+                    None,
+                    requested.unwrap_or_default(),
+                )?,
+            ));
         }
         Ok(std::sync::Arc::clone(
             self.command_owner
@@ -362,12 +374,19 @@ pub(crate) fn handle_public_workflow_route(
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)] // Keep request admission, semantic routing and operation lifetime in one dispatcher.
 pub(crate) fn handle_public_workflow_run(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
     execution_session: &mut PublicExecutionSession,
     context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let arguments = args.collect::<Vec<_>>();
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let explicit_primitive = arguments.iter().any(|argument| {
+        argument.starts_with("--vortex-") || argument == "--native-vortex-right-input"
+    });
+    let args = arguments.into_iter();
     let request = match PublicWorkflowRouteRequest::parse_execution_in_context(args, context) {
         Ok(request) => request,
         Err(error) => {
@@ -377,6 +396,24 @@ pub(crate) fn handle_public_workflow_run(
     };
     let request = effective_public_workflow_request(&request);
     let plan = plan_public_workflow_route(&request);
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let plan = if context.requested_float_policy(None).ok().flatten()
+        == Some(shardloom_core::FloatPolicy::Extended)
+    {
+        if explicit_primitive {
+            return emit_error("run", format, "floating policy is not admitted for explicit primitive options", &ShardLoomError::InvalidOperation(
+                "extended float_policy requires a complete shared SQL or typed relational declaration; no fallback execution was attempted".into(),
+            ));
+        }
+        let Some(shared) = resident_relational::route_admitted_statement(&request) else {
+            return emit_error("run", format, "floating policy requires a shared declaration", &ShardLoomError::InvalidOperation(
+                "extended float_policy requires a complete SQL statement; no fallback execution was attempted".into(),
+            ));
+        };
+        spill::validate_route(&request, shared)
+    } else {
+        plan
+    };
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     execution_session.invalidate_changed_request(&request, &plan);
     if plan.status != CommandStatus::Success {
@@ -455,6 +492,20 @@ pub(crate) fn handle_batch_workflow(
     args: impl Iterator<Item = String>,
     transport: &mut crate::python_batch_protocol::Transport,
 ) -> ExitCode {
+    let (args, float_policy) = match crate::parse_float_policy(args.collect()) {
+        Ok((args, policy)) => (args, policy.unwrap_or_default()),
+        Err(error) => {
+            return emit_error("run", OutputFormat::Json, "invalid floating policy", &error);
+        }
+    };
+    if float_policy == shardloom_core::FloatPolicy::Extended
+        && args.iter().any(|argument| {
+            argument.starts_with("--vortex-") || argument == "--native-vortex-right-input"
+        })
+    {
+        return emit_error("run", OutputFormat::Json, "floating policy is not admitted for explicit primitive options", &ShardLoomError::InvalidOperation("extended float_policy requires a complete shared SQL declaration; no fallback execution was attempted".into()));
+    }
+    let args = args.into_iter();
     let request = match PublicWorkflowRouteRequest::parse_execution(args) {
         Ok(request) => effective_public_workflow_request(&request),
         Err(error) => {
@@ -480,7 +531,7 @@ pub(crate) fn handle_batch_workflow(
     if plan.status != CommandStatus::Success {
         return emit_blocked_facade("run", OutputFormat::Json, &request, &plan);
     }
-    resident_relational::run_batches(&request, &plan, transport)
+    resident_relational::run_batches(&request, &plan, transport, float_policy)
 }
 
 fn execute_native_vortex_profile_run(
@@ -4759,7 +4810,34 @@ fn prepare_local_source_for_public_workflow_controlled(
     source_schema: Option<&str>,
     cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
-    sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow_controlled(
+    prepare_local_source_for_public_workflow_with_float_policy(
+        source_uri,
+        source_format,
+        target,
+        allow_overwrite,
+        resources,
+        shared_memory_pool,
+        source_fingerprint_policy,
+        source_schema,
+        cancellation,
+        shardloom_core::FloatPolicy::Strict,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_local_source_for_public_workflow_with_float_policy(
+    source_uri: &str,
+    source_format: &str,
+    target: &Path,
+    allow_overwrite: bool,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    source_fingerprint_policy: Option<&str>,
+    source_schema: Option<&str>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    float_policy: shardloom_core::FloatPolicy,
+) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
+    sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow_with_float_policy(
         source_uri,
         target,
         Some(source_format),
@@ -4769,6 +4847,7 @@ fn prepare_local_source_for_public_workflow_controlled(
         source_fingerprint_policy,
         source_schema,
         cancellation,
+        float_policy,
     )
     .map_err(|error| match error {
         ShardLoomError::NotImplemented(feature)

@@ -268,10 +268,11 @@ impl Layout {
                 .ok_or_else(|| failed("window original ordinal overflow"))
         })?);
         let payload = if self.payload_names.is_empty() {
-            result_batch::build_column(
+            result_batch::build_column_with_float_policy(
                 &self.payload_dtype,
                 rows,
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 |_| Ok(Value::Bool(false)),
             )?
         } else {
@@ -439,10 +440,11 @@ impl<'p, 's> Values<'p, 's> {
                     context,
                 )?
             } else {
-                result_batch::build_column(
+                result_batch::build_column_with_float_policy(
                     &self.layout.kind.dtype(),
                     count,
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| self.layout.kind.value(&self.buffer.values[row]),
                 )?
             });

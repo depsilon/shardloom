@@ -296,7 +296,13 @@ impl State {
                 vortex::array::dtype::Nullability::Nullable,
             )
         };
-        match position.interpolate_with(lower, upper, &dtype, spec.decimal_output)? {
+        match position.interpolate_with(
+            lower,
+            upper,
+            &dtype,
+            spec.decimal_output,
+            context.float_policy(),
+        )? {
             result_batch::Value::Float(value) => Ok(Value::Float(Some(value))),
             result_batch::Value::Decimal(value, _) => Ok(Value::Decimal(Some(value))),
             _ => Err(failed("window quantile interpolation changed output type")),
@@ -346,7 +352,13 @@ impl State {
         if let Some((arena, root)) = &mut self.quantiles {
             let value = input.raw_cell(row, key, context)?;
             *root = if add {
-                arena.insert(*root, value, row, context.cancellation())?
+                arena.insert_with_policy(
+                    *root,
+                    value,
+                    row,
+                    context.cancellation(),
+                    context.float_policy(),
+                )?
             } else {
                 arena.remove(*root, &value, row, context.cancellation())?
             };
@@ -410,7 +422,7 @@ impl State {
         } else {
             let value = number(&value)?;
             if add {
-                self.floats[interval].add(value)?;
+                self.floats[interval].add(value, context.float_policy())?;
             } else {
                 self.floats[interval].remove(value)?;
             }

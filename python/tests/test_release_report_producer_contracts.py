@@ -271,10 +271,22 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
         changed["matrix_summary"]["expected_count_field_count"] = 34
         checks = self._readiness_checks({report_name: changed})
         self.assertTrue(any("expected_count_field_count" in item for item in checks[gate]["blockers"]))
-        for field in ("executable_fixture_count", "v1_expected_validator_case_count", "v1_required_runtime_row_count"):
+        for field in (
+            "executable_fixture_count", "v1_expected_validator_case_count", "v1_required_runtime_row_count",
+            "required_semantic_case_count", "required_unsupported_case_count",
+            "required_executable_stage_evidence_count", "required_unsupported_stage_evidence_count",
+            "required_stage_artifact_ref_count", "required_stage_no_fallback_count",
+            "required_stage_no_external_engine_count", "required_unsupported_stage_diagnostic_field_count",
+        ):
             with self.subTest(stale_count=field):
                 changed = copy.deepcopy(report)
                 changed["summaries"]["admitted_semantics"][field] -= 1
+                checks = self._readiness_checks({report_name: changed})
+                self.assertTrue(any(field in item for item in checks[gate]["blockers"]))
+        for field in ("required_semantic_case_count", "required_unsupported_case_count"):
+            with self.subTest(stale_matrix_count=field):
+                changed = copy.deepcopy(report)
+                changed["matrix_summary"][field] -= 1
                 checks = self._readiness_checks({report_name: changed})
                 self.assertTrue(any(field in item for item in checks[gate]["blockers"]))
 

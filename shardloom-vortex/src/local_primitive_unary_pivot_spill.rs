@@ -315,7 +315,12 @@ impl<'p, 's> Builder<'p, 's> {
                     value: StoredValue::Aggregate(cell),
                     ..
                 }) => cell,
-                None => Kind::new(plan.decimal_source, plan.nested_extrema).empty(),
+                None => Kind::new(
+                    plan.decimal_source,
+                    plan.nested_extrema,
+                    context.float_policy(),
+                )
+                .empty(),
                 _ => return Err(failed("pivot aggregate cell changed its private kind")),
             };
             cell.update(value, &plan.aggregate, context)?;
@@ -417,7 +422,11 @@ pub(super) fn complete(
     );
     let columns = fields.iter().map(|(name, _)| name.clone()).collect();
     drop((domains, domain_credit));
-    let kind = Kind::new(plan.decimal_source, plan.nested_extrema);
+    let kind = Kind::new(
+        plan.decimal_source,
+        plan.nested_extrema,
+        context.float_policy(),
+    );
     let mut column_margins = ReservedVec::new(context.memory())?;
     let mut grand_margin = Margin::for_kind(kind);
     if has_margin {

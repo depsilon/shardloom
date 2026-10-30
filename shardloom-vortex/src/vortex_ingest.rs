@@ -27,6 +27,8 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use shardloom_core::FloatPolicy;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use std::sync::{OnceLock, atomic::AtomicUsize};
 
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
@@ -10589,6 +10591,26 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled<
     request: VortexPreparedStateColumnarStreamWriteRequest<S>,
     cancellation: &CancellationToken,
 ) -> Result<VortexPreparedStateWriteReport> {
+    write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
+        request,
+        cancellation,
+        FloatPolicy::Strict,
+    )
+}
+
+/// Prepare columnar storage with the caller's immutable floating-value policy.
+/// Structural, ownership, resource and cancellation admission is unchanged.
+/// # Errors
+/// Returns the controlled writer's admission, validation and publication errors.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
+    S: Into<IngestColumnarStreamSource>,
+>(
+    request: VortexPreparedStateColumnarStreamWriteRequest<S>,
+    cancellation: &CancellationToken,
+    float_policy: FloatPolicy,
+) -> Result<VortexPreparedStateWriteReport> {
     cancellation.check()?;
     let (source, input_ownership) = request.source.into().into_parts();
     let request = VortexPreparedStateColumnarStreamWriteRequest {
@@ -10742,6 +10764,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled<
         &source_shape,
         1,
         &stream_timing.stages,
+        float_policy,
     )?;
     let expected_provider_kind = "vortex_array_kernel";
     let underlying_provider_surface = "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator";
@@ -10801,6 +10824,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled<
         native_memory.clone(),
         ingest_runtime.clone(),
         cancellation.clone(),
+        float_policy,
     )?;
     let writer_input_lookahead = stream_iter.share_input_slot_with_writer(&layout_write_decision);
     let array_build_micros = array_build_start.elapsed().as_micros();
@@ -11249,6 +11273,7 @@ struct StreamingColumnarVortexArrayIterator {
     native_memory: Option<NativeIngestMemory>,
     cancellation: CancellationToken,
     stream_finished: bool,
+    float_policy: FloatPolicy,
 }
 
 /// Private handshake: the concrete producer lends one of its existing slots.
@@ -11289,6 +11314,7 @@ impl StreamingColumnarVortexArrayIterator {
             native_memory,
             None,
             CancellationToken::default(),
+            FloatPolicy::Strict,
         )
     }
 
@@ -11308,6 +11334,7 @@ impl StreamingColumnarVortexArrayIterator {
         native_memory: Option<NativeIngestMemory>,
         runtime: Option<crate::ingest_runtime::IngestRuntime>,
         cancellation: CancellationToken,
+        float_policy: FloatPolicy,
     ) -> Result<Self> {
         cancellation.check()?;
         let max_window = runtime
@@ -11351,6 +11378,7 @@ impl StreamingColumnarVortexArrayIterator {
                 stream_timing: stream_timing.clone(),
                 native_memory: native_memory.clone(),
                 failure: OnceLock::new(),
+                float_policy,
             });
             let mut prefetch = StreamingColumnarVortexPrefetch {
                 pool: if let Some(runtime) = runtime {
@@ -11394,6 +11422,7 @@ impl StreamingColumnarVortexArrayIterator {
             native_memory,
             cancellation,
             stream_finished: false,
+            float_policy,
         })
     }
 
@@ -11487,6 +11516,7 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
             &self.source_shape,
             batch_index,
             &self.stream_timing.stages,
+            self.float_policy,
         )
         .and_then(|()| owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             batch, &self.source_shape, &self.stream_timing.stages,
@@ -11740,6 +11770,7 @@ struct StreamingColumnarVortexArrayWorker {
     stream_timing: VortexStreamingIngestTiming,
     native_memory: Option<NativeIngestMemory>,
     failure: OnceLock<ShardLoomError>,
+    float_policy: FloatPolicy,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -11846,6 +11877,7 @@ impl StreamingColumnarVortexArrayWorker {
             &self.source_shape,
             index,
             &self.stream_timing.stages,
+            self.float_policy,
         )
         .and_then(|()| {
             owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
@@ -11928,6 +11960,7 @@ fn validate_stream_record_batch_shape_profiled(
     source_shape: &FlatColumnarSourceShape,
     batch_index: usize,
     timing: &IngestStageTimings,
+    float_policy: FloatPolicy,
 ) -> Result<()> {
     let started = Instant::now();
     let result = validate_stream_record_batch_shape(
@@ -11935,6 +11968,7 @@ fn validate_stream_record_batch_shape_profiled(
         reader_projection_columns,
         source_shape,
         batch_index,
+        float_policy,
     );
     timing.record(
         Stage::Validation,
@@ -11952,6 +11986,7 @@ fn validate_stream_record_batch_shape(
     reader_projection_columns: &[String],
     source_shape: &FlatColumnarSourceShape,
     batch_index: usize,
+    float_policy: FloatPolicy,
 ) -> Result<()> {
     let expected_column_count = reader_projection_columns.len();
     if batch.num_columns() != expected_column_count {
@@ -11983,8 +12018,12 @@ fn validate_stream_record_batch_shape(
     for projected_column in &source_shape.projected_columns {
         nested::validate_field(schema.field(projected_column.reader_index))?;
         let array = batch.column(projected_column.reader_index);
-        let family = arrow_column_family(&projected_column.column, array.as_ref())?;
-        if family == "float64" {
+        let family = arrow_column_family_with_float_policy(
+            &projected_column.column,
+            array.as_ref(),
+            float_policy,
+        )?;
+        if family == "float64" && float_policy == FloatPolicy::Strict {
             reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
         }
     }
@@ -13273,15 +13312,24 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
+    arrow_column_family_with_float_policy(column, array, FloatPolicy::Strict)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn arrow_column_family_with_float_policy(
+    column: &str,
+    array: &dyn Array,
+    policy: FloatPolicy,
+) -> Result<String> {
     if let Some(dtype) = crate::temporal_arrow::dtype(array.data_type()) {
         return Ok(dtype.as_str().to_owned());
     }
     if let Some(family) = nested::family(array.data_type())? {
-        nested::validate_values(column, array)?;
+        nested::validate_values_with_float_policy(column, array, policy)?;
         return Ok(family.to_string());
     }
     if let Some(family) = dictionary_column_family(array.data_type()) {
-        if family == "dictionary_float64" {
+        if family == "dictionary_float64" && policy == FloatPolicy::Strict {
             reject_dictionary_non_finite_float_values(column, array)?;
         }
         return Ok(family.to_string());

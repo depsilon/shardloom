@@ -8,6 +8,7 @@ use super::NullBehavior;
 pub enum ScalarTypeRule {
     NumericAbs,
     NumericRound,
+    FloatClassify,
     DecimalOutput,
     Utf8,
     Utf8Offsets,
@@ -39,6 +40,9 @@ impl ScalarTypeRule {
                 "numeric -> checked promoted numeric; decimal precision/scale retained"
             }
             Self::NumericRound => "numeric -> checked promoted numeric; decimal scale becomes zero",
+            Self::FloatClassify => {
+                "F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy"
+            }
             Self::DecimalOutput => {
                 "decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision"
             }
@@ -138,6 +142,50 @@ macro_rules! definitions {
 }
 
 definitions!(
+    (
+        "is_nan",
+        [],
+        1,
+        1,
+        FloatClassify,
+        Propagate,
+        "float_classification",
+        true,
+        "Whether a floating value is NaN; distinct from NULL."
+    ),
+    (
+        "is_infinite",
+        [],
+        1,
+        1,
+        FloatClassify,
+        Propagate,
+        "float_classification",
+        true,
+        "Whether a floating value is positive or negative infinity."
+    ),
+    (
+        "is_finite",
+        [],
+        1,
+        1,
+        FloatClassify,
+        Propagate,
+        "float_classification",
+        true,
+        "Whether a floating value is finite, including signed zeros and subnormals."
+    ),
+    (
+        "signbit",
+        [],
+        1,
+        1,
+        FloatClassify,
+        Propagate,
+        "float_classification",
+        true,
+        "Whether the original floating sign bit is set, including zero and NaN."
+    ),
     (
         "decimal_rescale",
         [],

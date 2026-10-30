@@ -1,0 +1,63 @@
+{
+  "schema_version": "shardloom.native_float_review_cleanup.v1",
+  "status": "passed",
+  "roots": [
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r7",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/dist",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r2/package",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r2/venv",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/matrix-r3",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-public-r3.json"
+  ],
+  "regular_files": 9900,
+  "symlinks": 3,
+  "logical_file_bytes": 1025451904,
+  "repeated_identity_checks": true,
+  "closed_handle_checks": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r7",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r1/dist",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r2/package",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r2/venv",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/matrix-r3",
+      "returncode": 1,
+      "open_handles": 0
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-public-r3.json",
+      "returncode": 1,
+      "open_handles": 0
+    }
+  ],
+  "inventory": {
+    "path": "docs/benchmarks/evidence/native-float-policy-ci-2026-10-29-cleanup.inventory.json.gz",
+    "sha256": "0aceb346fab01f65acfe3f72d012741ec5cc1c521213628d38a05c85f066f46e",
+    "bytes": 492085
+  },
+  "retained_products": {
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r8/shardloom": "5c4453235d0d7b50b7492b48d0af8b763357bac22e6aa5737affc86d5044caa1",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/float-native-r8/_native.abi3.so": "ef466fd2b57c20c82f686535a5d261a4cba1ce593697c85f1f2e5de86fa5b5cb",
+    "/Users/dylan/LocalData/shardloom/float-policy-2026-10-29/installed-wheel-r2/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl": "bff1287bc9817663e09d52b4e8ab37f57df8c0e466247813edbf8c91a38ff97e"
+  },
+  "acceptance_packet_sha256": "fa9d5b1f1e45dc4bd92f70ad63c86a75bce107cd67789129d573ef576138d27f",
+  "portable_replay_after_cleanup": "passed",
+  "payload_backup_created": false,
+  "unrelated_files_modified": false,
+  "storage_limits_changed": false
+}

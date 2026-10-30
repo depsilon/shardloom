@@ -40,6 +40,13 @@ def normalize_transport(value: object) -> str:
     return value
 
 
+def normalize_float_policy(value: object) -> str:
+    """Validate the immutable floating semantics selector."""
+    if not isinstance(value, str) or value not in ("strict", "extended"):
+        raise ValueError("float_policy must be 'strict' or 'extended'")
+    return value
+
+
 def application_transport(transport=None, *, binary=None, repo_root=None, env=None):
     """Choose once from installation configuration, never from execution success.
 
@@ -165,7 +172,8 @@ def _checked_native_call(function, *args, **kwargs):
 
 
 class NativeBackend:
-    def __init__(self, allocation: ExecutionResources | None, limits, timeout=None):
+    def __init__(self, allocation: ExecutionResources | None, limits, timeout=None, *, float_policy="strict"):
+        float_policy = normalize_float_policy(float_policy)
         self.module = load_native()
         self.timeout = validate_timeout(timeout)
         self._plans = weakref.WeakSet()
@@ -176,6 +184,7 @@ class NativeBackend:
             None if allocation is None else native_resources(self.module, allocation),
             memory_limit_bytes=None if limits is None else limits.memory_bytes,
             parallelism_limit=None if limits is None else limits.max_parallelism,
+            float_policy=float_policy,
         )
 
     def command(self, args):

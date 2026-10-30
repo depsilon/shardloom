@@ -437,10 +437,11 @@ fn result_column(
                 .execute::<PrimitiveArray>(&mut execution)
                 .map_err(vortex_error)?;
             let values = values.to_buffer::<u64>();
-            result_batch::build_column(
+            result_batch::build_column_with_float_policy(
                 dtype,
                 values.len(),
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 |row| {
                     Ok(Value::Int(
                         i64::try_from(values[row]).map_err(vortex_error)?,

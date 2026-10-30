@@ -3,7 +3,7 @@
 //! and encoded validity may allocate in the admitted execution context; this
 //! adapter does not copy or widen a column-sized numeric payload.
 
-use shardloom_core::Result;
+use shardloom_core::{FloatPolicy, Result};
 use vortex::array::{
     ExecutionCtx,
     arrays::{PrimitiveArray, primitive::PrimitiveArrayExt as _},
@@ -24,6 +24,7 @@ use super::{
 pub(super) struct NativeNumericOwner {
     primitive: PrimitiveArray,
     valid: Mask,
+    float_policy: FloatPolicy,
 }
 
 // Physical type dispatch occurs once around each typed loop. Narrow values are
@@ -59,6 +60,14 @@ macro_rules! numeric_dispatch {
 
 impl NativeNumericOwner {
     pub(super) fn new(primitive: PrimitiveArray, ctx: &mut ExecutionCtx) -> Result<Self> {
+        Self::new_with_float_policy(primitive, ctx, FloatPolicy::Strict)
+    }
+
+    pub(super) fn new_with_float_policy(
+        primitive: PrimitiveArray,
+        ctx: &mut ExecutionCtx,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
         if primitive.ptype() == PType::F16 || !primitive.as_ref().is_host() {
             return Err(failed("owner requires a host primitive other than f16"));
         }
@@ -70,7 +79,15 @@ impl NativeNumericOwner {
         if valid.len() != primitive.len() {
             return Err(failed("validity mask changed row count"));
         }
-        Ok(Self { primitive, valid })
+        Ok(Self {
+            primitive,
+            valid,
+            float_policy,
+        })
+    }
+
+    pub(super) fn float_policy(&self) -> FloatPolicy {
+        self.float_policy
     }
 
     pub(super) fn len(&self) -> usize {
@@ -819,7 +836,13 @@ macro_rules! numeric_types {
 }
 numeric_types!(u64; u8, u16, u32, u64);
 numeric_types!(i64; i8, i16, i32, i64);
-numeric_types!(f64; f32, f64);
+numeric_types!(f64; f64);
+impl Numeric for f32 {
+    type Wide = f64;
+    fn widen(self) -> f64 {
+        shardloom_core::float_policy::widen_f32(self)
+    }
+}
 
 trait Wide: Copy + PartialOrd {
     const INTEGER: bool;

@@ -35,6 +35,8 @@ TEMPORAL_CASES = {
 }
 CASES = {
     **TEMPORAL_CASES,
+    "is_nan": (["1.0"], False), "is_infinite": (["1.0"], False),
+    "is_finite": (["1.0"], True), "signbit": (["-0.0"], True),
     "decimal_rescale": (["125", "5", "1", "'half_even'"], Decimal("125.0")),
     "decimal_add": (["1", "2", "5", "1", "'exact'"], Decimal("3.0")),
     "decimal_subtract": (["1", "2", "5", "1", "'floor'"], Decimal("-1.0")),

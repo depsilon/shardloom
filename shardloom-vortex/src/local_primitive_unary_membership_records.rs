@@ -358,17 +358,20 @@ impl<'p, 's> Identities<'p, 's> {
         }
         let mut columns = ReservedVec::new(context.memory())?;
         columns.reserve(2)?;
-        columns.values.push(result_batch::build_column(
-            &self.spec.fields[0].1,
-            self.pending.values.len(),
-            &context.native_session().host_allocator(),
-            |row| {
-                context.check_cancelled()?;
-                Ok(Value::Text(Cow::Borrowed(
-                    self.pending.values[row].key.value(),
-                )))
-            },
-        )?);
+        columns
+            .values
+            .push(result_batch::build_column_with_float_policy(
+                &self.spec.fields[0].1,
+                self.pending.values.len(),
+                &context.native_session().host_allocator(),
+                context.float_policy(),
+                |row| {
+                    context.check_cancelled()?;
+                    Ok(Value::Text(Cow::Borrowed(
+                        self.pending.values[row].key.value(),
+                    )))
+                },
+            )?);
         columns.values.push(records::unsigned(
             self.pending.values.len(),
             context,

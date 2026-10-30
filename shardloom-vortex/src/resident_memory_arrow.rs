@@ -20,8 +20,9 @@ impl ResidentMemorySource {
     /// arbitrary Arrow application metadata is not retained. Only the declared
     /// `ShardLoom` duration extension marker is admitted on an Arrow duration field.
     /// # Errors
-    /// Rejects unsupported schemas, malformed arrays, nonfinite logical values,
-    /// cancellation, overflow or shared-memory denial before publishing the source.
+    /// Rejects unsupported schemas, malformed arrays, values outside the session's
+    /// floating policy, cancellation, overflow or shared-memory denial before
+    /// publishing the source.
     pub fn from_arrow_record_batch(
         session: &ResidentVortexSession,
         batch: RecordBatch,
@@ -65,7 +66,11 @@ impl ResidentMemorySource {
         for (field, column) in schema.fields().iter().zip(batch.columns()) {
             context.check_cancelled()?;
             column.to_data().validate_full().map_err(native_error)?;
-            nested::validate_values(field.name(), column.as_ref())?;
+            nested::validate_values_with_float_policy(
+                field.name(),
+                column.as_ref(),
+                context.float_policy(),
+            )?;
         }
         let copied = arrow_ownership::batch_copy_buffer_bytes(&batch)?;
         let metadata = Arc::new(metadata);

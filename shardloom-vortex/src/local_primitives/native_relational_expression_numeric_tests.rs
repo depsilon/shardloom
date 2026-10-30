@@ -1,6 +1,6 @@
 use super::*;
 use crate::local_primitives::{
-    native_relational_expression::binary as scalar_binary, result_batch::Value,
+    native_relational_expression::binary_with_float_policy as scalar_binary, result_batch::Value,
 };
 use crate::resident_session::ResidentVortexSession;
 use shardloom_exec::compute_pool::CancellationToken;
@@ -86,6 +86,7 @@ fn binary_agrees(left: ArrayRef, op: BinaryOp, right: ArrayRef, dtype: DType, ad
                         left.dtype(),
                         right.dtype(),
                         &dtype,
+                        context.float_policy(),
                     )
                 },
             );

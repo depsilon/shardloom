@@ -8,7 +8,7 @@ use super::{
     vortex_error,
 };
 use crate::resident_session::NativeExecutionContext;
-use shardloom_core::{BinaryOp, ComparisonOp, Result, UnaryOp};
+use shardloom_core::{BinaryOp, ComparisonOp, FloatPolicy, Result, UnaryOp};
 use vortex::array::{
     ArrayRef, IntoArray, VortexSessionExecute as _,
     arrays::{ChunkedArray, ConstantArray, ListArray, StructArray},
@@ -215,6 +215,7 @@ impl Expression {
                         *tolerant,
                         temporal.as_deref(),
                         &mut scratch,
+                        context.float_policy(),
                     )
                 })?
             }
@@ -245,13 +246,14 @@ impl Expression {
             return Ok(output);
         }
         self.build(input.len(), context, |row| {
-            binary(
+            binary_with_float_policy(
                 left_values.raw_cell(row)?,
                 op,
                 right_values.raw_cell(row)?,
                 &left.dtype,
                 &right.dtype,
                 &self.dtype,
+                context.float_policy(),
             )
         })
     }
@@ -385,13 +387,14 @@ impl Expression {
                         &values, &indices, element, context,
                     )?
                 };
-                let offsets = result_batch::build_column(
+                let offsets = result_batch::build_column_with_float_policy(
                     &DType::Primitive(PType::U64, Nullability::NonNullable),
                     input
                         .len()
                         .checked_add(1)
                         .ok_or_else(|| failed("list constructor offset overflow"))?,
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| {
                         if row.is_multiple_of(1024) {
                             context.check_cancelled()?;
@@ -462,6 +465,7 @@ impl Expression {
             &self.dtype,
             rows,
             &context.native_session().host_allocator(),
+            context.float_policy(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -603,11 +607,12 @@ impl Expression {
 }
 
 pub(super) fn keys(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<KeyColumn> {
-    KeyColumn::values(
+    KeyColumn::values_with_float_policy(
         array,
         &mut context.native_session().create_execution_ctx(),
         context.memory(),
         context.cancellation(),
+        context.float_policy(),
     )
 }
 
@@ -639,15 +644,23 @@ fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -
         // result allocator as explicit casts, after selecting the live branch.
         let values = keys(array, context)?;
         let mut scratch = context.memory().reserve(0)?;
-        result_batch::build_column(
+        result_batch::build_column_with_float_policy(
             dtype,
             array.len(),
             &context.native_session().host_allocator(),
+            context.float_policy(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                scalar::cast(values.raw_cell(row)?, dtype, false, None, &mut scratch)
+                scalar::cast(
+                    values.raw_cell(row)?,
+                    dtype,
+                    false,
+                    None,
+                    &mut scratch,
+                    context.float_policy(),
+                )
             },
         )
     } else {
@@ -673,7 +686,9 @@ fn unary(op: UnaryOp, value: Cell) -> Result<Value<'static>> {
         (UnaryOp::IsNotNull, value) => Value::Bool(value != Cell::Null),
         (_, Cell::Null) => Value::Null,
         (UnaryOp::Not, Cell::Boolean(value)) => Value::Bool(!value),
-        (UnaryOp::Negate, Cell::Float(bits)) => Value::Float(-f64::from_bits(bits)),
+        (UnaryOp::Negate, Cell::Float(bits)) => Value::Float(
+            shardloom_core::float_policy::canonicalize_f64_result(-f64::from_bits(bits)),
+        ),
         (UnaryOp::Negate, Cell::Decimal(value, dtype)) => Value::Decimal(-value, dtype),
         (UnaryOp::Negate, value) => {
             Value::Int(i64::try_from(-integer(&value)?).map_err(vortex_error)?)
@@ -682,13 +697,14 @@ fn unary(op: UnaryOp, value: Cell) -> Result<Value<'static>> {
     })
 }
 
-pub(super) fn binary(
+pub(super) fn binary_with_float_policy(
     left: Cell,
     op: BinaryOp,
     right: Cell,
     left_dtype: &DType,
     right_dtype: &DType,
     dtype: &DType,
+    float_policy: FloatPolicy,
 ) -> Result<Value<'static>> {
     if matches!(op, BinaryOp::And | BinaryOp::Or) {
         return boolean(left, op, right);
@@ -707,7 +723,7 @@ pub(super) fn binary(
     }
     if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F64, _)) {
         let (left, right) = (float(&left)?, float(&right)?);
-        return floating_binary(left, op, right).map(Value::Float);
+        return floating_binary(left, op, right, float_policy).map(Value::Float);
     }
     let (left, right) = (integer(&left)?, integer(&right)?);
     let result = integer_binary(left, op, right)?;
@@ -718,8 +734,11 @@ pub(super) fn binary(
     }
 }
 
-fn floating_binary(left: f64, op: BinaryOp, right: f64) -> Result<f64> {
-    if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
+fn floating_binary(left: f64, op: BinaryOp, right: f64, float_policy: FloatPolicy) -> Result<f64> {
+    if float_policy == FloatPolicy::Strict
+        && matches!(op, BinaryOp::Divide | BinaryOp::Remainder)
+        && right == 0.0
+    {
         return Err(failed("division by zero"));
     }
     let result = match op {
@@ -730,10 +749,12 @@ fn floating_binary(left: f64, op: BinaryOp, right: f64) -> Result<f64> {
         BinaryOp::Remainder => left % right,
         _ => unreachable!("boolean operation handled above"),
     };
-    if !result.is_finite() {
+    if !float_policy.admits(result) {
         return Err(failed("nonfinite arithmetic result"));
     }
-    Ok(result)
+    Ok(shardloom_core::float_policy::canonicalize_f64_result(
+        result,
+    ))
 }
 
 fn integer_binary(left: i128, op: BinaryOp, right: i128) -> Result<i128> {

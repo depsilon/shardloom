@@ -382,10 +382,11 @@ impl Spec {
                     _ if super::native_payload::is_nested(dtype) => {
                         super::native_payload::defaults(dtype, rows, context)?
                     }
-                    _ => result_batch::build_column(
+                    _ => result_batch::build_column_with_float_policy(
                         dtype,
                         rows,
                         &context.native_session().host_allocator(),
+                        context.float_policy(),
                         |_| Ok(result_batch::Value::Null),
                     )?,
                 },

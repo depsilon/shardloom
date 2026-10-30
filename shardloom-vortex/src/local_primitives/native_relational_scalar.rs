@@ -25,6 +25,10 @@ pub(in crate::local_primitives) enum TemporalArgument {
 }
 
 pub(in crate::local_primitives) enum Function {
+    IsNan,
+    IsInfinite,
+    IsFinite,
+    SignBit,
     Abs,
     Floor,
     Ceil,
@@ -81,6 +85,10 @@ impl Function {
                 },
             ) => left == right && lo == ro,
             (Self::Abs, Self::Abs)
+            | (Self::IsNan, Self::IsNan)
+            | (Self::IsInfinite, Self::IsInfinite)
+            | (Self::IsFinite, Self::IsFinite)
+            | (Self::SignBit, Self::SignBit)
             | (Self::Floor, Self::Floor)
             | (Self::Ceil, Self::Ceil)
             | (Self::Round, Self::Round)
@@ -140,6 +148,12 @@ impl Function {
             if column.is_null(row)? {
                 return Ok(Value::Null);
             }
+        }
+        if matches!(
+            self,
+            Self::IsNan | Self::IsInfinite | Self::IsFinite | Self::SignBit
+        ) {
+            return Ok(self.classify(columns[0].classification_value(row)?));
         }
         if matches!(self, Self::Abs | Self::Floor | Self::Ceil | Self::Round) {
             return self.numeric(&columns[0].raw_cell(row)?, dtype);
@@ -231,6 +245,18 @@ impl Function {
         }
     }
 
+    fn classify(&self, value: Option<f64>) -> Value<'static> {
+        value.map_or(Value::Null, |value| {
+            Value::Bool(match self {
+                Self::IsNan => value.is_nan(),
+                Self::IsInfinite => value.is_infinite(),
+                Self::IsFinite => value.is_finite(),
+                Self::SignBit => value.is_sign_negative(),
+                _ => unreachable!("classification function admitted above"),
+            })
+        })
+    }
+
     fn numeric(&self, value: &Cell, dtype: &DType) -> Result<Value<'static>> {
         if let Cell::Decimal(value, decimal) = value {
             let operand = decimal_operand(*value, &DType::Decimal(*decimal, dtype.nullability()))?;
@@ -245,13 +271,15 @@ impl Function {
         }
         if matches!(dtype, DType::Primitive(PType::F64, _)) {
             let value = float(value)?;
-            return Ok(Value::Float(match self {
-                Self::Abs => value.abs(),
-                Self::Floor => value.floor(),
-                Self::Ceil => value.ceil(),
-                Self::Round => value.round(),
-                _ => unreachable!("numeric function admitted above"),
-            }));
+            return Ok(Value::Float(
+                shardloom_core::float_policy::canonicalize_f64_result(match self {
+                    Self::Abs => value.abs(),
+                    Self::Floor => value.floor(),
+                    Self::Ceil => value.ceil(),
+                    Self::Round => value.round(),
+                    _ => unreachable!("numeric function admitted above"),
+                }),
+            ));
         }
         let value = integer(value)?;
         let value = if matches!(self, Self::Abs) {
@@ -507,6 +535,7 @@ pub(in crate::local_primitives) fn cast(
     tolerant: bool,
     temporal: Option<&TemporalCast>,
     scratch: &mut MemoryLease,
+    float_policy: shardloom_core::FloatPolicy,
 ) -> Result<Value<'static>> {
     if value == Cell::Null {
         return Ok(Value::Null);
@@ -550,7 +579,7 @@ pub(in crate::local_primitives) fn cast(
     } else if let DType::Decimal(decimal, _) = dtype {
         cast_decimal(&value, *decimal, scratch)?
     } else {
-        convert(&value, dtype)
+        convert(&value, dtype, float_policy)
     };
     match converted {
         Some(value) => Ok(value),
@@ -630,7 +659,11 @@ fn cast_decimal(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )] // Explicit CAST admits rounding; integer float boundaries are checked before casting.
-fn convert(value: &Cell, dtype: &DType) -> Option<Value<'static>> {
+fn convert(
+    value: &Cell,
+    dtype: &DType,
+    float_policy: shardloom_core::FloatPolicy,
+) -> Option<Value<'static>> {
     let string = if let Cell::Utf8(bytes) = value {
         Some(std::str::from_utf8(bytes.as_slice()).ok()?)
     } else {
@@ -678,9 +711,9 @@ fn convert(value: &Cell, dtype: &DType) -> Option<Value<'static>> {
                 Cell::NegativeInteger(value) => *value as f64,
                 Cell::NonnegativeInteger(value) => *value as f64,
                 Cell::Decimal(value, dtype) => *value as f64 / 10f64.powi(i32::from(dtype.scale())),
-                _ => string?.parse().ok()?,
+                _ => shardloom_core::float_policy::canonicalize_f64_result(string?.parse().ok()?),
             };
-            if !value.is_finite() {
+            if !float_policy.admits(value) {
                 return None;
             }
             Value::Float(value)

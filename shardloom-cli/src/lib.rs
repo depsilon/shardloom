@@ -991,6 +991,30 @@ fn detect_requested_output_format(args: &[String]) -> OutputFormat {
     format
 }
 
+fn parse_float_policy(
+    args: Vec<String>,
+) -> Result<(Vec<String>, Option<shardloom_core::FloatPolicy>), ShardLoomError> {
+    let mut remaining = Vec::with_capacity(args.len());
+    let mut policy = None;
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        if arg != "--float-policy" {
+            remaining.push(arg);
+            continue;
+        }
+        if policy.is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "--float-policy may be declared only once".into(),
+            ));
+        }
+        let value = args.next().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("--float-policy requires strict or extended".into())
+        })?;
+        policy = Some(shardloom_core::FloatPolicy::parse(&value)?);
+    }
+    Ok((remaining, policy))
+}
+
 fn normalize_help_aliases(args: Vec<String>) -> Vec<String> {
     let Some(command) = args.first() else {
         return args;
@@ -1039,8 +1063,25 @@ fn run_with_session_and_context(
     context: &command_context::CommandContext<'_>,
 ) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
+    let (args, requested_policy) = match parse_float_policy(args) {
+        Ok(value) => value,
+        Err(error) => {
+            return emit_error("cli", requested_format, "invalid floating policy", &error);
+        }
+    };
+    let requested_policy = match context.requested_float_policy(requested_policy) {
+        Ok(value) => value,
+        Err(error) => {
+            return emit_error(
+                "cli",
+                requested_format,
+                "floating policy admission failed",
+                &error,
+            );
+        }
+    };
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    let default_owner = match execution_session.command_owner() {
+    let default_owner = match execution_session.command_owner(requested_policy) {
         Ok(owner) => owner,
         Err(error) => {
             return emit_error(
@@ -1051,6 +1092,8 @@ fn run_with_session_and_context(
             );
         }
     };
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let _ = requested_policy;
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let default_cancellation = shardloom_exec::compute_pool::CancellationToken::default();
     #[cfg(all(feature = "vortex-local-primitives", unix))]

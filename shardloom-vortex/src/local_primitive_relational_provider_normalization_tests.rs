@@ -199,7 +199,14 @@ fn provider_admission_uses_its_own_capacity_and_releases_it_on_drop() {
     let PreparedRoot::Bound(root) = &prepared.root else {
         panic!("expected bound root");
     };
-    let provider = provider::prepare(root, &prepared.sources[0], policy(), memory).unwrap();
+    let provider = provider::prepare(
+        root,
+        &prepared.sources[0],
+        policy(),
+        memory,
+        shardloom_core::FloatPolicy::Strict,
+    )
+    .unwrap();
     assert!(
         provider.provider.is_some(),
         "the concrete provider fits the available credit"
@@ -209,10 +216,16 @@ fn provider_admission_uses_its_own_capacity_and_releases_it_on_drop() {
     assert_eq!(memory.snapshot().reserved_bytes, pressured);
     let remaining = memory.reserve(available - 1).unwrap();
     assert!(
-        provider::prepare(root, &prepared.sources[0], policy(), memory)
-            .unwrap()
-            .provider
-            .is_none()
+        provider::prepare(
+            root,
+            &prepared.sources[0],
+            policy(),
+            memory,
+            shardloom_core::FloatPolicy::Strict
+        )
+        .unwrap()
+        .provider
+        .is_none()
     );
     drop(remaining);
     drop(pressure);

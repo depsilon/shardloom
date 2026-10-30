@@ -44,7 +44,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `bc4f3f85f7856ad8f9b6da4ffb3331726a69d0837510d9fd226c4d64d9e7aca4` (SHA-256 of the listed source inputs).
+Source identity: `84d409f59ad50fc5fb559bfb3bcc21afee3b13319421e00be2d9289377f238a6` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -196,6 +196,10 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.functions.interval_seconds`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' SECOND` literal. |
 | [`shardloom.functions.is_null`](../../python/src/shardloom/functions.py) | function | Declare a boolean null check. |
 | [`shardloom.functions.is_not_null`](../../python/src/shardloom/functions.py) | function | Declare a boolean non-null check. |
+| [`shardloom.functions.is_nan`](../../python/src/shardloom/functions.py) | function | Classify floating NaN values, propagating NULL validity. |
+| [`shardloom.functions.is_infinite`](../../python/src/shardloom/functions.py) | function | Classify either floating infinity, propagating NULL validity. |
+| [`shardloom.functions.is_finite`](../../python/src/shardloom/functions.py) | function | Classify finite floating values, propagating NULL validity. |
+| [`shardloom.functions.signbit`](../../python/src/shardloom/functions.py) | function | Observe a floating sign bit, including zero and NaN, with NULL propagation. |
 | [`shardloom.functions.json_extract`](../../python/src/shardloom/functions.py) | function | Extract JSON using a native literal path. |
 | [`shardloom.functions.lag`](../../python/src/shardloom/functions.py) | function | Select an earlier ordered value; admitted offsets are 1 through 50000. |
 | [`shardloom.functions.last_value`](../../python/src/shardloom/functions.py) | function | Select the last value of the frame supplied with over(). |

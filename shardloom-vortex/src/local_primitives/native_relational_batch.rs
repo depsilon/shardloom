@@ -97,15 +97,16 @@ impl Batch {
             context.check_cancelled()?;
             let column = logical_field_from_native_array(&array, name)?;
             let prepare = match purpose {
-                Preparation::Values => KeyColumn::values,
-                Preparation::Hash => KeyColumn::new,
-                Preparation::HashOnDemand => KeyColumn::for_membership,
+                Preparation::Values => KeyColumn::values_with_float_policy,
+                Preparation::Hash => KeyColumn::new_with_float_policy,
+                Preparation::HashOnDemand => KeyColumn::for_membership_with_float_policy,
             };
             keys.values.push(prepare(
                 &column,
                 &mut execution,
                 context.memory(),
                 context.cancellation(),
+                context.float_policy(),
             )?);
         }
         Ok(Self { array, keys })
@@ -530,10 +531,11 @@ impl Gather<'_> {
             if native_payload::is_nested(dtype) {
                 return native_payload::defaults(dtype, self.indices.len(), context);
             }
-            return result_batch::build_column(
+            return result_batch::build_column_with_float_policy(
                 dtype,
                 self.indices.len(),
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 |_| Ok(result_batch::Value::Null),
             );
         }
@@ -554,11 +556,12 @@ impl Gather<'_> {
         let array = self.source_column(name, context)?;
         let mut execution = context.native_session().create_execution_ctx();
         let selected = select_column(&array, &self.indices, dtype, &mut execution)?;
-        result_batch::build_column_prefix(
+        result_batch::build_column_prefix_with_float_policy(
             dtype,
             self.indices.len(),
             retained,
             &context.native_session().host_allocator(),
+            context.float_policy(),
             |row| {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
@@ -602,10 +605,11 @@ pub(super) fn index_array(
             Nullability::NonNullable
         },
     );
-    result_batch::build_column(
+    result_batch::build_column_with_float_policy(
         &dtype,
         rows,
         &context.native_session().host_allocator(),
+        context.float_policy(),
         |row| {
             Ok(match value(row)? {
                 Some(row) => result_batch::Value::UInt(u64::try_from(row).map_err(vortex_error)?),
@@ -679,20 +683,27 @@ fn take_column_with_policy(
             numeric.primitive(),
             numeric.validity(),
             &allocator,
+            context.float_policy(),
             || context.check_cancelled(),
         )?
     } else {
         let variable = result_batch::VariableValues::try_new(&selected, &mut execution)?;
-        result_batch::build_column(dtype, indices.len(), &allocator, |row| {
-            if row.is_multiple_of(1024) {
-                context.check_cancelled()?;
-            }
-            if let Some(variable) = &variable {
-                variable.value(row)
-            } else {
-                result_batch::scalar_value(&selected, row, &mut execution)
-            }
-        })?
+        result_batch::build_column_with_float_policy(
+            dtype,
+            indices.len(),
+            &allocator,
+            context.float_policy(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                if let Some(variable) = &variable {
+                    variable.value(row)
+                } else {
+                    result_batch::scalar_value(&selected, row, &mut execution)
+                }
+            },
+        )?
     };
     context.check_cancelled()?;
     Ok(output)

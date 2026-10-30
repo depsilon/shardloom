@@ -342,6 +342,7 @@ fn write_observed(
         Some(memory.clone()),
         runtime.clone(),
         CancellationToken::default(),
+        FloatPolicy::Strict,
     )
     .unwrap();
     let writer_input_lookahead = options

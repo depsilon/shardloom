@@ -41,6 +41,7 @@ fn compare_copy(source: &ArrayRef, dtype: &DType) {
                 owner.primitive(),
                 owner.validity(),
                 &allocator,
+                shardloom_core::FloatPolicy::Strict,
                 || {
                     validation_checks += 1;
                     Ok(())
@@ -60,6 +61,7 @@ fn compare_copy(source: &ArrayRef, dtype: &DType) {
                 owner.primitive(),
                 owner.validity(),
                 &allocator,
+                shardloom_core::FloatPolicy::Strict,
                 || {
                     checks += 1;
                     Ok(())
@@ -254,6 +256,7 @@ fn numeric_output_copy_keeps_cancellation_error_order_and_releases_refused_buffe
                     owner.primitive(),
                     owner.validity(),
                     &allocator,
+                    shardloom_core::FloatPolicy::Strict,
                     || {
                         checks += 1;
                         if checks == 2 {
@@ -278,6 +281,7 @@ fn numeric_output_copy_keeps_cancellation_error_order_and_releases_refused_buffe
                     owner.primitive(),
                     owner.validity(),
                     &allocator,
+                    shardloom_core::FloatPolicy::Strict,
                     || {
                         checked = true;
                         Ok(())
@@ -337,6 +341,7 @@ fn numeric_output_copy_survives_producer_drop_and_releases_its_own_clone_slice_c
                     owner.primitive(),
                     owner.validity(),
                     &context.native_session().host_allocator(),
+                    shardloom_core::FloatPolicy::Strict,
                     || context.check_cancelled(),
                 )
             })

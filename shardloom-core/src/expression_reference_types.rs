@@ -245,6 +245,10 @@ fn function_result_dtype(
         }
         T::NumericAbs => numeric_unary_type(&types[0], false),
         T::NumericRound => numeric_unary_type(&types[0], true),
+        T::FloatClassify => {
+            accepts(&types[0], &[LogicalDType::Float64])?;
+            Ok(Boolean)
+        }
         T::ByteLength => {
             accepts(&types[0], &[Utf8, Binary])?;
             Ok(Int64)

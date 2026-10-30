@@ -7,7 +7,7 @@ use super::super::{
 };
 use super::{Result, StatValue, Value, failed, vortex_error};
 use crate::resident_session::NativeExecutionContext;
-use shardloom_core::ScalarValue;
+use shardloom_core::{FloatPolicy, ScalarValue};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use std::sync::Arc;
@@ -30,9 +30,11 @@ pub(super) fn shared_key(
     execution: &mut ExecutionCtx,
     memory: &LiveMemoryPool,
     cancellation: &CancellationToken,
+    float_policy: FloatPolicy,
 ) -> Result<SharedKeyColumn> {
     let header = memory.reserve((std::mem::size_of::<KeyColumn>() + 64) as u64)?;
-    let key = KeyColumn::new(array, execution, memory, cancellation)?;
+    let key =
+        KeyColumn::new_with_float_policy(array, execution, memory, cancellation, float_policy)?;
     Ok(Arc::new(Budgeted::new(key, header)))
 }
 
@@ -106,6 +108,7 @@ pub(in crate::local_primitives) struct NativeBatch {
     context: ExecutionCtx,
     memory: LiveMemoryPool,
     cancellation: CancellationToken,
+    float_policy: FloatPolicy,
     nested_keys: Option<ReservedVec<Option<SharedKeyColumn>>>,
     _metadata: MemoryLease,
 }
@@ -141,6 +144,7 @@ impl NativeBatch {
             context: execution,
             memory: context.memory().clone(),
             cancellation: context.cancellation().clone(),
+            float_policy: context.float_policy(),
             nested_keys: None,
             _metadata: metadata,
         })
@@ -293,6 +297,17 @@ impl NativeBatch {
             let value = self.value(column, row)?;
             let mut count = ByteCount::default();
             let dtype = self.columns[column].dtype();
+            let value = if let Value::Float(value) = value {
+                if self.float_policy == FloatPolicy::Extended {
+                    Value::Float(f64::from_bits(
+                        shardloom_core::float_policy::float_key_bits(value),
+                    ))
+                } else {
+                    Value::Float(value)
+                }
+            } else {
+                value
+            };
             write_value_key(&mut count, &value, dtype).map_err(vortex_error)?;
             write!(output, "|{}:", count.0).map_err(vortex_error)?;
             write_value_key(output, &value, dtype).map_err(vortex_error)?;
@@ -321,6 +336,7 @@ impl NativeBatch {
                 &mut self.context,
                 &self.memory,
                 &self.cancellation,
+                self.float_policy,
             )?);
         }
         key.clone().ok_or_else(|| failed("nested key owner absent"))
@@ -476,10 +492,11 @@ pub(super) fn retained_batch<'a>(
                     .ok_or_else(|| failed("nested retained column absent"))
             })?
         } else {
-            result_batch::build_column(
+            result_batch::build_column_with_float_policy(
                 dtype,
                 rows,
                 &context.native_session().host_allocator(),
+                context.float_policy(),
                 |index| {
                     if index.is_multiple_of(1024) {
                         context.check_cancelled()?;

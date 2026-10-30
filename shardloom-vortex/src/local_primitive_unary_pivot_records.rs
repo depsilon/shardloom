@@ -1,14 +1,16 @@
 //! Lossless private pivot records: exact keys, complete state and selected payloads.
 
 use super::super::{
-    NativeBatch, NativeExecutionContext, Plan, Result, Value, cells::DecimalCell, failed,
-    native_payload,
+    NativeBatch, NativeExecutionContext, Plan, Result, Value,
+    cells::{DecimalCell, PrimitiveCell},
+    failed, native_payload,
 };
 use super::{Cell, Datum, Entry, Kind, StoredValue};
 use crate::local_primitives::{
     PivotAggregateCell,
     native_capacity::ReservedVec,
     native_decimal_reduce::Total,
+    native_float_total::Specials,
     native_relational_records as records,
     native_relational_sort::Spec,
     native_relational_spill::replacement::{self as pivot, Key, Row},
@@ -77,7 +79,11 @@ impl Schema {
         Ok(Self {
             spec,
             names,
-            kind: Kind::new(plan.decimal_source, plan.nested_extrema),
+            kind: Kind::new(
+                plan.decimal_source,
+                plan.nested_extrema,
+                context.float_policy(),
+            ),
             first,
             _metadata: metadata,
         })
@@ -105,10 +111,11 @@ impl Schema {
                         .transpose()
                 })?
             } else {
-                result_batch::build_column(
+                result_batch::build_column_with_float_policy(
                     dtype,
                     values.len(),
                     &context.native_session().host_allocator(),
+                    context.float_policy(),
                     |row| {
                         context.check_cancelled()?;
                         let (key, entry) = values[row];
@@ -197,9 +204,18 @@ fn payload(value: &StoredValue, column: usize) -> Option<&Datum> {
 fn state_bytes(value: &StoredValue) -> [u8; STATE_BYTES] {
     let mut bytes = [0; STATE_BYTES];
     match value {
-        StoredValue::Aggregate(Cell::Primitive(cell)) => {
+        StoredValue::Aggregate(Cell::Primitive(state)) => {
+            let cell = &state.values;
             bytes[..8].copy_from_slice(&cell.count.to_le_bytes());
             bytes[8..16].copy_from_slice(&cell.sum.to_bits().to_le_bytes());
+            for (slot, value) in bytes[16..40]
+                .as_chunks_mut::<8>()
+                .0
+                .iter_mut()
+                .zip(state.specials.parts())
+            {
+                slot.copy_from_slice(&value.to_le_bytes());
+            }
             if let Some(value) = cell.min {
                 bytes[40..48].copy_from_slice(&value.to_bits().to_le_bytes());
                 bytes[72] |= 1;
@@ -240,10 +256,9 @@ fn read_state(bytes: &[u8; STATE_BYTES], kind: Kind) -> Result<Cell> {
         return Err(failed("pivot aggregate record has no input count"));
     }
     match kind {
-        Kind::Primitive => {
-            if bytes[16..40]
+        Kind::Primitive(policy) => {
+            if bytes[48..56]
                 .iter()
-                .chain(&bytes[48..56])
                 .chain(&bytes[64..72])
                 .any(|byte| *byte != 0)
             {
@@ -256,11 +271,23 @@ fn read_state(bytes: &[u8; STATE_BYTES], kind: Kind) -> Result<Cell> {
                         .map_err(|_| failed("pivot floating state width changed"))?,
                 )))
             };
-            Ok(Cell::Primitive(PivotAggregateCell {
-                count,
-                sum: value(8)?,
-                min: (bytes[72] & 1 != 0).then(|| value(40)).transpose()?,
-                max: (bytes[72] & 2 != 0).then(|| value(56)).transpose()?,
+            let mut parts = [0; 3];
+            for (part, slot) in parts.iter_mut().zip(bytes[16..40].as_chunks::<8>().0) {
+                *part = u64::from_le_bytes(*slot);
+            }
+            let specials = Specials::from_parts(parts, count)?;
+            if policy == shardloom_core::FloatPolicy::Strict && parts != [0; 3] {
+                return Err(failed("strict pivot record has nonfinite observations"));
+            }
+            Ok(Cell::Primitive(PrimitiveCell {
+                values: PivotAggregateCell {
+                    count,
+                    sum: value(8)?,
+                    min: (bytes[72] & 1 != 0).then(|| value(40)).transpose()?,
+                    max: (bytes[72] & 2 != 0).then(|| value(56)).transpose()?,
+                },
+                specials,
+                policy,
             }))
         }
         Kind::Decimal(source) => {

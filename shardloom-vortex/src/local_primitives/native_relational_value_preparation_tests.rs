@@ -13,6 +13,7 @@ fn prepare(array: &ArrayRef, memory: &LiveMemoryPool, purpose: Preparation) -> R
         memory,
         &CancellationToken::default(),
         purpose,
+        FloatPolicy::Strict,
     )
 }
 

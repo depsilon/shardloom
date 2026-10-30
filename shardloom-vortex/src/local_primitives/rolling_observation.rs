@@ -100,6 +100,90 @@ fn failed(message: &str) -> ShardLoomError {
 pub(super) use decimal::Decimal;
 
 #[cfg(unix)]
+pub(super) use extended::ExtendedFloat;
+
+#[cfg(unix)]
+mod extended {
+    use super::super::native_float_total::Total;
+    use super::{
+        Observation, Result, RollingWindowState, StatValue, VortexRollingWindowRequest, failed,
+    };
+    use shardloom_core::{FloatPolicy, float_policy::float_key_bits};
+
+    /// The same bounded rolling scheduler, with reversible nonfinite totals.
+    #[derive(Clone, Copy)]
+    pub(in crate::local_primitives) struct ExtendedFloat(pub(in crate::local_primitives) f64);
+
+    impl Observation for ExtendedFloat {
+        type Total = Total;
+        type Output = StatValue;
+        const TRACK_CENTERED_TOTAL: bool = true;
+
+        fn add(total: &mut Total, value: Self) -> Result<()> {
+            total.add(value.0, FloatPolicy::Extended)
+        }
+
+        fn remove(total: &mut Total, value: Self) -> Result<()> {
+            total.remove(value.0)
+        }
+
+        fn current(
+            state: &RollingWindowState<Self>,
+            request: &VortexRollingWindowRequest,
+        ) -> Result<StatValue> {
+            match request.aggregate.as_str() {
+                "sum" | "mean" => Ok(StatValue::Float64(
+                    state
+                        .sum
+                        .finish(request.aggregate == "mean")?
+                        .ok_or_else(|| failed("extended total has no observations"))?,
+                )),
+                "count" => Ok(StatValue::UInt64(super::super::usize_to_u64(
+                    state.current_count(),
+                )?)),
+                "min" | "max" => {
+                    let minimum = request.aggregate == "min";
+                    state
+                        .values
+                        .iter()
+                        .flatten()
+                        .map(|value| value.0)
+                        .reduce(|current, next| {
+                            let order = f64::from_bits(float_key_bits(next))
+                                .total_cmp(&f64::from_bits(float_key_bits(current)));
+                            if (minimum && order.is_lt()) || (!minimum && order.is_gt()) {
+                                next
+                            } else {
+                                current
+                            }
+                        })
+                        .map(StatValue::Float64)
+                        .ok_or_else(|| failed("extended extremum has no observations"))
+                }
+                _ => Err(failed("extended aggregate was not admitted")),
+            }
+        }
+
+        fn centered(
+            state: &RollingWindowState<Self>,
+            start: usize,
+            end: usize,
+            request: &VortexRollingWindowRequest,
+        ) -> Result<Option<StatValue>> {
+            if start != 0 || end.checked_add(1) != Some(state.values.len()) {
+                return Err(failed(
+                    "extended centered input must advance one observation at a time",
+                ));
+            }
+            if !state.ready(request.min_periods) {
+                return Ok(None);
+            }
+            Self::current(state, request).map(Some)
+        }
+    }
+}
+
+#[cfg(unix)]
 mod decimal {
     use super::super::native_decimal_reduce;
     use super::{Observation, Result, RollingWindowState, VortexRollingWindowRequest, failed};

@@ -687,6 +687,7 @@ pub use vortex_ingest::{
     VortexPreparedStateColumnarStreamWriteRequest, VortexPreparedStateColumnarWriteRequest,
     write_flat_columnar_vortex_prepared_state, write_flat_columnar_vortex_prepared_state_streaming,
     write_flat_columnar_vortex_prepared_state_streaming_controlled,
+    write_flat_columnar_vortex_prepared_state_streaming_with_float_policy,
 };
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.

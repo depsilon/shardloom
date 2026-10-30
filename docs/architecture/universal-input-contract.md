@@ -16,6 +16,18 @@ input and prepared-state reuse describe data lifecycle, not user-selectable comp
 engines. Metadata-first planning, pruning, encoded work, resource control and late
 materialization apply inside the shared pipeline wherever their semantics permit.
 
+The item-20 performance work preserves this boundary. Common planning expresses
+column/row demand and native operators own query semantics. Format adapters prove
+their available metadata, generation-bound row identity, selected-read and buffer
+ownership capabilities. A controlled Parquet decoder transfer is an initial
+adapter implementation of shared intake ownership; it does not authorize Parquet
+compute operators, make Arrow the internal substrate, or confer transfer safety
+on other decoders. Native Vortex representations keep their encoded advantages.
+When an adapter cannot provide a particular optimization, the existing admitted
+native route remains correct and reports its limits. Supporting another format
+requires adapter-fidelity and common execution/ownership/resource conformance;
+shared execution does not promise equal I/O cost or universal support today.
+
 Universal coverage is the direction of adapter and runtime completion; it is not a
 claim that every schema, operator, connector or volume works today. The
 [breadth and scale plan](universal-workflow-completion-2026-10-01.md) defines complete
