@@ -10194,6 +10194,8 @@ class ShardLoomContext:
         self._preparation_session: ShardLoomSession | None = None
         from ._connected import Catalog
         self.catalog = Catalog(self.client)
+        from ._batch_function import BatchFunctionRegistry
+        self.batch_functions = BatchFunctionRegistry(self.client)
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -10236,6 +10238,7 @@ class ShardLoomContext:
     def close(self) -> None:
         """Revoke new work and close shared session state, preserving completed data."""
         self.catalog.clear()
+        self.batch_functions.clear()
         if self._preparation_session is not None:
             self._preparation_session.close()
         else:

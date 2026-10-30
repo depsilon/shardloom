@@ -7,6 +7,12 @@ This is a report-only contract. It does not load plugin code, execute UDFs, enfo
 resolve credentials, perform network probes, expand dependencies, invoke external engines, or
 attempt fallback execution.
 
+The post-1.0.0 [trusted application batch-function API](../reference/application-batch-functions.md)
+is a separate in-process contract under item 20. Its Rust/Python callbacks are
+explicitly supplied by the host, rowwise and row-preserving; no plugin is loaded
+and no sandbox is claimed. The blocker rows below continue to govern plugin and
+general UDF runtime admission, not that scoped application boundary.
+
 ## User-Visible Surfaces
 
 - `extension-registry --format json`
@@ -46,7 +52,7 @@ attempt fallback execution.
 | `dynamic_library_loading` | `blocked` | Native/dynamic loading is blocked until ABI compatibility, signature, dependency isolation, provenance, and sandbox evidence exist. |
 | `rust_native_udf` | `blocked` | Rust-native UDF execution is blocked until ABI, registry, type, determinism, sandbox, and certificate evidence exist. |
 | `wasm_udf` | `blocked` | WASM UDF execution is blocked until WASM runtime, fuel, memory, timeout, sandbox, and certificate evidence exist. |
-| `python_udf` | `blocked` | Python UDF execution is blocked; there is no callable bridge, row materialization path, or fallback execution. |
+| `python_udf` | `blocked` | General/plugin Python UDF execution is blocked; this registry supplies no callable loader, row-UDF runtime or fallback execution. |
 | `sql_defined_udf` | `blocked` | SQL-defined UDF execution is blocked until SQL parser/binder/planner and function registry evidence exist. |
 | `external_service_udf` | `blocked` | External-service UDF execution is blocked; no network, credential resolution, API call, or external effect is performed. |
 | `table_function_udf` | `blocked` | Table-function UDF execution is blocked until source/sink and materialization boundaries are certified. |

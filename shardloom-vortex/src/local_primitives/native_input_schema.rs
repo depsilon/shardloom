@@ -39,7 +39,40 @@ pub(crate) fn parse_dtype(raw: &str, memory: &LiveMemoryPool) -> Result<(DType, 
     Ok((dtype, credit))
 }
 
-/// Call only while the corresponding `reserve_json` credit remains live.
+/// Parse inert caller-owned application metadata before an operation exists.
+/// This retains the ordinary per-field dtype/JSON bounds; query binding later
+/// reserves the complete schema against its execution allocation. Top-level
+/// record width follows shared schema admission rather than nested limits.
+pub(crate) fn application_fields(fields: &[(String, String)]) -> Result<DType> {
+    fields.iter().try_fold(0_usize, |bytes, (name, raw)| {
+        bytes
+            .checked_add(name.len())
+            .and_then(|bytes| bytes.checked_add(raw.len()))
+            .filter(|bytes| *bytes <= MAX_JSON_BYTES)
+            .ok_or_else(|| failed("application schema exceeds 8 MiB"))
+    })?;
+    let types = fields
+        .iter()
+        .map(|(_, raw)| dtype(&parse_json(raw)?, 0, &mut 0))
+        .collect::<Result<Vec<_>>>()?;
+    let schema = DType::Struct(
+        StructFields::new(
+            FieldNames::from(
+                fields
+                    .iter()
+                    .map(|(name, _)| name.as_str())
+                    .collect::<Vec<_>>(),
+            ),
+            types,
+        ),
+        Nullability::NonNullable,
+    );
+    crate::native_payload_schema::schema_bytes(&schema)?;
+    Ok(schema)
+}
+
+/// Payload intake holds `reserve_json` credit. Inert application declarations
+/// have separately bounded caller-owned metadata until operation binding.
 pub(super) fn parse_json(raw: &str) -> Result<Value> {
     let mut parser = serde_json::Deserializer::from_str(raw);
     let value = JsonSeed(0)

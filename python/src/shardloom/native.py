@@ -23,6 +23,7 @@ __all__ = [
     "ExecutionResources", "Expression", "Relation", "Session", "Source", "Plan",
     "Result", "ColumnarStream", "ExecutionStream", "ColumnarBatch", "col", "lit",
     "AggregateMeasure", "FrameOffset", "WindowFrame", "WindowExpression",
+    "BatchFunction", "BatchFunctionContext",
 ]
 
 

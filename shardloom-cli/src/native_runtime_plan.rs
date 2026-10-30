@@ -299,6 +299,17 @@ impl NativeRelationDeclaration {
         )
     }
 
+    /// Capture an explicitly admitted local application function at this exact
+    /// relation position. Binding retains the declaration and does not run code.
+    /// # Errors
+    /// Rejects declaration depth and metadata overflow under ordinary admission.
+    pub fn map_batches(
+        self: &Arc<Self>,
+        function: shardloom_vortex::application_batch::ApplicationBatchFunction,
+    ) -> Result<Self> {
+        Self::compose(Plan::Input(0).map_batches(function), vec![Arc::clone(self)])
+    }
+
     /// Observe native scalar aggregates at this plan position without changing
     /// its rows or evaluating another query. Metrics use the shared SQL binder.
     /// # Errors

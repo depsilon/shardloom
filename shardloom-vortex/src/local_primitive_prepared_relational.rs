@@ -41,6 +41,8 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "local_primitive_relational_application.rs"]
+mod application;
 #[path = "local_primitive_relational_batch_input.rs"]
 mod batch_input;
 #[path = "local_primitive_relational_bind.rs"]
@@ -332,9 +334,7 @@ impl Node {
     fn requires_completion(&self) -> bool {
         match &self.kind {
             NodeKind::Pipeline { input, stages } => {
-                stages
-                    .iter()
-                    .any(|stage| matches!(stage.kind, PipelineKind::Observe(_)))
+                stages.iter().any(|stage| stage.kind.requires_completion())
                     || input.requires_completion()
             }
             NodeKind::Project { input, .. }
@@ -555,6 +555,13 @@ enum PipelineKind {
     Filter(native_relational_expression::Expression),
     Limit { offset: usize, count: usize },
     Observe(Box<BoundObservation>),
+    ApplicationBatch(Box<application::Spec>),
+}
+
+impl PipelineKind {
+    fn requires_completion(&self) -> bool {
+        matches!(self, Self::Observe(_) | Self::ApplicationBatch(_))
+    }
 }
 
 type BoundProjection = (
@@ -919,6 +926,7 @@ enum FileScanBatching {
 
 #[derive(Default)]
 struct Metrics<'a> {
+    application: RefCell<Option<ReservedVec<application::Observation>>>,
     composition: retained::State,
     observations: RefCell<Option<ReservedVec<CompletedVortexRelationalObservation>>>,
     #[cfg(feature = "vortex-write")]
@@ -1543,6 +1551,7 @@ impl PreparedVortexRelational {
             .push_str(context.float_policy().as_str());
         let composition = metrics.composition.report();
         report::append_composition(&mut certificate, &composition, context.recursion_limit());
+        application::append_certificate(&mut certificate, metrics)?;
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(
                 || (vec![], None),

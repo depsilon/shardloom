@@ -6,6 +6,9 @@ use crate::{
 use shardloom_core::{ExprId, Expression, ExpressionKind};
 use std::sync::Weak;
 
+#[path = "local_primitive_relational_application_tests.rs"]
+mod application_tests;
+
 #[path = "local_primitive_relational_batch_order_tests.rs"]
 mod order_tests;
 

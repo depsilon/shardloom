@@ -96,9 +96,7 @@ impl PreparedVortexRelational {
     ) -> Result<()> {
         if metrics.input.is_none()
             && !input.requires_completion()
-            && !stages
-                .iter()
-                .any(|stage| matches!(stage.kind, PipelineKind::Observe(_)))
+            && !stages.iter().any(|stage| stage.kind.requires_completion())
             && stages
                 .iter()
                 .any(|stage| matches!(stage.kind, PipelineKind::Limit { count: 0, .. }))
@@ -106,9 +104,18 @@ impl PreparedVortexRelational {
             return Ok(());
         }
         let mut ranges = ReservedVec::new(context.memory())?;
+        let batch_rows = stages
+            .iter()
+            .fold(batch_rows, |rows, stage| match &stage.kind {
+                PipelineKind::ApplicationBatch(spec) => rows.min(spec.max_batch_rows()),
+                _ => rows,
+            });
         ranges.reserve(stages.len())?;
         let mut observations = ReservedVec::new(context.memory())?;
         for (index, stage) in stages.iter().enumerate() {
+            if let PipelineKind::ApplicationBatch(spec) = &stage.kind {
+                spec.observation(metrics, context)?;
+            }
             ranges.values.push(match stage.kind {
                 PipelineKind::Limit { offset, count } => (offset, count),
                 _ => (0, 0),
@@ -134,6 +141,9 @@ impl PreparedVortexRelational {
                 for (index, stage) in stages.iter().enumerate() {
                     context.check_cancelled()?;
                     array = match &stage.kind {
+                        PipelineKind::ApplicationBatch(spec) => {
+                            spec.execute(&array, &self.session, context, metrics)?
+                        }
                         PipelineKind::Project(expressions) => {
                             project_array(&stage.fields, expressions, &array, context)?
                         }

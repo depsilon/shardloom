@@ -23,6 +23,12 @@ table-function, Python, WASM, Rust plugin, SQL-defined, and external-service UDF
 blocked until separate sandbox, runtime, resource, audit, certificate, and no-fallback evidence is
 available.
 
+The post-1.0.0 [application batch-function boundary](../reference/application-batch-functions.md)
+separately admits host-supplied trusted Rust/Python rowwise transformations inside
+native plans. It does not consume extension manifests, load plugin code or
+establish sandbox enforcement. The extension and general-UDF blockers here remain
+unchanged in scope.
+
 `extension-inspect --manifest <local-json>` now performs bounded local JSON manifest inspection for
 `shardloom.extension_manifest.v1`. This is an agent-safe metadata path: it reads a caller-provided
 regular local file under a fixed byte limit, parses declared capability/permission/effect/sandbox/

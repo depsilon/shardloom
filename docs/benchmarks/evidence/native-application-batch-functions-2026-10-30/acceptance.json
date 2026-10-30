@@ -1,0 +1,2783 @@
+{
+  "schema_version": "shardloom.application_batch_acceptance.v1",
+  "status": "passed",
+  "source_revision": "65be06c9d7324de45f0661f8fab9546e2f7d0259",
+  "source_state": "task-owned overlay recorded in runtime manifest and receipt inventories",
+  "runtime": {
+    "shardloom": {
+      "bytes": 80912288,
+      "sha256": "c10f6b8cc9de762f323d947234e926b45dbe1247ceb479fc392853db540fef1a"
+    },
+    "_native.abi3.so": {
+      "bytes": 81331024,
+      "sha256": "60f85a66d70541a4cd29fdd7dbde9fbef806f7016dbf83b116ab54e326889f0c"
+    }
+  },
+  "installed_package_integrity": {
+    "schema_version": "shardloom.native_python_wheel_integrity.v1",
+    "status": "passed",
+    "wheel": "shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "wheel_sha256": "30e4a65a9b78e28a49ef2a6241d01dc0e1b8d2e77dad0c019ac158be9cb2b8be",
+    "wheel_bytes": 54178669,
+    "native_library_sha256": "60f85a66d70541a4cd29fdd7dbde9fbef806f7016dbf83b116ab54e326889f0c",
+    "cli_sha256": "c10f6b8cc9de762f323d947234e926b45dbe1247ceb479fc392853db540fef1a",
+    "tag": "cp310-abi3-macosx_27_0_arm64",
+    "python_source_files": 31,
+    "linux_audit_verified": false,
+    "licenses": {
+      "status": "passed",
+      "registry_packages": 435,
+      "vendored_packages": 12,
+      "license_file_records": 827,
+      "unique_text_files": 249
+    },
+    "load_verified": false,
+    "published": false
+  },
+  "installed_integration": {
+    "tests": 280,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "status": "passed"
+  },
+  "scopes": [
+    "trusted rowwise Rust callbacks",
+    "trusted rowwise Python callables",
+    "native typed and SQL relation composition",
+    "source package acceptance"
+  ],
+  "blocked_interfaces": [
+    "stock CLI callback transport",
+    "subprocess callback transport",
+    "untrusted plugin loading",
+    "general scalar/aggregate UDFs"
+  ],
+  "fallback_attempted": false,
+  "publication_attempted": false,
+  "performance_claim": false,
+  "full43_run": false,
+  "checks": [
+    {
+      "receipt": "b001-application-first-format.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b002-application-native-check.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b003-application-native-check.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b004-application-test-format.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b005-application-native-tests.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-local-primitives,vortex-write,universal-format-io",
+        "application_",
+        "--lib",
+        "--",
+        "--nocapture"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b006-application-native-tests.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-local-primitives,vortex-write,universal-format-io",
+        "application_",
+        "--lib",
+        "--",
+        "--nocapture"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b007-application-native-tests.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-local-primitives,vortex-write,universal-format-io",
+        "application_",
+        "--lib",
+        "--",
+        "--nocapture"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b008-application-native-tests.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-local-primitives,vortex-write,universal-format-io",
+        "application_",
+        "--lib",
+        "--",
+        "--nocapture"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": [
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "b009-application-python-format.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b010-application-python-check.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b011-application-python-check.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b012-application-runtime-build.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-python",
+        "--features",
+        "python-native"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b013-application-python-tests.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/.cache/shardloom/cargo-target/debug/libshardloom_python.dylib",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_native_application_batch_binding.py",
+        "-v"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [
+        0
+      ],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b014-application-python-tests.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/.cache/shardloom/cargo-target/debug/lib_native.dylib",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_native_application_batch_binding.py",
+        "-v"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [
+        10
+      ],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b015-application-join-binding.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/.cache/shardloom/cargo-target/debug/lib_native.dylib",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/inspect_application_join.py"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b016-application-join-binding.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/.cache/shardloom/cargo-target/debug/lib_native.dylib",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/inspect_application_join.py"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b017-application-schema-build.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-python",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b018-application-schema-build.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-python",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b019-application-python-tests.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/.cache/shardloom/cargo-target/debug/lib_native.dylib",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_native_application_batch_binding.py",
+        "-v"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [
+        10
+      ],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b020-application-format.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b021-application-rust-embedding-tests.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-cli",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "application_rust_declaration",
+        "--",
+        "--nocapture"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "b022-application-runtime-build.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-python",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b023-application-python-tests.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/.cache/shardloom/cargo-target/debug/lib_native.dylib",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_native_application_batch_binding.py",
+        "-v"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [
+        12
+      ],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b024-application-native-clippy.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b025-application-native-clippy.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b026-application-default-clippy.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b027-application-format-check.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b028-default-workspace-tests.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": [
+        {
+          "passed": 837,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 21,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 58,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 732,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 317,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 120,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 759,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "b029-native-workspace-tests.json",
+      "status": "failed",
+      "returncode": -15,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [
+        "test non_unix_cli_reports_refusal_without_admitted_resource_fields ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+        "test non_unix_primitives_refuse_before_existing_or_missing_source_access ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+        "test non_unix_writer_refusal_preserves_existing_destination_and_creates_nothing ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+        "test local_primitives::bounded_numeric_reduction_experiment::tests::bounded_numeric_measured_scalar_consumers ... ignored, manual release-mode bounded-native-consumer feasibility measurement",
+        "test local_primitives::columnar_compat_sink::tests::benchmark::columnar_compatibility_release_lifecycle ... ignored, bounded serial native compatibility lifecycle; root owns release timing",
+        "test local_primitives::compact_string_state::benchmark::paired::compact_string_state_actual_retained_paired_release ... ignored, paired release state benchmark; run serially with --release --ignored --nocapture",
+        "test local_primitives::encoded_numeric_reduction::tests::encoded_numeric_reduction_measured_native_scalar_consumers ... ignored, manual release-mode scalar-consumer benchmark; emits paired complete-value evidence",
+        "test local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen ... ignored, native sink attribution; release, guarded local TMPDIR and serial execution required",
+        "test local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen ... ignored, extended-boundary release screen; guarded local root and serial execution required",
+        "test local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen ... ignored, held-out release screen; guarded local root and serial execution required",
+        "test local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen ... ignored, bounded public-call selector screen; guarded local root, release and serial execution required"
+      ],
+      "rust_harness_results": [
+        {
+          "passed": 1056,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 21,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 3
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 69,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 44,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 58,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 751,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 317,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 120,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "b030-generated-api-and-format.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-c",
+        "import subprocess,sys; commands=[[sys.executable,\"-B\",\"scripts/write_python_api_exports.py\"],[sys.executable,\"-B\",\"scripts/write_public_api_reference.py\"],[\"cargo\",\"fmt\",\"--all\"]]; [subprocess.run(command,check=True) for command in commands]"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b031-application-final-focused.json",
+      "status": "failed",
+      "returncode": 101,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--lib",
+        "application_tests"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b032-application-final-focused.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native",
+        "--lib",
+        "application_tests"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": [
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "b033-native-workspace-checked.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--profile",
+        "ci-native"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [
+        "test non_unix_cli_reports_refusal_without_admitted_resource_fields ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+        "test non_unix_primitives_refuse_before_existing_or_missing_source_access ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+        "test non_unix_writer_refusal_preserves_existing_destination_and_creates_nothing ... ignored, requires the non-Unix runtime branch; executed by Windows CI",
+        "test local_primitives::bounded_numeric_reduction_experiment::tests::bounded_numeric_measured_scalar_consumers ... ignored, manual release-mode bounded-native-consumer feasibility measurement",
+        "test local_primitives::columnar_compat_sink::tests::benchmark::columnar_compatibility_release_lifecycle ... ignored, bounded serial native compatibility lifecycle; root owns release timing",
+        "test local_primitives::compact_string_state::benchmark::paired::compact_string_state_actual_retained_paired_release ... ignored, paired release state benchmark; run serially with --release --ignored --nocapture",
+        "test local_primitives::encoded_numeric_reduction::tests::encoded_numeric_reduction_measured_native_scalar_consumers ... ignored, manual release-mode scalar-consumer benchmark; emits paired complete-value evidence",
+        "test local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen ... ignored, native sink attribution; release, guarded local TMPDIR and serial execution required",
+        "test local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen ... ignored, extended-boundary release screen; guarded local root and serial execution required",
+        "test local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen ... ignored, held-out release screen; guarded local root and serial execution required",
+        "test local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen ... ignored, bounded public-call selector screen; guarded local root, release and serial execution required",
+        "test local_primitives::prepared_relational::tests::compact_index_cost_tests::native_compact_local_indices_screen ... ignored, frozen compact local indices protocol; serial guarded execution only",
+        "test local_primitives::prepared_relational::tests::engine_cost_tests::native_engine_optimization_cost_screen ... ignored, frozen native engine decision screen; guarded serial execution only",
+        "test local_primitives::prepared_relational::tests::prepared_sample_cost_tests::native_prepared_sampling_cost_screen ... ignored, frozen prepared-sampling protocol; serial guarded comparison only",
+        "test local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen ... ignored, frozen complete-operation resource/cost screen; use serial guarded release execution",
+        "test local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release ... ignored, requires isolated release timing; root owns serial benchmark gate",
+        "test local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic ... ignored, requires an explicitly supplied resident Vortex file and exact reference values",
+        "test local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture ... ignored, fixture regeneration helper; writes shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "test local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows ... ignored, bounded spill ownership screen; guarded local TMPDIR, release and serial execution required",
+        "test native_provider_memory::builder_tests::cost::native_builder_lifecycle_cost_screen ... ignored, native builder lifecycle screen; guarded serial release execution required",
+        "test native_provider_memory::builder_tests::decoder_cost::native_decoder_lifecycle_cost_sample ... ignored, native decoder lifecycle screen; guarded serial release execution required",
+        "test native_provider_memory::zstd_tests::compression_cost_tests::native_zstd_complete_compression_cost_screen ... ignored, explicit frozen compression lifecycle cost screen; not a routine unit test",
+        "test resident_memory_source::encoded_transfer::tests::varbin_metadata_cost_tests::native_varbin_metadata_complete_lifecycle_cost_screen ... ignored, frozen complete buffer-table lifecycle screen; guarded serial release execution only",
+        "test resident_session::composition_bench::native_composition_producer_memory_attribution ... ignored, bounded R5.a producer memory attribution; requires SHARDLOOM_R5A_SOURCE",
+        "test resident_session::composition_bench::native_memory_file_composition_baseline ... ignored, bounded R5.a native baseline; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact",
+        "test resident_session::composition_bench::native_owned_array_composition_candidate ... ignored, bounded R5.a owned-array candidate; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact",
+        "test resident_session::concurrent_serving_tests::load_harness::serving_fixed_arrival_load_receipt ... ignored, explicit bounded fixed-arrival load run; prints complete JSON receipts",
+        "test resident_session::segment_reuse::tests::io_tests::release_bench::scan_segment_reuse_release_lifecycle_pairs ... ignored, paired release-mode native query lifecycle experiment; run serially with --release --ignored --exact",
+        "test resident_session::source_reuse_bench::concurrent_source_reuse_attribution ... ignored, bounded release-only concurrent native source attribution screen; run serially with --release --ignored --exact",
+        "test resident_session::source_reuse_bench::fanout::existing_owned_producer_fanout_pairs ... ignored, bounded release-only owned producer fanout screen; run serially with --release --ignored --exact",
+        "test vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers ... ignored, bounded paired release writer lifecycle; root owns serial timings",
+        "test vortex_ingest::dictionary_preservation::source_dictionary_bench::clickbench_source_dictionary_admission_screen ... ignored, manual bounded R1.b source-dictionary admission screen; requires SHARDLOOM_R1B_SOURCE",
+        "test vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen ... ignored, manual bounded R6.b FSST admission; requires SHARDLOOM_R1B_SOURCE",
+        "test vortex_ingest::dictionary_preservation::source_dictionary_bench::zstd_size_screen::clickbench_zstd_size_admission_screen ... ignored, manual bounded native text-size screen; requires SHARDLOOM_R1B_SOURCE",
+        "test vortex_ingest::text_codec_portfolio::text_codec_portfolio_release_reuse_1_10_100 ... ignored, bounded serial native text lifecycle portfolio; release only, root owns timing"
+      ],
+      "rust_harness_results": [
+        {
+          "passed": 1056,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 21,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 11,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 3
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 69,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 44,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 58,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 751,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 317,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 120,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3667,
+          "failed": 0,
+          "ignored": 32
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    {
+      "receipt": "b034-final-lint-and-feature-checks.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-c",
+        "import subprocess,json; checks=[[\"cargo\",\"fmt\",\"--all\",\"--\",\"--check\"],[\"cargo\",\"clippy\",\"--locked\",\"--offline\",\"--workspace\",\"--all-targets\",\"--features\",\"release-user-surfaces\",\"--\",\"-D\",\"warnings\"],[\"cargo\",\"clippy\",\"--locked\",\"--offline\",\"-p\",\"shardloom-vortex\",\"--no-default-features\",\"--features\",\"vortex-local-primitives\",\"--lib\",\"--\",\"-D\",\"warnings\"]]; [(subprocess.run(command,check=True),print(json.dumps({\"command\":command,\"status\":\"passed\"}),flush=True)) for command in checks]"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b035-narrow-feature-compile.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--no-default-features",
+        "--features",
+        "vortex-local-primitives",
+        "--lib"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b036-public-docs-and-exports.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-c",
+        "import subprocess,sys; commands=[[sys.executable,\"-B\",\"scripts/write_python_api_exports.py\",\"--check\"],[sys.executable,\"-B\",\"scripts/write_public_api_reference.py\",\"--check\"],[sys.executable,\"-B\",\"scripts/check_user_surface_reference.py\"],[sys.executable,\"-B\",\"scripts/check_public_status_docs.py\"],[sys.executable,\"-B\",\"scripts/check_public_claim_language.py\"],[sys.executable,\"-B\",\"scripts/check_v1_docs_productization.py\"],[sys.executable,\"-B\",\"scripts/check_ci_gate_matrix.py\"],[sys.executable,\"-B\",\"-m\",\"unittest\",\"discover\",\"-s\",\"python/tests\",\"-p\",\"test_public_*.py\",\"-v\"]]; [subprocess.run(command,check=True) for command in commands]"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [
+        54
+      ],
+      "ignored_or_skipped_observations": [
+        "test_process_result_chaining_preserves_empty_nested_nullable_and_exact_types (test_public_context.InstalledProcessResultTests.test_process_result_chaining_preserves_empty_nested_nullable_and_exact_types) ... skipped 'requires an explicitly selected clean installed package'",
+        "test_sql_null_results_chain_with_exact_schema_across_transports (test_public_context.InstalledProcessResultTests.test_sql_null_results_chain_with_exact_schema_across_transports) ... skipped 'requires an explicitly selected clean installed package'",
+        "setUpClass (test_public_context.PublicNativeContextTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "test_split_avro_inputs_preserve_csv_headers_and_typed_nulls (test_public_native_benchmark.PublicNativeBenchmarkTests.test_split_avro_inputs_preserve_csv_headers_and_typed_nulls) ... skipped 'fastavro is an optional fixture-generation dependency'",
+        "test_explicit_process (test_public_quickstart.InstalledPublicQuickstartTests.test_explicit_process) ... skipped 'requires an explicitly selected clean installed package'",
+        "test_native (test_public_quickstart.InstalledPublicQuickstartTests.test_native) ... skipped 'requires an explicitly selected clean installed package'"
+      ],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b037-python-source-suite.json",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-c",
+        "import subprocess,sys; commands=[[sys.executable,\"-B\",\"scripts/write_python_api_exports.py\",\"--check\"],[sys.executable,\"-B\",\"scripts/write_public_api_reference.py\",\"--check\"],[sys.executable,\"-B\",\"-m\",\"unittest\",\"discover\",\"-s\",\"python/tests\",\"-v\"]]; [subprocess.run(command,check=True) for command in commands]"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b038-python-source-suite.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-c",
+        "import subprocess,sys; commands=[[sys.executable,\"-B\",\"scripts/write_public_api_reference.py\"],[sys.executable,\"-B\",\"scripts/write_public_api_reference.py\",\"--check\"],[sys.executable,\"-B\",\"-m\",\"unittest\",\"discover\",\"-s\",\"python/tests\",\"-v\"]]; [subprocess.run(command,check=True) for command in commands]"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [
+        915
+      ],
+      "ignored_or_skipped_observations": [
+        "setUpClass (test_connected_programming.ConnectedProgrammingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_application_batch_binding.NativeApplicationBatchTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_binding.NativeBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_bounded_ordering_binding.NativeBoundedOrderingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_dynamic_subquery_binding.NativeDynamicSubqueryBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_expression_binding.NativeExpressionBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_float_policy_binding.NativeFloatPolicyTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_function_catalog.NativeFunctionCatalogTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_join_demand_binding.NativeJoinDemandTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_mixed_aggregate_binding.NativeMixedAggregateTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_multiway_binding.NativeMultiwayBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_observations.NativeObservationTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_output_window_binding.NativeOutputWindowBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_output_window_observation.NativeOutputWindowObservationTests) ... skipped 'diagnostic-only native build required; set SHARDLOOM_REQUIRE_OUTPUT_WINDOW_OBSERVATION=1'",
+        "setUpClass (test_native_prepared_kernels_binding.NativePreparedKernelsTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_prepared_sampling_binding.NativePreparedSamplingBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_primitive_binding.NativePrimitiveBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_ranked_demand_binding.NativeRankedDemandTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_reader_transfer_binding.NativeReaderTransferTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_recursive_composition_binding.NativeRecursiveCompositionTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_sampling_population_binding.NativeSamplingPopulationBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_set_binding.NativeSetBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_shared_provider_binding.NativeSharedProviderBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_singleton_index_binding.NativeSingletonIndexTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_standard_adapters.NativeStandardAdapterTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_subquery_binding.NativeSubqueryBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_subquery_membership_binding.NativeSubqueryMembershipBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_native_unary_binding.NativeUnaryBindingTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "test_numpy_boundary_keeps_scalar_types_and_nested_values_in_two_dimensions (test_native_unary_collection.NativeUnaryCollectionTests.test_numpy_boundary_keeps_scalar_types_and_nested_values_in_two_dimensions) ... skipped 'optional numpy conversion dependency'",
+        "test_pandas_boundary_preserves_nulls_and_full_width_integers (test_native_unary_collection.NativeUnaryCollectionTests.test_pandas_boundary_preserves_nulls_and_full_width_integers) ... skipped 'optional pandas conversion dependency'",
+        "test_process_result_chaining_preserves_empty_nested_nullable_and_exact_types (test_public_context.InstalledProcessResultTests.test_process_result_chaining_preserves_empty_nested_nullable_and_exact_types) ... skipped 'requires an explicitly selected clean installed package'",
+        "test_sql_null_results_chain_with_exact_schema_across_transports (test_public_context.InstalledProcessResultTests.test_sql_null_results_chain_with_exact_schema_across_transports) ... skipped 'requires an explicitly selected clean installed package'",
+        "setUpClass (test_public_context.PublicNativeContextTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "test_split_avro_inputs_preserve_csv_headers_and_typed_nulls (test_public_native_benchmark.PublicNativeBenchmarkTests.test_split_avro_inputs_preserve_csv_headers_and_typed_nulls) ... skipped 'fastavro is an optional fixture-generation dependency'",
+        "test_explicit_process (test_public_quickstart.InstalledPublicQuickstartTests.test_explicit_process) ... skipped 'requires an explicitly selected clean installed package'",
+        "test_native (test_public_quickstart.InstalledPublicQuickstartTests.test_native) ... skipped 'requires an explicitly selected clean installed package'",
+        "setUpClass (test_query_surface_native.NativeQuerySurfaceTests) ... skipped 'optional shardloom._native extension is not installed'",
+        "setUpClass (test_query_surface_polars.PolarsQuerySurfaceTests) ... skipped 'optional Polars baseline is not installed'",
+        "OK (skipped=38)"
+      ],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b039-application-release-build.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--release",
+        "--features",
+        "release-user-surfaces",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b040-application-runtime-freeze.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/freeze_release_runtime.py",
+        "application-batch-release-r1",
+        "b039-application-release-build.json"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b041-application-installed-package.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-application-batch-r1",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/application-batch-release-r1/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/application-batch-release-r1/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-proof-wheelhouse"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    },
+    {
+      "receipt": "b042-interrupted-fixture-cleanup.json",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_application_interrupted_fixtures.py"
+      ],
+      "process_group_drained": true,
+      "python_test_counts": [],
+      "ignored_or_skipped_observations": [],
+      "rust_harness_results": []
+    }
+  ],
+  "mandatory_pass_receipts": [
+    "b025",
+    "b026",
+    "b028",
+    "b032",
+    "b033",
+    "b035",
+    "b038",
+    "b039",
+    "b040",
+    "b041",
+    "b042"
+  ],
+  "required_format_and_native_lint": {
+    "receipt": "b034-final-lint-and-feature-checks.json",
+    "passed_subcommands": [
+      {
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "status": "passed"
+      },
+      {
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "status": "passed"
+      }
+    ],
+    "combined_receipt_failed_at": "additional minimal-feature strict lint"
+  },
+  "optional_narrow_lint_gap": {
+    "status": "optional_strict_lint_gap",
+    "receipt": "b034-final-lint-and-feature-checks.json",
+    "required_formatter": "passed",
+    "required_full_feature_strict_clippy": "passed",
+    "additional_configuration": "vortex-local-primitives without write or Arrow features",
+    "diagnostics": 8,
+    "files": [
+      {
+        "path": "shardloom-vortex/src/local_primitives/native_relational_quantiles.rs",
+        "sha256": "8cfd41ecb931538acc8d9dced2a121bc55690ae03330a4746aef51a13ce5821a",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitives/native_relational_window_frame.rs",
+        "sha256": "9aa70b69d4ffb200f98264f704bf0d6294ce2627ef1a3e37ce5a2f2bfaa53fc8",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitives/native_float_total.rs",
+        "sha256": "06b2fd62cc5f4c580be091c4ef2810f9d25525e1ffda5de5b038670b6f5f4d43",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitives/native_relational_sort.rs",
+        "sha256": "9ce7507bef07d7962c99fd643af2aa9219c557ae4a9a74ddb5456f3c91e40ffc",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitive_relational_sample_preparation.rs",
+        "sha256": "8a3cb96fef7ab3e6a3524eb0cfb3463dff4641ba9c51575168468a79fa811b3e",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitive_prepared_unary.rs",
+        "sha256": "7dd0c1e61108132627c9a0886b900f4588ddf7ce47da6cd5a6b2e094e237794e",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitive_relational_batch_input.rs",
+        "sha256": "7f7975ecb8ebb897a794d2fda135d7766cae542b873f405d6c6a24cd18866a31",
+        "unchanged_from_base": true
+      }
+    ],
+    "baseline_execution_performed": false
+  },
+  "interrupted_fixture_cleanup": {
+    "status": "passed",
+    "removed_directories": 10,
+    "removed_files": 65,
+    "removed_bytes": 473835174,
+    "repeated_identity_checks": true,
+    "open_handle_checks": true,
+    "rollback_archive_created": false
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "sha256": "92f4e2028c179e96374be7973ff7fa9477de873bad857aa6f2b7a12db47f1df9",
+    "bytes": 3107680,
+    "uncompressed_sha256": "63bc793bdb72e6cc28dce547efe292df9c8318b2c9074498a3c015dbed031fce",
+    "receipts": 42,
+    "source_blobs": 110,
+    "logs": 42
+  },
+  "failed_attempts": [
+    "b002-application-native-check.json",
+    "b005-application-native-tests.json",
+    "b006-application-native-tests.json",
+    "b007-application-native-tests.json",
+    "b010-application-python-check.json",
+    "b013-application-python-tests.json",
+    "b014-application-python-tests.json",
+    "b015-application-join-binding.json",
+    "b016-application-join-binding.json",
+    "b017-application-schema-build.json",
+    "b024-application-native-clippy.json",
+    "b029-native-workspace-tests.json",
+    "b031-application-final-focused.json",
+    "b034-final-lint-and-feature-checks.json",
+    "b036-public-docs-and-exports.json",
+    "b037-python-source-suite.json"
+  ]
+}

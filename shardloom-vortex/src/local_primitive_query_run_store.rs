@@ -117,6 +117,9 @@ impl RunNamespace {
                 ShardLoomError::NotImplemented(prefix(message))
             }
             ShardLoomError::Message(message) => ShardLoomError::Message(prefix(message)),
+            // The application boundary already names the function. Preserve
+            // its concrete language exception and identity through spill work.
+            error @ ShardLoomError::ApplicationFunction(_) => error,
         }
     }
     const fn prefix(self) -> &'static str {

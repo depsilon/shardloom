@@ -439,13 +439,48 @@ pub enum ShardLoomError {
     InvalidOperation(String),
     NotImplemented(String),
     Message(String),
+    /// An explicitly invoked application function failed. The owned cause
+    /// survives native propagation so a language binding can restore its
+    /// original exception, without a shared mutable error slot.
+    ApplicationFunction(ApplicationFunctionFailure),
 }
+
+/// Cloneable ownership of one application failure, including its original cause.
+/// Equality identifies the same failure instance; it does not compare arbitrary
+/// application error objects or execute their code.
+#[derive(Debug, Clone)]
+pub struct ApplicationFunctionFailure {
+    message: String,
+    cause: std::sync::Arc<dyn std::error::Error + Send + Sync>,
+}
+
+impl PartialEq for ApplicationFunctionFailure {
+    fn eq(&self, other: &Self) -> bool {
+        self.message == other.message && std::sync::Arc::ptr_eq(&self.cause, &other.cause)
+    }
+}
+
+impl Eq for ApplicationFunctionFailure {}
 
 impl ShardLoomError {
     /// Construct a new error with a human-readable message.
     #[must_use]
     pub fn new(message: impl Into<String>) -> Self {
         Self::Message(message.into())
+    }
+
+    /// Preserve an application callback's concrete exception through native
+    /// execution. This constructor neither retries the function nor invokes an
+    /// external execution provider.
+    #[must_use]
+    pub fn application_function(
+        message: impl Into<String>,
+        cause: impl std::error::Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::ApplicationFunction(ApplicationFunctionFailure {
+            message: message.into(),
+            cause: std::sync::Arc::new(cause),
+        })
     }
 
     /// View the error message.
@@ -455,6 +490,7 @@ impl ShardLoomError {
             Self::InvalidOperation(message)
             | Self::NotImplemented(message)
             | Self::Message(message) => message,
+            Self::ApplicationFunction(failure) => &failure.message,
         }
     }
 
@@ -480,6 +516,11 @@ impl ShardLoomError {
                 message.clone(),
                 "Review command arguments and configuration before retrying.",
             ),
+            Self::ApplicationFunction(failure) => Diagnostic::invalid_input(
+                "application_batch_function",
+                failure.message.clone(),
+                "Correct the explicitly registered application function and start a new action.",
+            ),
         }
     }
 }
@@ -490,7 +531,14 @@ impl std::fmt::Display for ShardLoomError {
     }
 }
 
-impl std::error::Error for ShardLoomError {}
+impl std::error::Error for ShardLoomError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::ApplicationFunction(failure) => Some(failure.cause.as_ref()),
+            _ => None,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -501,6 +549,32 @@ mod tests {
         let error = ShardLoomError::new("boom");
         assert_eq!(error.message(), "boom");
         assert_eq!(error.to_string(), "boom");
+    }
+
+    #[test]
+    fn application_failure_keeps_its_concrete_cause_and_clone_identity() {
+        use std::error::Error as _;
+        let error = ShardLoomError::application_function(
+            "application batch function 'scale' failed",
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "bad application value"),
+        );
+        let cloned = error.clone();
+        drop(error);
+        assert_eq!(cloned.clone(), cloned);
+        assert_eq!(
+            cloned
+                .source()
+                .unwrap()
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .kind(),
+            std::io::ErrorKind::InvalidData,
+        );
+        assert_eq!(
+            cloned.to_diagnostic().feature.as_deref(),
+            Some("application_batch_function")
+        );
+        assert!(!cloned.to_diagnostic().fallback.attempted);
     }
 
     #[test]

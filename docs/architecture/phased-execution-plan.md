@@ -451,6 +451,18 @@ the October 30 direct-Parquet result, and verify saved evidence without rerunnin
 queries. Full43 remains a later regression check; it cannot certify item 18's
 missing format, mixed-source, output and large-write coverage.
 
+**October 30 additional optimization queue:** after the active trusted Rust/Python
+batch-function unit, work through both supplied reviews in the
+[shared-owner continuation](native-shared-owner-optimizations-2026-10-30.md),
+still inside item 20. Begin with single-predicate masks and grouped-cost
+attribution/proof screens. The broader pool covers reusable ordering/preparation,
+encoded reductions, scoped source demand, residual joins, spill merging/lookups,
+as-of/window bounds, restricted correlated rewriting, selected/adjacent reads,
+owned capture, strings and nested structure, plus three bounded feasibility
+screens. Reconcile overlap with completed/rejected work; freeze mechanism-specific
+whole-workflow controls and preserve the unchanged 347 regression baseline.
+This extends item 20; it does not advance Full43 or the post-item-19 campaign.
+
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
 The latest maintainer instruction after the direct-Parquet Full43 follow-up
@@ -551,7 +563,12 @@ visible and independent; this implementation does not automatically close them.
     the performance track. The latest October 29 maintainer ordering is to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.
-    Batch functions and the later connector/refresh package remain pending.
+    Those candidates and the follow-through are merged in #1626/#1627. The
+    [trusted Rust/Python batch-function unit](native-application-batch-functions-2026-10-30.md)
+    passes local workspace/package acceptance, including 280 clean installed
+    integration tests with no skips; hosted integration remains pending. The
+    October 30 additional shared-owner queue follows its acceptance,
+    still within item 20 and before the later connector/refresh package.
     This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.
   - **Remaining performance checklist:** the
@@ -561,8 +578,9 @@ visible and independent; this implementation does not automatically close them.
     the combined 347-query checkpoint, one direct-Parquet Full43 observation and
     portable/source-only replay for candidates 1–6 are complete. Candidate 7's
     local and portable acceptance is complete. The subsequent performance
-    follow-through and isolated source-only replay are also complete; hosted
-    integration remains due. Candidates 1–6 are merged in #1626 at `67a83dd4`.
+    follow-through and isolated source-only replay are also complete. Hosted
+    integration passes all 57 checks and merges in #1627 at `65be06c9`.
+    Candidates 1–6 are merged in #1626 at `67a83dd4`.
     - [x] Evaluate Top-K propagation through direct-column projections: dropped
       after a higher complete engine total; the mechanism stays dropped.
     - [x] Propagate downstream column demand through joins: retained locally,
@@ -598,7 +616,8 @@ visible and independent; this implementation does not automatically close them.
       and borrowed dictionaries can change the validation domain/error order.
     The [portable follow-through acceptance](../benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json)
     replays both complete cohorts, materialization and join diagnostics without
-    executing queries. Hosted integration remains due. Preserve
+    executing queries. The [hosted/cleanup closeout](../benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30/closeout.json)
+    completes that finite prior queue; the additional October 30 queue remains open. Preserve
     the unchanged 347-query cohort and the under-10-engine-second stretch target.
     After correctness, ownership, resources and no-fallback checks pass, retain a
     lower complete-cohort engine total and drop an unchanged or higher total.
@@ -922,13 +941,17 @@ before priority 5, explicit batch-function integration. The numeric and temporal
 units already delivered keep their acceptance obligations; no open package is
 marked complete by this resequencing.
 
+The October 30 follow-up adds the [shared-owner candidate queue](native-shared-owner-optimizations-2026-10-30.md)
+after the active priority-5 unit and before priority 6. It includes both supplied
+reviews, their mechanism/scaling controls and explicit retained/dropped decisions.
+
 | Priority | Completion package | Implementation and acceptance contract |
 | --- | --- | --- |
 | 1 | Statistics and richer aggregation | Extend shared update/merge/finalize, memory, native spill and window integration with sample/population variance and standard deviation, covariance, correlation, median and exact quantiles. Specify null pairs, small samples, numerical stability, merge behavior and exact quantile interpolation. Exact quantiles require separately admitted state, not variance's fixed-size state. Then add exact SUM/AVG DISTINCT, ordered first/last, values at minimum/maximum keys, list and string aggregates, reusing existing distinct/window/pivot machinery where sound. Approximate quantiles/sketches remain explicitly approximate later functions. |
 | 2 | Temporal fidelity and time-series workflows | Preserve timestamp units and timezone identity, time-of-day, durations and calendar intervals from ingestion through comparisons, grouping, casts, serialization and reopen. Complete parsing, formatting, truncation, conversion and arithmetic in shared SQL/DataFrame semantics. Distinguish instant conversion from wall-clock reinterpretation and specify ambiguous/nonexistent local times. Verify dedicated as-of, calendar/time-based rolling, resampling, gap filling and interpolation first, then implement missing behavior through existing joins/windows. Specify ordering, ties, tolerance, nulls, group boundaries and timezone effects; row-count windows do not establish calendar-window support. |
 | 3 | SQL/DataFrame composition and parameters | Preserve the [connected programming package](native-connected-programming-model-2026-10-24.md), scoped named plans, nested ordinary WITH scopes, typed parameters and column-name lists. The [recursive/materialized continuation](native-recursive-composition-2026-10-29.md) now passes local complete-value, five-interface, pressure/failure, common-conformance and installed-wheel acceptance; hosted PR acceptance remains pending. It adds action-owned materialization and bounded native frontier iteration, including finite-cycle UNION semantics. GROUPING SETS, ROLLUP/CUBE, aggregate FILTER and ordered aggregates use existing shared providers. Broader combined item-20 acceptance remains open. |
 | 4 | Numeric-domain and rich-type fidelity | Define NaN, positive/negative infinity and signed-zero behavior across observation, equality, sorting, grouping, reductions, serialization and validation, preserving a strict caller-selectable policy. Keep NaN distinct from null. Add explicit decimal precision/scale/rounding choices alongside exact behavior, and an exact widened-integer SUM contract separately from floating AVG. Coordinate with [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md); carrying a value without observing it is distinct from implementing its arithmetic. |
-| 5 | Explicit batch-function integration | Prefer reusable native expression/plan composition. Add declared application batch functions with input/output schema, null and determinism policy, errors, cancellation, ownership, memory and effects accounted for under RFCs 0011/0023. The surrounding query remains ShardLoom execution; expose the application-code/materialization boundary and do not promise built-in-function performance. Existing typed fixtures are a foundation, not completion. |
+| 5 | Explicit batch-function integration | The [trusted Rust/Python application boundary](native-application-batch-functions-2026-10-30.md#local-acceptance--october-30) passes local workspace and clean installed-package acceptance; hosted integration remains pending. It declares exact schemas, rowwise/null/determinism/effect policy, errors, cancellation, independent ownership and resource limits under RFCs 0011/0023. Prefer native expressions where sufficient. Stock CLI callback transport and general/plugin UDFs remain blocked; no built-in-function performance claim is made. |
 | 6 | Complete remote/table connectors and safe refresh | Extend the [universal-I/O package](native-universal-io-performance-coverage-2026-10-24.md), retaining immediate local writer work first. A selected workflow must authenticate → discover schema → read selected data → execute natively → publish safely, with credentials, ranges, retries and generation checks. Implement safe replacement/refresh before append/upsert against a defined table contract; broader transactions follow their separate persistence/recovery contract. |
 
 The merged foundation contains the six-function reducer family in

@@ -133,6 +133,7 @@ class WorkflowOperation:
     resource_limits: ExecutionResourceLimits | None = None
     right_frame: "LazyFrame | None" = field(default=None, repr=False, compare=False)
     grouping_clause: str | None = None
+    batch_function: object | None = field(default=None, repr=False)
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
@@ -5418,6 +5419,22 @@ class LazyFrame:
         if self.source.source_format == "vortex":
             return self._unsupported_operation("native-vortex-aggregate", target, check=check)
         return self._unsupported_operation("aggregate", target, check=check)
+
+    def map_batches(self, function) -> "LazyFrame":
+        """Apply a registered rowwise function at this exact plan position.
+
+        Register with ``context.batch_functions.register``. The immutable handle
+        captures typed, trusted code; no callback runs during plan construction.
+        Functions receive a RecordBatch and cooperative invocation context, and
+        must preserve row count/order. This requires the native transport.
+        """
+        from ._batch_function import BatchFunction
+        if not isinstance(function, BatchFunction):
+            raise TypeError("map_batches requires a registered BatchFunction handle")
+        function._for_client(self.client)
+        frame = self._append(WorkflowOperation("application_batch", (function.name, function.version), batch_function=function))
+        self.client._native_backend_for().declaration(frame)
+        return frame
 
     def observe(self, name: str, *expressions: object, **named_expressions: object) -> "LazyFrame":
         """Measure COUNT, SUM, MIN and MAX here during the eventual native action.

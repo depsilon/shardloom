@@ -82,6 +82,16 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [embedding guide](https://shardloom.io/field-guide/embedding) and
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
+## Application batch functions in development source
+
+Post-1.0.0 source builds support explicitly trusted, deterministic, row-preserving
+Python callables through `ctx.batch_functions.register(...)` and
+`frame.map_batches(function)`. Rust callbacks use the same native operator.
+Declare ordered input/output schemas, null behavior, version and resource limits;
+the callable runs only during an action. See the
+[example and ownership contract](https://github.com/depsilon/shardloom/blob/main/docs/reference/application-batch-functions.md).
+This in-process API is separate from plugin loading and stock CLI execution.
+
 <a id="package-build-smoke"></a>
 <a id="local-analytics-benchmark"></a>
 <a id="quickstart-proof"></a>

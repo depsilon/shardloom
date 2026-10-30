@@ -1131,7 +1131,9 @@ completes portable acceptance for candidate 7, bounded numeric ordering and the
 separate materialization/join follow-through. This supersedes the packaging and
 measurement obligations stated at the earlier checkpoints above. The original
 candidates 1–6 packet and its Full43 evidence remain unchanged. Hosted integration
-of this continuation remains due.
+of this continuation is now complete: PR #1627 merges at
+`65be06c9d7324de45f0661f8fab9546e2f7d0259` after all 57 checks pass at
+`7d6c02c6d2358e205fb60f6868830d905ab4b62d`.
 
 Pure replay verifies both complete 347-case results, their baseline chain and
 binary gain decisions; native/default workspace coverage and source/build
@@ -1165,3 +1167,10 @@ The retained baseline stays **12.055132613 engine seconds** for all 347 queries;
 the under-10-second objective remains unmet. Materialization and join diagnostics
 do not contribute to that total. Full43 remains held until item 18's universal
 I/O and format/interface acceptance is complete.
+
+The [hosted and retention closeout](../benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30/closeout.json)
+preserves final PR/check identities, the exact generated-file retirement record,
+retained replacements and saved predicate-stage attribution. It executes no new
+queries and changes no prior timing. The [October 30 shared-owner candidate queue](native-shared-owner-optimizations-2026-10-30.md)
+is a subsequent maintainer request after the active batch-function unit, not an
+unrecorded extension of this accepted cohort or a completion claim for item 20.
