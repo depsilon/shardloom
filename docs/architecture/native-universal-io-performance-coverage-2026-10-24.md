@@ -44,6 +44,12 @@ before item 19. Foundry and AI acceptance move to the later 1.2.0 and 1.3.0
 milestones respectively. This updates the earlier ordering without accepting
 the preserved `codex/universal-io` branch or claiming new runtime/timing proof.
 
+**October 30 Full43 deferral:** no further Full43 run is permitted until this
+item's I/O work and cross-surface/format acceptance are complete. Continue the
+item-20 candidate and correctness checks in their existing order. Preserve the
+completed direct-Parquet observations; their saved evidence may be replayed.
+Full43 is a later regression check and cannot substitute for the matrix below.
+
 ## Contract and intake
 
 The October 30 maintainer clarification requires this package to extend the
@@ -325,8 +331,9 @@ Run broad correctness on bounded fixtures; use a declared representative timing
 set across every admitted surface and format pair, with larger selective-read and
 bulk-output cases where scale changes behavior. Record the mapping and justified
 exclusions so a sampled large-scale suite cannot masquerade as an exhaustive
-surface × input × output × codec × type test. Full43 remains an isolated,
-single-pass regression check and cannot replace this matrix.
+surface × input × output × codec × type test. After this item's completion,
+Full43 remains an isolated, single-pass regression check and cannot replace
+this matrix; the October 30 hold above governs when it may resume.
 
 Match logical values/schema, query semantics, output fidelity, resource grants,
 source generation and workload scale. Compare surface overhead on the same

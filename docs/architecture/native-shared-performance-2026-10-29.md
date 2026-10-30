@@ -8,6 +8,14 @@ and review was clear. The prerequisite for a fresh baseline and candidate
 measurement is satisfied. Batch-function and connector/refresh work remain later.
 Both item-20 tracks and CG-1 through CG-23 remain open.
 
+**October 30 scheduling decision:** hold all further Full43 execution until
+item 18's universal I/O work and format/interface acceptance are complete.
+This supersedes the prospective Full43 checkpoints in the candidate contracts
+below. The completed October 30 observation, original protocols and all candidate
+dispositions remain unchanged. Continue the declared 347-case candidate checks
+and required correctness, resource, public and installed-package verification;
+saved-evidence replay does not execute a new query.
+
 All candidates use the same native engine across formats. Reuse source-demand,
 array, reservation, execution, spill and result owners; keep decoder and file
 metadata work at the corresponding adapter boundary. Vortex remains native
